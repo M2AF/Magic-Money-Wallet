@@ -122,4 +122,3 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - [ ] Phase 2 — Cardano send (Blockfrost UTXO selection + submit)
 - [ ] Phase 3 — Transaction history
 - [ ] Phase 3 — Multi-account (change derivation index)
-- [ ] Phase 3 — Ledger hardware wallet (USB HID)
