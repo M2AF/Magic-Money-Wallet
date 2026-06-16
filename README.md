@@ -1,4 +1,4 @@
-# ManCave Wallet
+# MagicMoney Wallet
 
 A self-custody multi-chain desktop wallet built with Electron + React.
 
