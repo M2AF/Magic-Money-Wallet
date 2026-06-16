@@ -129,15 +129,15 @@ MagicMoney targets full parity with the ChainLens scanner. All 18 networks from 
 | Network    | Type    | Native | RPC Provider          | Status    |
 |------------|---------|--------|-----------------------|-----------|
 | Ethereum   | EVM L1  | ETH    | Alchemy               | ✅ Live   |
-| Arbitrum   | EVM L2  | ETH    | Alchemy               | ✅ Live   |
-| Optimism   | EVM L2  | ETH    | Alchemy               | ✅ Live   |
-| Base       | EVM L2  | ETH    | Alchemy               | ✅ Live   |
-| Polygon    | EVM L2  | POL    | Alchemy               | ✅ Live   |
-| Avalanche  | EVM L1  | AVAX   | Alchemy               | ✅ Live   |
-| Blast      | EVM L2  | ETH    | Alchemy               | ✅ Live   |
-| Gnosis     | EVM L1  | xDAI   | Public RPC            | ✅ Live   |
-| Monad      | EVM L1  | MON    | Public RPC            | ✅ Live   |
-| Abstract   | EVM L2  | ETH    | Public RPC            | ✅ Live   |
+| Arbitrum   | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
+| Optimism   | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
+| Base       | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
+| Polygon    | EVM L2  | POL    | Alchemy               | 🔄 Phase 4   |
+| Avalanche  | EVM L1  | AVAX   | Alchemy               | 🔄 Phase 4   |
+| Blast      | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
+| Gnosis     | EVM L1  | xDAI   | Public RPC            | 🔄 Phase 4   |
+| Monad      | EVM L1  | MON    | Public RPC            | 🔄 Phase 4   |
+| Abstract   | EVM L2  | ETH    | Public RPC            | 🔄 Phase 4   |
 | ApeChain   | EVM L2  | APE    | Public RPC            | 🔄 Phase 4 |
 | Ronin      | EVM L2  | RON    | Public RPC            | 🔄 Phase 4 |
 | Soneium    | EVM L2  | ETH    | Public RPC            | 🔄 Phase 4 |
