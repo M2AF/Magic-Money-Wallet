@@ -3,3 +3,4 @@ out/
 dist/
 .env
 *.enc
+Gemini_Advice.md

@@ -182,7 +182,7 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - Account labels and per-account settings
 
 ### 🔄 Phase 4 — Full Chain Parity with ChainLens
-- Add remaining 6 EVM chains: ApeChain, Ronin, Soneium, WorldChain, Zora, HyperEVM
+- Add remaining 15 EVM chains: ApeChain, Ronin, Soneium, WorldChain, Zora, HyperEVM ect...
 - Dynamic RPC config: user-configurable custom RPC endpoints per chain
 - Chain-aware gas estimation with EIP-1559 support per network
 - Graceful degradation when a chain RPC is unavailable
