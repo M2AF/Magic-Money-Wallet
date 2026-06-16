@@ -34,9 +34,10 @@ interface Props {
   balance: ChainBalance | null
   address: string | null
   loading?: boolean
+  onSend?: () => void
 }
 
-export function ChainCard({ chain, balance, address, loading }: Props) {
+export function ChainCard({ chain, balance, address, loading, onSend }: Props) {
   const [copied, setCopied] = useState(false)
   const meta = CHAIN_META[chain]
 
@@ -112,8 +113,42 @@ export function ChainCard({ chain, balance, address, loading }: Props) {
         </div>
       ) : (
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          {chain === 'cardano' ? 'Cardano library not installed' : 'No address'}
+          {chain === 'cardano' ? 'Deriving address…' : 'No address'}
         </div>
+      )}
+
+      {/* Send button */}
+      {onSend && !loading && address && !balance?.error && (
+        <button
+          type="button"
+          onClick={onSend}
+          style={{
+            marginTop: 10,
+            width: '100%',
+            padding: '8px 12px',
+            background: 'var(--accent-dim)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            color: 'var(--accent)',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            fontSize: 12,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            transition: 'all var(--transition)'
+          }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-active)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          Send {balance?.symbol ?? ''}
+        </button>
       )}
 
       {/* Token count */}

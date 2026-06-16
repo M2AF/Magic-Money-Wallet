@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { AppPage, WalletAddresses, AllBalances } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, SendChain } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
+import { SendModal } from '../components/SendModal'
 
 interface Props {
   addresses: WalletAddresses
@@ -16,6 +17,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
   const [showSeed, setShowSeed]     = useState(false)
   const [seedWords, setSeedWords]   = useState<string[]>([])
   const [deleting, setDeleting]     = useState(false)
+  const [sendChain, setSendChain]   = useState<SendChain | null>(null)
 
   const fetchBalances = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -171,24 +173,37 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
         balance={balances?.evm ?? null}
         address={addresses.evm}
         loading={loading}
+        onSend={() => setSendChain('evm')}
       />
       <ChainCard
         chain="solana"
         balance={balances?.solana ?? null}
         address={addresses.solana}
         loading={loading}
+        onSend={() => setSendChain('solana')}
       />
       <ChainCard
         chain="cardano"
         balance={balances?.cardano ?? null}
         address={addresses.cardano}
         loading={loading}
+        onSend={() => setSendChain('cardano')}
       />
 
       {/* Footer note */}
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', paddingBottom: 8 }}>
         EVM address works on Ethereum, Monad, and Abstract.
       </p>
+
+      {/* Send modal */}
+      {sendChain && (
+        <SendModal
+          chain={sendChain}
+          balance={balances?.[sendChain]?.native ?? null}
+          symbol={balances?.[sendChain]?.symbol ?? sendChain.toUpperCase()}
+          onClose={() => setSendChain(null)}
+        />
+      )}
     </div>
   )
 }

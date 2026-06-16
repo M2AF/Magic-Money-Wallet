@@ -1,5 +1,5 @@
 /**
- * balance-fetcher.ts — ManCave Wallet
+ * balance-fetcher.ts — MagicMoney Wallet
  *
  * Fetches native balances and token counts from:
  *   - Alchemy    → EVM (Ethereum mainnet, and same address on Monad/Abstract)
@@ -148,11 +148,15 @@ async function fetchSolanaBalance(address: string, heliusKey: string): Promise<C
 
 // ─── Cardano via Blockfrost ──────────────────────────────────────────────────
 
-async function fetchCardanoBalance(address: string | null, blockfrostKey: string): Promise<ChainBalance> {
+async function fetchCardanoBalance(
+  address: string | null,
+  stakeAddress: string | null,
+  blockfrostKey: string
+): Promise<ChainBalance> {
   if (!address) {
     return {
       native: '—', symbol: 'ADA', usdValue: null, tokenCount: 0,
-      error: 'Cardano library not installed — reinstall the app or re-import your wallet'
+      error: 'No Cardano address — re-import your wallet'
     }
   }
 
@@ -160,48 +164,49 @@ async function fetchCardanoBalance(address: string | null, blockfrostKey: string
   const headers = { project_id: blockfrostKey }
 
   try {
+    let adaLovelace = 0
+    let tokenCount = 0
+    let resolvedStake = stakeAddress
+
+    // ── 1. Query the specific payment address ────────────────────────────────
     const addrRes = await fetch(`${baseUrl}/addresses/${address}`, { headers })
 
-    if (addrRes.status === 404) {
-      // Address has no on-chain history yet — valid 0 balance
-      return { native: '0.000000', symbol: 'ADA', usdValue: null, tokenCount: 0, error: null }
-    }
-
-    if (!addrRes.ok) {
+    if (addrRes.ok) {
+      const addrJson = await addrRes.json() as {
+        amount?: Array<{ unit: string; quantity: string }>
+        stake_address?: string
+      }
+      tokenCount = (addrJson.amount?.length ?? 1) - 1
+      adaLovelace = Number(addrJson.amount?.find(a => a.unit === 'lovelace')?.quantity ?? '0')
+      // Prefer the stake address Blockfrost reports (authoritative)
+      if (addrJson.stake_address) resolvedStake = addrJson.stake_address
+    } else if (addrRes.status !== 404) {
       const errBody = await addrRes.json().catch(() => ({})) as { message?: string }
       return {
         native: '—', symbol: 'ADA', usdValue: null, tokenCount: 0,
         error: `Blockfrost ${addrRes.status}: ${errBody.message ?? addrRes.statusText}`
       }
     }
+    // status 404 → address not on-chain yet; fall through to the stake lookup
+    // using the locally-derived stake address below.
 
-    const addrJson = await addrRes.json() as {
-      amount?: Array<{ unit: string; quantity: string }>
-      stake_address?: string  // present for base/pointer addresses (not enterprise)
-    }
-
-    // Count non-ADA tokens at this address
-    const tokenCount = (addrJson.amount?.length ?? 1) - 1
-
-    // Start with the UTxO balance at this specific address
-    let adaLovelace = Number(addrJson.amount?.find(a => a.unit === 'lovelace')?.quantity ?? '0')
-
-    // ── Use the stake address to get the TOTAL controlled balance ─────────────
-    // Cardano wallets can accumulate funds across many addresses (change outputs,
-    // etc.) all sharing the same stake key. /addresses/{addr} only shows the
-    // balance at one specific address. /accounts/{stake_addr} returns
-    // controlled_amount — the sum across every UTxO tied to this stake key.
-    // This mirrors the fix applied in ChainLens.
-    if (addrJson.stake_address) {
+    // ── 2. Use the stake address for the TOTAL controlled balance ────────────
+    // /addresses/{addr} only shows balance at ONE address. A Cardano wallet
+    // spreads funds across many addresses (change outputs, etc.) that all share
+    // one stake key. /accounts/{stake_addr} returns controlled_amount — the sum
+    // across every UTxO tied to that stake key. Because we derive the stake
+    // address locally, this works even before the payment address is on-chain.
+    if (resolvedStake) {
       try {
-        const acctRes = await fetch(`${baseUrl}/accounts/${addrJson.stake_address}`, { headers })
+        const acctRes = await fetch(`${baseUrl}/accounts/${resolvedStake}`, { headers })
         if (acctRes.ok) {
           const acctJson = await acctRes.json() as { controlled_amount?: string }
           if (acctJson.controlled_amount) {
             adaLovelace = Number(acctJson.controlled_amount)
           }
         }
-      } catch { /* fall back to single-address balance already captured above */ }
+        // acctRes 404 = stake key never registered/seen → keep adaLovelace as-is (0)
+      } catch { /* keep single-address balance */ }
     }
 
     const ada = adaLovelace / 1e6
@@ -228,13 +233,13 @@ async function fetchCardanoBalance(address: string | null, blockfrostKey: string
 // ─── Orchestrator ────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null },
   config: WalletConfig
 ): Promise<AllBalances> {
   const [evm, solana, cardano] = await Promise.all([
     fetchEvmBalance(addresses.evm, config.alchemyKey),
     fetchSolanaBalance(addresses.solana, config.heliusKey),
-    fetchCardanoBalance(addresses.cardano, config.blockfrostKey)
+    fetchCardanoBalance(addresses.cardano, addresses.cardanoStake ?? null, config.blockfrostKey)
   ])
 
   return { evm, solana, cardano, fetchedAt: Date.now() }

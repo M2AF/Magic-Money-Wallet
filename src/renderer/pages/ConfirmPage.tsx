@@ -44,7 +44,7 @@ export function ConfirmPage({ onNavigate, onComplete }: Props) {
           'I wrote down all 12 words in the correct order',
           'I stored my phrase somewhere safe offline',
           'I understand losing my phrase means losing access forever',
-          'I understand ManCave never stores or transmits my phrase',
+          'I understand MagicMoney never stores or transmits my phrase',
         ].map((item, i) => (
           <label key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer', fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
             <input type="checkbox" style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }} />

@@ -1,5 +1,5 @@
 /**
- * ipc-handlers.ts — ManCave Wallet
+ * ipc-handlers.ts — MagicMoney Wallet
  *
  * All IPC channels the renderer can invoke via the preload bridge.
  * The renderer ONLY gets back public addresses, balances, and status booleans.
@@ -24,6 +24,14 @@ import {
   type WalletConfig
 } from './secure-store'
 import { fetchAllBalances } from './balance-fetcher'
+import {
+  estimateEvmFee,
+  estimateSolanaFee,
+  estimateCardanoFee,
+  sendEvmTransaction,
+  sendSolanaTransaction,
+  sendCardanoTransaction
+} from './tx-sender'
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
 // This holds the phrase after generation but BEFORE the user confirms backup.
@@ -92,6 +100,45 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:delete', () => {
     deleteWallet()
     return true
+  })
+
+  // ── Phase 2: Fee estimation ────────────────────────────────────────────
+  ipcMain.handle('wallet:estimate-fee', async (
+    _event,
+    chain: 'evm' | 'solana' | 'cardano',
+    to: string,
+    amount: string
+  ) => {
+    const config = loadConfig()
+    const addresses = loadAddresses()
+    if (!addresses) throw new Error('No addresses found')
+    if (chain === 'evm') return estimateEvmFee(addresses.evm, to, amount, config)
+    if (chain === 'solana') return estimateSolanaFee(config)
+    if (chain === 'cardano') return estimateCardanoFee(addresses.cardano, config)
+    throw new Error(`Unknown chain: ${chain}`)
+  })
+
+  // ── Phase 2: Send EVM ─────────────────────────────────────────────────
+  ipcMain.handle('wallet:send-evm', async (_event, to: string, amountEth: string) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    return sendEvmTransaction(mnemonic, to, amountEth, config)
+  })
+
+  // ── Phase 2: Send Solana ──────────────────────────────────────────────
+  ipcMain.handle('wallet:send-solana', async (_event, to: string, amountSol: string) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    return sendSolanaTransaction(mnemonic, to, amountSol, config)
+  })
+
+  // ── Phase 2: Send Cardano ─────────────────────────────────────────────
+  ipcMain.handle('wallet:send-cardano', async (_event, to: string, amountAda: string) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    const addresses = loadAddresses()
+    if (!addresses?.cardano) throw new Error('No Cardano address found')
+    return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config)
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

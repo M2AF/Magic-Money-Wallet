@@ -1,5 +1,5 @@
 /**
- * secure-store.ts — ManCave Wallet
+ * secure-store.ts — MagicMoney Wallet
  *
  * Wraps electron.safeStorage to encrypt/decrypt the mnemonic using the OS
  * credential store (Windows Credential Manager / macOS Keychain / libsecret).
@@ -62,7 +62,9 @@ export function saveAddresses(addresses: WalletAddresses): void {
 export function loadAddresses(): WalletAddresses | null {
   if (!existsSync(addressesPath())) return null
   try {
-    return JSON.parse(readFileSync(addressesPath(), 'utf-8'))
+    const parsed = JSON.parse(readFileSync(addressesPath(), 'utf-8'))
+    // Default accountIndex to 0 for wallets created before multi-account support
+    return { accountIndex: 0, ...parsed }
   } catch {
     return null
   }

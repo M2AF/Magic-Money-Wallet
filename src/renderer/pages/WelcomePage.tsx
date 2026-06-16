@@ -24,7 +24,7 @@ export function WelcomePage({ onNavigate }: Props) {
             <circle cx="12" cy="16" r="1" fill="var(--accent)"/>
           </svg>
         </div>
-        <h1 className="page-title">ManCave Wallet</h1>
+        <h1 className="page-title">MagicMoney Wallet</h1>
         <p className="page-subtitle" style={{ marginTop: 8 }}>
           Self-custody across EVM · Solana · Cardano.<br />
           Your keys. Your coins.

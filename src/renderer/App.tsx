@@ -34,7 +34,7 @@ export function App() {
     <div className="app-shell">
       {/* Custom titlebar */}
       <div className="titlebar">
-        <span className="titlebar-title">ManCave Wallet</span>
+        <span className="titlebar-title">MagicMoney Wallet</span>
         <div className="titlebar-controls">
           <button className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
           <button className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
