@@ -335,9 +335,9 @@ h1, h2, h3 { font-family: var(--font-display); }
   backdrop-filter: var(--blur);
   -webkit-backdrop-filter: var(--blur);
   padding: 18px 20px;
-  transition: all var(--transition);
+  transition: border-color var(--transition);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .chain-card::before {

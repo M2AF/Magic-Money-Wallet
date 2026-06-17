@@ -24,6 +24,7 @@ import {
   type WalletConfig
 } from './secure-store'
 import { fetchAllBalances } from './balance-fetcher'
+import { fetchAllHistory } from './tx-history'
 import {
   estimateEvmFee,
   estimateSolanaFee,
@@ -122,14 +123,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:send-evm', async (_event, to: string, amountEth: string) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
-    return sendEvmTransaction(mnemonic, to, amountEth, config)
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    return sendEvmTransaction(mnemonic, to, amountEth, config, 'ethereum', accountIndex)
   })
 
   // ── Phase 2: Send Solana ──────────────────────────────────────────────
   ipcMain.handle('wallet:send-solana', async (_event, to: string, amountSol: string) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
-    return sendSolanaTransaction(mnemonic, to, amountSol, config)
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    return sendSolanaTransaction(mnemonic, to, amountSol, config, accountIndex)
   })
 
   // ── Phase 2: Send Cardano ─────────────────────────────────────────────
@@ -138,7 +141,26 @@ export function registerIpcHandlers(): void {
     const config = loadConfig()
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano address found')
-    return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config)
+    return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config, addresses.accountIndex ?? 0)
+  })
+
+  // ── Phase 3: Transaction history ──────────────────────────────────────
+  ipcMain.handle('wallet:get-history', async () => {
+    const addresses = loadAddresses()
+    if (!addresses) throw new Error('No addresses found')
+    const config = loadConfig()
+    return fetchAllHistory(addresses, config)
+  })
+
+  // ── Phase 3: Multi-account ────────────────────────────────────────────
+  ipcMain.handle('wallet:get-account', () => loadAddresses()?.accountIndex ?? 0)
+
+  ipcMain.handle('wallet:set-account', async (_event, accountIndex: number) => {
+    if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+    const mnemonic = loadMnemonic()
+    const newAddresses = await deriveAddresses(mnemonic, accountIndex)
+    saveAddresses(newAddresses)
+    return newAddresses
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

@@ -176,10 +176,9 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - Solana send via `@solana/web3.js`
 - Cardano send via Blockfrost UTXO selection + submit
 
-### 🔄 Phase 3 — History & Accounts *(in progress)*
-- Per-chain transaction history (incoming + outgoing + contract interactions)
-- Multi-account support: derive additional accounts by incrementing the BIP-44 account index
-- Account labels and per-account settings
+### ✅ Phase 3 — History & Accounts
+- Per-chain transaction history (incoming + outgoing, with explorer links)
+- Multi-account support: `‹ Account N ›` switcher derives accounts by incrementing the BIP-44 account index (accounts 0–9)
 
 ### 🔄 Phase 4 — Full Chain Parity with ChainLens
 - Add remaining 15 EVM chains: ApeChain, Ronin, Soneium, WorldChain, Zora, HyperEVM ect...

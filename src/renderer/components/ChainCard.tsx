@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { ChainBalance } from '../types/wallet'
+import type { ChainBalance, ChainHistory } from '../types/wallet'
+import { TxList } from './TxList'
 
 interface ChainMeta {
   name: string
@@ -35,10 +36,12 @@ interface Props {
   address: string | null
   loading?: boolean
   onSend?: () => void
+  history?: ChainHistory | null  // undefined=hidden, null=loading, object=loaded
 }
 
-export function ChainCard({ chain, balance, address, loading, onSend }: Props) {
+export function ChainCard({ chain, balance, address, loading, onSend, history }: Props) {
   const [copied, setCopied] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const meta = CHAIN_META[chain]
 
   const truncate = (addr: string) => `${addr.slice(0, 8)}…${addr.slice(-6)}`
@@ -168,6 +171,55 @@ export function ChainCard({ chain, balance, address, loading, onSend }: Props) {
             : balance.error.includes('fetch')
               ? 'Network error — check connection'
               : 'API error'}
+        </div>
+      )}
+
+      {/* Transaction history section */}
+      {history !== undefined && !loading && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ height: 1, background: 'var(--border)', marginBottom: 8 }} />
+
+          {history === null ? (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 8, height: 8, borderRadius: '50%',
+                border: '1px solid var(--border)', borderTopColor: 'var(--accent)',
+                animation: 'spin 0.8s linear infinite', flexShrink: 0
+              }} />
+              Loading history…
+            </div>
+          ) : history.error ? (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>History unavailable</div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(o => !o)}
+                style={{
+                  background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                  fontSize: 11, color: 'var(--text-secondary)',
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontFamily: 'var(--font-body)'
+                }}
+              >
+                <svg
+                  width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"
+                  style={{ transition: 'transform 0.18s', transform: historyOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}
+                >
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+                {history.records.length === 0
+                  ? 'No recent transactions'
+                  : `${history.records.length} recent transaction${history.records.length !== 1 ? 's' : ''}`
+                }
+              </button>
+              {historyOpen && (
+                <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
+                  <TxList records={history.records} />
+                </div>
+              )}
+            </>
+          )}
         </div>
       )}
     </div>

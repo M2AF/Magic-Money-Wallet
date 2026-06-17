@@ -11,9 +11,9 @@ let mainWindow: BrowserWindow | null = null
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 420,
-    height: 720,
+    height: 900,
     minWidth: 380,
-    minHeight: 620,
+    minHeight: 700,
     frame: false,          // custom titlebar
     transparent: false,
     backgroundColor: '#060b18',

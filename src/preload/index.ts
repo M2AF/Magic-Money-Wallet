@@ -31,6 +31,11 @@ contextBridge.exposeInMainWorld('wallet', {
   sendCardano:   (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-cardano', to, amount),
 
+  // ── Phase 3: History + multi-account ─────────────────────────────────
+  getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),
+  getAccountIndex: ()                  => ipcRenderer.invoke('wallet:get-account'),
+  setAccount:      (index: number)     => ipcRenderer.invoke('wallet:set-account', index),
+
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
 

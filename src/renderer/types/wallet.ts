@@ -3,6 +3,7 @@ export interface WalletAddresses {
   solana: string
   cardano: string
   cardanoStake: string
+  accountIndex: number
 }
 
 export interface ChainBalance {
@@ -18,6 +19,27 @@ export interface AllBalances {
   solana: ChainBalance
   cardano: ChainBalance
   fetchedAt: number
+}
+
+export interface TxRecord {
+  hash: string
+  direction: 'in' | 'out' | 'self'
+  amount: string | null
+  symbol: string
+  timestamp: number          // unix ms
+  counterparty: string | null
+  explorerUrl: string
+}
+
+export interface ChainHistory {
+  records: TxRecord[]
+  error: string | null
+}
+
+export interface AllHistory {
+  evm: ChainHistory
+  solana: ChainHistory
+  cardano: ChainHistory
 }
 
 export type AppPage =
@@ -58,6 +80,10 @@ declare global {
       sendEvm(to: string, amount: string): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
+      // Phase 3: history + multi-account
+      getHistory(): Promise<AllHistory>
+      getAccountIndex(): Promise<number>
+      setAccount(index: number): Promise<WalletAddresses>
       deleteWallet(): Promise<boolean>
       minimize(): void
       close(): void

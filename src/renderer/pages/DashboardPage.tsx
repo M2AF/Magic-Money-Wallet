@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, SendChain } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, SendChain } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 
@@ -10,14 +10,17 @@ interface Props {
 }
 
 export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props) {
-  const [balances, setBalances]     = useState<AllBalances | null>(null)
-  const [loading, setLoading]       = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
-  const [showSeed, setShowSeed]     = useState(false)
-  const [seedWords, setSeedWords]   = useState<string[]>([])
-  const [deleting, setDeleting]     = useState(false)
-  const [sendChain, setSendChain]   = useState<SendChain | null>(null)
+  const [localAddresses, setLocalAddresses] = useState(addresses)
+  const [balances, setBalances]             = useState<AllBalances | null>(null)
+  const [loading, setLoading]               = useState(true)
+  const [refreshing, setRefreshing]         = useState(false)
+  const [history, setHistory]               = useState<AllHistory | null>(null)
+  const [accountSwitching, setAccountSwitching] = useState(false)
+  const [showSettings, setShowSettings]     = useState(false)
+  const [showSeed, setShowSeed]             = useState(false)
+  const [seedWords, setSeedWords]           = useState<string[]>([])
+  const [deleting, setDeleting]             = useState(false)
+  const [sendChain, setSendChain]           = useState<SendChain | null>(null)
 
   const fetchBalances = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -33,7 +36,36 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
     }
   }, [])
 
-  useEffect(() => { fetchBalances() }, [fetchBalances])
+  const fetchHistory = useCallback(async () => {
+    try {
+      const result = await window.wallet.getHistory()
+      setHistory(result)
+    } catch (err) {
+      console.error('History fetch failed', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchBalances()
+    fetchHistory()
+  }, [fetchBalances, fetchHistory])
+
+  const switchAccount = async (newIndex: number) => {
+    if (newIndex < 0 || newIndex > 9 || accountSwitching) return
+    setAccountSwitching(true)
+    setBalances(null)
+    setHistory(null)
+    try {
+      const newAddresses = await window.wallet.setAccount(newIndex)
+      setLocalAddresses(newAddresses)
+      fetchBalances()
+      fetchHistory()
+    } catch (err) {
+      console.error('Account switch failed', err)
+    } finally {
+      setAccountSwitching(false)
+    }
+  }
 
   const totalUsd = (() => {
     if (!balances) return null
@@ -76,11 +108,39 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
               Updated {lastUpdated}
             </div>
           )}
+
+          {/* Account switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8 }}>
+            <button
+              type="button"
+              onClick={() => switchAccount(localAddresses.accountIndex - 1)}
+              disabled={localAddresses.accountIndex === 0 || accountSwitching}
+              style={{
+                background: 'none', border: 'none', padding: '2px 6px', cursor: 'pointer',
+                color: 'var(--text-muted)', fontSize: 16, lineHeight: 1,
+                opacity: localAddresses.accountIndex === 0 ? 0.3 : 1
+              }}
+            >‹</button>
+            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', minWidth: 64, textAlign: 'center' }}>
+              {accountSwitching ? 'Switching…' : `Account ${localAddresses.accountIndex}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => switchAccount(localAddresses.accountIndex + 1)}
+              disabled={localAddresses.accountIndex >= 9 || accountSwitching}
+              style={{
+                background: 'none', border: 'none', padding: '2px 6px', cursor: 'pointer',
+                color: 'var(--text-muted)', fontSize: 16, lineHeight: 1,
+                opacity: localAddresses.accountIndex >= 9 ? 0.3 : 1
+              }}
+            >›</button>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {/* Refresh */}
           <button
-            onClick={() => fetchBalances(true)}
+            type="button"
+            onClick={() => { fetchBalances(true); fetchHistory() }}
             disabled={refreshing || loading}
             title="Refresh balances"
             style={{
@@ -171,23 +231,26 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
       <ChainCard
         chain="evm"
         balance={balances?.evm ?? null}
-        address={addresses.evm}
+        address={localAddresses.evm}
         loading={loading}
         onSend={() => setSendChain('evm')}
+        history={history?.evm ?? null}
       />
       <ChainCard
         chain="solana"
         balance={balances?.solana ?? null}
-        address={addresses.solana}
+        address={localAddresses.solana}
         loading={loading}
         onSend={() => setSendChain('solana')}
+        history={history?.solana ?? null}
       />
       <ChainCard
         chain="cardano"
         balance={balances?.cardano ?? null}
-        address={addresses.cardano}
+        address={localAddresses.cardano}
         loading={loading}
         onSend={() => setSendChain('cardano')}
+        history={history?.cardano ?? null}
       />
 
       {/* Footer note */}
