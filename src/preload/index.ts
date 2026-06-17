@@ -36,6 +36,13 @@ contextBridge.exposeInMainWorld('wallet', {
   getAccountIndex: ()                  => ipcRenderer.invoke('wallet:get-account'),
   setAccount:      (index: number)     => ipcRenderer.invoke('wallet:set-account', index),
 
+  // ── Phase 5: Market Watch + Tokens + Collectibles ────────────────────
+  getMarket:       ()                  => ipcRenderer.invoke('wallet:get-market'),
+  searchMarket:    (query: string)     => ipcRenderer.invoke('wallet:search-market', query),
+  getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),
+  getTokens:       ()                  => ipcRenderer.invoke('wallet:get-tokens'),
+  getCollectibles: ()                  => ipcRenderer.invoke('wallet:get-collectibles'),
+
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
 

@@ -25,6 +25,8 @@ import {
 } from './secure-store'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
+import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
+import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
 import {
   estimateEvmFee,
   estimateSolanaFee,
@@ -173,6 +175,33 @@ export function registerIpcHandlers(): void {
     const newAddresses = await deriveAddresses(mnemonic, accountIndex)
     saveAddresses(newAddresses)
     return newAddresses
+  })
+
+  // ── Phase 5: Market Watch ────────────────────────────────────────────────
+  ipcMain.handle('wallet:get-market', () => fetchMarketTop100())
+
+  ipcMain.handle('wallet:search-market', (_event, query: string) =>
+    searchMarketCoins(query)
+  )
+
+  ipcMain.handle('wallet:get-coin-chart', (_event, coinId: string, days: string) =>
+    fetchCoinChart(coinId, days)
+  )
+
+  // ── Phase 5: Tokens + Collectibles ───────────────────────────────────────
+  ipcMain.handle('wallet:get-tokens', async () => {
+    const addresses = await getFullAddresses()
+    const config = loadConfig()
+    return fetchAllTokens(
+      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano },
+      config
+    )
+  })
+
+  ipcMain.handle('wallet:get-collectibles', async () => {
+    const addresses = await getFullAddresses()
+    const config = loadConfig()
+    return fetchAllCollectibles(addresses.evm, config)
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

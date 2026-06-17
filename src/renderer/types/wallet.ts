@@ -41,6 +41,67 @@ export interface ChainHistory {
 
 export type AllHistory = Record<string, ChainHistory>
 
+// ── Phase 5: Market Watch ────────────────────────────────────────────────────
+
+export interface MarketCoin {
+  id: string
+  rank: number
+  name: string
+  symbol: string
+  image: string
+  price: number
+  change24h: number | null
+  marketCap: number | null
+  sparkline: number[] | null
+}
+
+export interface MarketResult {
+  coins: MarketCoin[]
+  fetchedAt: number
+  error: string | null
+}
+
+export interface WalletToken {
+  contractAddress: string
+  name: string
+  symbol: string
+  decimals: number
+  balance: string
+  usdValue: string | null
+  logoUri: string | null
+  chain: string
+  chainLabel: string
+  chainColor: string
+}
+
+export interface TokensResult {
+  tokens: WalletToken[]
+  fetchedAt: number
+  error: string | null
+}
+
+export interface WalletCollectible {
+  id: string
+  name: string
+  description: string | null
+  image: string | null
+  collectionName: string | null
+  chain: string
+  chainLabel: string
+  chainColor: string
+  tokenId: string
+  contractAddress: string
+  contractType: string
+}
+
+export interface CollectiblesResult {
+  items: WalletCollectible[]
+  fetchedAt: number
+  error: string | null
+}
+
+export type MainTab = 'portfolio' | 'market'
+
 export type AppPage =
   | 'loading'
   | 'welcome'
@@ -74,16 +135,22 @@ declare global {
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
       revealSeed(): Promise<string[]>
-      // Phase 2: send — chainId is the chain-config id string
+      // Phase 2
       estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
       sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
-      // Phase 3: history + multi-account
+      // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>
       setAccount(index: number): Promise<WalletAddresses>
       deleteWallet(): Promise<boolean>
+      // Phase 5
+      getMarket(): Promise<MarketResult>
+      searchMarket(query: string): Promise<MarketCoin[]>
+      getCoinChart(coinId: string, days: string): Promise<Array<[number, number]>>
+      getTokens(): Promise<TokensResult>
+      getCollectibles(): Promise<CollectiblesResult>
       minimize(): void
       close(): void
     }

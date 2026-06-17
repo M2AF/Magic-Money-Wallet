@@ -191,12 +191,20 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - 20 chains total: each fails independently, no global error propagation
 - Auto-migration for existing wallets to populate new BTC/DOT address fields
 
-### 🔄 Phase 5 — Market Watch Integration
+### ✅ Phase 5 — Market Watch Integration
 - ✅ Live market data via CoinGecko `/coins/markets` — price, 24h change %, 7d sparkline per chain
 - ✅ Per-chain 24h price change badge (green ▲ / red ▼) in each chain card
 - ✅ 7d sparkline mini-chart per chain card (SVG, chain brand color)
 - ✅ 7d portfolio performance chart on dashboard (aggregated, deduplicates shared tokens across L2s)
 - ✅ Portfolio total USD valuation displayed on the dashboard
+- ✅ Market Watch tab — top 100 coins table (rank, name, price, 24h%, market cap, 7d sparkline) via CoinGecko
+- ✅ Coin search — search any coin not in the top 100, results rendered in same table
+- ✅ Chart modal — click any coin to open full price chart with 1D / 7D / 1M / 1Y / ALL timeframes + USD converter widget
+- ✅ Tokens sub-tab — token holdings across all 14 Alchemy EVM chains + Solana SPL (Helius DAS) + Cardano native assets (Blockfrost)
+- ✅ Collectibles sub-tab — NFT gallery (2-column grid) across Ethereum, Arbitrum, Base, Polygon and Optimism via Alchemy NFT API
+- ✅ Spam filter — hide or mark-as-spam any token or collectible; persisted per account in localStorage; restoreable via Hidden manager
+- ✅ Bottom navigation bar — Portfolio · Market · Browser (Phase 6 placeholder)
+- ✅ Portfolio sub-tabs — Balances · Tokens · Collectibles within the portfolio view
 - 📋 Cost basis tracking for P&L calculations (stored locally, never transmitted)
 
 ### 📋 Phase 6 — Built-in dApp Browser
