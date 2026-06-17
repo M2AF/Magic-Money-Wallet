@@ -76,12 +76,14 @@ export interface WalletConfig {
   alchemyKey: string
   heliusKey: string
   blockfrostKey: string
+  tatumKey: string
 }
 
 const DEFAULT_CONFIG: WalletConfig = {
   alchemyKey: 'REDACTED_ALCHEMY_KEY',
   heliusKey: 'REDACTED_HELIUS_KEY',
-  blockfrostKey: 'REDACTED_BLOCKFROST_KEY'
+  blockfrostKey: 'REDACTED_BLOCKFROST_KEY',
+  tatumKey: 'REDACTED_TATUM_KEY'
 }
 
 export function loadConfig(): WalletConfig {

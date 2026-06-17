@@ -15,14 +15,21 @@ import { derivePath } from 'ed25519-hd-key'
 import { Keypair } from '@solana/web3.js'
 import { privateKeyToAccount } from 'viem/accounts'
 import { deriveCardanoAddress, deriveCardanoStakeAddress } from './cardano-pure'
+import { sha256 } from '@noble/hashes/sha256'
+import { ripemd160 } from '@noble/hashes/ripemd160'
+import { blake2b } from '@noble/hashes/blake2b'
+import { ed25519 } from '@noble/curves/ed25519'
+import { bech32, base58 } from '@scure/base'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface WalletAddresses {
-  evm: string            // checksummed 0x address (Ethereum, Monad, Abstract)
+  evm: string            // checksummed 0x address (Ethereum, Monad, Abstract …)
   solana: string         // base58 pubkey
-  cardano: string        // bech32 base address  (addr1q...)
-  cardanoStake: string   // bech32 stake address (stake1...)
+  cardano: string        // bech32 base address  (addr1q…)
+  cardanoStake: string   // bech32 stake address (stake1…)
+  bitcoin: string        // BIP-84 P2WPKH native SegWit (bc1q…)
+  polkadot: string       // SS58 ED25519 (1…)
   accountIndex: number   // BIP-44 account index (0 = default)
 }
 
@@ -41,6 +48,24 @@ export function generateMnemonic(): string {
 export function validateMnemonic(phrase: string): boolean {
   const cleaned = phrase.trim().toLowerCase().replace(/\s+/g, ' ')
   return bip39.validateMnemonic(cleaned, wordlist)
+}
+
+// ─── Bitcoin P2WPKH (bc1q…) ──────────────────────────────────────────────────
+
+function deriveBitcoinAddress(compressedPubkey: Uint8Array): string {
+  const hash160 = ripemd160(sha256(compressedPubkey))
+  const words   = Array.from(bech32.toWords(hash160))
+  return bech32.encode('bc', new Uint8Array([0, ...words]))  // witness version 0
+}
+
+// ─── Polkadot SS58 (1…) ──────────────────────────────────────────────────────
+
+function ss58Encode(pubkey: Uint8Array, networkPrefix = 0): string {
+  const prefix   = new Uint8Array([networkPrefix])
+  const payload  = new Uint8Array([...prefix, ...pubkey])
+  const preimage = new Uint8Array([...Buffer.from('SS58PRE'), ...payload])
+  const checksum = blake2b(preimage, { dkLen: 64 }).slice(0, 2)
+  return base58.encode(new Uint8Array([...payload, ...checksum]))
 }
 
 // ─── Address derivation ───────────────────────────────────────────────────────
@@ -73,7 +98,17 @@ export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promi
   const cardanoAddress = deriveCardanoAddress(entropy, accountIndex)
   const cardanoStake   = deriveCardanoStakeAddress(entropy, accountIndex)
 
-  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, accountIndex }
+  // ── Bitcoin — BIP-84 — m/84'/0'/{account}'/0/0 ───────────────────────────
+  const btcNode = HDKey.fromMasterSeed(seed).derive(`m/84'/0'/${accountIndex}'/0/0`)
+  if (!btcNode.publicKey) throw new Error('Bitcoin derivation failed')
+  const bitcoinAddress = deriveBitcoinAddress(btcNode.publicKey)
+
+  // ── Polkadot — SLIP-0010 ED25519 — m/44'/354'/{account}'/0'/0' ───────────
+  const { key: dotPrivKey } = derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer.from(seed).toString('hex'))
+  const dotPubKey           = ed25519.getPublicKey(dotPrivKey)
+  const polkadotAddress     = ss58Encode(dotPubKey, 0)   // prefix 0 = Polkadot relay chain
+
+  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, bitcoin: bitcoinAddress, polkadot: polkadotAddress, accountIndex }
 }
 
 // ─── Signing helpers (Phase 2) ───────────────────────────────────────────────

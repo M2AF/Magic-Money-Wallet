@@ -10,9 +10,21 @@ import {
   createWalletClient,
   http,
   parseEther,
+  defineChain,
   type Chain
 } from 'viem'
-import { mainnet } from 'viem/chains'
+import {
+  mainnet,
+  arbitrum,
+  optimism,
+  base,
+  polygon,
+  avalanche,
+  blast,
+  gnosis,
+  ronin,
+  zora
+} from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   Connection,
@@ -47,12 +59,38 @@ export interface FeeEstimate {
 
 // ─── EVM ──────────────────────────────────────────────────────────────────────
 
-const EVM_CHAINS: Record<string, { chain: Chain; rpcUrl: (key: string) => string; explorer: string }> = {
-  ethereum: {
-    chain: mainnet,
-    rpcUrl: (key) => `https://eth-mainnet.g.alchemy.com/v2/${key}`,
-    explorer: 'https://etherscan.io/tx'
-  }
+// Custom chains not yet exported by viem 2.21
+const monad = defineChain({ id: 143, name: 'Monad', nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.monad.xyz'] } } })
+const abstractChain = defineChain({ id: 2741, name: 'Abstract', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://api.mainnet.abs.xyz'] } } })
+const apeChain = defineChain({ id: 33139, name: 'ApeChain', nativeCurrency: { name: 'ApeCoin', symbol: 'APE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.apechain.com/http'] } } })
+const soneium = defineChain({ id: 1868, name: 'Soneium', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.soneium.org'] } } })
+const worldchain = defineChain({ id: 480, name: 'WorldChain', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } } })
+const hyperEvm = defineChain({ id: 998, name: 'HyperEVM', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid.xyz/evm'] } } })
+
+interface EvmChainEntry {
+  chain: Chain
+  rpcUrl: (cfg: WalletConfig) => string
+  explorer: string
+  nativeSymbol: string
+}
+
+const EVM_CHAINS: Record<string, EvmChainEntry> = {
+  ethereum:   { chain: mainnet,       rpcUrl: cfg => `https://eth-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://etherscan.io/tx',                               nativeSymbol: 'ETH'  },
+  arbitrum:   { chain: arbitrum,      rpcUrl: cfg => `https://arb-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://arbiscan.io/tx',                                nativeSymbol: 'ETH'  },
+  optimism:   { chain: optimism,      rpcUrl: cfg => `https://opt-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://optimistic.etherscan.io/tx',                    nativeSymbol: 'ETH'  },
+  base:       { chain: base,          rpcUrl: cfg => `https://base-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,     explorer: 'https://basescan.org/tx',                               nativeSymbol: 'ETH'  },
+  polygon:    { chain: polygon,       rpcUrl: cfg => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,  explorer: 'https://polygonscan.com/tx',                            nativeSymbol: 'POL'  },
+  avalanche:  { chain: avalanche,     rpcUrl: cfg => `https://avax-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,     explorer: 'https://snowtrace.io/tx',                               nativeSymbol: 'AVAX' },
+  blast:      { chain: blast,         rpcUrl: cfg => `https://blast-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,    explorer: 'https://blastscan.io/tx',                               nativeSymbol: 'ETH'  },
+  gnosis:     { chain: gnosis,        rpcUrl: () => 'https://rpc.gnosischain.com',                                  explorer: 'https://gnosisscan.io/tx',                              nativeSymbol: 'XDAI' },
+  monad:      { chain: monad,         rpcUrl: () => 'https://rpc.monad.xyz',                                        explorer: 'https://monadexplorer.com/tx',                          nativeSymbol: 'MON'  },
+  abstract:   { chain: abstractChain, rpcUrl: () => 'https://api.mainnet.abs.xyz',                                  explorer: 'https://abscan.org/tx',                                 nativeSymbol: 'ETH'  },
+  apechain:   { chain: apeChain,      rpcUrl: () => 'https://rpc.apechain.com/http',                                explorer: 'https://apescan.io/tx',                                 nativeSymbol: 'APE'  },
+  ronin:      { chain: ronin,         rpcUrl: () => 'https://api.roninchain.com/rpc',                               explorer: 'https://app.roninchain.com/tx',                         nativeSymbol: 'RON'  },
+  soneium:    { chain: soneium,       rpcUrl: () => 'https://rpc.soneium.org',                                      explorer: 'https://soneium.blockscout.com/tx',                     nativeSymbol: 'ETH'  },
+  worldchain: { chain: worldchain,    rpcUrl: () => 'https://worldchain-mainnet.g.alchemy.com/public',              explorer: 'https://worldchain-mainnet.explorer.alchemy.com/tx',    nativeSymbol: 'WLD'  },
+  zora:       { chain: zora,          rpcUrl: () => 'https://rpc.zora.energy',                                      explorer: 'https://explorer.zora.energy/tx',                       nativeSymbol: 'ETH'  },
+  hyperevm:   { chain: hyperEvm,      rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',                              explorer: 'https://purrsec.com/tx',                                nativeSymbol: 'HYPE' }
 }
 
 export async function estimateEvmFee(
@@ -60,34 +98,50 @@ export async function estimateEvmFee(
   to: string,
   amountEth: string,
   config: WalletConfig,
-  network = 'ethereum'
+  chainId = 'ethereum'
 ): Promise<FeeEstimate> {
-  const { chain, rpcUrl } = EVM_CHAINS[network] ?? EVM_CHAINS.ethereum
-  const transport = http(rpcUrl(config.alchemyKey))
-  const client = createPublicClient({ chain, transport })
+  const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
+  const transport = http(entry.rpcUrl(config))
+  const client = createPublicClient({ chain: entry.chain, transport })
 
-  const gasEstimate = await client.estimateGas({
-    account: from as `0x${string}`,
-    to: to as `0x${string}`,
-    value: parseEther(amountEth)
-  })
-  const gasPrice = await client.getGasPrice()
+  const [gasEstimate, feeData] = await Promise.all([
+    client.estimateGas({
+      account: from as `0x${string}`,
+      to: to as `0x${string}`,
+      value: parseEther(amountEth)
+    }),
+    client.estimateFeesPerGas().catch(() => null)
+  ])
+
+  // Use EIP-1559 maxFeePerGas when available, fall back to legacy gasPrice
+  const gasPrice = feeData?.maxFeePerGas ?? await client.getGasPrice()
   const feeWei = gasEstimate * gasPrice
-  const feeEth = Number(feeWei) / 1e18
+  const feeNative = Number(feeWei) / 1e18
+  const feeSymbol = entry.nativeSymbol
 
   let feeUsd: string | null = null
   try {
     const priceRes = await fetch(
-      `https://api.g.alchemy.com/prices/v1/${config.alchemyKey}/tokens/by-symbol?symbols=ETH`
+      `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(getCoingeckoId(chainId))}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(5_000) }
     )
-    const priceJson = await priceRes.json() as {
-      data?: Array<{ prices?: Array<{ value: string }> }>
-    }
-    const price = Number(priceJson.data?.[0]?.prices?.[0]?.value ?? 0)
-    if (price > 0) feeUsd = `$${(feeEth * price).toFixed(4)}`
+    const priceJson = await priceRes.json() as Record<string, { usd?: number }>
+    const price = Object.values(priceJson)[0]?.usd ?? 0
+    if (price > 0) feeUsd = `$${(feeNative * price).toFixed(4)}`
   } catch { /* price optional */ }
 
-  return { fee: feeEth.toFixed(8), feeSymbol: 'ETH', feeUsd }
+  return { fee: feeNative.toFixed(8), feeSymbol, feeUsd }
+}
+
+function getCoingeckoId(chainId: string): string {
+  const map: Record<string, string> = {
+    ethereum: 'ethereum', arbitrum: 'ethereum', optimism: 'ethereum',
+    base: 'ethereum', blast: 'ethereum', soneium: 'ethereum', zora: 'ethereum', abstract: 'ethereum',
+    polygon: 'matic-network', avalanche: 'avalanche-2', gnosis: 'xdai',
+    monad: 'monad-token', apechain: 'apecoin', ronin: 'ronin',
+    worldchain: 'worldcoin-wld', hyperevm: 'hyperliquid'
+  }
+  return map[chainId] ?? 'ethereum'
 }
 
 export async function sendEvmTransaction(
@@ -95,21 +149,21 @@ export async function sendEvmTransaction(
   to: string,
   amountEth: string,
   config: WalletConfig,
-  network = 'ethereum',
+  chainId = 'ethereum',
   accountIndex = 0
 ): Promise<SendResult> {
-  const { chain, rpcUrl, explorer } = EVM_CHAINS[network] ?? EVM_CHAINS.ethereum
+  const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
   const account = privateKeyToAccount(pk)
-  const transport = http(rpcUrl(config.alchemyKey))
-  const walletClient = createWalletClient({ chain, transport, account })
+  const transport = http(entry.rpcUrl(config))
+  const walletClient = createWalletClient({ chain: entry.chain, transport, account })
 
   const hash = await walletClient.sendTransaction({
     to: to as `0x${string}`,
     value: parseEther(amountEth)
   })
 
-  return { txHash: hash, explorerUrl: `${explorer}/${hash}` }
+  return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
 }
 
 // ─── Solana ───────────────────────────────────────────────────────────────────

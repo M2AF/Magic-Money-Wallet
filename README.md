@@ -2,7 +2,7 @@
 
 A self-custody multi-chain desktop wallet built with Electron + React.
 
-**Chains:** EVM (Ethereum · Arbitrum · Optimism · Base · Polygon · Avalanche · Blast · Gnosis · ApeChain · Ronin · Soneium · WorldChain · Zora · HyperEVM · Monad · Abstract) · Solana · Cardano
+**Chains:** EVM (Ethereum · Arbitrum · Optimism · Base · Polygon · Avalanche · Blast · Gnosis · ApeChain · Ronin · Soneium · WorldChain · Zora · HyperEVM · Monad · Abstract) · Solana · Cardano · Bitcoin · Polkadot
 
 ---
 
@@ -113,12 +113,14 @@ window.solana   (injected)      ──►  web3-inject.ts → IPC → wallet-cor
 
 Your keys are stored in `config.json` inside Electron's `userData` directory (not in source code). The defaults in `secure-store.ts` are loaded only on first run — you can update them via the config IPC channel or by editing the generated config file.
 
-| Key              | Provider                                   | Used for                              |
-|------------------|--------------------------------------------|---------------------------------------|
-| `alchemyKey`     | [alchemy.com](https://alchemy.com)         | EVM balances, tokens, tx history      |
-| `heliusKey`      | [helius.dev](https://helius.dev)           | Solana balances, tokens, tx history   |
-| `blockfrostKey`  | [blockfrost.io](https://blockfrost.io)     | Cardano balances, tokens, tx history  |
-| `coingeckoKey`   | [coingecko.com](https://coingecko.com)     | Market prices + portfolio valuation   |
+| Key              | Provider                                   | Used for                                        |
+|------------------|--------------------------------------------|--------------------------------------------------|
+| `alchemyKey`     | [alchemy.com](https://alchemy.com)         | EVM balances, token counts, tx history           |
+| `heliusKey`      | [helius.dev](https://helius.dev)           | Solana balances, token counts, tx history        |
+| `blockfrostKey`  | [blockfrost.io](https://blockfrost.io)     | Cardano balances, token counts, tx history       |
+| `tatumKey`       | [tatum.io](https://tatum.io)               | Polkadot Substrate RPC gateway                   |
+
+> CoinGecko (prices, 24h change, sparklines) uses the free public API — no key required.
 
 ---
 
@@ -126,26 +128,28 @@ Your keys are stored in `config.json` inside Electron's `userData` directory (no
 
 MagicMoney targets full parity with the ChainLens scanner. All 18 networks from the ChainLens App Hub are supported or planned:
 
-| Network    | Type    | Native | RPC Provider          | Status    |
-|------------|---------|--------|-----------------------|-----------|
-| Ethereum   | EVM L1  | ETH    | Alchemy               | ✅ Live   |
-| Arbitrum   | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
-| Optimism   | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
-| Base       | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
-| Polygon    | EVM L2  | POL    | Alchemy               | 🔄 Phase 4   |
-| Avalanche  | EVM L1  | AVAX   | Alchemy               | 🔄 Phase 4   |
-| Blast      | EVM L2  | ETH    | Alchemy               | 🔄 Phase 4   |
-| Gnosis     | EVM L1  | xDAI   | Public RPC            | 🔄 Phase 4   |
-| Monad      | EVM L1  | MON    | Public RPC            | 🔄 Phase 4   |
-| Abstract   | EVM L2  | ETH    | Public RPC            | 🔄 Phase 4   |
-| ApeChain   | EVM L2  | APE    | Public RPC            | 🔄 Phase 4 |
-| Ronin      | EVM L2  | RON    | Public RPC            | 🔄 Phase 4 |
-| Soneium    | EVM L2  | ETH    | Public RPC            | 🔄 Phase 4 |
-| WorldChain | EVM L2  | WLD    | Public RPC            | 🔄 Phase 4 |
-| Zora       | EVM L2  | ETH    | Public RPC            | 🔄 Phase 4 |
-| HyperEVM   | EVM L1  | HYPE   | Public RPC            | 🔄 Phase 4 |
-| Solana     | SVM     | SOL    | Helius                | ✅ Live   |
-| Cardano    | UTXO    | ADA    | Blockfrost            | ✅ Live   |
+| Network    | Type      | Native | RPC Provider              | Status    |
+|------------|-----------|--------|---------------------------|-----------|
+| Ethereum   | EVM L1    | ETH    | Alchemy                   | ✅ Live   |
+| Arbitrum   | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| Optimism   | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| Base       | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| Polygon    | EVM L2    | POL    | Alchemy                   | ✅ Live   |
+| Avalanche  | EVM L1    | AVAX   | Alchemy                   | ✅ Live   |
+| Blast      | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| Gnosis     | EVM L1    | xDAI   | Alchemy                   | ✅ Live   |
+| Monad      | EVM L1    | MON    | monad.xyz RPC             | ✅ Live   |
+| Abstract   | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| ApeChain   | EVM L2    | APE    | Alchemy                   | ✅ Live   |
+| Ronin      | EVM L2    | RON    | Alchemy                   | ✅ Live   |
+| Soneium    | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| WorldChain | EVM L2    | WLD    | Alchemy                   | ✅ Live   |
+| Zora       | EVM L2    | ETH    | Alchemy                   | ✅ Live   |
+| HyperEVM   | EVM L1    | HYPE   | hyperliquid.xyz RPC       | ✅ Live   |
+| Solana     | SVM       | SOL    | Helius                    | ✅ Live   |
+| Cardano    | UTXO      | ADA    | Blockfrost                | ✅ Live   |
+| Bitcoin    | UTXO      | BTC    | mempool.space             | ✅ Live   |
+| Polkadot   | Substrate | DOT    | Tatum Substrate RPC       | ✅ Live   |
 
 ---
 
@@ -180,19 +184,20 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - Per-chain transaction history (incoming + outgoing, with explorer links)
 - Multi-account support: `‹ Account N ›` switcher derives accounts by incrementing the BIP-44 account index (accounts 0–9)
 
-### 🔄 Phase 4 — Full Chain Parity with ChainLens
-- Add remaining 15 EVM chains: ApeChain, Ronin, Soneium, WorldChain, Zora, HyperEVM ect...
-- Dynamic RPC config: user-configurable custom RPC endpoints per chain
-- Chain-aware gas estimation with EIP-1559 support per network
-- Graceful degradation when a chain RPC is unavailable
+### ✅ Phase 4 — Full Chain Parity
+- Added all 16 EVM chains via Alchemy: Arbitrum, Optimism, Base, Polygon, Avalanche, Blast, Gnosis, Monad, Abstract, ApeChain, Ronin, Soneium, WorldChain, Zora, HyperEVM
+- Added Bitcoin (BIP-84 P2WPKH) — balance via mempool.space, history via mempool.space
+- Added Polkadot (SLIP-0010 ED25519, SS58) — balance via Tatum Substrate RPC + SCALE decode, history via Subscan
+- 20 chains total: each fails independently, no global error propagation
+- Auto-migration for existing wallets to populate new BTC/DOT address fields
 
-### 📋 Phase 5 — Market Watch Integration
-- Live token price feeds via CoinGecko (matching ChainLens Market Watch)
-- Portfolio total USD valuation displayed on the dashboard
-- Per-asset 24h price change indicator (green/red semantic color per ChainLens standard)
-- Sparkline mini-charts (7d) per token holding
-- Portfolio performance chart (line graph: 7d / 30d / all-time)
-- Cost basis tracking for P&L calculations (stored locally, never transmitted)
+### 🔄 Phase 5 — Market Watch Integration
+- ✅ Live market data via CoinGecko `/coins/markets` — price, 24h change %, 7d sparkline per chain
+- ✅ Per-chain 24h price change badge (green ▲ / red ▼) in each chain card
+- ✅ 7d sparkline mini-chart per chain card (SVG, chain brand color)
+- ✅ 7d portfolio performance chart on dashboard (aggregated, deduplicates shared tokens across L2s)
+- ✅ Portfolio total USD valuation displayed on the dashboard
+- 📋 Cost basis tracking for P&L calculations (stored locally, never transmitted)
 
 ### 📋 Phase 6 — Built-in dApp Browser
 - Electron `BrowserView` / `WebContentsView` panel with a "Browse" button in the nav bar

@@ -38,6 +38,20 @@ import {
 // This holds the phrase after generation but BEFORE the user confirms backup.
 let _pendingMnemonic: string | null = null
 
+/**
+ * Load addresses, auto-migrating if newer fields (bitcoin, polkadot) are absent.
+ * Wallets created before those chains were added won't have them in addresses.json.
+ */
+async function getFullAddresses() {
+  const stored = loadAddresses()
+  if (!stored) throw new Error('No addresses found — wallet not set up')
+  if (stored.bitcoin && stored.polkadot) return stored
+  // Re-derive from mnemonic to fill in missing fields, then persist
+  const full = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
+  saveAddresses(full)
+  return full
+}
+
 export function registerIpcHandlers(): void {
   // ── Check if wallet is already configured ──────────────────────────────
   ipcMain.handle('wallet:is-setup', () => walletExists())
@@ -79,12 +93,11 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Get stored public addresses ────────────────────────────────────────
-  ipcMain.handle('wallet:get-addresses', () => loadAddresses())
+  ipcMain.handle('wallet:get-addresses', () => getFullAddresses())
 
-  // ── Fetch live balances from Alchemy / Helius / Blockfrost ─────────────
+  // ── Fetch live balances from Alchemy / Helius / Blockfrost / Tatum ─────
   ipcMain.handle('wallet:get-balances', async () => {
-    const addresses = loadAddresses()
-    if (!addresses) throw new Error('No addresses found — wallet not set up')
+    const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllBalances(addresses, config)
   })
@@ -104,27 +117,27 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Phase 2: Fee estimation ────────────────────────────────────────────
+  // chainId is a chain-config id: 'ethereum', 'arbitrum', 'solana', 'cardano', etc.
   ipcMain.handle('wallet:estimate-fee', async (
     _event,
-    chain: 'evm' | 'solana' | 'cardano',
+    chainId: string,
     to: string,
     amount: string
   ) => {
     const config = loadConfig()
     const addresses = loadAddresses()
     if (!addresses) throw new Error('No addresses found')
-    if (chain === 'evm') return estimateEvmFee(addresses.evm, to, amount, config)
-    if (chain === 'solana') return estimateSolanaFee(config)
-    if (chain === 'cardano') return estimateCardanoFee(addresses.cardano, config)
-    throw new Error(`Unknown chain: ${chain}`)
+    if (chainId === 'solana') return estimateSolanaFee(config)
+    if (chainId === 'cardano') return estimateCardanoFee(addresses.cardano, config)
+    return estimateEvmFee(addresses.evm, to, amount, config, chainId)
   })
 
   // ── Phase 2: Send EVM ─────────────────────────────────────────────────
-  ipcMain.handle('wallet:send-evm', async (_event, to: string, amountEth: string) => {
+  ipcMain.handle('wallet:send-evm', async (_event, chainId: string, to: string, amountEth: string) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
     const accountIndex = loadAddresses()?.accountIndex ?? 0
-    return sendEvmTransaction(mnemonic, to, amountEth, config, 'ethereum', accountIndex)
+    return sendEvmTransaction(mnemonic, to, amountEth, config, chainId, accountIndex)
   })
 
   // ── Phase 2: Send Solana ──────────────────────────────────────────────
@@ -146,8 +159,7 @@ export function registerIpcHandlers(): void {
 
   // ── Phase 3: Transaction history ──────────────────────────────────────
   ipcMain.handle('wallet:get-history', async () => {
-    const addresses = loadAddresses()
-    if (!addresses) throw new Error('No addresses found')
+    const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllHistory(addresses, config)
   })

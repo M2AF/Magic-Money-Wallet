@@ -3,6 +3,8 @@ export interface WalletAddresses {
   solana: string
   cardano: string
   cardanoStake: string
+  bitcoin: string
+  polkadot: string
   accountIndex: number
 }
 
@@ -12,13 +14,14 @@ export interface ChainBalance {
   usdValue: string | null
   tokenCount: number
   error: string | null
+  priceChange24h: number | null
+  sparkline: number[] | null
 }
 
 export interface AllBalances {
-  evm: ChainBalance
-  solana: ChainBalance
-  cardano: ChainBalance
+  chains: Record<string, ChainBalance>
   fetchedAt: number
+  portfolioSparkline: number[] | null
 }
 
 export interface TxRecord {
@@ -26,7 +29,7 @@ export interface TxRecord {
   direction: 'in' | 'out' | 'self'
   amount: string | null
   symbol: string
-  timestamp: number          // unix ms
+  timestamp: number
   counterparty: string | null
   explorerUrl: string
 }
@@ -36,11 +39,7 @@ export interface ChainHistory {
   error: string | null
 }
 
-export interface AllHistory {
-  evm: ChainHistory
-  solana: ChainHistory
-  cardano: ChainHistory
-}
+export type AllHistory = Record<string, ChainHistory>
 
 export type AppPage =
   | 'loading'
@@ -50,7 +49,8 @@ export type AppPage =
   | 'import'
   | 'dashboard'
 
-export type SendChain = 'evm' | 'solana' | 'cardano'
+// chainId string from chain-config — e.g. 'ethereum', 'arbitrum', 'solana', 'cardano'
+export type SendChain = string
 
 export interface FeeEstimate {
   fee: string
@@ -63,7 +63,6 @@ export interface SendResult {
   explorerUrl: string
 }
 
-// Extend window to include the preload bridge
 declare global {
   interface Window {
     wallet: {
@@ -75,9 +74,9 @@ declare global {
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
       revealSeed(): Promise<string[]>
-      // Phase 2: send
-      estimateFee(chain: SendChain, to: string, amount: string): Promise<FeeEstimate>
-      sendEvm(to: string, amount: string): Promise<SendResult>
+      // Phase 2: send — chainId is the chain-config id string
+      estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
+      sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
       // Phase 3: history + multi-account

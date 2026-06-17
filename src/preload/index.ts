@@ -24,8 +24,8 @@ contextBridge.exposeInMainWorld('wallet', {
   // ── Phase 2: Send transactions ────────────────────────────────────────
   estimateFee:   (chain: string, to: string, amount: string) =>
     ipcRenderer.invoke('wallet:estimate-fee', chain, to, amount),
-  sendEvm:       (to: string, amount: string) =>
-    ipcRenderer.invoke('wallet:send-evm', to, amount),
+  sendEvm:       (chainId: string, to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-evm', chainId, to, amount),
   sendSolana:    (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-solana', to, amount),
   sendCardano:   (to: string, amount: string) =>
