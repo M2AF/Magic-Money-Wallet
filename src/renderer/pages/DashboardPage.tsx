@@ -3,7 +3,7 @@ import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, T
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 
-type PortfolioTab = 'balances' | 'tokens' | 'collectibles'
+type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
 
 // ─── Spam filter helpers ──────────────────────────────────────────────────────
 
@@ -78,7 +78,7 @@ function SpamManagerModal({
 
 function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () => void }) {
   return (
-    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
       <button type="button" onClick={e => { e.stopPropagation(); onHide() }}
         title="Hide"
         style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -96,6 +96,79 @@ function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () =>
           <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
         </svg>
       </button>
+    </div>
+  )
+}
+
+// ─── Token row ────────────────────────────────────────────────────────────────
+
+function TokenLogo({ token }: { token: WalletToken }) {
+  const [imgFailed, setImgFailed] = useState(false)
+  if (token.logoUri && !imgFailed) {
+    return (
+      <img
+        src={token.logoUri} alt={token.symbol} width={34} height={34}
+        style={{ borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }}
+        onError={() => setImgFailed(true)}
+      />
+    )
+  }
+  return (
+    <div style={{ width: 34, height: 34, borderRadius: '50%', background: `${token.chainColor}33`, border: `1px solid ${token.chainColor}55`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, color: token.chainColor }}>{token.symbol.slice(0, 2).toUpperCase()}</span>
+    </div>
+  )
+}
+
+interface TokenRowProps {
+  token: WalletToken
+  isHovered: boolean
+  onMouseEnter: () => void
+  onMouseLeave: () => void
+  onHide: () => void
+  onSpam: () => void
+}
+
+function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam }: TokenRowProps) {
+  return (
+    <div
+      style={{ display: 'flex', alignItems: 'center', gap: 0 }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {/* Card */}
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0 }}>
+        <TokenLogo token={token} />
+
+        {/* Name + chain */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.name}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{token.symbol}</span>
+            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600 }}>{token.chainLabel}</span>
+          </div>
+        </div>
+
+        {/* Quantity / native equiv / USD — full right edge */}
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+            {token.balance} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-secondary)' }}>{token.symbol}</span>
+          </div>
+          {token.nativeEquivalent && (
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 1 }}>{token.nativeEquivalent}</div>
+          )}
+          {token.usdValue && (
+            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: 1 }}>{token.usdValue}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Action buttons — only mounted on hover so they take zero layout space otherwise */}
+      {isHovered && (
+        <div style={{ marginLeft: 3 }}>
+          <HideSpamButtons onHide={onHide} onSpam={onSpam} />
+        </div>
+      )}
     </div>
   )
 }
@@ -162,40 +235,59 @@ function TokensView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onT
         const id = tokenKey(token)
         const isHovered = hovered === id
         return (
-          <div key={id}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)' }}
+          <TokenRow
+            key={id}
+            token={token}
+            isHovered={isHovered}
             onMouseEnter={() => setHovered(id)}
             onMouseLeave={() => setHovered(null)}
-          >
-            {token.logoUri ? (
-              <img src={token.logoUri} alt={token.symbol} width={26} height={26} style={{ borderRadius: '50%', flexShrink: 0 }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-            ) : (
-              <div style={{ width: 26, height: 26, borderRadius: '50%', background: `${token.chainColor}33`, border: `1px solid ${token.chainColor}44`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span style={{ fontSize: 9, fontWeight: 700, color: token.chainColor }}>{token.symbol.slice(0, 2)}</span>
-              </div>
-            )}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.name}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{token.symbol}</span>
-                <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600 }}>
-                  {token.chainLabel}
-                </span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{token.balance}</div>
-              </div>
-              <div style={{ opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s', pointerEvents: isHovered ? 'auto' : 'none' }}>
-                <HideSpamButtons onHide={() => onHide(id)} onSpam={() => onSpam(id)} />
-              </div>
-            </div>
-          </div>
+            onHide={() => onHide(id)}
+            onSpam={() => onSpam(id)}
+          />
         )
       })}
     </div>
+  )
+}
+
+// ─── IPFS image with gateway fallbacks ───────────────────────────────────────
+
+const IPFS_GATEWAYS = ['https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/']
+
+function ipfsHash(url: string): string | null {
+  if (url.startsWith('https://dweb.link/ipfs/'))              return url.slice('https://dweb.link/ipfs/'.length)
+  if (url.startsWith('https://cloudflare-ipfs.com/ipfs/'))    return url.slice('https://cloudflare-ipfs.com/ipfs/'.length)
+  if (url.startsWith('https://cf-ipfs.com/ipfs/'))            return url.slice('https://cf-ipfs.com/ipfs/'.length)
+  if (url.startsWith('https://ipfs.io/ipfs/'))                return url.slice('https://ipfs.io/ipfs/'.length)
+  if (url.startsWith('https://gateway.pinata.cloud/ipfs/'))   return url.slice('https://gateway.pinata.cloud/ipfs/'.length)
+  return null
+}
+
+function NftImage({ src, alt }: { src: string; alt: string }) {
+  const [gatewayIdx, setGatewayIdx] = useState(0)
+  const [failed, setFailed] = useState(false)
+
+  const hash = ipfsHash(src)
+  const resolved = hash ? `${IPFS_GATEWAYS[gatewayIdx]}${hash}` : src
+
+  function handleError() {
+    if (hash && gatewayIdx < IPFS_GATEWAYS.length - 1) {
+      setGatewayIdx(g => g + 1)
+    } else {
+      setFailed(true)
+    }
+  }
+
+  if (failed) return <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
+
+  return (
+    <img
+      key={resolved}
+      src={resolved}
+      alt={alt}
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+      onError={handleError}
+    />
   )
 }
 
@@ -251,8 +343,28 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
       )}
 
       {visible.length === 0 && (
-        <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          {result?.items.length ? 'All collectibles are hidden.' : 'No collectibles found.'}
+        <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+            {result?.items.length ? 'All collectibles are hidden.' : 'No collectibles found.'}
+          </div>
+          {result && Object.keys(result.chainResults ?? {}).length > 0 && (
+            <div style={{ width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>Chain Diagnostics</div>
+              {Object.entries(result.chainResults).map(([chain, info]) => (
+                <div key={chain} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                  <span style={{ color: 'var(--text-secondary)', minWidth: 80 }}>{chain}</span>
+                  {info.error ? (
+                    <span style={{ color: '#ef4444', fontFamily: 'var(--font-mono)', fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{info.error}</span>
+                  ) : (
+                    <span style={{ color: info.count > 0 ? '#22c55e' : 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 10 }}>{info.count} NFTs</span>
+                  )}
+                </div>
+              ))}
+              {result.error && (
+                <div style={{ marginTop: 4, fontSize: 10, color: '#ef4444', fontFamily: 'var(--font-mono)' }}>{result.error}</div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -267,14 +379,10 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
               onMouseLeave={() => setHovered(null)}
             >
               <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.3)' }}>
-                {nft.image ? (
-                  <img src={nft.image} alt={nft.name}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                ) : (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
-                )}
+                {nft.image
+                  ? <NftImage src={nft.image} alt={nft.name} />
+                  : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
+                }
                 {isHovered && (
                   <div style={{ position: 'absolute', top: 6, right: 6 }}>
                     <HideSpamButtons onHide={() => onHide(id)} onSpam={() => onSpam(id)} />
@@ -368,7 +476,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
   const [accountSwitching, setAccountSwitching] = useState(false)
   const [showSettings, setShowSettings]     = useState(false)
   const [showSeed, setShowSeed]             = useState(false)
-  const [portfolioTab, setPortfolioTab]     = useState<PortfolioTab>('balances')
+  const [portfolioTab, setPortfolioTab]     = useState<PortfolioTab>('networks')
   const [seedWords, setSeedWords]           = useState<string[]>([])
   const [deleting, setDeleting]             = useState(false)
   const [sendChain, setSendChain]           = useState<string | null>(null)
@@ -606,7 +714,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
 
       {/* Portfolio sub-tab bar */}
       <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
-        {(['balances', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
+        {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
           <button
             key={tab}
             type="button"
@@ -627,7 +735,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
       </div>
 
       {/* Tab content */}
-      {portfolioTab === 'balances' && sortedChains(balances).map(chainId => (
+      {portfolioTab === 'networks' && sortedChains(balances).map(chainId => (
         <ChainCard
           key={chainId}
           chainId={chainId}

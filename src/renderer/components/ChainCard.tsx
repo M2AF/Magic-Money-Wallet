@@ -81,7 +81,7 @@ export function ChainCard({ chainId, balance, address, loading, onSend, history 
         ['--chain-color-rgb' as string]: meta.colorRgb
       }}
     >
-      {/* Header row */}
+      {/* Header row: [name] [sparkline] [balance + USD + 24h] */}
       <div className="chain-header">
         <div className="chain-info">
           <div className="chain-dot" />
@@ -90,6 +90,13 @@ export function ChainCard({ chainId, balance, address, loading, onSend, history 
             <div className="chain-networks">{meta.networks}</div>
           </div>
         </div>
+
+        {/* Sparkline — centre column */}
+        {!loading && !balance?.error && balance?.sparkline && balance.sparkline.length > 1 && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
+            <Sparkline data={balance.sparkline} color={meta.color} />
+          </div>
+        )}
 
         {/* Balance */}
         <div className="chain-balance">
@@ -105,9 +112,7 @@ export function ChainCard({ chainId, balance, address, loading, onSend, history 
                 {balance?.native ?? '—'} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{balance?.symbol}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {balance?.usdValue && (
-                  <div className="chain-usd">{balance.usdValue}</div>
-                )}
+                <div className="chain-usd">{balance?.usdValue ?? '$0.00'}</div>
                 {balance?.priceChange24h != null && (
                   <div style={{
                     fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)',
@@ -117,11 +122,6 @@ export function ChainCard({ chainId, balance, address, loading, onSend, history 
                   </div>
                 )}
               </div>
-              {balance?.sparkline && balance.sparkline.length > 1 && (
-                <div style={{ marginTop: 4 }}>
-                  <Sparkline data={balance.sparkline} color={meta.color} />
-                </div>
-              )}
             </>
           )}
         </div>

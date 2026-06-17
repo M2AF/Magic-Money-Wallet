@@ -237,7 +237,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
       onClick={onClick}
       style={{
         display: 'grid',
-        gridTemplateColumns: '28px minmax(0,1fr) 80px 58px 68px 64px',
+        gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
         gap: 6, alignItems: 'center',
         padding: '8px 12px',
         borderBottom: '1px solid var(--border)',
@@ -248,7 +248,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
     >
       {/* Rank */}
-      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
+      <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'left' }}>
         {coin.rank}
       </div>
 
@@ -269,7 +269,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
       </div>
 
       {/* 24h */}
-      <div style={{ textAlign: 'right' }}>{fmtChange(coin.change24h)}</div>
+      <div style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{fmtChange(coin.change24h)}</div>
 
       {/* Market cap */}
       <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
@@ -392,7 +392,7 @@ export function MarketPage() {
       {/* Table header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '28px minmax(0,1fr) 80px 58px 68px 64px',
+        gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
         gap: 6, padding: '6px 12px',
         borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, background: 'rgba(0,0,0,0.2)'
@@ -409,7 +409,7 @@ export function MarketPage() {
         {loading ? (
           Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={{
-              display: 'grid', gridTemplateColumns: '28px minmax(0,1fr) 80px 58px 68px 64px',
+              display: 'grid', gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
               gap: 6, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--border)'
             }}>
               {[16, 100, 60, 40, 50, 50].map((w, j) => (

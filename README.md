@@ -207,15 +207,18 @@ Outputs: `.dmg` (macOS), `.exe` installer (Windows), `.AppImage` (Linux).
 - ✅ Portfolio sub-tabs — Balances · Tokens · Collectibles within the portfolio view
 - 📋 Cost basis tracking for P&L calculations (stored locally, never transmitted)
 
-### 📋 Phase 6 — Built-in dApp Browser
-- Electron `BrowserView` / `WebContentsView` panel with a "Browse" button in the nav bar
-- Default homepage: `https://chainlensnft.info`
-- Navigation controls: back · forward · reload · home · address bar
-- Injected `window.ethereum` EIP-1193 provider (via `web3-inject.ts` preload) — dApps can request wallet connection
-- Injected `window.solana` standard wallet adapter interface
-- Signing prompts route through a native Electron dialog — the browser tab cannot auto-approve
-- Site isolation: `BrowserView` runs in a separate renderer process from the main wallet UI
-- Phishing detection: warn on domains flagged by MetaMask's eth-phishing-detect list
+### ✅ Phase 6 — Built-in dApp Browser
+- ✅ Electron `WebContentsView` panel (Electron 30+ modern API) — site-isolated from wallet UI
+- ✅ Default homepage: `https://chainlensnft.info`
+- ✅ Navigation controls: back · forward · reload · home · address bar in React chrome
+- ✅ Injected `window.ethereum` EIP-1193 provider (via `web3-inject.ts` compiled with esbuild) — dApps can request wallet connection
+- ✅ `eth_requestAccounts`, `personal_sign`, `eth_sendTransaction` — native Electron dialog for every approve
+- ✅ Read-only JSON-RPC proxied to Alchemy ETH mainnet for `eth_blockNumber`, `eth_getBalance`, etc.
+- ✅ Injected `window.solana` standard wallet adapter interface (connect + signMessage)
+- ✅ Signing prompts route through a native Electron dialog — the browser tab cannot auto-approve
+- ✅ Site isolation: `WebContentsView` runs in its own sandboxed renderer process
+- ✅ Phishing detection: blocklist check on every navigation, dialog warn before allowing bypass
+- ✅ Browser tab enabled in bottom nav — `showBrowser()` / `hideBrowser()` IPC on tab switch
 
 ### 📋 Phase 7 — App Hub Integration
 - Embedded App Hub panel sourced from the shared `apphub-data.js` used by ChainLens

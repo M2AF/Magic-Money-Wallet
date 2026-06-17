@@ -6,7 +6,10 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { HDKey } from '@scure/bip32'
+import { mnemonicToSeedSync } from '@scure/bip39'
+import { privateKeyToAccount } from 'viem/accounts'
 import {
   generateMnemonic,
   validateMnemonic,
@@ -23,6 +26,17 @@ import {
   saveConfig,
   type WalletConfig
 } from './secure-store'
+import {
+  openBrowserWindow,
+  closeBrowserWindow,
+  browserNavigate,
+  browserBack,
+  browserForward,
+  browserReload,
+  browserHome,
+  getBrowserState,
+  getMainWin
+} from './browser-manager'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
@@ -35,6 +49,62 @@ import {
   sendSolanaTransaction,
   sendCardanoTransaction
 } from './tx-sender'
+
+// ── Key derivation helpers (used by web3 IPC) ──────────────────────────────
+
+function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
+  const seed = mnemonicToSeedSync(mnemonic)
+  const hd = HDKey.fromMasterSeed(seed)
+  const child = hd.derive(`m/44'/60'/${accountIndex}'/0/0`)
+  if (!child.privateKey) throw new Error('Failed to derive private key')
+  return `0x${Buffer.from(child.privateKey).toString('hex')}` as `0x${string}`
+}
+
+async function sendEvmFromDapp(
+  mnemonic: string,
+  accountIndex: number,
+  tx: { to?: string; value?: string; data?: string; gas?: string },
+  config: { alchemyKey: string }
+): Promise<string> {
+  const pk = deriveEvmKey(mnemonic, accountIndex)
+  const account = privateKeyToAccount(pk)
+  const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${config.alchemyKey}`
+
+  // Get nonce
+  const nonceRes = await fetch(alchemyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionCount', params: [account.address, 'pending'] })
+  })
+  const nonceData = await nonceRes.json() as { result: string }
+  const nonce = parseInt(nonceData.result, 16)
+
+  // Get gas price
+  const gpRes = await fetch(alchemyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_gasPrice', params: [] })
+  })
+  const gpData = await gpRes.json() as { result: string }
+  const gasPrice = BigInt(gpData.result)
+
+  const gas = tx.gas ? BigInt(tx.gas) : 21000n
+  const value = tx.value ? BigInt(tx.value) : 0n
+
+  // Use viem to sign the transaction
+  const { createWalletClient, http } = await import('viem')
+  const { mainnet } = await import('viem/chains')
+  const client = createWalletClient({ account, chain: mainnet, transport: http(alchemyUrl) })
+  const hash = await client.sendTransaction({
+    to: tx.to as `0x${string}` | undefined,
+    value,
+    data: tx.data as `0x${string}` | undefined,
+    gas,
+    gasPrice,
+    nonce
+  })
+  return hash
+}
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
 // This holds the phrase after generation but BEFORE the user confirms backup.
@@ -201,7 +271,197 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async () => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, config)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+  })
+
+  // ── Phase 6: Built-in browser controls ───────────────────────────────────
+  ipcMain.on('browser:open',    () => openBrowserWindow())
+  ipcMain.on('browser:close',   () => closeBrowserWindow())
+  ipcMain.on('browser:back',    () => browserBack())
+  ipcMain.on('browser:forward', () => browserForward())
+  ipcMain.on('browser:reload',  () => browserReload())
+  ipcMain.on('browser:home',    () => browserHome())
+  ipcMain.handle('browser:navigate', (_event, url: string) => { browserNavigate(url) })
+  ipcMain.handle('browser:get-state', () => getBrowserState())
+
+  // ── Phase 6: Web3 dApp requests (from web3-inject preload) ───────────────
+  let _dappConnected = false
+
+  ipcMain.handle('web3:request', async (
+    _event,
+    { method, params }: { method: string; params: unknown[] }
+  ) => {
+    // Always show signing dialogs in the main wallet window, not the popup
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const addresses = loadAddresses()
+    const config = loadConfig()
+
+    switch (method) {
+      // ── Connection ──────────────────────────────────────────────────────
+      case 'eth_requestAccounts': {
+        if (_dappConnected && addresses?.evm) return [addresses.evm]
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'question',
+          title: 'Connect Wallet',
+          message: 'A dApp wants to connect to your wallet',
+          detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
+          buttons: ['Connect', 'Reject'],
+          defaultId: 0,
+          cancelId: 1
+        })
+        if (response === 1) {
+          const err = Object.assign(new Error('User rejected the request.'), { code: 4001 })
+          throw err
+        }
+        _dappConnected = true
+        win.webContents.send('web3:accounts-changed', [addresses?.evm ?? ''])
+        return [addresses?.evm ?? '']
+      }
+
+      case 'eth_accounts':
+        return _dappConnected && addresses?.evm ? [addresses.evm] : []
+
+      case 'eth_chainId':
+        return '0x1'
+
+      case 'net_version':
+        return '1'
+
+      case 'wallet_requestPermissions':
+        return [{ parentCapability: 'eth_accounts' }]
+
+      case 'wallet_getPermissions':
+        return _dappConnected ? [{ parentCapability: 'eth_accounts' }] : []
+
+      // ── Message signing ─────────────────────────────────────────────────
+      case 'personal_sign': {
+        const hexMsg = params[0] as string
+        let displayText: string
+        try {
+          displayText = Buffer.from(hexMsg.replace(/^0x/, ''), 'hex').toString('utf8')
+        } catch {
+          displayText = hexMsg
+        }
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'question',
+          title: 'Sign Message',
+          message: 'A dApp wants you to sign a message',
+          detail: displayText.slice(0, 400),
+          buttons: ['Sign', 'Reject'],
+          defaultId: 0,
+          cancelId: 1
+        })
+        if (response === 1) {
+          throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+        }
+        const mnemonic = loadMnemonic()
+        const accountIndex = addresses?.accountIndex ?? 0
+        const pk = deriveEvmKey(mnemonic, accountIndex)
+        const account = privateKeyToAccount(pk)
+        return account.signMessage({ message: { raw: hexMsg as `0x${string}` } })
+      }
+
+      case 'eth_sign': {
+        const [, hexMsg] = params as [string, string]
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'warning',
+          title: 'Sign Data (eth_sign)',
+          message: 'A dApp wants to sign raw data. Only proceed if you trust this site.',
+          detail: hexMsg.slice(0, 200),
+          buttons: ['Sign', 'Reject'],
+          defaultId: 1,
+          cancelId: 1
+        })
+        if (response === 1) {
+          throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+        }
+        const mnemonic = loadMnemonic()
+        const accountIndex = addresses?.accountIndex ?? 0
+        const pk = deriveEvmKey(mnemonic, accountIndex)
+        const account = privateKeyToAccount(pk)
+        return account.signMessage({ message: { raw: hexMsg as `0x${string}` } })
+      }
+
+      // ── Transaction ─────────────────────────────────────────────────────
+      case 'eth_sendTransaction': {
+        const tx = (params[0] ?? {}) as {
+          to?: string; value?: string; data?: string; gas?: string
+        }
+        const valueEth = tx.value
+          ? (BigInt(tx.value) / BigInt(1e18)).toString() + ' ETH'
+          : '0 ETH'
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'question',
+          title: 'Send Transaction',
+          message: 'A dApp wants to send a transaction',
+          detail: [
+            `To: ${tx.to ?? '(contract)'}`,
+            `Value: ${valueEth}`,
+            tx.data ? `Data: ${tx.data.slice(0, 60)}…` : 'No data'
+          ].join('\n'),
+          buttons: ['Send', 'Reject'],
+          defaultId: 0,
+          cancelId: 1
+        })
+        if (response === 1) {
+          throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+        }
+        const mnemonic = loadMnemonic()
+        const accountIndex = addresses?.accountIndex ?? 0
+        return sendEvmFromDapp(mnemonic, accountIndex, tx, config)
+      }
+
+      // ── Read-only: proxy to Alchemy ETH mainnet ─────────────────────────
+      default: {
+        const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${config.alchemyKey}`
+        const res = await fetch(alchemyUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+        })
+        const data = await res.json() as { result?: unknown; error?: { message: string } }
+        if (data.error) throw new Error(data.error.message)
+        return data.result
+      }
+    }
+  })
+
+  // ── Phase 6: Solana dApp requests ─────────────────────────────────────────
+  ipcMain.handle('web3:solana-connect', async () => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const addresses = loadAddresses()
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Connect Solana Wallet',
+      message: 'A dApp wants to connect to your Solana wallet',
+      detail: `Address:\n${addresses?.solana ?? 'Not available'}`,
+      buttons: ['Connect', 'Reject'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (response === 1) {
+      throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    }
+    return addresses?.solana ?? ''
+  })
+
+  ipcMain.handle('web3:solana-sign-message', async (_event, messageBytes: number[]) => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const decoded = (() => { try { return Buffer.from(messageBytes).toString('utf8') } catch { return `${messageBytes.length} bytes` } })()
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Sign Solana Message',
+      message: 'A dApp wants to sign a message with your Solana wallet',
+      detail: decoded.slice(0, 400),
+      buttons: ['Sign', 'Reject'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (response === 1) {
+      throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    }
+    // Full Solana signing would require nacl here — placeholder signature for now
+    throw new Error('Solana message signing not yet implemented')
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

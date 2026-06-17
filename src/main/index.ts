@@ -1,6 +1,11 @@
 import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
+import { setMainWindow } from './browser-manager'
+
+// Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
+// when loading IPFS gateway images in Electron's Chromium engine
+app.commandLine.appendSwitch('disable-quic')
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock()
@@ -50,6 +55,11 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  // Register main window for web3 signing dialogs
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) setMainWindow(mainWindow)
+  })
 
   // Window controls via IPC (custom titlebar)
   const { ipcMain } = require('electron')

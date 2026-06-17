@@ -9,9 +9,10 @@ import { DashboardPage } from './pages/DashboardPage'
 import { MarketPage } from './pages/MarketPage'
 
 export function App() {
-  const [page, setPage]       = useState<AppPage>('loading')
+  const [page, setPage]           = useState<AppPage>('loading')
   const [addresses, setAddresses] = useState<WalletAddresses | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('portfolio')
+  const [browserOpen, setBrowserOpen] = useState(false)
 
   useEffect(() => {
     window.wallet.isSetup().then(exists => {
@@ -26,9 +27,21 @@ export function App() {
     }).catch(() => setPage('welcome'))
   }, [])
 
+  // Track when the popup browser window is closed
+  useEffect(() => {
+    const onClosed = () => setBrowserOpen(false)
+    window.wallet.onBrowserClosed(onClosed)
+    return () => window.wallet.offBrowserClosed(onClosed)
+  }, [])
+
   const handleWalletReady = (addrs: WalletAddresses) => {
     setAddresses(addrs)
     setPage('dashboard')
+  }
+
+  const handleBrowserBtn = () => {
+    window.wallet.openBrowser()
+    setBrowserOpen(true)
   }
 
   const inDashboard = page === 'dashboard'
@@ -89,12 +102,21 @@ export function App() {
             Market
           </button>
 
+          {/* Browser — opens a detached popup; active dot when open */}
           <button
             type="button"
-            className="bottom-nav-btn"
-            disabled
-            title="Coming in Phase 6"
+            className={`bottom-nav-btn${browserOpen ? ' active' : ''}`}
+            onClick={handleBrowserBtn}
+            style={{ position: 'relative' }}
           >
+            {browserOpen && (
+              <span style={{
+                position: 'absolute', top: 6, right: 14,
+                width: 6, height: 6, borderRadius: '50%',
+                background: '#22c55e',
+                boxShadow: '0 0 4px #22c55e'
+              }} />
+            )}
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10"/>
               <line x1="2" y1="12" x2="22" y2="12"/>

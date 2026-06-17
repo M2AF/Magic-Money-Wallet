@@ -68,6 +68,8 @@ export interface WalletToken {
   decimals: number
   balance: string
   usdValue: string | null
+  nativeEquivalent: string | null
+  nativeSymbol: string
   logoUri: string | null
   chain: string
   chainLabel: string
@@ -98,6 +100,7 @@ export interface CollectiblesResult {
   items: WalletCollectible[]
   fetchedAt: number
   error: string | null
+  chainResults: Record<string, { count: number; error: string | null }>
 }
 
 export type MainTab = 'portfolio' | 'market'
@@ -153,6 +156,25 @@ declare global {
       getCollectibles(): Promise<CollectiblesResult>
       minimize(): void
       close(): void
+      // Phase 6: popup dApp browser
+      openBrowser(): void
+      closeBrowser(): void
+      browserBack(): void
+      browserForward(): void
+      browserReload(): void
+      browserHome(): void
+      browserNavigate(url: string): Promise<void>
+      browserGetState(): Promise<{ url: string; canBack: boolean; canForward: boolean; loading: boolean }>
+      onBrowserUrl(cb: (url: string) => void): void
+      onBrowserLoading(cb: (loading: boolean) => void): void
+      onBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void
+      onBrowserTitle(cb: (title: string) => void): void
+      offBrowserUrl(cb: (url: string) => void): void
+      offBrowserLoading(cb: (loading: boolean) => void): void
+      offBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void
+      offBrowserTitle(cb: (title: string) => void): void
+      onBrowserClosed(cb: () => void): void
+      offBrowserClosed(cb: () => void): void
     }
   }
 }

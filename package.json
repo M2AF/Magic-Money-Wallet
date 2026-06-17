@@ -5,10 +5,11 @@
   "main": "./out/main/index.js",
   "private": true,
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build:inject": "npx esbuild src/preload/web3-inject.ts --bundle --platform=node --format=cjs --external:electron --outfile=out/main/web3-inject.js",
+    "dev": "npm run build:inject && electron-vite dev",
+    "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && electron-builder"
+    "package": "electron-vite build && npm run build:inject && electron-builder"
   },
   "dependencies": {
     "@noble/hashes": "^1.4.0",
