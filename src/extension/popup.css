@@ -1,0 +1,16 @@
+/* Extension popup overrides — hides the Electron-only titlebar */
+
+.titlebar {
+  display: none !important;
+}
+
+.app-shell {
+  padding-top: 0 !important;
+}
+
+/* Extension popup is 400×600 — make the shell fill it exactly */
+html, body, #root, .app-shell {
+  width: 400px;
+  height: 600px;
+  overflow: hidden;
+}

@@ -9,7 +9,8 @@
     "dev": "npm run build:inject && electron-vite dev",
     "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && npm run build:inject && electron-builder"
+    "package": "electron-vite build && npm run build:inject && electron-builder",
+    "build:extension": "vite build --config vite.extension.config.ts"
   },
   "dependencies": {
     "@noble/curves": "^1.4.0",
@@ -38,7 +39,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "typescript": "^5.5.4",
-    "vite": "^5.4.0"
+    "vite": "^5.4.0",
+    "vite-plugin-node-polyfills": "^0.28.0"
   },
   "build": {
     "appId": "com.magicmoney.wallet",

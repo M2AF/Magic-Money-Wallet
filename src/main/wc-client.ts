@@ -5,8 +5,32 @@
  * Renderer receives serialised, key-free data via IPC events.
  */
 
+// ── Node.js 20 global polyfills — must run before WalletConnect imports ───────
+
+// 1. WebSocket — Node 20 has no native global WebSocket
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+if (typeof globalThis.WebSocket === 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis as any).WebSocket = require('ws')
+}
+
+// 2. Web Crypto — WalletConnect relay uses crypto.subtle for session encryption.
+//    Node 20 has webcrypto but it may not be bound to globalThis.crypto.subtle.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const _nodeCrypto = require('crypto')
+if (!globalThis.crypto) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis as any).crypto = _nodeCrypto.webcrypto
+} else if (!globalThis.crypto.subtle) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(globalThis.crypto as any).subtle = _nodeCrypto.webcrypto.subtle
+}
+
 import SignClient from '@walletconnect/sign-client'
 import type { SignClientTypes, SessionTypes } from '@walletconnect/types'
+import { app } from 'electron'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { join, dirname } from 'path'
 import { getSdkError, buildApprovedNamespaces } from '@walletconnect/utils'
 import { BrowserWindow } from 'electron'
 import { HDKey } from '@scure/bip32'
@@ -49,6 +73,7 @@ function getRpc(chainId: number): string {
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let _client: InstanceType<typeof SignClient> | null = null
+let _initPromise: Promise<void> | null = null
 const _proposals = new Map<number, SignClientTypes.EventArguments['session_proposal']>()
 const _requests  = new Map<number, SignClientTypes.EventArguments['session_request']>()
 
@@ -176,39 +201,80 @@ function deriveEvmKey(): `0x${string}` {
   return `0x${Buffer.from(child.privateKey).toString('hex')}`
 }
 
+// ── File-based storage (replaces indexedDB which doesn't exist in Node.js) ───
+
+class FileStorage {
+  private data: Record<string, unknown> = {}
+  private filePath: string
+
+  constructor() {
+    this.filePath = join(app.getPath('userData'), 'wc-sessions.json')
+    if (existsSync(this.filePath)) {
+      try { this.data = JSON.parse(readFileSync(this.filePath, 'utf-8')) } catch { this.data = {} }
+    }
+  }
+
+  private save() {
+    mkdirSync(dirname(this.filePath), { recursive: true })
+    writeFileSync(this.filePath, JSON.stringify(this.data))
+  }
+
+  async getKeys(): Promise<string[]> { return Object.keys(this.data) }
+  async getEntries<T = unknown>(): Promise<[string, T][]> { return Object.entries(this.data) as [string, T][] }
+  async getItem<T = unknown>(key: string): Promise<T | undefined> { return this.data[key] as T | undefined }
+  async setItem<T = unknown>(key: string, value: T): Promise<void> { this.data[key] = value; this.save() }
+  async removeItem(key: string): Promise<void> { delete this.data[key]; this.save() }
+}
+
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
+async function _doInit(): Promise<void> {
+  const config = loadConfig()
+  _client = await SignClient.init({
+    projectId: config.walletConnectProjectId,
+    logger: 'debug',
+    storage: new FileStorage(),
+    metadata: {
+      name: 'MagicMoney Wallet',
+      description: 'Multi-chain self-custody wallet by ChainLens',
+      url: 'https://chainlensnft.info',
+      icons: ['https://chainlensnft.info/favicon.png']
+    }
+  })
+
+  _client.on('session_proposal', proposal => {
+    _proposals.set(proposal.id, proposal)
+    pushAll('wc:proposal', serProposal(proposal))
+  })
+
+  _client.on('session_request', request => {
+    _requests.set(request.id, request)
+    pushAll('wc:request', serRequest(request))
+  })
+
+  _client.on('session_delete', () => {
+    pushAll('wc:sessions-changed', wcGetSessions())
+  })
+
+  _client.on('session_expire', () => {
+    pushAll('wc:sessions-changed', wcGetSessions())
+  })
+}
+
+/** Ensures the client is initialised — retries if startup failed. */
+async function ensureClient(): Promise<void> {
+  if (_client) return
+  if (!_initPromise) _initPromise = _doInit().catch(e => { _initPromise = null; throw e })
+  await _initPromise
+  if (!_client) throw new Error('WalletConnect failed to initialise')
+}
+
 export async function initWalletConnect(): Promise<void> {
+  _initPromise = _doInit()
   try {
-    const config = loadConfig()
-    _client = await SignClient.init({
-      projectId: config.walletConnectProjectId,
-      metadata: {
-        name: 'MagicMoney Wallet',
-        description: 'Multi-chain self-custody wallet by ChainLens',
-        url: 'https://chainlensnft.info',
-        icons: ['https://chainlensnft.info/favicon.png']
-      }
-    })
-
-    _client.on('session_proposal', proposal => {
-      _proposals.set(proposal.id, proposal)
-      pushAll('wc:proposal', serProposal(proposal))
-    })
-
-    _client.on('session_request', request => {
-      _requests.set(request.id, request)
-      pushAll('wc:request', serRequest(request))
-    })
-
-    _client.on('session_delete', () => {
-      pushAll('wc:sessions-changed', wcGetSessions())
-    })
-
-    _client.on('session_expire', () => {
-      pushAll('wc:sessions-changed', wcGetSessions())
-    })
+    await _initPromise
   } catch (e) {
+    _initPromise = null
     console.error('[WC] init failed:', e)
   }
 }
@@ -225,11 +291,14 @@ export function wcGetPendingProposals(): WcProposal[] {
 }
 
 export async function wcPair(uri: string): Promise<void> {
-  if (!_client) throw new Error('WalletConnect not initialised')
-  await _client.pair({ uri })
+  await ensureClient()
+  // Fire-and-forget: pair() blocks until relay ACK which can take several seconds.
+  // The session_proposal event fires asynchronously — we don't need to wait.
+  _client!.pair({ uri }).catch(e => console.error('[WC] pair error:', e))
 }
 
 export async function wcApproveSession(proposalId: number): Promise<WcSession> {
+  await ensureClient()
   if (!_client) throw new Error('WalletConnect not initialised')
   const proposal = _proposals.get(proposalId)
   if (!proposal) throw new Error('Proposal not found')

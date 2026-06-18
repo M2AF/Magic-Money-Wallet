@@ -295,6 +295,7 @@ function SessionRow({ session, onDisconnect }: { session: WcSession; onDisconnec
 function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: () => void }) {
   const [uri, setUri] = useState('')
   const [loading, setLoading] = useState(false)
+  const [waiting, setWaiting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const pair = async () => {
@@ -306,11 +307,48 @@ function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: ()
     setError(null)
     try {
       await window.wallet.wcPair(uri.trim())
-      onPaired()
+      // pair() returns immediately — proposal arrives via event, show waiting state
+      setLoading(false)
+      setWaiting(true)
     } catch (e) {
       setError(String(e))
       setLoading(false)
     }
+  }
+
+  // Auto-close once a proposal arrives (WalletConnectManager will show it)
+  useEffect(() => {
+    if (!waiting) return
+    const onProposal = () => onPaired()
+    window.wallet.onWcProposal(onProposal)
+    const timeout = setTimeout(() => {
+      setWaiting(false)
+      setError('No response from dApp — the URI may have expired. Try again.')
+    }, 30000)
+    return () => {
+      window.wallet.offWcProposal(onProposal)
+      clearTimeout(timeout)
+    }
+  }, [waiting, onPaired])
+
+  if (waiting) {
+    return (
+      <Overlay onClick={onClose}>
+        <ModalCard onClick={e => e.stopPropagation()}>
+          <div style={{ textAlign: 'center', padding: '24px 0 16px' }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>⏳</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 8 }}>Waiting for dApp…</div>
+            <div style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
+              The connection request was sent.<br />
+              Approve it in the dApp to continue.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} style={{ ...secondaryBtnStyle, width: '100%' }}>
+            Cancel
+          </button>
+        </ModalCard>
+      </Overlay>
+    )
   }
 
   return (
@@ -340,7 +378,7 @@ function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: ()
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button type="button" onClick={onClose} style={secondaryBtnStyle}>Cancel</button>
           <button type="button" onClick={pair} disabled={loading || !uri.trim()} style={primaryBtnStyle}>
-            {loading ? 'Connecting…' : 'Connect'}
+            {loading ? 'Sending…' : 'Connect'}
           </button>
         </div>
       </ModalCard>
@@ -368,10 +406,16 @@ export function WalletConnectManager({ panelOpen, onPanelClose, onSessionsChange
     onSessionsChange(s.length)
   }, [onSessionsChange])
 
-  // Load sessions on mount
+  // Load sessions + any pending proposals/requests that arrived while popup was closed
   useEffect(() => {
     window.wallet.wcGetSessions().then(updateSessions).catch(() => {})
-  }, [updateSessions])
+    ;(window.wallet as any).wcGetPendingProposals?.().then((ps: WcProposal[]) => {
+      if (ps.length > 0) { setProposal(ps[0]); onPendingChange(true) }
+    }).catch(() => {})
+    ;(window.wallet as any).wcGetPendingRequests?.().then((rs: WcRequest[]) => {
+      if (rs.length > 0) { setRequest(rs[0]); onPendingChange(true) }
+    }).catch(() => {})
+  }, [updateSessions, onPendingChange])
 
   // Subscribe to push events from main process
   useEffect(() => {
