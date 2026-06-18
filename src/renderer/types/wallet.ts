@@ -82,11 +82,17 @@ export interface TokensResult {
   error: string | null
 }
 
+export interface NftTrait {
+  trait_type: string
+  value: string
+}
+
 export interface WalletCollectible {
   id: string
   name: string
   description: string | null
   image: string | null
+  animationUrl: string | null
   collectionName: string | null
   chain: string
   chainLabel: string
@@ -94,6 +100,13 @@ export interface WalletCollectible {
   tokenId: string
   contractAddress: string
   contractType: string
+  traits: NftTrait[]
+}
+
+export interface NftFloorPrice {
+  floor: string | null
+  currency: string
+  floorUsd: string | null
 }
 
 export interface CollectiblesResult {
@@ -103,7 +116,80 @@ export interface CollectiblesResult {
   chainResults: Record<string, { count: number; error: string | null }>
 }
 
-export type MainTab = 'portfolio' | 'market'
+// ── Phase 10: WalletConnect ──────────────────────────────────────────────────
+
+export interface WcSession {
+  topic: string
+  peerName: string
+  peerIcon: string | null
+  peerUrl: string
+  expiry: number
+  accounts: string[]
+}
+
+export interface WcProposal {
+  id: number
+  peerName: string
+  peerIcon: string | null
+  peerUrl: string
+  requiredChains: string[]
+  optionalChains: string[]
+  requiredMethods: string[]
+}
+
+export interface WcRequest {
+  id: number
+  topic: string
+  peerName: string
+  peerIcon: string | null
+  chainId: string
+  method: string
+  params: unknown[]
+  humanReadable: string
+}
+
+// ── Phase 9: ChainLens Profile ───────────────────────────────────────────────
+
+export interface ClWallet {
+  id: string
+  user_id: string
+  chain: string
+  address: string
+  watch_only: boolean
+  verified_at: string | null
+  is_primary: boolean | null
+  label: string | null
+}
+
+export interface ClLinkedAccount {
+  id: string
+  user_id: string
+  provider: string
+  provider_id: string
+  display_name: string | null
+  avatar_url: string | null
+  email: string | null
+}
+
+export interface ClUser {
+  id: string
+  provider: string
+  provider_id: string
+  display_name: string | null
+  avatar_url: string | null
+  email: string | null
+  created_at: string | null
+  cl_wallets: ClWallet[]
+  cl_linked_accounts: ClLinkedAccount[]
+}
+
+export interface ChainlensSyncResult {
+  success: boolean
+  profile: ClUser | null
+  error: string | null
+}
+
+export type MainTab = 'portfolio' | 'market' | 'apphub' | 'profile'
 
 export type AppPage =
   | 'loading'
@@ -154,6 +240,7 @@ declare global {
       getCoinChart(coinId: string, days: string): Promise<Array<[number, number]>>
       getTokens(): Promise<TokensResult>
       getCollectibles(): Promise<CollectiblesResult>
+      getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
       minimize(): void
       close(): void
       // Phase 6: popup dApp browser
@@ -175,6 +262,26 @@ declare global {
       offBrowserTitle(cb: (title: string) => void): void
       onBrowserClosed(cb: () => void): void
       offBrowserClosed(cb: () => void): void
+      // Phase 9: ChainLens profile sync
+      chainlensGetProfile(): Promise<ClUser | null>
+      chainlensSync(): Promise<ChainlensSyncResult>
+      chainlensUpdateProfile(updates: { display_name?: string; avatar_url?: string }): Promise<{ success: boolean; error: string | null }>
+      chainlensPickAvatar(): Promise<string | null>
+      // Phase 10: WalletConnect
+      wcGetSessions(): Promise<WcSession[]>
+      wcGetPendingProposals(): Promise<WcProposal[]>
+      wcPair(uri: string): Promise<void>
+      wcApproveSession(id: number): Promise<WcSession>
+      wcRejectSession(id: number): Promise<void>
+      wcDisconnect(topic: string): Promise<void>
+      wcApproveRequest(id: number): Promise<void>
+      wcRejectRequest(id: number): Promise<void>
+      onWcProposal(cb: (p: WcProposal) => void): void
+      onWcRequest(cb: (r: WcRequest) => void): void
+      onWcSessionsChanged(cb: (s: WcSession[]) => void): void
+      offWcProposal(cb: (p: WcProposal) => void): void
+      offWcRequest(cb: (r: WcRequest) => void): void
+      offWcSessionsChanged(cb: (s: WcSession[]) => void): void
     }
   }
 }

@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('wallet', {
   getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),
   getTokens:       ()                  => ipcRenderer.invoke('wallet:get-tokens'),
   getCollectibles: ()                  => ipcRenderer.invoke('wallet:get-collectibles'),
+  getNftFloor:     (chain: string, contractAddress: string) =>
+    ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
 
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
@@ -73,4 +75,27 @@ contextBridge.exposeInMainWorld('wallet', {
   // Fired when the popup is closed (so the wallet can update the Browser button state)
   onBrowserClosed:    (cb: () => void)  => ipcRenderer.on('browser:closed',  () => cb()),
   offBrowserClosed:   (cb: () => void)  => ipcRenderer.removeListener('browser:closed', cb as never),
+
+  // ── Phase 10: WalletConnect ───────────────────────────────────────────────
+  wcGetSessions:          ()                  => ipcRenderer.invoke('wc:get-sessions'),
+  wcGetPendingProposals:  ()                  => ipcRenderer.invoke('wc:get-pending-proposals'),
+  wcPair:                 (uri: string)       => ipcRenderer.invoke('wc:pair', uri),
+  wcApproveSession:       (id: number)        => ipcRenderer.invoke('wc:approve-session', id),
+  wcRejectSession:        (id: number)        => ipcRenderer.invoke('wc:reject-session', id),
+  wcDisconnect:           (topic: string)     => ipcRenderer.invoke('wc:disconnect', topic),
+  wcApproveRequest:       (id: number)        => ipcRenderer.invoke('wc:approve-request', id),
+  wcRejectRequest:        (id: number)        => ipcRenderer.invoke('wc:reject-request', id),
+  onWcProposal:           (cb: (p: unknown) => void) => ipcRenderer.on('wc:proposal',          (_e, v) => cb(v)),
+  onWcRequest:            (cb: (r: unknown) => void) => ipcRenderer.on('wc:request',            (_e, v) => cb(v)),
+  onWcSessionsChanged:    (cb: (s: unknown) => void) => ipcRenderer.on('wc:sessions-changed',   (_e, v) => cb(v)),
+  offWcProposal:          (cb: (p: unknown) => void) => ipcRenderer.removeListener('wc:proposal',          cb as never),
+  offWcRequest:           (cb: (r: unknown) => void) => ipcRenderer.removeListener('wc:request',            cb as never),
+  offWcSessionsChanged:   (cb: (s: unknown) => void) => ipcRenderer.removeListener('wc:sessions-changed',   cb as never),
+
+  // ── Phase 9: ChainLens profile sync ──────────────────────────────────────
+  chainlensGetProfile:    ()                                                   => ipcRenderer.invoke('chainlens:get-profile'),
+  chainlensSync:          ()                                                   => ipcRenderer.invoke('chainlens:sync'),
+  chainlensUpdateProfile: (updates: { display_name?: string; avatar_url?: string }) =>
+    ipcRenderer.invoke('chainlens:update-profile', updates),
+  chainlensPickAvatar:    ()                                                   => ipcRenderer.invoke('chainlens:pick-avatar'),
 })

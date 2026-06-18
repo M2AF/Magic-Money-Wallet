@@ -22,10 +22,7 @@ export default defineConfig({
     plugins: [react()],
     build: {
       rollupOptions: {
-        input: {
-          index: 'src/renderer/index.html',
-          browser: 'src/renderer/browser.html'
-        }
+        input: { index: 'src/renderer/index.html' }
       }
     }
   }

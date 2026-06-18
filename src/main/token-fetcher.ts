@@ -691,18 +691,35 @@ async function fetchCardanoNFTs(
           const collection = (onchain.collection ?? onchain.project ?? registry.name ?? null) as string | null
           const image = resolveCardanoImage(meta)
 
+          // Traits from CIP-25 attributes or top-level keys
+          const rawAttrs = onchain.attributes ?? onchain.traits ?? null
+          const traits: Array<{ trait_type: string; value: string }> = []
+          if (rawAttrs && typeof rawAttrs === 'object' && !Array.isArray(rawAttrs)) {
+            for (const [k, v] of Object.entries(rawAttrs as Record<string, unknown>)) {
+              if (v != null) traits.push({ trait_type: k, value: String(v) })
+            }
+          } else if (Array.isArray(rawAttrs)) {
+            for (const a of rawAttrs) {
+              if (a && typeof a === 'object' && 'trait_type' in a && 'value' in a) {
+                traits.push({ trait_type: String(a.trait_type), value: String(a.value) })
+              }
+            }
+          }
+
           return {
             id: `cardano:${a.unit}`,
             name: String(name),
             description: (onchain.description as string | null) ?? null,
             image,
+            animationUrl: null,
             collectionName: collection ? String(collection) : null,
             chain: 'cardano',
             chainLabel: 'Cardano',
             chainColor: '#2A7DEA',
-            tokenId: a.unit.slice(56), // asset_name hex after policy ID
-            contractAddress: a.unit.slice(0, 56), // policy ID
-            contractType: 'CIP25'
+            tokenId: a.unit.slice(56),
+            contractAddress: a.unit.slice(0, 56),
+            contractType: 'CIP25',
+            traits
           }
         } catch { return null }
       })
@@ -745,8 +762,9 @@ async function fetchNftsForChain(
         contract: { address: string; name: string | null; tokenType: string }
         name: string | null
         description: string | null
-        image?: { cachedUrl: string | null; thumbnailUrl: string | null; originalUrl: string | null }
+        image?: { cachedUrl: string | null; thumbnailUrl: string | null; originalUrl: string | null; pngUrl: string | null }
         collection?: { name: string | null }
+        raw?: { metadata?: { attributes?: Array<{ trait_type?: string; value?: unknown }>; animation_url?: string } }
       }>
       error?: string
     }
@@ -760,12 +778,16 @@ async function fetchNftsForChain(
       id: `${chain.id}:${nft.contract.address}:${nft.tokenId}`,
       name: nft.name ?? `#${nft.tokenId}`,
       description: nft.description ?? null,
-      image: normalizeImageUrl(nft.image?.cachedUrl ?? nft.image?.thumbnailUrl ?? nft.image?.originalUrl ?? null),
+      image: normalizeImageUrl(nft.image?.cachedUrl ?? nft.image?.pngUrl ?? nft.image?.thumbnailUrl ?? nft.image?.originalUrl ?? null),
+      animationUrl: nft.raw?.metadata?.animation_url ? normalizeImageUrl(nft.raw.metadata.animation_url) : null,
       collectionName: nft.collection?.name ?? nft.contract.name ?? null,
       chain: chain.id, chainLabel: chain.label, chainColor: chain.color,
       tokenId: nft.tokenId,
       contractAddress: nft.contract.address,
-      contractType: nft.contract.tokenType
+      contractType: nft.contract.tokenType,
+      traits: (nft.raw?.metadata?.attributes ?? [])
+        .filter(a => a.trait_type != null && a.value != null)
+        .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
     }))
 
     console.log(`[NFT] ${chain.label}: found ${items.length} NFTs`)
@@ -814,18 +836,24 @@ async function fetchMonadNFTs(address: string, moralisKey: string): Promise<Wall
         ?? nft.media?.original_media_url
         ?? meta.image
         ?? null
+      const attrs = Array.isArray(meta.attributes) ? meta.attributes : []
       return {
         id: `monad:${nft.token_address}:${nft.token_id}`,
         name: meta.name ?? nft.name ?? `#${nft.token_id}`,
         description: meta.description ?? null,
         image: normalizeImageUrl(rawImage ?? null),
+        animationUrl: null,
         collectionName: nft.name ?? null,
         chain: 'monad',
         chainLabel: 'Monad',
         chainColor: '#836EF9',
         tokenId: nft.token_id,
         contractAddress: nft.token_address,
-        contractType: 'ERC-721'
+        contractType: 'ERC-721',
+        traits: attrs
+          .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
+          .filter(a => a['trait_type'] != null && a['value'] != null)
+          .map(a => ({ trait_type: String(a['trait_type']), value: String(a['value']) }))
       } satisfies WalletCollectible
     })
   } catch (e) {

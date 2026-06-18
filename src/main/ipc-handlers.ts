@@ -41,6 +41,12 @@ import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
+import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
+import {
+  wcGetSessions, wcGetPendingProposals,
+  wcPair, wcApproveSession, wcRejectSession,
+  wcDisconnect, wcApproveRequest, wcRejectRequest
+} from './wc-client'
 import {
   estimateEvmFee,
   estimateSolanaFee,
@@ -150,6 +156,8 @@ export function registerIpcHandlers(): void {
     saveMnemonic(_pendingMnemonic)
     saveAddresses(addresses)
     _pendingMnemonic = null   // clear from memory immediately
+    // fire-and-forget: sync to ChainLens profile
+    syncWallets(addresses, loadConfig()).catch(() => {})
     return addresses
   })
 
@@ -161,6 +169,8 @@ export function registerIpcHandlers(): void {
     const addresses = await deriveAddresses(mnemonic)
     saveMnemonic(mnemonic)
     saveAddresses(addresses)
+    // fire-and-forget: sync to ChainLens profile
+    syncWallets(addresses, loadConfig()).catch(() => {})
     return addresses
   })
 
@@ -272,6 +282,49 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+  })
+
+  // ── NFT floor price via OpenSea (EVM) ─────────────────────────────────────
+  // Chain slug mapping: wallet chain id → OpenSea chain slug
+  const OPENSEA_CHAIN: Record<string, string> = {
+    ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism',
+    base: 'base', polygon: 'matic', avalanche: 'avalanche',
+    blast: 'blast', zora: 'zora', abstract: 'abstract'
+  }
+
+  ipcMain.handle('wallet:get-nft-floor', async (_e, chain: string, contractAddress: string) => {
+    const config = loadConfig()
+    const osChain = OPENSEA_CHAIN[chain]
+    if (!osChain || !config.openseaKey || !contractAddress) {
+      return { floor: null, currency: 'ETH', floorUsd: null }
+    }
+    try {
+      // Step 1: get collection slug from contract
+      const contractRes = await fetch(
+        `https://api.opensea.io/api/v2/chain/${osChain}/contract/${contractAddress}`,
+        { headers: { 'x-api-key': config.openseaKey }, signal: AbortSignal.timeout(8_000) }
+      )
+      if (!contractRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
+      const contractJson = await contractRes.json() as { collection?: string }
+      const slug = contractJson.collection
+      if (!slug) return { floor: null, currency: 'ETH', floorUsd: null }
+
+      // Step 2: get floor price from collection stats
+      const statsRes = await fetch(
+        `https://api.opensea.io/api/v2/collections/${slug}/stats`,
+        { headers: { 'x-api-key': config.openseaKey }, signal: AbortSignal.timeout(8_000) }
+      )
+      if (!statsRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
+      const statsJson = await statsRes.json() as {
+        total?: { floor_price?: number; floor_price_symbol?: string }
+      }
+      const floor = statsJson.total?.floor_price
+      const symbol = statsJson.total?.floor_price_symbol ?? 'ETH'
+      if (floor == null) return { floor: null, currency: symbol, floorUsd: null }
+      return { floor: floor.toFixed(4), currency: symbol, floorUsd: null }
+    } catch {
+      return { floor: null, currency: 'ETH', floorUsd: null }
+    }
   })
 
   // ── Phase 6: Built-in browser controls ───────────────────────────────────
@@ -478,5 +531,55 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('config:set', (_event, config: Partial<WalletConfig>) => {
     saveConfig(config)
     return true
+  })
+
+  // ── Phase 9: Avatar picker ────────────────────────────────────────────────
+  ipcMain.handle('chainlens:pick-avatar', async () => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const { filePaths, canceled } = await dialog.showOpenDialog(win, {
+      title: 'Choose Profile Photo',
+      filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }],
+      properties: ['openFile']
+    })
+    if (canceled || !filePaths[0]) return null
+    const { readFileSync } = await import('fs')
+    const buf = readFileSync(filePaths[0])
+    const ext = filePaths[0].split('.').pop()?.toLowerCase() ?? 'jpg'
+    const mimeMap: Record<string, string> = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg',
+      png: 'image/png', gif: 'image/gif', webp: 'image/webp'
+    }
+    return `data:${mimeMap[ext] ?? 'image/jpeg'};base64,${buf.toString('base64')}`
+  })
+
+  // ── Phase 10: WalletConnect ───────────────────────────────────────────────
+  ipcMain.handle('wc:get-sessions',          () => wcGetSessions())
+  ipcMain.handle('wc:get-pending-proposals', () => wcGetPendingProposals())
+  ipcMain.handle('wc:pair',                  (_e, uri: string) => wcPair(uri))
+  ipcMain.handle('wc:approve-session',       (_e, id: number) => wcApproveSession(id))
+  ipcMain.handle('wc:reject-session',        (_e, id: number) => wcRejectSession(id))
+  ipcMain.handle('wc:disconnect',            (_e, topic: string) => wcDisconnect(topic))
+  ipcMain.handle('wc:approve-request',       (_e, id: number) => wcApproveRequest(id))
+  ipcMain.handle('wc:reject-request',        (_e, id: number) => wcRejectRequest(id))
+
+  // ── Phase 9: ChainLens profile sync ──────────────────────────────────────
+  ipcMain.handle('chainlens:get-profile', async () => {
+    const addresses = loadAddresses()
+    if (!addresses?.evm) return null
+    return getProfileByAddress(addresses.evm, loadConfig())
+  })
+
+  ipcMain.handle('chainlens:sync', async () => {
+    const addresses = loadAddresses()
+    if (!addresses?.evm) return { success: false, profile: null, error: 'No wallet found' }
+    return syncWallets(addresses, loadConfig())
+  })
+
+  ipcMain.handle('chainlens:update-profile', async (_e, updates: { display_name?: string; avatar_url?: string }) => {
+    const addresses = loadAddresses()
+    if (!addresses?.evm) return { success: false, error: 'No wallet found' }
+    const profile = await getProfileByAddress(addresses.evm, loadConfig())
+    if (!profile) return { success: false, error: 'No ChainLens profile found' }
+    return updateProfile(profile.id, updates, loadConfig())
   })
 }

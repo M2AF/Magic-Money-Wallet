@@ -119,7 +119,6 @@ export function BrowserApp() {
             type="text"
             value={inputUrl}
             onChange={e => setInputUrl(e.target.value)}
-            onFocus={() => setInputUrl(url)}
             spellCheck={false}
             style={{
               width: '100%', padding: '5px 12px',
@@ -161,7 +160,7 @@ export function BrowserApp() {
       </div>
 
       {/* ── Content area (filled by WebContentsView from main process) ── */}
-      <div style={{ flex: 1, background: '#fff' }} />
+      <div style={{ flex: 1, background: 'transparent' }} />
     </div>
   )
 }

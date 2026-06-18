@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 
@@ -252,15 +252,34 @@ function TokensView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onT
 
 // ─── IPFS image with gateway fallbacks ───────────────────────────────────────
 
-const IPFS_GATEWAYS = ['https://dweb.link/ipfs/', 'https://ipfs.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/']
+// Ordered by reliability — dweb.link is deprioritised (HTTP/2 stream resets under load)
+const IPFS_GATEWAYS = [
+  'https://ipfs.io/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://nftstorage.link/ipfs/',
+  'https://4everland.io/ipfs/',
+  'https://dweb.link/ipfs/',
+]
+
+const IPFS_PREFIXES = [
+  'https://ipfs.io/ipfs/',
+  'https://dweb.link/ipfs/',
+  'https://cloudflare-ipfs.com/ipfs/',
+  'https://cf-ipfs.com/ipfs/',
+  'https://gateway.pinata.cloud/ipfs/',
+  'https://nftstorage.link/ipfs/',
+  'https://4everland.io/ipfs/',
+  'https://gateway.ipfs.io/ipfs/',
+]
 
 function ipfsHash(url: string): string | null {
-  if (url.startsWith('https://dweb.link/ipfs/'))              return url.slice('https://dweb.link/ipfs/'.length)
-  if (url.startsWith('https://cloudflare-ipfs.com/ipfs/'))    return url.slice('https://cloudflare-ipfs.com/ipfs/'.length)
-  if (url.startsWith('https://cf-ipfs.com/ipfs/'))            return url.slice('https://cf-ipfs.com/ipfs/'.length)
-  if (url.startsWith('https://ipfs.io/ipfs/'))                return url.slice('https://ipfs.io/ipfs/'.length)
-  if (url.startsWith('https://gateway.pinata.cloud/ipfs/'))   return url.slice('https://gateway.pinata.cloud/ipfs/'.length)
-  return null
+  if (url.startsWith('ipfs://')) return url.slice('ipfs://'.length)
+  for (const p of IPFS_PREFIXES) {
+    if (url.startsWith(p)) return url.slice(p.length)
+  }
+  const m = url.match(/\/ipfs\/([a-zA-Z0-9].*)/)
+  return m ? m[1] : null
 }
 
 function NftImage({ src, alt }: { src: string; alt: string }) {
@@ -291,6 +310,187 @@ function NftImage({ src, alt }: { src: string; alt: string }) {
   )
 }
 
+// ─── NFT Detail Modal ─────────────────────────────────────────────────────────
+
+function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () => void }) {
+  const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
+  const [copying, setCopying] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Load floor price async — only for EVM chains where OpenSea has coverage
+    const evmChains = ['ethereum','arbitrum','optimism','base','polygon','avalanche','blast','zora','abstract']
+    if (evmChains.includes(nft.chain) && nft.contractAddress) {
+      window.wallet.getNftFloor(nft.chain, nft.contractAddress).then(setFloor).catch(() => {})
+    }
+    // Prevent body scroll
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [nft])
+
+  function copy(text: string, key: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopying(key)
+      setTimeout(() => setCopying(null), 1200)
+    })
+  }
+
+  function downloadImage() {
+    if (!nft.image) return
+    const a = document.createElement('a')
+    a.href = nft.image
+    a.download = `${nft.name.replace(/[^a-z0-9]/gi, '_')}.jpg`
+    a.target = '_blank'
+    a.rel = 'noopener noreferrer'
+    a.click()
+  }
+
+  const short = (s: string, n = 10) => s.length <= n * 2 + 3 ? s : `${s.slice(0, n)}…${s.slice(-n)}`
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.82)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--bg-dark)', border: '1px solid var(--border)',
+          borderRadius: 16, width: '100%', maxWidth: 480,
+          maxHeight: '90vh', overflow: 'hidden',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.7)'
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px 0' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{nft.name}</div>
+            {nft.collectionName && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1 }}>{nft.collectionName}</div>
+            )}
+          </div>
+          <button
+            type="button" onClick={onClose}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 4 }}
+          >✕</button>
+        </div>
+
+        {/* Scrollable body */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px 16px' }}>
+
+          {/* Image */}
+          <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+            {nft.image
+              ? <NftImage src={nft.image} alt={nft.name} />
+              : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 40 }}>🖼</div>
+            }
+          </div>
+
+          {/* Chain + floor row */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 700 }}>{nft.chainLabel}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{nft.contractType}</span>
+            {floor?.floor != null && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
+                Floor: {floor.floor} {floor.currency}
+              </span>
+            )}
+            {floor === null && ['ethereum','arbitrum','optimism','base','polygon','avalanche','blast','zora','abstract'].includes(nft.chain) && (
+              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)' }}>Loading floor…</span>
+            )}
+          </div>
+
+          {/* Description */}
+          {nft.description && (
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 12 }}>{nft.description}</p>
+          )}
+
+          {/* Meta fields */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            {[
+              { label: 'Token ID', value: nft.tokenId, key: 'tokenId' },
+              { label: 'Contract', value: nft.contractAddress, key: 'contract' },
+            ].map(({ label, value, key }) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-surface)', borderRadius: 8, padding: '6px 10px' }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600, minWidth: 60 }}>{label}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {short(value, 12)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => copy(value, key)}
+                  style={{ background: 'none', border: 'none', color: copying === key ? 'var(--success)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: 2, flexShrink: 0 }}
+                  title="Copy"
+                >
+                  {copying === key ? '✓' : '⎘'}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Traits */}
+          {nft.traits && nft.traits.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 7 }}>Traits</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 6 }}>
+                {nft.traits.map((t, i) => (
+                  <div key={i} style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px' }}>
+                    <div style={{ fontSize: 9, color: 'var(--accent-text)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>{t.trait_type}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-primary)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {nft.image && (
+              <button
+                type="button" onClick={downloadImage}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8,
+                  background: 'var(--accent-dim)', border: '1px solid var(--border-active)',
+                  color: 'var(--accent-text)', fontSize: 12, fontWeight: 700,
+                  fontFamily: 'var(--font-body)', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                }}
+              >
+                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Download Image
+              </button>
+            )}
+            {nft.animationUrl && (
+              <button
+                type="button"
+                onClick={() => { window.wallet.openBrowser(); setTimeout(() => window.wallet.browserNavigate(nft.animationUrl!), 400) }}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 8,
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)', fontSize: 12, fontWeight: 700,
+                  fontFamily: 'var(--font-body)', cursor: 'pointer'
+                }}
+              >
+                View Animation
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Collectibles sub-tab ─────────────────────────────────────────────────────
 
 interface CollectiblesViewProps {
@@ -300,9 +500,10 @@ interface CollectiblesViewProps {
   onSpam: (id: string) => void
   onShowManager: () => void
   onNftsLoaded: (nfts: WalletCollectible[]) => void
+  onSelectNft: (nft: WalletCollectible) => void
 }
 
-function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onNftsLoaded }: CollectiblesViewProps) {
+function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onNftsLoaded, onSelectNft }: CollectiblesViewProps) {
   const [result, setResult]   = useState<CollectiblesResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -374,9 +575,10 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
           const isHovered = hovered === id
           return (
             <div key={id}
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', transition: 'border-color var(--transition)', position: 'relative' }}
+              style={{ background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color var(--transition)', position: 'relative', cursor: 'pointer' }}
               onMouseEnter={() => setHovered(id)}
               onMouseLeave={() => setHovered(null)}
+              onClick={() => onSelectNft(nft)}
             >
               <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.3)' }}>
                 {nft.image
@@ -384,7 +586,7 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
                   : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
                 }
                 {isHovered && (
-                  <div style={{ position: 'absolute', top: 6, right: 6 }}>
+                  <div style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
                     <HideSpamButtons onHide={() => onHide(id)} onSpam={() => onSpam(id)} />
                   </div>
                 )}
@@ -490,6 +692,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
   const [showManager, setShowManager] = useState(false)
   const [allTokens,   setAllTokens]   = useState<WalletToken[]>([])
   const [allNfts,     setAllNfts]     = useState<WalletCollectible[]>([])
+  const [selectedNft, setSelectedNft] = useState<WalletCollectible | null>(null)
 
   const hideItem = useCallback((id: string) => {
     setHiddenItems(prev => { const next = new Set(prev).add(id); saveSet(hiddenKey, next); return next })
@@ -764,7 +967,12 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
           onSpam={markSpam}
           onShowManager={() => setShowManager(true)}
           onNftsLoaded={onNftsLoaded}
+          onSelectNft={setSelectedNft}
         />
+      )}
+
+      {selectedNft && (
+        <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} />
       )}
 
       {/* Send modal */}

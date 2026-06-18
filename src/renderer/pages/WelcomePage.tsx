@@ -68,6 +68,27 @@ export function WelcomePage({ onNavigate }: Props) {
           </svg>
           Import Existing Wallet
         </button>
+
+        {/* ChainLens SSO — re-import path for existing ChainLens users */}
+        <div style={{ position: 'relative', textAlign: 'center', margin: '4px 0' }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'var(--border)', transform: 'translateY(-50%)' }} />
+          <span style={{ position: 'relative', background: 'var(--bg-dark)', padding: '0 10px', fontSize: 11, color: 'var(--text-muted)' }}>or</span>
+        </div>
+        <button
+          className="btn btn-ghost"
+          onClick={() => onNavigate('import')}
+          style={{
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.12) 100%)',
+            border: '1px solid rgba(99,102,241,0.35)',
+            color: '#a5b4fc'
+          }}
+        >
+          <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+          Sign in with ChainLens
+        </button>
       </div>
 
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>

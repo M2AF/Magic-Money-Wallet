@@ -78,6 +78,10 @@ export interface WalletConfig {
   blockfrostKey: string
   tatumKey: string
   moralisKey: string
+  openseaKey: string
+  supabaseUrl: string
+  supabaseKey: string
+  walletConnectProjectId: string
 }
 
 const DEFAULT_CONFIG: WalletConfig = {
@@ -85,7 +89,11 @@ const DEFAULT_CONFIG: WalletConfig = {
   heliusKey: 'REDACTED_HELIUS_KEY',
   blockfrostKey: 'REDACTED_BLOCKFROST_KEY',
   tatumKey: 'REDACTED_TATUM_KEY',
-  moralisKey: 'REDACTED_JWT'
+  moralisKey: 'REDACTED_JWT',
+  openseaKey: 'REDACTED_OPENSEA_KEY',
+  supabaseUrl: 'https://REDACTED_SUPABASE_PROJECT.supabase.co',
+  supabaseKey: 'REDACTED_SUPABASE_SECRET',
+  walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c'
 }
 
 export function loadConfig(): WalletConfig {

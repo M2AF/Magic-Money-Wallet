@@ -539,3 +539,266 @@ h1, h2, h3 { font-family: var(--font-display); }
   opacity: 0.35;
   cursor: default;
 }
+/* ── Phase 7: App Hub ─────────────────────────────────────────────────────── */
+
+.apphub-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 16px 14px 0;
+  gap: 10px;
+}
+
+.apphub-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.apphub-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.apphub-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.apphub-search-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.apphub-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.apphub-search {
+  width: 100%;
+  padding: 7px 12px 7px 30px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-body);
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--transition);
+}
+
+.apphub-search:focus {
+  border-color: var(--border-active);
+}
+
+.apphub-pills-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.apphub-chains-row {
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.apphub-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.apphub-pill:hover {
+  color: var(--text-secondary);
+  border-color: var(--border-active);
+}
+
+.apphub-pill.active {
+  background: var(--accent-dim);
+  border-color: var(--border-active);
+  color: var(--accent-text);
+}
+
+.apphub-pill-count {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.apphub-chain-badge.muted {
+  opacity: 0.5;
+}
+
+.apphub-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 6px;
+}
+
+.apphub-empty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 40px 0;
+}
+
+.apphub-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.apphub-scroll::-webkit-scrollbar { width: 4px; }
+.apphub-scroll::-webkit-scrollbar-track { background: transparent; }
+.apphub-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.apphub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+/* ── App card ───────────────────────────────────────────────────────────── */
+
+.apphub-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.apphub-card:hover {
+  border-color: var(--border-active);
+  transform: translateY(-1px);
+}
+
+.apphub-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.apphub-favicon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  object-fit: contain;
+  background: var(--bg-surface);
+}
+
+.apphub-favicon-fallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.apphub-card-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.apphub-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.apphub-card-category {
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.apphub-card-chains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.apphub-chain-badge {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  text-transform: capitalize;
+}
+
+.apphub-open-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 5px 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-dim);
+  border: 1px solid var(--border-active);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background var(--transition);
+  margin-top: auto;
+}
+
+.apphub-open-btn:hover {
+  background: rgba(0, 170, 255, 0.28);
+}
+
+/* ── Phase 9: Profile ─────────────────────────────────────────────────────── */
+
+.profile-row:last-child {
+  border-bottom: none !important;
+}
+
+.profile-row:hover {
+  background: rgba(255,255,255,0.03);
+}

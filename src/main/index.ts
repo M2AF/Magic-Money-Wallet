@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setMainWindow } from './browser-manager'
+import { initWalletConnect } from './wc-client'
 
 // Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
 // when loading IPFS gateway images in Electron's Chromium engine
@@ -61,15 +62,21 @@ function createWindow(): void {
     if (mainWindow) setMainWindow(mainWindow)
   })
 
-  // Window controls via IPC (custom titlebar)
+  // Window controls via IPC — target the sender window so the popup
+  // browser closes itself rather than closing the main wallet window
   const { ipcMain } = require('electron')
-  ipcMain.on('window:minimize', () => mainWindow?.minimize())
-  ipcMain.on('window:close', () => mainWindow?.close())
+  ipcMain.on('window:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+  ipcMain.on('window:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
 }
 
 app.whenReady().then(() => {
   registerIpcHandlers()
   createWindow()
+  initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

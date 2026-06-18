@@ -7,12 +7,18 @@ import { ConfirmPage } from './pages/ConfirmPage'
 import { ImportPage } from './pages/ImportPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { MarketPage } from './pages/MarketPage'
+import { AppHubPage } from './pages/AppHubPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { WalletConnectManager, WcTitlebarBtn } from './pages/WalletConnectPage'
 
 export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
   const [addresses, setAddresses] = useState<WalletAddresses | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('portfolio')
   const [browserOpen, setBrowserOpen] = useState(false)
+  const [wcPanelOpen, setWcPanelOpen] = useState(false)
+  const [wcActiveSessions, setWcActiveSessions] = useState(0)
+  const [wcPending, setWcPending] = useState(false)
 
   useEffect(() => {
     window.wallet.isSetup().then(exists => {
@@ -50,8 +56,15 @@ export function App() {
     <div className="app-shell">
       {/* Custom titlebar */}
       <div className="titlebar">
-        <span className="titlebar-title">MagicMoney Wallet</span>
+        <span className="titlebar-title">Magic Money Wallet</span>
         <div className="titlebar-controls">
+          {inDashboard && (
+            <WcTitlebarBtn
+              active={wcActiveSessions > 0}
+              pending={wcPending}
+              onClick={() => setWcPanelOpen(true)}
+            />
+          )}
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
         </div>
@@ -72,6 +85,22 @@ export function App() {
       )}
       {inDashboard && addresses && activeTab === 'market' && (
         <MarketPage />
+      )}
+      {inDashboard && activeTab === 'apphub' && (
+        <AppHubPage />
+      )}
+      {inDashboard && activeTab === 'profile' && (
+        <ProfilePage />
+      )}
+
+      {/* WalletConnect manager — modals + session panel */}
+      {inDashboard && (
+        <WalletConnectManager
+          panelOpen={wcPanelOpen}
+          onPanelClose={() => setWcPanelOpen(false)}
+          onSessionsChange={count => setWcActiveSessions(count)}
+          onPendingChange={pending => setWcPending(pending)}
+        />
       )}
 
       {/* Bottom nav — only shown in dashboard */}
@@ -100,6 +129,32 @@ export function App() {
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
             </svg>
             Market
+          </button>
+
+          <button
+            type="button"
+            className={`bottom-nav-btn${activeTab === 'apphub' ? ' active' : ''}`}
+            onClick={() => setActiveTab('apphub')}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            Apps
+          </button>
+
+          <button
+            type="button"
+            className={`bottom-nav-btn${activeTab === 'profile' ? ' active' : ''}`}
+            onClick={() => setActiveTab('profile')}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            Profile
           </button>
 
           {/* Browser — opens a detached popup; active dot when open */}

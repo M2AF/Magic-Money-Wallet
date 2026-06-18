@@ -85,12 +85,13 @@ export function openBrowserWindow(): void {
   })
 
   // ── Load the browser chrome renderer ──────────────────────────────────
+  // Same index.html as the wallet, but with ?browserChrome=1 so main.tsx
+  // renders BrowserApp instead of App
   const devUrl = process.env['ELECTRON_RENDERER_URL']
   if (!app.isPackaged && devUrl) {
-    const base = devUrl.replace(/\/$/, '')
-    popupWin.loadURL(`${base}/browser.html`)
+    popupWin.loadURL(`${devUrl.replace(/\/$/, '')}?browserChrome=1`)
   } else {
-    popupWin.loadFile(join(__dirname, '../renderer/browser.html'))
+    popupWin.loadFile(join(__dirname, '../renderer/index.html'), { query: { browserChrome: '1' } })
   }
 
   popupWin.once('ready-to-show', () => {
@@ -136,9 +137,11 @@ function attachDappView(): void {
 
   // ── Forward dApp nav events to popup chrome renderer ──────────────────
   function sendToChrome(channel: string, payload: unknown) {
-    if (popupWin && !popupWin.isDestroyed()) {
-      popupWin.webContents.send(channel, payload)
-    }
+    try {
+      if (popupWin && !popupWin.isDestroyed() && !popupWin.webContents.isDestroyed()) {
+        popupWin.webContents.send(channel, payload)
+      }
+    } catch { /* window torn down mid-send — safe to ignore */ }
   }
 
   dappView.webContents.on('did-navigate', (_, url) => {
