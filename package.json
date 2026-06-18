@@ -10,7 +10,11 @@
     "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",
     "package": "electron-vite build && npm run build:inject && electron-builder",
-    "build:extension": "vite build --config vite.extension.config.ts"
+    "package:publish": "electron-vite build && npm run build:inject && electron-builder --publish always",
+    "build:extension": "vite build --config vite.extension.config.ts",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor",
+    "release:major": "node scripts/release.js major"
   },
   "dependencies": {
     "@noble/curves": "^1.4.0",
@@ -25,6 +29,7 @@
     "@walletconnect/utils": "^2.23.9",
     "bufferutil": "^4.1.0",
     "ed25519-hd-key": "^1.3.0",
+    "electron-updater": "^6.8.9",
     "utf-8-validate": "^6.0.6",
     "viem": "^2.21.0"
   },
@@ -52,23 +57,18 @@
       "out/**/*",
       "resources/**/*"
     ],
+    "publish": {
+      "provider": "github"
+    },
     "mac": {
       "category": "public.app-category.finance",
-      "target": [
-        "dmg",
-        "zip"
-      ]
+      "target": ["dmg", "zip"]
     },
     "win": {
-      "target": [
-        "nsis"
-      ]
+      "target": ["nsis"]
     },
     "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ]
+      "target": ["AppImage", "deb"]
     }
   }
 }
