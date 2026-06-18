@@ -9,8 +9,8 @@
     "dev": "npm run build:inject && electron-vite dev",
     "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",
-    "package": "electron-vite build && npm run build:inject && electron-builder",
-    "package:publish": "electron-vite build && npm run build:inject && electron-builder --publish always",
+    "package": "electron-vite build && electron-builder",
+    "package:publish": "electron-vite build && electron-builder --publish always",
     "build:extension": "vite build --config vite.extension.config.ts",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
@@ -43,6 +43,7 @@
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "sharp": "^0.35.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",
     "vite-plugin-node-polyfills": "^0.28.0"
@@ -62,13 +63,21 @@
     },
     "mac": {
       "category": "public.app-category.finance",
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb"]
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }

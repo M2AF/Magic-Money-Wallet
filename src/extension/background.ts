@@ -22,6 +22,10 @@ import {
   wcPair, wcApproveSession, wcRejectSession,
   wcDisconnect, wcApproveRequest, wcRejectRequest
 } from './wc-ext'
+import {
+  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses,
+  cip30SignTx, cip30SignData, cip30SubmitTx,
+} from './cardano-cip30'
 
 // ── Global error logging (service workers crash silently without this) ────────
 
@@ -32,6 +36,20 @@ self.addEventListener('unhandledrejection', e => console.error('[SW] unhandled r
 
 let _pendingMnemonic: string | null = null
 
+// ── Current chain (updated by wallet_switchEthereumChain) ────────────────────
+
+let _currentChainId = '0x1'
+
+// ── dApp connection approval queue ───────────────────────────────────────────
+
+const _connectionQueue = new Map<string, {
+  resolve: (value: unknown) => void
+  reject:  (e: Error) => void
+  origin:  string
+  tabId:   number | undefined
+  chain:   'evm' | 'cardano'
+}>()
+
 // ── web3 transaction approval queue ──────────────────────────────────────────
 
 const _web3TxQueue = new Map<string, {
@@ -40,9 +58,54 @@ const _web3TxQueue = new Map<string, {
   tx: Record<string, string>
 }>()
 
+// ── Approval popup (works from service worker — no user gesture required) ────
+// chrome.action.openPopup() requires a user gesture and silently fails in MV3
+// service workers. chrome.windows.create() has no such restriction.
+
+let _approvalWindowId: number | null = null
+
+function openApprovalPopup(): void {
+  if (_approvalWindowId !== null) {
+    // Popup already open — just focus it
+    chrome.windows.update(_approvalWindowId, { focused: true }).catch(() => {
+      _approvalWindowId = null
+      openApprovalPopup()  // window was closed, open a new one
+    })
+    return
+  }
+  chrome.windows.create({
+    url: chrome.runtime.getURL('popup.html'),
+    type: 'popup',
+    width: 380,
+    height: 620,
+    focused: true
+  }, (win) => {
+    if (!win?.id) return
+    _approvalWindowId = win.id
+    chrome.windows.onRemoved.addListener(function onClosed(id) {
+      if (id === _approvalWindowId) {
+        _approvalWindowId = null
+        chrome.windows.onRemoved.removeListener(onClosed)
+      }
+    })
+  })
+}
+
 // ── WalletConnect startup ─────────────────────────────────────────────────────
 
 initWalletConnect().catch(e => console.error('[WC] startup error:', e))
+
+// ── Push EIP-1193 events to all tabs ─────────────────────────────────────────
+
+function broadcastEthEvent(event: string, data: unknown) {
+  chrome.tabs.query({}, tabs => {
+    for (const tab of tabs) {
+      if (tab.id != null) {
+        chrome.tabs.sendMessage(tab.id, { type: 'eth:event', event, data }).catch(() => {})
+      }
+    }
+  })
+}
 
 // ── EVM key helper ────────────────────────────────────────────────────────────
 
@@ -63,9 +126,10 @@ async function deriveEvmKey(): Promise<`0x${string}`> {
 // ── Message router ────────────────────────────────────────────────────────────
 
 type Msg = { type: string; args: unknown[] }
+type Sender = { origin: string; tabId?: number }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handle(msg: Msg): Promise<any> {
+async function handle(msg: Msg, sender?: Sender): Promise<any> {
   const [a0, a1, a2] = msg.args ?? []
 
   switch (msg.type) {
@@ -268,18 +332,43 @@ async function handle(msg: Msg): Promise<any> {
     case 'web3:request': {
       const { method, params = [] } = (a0 as { method: string; params?: unknown[] })
       const addresses = await store.loadAddresses()
+      const senderOrigin = sender?.origin ?? 'unknown'
 
       switch (method) {
-        case 'eth_accounts':
-        case 'eth_requestAccounts':
-          if (!addresses?.evm) return []
-          return [addresses.evm]
+
+        // Passive check — return [] if not yet approved (no prompt)
+        case 'eth_accounts': {
+          const approved = await store.getApprovedOrigins()
+          if (!approved.includes(senderOrigin)) return []
+          return addresses?.evm ? [addresses.evm] : []
+        }
+
+        // Active request — show approval prompt if not yet connected
+        case 'eth_requestAccounts': {
+          const approved = await store.getApprovedOrigins()
+          if (approved.includes(senderOrigin)) {
+            return addresses?.evm ? [addresses.evm] : []
+          }
+          // Queue approval — open popup and wait for user decision
+          const id = crypto.randomUUID()
+          return new Promise<string[]>((resolve, reject) => {
+            _connectionQueue.set(id, { resolve, reject, origin: senderOrigin, tabId: sender?.tabId, chain: 'evm' })
+            chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOrigin } }).catch(() => {})
+            openApprovalPopup()
+            setTimeout(() => {
+              if (_connectionQueue.has(id)) {
+                _connectionQueue.delete(id)
+                reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+              }
+            }, 120_000)
+          })
+        }
 
         case 'eth_chainId':
-          return '0x1'
+          return _currentChainId
 
         case 'net_version':
-          return '1'
+          return String(parseInt(_currentChainId, 16))
 
         case 'personal_sign': {
           const key = await deriveEvmKey()
@@ -303,14 +392,12 @@ async function handle(msg: Msg): Promise<any> {
         }
 
         case 'eth_sendTransaction': {
-          // Store pending — push event to popup, which shows approval UI
           const id = crypto.randomUUID()
           const tx = params[0] as Record<string, string>
           return new Promise((resolve, reject) => {
             _web3TxQueue.set(id, { resolve, reject, tx })
-            // Notify popup (if open) and try to open it
             chrome.runtime.sendMessage({ type: 'web3:tx-request', data: { id, ...tx } }).catch(() => {})
-            try { chrome.action.openPopup() } catch { /* not available in all versions */ }
+            openApprovalPopup()
             setTimeout(() => {
               if (_web3TxQueue.has(id)) {
                 _web3TxQueue.delete(id)
@@ -320,13 +407,79 @@ async function handle(msg: Msg): Promise<any> {
           })
         }
 
-        case 'wallet_switchEthereumChain':
+        // Switch to a different chain — update state and fire chainChanged to all tabs
+        case 'wallet_switchEthereumChain': {
+          const chainId = (params[0] as { chainId?: string })?.chainId
+          if (chainId) {
+            _currentChainId = chainId
+            broadcastEthEvent('chainChanged', chainId)
+          }
+          return null
+        }
+
         case 'wallet_addEthereumChain':
           return null
+
+        // EIP-2255 permissions
+        case 'wallet_requestPermissions': {
+          // Treat like eth_requestAccounts — prompt if not already approved
+          const approvedPerms = await store.getApprovedOrigins()
+          if (!approvedPerms.includes(senderOrigin)) {
+            await handle({ type: 'web3:request', args: [{ method: 'eth_requestAccounts', params: [] }] }, sender)
+          }
+          return [{ parentCapability: 'eth_accounts', caveats: [] }]
+        }
+
+        case 'wallet_getPermissions': {
+          const approvedPerms = await store.getApprovedOrigins()
+          if (!approvedPerms.includes(senderOrigin)) return []
+          return [{ parentCapability: 'eth_accounts', caveats: [] }]
+        }
+
+        case 'wallet_revokePermissions': {
+          await store.removeApprovedOrigin(senderOrigin)
+          broadcastEthEvent('accountsChanged', [])
+          return null
+        }
 
         default:
           throw new Error(`Method not supported via window.ethereum: ${method}`)
       }
+    }
+
+    // ── dApp connection approval ───────────────────────────────────────────────
+
+    case 'web3:get-pending-connections':
+      return [..._connectionQueue.entries()].map(([id, { origin }]) => ({ id, origin }))
+
+    case 'web3:approve-connection': {
+      const { id } = a0 as { id: string }
+      const entry = _connectionQueue.get(id)
+      if (!entry) throw new Error('Connection request not found')
+      _connectionQueue.delete(id)
+      const connAddresses = await store.loadAddresses()
+      await store.addApprovedOrigin(entry.origin)
+      if (entry.chain === 'cardano') {
+        entry.resolve(true)
+      } else {
+        const addrs = connAddresses?.evm ? [connAddresses.evm] : []
+        entry.resolve(addrs)
+        if (entry.tabId != null) {
+          chrome.tabs.sendMessage(entry.tabId, { type: 'eth:event', event: 'connect',         data: { chainId: _currentChainId } }).catch(() => {})
+          chrome.tabs.sendMessage(entry.tabId, { type: 'eth:event', event: 'accountsChanged', data: addrs }).catch(() => {})
+        }
+      }
+      return true
+    }
+
+    case 'web3:reject-connection': {
+      const { id } = a0 as { id: string }
+      const entry = _connectionQueue.get(id)
+      if (entry) {
+        entry.reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+        _connectionQueue.delete(id)
+      }
+      return true
     }
 
     case 'web3:get-pending-tx':
@@ -377,6 +530,97 @@ async function handle(msg: Msg): Promise<any> {
       return Array.from(keypair.sign(bytes))
     }
 
+    case 'web3:solana:sign-and-send':
+      throw new Error('Solana transaction signing not yet implemented — use the wallet send screen')
+
+    case 'web3:solana:sign-tx':
+      throw new Error('Solana transaction signing not yet implemented — use the wallet send screen')
+
+    // ── CIP-30 Cardano dApp connectivity ──────────────────────────────────
+
+    case 'cardano:is-enabled': {
+      const approvedCardano = await store.getApprovedOrigins()
+      return approvedCardano.includes(sender?.origin ?? 'unknown')
+    }
+
+    case 'cardano:enable': {
+      const senderOriginCardano = sender?.origin ?? 'unknown'
+      const approvedCardanoOrigins = await store.getApprovedOrigins()
+      if (approvedCardanoOrigins.includes(senderOriginCardano)) return true
+      const id = crypto.randomUUID()
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(id, { resolve, reject, origin: senderOriginCardano, tabId: sender?.tabId, chain: 'cardano' })
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOriginCardano } }).catch(() => {})
+        openApprovalPopup()
+        setTimeout(() => {
+          if (_connectionQueue.has(id)) {
+            _connectionQueue.delete(id)
+            reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+          }
+        }, 120_000)
+      })
+    }
+
+    case 'cardano:get-network-id':
+      return 1 // mainnet
+
+    case 'cardano:get-balance': {
+      const addresses = await store.loadAddresses()
+      if (!addresses?.cardano) throw new Error('No Cardano wallet')
+      const config = await store.loadConfig()
+      return cip30GetBalance(addresses.cardano, config.blockfrostKey ?? '')
+    }
+
+    case 'cardano:get-utxos': {
+      const addresses = await store.loadAddresses()
+      if (!addresses?.cardano) throw new Error('No Cardano wallet')
+      const config = await store.loadConfig()
+      return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
+    }
+
+    case 'cardano:get-used-addresses': {
+      const addresses = await store.loadAddresses()
+      return addresses?.cardano ? [addresses.cardano] : []
+    }
+
+    case 'cardano:get-unused-addresses':
+      return []
+
+    case 'cardano:get-change-address': {
+      const addresses = await store.loadAddresses()
+      if (!addresses?.cardano) throw new Error('No Cardano wallet')
+      return addresses.cardano
+    }
+
+    case 'cardano:get-reward-addresses': {
+      const mnemonic = await store.loadMnemonic()
+      const addresses = await store.loadAddresses()
+      const accountIdx = addresses?.accountIndex ?? 0
+      return cip30GetRewardAddresses(mnemonic, accountIdx)
+    }
+
+    case 'cardano:sign-tx': {
+      const [txHex, _partial] = [String(a0), Boolean(a1)]
+      const mnemonic = await store.loadMnemonic()
+      const addresses = await store.loadAddresses()
+      const accountIdx = addresses?.accountIndex ?? 0
+      return cip30SignTx(txHex, mnemonic, accountIdx)
+    }
+
+    case 'cardano:sign-data': {
+      const [addrArg, payloadHex] = [String(a0), String(a1)]
+      const mnemonic = await store.loadMnemonic()
+      const addresses = await store.loadAddresses()
+      const accountIdx = addresses?.accountIndex ?? 0
+      const signingAddr = addrArg || addresses?.cardano || ''
+      return cip30SignData(signingAddr, payloadHex, mnemonic, accountIdx)
+    }
+
+    case 'cardano:submit-tx': {
+      const config = await store.loadConfig()
+      return cip30SubmitTx(String(a0), config.blockfrostKey ?? '')
+    }
+
     // ── Side panel ────────────────────────────────────────────────────────
 
     case 'sidePanel:open': {
@@ -411,8 +655,11 @@ async function handle(msg: Msg): Promise<any> {
 
 // ── Message listener ──────────────────────────────────────────────────────────
 
-chrome.runtime.onMessage.addListener((message: Msg, _sender, sendResponse) => {
-  handle(message)
+chrome.runtime.onMessage.addListener((message: Msg, rawSender, sendResponse) => {
+  const senderOrigin = rawSender.origin
+    ?? (rawSender.url ? (() => { try { return new URL(rawSender.url!).origin } catch { return 'unknown' } })() : 'extension')
+  const sender: Sender = { origin: senderOrigin, tabId: rawSender.tab?.id }
+  handle(message, sender)
     .then(result => sendResponse({ ok: true, result }))
     .catch(err => sendResponse({ ok: false, error: String(err) }))
   return true // keep channel open for async response

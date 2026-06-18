@@ -11,11 +11,47 @@
 
 import SignClient from '@walletconnect/sign-client'
 import type { SignClientTypes, SessionTypes } from '@walletconnect/types'
-import { getSdkError, buildApprovedNamespaces } from '@walletconnect/utils'
+import { getSdkError } from '@walletconnect/utils'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
+import nacl from 'tweetnacl'
 import { loadConfig, loadAddresses, loadMnemonic } from './chrome-store'
+import { getSolanaKeypair } from '../main/wallet-core'
+
+// ── Base58 encode/decode (inline — avoids bundler issues with bs58 in service workers) ────
+
+const _B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+function b58Decode(s: string): Uint8Array {
+  const bytes = [0]
+  for (const c of s) {
+    let carry = _B58.indexOf(c)
+    if (carry < 0) throw new Error(`Invalid base58 char: ${c}`)
+    for (let i = 0; i < bytes.length; i++) { carry += bytes[i] * 58; bytes[i] = carry & 0xff; carry >>= 8 }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8 }
+  }
+  for (const c of s) { if (c === '1') bytes.push(0); else break }
+  return new Uint8Array(bytes.reverse())
+}
+
+function b58Encode(bytes: Uint8Array): string {
+  const digits = [0]
+  for (const byte of bytes) {
+    let carry = byte
+    for (let i = 0; i < digits.length; i++) { carry += digits[i] << 8; digits[i] = carry % 58; carry = Math.floor(carry / 58) }
+    while (carry > 0) { digits.push(carry % 58); carry = Math.floor(carry / 58) }
+  }
+  let result = ''
+  for (let i = bytes.length - 1; i >= 0 && bytes[i] === 0; i--) result += '1'
+  for (let i = digits.length - 1; i >= 0; i--) result += _B58[digits[i]]
+  return result
+}
+
+// Detect base58 vs base64 — base64 uses +/= chars, base58 never does
+function decodeFlexible(s: string): Uint8Array {
+  return /[+/=]/.test(s) ? Uint8Array.from(Buffer.from(s, 'base64')) : b58Decode(s)
+}
 
 // ── EVM chains ────────────────────────────────────────────────────────────────
 
@@ -24,6 +60,17 @@ const SUPPORTED_METHODS = [
   'eth_sendTransaction', 'eth_signTransaction', 'personal_sign',
   'eth_sign', 'eth_signTypedData', 'eth_signTypedData_v4', 'wallet_switchEthereumChain'
 ]
+
+// ── Solana chains ─────────────────────────────────────────────────────────────
+// WalletConnect uses genesis-hash chain IDs for Solana
+
+const SOLANA_CHAINS = [
+  'solana:mainnet',                               // short-form (some dApps)
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZTGhw',     // mainnet genesis
+  'solana:devnet',                                 // short-form devnet
+  'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',     // devnet genesis
+]
+const SOLANA_METHODS = ['solana_signMessage', 'solana_signTransaction', 'solana_signAndSendTransaction']
 
 async function getRpc(chainId: number): Promise<string> {
   const { alchemyKey } = await loadConfig()
@@ -234,20 +281,36 @@ export async function wcApproveSession(proposalId: number): Promise<WcSession> {
   const proposal = _proposals.get(proposalId)
   if (!proposal) throw new Error('Proposal not found')
   const addresses = await loadAddresses()
-  const evmAddress = addresses?.evm
-  if (!evmAddress) throw new Error('No wallet address found')
 
-  const chainIds = SUPPORTED_CHAIN_IDS.map(id => `eip155:${id}`)
-  const accounts = chainIds.map(c => `${c}:${evmAddress}`)
+  const reqNs = proposal.params.requiredNamespaces ?? {}
+  const optNs = proposal.params.optionalNamespaces ?? {}
+  const namespaces: SessionTypes.Namespaces = {}
 
-  let namespaces: SessionTypes.Namespaces
-  try {
-    namespaces = buildApprovedNamespaces({
-      proposal: proposal.params,
-      supportedNamespaces: { eip155: { chains: chainIds, methods: SUPPORTED_METHODS, events: ['chainChanged', 'accountsChanged'], accounts } }
-    })
-  } catch {
-    namespaces = { eip155: { chains: chainIds, methods: SUPPORTED_METHODS, events: ['chainChanged', 'accountsChanged'], accounts } }
+  // Mirror back exactly the chains the proposal requested — never add extra namespaces.
+  // WC v2 rejects approve() if namespaces don't match what was proposed.
+
+  if (reqNs.eip155 || optNs.eip155) {
+    const ns = reqNs.eip155 ?? optNs.eip155
+    const chains = [...new Set([...(reqNs.eip155?.chains ?? []), ...(optNs.eip155?.chains ?? [])])]
+    const methods = [...new Set([...(reqNs.eip155?.methods ?? []), ...(optNs.eip155?.methods ?? []), ...SUPPORTED_METHODS])]
+    const events  = [...new Set([...(reqNs.eip155?.events  ?? []), ...(optNs.eip155?.events  ?? []), 'chainChanged', 'accountsChanged'])]
+    const evmAddr = addresses?.evm ?? ''
+    namespaces.eip155 = { chains, methods, events, accounts: chains.map(c => `${c}:${evmAddr}`) }
+    void ns
+  }
+
+  if (reqNs.solana || optNs.solana) {
+    const ns = reqNs.solana ?? optNs.solana
+    const chains = [...new Set([...(reqNs.solana?.chains ?? []), ...(optNs.solana?.chains ?? [])])]
+    const methods = [...new Set([...(reqNs.solana?.methods ?? []), ...(optNs.solana?.methods ?? []), ...SOLANA_METHODS])]
+    const events  = [...new Set([...(reqNs.solana?.events  ?? []), ...(optNs.solana?.events  ?? [])])]
+    const solAddr = addresses?.solana ?? ''
+    namespaces.solana = { chains, methods, events, accounts: chains.map(c => `${c}:${solAddr}`) }
+    void ns
+  }
+
+  if (Object.keys(namespaces).length === 0) {
+    throw new Error('No supported namespaces in this proposal')
   }
 
   const { topic, acknowledged } = await _client.approve({ id: proposalId, namespaces })
@@ -275,11 +338,37 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
   if (!req) throw new Error('Request not found')
 
   const { method, params } = req.params.request
-  const key = await deriveEvmKey()
-  const account = privateKeyToAccount(key)
-  let result: string
 
   try {
+    // ── Solana requests ────────────────────────────────────────────────────
+    if (req.params.chainId.startsWith('solana:')) {
+      const mnemonic = await loadMnemonic()
+      const addresses = await loadAddresses()
+      const keypair = await getSolanaKeypair(mnemonic, addresses?.accountIndex ?? 0)
+
+      if (method === 'solana_signMessage') {
+        // WalletConnect Solana spec: message is base58-encoded bytes, response must be { signature: base58 }
+        const p = (Array.isArray(params) ? params[0] : params) as { message: string; pubkey?: string }
+        const msgBytes = decodeFlexible(p.message)
+        // nacl.sign.detached uses the full 64-byte secretKey (32-byte privkey + 32-byte pubkey)
+        const sigBytes = nacl.sign.detached(msgBytes, keypair.secretKey)
+        await _client.respond({ topic: req.topic, response: { id: req.id, jsonrpc: '2.0', result: { signature: b58Encode(sigBytes) } } })
+      } else if (method === 'solana_signTransaction' || method === 'solana_signAndSendTransaction') {
+        // Full Solana transaction signing requires @solana/web3.js Transaction parsing
+        // Stub: return error — user should use the in-wallet send screen for now
+        throw new Error('Solana transaction signing via WalletConnect is not yet supported. Use the wallet send screen.')
+      } else {
+        throw new Error(`Unsupported Solana method: ${method}`)
+      }
+      _requests.delete(requestId)
+      return
+    }
+
+    // ── EVM requests ───────────────────────────────────────────────────────
+    const key = await deriveEvmKey()
+    const account = privateKeyToAccount(key)
+    let result: string
+
     if (method === 'personal_sign') {
       result = await account.signMessage({ message: { raw: String(params[0]) as `0x${string}` } })
     } else if (method === 'eth_sign') {

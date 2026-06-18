@@ -7,6 +7,20 @@ import { copyFileSync, mkdirSync, existsSync, renameSync, rmSync, readFileSync, 
 // __dirname is available in CJS context (Vite's Node API runs as CJS here)
 const r = (...p: string[]) => path.resolve(__dirname, ...p)
 
+// Regenerate wallet-icon.ts from the source logo PNG before bundling.
+// Uses sharp (dev dep) to resize 1054×1054 → 128×128 and inline as base64.
+async function generateWalletIcon() {
+  const sharp = (await import('sharp')).default
+  const buf = await sharp(r('src/renderer/assets/logo.png'))
+    .resize(128, 128, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png({ compressionLevel: 9, effort: 10 })
+    .toBuffer()
+  const dataUri = 'data:image/png;base64,' + buf.toString('base64')
+  const ts = `export const WALLET_ICON = \`${dataUri}\`\n`
+  writeFileSync(r('src/extension/wallet-icon.ts'), ts)
+  writeFileSync(r('src/preload/wallet-icon.ts'), ts)
+}
+
 export default defineConfig({
   plugins: [
     nodePolyfills({
@@ -14,6 +28,10 @@ export default defineConfig({
       protocolImports: true
     }),
     react(),
+    {
+      name: 'generate-wallet-icon',
+      async buildStart() { await generateWalletIcon() },
+    },
     {
       name: 'copy-extension-assets',
       closeBundle() {
@@ -80,6 +98,7 @@ export default defineConfig({
         sidepanel:  r('src/extension/sidepanel.html'),
         background: r('src/extension/background.ts'),
         content:    r('src/extension/content.ts'),
+        inject:     r('src/extension/inject.ts'),
       },
       output: {
         entryFileNames: '[name].js',

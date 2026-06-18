@@ -149,3 +149,22 @@ export async function saveConfig(config: Partial<WalletConfig>): Promise<void> {
   const current = await loadConfig()
   await chrome.storage.local.set({ 'wallet.config': { ...current, ...config } })
 }
+
+// ── Approved dApp origins ─────────────────────────────────────────────────────
+
+export async function getApprovedOrigins(): Promise<string[]> {
+  const r = await chrome.storage.local.get('wallet.approved_origins')
+  return r['wallet.approved_origins'] ?? []
+}
+
+export async function addApprovedOrigin(origin: string): Promise<void> {
+  const existing = await getApprovedOrigins()
+  if (!existing.includes(origin)) {
+    await chrome.storage.local.set({ 'wallet.approved_origins': [...existing, origin] })
+  }
+}
+
+export async function removeApprovedOrigin(origin: string): Promise<void> {
+  const existing = await getApprovedOrigins()
+  await chrome.storage.local.set({ 'wallet.approved_origins': existing.filter(o => o !== origin) })
+}

@@ -5,6 +5,9 @@
  *  - 'locked'      → wallet exists but session cleared (browser restarted)
  *  - 'setpassword' → wallet just created/imported, needs a password before going live
  *
+ * Also handles dApp connection approval as a full-screen overlay so any
+ * page the user is on gets interrupted safely when a site requests connection.
+ *
  * Reuses all existing pages (DashboardPage, MarketPage, etc.) unchanged.
  */
 
@@ -13,12 +16,18 @@ import { App } from '../renderer/App'
 
 type ExtPage = 'checking' | 'locked' | 'setpassword' | 'app'
 
+type ConnRequest = { id: string; origin: string }
+
 export function ExtApp() {
   const [page, setPage] = useState<ExtPage>('checking')
   const [pwError, setPwError] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // dApp connection request (null = none pending)
+  const [connRequest, setConnRequest] = useState<ConnRequest | null>(null)
+  const [connAddress, setConnAddress] = useState<string>('')
 
   useEffect(() => {
     async function check() {
@@ -28,6 +37,28 @@ export function ExtApp() {
       setPage(unlocked ? 'app' : 'locked')
     }
     check().catch(() => setPage('app'))
+  }, [])
+
+  // Pre-load the wallet address so the approval UI can show it
+  useEffect(() => {
+    window.wallet.getAddresses?.()
+      .then((a: any) => { if (a?.evm) setConnAddress(a.evm) })
+      .catch(() => {})
+  }, [])
+
+  // Listen for incoming dApp connection requests from the background
+  useEffect(() => {
+    function handleMsg(msg: { type: string; data: ConnRequest }) {
+      if (msg?.type === 'web3:connection-request') {
+        setConnRequest(msg.data)
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMsg)
+    // Also check for any pending requests that arrived before the popup opened
+    ;(window.wallet as any).web3GetPendingConnections?.()
+      .then((reqs: ConnRequest[]) => { if (reqs.length > 0) setConnRequest(reqs[0]) })
+      .catch(() => {})
+    return () => chrome.runtime.onMessage.removeListener(handleMsg)
   }, [])
 
   // Replace wallet methods so Create/Import pages route to password setup
@@ -60,7 +91,6 @@ export function ExtApp() {
   useEffect(() => {
     const fn = isSidePanel
       ? () => {
-          // Close side panel: disable for current tab (no gesture requirement)
           chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
             const tabId = tabs[0]?.id
             if (tabId == null) return
@@ -69,7 +99,6 @@ export function ExtApp() {
           })
         }
       : () => {
-          // Open side panel: must stay within user gesture context
           chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
             const windowId = tabs[0]?.windowId
             if (windowId == null) return
@@ -106,7 +135,7 @@ export function ExtApp() {
           style={inputStyle}
         />
         {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
-        <button onClick={doUnlock} disabled={!password || loading} style={btnStyle}>
+        <button onClick={doUnlock} disabled={!password || loading} style={btnStyle} type="button">
           {loading ? 'Unlocking…' : 'Unlock'}
         </button>
       </div>
@@ -138,14 +167,88 @@ export function ExtApp() {
           style={inputStyle}
         />
         {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
-        <button onClick={doSetPassword} disabled={!password || loading} style={btnStyle}>
+        <button onClick={doSetPassword} disabled={!password || loading} style={btnStyle} type="button">
           {loading ? 'Encrypting…' : 'Encrypt & Continue'}
         </button>
       </div>
     )
   }
 
-  return <App />
+  // ── Main app + dApp connection overlay ───────────────────────────────────────
+
+  let hostname = ''
+  try { hostname = connRequest ? new URL(connRequest.origin).hostname : '' } catch { hostname = connRequest?.origin ?? '' }
+
+  return (
+    <>
+      <App />
+
+      {connRequest && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 99999,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{
+            background: '#111', borderRadius: 20, padding: '28px 24px', width: '100%',
+            maxWidth: 340, border: '1px solid #2a2a2a',
+            display: 'flex', flexDirection: 'column', gap: 16
+          }}>
+            {/* Header */}
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🌐</div>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Connect Wallet</div>
+              <div style={{ color: '#888', fontSize: 12, lineHeight: 1.5 }}>
+                <span style={{ color: '#a78bfa', fontWeight: 600 }}>{hostname}</span>
+                {' '}wants to see your wallet address
+              </div>
+            </div>
+
+            {/* Address preview */}
+            {connAddress && (
+              <div style={{
+                background: '#1a1a1a', borderRadius: 12, padding: '10px 14px',
+                display: 'flex', alignItems: 'center', gap: 10, border: '1px solid #2a2a2a'
+              }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                <div>
+                  <div style={{ color: '#666', fontSize: 10, marginBottom: 2 }}>YOUR ADDRESS</div>
+                  <div style={{ color: '#fff', fontSize: 12, fontFamily: 'monospace' }}>
+                    {connAddress.slice(0, 8)}…{connAddress.slice(-6)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* What this allows */}
+            <div style={{ color: '#555', fontSize: 11, lineHeight: 1.6, padding: '0 2px' }}>
+              This will allow the site to see your address. It cannot move funds without your approval on each transaction.
+            </div>
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button
+                onClick={doRejectConnection}
+                style={{ ...rejectBtnStyle, flex: 1 }}
+                type="button"
+              >
+                Reject
+              </button>
+              <button
+                onClick={doApproveConnection}
+                style={{ ...btnStyle, flex: 2, marginTop: 0 }}
+                type="button"
+              >
+                Connect
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
 
   async function doUnlock() {
     if (!password) return
@@ -177,6 +280,22 @@ export function ExtApp() {
       setConfirmPw('')
     }
   }
+
+  async function doApproveConnection() {
+    if (!connRequest) return
+    try {
+      await (window.wallet as any).web3ApproveConnection(connRequest.id)
+    } catch { /* background may have already resolved */ }
+    setConnRequest(null)
+  }
+
+  async function doRejectConnection() {
+    if (!connRequest) return
+    try {
+      await (window.wallet as any).web3RejectConnection(connRequest.id)
+    } catch { /* already gone */ }
+    setConnRequest(null)
+  }
 }
 
 const inputStyle: React.CSSProperties = {
@@ -190,4 +309,10 @@ const btnStyle: React.CSSProperties = {
   background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
   color: '#fff', fontWeight: 700, fontSize: 15,
   border: 'none', cursor: 'pointer', marginTop: 4
+}
+
+const rejectBtnStyle: React.CSSProperties = {
+  padding: '12px', borderRadius: 12,
+  background: 'transparent', color: '#888', fontWeight: 600, fontSize: 14,
+  border: '1px solid #2a2a2a', cursor: 'pointer'
 }

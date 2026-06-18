@@ -5,6 +5,10 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      // Prevent electron-vite from wiping out/main on every startup.
+      // web3-inject.js is built by the separate build:inject script and must
+      // survive into the directory alongside index.js.
+      emptyOutDir: false,
       rollupOptions: {
         input: { index: 'src/main/index.ts' }
       }

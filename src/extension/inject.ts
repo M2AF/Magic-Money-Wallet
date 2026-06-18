@@ -1,0 +1,275 @@
+/**
+ * inject.ts — MAIN world provider injection
+ *
+ * Runs in the page's own JavaScript context (world: MAIN).
+ * NO chrome.runtime APIs — all background IPC via window.postMessage relay.
+ * content.ts (ISOLATED world) bridges postMessage ↔ chrome.runtime.sendMessage.
+ */
+
+import { WALLET_ICON } from './wallet-icon'
+
+// ── Message relay ─────────────────────────────────────────────────────────────
+
+let _id = 0
+const _pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return
+  const m = event.data
+  if (!m || m.__mm !== 'bg→page') return
+  const p = _pending.get(m.id)
+  if (!p) return
+  _pending.delete(m.id)
+  if (m.error) p.reject(new Error(m.error))
+  else p.resolve(m.result)
+})
+
+function send<T = unknown>(type: string, args: unknown[]): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const id = ++_id
+    _pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+    window.postMessage({ __mm: 'page→bg', id, type, args }, '*')
+    setTimeout(() => {
+      if (_pending.has(id)) {
+        _pending.delete(id)
+        reject(new Error('Wallet request timed out'))
+      }
+    }, 30_000)
+  })
+}
+
+// ── EIP-1193 window.ethereum ──────────────────────────────────────────────────
+
+const _ethListeners: Record<string, Array<(...a: unknown[]) => void>> = {}
+
+function emitEth(event: string, ...args: unknown[]) {
+  for (const cb of _ethListeners[event] ?? []) try { cb(...args) } catch { /* noop */ }
+}
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return
+  const m = event.data
+  if (!m || m.__mm !== 'bg→page:event' || m.chain !== 'eth') return
+  emitEth(m.event, m.data)
+  if (m.event === 'chainChanged') {
+    ;(window.ethereum as Record<string, unknown>).chainId = m.data
+    ;(window.ethereum as Record<string, unknown>).networkVersion = String(parseInt(m.data as string, 16))
+  }
+  if (m.event === 'accountsChanged') {
+    ;(window.ethereum as Record<string, unknown>).selectedAddress = (m.data as string[])[0] ?? null
+  }
+})
+
+;(window as Record<string, unknown>).ethereum = {
+  isMetaMask:      true,
+  isMagicMoney:    true,
+  chainId:         '0x1',
+  selectedAddress: null,
+  networkVersion:  '1',
+
+  request({ method, params }: { method: string; params?: unknown[] }) {
+    return send('web3:request', [{ method, params: params ?? [] }])
+  },
+  on(event: string, cb: (...a: unknown[]) => void) {
+    if (!_ethListeners[event]) _ethListeners[event] = []
+    _ethListeners[event].push(cb)
+  },
+  removeListener(event: string, cb: (...a: unknown[]) => void) {
+    if (_ethListeners[event]) _ethListeners[event] = _ethListeners[event].filter(l => l !== cb)
+  },
+  send(method: string, params: unknown[]) { return this.request({ method, params }) },
+  sendAsync(req: { method: string; params?: unknown[] }, cb: (e: Error | null, r: unknown) => void) {
+    this.request(req)
+      .then((r) => cb(null, { id: 1, jsonrpc: '2.0', result: r }))
+      .catch((e: Error) => cb(e, null))
+  },
+  enable() { return this.request({ method: 'eth_requestAccounts', params: [] }) },
+}
+
+// ── window.solana ─────────────────────────────────────────────────────────────
+
+;(window as Record<string, unknown>).solana = {
+  isMagicMoney: true,
+  isConnected:  false,
+  publicKey:    null as string | null,
+
+  connect() {
+    return send<string>('web3:solana:connect', []).then((pk) => {
+      ;(this as Record<string, unknown>).publicKey = pk
+      ;(this as Record<string, unknown>).isConnected = true
+      return { publicKey: { toBase58: () => pk, toString: () => pk } }
+    })
+  },
+  disconnect() {
+    ;(this as Record<string, unknown>).publicKey = null
+    ;(this as Record<string, unknown>).isConnected = false
+    return Promise.resolve()
+  },
+  signMessage(message: Uint8Array) {
+    return send<number[]>('web3:solana:sign', [Array.from(message)])
+      .then((sig) => ({ signature: new Uint8Array(sig) }))
+  },
+  on(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
+  removeListener(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
+}
+
+// ── CIP-30 window.cardano.magicmoney ─────────────────────────────────────────
+
+function makeCardanoFullApi() {
+  return {
+    getNetworkId:       ()                              => send('cardano:get-network-id', []),
+    getBalance:         ()                              => send('cardano:get-balance', []),
+    getUtxos:           ()                              => send('cardano:get-utxos', []),
+    getUsedAddresses:   ()                              => send('cardano:get-used-addresses', []),
+    getUnusedAddresses: ()                              => send('cardano:get-unused-addresses', []),
+    getChangeAddress:   ()                              => send('cardano:get-change-address', []),
+    getRewardAddresses: ()                              => send('cardano:get-reward-addresses', []),
+    signTx:             (tx: string, partial = false)   => send('cardano:sign-tx', [tx, partial]),
+    signData:           (addr: string, payload: string) => send('cardano:sign-data', [addr, payload]),
+    submitTx:           (tx: string)                    => send('cardano:submit-tx', [tx]),
+  }
+}
+
+try {
+  const w = window as Record<string, unknown>
+  if (!w.cardano || typeof w.cardano !== 'object') w.cardano = {}
+  ;(w.cardano as Record<string, unknown>).magicmoney = {
+    apiVersion: '0.1.0',
+    name:       'MagicMoney Wallet',
+    icon:       WALLET_ICON,
+    isEnabled:  () => send<boolean>('cardano:is-enabled', []).catch(() => false),
+    enable:     () => send('cardano:enable', []).then(() => makeCardanoFullApi()),
+  }
+} catch (e) {
+  console.warn('[MagicMoney] CIP-30 injection error:', e)
+}
+
+// ── Solana Wallet Standard ────────────────────────────────────────────────────
+// Required for Magic Eden and other modern Solana dApps (wallet-standard protocol)
+
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+function b58Decode(s: string): Uint8Array {
+  const bytes = [0]
+  for (const c of s) {
+    let carry = B58.indexOf(c)
+    for (let i = 0; i < bytes.length; i++) { carry += bytes[i] * 58; bytes[i] = carry & 0xff; carry >>= 8 }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8 }
+  }
+  for (const c of s) { if (c === '1') bytes.push(0); else break }
+  return new Uint8Array(bytes.reverse())
+}
+
+let _wsAddress:   string | null     = null
+let _wsPublicKey: Uint8Array | null = null
+const _wsListeners: Record<string, Array<(d: unknown) => void>> = {}
+
+function _wsEmit(event: string, data: unknown) {
+  for (const cb of _wsListeners[event] ?? []) try { cb(data) } catch { /* noop */ }
+}
+
+function _wsAccount() {
+  return {
+    address:   _wsAddress!,
+    publicKey: _wsPublicKey!,
+    chains:    ['solana:mainnet', 'solana:devnet'] as const,
+    features:  ['standard:connect', 'standard:disconnect', 'standard:events',
+                'solana:signAndSendTransaction', 'solana:signMessage'] as const,
+  }
+}
+
+const _wsMagicMoney = {
+  version: '1.0.0',
+  name:    'MagicMoney Wallet',
+  icon:    WALLET_ICON,
+  chains:  ['solana:mainnet', 'solana:devnet'] as const,
+  features: {
+    'standard:connect': {
+      version: '1.0.0',
+      async connect({ silent = false }: { silent?: boolean } = {}) {
+        if (silent && !_wsAddress) return { accounts: [] }
+        const pk = await send<string>('web3:solana:connect', [])
+        _wsAddress = pk
+        _wsPublicKey = b58Decode(pk)
+        // Sync legacy window.solana
+        const sol = window.solana as Record<string, unknown>
+        sol.publicKey = { toBase58: () => pk, toString: () => pk }
+        sol.isConnected = true
+        _wsEmit('change', { accounts: [_wsAccount()] })
+        return { accounts: [_wsAccount()] }
+      }
+    },
+    'standard:disconnect': {
+      version: '1.0.0',
+      async disconnect() {
+        _wsAddress = null
+        _wsPublicKey = null
+        const sol = window.solana as Record<string, unknown>
+        sol.publicKey = null
+        sol.isConnected = false
+        _wsEmit('change', { accounts: [] })
+      }
+    },
+    'standard:events': {
+      version: '1.0.0',
+      on(event: string, cb: (d: unknown) => void) {
+        if (!_wsListeners[event]) _wsListeners[event] = []
+        _wsListeners[event].push(cb)
+        return () => { _wsListeners[event] = (_wsListeners[event] ?? []).filter(l => l !== cb) }
+      }
+    },
+    'solana:signAndSendTransaction': {
+      version: '1.0.0',
+      supportedTransactionVersions: ['legacy', 0] as const,
+      signAndSendTransaction(...args: unknown[]) {
+        return send('web3:solana:sign-and-send', args)
+      }
+    },
+    'solana:signMessage': {
+      version: '1.0.0',
+      async signMessage({ message }: { message: Uint8Array; account?: unknown }) {
+        const sig = await send<number[]>('web3:solana:sign', [Array.from(message)])
+        return { signature: new Uint8Array(sig), signedMessage: message }
+      }
+    },
+  },
+  get accounts() { return _wsAddress ? [_wsAccount()] : [] }
+}
+
+function _registerWalletStandard() {
+  try {
+    // detail receives the `register` function directly — NOT destructured as { register }
+    window.dispatchEvent(new CustomEvent('wallet-standard:register-wallet', {
+      detail: (register: (w: unknown) => void) => register(_wsMagicMoney)
+    }))
+  } catch { /* noop */ }
+}
+
+_registerWalletStandard()
+// wallet-standard:app-ready fires with detail: { register } OR detail: registerFn — handle both
+window.addEventListener('wallet-standard:app-ready', (e: Event) => {
+  try {
+    const detail = (e as CustomEvent).detail
+    if (typeof detail?.register === 'function') detail.register(_wsMagicMoney)
+    else if (typeof detail === 'function') detail(_wsMagicMoney)
+    else _registerWalletStandard()
+  } catch { /* noop */ }
+})
+
+// ── EIP-6963: multi-wallet discovery ─────────────────────────────────────────
+
+function announceProvider() {
+  window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+    detail: Object.freeze({
+      info: Object.freeze({
+        uuid:  'b3e4f2a1-7c8d-4e9f-a0b1-2c3d4e5f6a7b',
+        name:  'MagicMoney Wallet',
+        icon:  WALLET_ICON,
+        rdns:  'info.chainlens.magicmoney',
+      }),
+      provider: window.ethereum,
+    })
+  }))
+}
+
+announceProvider()
+window.addEventListener('eip6963:requestProvider', announceProvider)

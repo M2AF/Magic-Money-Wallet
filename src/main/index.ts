@@ -74,6 +74,24 @@ function createWindow(): void {
   })
 }
 
+// F12 opens a detached DevTools for whichever webContents has keyboard focus.
+// This covers both the wallet UI and any WebContentsView (dApp browser) windows.
+app.on('web-contents-created', (_event, contents) => {
+  contents.on('before-input-event', (_e, input) => {
+    if (
+      input.type === 'keyDown' &&
+      (input.key === 'F12' ||
+        (input.control && input.shift && input.key.toUpperCase() === 'I'))
+    ) {
+      if (contents.isDevToolsOpened()) {
+        contents.closeDevTools()
+      } else {
+        contents.openDevTools({ mode: 'detach' })
+      }
+    }
+  })
+})
+
 app.whenReady().then(() => {
   registerIpcHandlers()
   createWindow()

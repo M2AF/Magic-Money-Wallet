@@ -31,12 +31,14 @@ import type { SignClientTypes, SessionTypes } from '@walletconnect/types'
 import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join, dirname } from 'path'
-import { getSdkError, buildApprovedNamespaces } from '@walletconnect/utils'
+import { getSdkError } from '@walletconnect/utils'
 import { BrowserWindow } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
+import nacl from 'tweetnacl'
 import { loadConfig, loadMnemonic, loadAddresses } from './secure-store'
+import { getSolanaKeypair } from './wallet-core'
 
 // ── EVM chains we advertise support for ──────────────────────────────────────
 
@@ -50,6 +52,49 @@ const SUPPORTED_METHODS = [
   'eth_signTypedData_v4',
   'wallet_switchEthereumChain'
 ]
+
+// ── Solana chains ─────────────────────────────────────────────────────────────
+
+const SOLANA_CHAINS = [
+  'solana:mainnet',
+  'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZTGhw',
+  'solana:devnet',
+  'solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1',
+]
+const SOLANA_METHODS = ['solana_signMessage', 'solana_signTransaction', 'solana_signAndSendTransaction']
+
+// ── Base58 encode/decode ──────────────────────────────────────────────────────
+
+const _B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+function b58Decode(s: string): Uint8Array {
+  const bytes = [0]
+  for (const c of s) {
+    let carry = _B58.indexOf(c)
+    if (carry < 0) throw new Error(`Invalid base58 char: ${c}`)
+    for (let i = 0; i < bytes.length; i++) { carry += bytes[i] * 58; bytes[i] = carry & 0xff; carry >>= 8 }
+    while (carry > 0) { bytes.push(carry & 0xff); carry >>= 8 }
+  }
+  for (const c of s) { if (c === '1') bytes.push(0); else break }
+  return new Uint8Array(bytes.reverse())
+}
+
+function b58Encode(bytes: Uint8Array): string {
+  const digits = [0]
+  for (const byte of bytes) {
+    let carry = byte
+    for (let i = 0; i < digits.length; i++) { carry += digits[i] << 8; digits[i] = carry % 58; carry = Math.floor(carry / 58) }
+    while (carry > 0) { digits.push(carry % 58); carry = Math.floor(carry / 58) }
+  }
+  let result = ''
+  for (let i = bytes.length - 1; i >= 0 && bytes[i] === 0; i--) result += '1'
+  for (let i = digits.length - 1; i >= 0; i--) result += _B58[digits[i]]
+  return result
+}
+
+function decodeFlexible(s: string): Uint8Array {
+  return /[+/=]/.test(s) ? Uint8Array.from(Buffer.from(s, 'base64')) : b58Decode(s)
+}
 
 // ── Alchemhy RPC map — falls back to public RPC for other chains ─────────────
 
@@ -303,35 +348,29 @@ export async function wcApproveSession(proposalId: number): Promise<WcSession> {
   const proposal = _proposals.get(proposalId)
   if (!proposal) throw new Error('Proposal not found')
 
-  const evmAddress = loadAddresses()?.evm
-  if (!evmAddress) throw new Error('No wallet address found')
+  const addresses = loadAddresses()
+  const reqNs = proposal.params.requiredNamespaces ?? {}
+  const optNs = proposal.params.optionalNamespaces ?? {}
+  const namespaces: SessionTypes.Namespaces = {}
 
-  const chainIds = SUPPORTED_CHAIN_IDS.map(id => `eip155:${id}`)
-  const accounts = chainIds.map(c => `${c}:${evmAddress}`)
+  if (reqNs.eip155 || optNs.eip155) {
+    const chains  = [...new Set([...(reqNs.eip155?.chains ?? []), ...(optNs.eip155?.chains ?? [])])]
+    const methods = [...new Set([...(reqNs.eip155?.methods ?? []), ...(optNs.eip155?.methods ?? []), ...SUPPORTED_METHODS])]
+    const events  = [...new Set([...(reqNs.eip155?.events  ?? []), ...(optNs.eip155?.events  ?? []), 'chainChanged', 'accountsChanged'])]
+    const evmAddr = addresses?.evm ?? ''
+    namespaces.eip155 = { chains, methods, events, accounts: chains.map(c => `${c}:${evmAddr}`) }
+  }
 
-  let namespaces: SessionTypes.Namespaces
-  try {
-    namespaces = buildApprovedNamespaces({
-      proposal: proposal.params,
-      supportedNamespaces: {
-        eip155: {
-          chains: chainIds,
-          methods: SUPPORTED_METHODS,
-          events: ['chainChanged', 'accountsChanged'],
-          accounts
-        }
-      }
-    })
-  } catch {
-    // dApp requested a chain/method we don't support — approve what we can
-    namespaces = {
-      eip155: {
-        chains: chainIds,
-        methods: SUPPORTED_METHODS,
-        events: ['chainChanged', 'accountsChanged'],
-        accounts
-      }
-    }
+  if (reqNs.solana || optNs.solana) {
+    const chains  = [...new Set([...(reqNs.solana?.chains ?? []), ...(optNs.solana?.chains ?? [])])]
+    const methods = [...new Set([...(reqNs.solana?.methods ?? []), ...(optNs.solana?.methods ?? []), ...SOLANA_METHODS])]
+    const events  = [...new Set([...(reqNs.solana?.events  ?? []), ...(optNs.solana?.events  ?? [])])]
+    const solAddr = addresses?.solana ?? ''
+    namespaces.solana = { chains, methods, events, accounts: chains.map(c => `${c}:${solAddr}`) }
+  }
+
+  if (Object.keys(namespaces).length === 0) {
+    throw new Error('No supported namespaces in this proposal')
   }
 
   const { topic, acknowledged } = await _client.approve({ id: proposalId, namespaces })
@@ -359,11 +398,33 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
   if (!req) throw new Error('Request not found')
 
   const { method, params } = req.params.request
-  const key = deriveEvmKey()
-  const account = privateKeyToAccount(key)
-  let result: string
 
   try {
+    // ── Solana requests ────────────────────────────────────────────────────
+    if (req.params.chainId.startsWith('solana:')) {
+      const mnemonic = loadMnemonic()
+      const addresses = loadAddresses()
+      const keypair = await getSolanaKeypair(mnemonic, addresses?.accountIndex ?? 0)
+
+      if (method === 'solana_signMessage') {
+        const p = (Array.isArray(params) ? params[0] : params) as { message: string; pubkey?: string }
+        const msgBytes = decodeFlexible(p.message)
+        const sigBytes = nacl.sign.detached(msgBytes, keypair.secretKey)
+        await _client.respond({ topic: req.topic, response: { id: req.id, jsonrpc: '2.0', result: { signature: b58Encode(sigBytes) } } })
+      } else if (method === 'solana_signTransaction' || method === 'solana_signAndSendTransaction') {
+        throw new Error('Solana transaction signing via WalletConnect is not yet supported. Use the wallet send screen.')
+      } else {
+        throw new Error(`Unsupported Solana method: ${method}`)
+      }
+      _requests.delete(requestId)
+      return
+    }
+
+    // ── EVM requests ───────────────────────────────────────────────────────
+    const key = deriveEvmKey()
+    const account = privateKeyToAccount(key)
+    let result: string
+
     if (method === 'personal_sign') {
       const raw = String(params[0]) as `0x${string}`
       result = await account.signMessage({ message: { raw } })
@@ -372,47 +433,24 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
       result = await account.signMessage({ message: { raw } })
     } else if (method === 'eth_signTypedData_v4' || method === 'eth_signTypedData') {
       const td = JSON.parse(String(params[1]))
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { EIP712Domain: _dom, ...types } = td.types ?? {}
-      result = await account.signTypedData({
-        domain: td.domain ?? {},
-        types,
-        primaryType: td.primaryType,
-        message: td.message
-      })
+      result = await account.signTypedData({ domain: td.domain ?? {}, types, primaryType: td.primaryType, message: td.message })
     } else if (method === 'eth_sendTransaction') {
       const { createWalletClient, http } = await import('viem')
       const chainId = parseInt(req.params.chainId.split(':')[1] ?? '1')
-      const tx = params[0] as {
-        to?: `0x${string}`
-        value?: string
-        data?: `0x${string}`
-        gas?: string
-      }
-      const walletClient = createWalletClient({
-        account,
-        transport: http(getRpc(chainId))
-      })
+      const tx = params[0] as { to?: `0x${string}`; value?: string; data?: `0x${string}`; gas?: string }
+      const walletClient = createWalletClient({ account, transport: http(getRpc(chainId)) })
       result = await walletClient.sendTransaction({
-        to: tx.to,
-        value: tx.value ? BigInt(tx.value) : undefined,
-        data: tx.data,
-        gas: tx.gas ? BigInt(tx.gas) : undefined,
-        chain: null
+        to: tx.to, value: tx.value ? BigInt(tx.value) : undefined,
+        data: tx.data, gas: tx.gas ? BigInt(tx.gas) : undefined, chain: null
       })
     } else {
       throw new Error(`Unsupported method: ${method}`)
     }
 
-    await _client.respond({
-      topic: req.topic,
-      response: { id: req.id, jsonrpc: '2.0', result }
-    })
+    await _client.respond({ topic: req.topic, response: { id: req.id, jsonrpc: '2.0', result } })
   } catch (e) {
-    await _client.respond({
-      topic: req.topic,
-      response: { id: req.id, jsonrpc: '2.0', error: { code: 4001, message: String(e) } }
-    })
+    await _client.respond({ topic: req.topic, response: { id: req.id, jsonrpc: '2.0', error: { code: 4001, message: String(e) } } })
   }
   _requests.delete(requestId)
 }

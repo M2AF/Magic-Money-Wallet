@@ -55,6 +55,10 @@ import {
   sendSolanaTransaction,
   sendCardanoTransaction
 } from './tx-sender'
+import {
+  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses,
+  cip30SignTx, cip30SignData, cip30SubmitTx,
+} from './cardano-cip30'
 
 // ── Key derivation helpers (used by web3 IPC) ──────────────────────────────
 
@@ -515,6 +519,101 @@ export function registerIpcHandlers(): void {
     }
     // Full Solana signing would require nacl here — placeholder signature for now
     throw new Error('Solana message signing not yet implemented')
+  })
+
+  // ── CIP-30 Cardano dApp requests ─────────────────────────────────────────
+  let _cardanoConnected = false
+
+  ipcMain.handle('cardano:is-enabled', () => _cardanoConnected)
+
+  ipcMain.handle('cardano:enable', async () => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const addresses = loadAddresses()
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Connect Cardano Wallet',
+      message: 'A dApp wants to connect to your Cardano wallet',
+      detail: `Address:\n${addresses?.cardano ?? 'Not available'}`,
+      buttons: ['Connect', 'Reject'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    _cardanoConnected = true
+    return true
+  })
+
+  ipcMain.handle('cardano:get-network-id', () => 1)
+
+  ipcMain.handle('cardano:get-balance', async () => {
+    const addresses = loadAddresses()
+    if (!addresses?.cardano) throw new Error('No Cardano wallet')
+    const config = loadConfig()
+    return cip30GetBalance(addresses.cardano, config.blockfrostKey ?? '')
+  })
+
+  ipcMain.handle('cardano:get-utxos', async () => {
+    const addresses = loadAddresses()
+    if (!addresses?.cardano) throw new Error('No Cardano wallet')
+    const config = loadConfig()
+    return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
+  })
+
+  ipcMain.handle('cardano:get-used-addresses', () => {
+    const addresses = loadAddresses()
+    return addresses?.cardano ? [addresses.cardano] : []
+  })
+
+  ipcMain.handle('cardano:get-unused-addresses', () => [])
+
+  ipcMain.handle('cardano:get-change-address', () => {
+    const addresses = loadAddresses()
+    if (!addresses?.cardano) throw new Error('No Cardano wallet')
+    return addresses.cardano
+  })
+
+  ipcMain.handle('cardano:get-reward-addresses', async () => {
+    const mnemonic = loadMnemonic()
+    const addresses = loadAddresses()
+    return cip30GetRewardAddresses(mnemonic, addresses?.accountIndex ?? 0)
+  })
+
+  ipcMain.handle('cardano:sign-tx', async (_event, txHex: string, _partial: boolean) => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Sign Transaction',
+      message: 'A dApp wants you to sign a Cardano transaction',
+      buttons: ['Sign', 'Reject'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const mnemonic = loadMnemonic()
+    const addresses = loadAddresses()
+    return cip30SignTx(txHex, mnemonic, addresses?.accountIndex ?? 0)
+  })
+
+  ipcMain.handle('cardano:sign-data', async (_event, address: string, payloadHex: string) => {
+    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const { response } = await dialog.showMessageBox(win, {
+      type: 'question',
+      title: 'Sign Data',
+      message: 'A dApp wants you to sign data with your Cardano wallet',
+      buttons: ['Sign', 'Reject'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const mnemonic = loadMnemonic()
+    const addresses = loadAddresses()
+    const signingAddr = address || addresses?.cardano || ''
+    return cip30SignData(signingAddr, payloadHex, mnemonic, addresses?.accountIndex ?? 0)
+  })
+
+  ipcMain.handle('cardano:submit-tx', async (_event, txHex: string) => {
+    const config = loadConfig()
+    return cip30SubmitTx(txHex, config.blockfrostKey ?? '')
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

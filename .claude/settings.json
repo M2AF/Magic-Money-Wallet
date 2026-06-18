@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api *)",
+      "WebFetch(domain:unpkg.com)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:registry.npmjs.org)",
+      "Read(//c/tmp/**)",
+      "Bash(curl -sL \"https://registry.npmjs.org/@ada-anvil/weld/-/weld-0.7.0.tgz\" -o weld.tgz)",
+      "Bash(tar xzf *)",
+      "Bash(grep -n \"cardano\\\\|isEnabled\\\\|enable\\\\|supportedExtensions\\\\|window\\\\.cardano\\\\|apiVersion\\\\|Object\\\\.keys\\\\|wallet.*detect\\\\|scan.*wallet\\\\|UNSAFE\\\\|extensions\" /tmp/package/main.js 2>/dev/null | head -60)",
+      "Read(//tmp/package/**)",
+      "Bash(sort -k5 -rn)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.scripts, null, 2\\)\\)\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
+      "Bash(gh repo *)"
+    ]
+  }
+}

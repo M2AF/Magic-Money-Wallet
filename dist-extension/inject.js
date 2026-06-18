@@ -1,0 +1,260 @@
+const WALLET_ICON = `data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAADAFBMVEVMaXE7iKpMxMgSNjInJ207if8Afs99/9ak8f0j/9AWPDtImIlRkH8eW6EucIkXR3caU6I1nrEiZOope8AdWrozks1Pt5hTzbAhXMhTzK1hvJQkZ/RBtbUyj8ZKr5JT4d85qckgXdUlZ/hU2LYxh+MiYt9R1rUxlbMjX8541KAyhdoiYM04ndWEvY4/uMw/uM0obtcmbNZl9Mo6o/A9rtpFxeApdd4uhsojYuF7878xiOwjZO4jZuU/t8AhY9pl9cVX38Ji7cIqdfJe8ck/tNZEur1N1Nle89E6mOxf99J8zpp8wo8ufvMiZPBIytQzkek5oelW6shExOJAtsoxi8uB7LUqeu1u2qoqeeZ+4q5g3bKI6rRP2dlp2ayK87lz98NHyOVU6sImauw7qOIpduskZ+xq5LclavBL0s1M0eI9q+qR3aI2nOJW2rhU4b1Dl25Jzdti571Q2904ptMyifQxjeg2odsyk9xt57uE57BKzdyY8bM8rtw4lehU3LmB7blPzK4uidxd6uJS3dBFw9YqftMkaOSH971U5dWG4qgxjbSd7a2c97ZDveA7pOc/tOZCvdxDvefE5Z+78alHvM5b8NGjzo5Bt+1Qy9FDs+Nh6rxO0uKZ255X6MpS3dir76qF2aM3lOJL08nV8qMuhOez6KRIzNBZ69if8a914bBIxcNw7b1v1+BNx6tr8MGO8LR077wkY+C99q+8656d56eM0Jmg9beG5qq+3peZ7ddbvPRd5+DB8cyu05Sn4Jyq46LP6p142NFryPAob/8la/80jv6j/8Qsef9l/+Yqc/8whv5t/+Y9qvwuf/9l/91W5u1KzPNm/c9GxPJv/+BDufuY/8aU/85+/9M3mPU6n/xa7upAsf1z/cs2lv9DvvVN0e5N1fRQ3Opg/Nhc9fBR3PRKyexT4O9i/vF1/tyI/8+//7w/rvFX6vWG/8Wt/rl+/908pP9Ixfxx/9GX/L3p/7CM/9iy/8Jg+uO//LIocfnO/7nf/7uo/c6D6t123/xlpf/9fIe/AAAAw3RSTlMAAwQEAQMCAwEBCBAIFQsPGxW8IylQHEA0MS7yJi0k+z5b/XqvgFkcSU13P2kZXmlSa/D8ouORQ4/w99SlNHT7g9j16JJGufb4+z8j/eKg3OvH8lFlxOppwYCEtN5Z7f38p6vQ3MqW6ZL683KyaI8YzLfxd/7oiZyoodrUsM6e1FCQ/qa4XJv73Io3wPrZ4erH+pTheNs+/YrDxOpktszWXsBs882xfOzpc1bL+mrs4NzO9sWcVu+acv7+9f5TjX6s4/4xiJ2OAAAACXBIWXMAAA7DAAAOwwHHb6hkAAAUhklEQVR42u1bZ1hU19ZeM3POnDkzQ+9dioJUQRBRFFAEFQuoWFCxC3bF3nsvsccSe9cYvTGJKTfl3qF3pDfpCNh7SfLdb+0ziMxA7jOMfvHH5/4BPMzhrHev8q6yNwCf1qf1aX1an9b/k0WJROzHlP9xpQOwIvjiGxcQfSz5PJB+8+DFF8B8JPkMhGxvePDg5EcCIGLg4ImGixd39EdN/H1CGYZHEZOzDJr/64bt/S/usATq7988ihf88qrhnNT0wTUt+LtCQQQue3/7/qCLgMT/wRtvXv0ihW/jwz8srwgZHsPn8xn5F1ao6HR7n+E6c+O3vXtvfP3ma+L+M+KXfrAopFBqi3eJ+Az7DsD3z86cOfPs2e+4Xt04CO2Gwc0/tn6gICBmRRAS8z5Xbf1nr1o1O8J2rJGphKObRgwsCH57dubng9/vPXful4MCGLpnPoTnjvgQAIhPA2V5OTpoy4XK9PTElJTs7LonT0p8rodv7WhIEbfj4IHLmWc3pHKdb9tQW24A13I7vj8AFt9Ame8PiimqunPnTmK/4N5kefiV5Oc/f553P3L0jBBKDoGBn8882wv2jo6Bu6fdW1fjLY28/94AiIIlrhtiMqqqimKOr/fvYGRiaThnjqGlidHYiCWrfe7n/RH/3fZvpRwE9MPfzxyElT+W1a5bt67GAFbnXXpPACheZ/+yinv3rMYMumwuVv5YbHpy6bWnf7x4cGKGBEQ8NMK+3/eC87+//Kmu7qcfHWF0Xjglei/XQ/FeFbW1Rwf10ZT/AuOQEgqFFMuQRX6n2fGbiy9eNOxDCAxRwT6w+PLPP5//+eWPp+Bk3rix6quAokHg6lVdXTHXTUcunAJWiERARCMPiCgSm+T1LjNONDQ0nPiWwlB8s2+Ozr9++Oc/EUBfYwivv26pLhUKeWCxoaa8bK6rlEhnG78oki6PJczLgvSLEw2vXp0LIQAkGgTAD3/++z92YOKTf0RTPQRoO7ch5eVeblIQ8nGbDJfUxJZGHWbZRkTYjhhrZCmWg2BRESKQztj35usQOPf7DTD/8ocf/vjjX4eGOfBhxLj8JWqRIQ2anjWZ4wN1QIgSOLLRNDq/fsuFYI4H6uqejPO5PnpUf8JFxDQIweXcr3Dw6ze/Qh/0gdXfImDxHCkieBKhBgIG9HbfytzZrlE8BdI+0WOsCBG8rOwX7OFBaOD58+f1m6/d7KjZCAEEUjj3Zl8I7P+fL/2lYHpztY/P9XkRAVlZHdpcE9DQ7rNbt1boAF+I+sVQdJtrlVFVZLWFEIGpIS5To7Gjlq7enJeX+3T5DBeOBbAG+fnVq18BDv84FKSj8LP6/PyHD59kZU9oayQwnPxFHAkKGZAQJsiICTrdQ6r4nMB0xOjI+Pj4i1tdgASF5gl0QbDY1Q4EN3NzI5eOGHtp6rwAD48ObQRA9n97jzPQQoJF4LqsorZi2XlzDhqfz2NFuFheIw0YzlgeH//g4hc8fPSXV69+BnA3ANiamxseIje91NKwzdXsts9ufz4M+Gh9PphvKEMmcNUkuZdSiidCR6iHb7c/ePFguwt6YMM5EAk1GDj5NHe0FMOWL4/ctvmgEPR25RD5FFG/q1d5mZcbHw3crPpgqOZ1AtZfJ5e/OCGRnmhAD2RRE/0jc1fPeat2Vtg2GqBAa1LOXWfgIxRWEFhTNn6QDmq++UtYRWZhkSYkW/vDNw0PSBXEgsvy+EhT8gI1y/nFxXcXkU3yQLKiJtNrKMc1CsvcUBECBooIfn3w4BtUtgjE2+OfYjegZhKiYVjn4pkUurQQdA5nZu42ByXxDJj4BUiU6JUPJ3e82E6KEQZuxsePApeOlFoEjA4QmrrLHr8T+bdueWoiJGUVXU3pZ6IYWGj2716ccOEcYMbT+NEULH2qXinCwszUzgYoFPPLCpRPiXgtbXQ1O1gRAHZh1158ZwokFDvuiF8+ByTL81ZL1EhCPNjYOXUx2TQDnrdve1KMsBUnuZqIGuA1Rz1nefwOsmM+aiL+O+KAHTfnjWq7CjACBj/apYFvpGH+57dXUC0jCPmn0QTM22BkQTw6Pv4LlMqA6UWChPy0NM/HpM0IaHAsLBiG35CLp+dMkoDy/nn4C4GWbWK/DnOwAZKbB1PV0vhcsl0ehKAmThKvpSDEp/6KZhv7Qha0Fz5aKQaK44LpFso5jOWBwCg6bEswSYgBUztKQV4LI+/eRP/H6hUDcAZ07I9yGZhafz+izTnAsbRgI37jwaJi5CKmRX3eJ8jq5Z076ZWV2dgZlFwZy7nEiPt5owUizBBoiaejoP+O5VgDUWDqUzKuf5sQEA8oJAoQwrbpxTOV9S8EzWirqiqrsNmzOqyZ5T/P42F+yRIXEYzdXB8u4fa8NDd+K2A/GE/sgSq4X3JE0DYFbCzgPABjsTjUQgkAKjgoIyMm2vytWS0jvsp/OAKMfOpXG3IBuPVp7lLMDNT2+MgQoHhgNG5cSZs6MxbsCgdrEEt7d05dpERAWBMF1VYEmeNTXHfM4ATMcN4SVHS9jym34RGYAcWkKum/I3croXLxlZKSgDaQgRD0u5WulSsgNdQelAk4sLZikADetcMYj1Kx4fV8n/5c2GHgh3PSRDA6N9IQ8wNElPg9maW6CogLdvMGIXpA30drlRTAQI9ptUECRV7kg+RIPtd5IAFF5l0L4cKGh1hyL5FYNPEblxUgVlUFaNqRpWfFpB1Z+6ivsgcwMKh6SA/FuBSKBPPqSi5xBGAamRfZxDuC8LxwfBGxgV+WyuUYpqHhcV2A5tjQrqUHelUPUnwVRuXUujp/zv6Gq+s3d3xbATBw6f5mHI7h50/8nsxTtR6ioVPyAgegaTAo4MhAyQLjy1wVAfDBPz17Cf4Oi9Hw+vvv/J2FkEiSCPjQocTPz89URRvQ0CVuuDYI0QKFC5VdkAcG48e3U7AAH2zTs48JWJYVCZbk5ytmnvD6cFLQmI7zC6izVc0GxAXiRhIGE5wttFNWW0sAuL1+KWEkW6Cm8/Ongohqpq9R9T6WpKL6ym9e1hHVbMCCBnEBIReMjspZQAgWQ8rcmpV5fOgTnHjAkAsA2ycPlwiaD8YxJu/f51ziSN2q3n6WIFTJB40HJLsTF9gYt8BbGQB69M7yDe90yQOTC4kXTDgH7FBSd0WisEsKLH3qRxGiWJWyal66anGAPpg2gPPBLqULtVtgpiGwfPzQd35uvqXqJyNu/0YedQFKIwA04+rnSwgpRqRMsE2ZrSKAnmm99IkJ7Dg2aGEhe69ML3PgynMKdI4XWV2WVyC9sz1aFB4MjH5+BVkTZmUfWZMepmoQpJEgAOpsqV0rkHngWlPm1Y7oFcvFoKJ1p/H9FMwJyO63psXj6JfPr+PEBtZkB1j69Z6jSiAy4Js2WYwAtCYTOmrtgfk1ZUP2a5J2aVBGxnnSgojExxIrW2F7pKL6rwwR4Zqs3toBWSaqdOdCmJg2hTQD2sPj2rcGAN+KE5My7FMguiIjGtMdppv1iS/9W2mBMDXm+4TgByZZHlrzsteo4gQEwD8ojpCTe7aOGOlwdxny4fmKjEFkaMCA/8uXqxQaxaYnx+aPI7WxaZaHeGrKLBUBJLwF4N6qBkiaotxcwQ3TIhoCX3963ctjrSY7BFAybpscgNQ/xb+tAHr+lc3IgH7otOq5Opz8y1ZFxyWtkkyTBtAE4lnps9sEQHt4cvu/dBo+tBtSvcweP+dDj5iiMeatv5r4wFeW+M0oq1+EbbpKExoafBO6kyjQmJzc5a8A4OjCq8yrB1cBmI8pisGfhK0DuJTfGAVZ6X6qAuiaMFADAYgnJ/u27gMoVW9n2RDkAtK5zs2I6QNGklbfjTzwEKtBTFiVHr0rK1UE0DPJDJmQhZHJI6HVjgal7s7k+BibsaCMCjc4vy7IsDVtMbDk4RHChLYpYVqrVNWAtczGCXg0bEqbrNUaAOwLDt/a40YqEKSiitpDIDle1KobYC648pDLBbNTJsCsxFWqOaGxjcyaJCN5TmiZr1kB9uvzybsYpIJaUqBJD1kVbbFvEYgUGH5VF0H6tnmJs8E2UaUooEBjYFJXAsDhdYJ1SyeguH49kNSMfHCdVh0k5qYRp62K1rcAQLz/yRp8ThyQPgu1YKsaAEo3SRdHWqAdldZKMqBh0ee3PUFI4U99xpdzVECmeNFF6/q0TIa22R6WCMAyOMsIJqSoWhB0TRqoTbxQN22KQNkJ+DD/7u0VUtwsDvG9yjEx8+SwdcZUDVJ+P6o+m/PBNZW9LSEs3UhFANaxNlxF0jOhl7GSE/DB+W7OYQ1udGS/M5MLxbf9QtVxsXI9Ytg7258k7tnp/cKu9g5W7cgCi0EzWVcynjU2S1DKh3wwwHkFIUAWQyFzj2tT7DGwv2iMjqIArNLSs8iuqbD0ypTK9AOqNUeoc12ZXPe6CYo2oME7tHiXBWkbReDZGApNOTpDGYAIjqVgR4ZVeXC/qxP6pR9TsTeiob3Mxpg0Bu5Jrx2a8QsNFqHFoduIUtAVG0OhCcChe8sUD8ixJwwmCRBpKPGAJkxIVLExaLIBBdoDE3zfOQES8GAyuuNxroijq2YlOFbLc+9tUJ4Zzk4M5ujpGDKAZlilkYoAiO6TumuRtN81yazJDTE9rSzsS+YWnCvcPtw8A/MxOyMl0woKMDyQOIFrjoPT14BJZW+VRwQkDmKtiRvqmyW9VQELWqcKC+xIOYyuMD1nl16z/fDBfln1MkUBpE4KNiIx4J94QIJmUP24hJChTJciM6JNSb2cOC9gWZ5daWFBX0c8OsMxfvH0bU0lIEXzMTuRGo2n8BLzC4nriQIkB9D64rDEDm0ZUbQnVIDDQP2oJF3EQQh4cWmB3eBHBWsFaIrU6QaoGJpP0zSflOftdpaVByp7wPqXP5ExJpxOrzxmiBaY05YhjfbAWF2KQi/oGfsaK0MyrIjDNsFicGGhnRZOkZ3B2Vmz8WlpO889mZmBFKUoHwu1aLkCXr5MPBCmWipUiERrEgjiKUlR+qhtxwWldgI8w1v5qGAhmVwNS00dvNjZwMBgvuckFD/ETXGYT4H9mCrCC6iAxAu2BxIr+xm1BQCJwFgSCEJwMkvSFYD7griRWoQaNOwK+qYupsBgZefi4uK7d+/mPH58+7NA+2aUIE+Z6zOshgIe6OpsuRMNhmGJYVQbZ6XusbGEh0mB5A4bB8Sd5RpVVEVB4SlSjEsNFq8M7dx5eugkT2dup4qUfT4j4xDXM0dXbbEEyZbENp7YYS2jK0MOQL/WdACHXsmT9UiQ43yib+FgAkVIioBh6IwaZAbKKKcsV6uMICk3pLQqOg1geydM3MZDA5KKYqeQkowGp15pw43l8o0Xli604PiGBN+wVDJFY5gWKbvPtAys2RGk5vE7mCMtL7zsoMbEvmcsEjKOS42jEpAMaG5+NphMEOmmUyUCQLkWpVD+0dqjPbipbXQGluyw/s4xNY6tWWpirE1PAL2BCb06ETHYMJ+NW7CxSSL6Scs5IuEp7JmO9uCGFpetrLBmX7Pupx5qnBthJHRHIsYvr7nSkGIpu7g4x3d8j0Oc1M56SgDQ7/ePLz9KqjMaehyttcqIOX286pBaN+l44OSrpTUl6XVPTj5OLpIVJgY4zrJbSynUbBinOp415Y09k/2ye3Mvj8nAzlHduxM8SlNXJpNXRaRMT7YT0PR/cVyaBYOdeMRoj9rH2dxc4gnmYypieqh5f4VixROJI2IFTDLkgOSRWgJe4xWOxiGtsFnPjlSoh6RcE6jJnbVINlRPwyHG0JgMV3XlYzKUyTY1ysdYnKytOXKTPtEGj1K+54IjA9BbhJcNdg4lrMCA/e7yaa4A7WLuHVLzKiWpR2JlEwUsJ984Kg1LZN/ktF6+DuTOCkvzeDy8R4SiaZoYWODtOf324z1414RhyWH/zurxbij/6L1BlJqXenmYk2W6WsTLMTt2T+jlAEJj315paQO6d3HQUHxWw3vRpLs5OdNXWABDkxTcxytziCsnf4NUzetDHBFN0eD6HkBfJFkZ1azfNSohOXnA8JFd3Ds56eNyMnBceyq0c3FOcehiC/wzIbn2NH9PTU0g2v9o9QYNleazre3f2kbWXZuYj2IFvklJ7Yn3kfNKbfeJwxOS4+KSFwzoRlZB4aPU1LuhM521yekNhacDeti8DqkZ0s6tphr3r678Tjaygfqc+xBfSNoE+rgXmhKSMNS27jJycrcBC+LiSksL+vYdfGqtgTZ5kBMvdv7s8S1Pi92ZQ7BKEqspH1tjM1mUcaP8njKZLnphd2s8C6OFQpqjdS19p04b3d03dvLW15Jf6mRZLGMpg0m3H3/mLMRpZiZ6IaOefEyFUTIzLgFxtkhCX2gfmxT7D4SAaiCurwSY4KJJKMy8+/jzFfZgj4SAt58Y9fyPJfWQWadGAnQykw0kxYDDlNgkm+7u2tzZMU0CsHHhjzTHAxrDTnXOyZnkDZL5aIVACbn+oqYB2ifZWDfuX3+gXBdYHlp3j02SRflaazdeiqEJB9Byi2AkLg5Nzbk7yQA0nXc9fnyYG2ert7hKVJfzHuyGusfadJL7As6GrHVtkmSyKN32Dnpa7/5AU8/b0W5hYXFx35neAr1Fu1ALzlJ1zf+2L+EyEELRjY3t2VSBYOoz7trdRpaQ8Npssu7ETV3bO3bpYjdyMAnFwr6nHLdZOJ+6S8Rzo3RQH4AWKQSQazEZkGREv2NncpnPqb1u1OsEXGlpaclICHFxBd0Wnl3s6Lh4Zeec4ukzDZD76Pe6yE6SkJkDKemQjH25ZKCQcpEIOm2a3IsAGICr24Ju3RaiFlKLU5GO7DEi6fe8R8/152btjZ18bWS6LW5fUDxytw00jd03jZzca0Ayp4TSBQtX2jl66zRBfF8EyMOxNjYyQsbCVksPuVm09IwdOpHlZKHB3etkaCF8iIUNka6ZzCaq61+nElSE0lYZ+gNJlyPg6Ts44SUG9r+XTPJ6gKaRjT7w/0/IN0N/xP8PooQkDD+tT+vT+rQ+rf/z9b+gtRP/sbPtLAAAAABJRU5ErkJggg==`;
+let _id = 0;
+const _pending = /* @__PURE__ */ new Map();
+window.addEventListener("message", (event) => {
+  if (event.source !== window) return;
+  const m = event.data;
+  if (!m || m.__mm !== "bg→page") return;
+  const p = _pending.get(m.id);
+  if (!p) return;
+  _pending.delete(m.id);
+  if (m.error) p.reject(new Error(m.error));
+  else p.resolve(m.result);
+});
+function send(type, args) {
+  return new Promise((resolve, reject) => {
+    const id = ++_id;
+    _pending.set(id, { resolve, reject });
+    window.postMessage({ __mm: "page→bg", id, type, args }, "*");
+    setTimeout(() => {
+      if (_pending.has(id)) {
+        _pending.delete(id);
+        reject(new Error("Wallet request timed out"));
+      }
+    }, 3e4);
+  });
+}
+const _ethListeners = {};
+function emitEth(event, ...args) {
+  for (const cb of _ethListeners[event] ?? []) try {
+    cb(...args);
+  } catch {
+  }
+}
+window.addEventListener("message", (event) => {
+  if (event.source !== window) return;
+  const m = event.data;
+  if (!m || m.__mm !== "bg→page:event" || m.chain !== "eth") return;
+  emitEth(m.event, m.data);
+  if (m.event === "chainChanged") {
+    window.ethereum.chainId = m.data;
+    window.ethereum.networkVersion = String(parseInt(m.data, 16));
+  }
+  if (m.event === "accountsChanged") {
+    window.ethereum.selectedAddress = m.data[0] ?? null;
+  }
+});
+window.ethereum = {
+  isMetaMask: true,
+  isMagicMoney: true,
+  chainId: "0x1",
+  selectedAddress: null,
+  networkVersion: "1",
+  request({ method, params }) {
+    return send("web3:request", [{ method, params: params ?? [] }]);
+  },
+  on(event, cb) {
+    if (!_ethListeners[event]) _ethListeners[event] = [];
+    _ethListeners[event].push(cb);
+  },
+  removeListener(event, cb) {
+    if (_ethListeners[event]) _ethListeners[event] = _ethListeners[event].filter((l) => l !== cb);
+  },
+  send(method, params) {
+    return this.request({ method, params });
+  },
+  sendAsync(req, cb) {
+    this.request(req).then((r) => cb(null, { id: 1, jsonrpc: "2.0", result: r })).catch((e) => cb(e, null));
+  },
+  enable() {
+    return this.request({ method: "eth_requestAccounts", params: [] });
+  }
+};
+window.solana = {
+  isMagicMoney: true,
+  isConnected: false,
+  publicKey: null,
+  connect() {
+    return send("web3:solana:connect", []).then((pk) => {
+      this.publicKey = pk;
+      this.isConnected = true;
+      return { publicKey: { toBase58: () => pk, toString: () => pk } };
+    });
+  },
+  disconnect() {
+    this.publicKey = null;
+    this.isConnected = false;
+    return Promise.resolve();
+  },
+  signMessage(message) {
+    return send("web3:solana:sign", [Array.from(message)]).then((sig) => ({ signature: new Uint8Array(sig) }));
+  },
+  on(_event, _cb) {
+  },
+  removeListener(_event, _cb) {
+  }
+};
+function makeCardanoFullApi() {
+  return {
+    getNetworkId: () => send("cardano:get-network-id", []),
+    getBalance: () => send("cardano:get-balance", []),
+    getUtxos: () => send("cardano:get-utxos", []),
+    getUsedAddresses: () => send("cardano:get-used-addresses", []),
+    getUnusedAddresses: () => send("cardano:get-unused-addresses", []),
+    getChangeAddress: () => send("cardano:get-change-address", []),
+    getRewardAddresses: () => send("cardano:get-reward-addresses", []),
+    signTx: (tx, partial = false) => send("cardano:sign-tx", [tx, partial]),
+    signData: (addr, payload) => send("cardano:sign-data", [addr, payload]),
+    submitTx: (tx) => send("cardano:submit-tx", [tx])
+  };
+}
+try {
+  const w = window;
+  if (!w.cardano || typeof w.cardano !== "object") w.cardano = {};
+  w.cardano.magicmoney = {
+    apiVersion: "0.1.0",
+    name: "MagicMoney Wallet",
+    icon: WALLET_ICON,
+    isEnabled: () => send("cardano:is-enabled", []).catch(() => false),
+    enable: () => send("cardano:enable", []).then(() => makeCardanoFullApi())
+  };
+} catch (e) {
+  console.warn("[MagicMoney] CIP-30 injection error:", e);
+}
+const B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+function b58Decode(s) {
+  const bytes = [0];
+  for (const c of s) {
+    let carry = B58.indexOf(c);
+    for (let i = 0; i < bytes.length; i++) {
+      carry += bytes[i] * 58;
+      bytes[i] = carry & 255;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 255);
+      carry >>= 8;
+    }
+  }
+  for (const c of s) {
+    if (c === "1") bytes.push(0);
+    else break;
+  }
+  return new Uint8Array(bytes.reverse());
+}
+let _wsAddress = null;
+let _wsPublicKey = null;
+const _wsListeners = {};
+function _wsEmit(event, data) {
+  for (const cb of _wsListeners[event] ?? []) try {
+    cb(data);
+  } catch {
+  }
+}
+function _wsAccount() {
+  return {
+    address: _wsAddress,
+    publicKey: _wsPublicKey,
+    chains: ["solana:mainnet", "solana:devnet"],
+    features: [
+      "standard:connect",
+      "standard:disconnect",
+      "standard:events",
+      "solana:signAndSendTransaction",
+      "solana:signMessage"
+    ]
+  };
+}
+const _wsMagicMoney = {
+  version: "1.0.0",
+  name: "MagicMoney Wallet",
+  icon: WALLET_ICON,
+  chains: ["solana:mainnet", "solana:devnet"],
+  features: {
+    "standard:connect": {
+      version: "1.0.0",
+      async connect({ silent = false } = {}) {
+        if (silent && !_wsAddress) return { accounts: [] };
+        const pk = await send("web3:solana:connect", []);
+        _wsAddress = pk;
+        _wsPublicKey = b58Decode(pk);
+        const sol = window.solana;
+        sol.publicKey = { toBase58: () => pk, toString: () => pk };
+        sol.isConnected = true;
+        _wsEmit("change", { accounts: [_wsAccount()] });
+        return { accounts: [_wsAccount()] };
+      }
+    },
+    "standard:disconnect": {
+      version: "1.0.0",
+      async disconnect() {
+        _wsAddress = null;
+        _wsPublicKey = null;
+        const sol = window.solana;
+        sol.publicKey = null;
+        sol.isConnected = false;
+        _wsEmit("change", { accounts: [] });
+      }
+    },
+    "standard:events": {
+      version: "1.0.0",
+      on(event, cb) {
+        if (!_wsListeners[event]) _wsListeners[event] = [];
+        _wsListeners[event].push(cb);
+        return () => {
+          _wsListeners[event] = (_wsListeners[event] ?? []).filter((l) => l !== cb);
+        };
+      }
+    },
+    "solana:signAndSendTransaction": {
+      version: "1.0.0",
+      supportedTransactionVersions: ["legacy", 0],
+      signAndSendTransaction(...args) {
+        return send("web3:solana:sign-and-send", args);
+      }
+    },
+    "solana:signMessage": {
+      version: "1.0.0",
+      async signMessage({ message }) {
+        const sig = await send("web3:solana:sign", [Array.from(message)]);
+        return { signature: new Uint8Array(sig), signedMessage: message };
+      }
+    }
+  },
+  get accounts() {
+    return _wsAddress ? [_wsAccount()] : [];
+  }
+};
+function _registerWalletStandard() {
+  try {
+    window.dispatchEvent(new CustomEvent("wallet-standard:register-wallet", {
+      detail: (register) => register(_wsMagicMoney)
+    }));
+  } catch {
+  }
+}
+_registerWalletStandard();
+window.addEventListener("wallet-standard:app-ready", (e) => {
+  try {
+    const detail = e.detail;
+    if (typeof (detail == null ? void 0 : detail.register) === "function") detail.register(_wsMagicMoney);
+    else if (typeof detail === "function") detail(_wsMagicMoney);
+    else _registerWalletStandard();
+  } catch {
+  }
+});
+function announceProvider() {
+  window.dispatchEvent(new CustomEvent("eip6963:announceProvider", {
+    detail: Object.freeze({
+      info: Object.freeze({
+        uuid: "b3e4f2a1-7c8d-4e9f-a0b1-2c3d4e5f6a7b",
+        name: "MagicMoney Wallet",
+        icon: WALLET_ICON,
+        rdns: "info.chainlens.magicmoney"
+      }),
+      provider: window.ethereum
+    })
+  }));
+}
+announceProvider();
+window.addEventListener("eip6963:requestProvider", announceProvider);

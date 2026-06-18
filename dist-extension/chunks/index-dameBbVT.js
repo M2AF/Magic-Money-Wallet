@@ -7133,6 +7133,9 @@ function createExtensionWallet() {
     web3GetPendingTx: () => send("web3:get-pending-tx"),
     web3ApproveTx: (id2, chainId) => send("web3:approve-tx", { id: id2, chainId }),
     web3RejectTx: (id2) => send("web3:reject-tx", id2),
+    web3GetPendingConnections: () => send("web3:get-pending-connections"),
+    web3ApproveConnection: (id2) => send("web3:approve-connection", { id: id2 }),
+    web3RejectConnection: (id2) => send("web3:reject-connection", { id: id2 }),
     wcPair: (uri) => send("wc:pair", uri),
     wcApproveSession: (id2) => send("wc:approve-session", id2),
     wcRejectSession: (id2) => send("wc:reject-session", id2),
@@ -15187,6 +15190,8 @@ function ExtApp() {
   const [password, setPassword] = reactExports.useState("");
   const [confirmPw, setConfirmPw] = reactExports.useState("");
   const [loading, setLoading] = reactExports.useState(false);
+  const [connRequest, setConnRequest] = reactExports.useState(null);
+  const [connAddress, setConnAddress] = reactExports.useState("");
   reactExports.useEffect(() => {
     async function check() {
       var _a, _b, _c, _d;
@@ -15199,6 +15204,27 @@ function ExtApp() {
       setPage(unlocked ? "app" : "locked");
     }
     check().catch(() => setPage("app"));
+  }, []);
+  reactExports.useEffect(() => {
+    var _a, _b;
+    (_b = (_a = window.wallet).getAddresses) == null ? void 0 : _b.call(_a).then((a) => {
+      if (a == null ? void 0 : a.evm) setConnAddress(a.evm);
+    }).catch(() => {
+    });
+  }, []);
+  reactExports.useEffect(() => {
+    var _a, _b;
+    function handleMsg(msg) {
+      if ((msg == null ? void 0 : msg.type) === "web3:connection-request") {
+        setConnRequest(msg.data);
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMsg);
+    (_b = (_a = window.wallet).web3GetPendingConnections) == null ? void 0 : _b.call(_a).then((reqs) => {
+      if (reqs.length > 0) setConnRequest(reqs[0]);
+    }).catch(() => {
+    });
+    return () => chrome.runtime.onMessage.removeListener(handleMsg);
   }, []);
   reactExports.useEffect(() => {
     const origConfirm = window.wallet.confirmBackup;
@@ -15265,7 +15291,7 @@ function ExtApp() {
         }
       ),
       pwError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12 }, children: pwError }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doUnlock, disabled: !password || loading, style: btnStyle, children: loading ? "Unlocking…" : "Unlock" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doUnlock, disabled: !password || loading, style: btnStyle, type: "button", children: loading ? "Unlocking…" : "Unlock" })
     ] });
   }
   if (page === "setpassword") {
@@ -15305,10 +15331,89 @@ function ExtApp() {
         }
       ),
       pwError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12 }, children: pwError }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doSetPassword, disabled: !password || loading, style: btnStyle, children: loading ? "Encrypting…" : "Encrypt & Continue" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doSetPassword, disabled: !password || loading, style: btnStyle, type: "button", children: loading ? "Encrypting…" : "Encrypt & Continue" })
     ] });
   }
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(App, {});
+  let hostname = "";
+  try {
+    hostname = connRequest ? new URL(connRequest.origin).hostname : "";
+  } catch {
+    hostname = (connRequest == null ? void 0 : connRequest.origin) ?? "";
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}),
+    connRequest && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 99999,
+      background: "rgba(0,0,0,0.75)",
+      backdropFilter: "blur(4px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20
+    }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+      background: "#111",
+      borderRadius: 20,
+      padding: "28px 24px",
+      width: "100%",
+      maxWidth: 340,
+      border: "1px solid #2a2a2a",
+      display: "flex",
+      flexDirection: "column",
+      gap: 16
+    }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 36, marginBottom: 8 }, children: "🌐" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#fff", fontWeight: 700, fontSize: 17, marginBottom: 4 }, children: "Connect Wallet" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#888", fontSize: 12, lineHeight: 1.5 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#a78bfa", fontWeight: 600 }, children: hostname }),
+          " ",
+          "wants to see your wallet address"
+        ] })
+      ] }),
+      connAddress && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+        background: "#1a1a1a",
+        borderRadius: 12,
+        padding: "10px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        border: "1px solid #2a2a2a"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#22c55e", flexShrink: 0 } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#666", fontSize: 10, marginBottom: 2 }, children: "YOUR ADDRESS" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#fff", fontSize: 12, fontFamily: "monospace" }, children: [
+            connAddress.slice(0, 8),
+            "…",
+            connAddress.slice(-6)
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#555", fontSize: 11, lineHeight: 1.6, padding: "0 2px" }, children: "This will allow the site to see your address. It cannot move funds without your approval on each transaction." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 10, marginTop: 4 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: doRejectConnection,
+            style: { ...rejectBtnStyle, flex: 1 },
+            type: "button",
+            children: "Reject"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: doApproveConnection,
+            style: { ...btnStyle, flex: 2, marginTop: 0 },
+            type: "button",
+            children: "Connect"
+          }
+        )
+      ] })
+    ] }) })
+  ] });
   async function doUnlock() {
     if (!password) return;
     setLoading(true);
@@ -15344,6 +15449,22 @@ function ExtApp() {
       setConfirmPw("");
     }
   }
+  async function doApproveConnection() {
+    if (!connRequest) return;
+    try {
+      await window.wallet.web3ApproveConnection(connRequest.id);
+    } catch {
+    }
+    setConnRequest(null);
+  }
+  async function doRejectConnection() {
+    if (!connRequest) return;
+    try {
+      await window.wallet.web3RejectConnection(connRequest.id);
+    } catch {
+    }
+    setConnRequest(null);
+  }
 }
 const inputStyle = {
   width: "100%",
@@ -15366,6 +15487,16 @@ const btnStyle = {
   border: "none",
   cursor: "pointer",
   marginTop: 4
+};
+const rejectBtnStyle = {
+  padding: "12px",
+  borderRadius: 12,
+  background: "transparent",
+  color: "#888",
+  fontWeight: 600,
+  fontSize: 14,
+  border: "1px solid #2a2a2a",
+  cursor: "pointer"
 };
 export {
   ExtApp as E,
