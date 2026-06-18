@@ -77,11 +77,10 @@ html, body, #root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  height: 36px;
+  padding: 0 12px 0 14px;
+  height: 48px;
   -webkit-app-region: drag;
   flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
 }
 
 .titlebar-title {
@@ -91,6 +90,39 @@ html, body, #root {
   color: var(--text-secondary);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.titlebar-logo {
+  height: 64px;
+  width: auto;
+  object-fit: contain;
+  -webkit-app-region: drag;
+  display: block;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+  margin-top: 24px;   /* ← move down */
+  margin-left: -6px;  /* ← move left (increase = more left) */
+}
+
+.titlebar-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: color var(--transition), background var(--transition);
+  -webkit-app-region: no-drag;
+  padding: 0;
+}
+.titlebar-icon-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
 }
 
 .titlebar-controls {

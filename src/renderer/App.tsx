@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { AppPage, WalletAddresses, MainTab } from './types/wallet'
+import logoUrl from './assets/logo.png'
 import { LoadingPage } from './pages/LoadingPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { CreatePage } from './pages/CreatePage'
@@ -9,7 +10,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { MarketPage } from './pages/MarketPage'
 import { AppHubPage } from './pages/AppHubPage'
 import { ProfilePage } from './pages/ProfilePage'
-import { WalletConnectManager, WcTitlebarBtn } from './pages/WalletConnectPage'
+import { WalletConnectManager } from './pages/WalletConnectPage'
 
 export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
@@ -54,17 +55,10 @@ export function App() {
 
   return (
     <div className="app-shell">
-      {/* Custom titlebar */}
+      {/* Custom titlebar — logo only, no text, no divider */}
       <div className="titlebar">
-        <span className="titlebar-title">Magic Money Wallet</span>
+        <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
         <div className="titlebar-controls">
-          {inDashboard && (
-            <WcTitlebarBtn
-              active={wcActiveSessions > 0}
-              pending={wcPending}
-              onClick={() => setWcPanelOpen(true)}
-            />
-          )}
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
         </div>
@@ -81,19 +75,16 @@ export function App() {
           addresses={addresses}
           onNavigate={setPage}
           onWalletDeleted={() => { setAddresses(null); setPage('welcome') }}
+          onWcOpen={() => setWcPanelOpen(true)}
+          wcActiveSessions={wcActiveSessions}
+          wcPending={wcPending}
         />
       )}
-      {inDashboard && addresses && activeTab === 'market' && (
-        <MarketPage />
-      )}
-      {inDashboard && activeTab === 'apphub' && (
-        <AppHubPage />
-      )}
-      {inDashboard && activeTab === 'profile' && (
-        <ProfilePage />
-      )}
+      {inDashboard && addresses && activeTab === 'market' && <MarketPage />}
+      {inDashboard && activeTab === 'apphub' && <AppHubPage />}
+      {inDashboard && activeTab === 'profile' && <ProfilePage />}
 
-      {/* WalletConnect manager — modals + session panel */}
+      {/* WalletConnect manager — proposal/request modals + session panel */}
       {inDashboard && (
         <WalletConnectManager
           panelOpen={wcPanelOpen}
@@ -168,8 +159,7 @@ export function App() {
               <span style={{
                 position: 'absolute', top: 6, right: 14,
                 width: 6, height: 6, borderRadius: '50%',
-                background: '#22c55e',
-                boxShadow: '0 0 4px #22c55e'
+                background: '#22c55e', boxShadow: '0 0 4px #22c55e'
               }} />
             )}
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">

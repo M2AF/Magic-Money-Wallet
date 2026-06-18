@@ -640,6 +640,9 @@ interface Props {
   addresses: WalletAddresses
   onNavigate: (page: AppPage) => void
   onWalletDeleted: () => void
+  onWcOpen?: () => void
+  wcActiveSessions?: number
+  wcPending?: boolean
 }
 
 const ALL_CHAINS = [
@@ -669,7 +672,7 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   return addresses.evm
 }
 
-export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props) {
+export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcActiveSessions = 0, wcPending = false }: Props) {
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -838,6 +841,23 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted }: Props)
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
+          {/* WalletConnect */}
+          {onWcOpen && (
+            <button
+              type="button"
+              onClick={onWcOpen}
+              title="WalletConnect"
+              style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: wcActiveSessions > 0 ? 'var(--accent-dim)' : 'transparent', border: `1px solid ${wcActiveSessions > 0 ? 'var(--border-active)' : 'var(--border)'}`, color: wcActiveSessions > 0 ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+            >
+              {wcPending && (
+                <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 5px #f97316' }} />
+              )}
+              <svg width="22" height="15" viewBox="0 0 480 360" fill="none" stroke="currentColor" strokeWidth="32" strokeLinecap="round">
+                <path d="M98.3,120.1 C182.3,37.4 325.7,37.4 409.7,120.1 L419.8,130 C430.1,140.2 430.1,156.5 419.8,166.7 L387.9,198.2 C382.7,203.3 374.1,203.3 369,198.2 L355.1,184.5 C299.1,129.4 180.9,129.4 124.9,184.5 L110,198.2 C104.9,203.3 96.3,203.3 91.1,198.2 L60.2,166.7 C49.9,156.5 49.9,140.2 60.2,130 Z"/>
+                <path d="M183.5,204.7 C222.6,166 278.5,166 317.6,204.7 L323.9,210.9 C334.2,221.1 334.2,237.4 323.9,247.6 L292.6,278.5 C287.5,283.6 278.9,283.6 273.7,278.5 L263.4,268.4 C247.3,252.5 232.7,252.5 216.6,268.4 L206.3,278.5 C201.1,283.6 192.5,283.6 187.4,278.5 L156.1,247.6 C145.8,237.4 145.8,221.1 156.1,210.9 Z"/>
+              </svg>
+            </button>
+          )}
           {/* Refresh */}
           <button
             type="button"
