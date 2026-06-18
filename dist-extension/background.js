@@ -1,7 +1,79 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./chunks/index-BH0my9He.js","./chunks/ccip-DqswiKlF.js"])))=>i.map(i=>d[i]);
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./chunks/index-CblrnOPd.js","./chunks/ccip-DqswiKlF.js"])))=>i.map(i=>d[i]);
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key2, value) => key2 in obj ? __defProp(obj, key2, { enumerable: true, configurable: true, writable: true, value }) : obj[key2] = value;
 var __publicField = (obj, key2, value) => __defNormalProp(obj, typeof key2 !== "symbol" ? key2 + "" : key2, value);
+const scriptRel = "modulepreload";
+const assetsURL = function(dep, importerUrl) {
+  return new URL(dep, importerUrl).href;
+};
+const seen = {};
+const __vitePreload = function preload(baseModule, deps, importerUrl) {
+  let promise = Promise.resolve();
+  if (deps && deps.length > 0) {
+    const links = document.getElementsByTagName("link");
+    const cspNonceMeta = document.querySelector(
+      "meta[property=csp-nonce]"
+    );
+    const cspNonce = (cspNonceMeta == null ? void 0 : cspNonceMeta.nonce) || (cspNonceMeta == null ? void 0 : cspNonceMeta.getAttribute("nonce"));
+    promise = Promise.allSettled(
+      deps.map((dep) => {
+        dep = assetsURL(dep, importerUrl);
+        if (dep in seen) return;
+        seen[dep] = true;
+        const isCss = dep.endsWith(".css");
+        const cssSelector = isCss ? '[rel="stylesheet"]' : "";
+        const isBaseRelative = !!importerUrl;
+        if (isBaseRelative) {
+          for (let i2 = links.length - 1; i2 >= 0; i2--) {
+            const link2 = links[i2];
+            if (link2.href === dep && (!isCss || link2.rel === "stylesheet")) {
+              return;
+            }
+          }
+        } else if (document.querySelector(`link[href="${dep}"]${cssSelector}`)) {
+          return;
+        }
+        const link = document.createElement("link");
+        link.rel = isCss ? "stylesheet" : scriptRel;
+        if (!isCss) {
+          link.as = "script";
+        }
+        link.crossOrigin = "";
+        link.href = dep;
+        if (cspNonce) {
+          link.setAttribute("nonce", cspNonce);
+        }
+        document.head.appendChild(link);
+        if (isCss) {
+          return new Promise((res, rej) => {
+            link.addEventListener("load", res);
+            link.addEventListener(
+              "error",
+              () => rej(new Error(`Unable to preload CSS for ${dep}`))
+            );
+          });
+        }
+      })
+    );
+  }
+  function handlePreloadError(err) {
+    const e2 = new Event("vite:preloadError", {
+      cancelable: true
+    });
+    e2.payload = err;
+    window.dispatchEvent(e2);
+    if (!e2.defaultPrevented) {
+      throw err;
+    }
+  }
+  return promise.then((res) => {
+    for (const item of res || []) {
+      if (item.status !== "rejected") continue;
+      handlePreloadError(item.reason);
+    }
+    return baseModule().catch(handlePreloadError);
+  });
+};
 var buffer$2 = {};
 var base64Js = {};
 base64Js.byteLength = byteLength;
@@ -8268,10 +8340,17 @@ var implementation$1 = function bind2(that) {
 var implementation = implementation$1;
 var functionBind = Function.prototype.bind || implementation;
 var functionCall = Function.prototype.call;
-var functionApply = Function.prototype.apply;
+var functionApply;
+var hasRequiredFunctionApply;
+function requireFunctionApply() {
+  if (hasRequiredFunctionApply) return functionApply;
+  hasRequiredFunctionApply = 1;
+  functionApply = Function.prototype.apply;
+  return functionApply;
+}
 var reflectApply = typeof Reflect !== "undefined" && Reflect && Reflect.apply;
 var bind$2 = functionBind;
-var $apply$1 = functionApply;
+var $apply$1 = requireFunctionApply();
 var $call$2 = functionCall;
 var $reflectApply = reflectApply;
 var actualApply = $reflectApply || bind$2.call($call$2, $apply$1);
@@ -8391,7 +8470,7 @@ var hasSymbols = requireHasSymbols()();
 var getProto$1 = requireGetProto();
 var $ObjectGPO = requireObject_getPrototypeOf();
 var $ReflectGPO = requireReflect_getPrototypeOf();
-var $apply = functionApply;
+var $apply = requireFunctionApply();
 var $call = functionCall;
 var needsEval = {};
 var TypedArray = typeof Uint8Array === "undefined" || !getProto$1 ? undefined$1 : getProto$1(Uint8Array);
@@ -9158,7 +9237,7 @@ function requireApplyBind() {
   if (hasRequiredApplyBind) return applyBind;
   hasRequiredApplyBind = 1;
   var bind3 = functionBind;
-  var $apply2 = functionApply;
+  var $apply2 = requireFunctionApply();
   var actualApply$1 = actualApply;
   applyBind = function applyBind2() {
     return actualApply$1(bind3, $apply2, arguments);
@@ -10567,36 +10646,43 @@ function requireState() {
   };
   return state;
 }
-var browser$c = deprecate;
-function deprecate(fn6, msg) {
-  if (config("noDeprecation")) {
-    return fn6;
-  }
-  var warned = false;
-  function deprecated() {
-    if (!warned) {
-      if (config("throwDeprecation")) {
-        throw new Error(msg);
-      } else if (config("traceDeprecation")) {
-        console.trace(msg);
-      } else {
-        console.warn(msg);
-      }
-      warned = true;
+var browser$c;
+var hasRequiredBrowser$a;
+function requireBrowser$a() {
+  if (hasRequiredBrowser$a) return browser$c;
+  hasRequiredBrowser$a = 1;
+  browser$c = deprecate;
+  function deprecate(fn6, msg) {
+    if (config("noDeprecation")) {
+      return fn6;
     }
-    return fn6.apply(this, arguments);
+    var warned = false;
+    function deprecated() {
+      if (!warned) {
+        if (config("throwDeprecation")) {
+          throw new Error(msg);
+        } else if (config("traceDeprecation")) {
+          console.trace(msg);
+        } else {
+          console.warn(msg);
+        }
+        warned = true;
+      }
+      return fn6.apply(this, arguments);
+    }
+    return deprecated;
   }
-  return deprecated;
-}
-function config(name) {
-  try {
-    if (!commonjsGlobal.localStorage) return false;
-  } catch (_3) {
-    return false;
+  function config(name) {
+    try {
+      if (!commonjsGlobal.localStorage) return false;
+    } catch (_3) {
+      return false;
+    }
+    var val = commonjsGlobal.localStorage[name];
+    if (null == val) return false;
+    return String(val).toLowerCase() === "true";
   }
-  var val = commonjsGlobal.localStorage[name];
-  if (null == val) return false;
-  return String(val).toLowerCase() === "true";
+  return browser$c;
 }
 var _stream_writable$2;
 var hasRequired_stream_writable$2;
@@ -10615,7 +10701,7 @@ function require_stream_writable$2() {
   var Duplex2;
   Writable.WritableState = WritableState;
   var internalUtil = {
-    deprecate: browser$c
+    deprecate: requireBrowser$a()
   };
   var Stream2 = requireStreamBrowser$1();
   var Buffer2 = require$$0$4.Buffer;
@@ -13193,7 +13279,7 @@ function require_stream_writable$1() {
   var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var internalUtil = {
-    deprecate: browser$c
+    deprecate: requireBrowser$a()
   };
   var Stream2 = streamBrowser$1;
   var Buffer2 = safeBufferExports.Buffer;
@@ -18661,23 +18747,23 @@ function requireEncrypter() {
     return Buffer2.concat([this.cache, padBuff]);
   };
   function createCipheriv(suite, password, iv) {
-    var config2 = MODES[suite.toLowerCase()];
-    if (!config2) throw new TypeError("invalid suite type");
+    var config = MODES[suite.toLowerCase()];
+    if (!config) throw new TypeError("invalid suite type");
     if (typeof password === "string") password = Buffer2.from(password);
-    if (password.length !== config2.key / 8) throw new TypeError("invalid key length " + password.length);
+    if (password.length !== config.key / 8) throw new TypeError("invalid key length " + password.length);
     if (typeof iv === "string") iv = Buffer2.from(iv);
-    if (config2.mode !== "GCM" && iv.length !== config2.iv) throw new TypeError("invalid iv length " + iv.length);
-    if (config2.type === "stream") {
-      return new StreamCipher(config2.module, password, iv);
-    } else if (config2.type === "auth") {
-      return new AuthCipher(config2.module, password, iv);
+    if (config.mode !== "GCM" && iv.length !== config.iv) throw new TypeError("invalid iv length " + iv.length);
+    if (config.type === "stream") {
+      return new StreamCipher(config.module, password, iv);
+    } else if (config.type === "auth") {
+      return new AuthCipher(config.module, password, iv);
     }
-    return new Cipher(config2.module, password, iv);
+    return new Cipher(config.module, password, iv);
   }
   function createCipher2(suite, password) {
-    var config2 = MODES[suite.toLowerCase()];
-    if (!config2) throw new TypeError("invalid suite type");
-    var keys2 = ebtk(password, false, config2.key, config2.iv);
+    var config = MODES[suite.toLowerCase()];
+    if (!config) throw new TypeError("invalid suite type");
+    var keys2 = ebtk(password, false, config.key, config.iv);
     return createCipheriv(suite, keys2.key, keys2.iv);
   }
   encrypter.createCipheriv = createCipheriv;
@@ -18771,23 +18857,23 @@ function requireDecrypter() {
     return last.slice(0, 16 - padded);
   }
   function createDecipheriv(suite, password, iv) {
-    var config2 = MODES[suite.toLowerCase()];
-    if (!config2) throw new TypeError("invalid suite type");
+    var config = MODES[suite.toLowerCase()];
+    if (!config) throw new TypeError("invalid suite type");
     if (typeof iv === "string") iv = Buffer2.from(iv);
-    if (config2.mode !== "GCM" && iv.length !== config2.iv) throw new TypeError("invalid iv length " + iv.length);
+    if (config.mode !== "GCM" && iv.length !== config.iv) throw new TypeError("invalid iv length " + iv.length);
     if (typeof password === "string") password = Buffer2.from(password);
-    if (password.length !== config2.key / 8) throw new TypeError("invalid key length " + password.length);
-    if (config2.type === "stream") {
-      return new StreamCipher(config2.module, password, iv, true);
-    } else if (config2.type === "auth") {
-      return new AuthCipher(config2.module, password, iv, true);
+    if (password.length !== config.key / 8) throw new TypeError("invalid key length " + password.length);
+    if (config.type === "stream") {
+      return new StreamCipher(config.module, password, iv, true);
+    } else if (config.type === "auth") {
+      return new AuthCipher(config.module, password, iv, true);
     }
-    return new Decipher(config2.module, password, iv);
+    return new Decipher(config.module, password, iv);
   }
   function createDecipher(suite, password) {
-    var config2 = MODES[suite.toLowerCase()];
-    if (!config2) throw new TypeError("invalid suite type");
-    var keys2 = ebtk(password, false, config2.key, config2.iv);
+    var config = MODES[suite.toLowerCase()];
+    if (!config) throw new TypeError("invalid suite type");
+    var keys2 = ebtk(password, false, config.key, config.iv);
     return createDecipheriv(suite, keys2.key, keys2.iv);
   }
   decrypter.createDecipher = createDecipher;
@@ -25258,7 +25344,7 @@ function require_stream_writable() {
   var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var internalUtil = {
-    deprecate: browser$c
+    deprecate: requireBrowser$a()
   };
   var Stream2 = requireStreamBrowser();
   var Buffer2 = requireSafeBuffer().Buffer;
@@ -53892,8 +53978,8 @@ function assertNumberIsBetweenForCodec(codecDescription, min2, max2, value) {
     });
   }
 }
-function isLittleEndian(config2) {
-  return (config2 == null ? void 0 : config2.endian) === 1 ? false : true;
+function isLittleEndian(config) {
+  return (config == null ? void 0 : config.endian) === 1 ? false : true;
 }
 function numberEncoderFactory(input) {
   return createEncoder({
@@ -53925,20 +54011,20 @@ function toArrayBuffer(bytes, offset2, length) {
   const bytesLength = length ?? bytes.byteLength;
   return bytes.buffer.slice(bytesOffset, bytesOffset + bytesLength);
 }
-var getU64Encoder = (config2 = {}) => numberEncoderFactory({
-  config: config2,
+var getU64Encoder = (config = {}) => numberEncoderFactory({
+  config,
   name: "u64",
   range: [0n, BigInt("0xffffffffffffffff")],
   set: (view, value, le2) => view.setBigUint64(0, BigInt(value), le2),
   size: 8
 });
-var getU64Decoder = (config2 = {}) => numberDecoderFactory({
-  config: config2,
+var getU64Decoder = (config = {}) => numberDecoderFactory({
+  config,
   get: (view, le2) => view.getBigUint64(0, le2),
   name: "u64",
   size: 8
 });
-var getU64Codec = (config2 = {}) => combineCodec(getU64Encoder(config2), getU64Decoder(config2));
+var getU64Codec = (config = {}) => combineCodec(getU64Encoder(config), getU64Decoder(config));
 class StructError extends TypeError {
   constructor(failure, failures) {
     let cached;
@@ -57014,14 +57100,14 @@ class Transaction {
    *
    * @returns {Buffer} Signature of transaction in wire format.
    */
-  serialize(config2) {
+  serialize(config) {
     const {
       requireAllSignatures,
       verifySignatures
     } = Object.assign({
       requireAllSignatures: true,
       verifySignatures: true
-    }, config2);
+    }, config);
     const signData = this.serializeMessage();
     if (verifySignatures) {
       const sigErrors = this._getMessageSignednessErrors(signData, requireAllSignatures);
@@ -57967,7 +58053,7 @@ function assertEndpointUrl(putativeUrl) {
 }
 function extractCommitmentFromConfig(commitmentOrConfig) {
   let commitment;
-  let config2;
+  let config;
   if (typeof commitmentOrConfig === "string") {
     commitment = commitmentOrConfig;
   } else if (commitmentOrConfig) {
@@ -57976,11 +58062,11 @@ function extractCommitmentFromConfig(commitmentOrConfig) {
       ...specifiedConfig
     } = commitmentOrConfig;
     commitment = specifiedCommitment;
-    config2 = specifiedConfig;
+    config = specifiedConfig;
   }
   return {
     commitment,
-    config: config2
+    config
   };
 }
 function applyDefaultMemcmpEncodingToFilters(filters) {
@@ -58721,9 +58807,9 @@ class Connection {
       return async (commitmentOrConfig) => {
         const {
           commitment,
-          config: config2
+          config
         } = extractCommitmentFromConfig(commitmentOrConfig);
-        const args = this._buildArgs([], commitment, void 0, config2);
+        const args = this._buildArgs([], commitment, void 0, config);
         const requestHash = fastStableStringify(args);
         requestPromises[requestHash] = requestPromises[requestHash] ?? (async () => {
           try {
@@ -58796,9 +58882,9 @@ class Connection {
   async getBalanceAndContext(publicKey2, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([publicKey2.toBase58()], commitment, void 0, config2);
+    const args = this._buildArgs([publicKey2.toBase58()], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getBalance", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(number()));
     if ("error" in res) {
@@ -58851,16 +58937,16 @@ class Connection {
   /**
    * Fetch information about the current supply
    */
-  async getSupply(config2) {
+  async getSupply(config) {
     let configArg = {};
-    if (typeof config2 === "string") {
+    if (typeof config === "string") {
       configArg = {
-        commitment: config2
+        commitment: config
       };
-    } else if (config2) {
+    } else if (config) {
       configArg = {
-        ...config2,
-        commitment: config2 && config2.commitment || this.commitment
+        ...config,
+        commitment: config && config.commitment || this.commitment
       };
     } else {
       configArg = {
@@ -58906,7 +58992,7 @@ class Connection {
   async getTokenAccountsByOwner(ownerAddress, filter, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     let _args = [ownerAddress.toBase58()];
     if ("mint" in filter) {
@@ -58918,7 +59004,7 @@ class Connection {
         programId: filter.programId.toBase58()
       });
     }
-    const args = this._buildArgs(_args, commitment, "base64", config2);
+    const args = this._buildArgs(_args, commitment, "base64", config);
     const unsafeRes = await this._rpcRequest("getTokenAccountsByOwner", args);
     const res = create$1(unsafeRes, GetTokenAccountsByOwner);
     if ("error" in res) {
@@ -58953,10 +59039,10 @@ class Connection {
   /**
    * Fetch the 20 largest accounts with their current balances
    */
-  async getLargestAccounts(config2) {
+  async getLargestAccounts(config) {
     const arg = {
-      ...config2,
-      commitment: config2 && config2.commitment || this.commitment
+      ...config,
+      commitment: config && config.commitment || this.commitment
     };
     const args = arg.filter || arg.commitment ? [arg] : [];
     const unsafeRes = await this._rpcRequest("getLargestAccounts", args);
@@ -58985,9 +59071,9 @@ class Connection {
   async getAccountInfoAndContext(publicKey2, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([publicKey2.toBase58()], commitment, "base64", config2);
+    const args = this._buildArgs([publicKey2.toBase58()], commitment, "base64", config);
     const unsafeRes = await this._rpcRequest("getAccountInfo", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(nullable(AccountInfoResult)));
     if ("error" in res) {
@@ -59001,9 +59087,9 @@ class Connection {
   async getParsedAccountInfo(publicKey2, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([publicKey2.toBase58()], commitment, "jsonParsed", config2);
+    const args = this._buildArgs([publicKey2.toBase58()], commitment, "jsonParsed", config);
     const unsafeRes = await this._rpcRequest("getAccountInfo", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(nullable(ParsedAccountInfoResult)));
     if ("error" in res) {
@@ -59028,10 +59114,10 @@ class Connection {
   async getMultipleParsedAccounts(publicKeys, rawConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(rawConfig);
     const keys2 = publicKeys.map((key2) => key2.toBase58());
-    const args = this._buildArgs([keys2], commitment, "jsonParsed", config2);
+    const args = this._buildArgs([keys2], commitment, "jsonParsed", config);
     const unsafeRes = await this._rpcRequest("getMultipleAccounts", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(array(nullable(ParsedAccountInfoResult))));
     if ("error" in res) {
@@ -59045,10 +59131,10 @@ class Connection {
   async getMultipleAccountsInfoAndContext(publicKeys, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const keys2 = publicKeys.map((key2) => key2.toBase58());
-    const args = this._buildArgs([keys2], commitment, "base64", config2);
+    const args = this._buildArgs([keys2], commitment, "base64", config);
     const unsafeRes = await this._rpcRequest("getMultipleAccounts", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(array(nullable(AccountInfoResult))));
     if ("error" in res) {
@@ -59071,11 +59157,11 @@ class Connection {
   async getStakeActivation(publicKey2, commitmentOrConfig, epoch) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const args = this._buildArgs([publicKey2.toBase58()], commitment, void 0, {
-      ...config2,
-      epoch: epoch != null ? epoch : config2 == null ? void 0 : config2.epoch
+      ...config,
+      epoch: epoch != null ? epoch : config == null ? void 0 : config.epoch
     });
     const unsafeRes = await this._rpcRequest("getStakeActivation", args);
     const res = create$1(unsafeRes, jsonRpcResult(StakeActivationResult));
@@ -59094,12 +59180,12 @@ class Connection {
   async getProgramAccounts(programId, configOrCommitment) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(configOrCommitment);
     const {
       encoding: encoding2,
       ...configWithoutEncoding
-    } = config2 || {};
+    } = config || {};
     const args = this._buildArgs([programId.toBase58()], commitment, encoding2 || "base64", {
       ...configWithoutEncoding,
       ...configWithoutEncoding.filters ? {
@@ -59122,9 +59208,9 @@ class Connection {
   async getParsedProgramAccounts(programId, configOrCommitment) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(configOrCommitment);
-    const args = this._buildArgs([programId.toBase58()], commitment, "jsonParsed", config2);
+    const args = this._buildArgs([programId.toBase58()], commitment, "jsonParsed", config);
     const unsafeRes = await this._rpcRequest("getProgramAccounts", args);
     const res = create$1(unsafeRes, jsonRpcResult(array(KeyedParsedAccountInfoResult)));
     if ("error" in res) {
@@ -59141,11 +59227,11 @@ class Connection {
     if (typeof strategy == "string") {
       rawSignature = strategy;
     } else {
-      const config2 = strategy;
-      if ((_a = config2.abortSignal) == null ? void 0 : _a.aborted) {
-        return Promise.reject(config2.abortSignal.reason);
+      const config = strategy;
+      if ((_a = config.abortSignal) == null ? void 0 : _a.aborted) {
+        return Promise.reject(config.abortSignal.reason);
       }
-      rawSignature = config2.signature;
+      rawSignature = config.signature;
     }
     let decodedSignature;
     try {
@@ -59529,9 +59615,9 @@ class Connection {
   async getSlot(commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([], commitment, void 0, config2);
+    const args = this._buildArgs([], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getSlot", args);
     const res = create$1(unsafeRes, jsonRpcResult(number()));
     if ("error" in res) {
@@ -59545,9 +59631,9 @@ class Connection {
   async getSlotLeader(commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([], commitment, void 0, config2);
+    const args = this._buildArgs([], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getSlotLeader", args);
     const res = create$1(unsafeRes, jsonRpcResult(string$1()));
     if ("error" in res) {
@@ -59573,11 +59659,11 @@ class Connection {
   /**
    * Fetch the current status of a signature
    */
-  async getSignatureStatus(signature2, config2) {
+  async getSignatureStatus(signature2, config) {
     const {
       context,
       value: values
-    } = await this.getSignatureStatuses([signature2], config2);
+    } = await this.getSignatureStatuses([signature2], config);
     assert$b(values.length === 1);
     const value = values[0];
     return {
@@ -59588,10 +59674,10 @@ class Connection {
   /**
    * Fetch the current statuses of a batch of signatures
    */
-  async getSignatureStatuses(signatures, config2) {
+  async getSignatureStatuses(signatures, config) {
     const params = [signatures];
-    if (config2) {
-      params.push(config2);
+    if (config) {
+      params.push(config);
     }
     const unsafeRes = await this._rpcRequest("getSignatureStatuses", params);
     const res = create$1(unsafeRes, GetSignatureStatusesRpcResult);
@@ -59606,9 +59692,9 @@ class Connection {
   async getTransactionCount(commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([], commitment, void 0, config2);
+    const args = this._buildArgs([], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getTransactionCount", args);
     const res = create$1(unsafeRes, jsonRpcResult(number()));
     if ("error" in res) {
@@ -59646,11 +59732,11 @@ class Connection {
   async getInflationReward(addresses, epoch, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const args = this._buildArgs([addresses.map((pubkey) => pubkey.toBase58())], commitment, void 0, {
-      ...config2,
-      epoch: epoch != null ? epoch : config2 == null ? void 0 : config2.epoch
+      ...config,
+      epoch: epoch != null ? epoch : config == null ? void 0 : config.epoch
     });
     const unsafeRes = await this._rpcRequest("getInflationReward", args);
     const res = create$1(unsafeRes, GetInflationRewardResult);
@@ -59676,9 +59762,9 @@ class Connection {
   async getEpochInfo(commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([], commitment, void 0, config2);
+    const args = this._buildArgs([], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getEpochInfo", args);
     const res = create$1(unsafeRes, GetEpochInfoRpcResult);
     if ("error" in res) {
@@ -59805,9 +59891,9 @@ class Connection {
   /**
    * Fetch a list of prioritization fees from recent blocks.
    */
-  async getRecentPrioritizationFees(config2) {
+  async getRecentPrioritizationFees(config) {
     var _a;
-    const accounts = (_a = config2 == null ? void 0 : config2.lockedWritableAccounts) == null ? void 0 : _a.map((key2) => key2.toBase58());
+    const accounts = (_a = config == null ? void 0 : config.lockedWritableAccounts) == null ? void 0 : _a.map((key2) => key2.toBase58());
     const args = (accounts == null ? void 0 : accounts.length) ? [accounts] : [];
     const unsafeRes = await this._rpcRequest("getRecentPrioritizationFees", args);
     const res = create$1(unsafeRes, GetRecentPrioritizationFeesRpcResult);
@@ -59849,9 +59935,9 @@ class Connection {
   async getLatestBlockhashAndContext(commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgs([], commitment, void 0, config2);
+    const args = this._buildArgs([], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getLatestBlockhash", args);
     const res = create$1(unsafeRes, GetLatestBlockhashRpcResult);
     if ("error" in res) {
@@ -59865,9 +59951,9 @@ class Connection {
   async isBlockhashValid(blockhash, rawConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(rawConfig);
-    const args = this._buildArgs([blockhash], commitment, void 0, config2);
+    const args = this._buildArgs([blockhash], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("isBlockhashValid", args);
     const res = create$1(unsafeRes, IsBlockhashValidRpcResult);
     if ("error" in res) {
@@ -59926,12 +60012,12 @@ class Connection {
   async getBlock(slot, rawConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(rawConfig);
-    const args = this._buildArgsAtLeastConfirmed([slot], commitment, void 0, config2);
+    const args = this._buildArgsAtLeastConfirmed([slot], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getBlock", args);
     try {
-      switch (config2 == null ? void 0 : config2.transactionDetails) {
+      switch (config == null ? void 0 : config.transactionDetails) {
         case "accounts": {
           const res = create$1(unsafeRes, GetAccountsModeBlockRpcResult);
           if ("error" in res) {
@@ -59984,12 +60070,12 @@ class Connection {
   async getParsedBlock(slot, rawConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(rawConfig);
-    const args = this._buildArgsAtLeastConfirmed([slot], commitment, "jsonParsed", config2);
+    const args = this._buildArgsAtLeastConfirmed([slot], commitment, "jsonParsed", config);
     const unsafeRes = await this._rpcRequest("getBlock", args);
     try {
-      switch (config2 == null ? void 0 : config2.transactionDetails) {
+      switch (config == null ? void 0 : config.transactionDetails) {
         case "accounts": {
           const res = create$1(unsafeRes, GetParsedAccountsModeBlockRpcResult);
           if ("error" in res) {
@@ -60058,9 +60144,9 @@ class Connection {
   async getTransaction(signature2, rawConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(rawConfig);
-    const args = this._buildArgsAtLeastConfirmed([signature2], commitment, void 0, config2);
+    const args = this._buildArgsAtLeastConfirmed([signature2], commitment, void 0, config);
     const unsafeRes = await this._rpcRequest("getTransaction", args);
     const res = create$1(unsafeRes, GetTransactionRpcResult);
     if ("error" in res) {
@@ -60082,9 +60168,9 @@ class Connection {
   async getParsedTransaction(signature2, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
-    const args = this._buildArgsAtLeastConfirmed([signature2], commitment, "jsonParsed", config2);
+    const args = this._buildArgsAtLeastConfirmed([signature2], commitment, "jsonParsed", config);
     const unsafeRes = await this._rpcRequest("getTransaction", args);
     const res = create$1(unsafeRes, GetParsedTransactionRpcResult);
     if ("error" in res) {
@@ -60098,10 +60184,10 @@ class Connection {
   async getParsedTransactions(signatures, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const batch = signatures.map((signature2) => {
-      const args = this._buildArgsAtLeastConfirmed([signature2], commitment, "jsonParsed", config2);
+      const args = this._buildArgsAtLeastConfirmed([signature2], commitment, "jsonParsed", config);
       return {
         methodName: "getTransaction",
         args
@@ -60140,10 +60226,10 @@ class Connection {
   async getTransactions(signatures, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const batch = signatures.map((signature2) => {
-      const args = this._buildArgsAtLeastConfirmed([signature2], commitment, void 0, config2);
+      const args = this._buildArgsAtLeastConfirmed([signature2], commitment, void 0, config);
       return {
         methodName: "getTransaction",
         args
@@ -60408,11 +60494,11 @@ class Connection {
     }
     return res.result;
   }
-  async getAddressLookupTable(accountKey, config2) {
+  async getAddressLookupTable(accountKey, config) {
     const {
       context,
       value: accountInfo
-    } = await this.getAccountInfoAndContext(accountKey, config2);
+    } = await this.getAccountInfoAndContext(accountKey, config);
     let value = null;
     if (accountInfo !== null) {
       value = new AddressLookupTableAccount({
@@ -60518,11 +60604,11 @@ class Connection {
   /**
    * get the stake minimum delegation
    */
-  async getStakeMinimumDelegation(config2) {
+  async getStakeMinimumDelegation(config) {
     const {
       commitment,
       config: configArg
-    } = extractCommitmentFromConfig(config2);
+    } = extractCommitmentFromConfig(config);
     const args = this._buildArgs([], commitment, "base64", configArg);
     const unsafeRes = await this._rpcRequest("getStakeMinimumDelegation", args);
     const res = create$1(unsafeRes, jsonRpcResultAndContext(number()));
@@ -60553,15 +60639,15 @@ class Connection {
       if (Array.isArray(configOrSigners) || includeAccounts !== void 0) {
         throw new Error("Invalid arguments");
       }
-      const config3 = configOrSigners || {};
-      config3.encoding = "base64";
-      if (!("commitment" in config3)) {
-        config3.commitment = this.commitment;
+      const config2 = configOrSigners || {};
+      config2.encoding = "base64";
+      if (!("commitment" in config2)) {
+        config2.commitment = this.commitment;
       }
       if (configOrSigners && typeof configOrSigners === "object" && "innerInstructions" in configOrSigners) {
-        config3.innerInstructions = configOrSigners.innerInstructions;
+        config2.innerInstructions = configOrSigners.innerInstructions;
       }
-      const args2 = [encodedTransaction2, config3];
+      const args2 = [encodedTransaction2, config2];
       const unsafeRes2 = await this._rpcRequest("simulateTransaction", args2);
       const res2 = create$1(unsafeRes2, SimulatedTransactionResponseStruct);
       if ("error" in res2) {
@@ -60611,24 +60697,24 @@ class Connection {
     const signData = message.serialize();
     const wireTransaction = transaction._serialize(signData);
     const encodedTransaction = wireTransaction.toString("base64");
-    const config2 = {
+    const config = {
       encoding: "base64",
       commitment: this.commitment
     };
     if (includeAccounts) {
       const addresses = (Array.isArray(includeAccounts) ? includeAccounts : message.nonProgramIds()).map((key2) => key2.toBase58());
-      config2["accounts"] = {
+      config["accounts"] = {
         encoding: "base64",
         addresses
       };
     }
     if (signers) {
-      config2.sigVerify = true;
+      config.sigVerify = true;
     }
     if (configOrSigners && typeof configOrSigners === "object" && "innerInstructions" in configOrSigners) {
-      config2.innerInstructions = configOrSigners.innerInstructions;
+      config.innerInstructions = configOrSigners.innerInstructions;
     }
-    const args = [encodedTransaction, config2];
+    const args = [encodedTransaction, config];
     const unsafeRes = await this._rpcRequest("simulateTransaction", args);
     const res = create$1(unsafeRes, SimulatedTransactionResponseStruct);
     if ("error" in res) {
@@ -60714,24 +60800,24 @@ class Connection {
    * wire format, and encoded as a base64 string
    */
   async sendEncodedTransaction(encodedTransaction, options) {
-    const config2 = {
+    const config = {
       encoding: "base64"
     };
     const skipPreflight = options && options.skipPreflight;
     const preflightCommitment = skipPreflight === true ? "processed" : options && options.preflightCommitment || this.commitment;
     if (options && options.maxRetries != null) {
-      config2.maxRetries = options.maxRetries;
+      config.maxRetries = options.maxRetries;
     }
     if (options && options.minContextSlot != null) {
-      config2.minContextSlot = options.minContextSlot;
+      config.minContextSlot = options.minContextSlot;
     }
     if (skipPreflight) {
-      config2.skipPreflight = skipPreflight;
+      config.skipPreflight = skipPreflight;
     }
     if (preflightCommitment) {
-      config2.preflightCommitment = preflightCommitment;
+      config.preflightCommitment = preflightCommitment;
     }
-    const args = [encodedTransaction, config2];
+    const args = [encodedTransaction, config];
     const unsafeRes = await this._rpcRequest("sendTransaction", args);
     const res = create$1(unsafeRes, SendTransactionRpcResult);
     if ("error" in res) {
@@ -61040,14 +61126,14 @@ class Connection {
   onAccountChange(publicKey2, callback, commitmentOrConfig) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const args = this._buildArgs(
       [publicKey2.toBase58()],
       commitment || this._commitment || "finalized",
       // Apply connection/server default.
       "base64",
-      config2
+      config
     );
     return this._makeSubscription({
       callback,
@@ -61091,14 +61177,14 @@ class Connection {
   onProgramAccountChange(programId, callback, commitmentOrConfig, maybeFilters) {
     const {
       commitment,
-      config: config2
+      config
     } = extractCommitmentFromConfig(commitmentOrConfig);
     const args = this._buildArgs(
       [programId.toBase58()],
       commitment || this._commitment || "finalized",
       // Apply connection/server default.
       "base64",
-      config2 ? config2 : maybeFilters ? {
+      config ? config : maybeFilters ? {
         filters: applyDefaultMemcmpEncodingToFilters(maybeFilters)
       } : void 0
       /* extra */
@@ -61629,8 +61715,8 @@ let errorConfig = {
   getDocsUrl: ({ docsBaseUrl, docsPath: docsPath2 = "", docsSlug }) => docsPath2 ? `${docsBaseUrl ?? "https://viem.sh"}${docsPath2}${docsSlug ? `#${docsSlug}` : ""}` : void 0,
   version: `viem@${version$3}`
 };
-function setErrorConfig(config2) {
-  errorConfig = config2;
+function setErrorConfig(config) {
+  errorConfig = config;
 }
 let BaseError$3 = class BaseError2 extends Error {
   constructor(shortMessage, args = {}) {
@@ -67135,6 +67221,13 @@ const CHAIN_MAP = Object.fromEntries(
   ALL_CHAINS.map((c2) => [c2.id, c2])
 );
 ALL_CHAINS.map((c2) => c2.id);
+const chainConfig$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  ALL_CHAINS,
+  CHAIN_MAP,
+  EVM_CHAINS: EVM_CHAINS$1,
+  NON_EVM_CHAINS
+}, Symbol.toStringTag, { value: "Module" }));
 async function fetchMarketData(ids) {
   var _a;
   const unique = [...new Set(ids)].filter(Boolean);
@@ -67162,9 +67255,9 @@ async function fetchMarketData(ids) {
 function usd(amount, price) {
   return `$${(amount * price).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
-async function fetchEvmNative(chain2, address, config2) {
+async function fetchEvmNative(chain2, address, config) {
   var _a;
-  const url = chain2.rpcUrl(config2);
+  const url = chain2.rpcUrl(config);
   const abort = AbortSignal.timeout(1e4);
   try {
     const balRes = await fetch(url, {
@@ -67272,9 +67365,9 @@ async function fetchPolkadotNative(address, tatumKey) {
     return { native: 0, tokenCount: 0, error: msg.includes("abort") ? "Timed out" : "Network error" };
   }
 }
-async function fetchSolanaNative(address, config2) {
+async function fetchSolanaNative(address, config) {
   var _a, _b;
-  const url = CHAIN_MAP["solana"].rpcUrl(config2);
+  const url = CHAIN_MAP["solana"].rpcUrl(config);
   try {
     const [balRes, tokRes] = await Promise.all([
       fetch(url, {
@@ -67308,11 +67401,11 @@ async function fetchSolanaNative(address, config2) {
     return { native: 0, tokenCount: 0, error: String(err).includes("abort") ? "Timed out" : "Network error" };
   }
 }
-async function fetchCardanaNative(address, stakeAddress, config2) {
+async function fetchCardanaNative(address, stakeAddress, config) {
   var _a, _b, _c;
   if (!address) return { native: 0, tokenCount: 0, error: "No Cardano address — re-import your wallet" };
   const base3 = "https://cardano-mainnet.blockfrost.io/api/v0";
-  const headers = { project_id: config2.blockfrostKey };
+  const headers = { project_id: config.blockfrostKey };
   try {
     let lovelace = 0;
     let tokenCount = 0;
@@ -67342,18 +67435,18 @@ async function fetchCardanaNative(address, stakeAddress, config2) {
     return { native: 0, tokenCount: 0, error: String(err).includes("abort") ? "Timed out" : "Network error" };
   }
 }
-async function fetchAllBalances(addresses, config2) {
+async function fetchAllBalances(addresses, config) {
   const allIds = [...EVM_CHAINS$1.map((c2) => c2.coingeckoId), "solana", "cardano", "bitcoin", "polkadot"];
   const COMING_SOON = { native: 0, tokenCount: 0, error: "coming-soon" };
   const [prices, ...rawResults] = await Promise.all([
     fetchMarketData(allIds),
     ...EVM_CHAINS$1.map(
-      (chain2) => chain2.comingSoon ? Promise.resolve(COMING_SOON) : fetchEvmNative(chain2, addresses.evm, config2)
+      (chain2) => chain2.comingSoon ? Promise.resolve(COMING_SOON) : fetchEvmNative(chain2, addresses.evm, config)
     ),
-    fetchSolanaNative(addresses.solana, config2),
-    fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config2),
+    fetchSolanaNative(addresses.solana, config),
+    fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config),
     addresses.bitcoin ? fetchBitcoinNative(addresses.bitcoin) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" }),
-    addresses.polkadot ? fetchPolkadotNative(addresses.polkadot, config2.tatumKey) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" })
+    addresses.polkadot ? fetchPolkadotNative(addresses.polkadot, config.tatumKey) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" })
   ]);
   const marketMap = prices;
   const evmRaw = rawResults.slice(0, EVM_CHAINS$1.length);
@@ -67696,14 +67789,14 @@ async function fetchPolkadotHistory(address) {
     return { records: [], error: String(err) };
   }
 }
-async function fetchAllHistory(addresses, config2) {
+async function fetchAllHistory(addresses, config) {
   const alchemyChains = EVM_CHAINS$1.filter((c2) => c2.alchemyNetwork);
   const blockscoutChains = EVM_CHAINS$1.filter((c2) => c2.blockscoutUrl && !c2.alchemyNetwork && c2.id !== "monad");
   const etherscanChains = EVM_CHAINS$1.filter((c2) => c2.etherscanApiUrl && !c2.alchemyNetwork && !c2.blockscoutUrl);
   const results = await Promise.all([
     ...alchemyChains.map((c2) => fetchAlchemyHistory(
       addresses.evm,
-      `https://${c2.alchemyNetwork}.g.alchemy.com/v2/${config2.alchemyKey}`,
+      `https://${c2.alchemyNetwork}.g.alchemy.com/v2/${config.alchemyKey}`,
       c2.explorerTx
     )),
     ...blockscoutChains.map((c2) => fetchBlockscoutHistory(addresses.evm, c2.blockscoutUrl, c2.nativeSymbol)),
@@ -67711,14 +67804,14 @@ async function fetchAllHistory(addresses, config2) {
     // Monad: Tatum → Blockscout fallback
     fetchTatumHistory(
       addresses.evm,
-      config2.tatumKey,
+      config.tatumKey,
       "monad",
       "MON",
       "https://monadexplorer.com/tx",
       () => fetchBlockscoutHistory(addresses.evm, "https://monadexplorer.com", "MON")
     ),
-    fetchSolanaHistory(addresses.solana, config2.heliusKey),
-    addresses.cardano ? fetchCardanoHistory(addresses.cardano, config2.blockfrostKey) : Promise.resolve({ records: [], error: null }),
+    fetchSolanaHistory(addresses.solana, config.heliusKey),
+    addresses.cardano ? fetchCardanoHistory(addresses.cardano, config.blockfrostKey) : Promise.resolve({ records: [], error: null }),
     fetchBitcoinHistory(addresses.bitcoin ?? ""),
     fetchPolkadotHistory(addresses.polkadot ?? "")
   ]);
@@ -70069,78 +70162,6 @@ function getContractError(err, { abi: abi2, address, args, docsPath: docsPath2, 
     sender
   });
 }
-const scriptRel = "modulepreload";
-const assetsURL = function(dep, importerUrl) {
-  return new URL(dep, importerUrl).href;
-};
-const seen = {};
-const __vitePreload = function preload(baseModule, deps, importerUrl) {
-  let promise = Promise.resolve();
-  if (deps && deps.length > 0) {
-    const links = document.getElementsByTagName("link");
-    const cspNonceMeta = document.querySelector(
-      "meta[property=csp-nonce]"
-    );
-    const cspNonce = (cspNonceMeta == null ? void 0 : cspNonceMeta.nonce) || (cspNonceMeta == null ? void 0 : cspNonceMeta.getAttribute("nonce"));
-    promise = Promise.allSettled(
-      deps.map((dep) => {
-        dep = assetsURL(dep, importerUrl);
-        if (dep in seen) return;
-        seen[dep] = true;
-        const isCss = dep.endsWith(".css");
-        const cssSelector = isCss ? '[rel="stylesheet"]' : "";
-        const isBaseRelative = !!importerUrl;
-        if (isBaseRelative) {
-          for (let i2 = links.length - 1; i2 >= 0; i2--) {
-            const link2 = links[i2];
-            if (link2.href === dep && (!isCss || link2.rel === "stylesheet")) {
-              return;
-            }
-          }
-        } else if (document.querySelector(`link[href="${dep}"]${cssSelector}`)) {
-          return;
-        }
-        const link = document.createElement("link");
-        link.rel = isCss ? "stylesheet" : scriptRel;
-        if (!isCss) {
-          link.as = "script";
-        }
-        link.crossOrigin = "";
-        link.href = dep;
-        if (cspNonce) {
-          link.setAttribute("nonce", cspNonce);
-        }
-        document.head.appendChild(link);
-        if (isCss) {
-          return new Promise((res, rej) => {
-            link.addEventListener("load", res);
-            link.addEventListener(
-              "error",
-              () => rej(new Error(`Unable to preload CSS for ${dep}`))
-            );
-          });
-        }
-      })
-    );
-  }
-  function handlePreloadError(err) {
-    const e2 = new Event("vite:preloadError", {
-      cancelable: true
-    });
-    e2.payload = err;
-    window.dispatchEvent(e2);
-    if (!e2.defaultPrevented) {
-      throw err;
-    }
-  }
-  return promise.then((res) => {
-    for (const item of res || []) {
-      if (item.status !== "rejected") continue;
-      handlePreloadError(item.reason);
-    }
-    return baseModule().catch(handlePreloadError);
-  });
-};
 async function recoverPublicKey$2({ hash: hash2, signature: signature2 }) {
   const hashHex = isHex(hash2) ? hash2 : toHex$5(hash2);
   const { secp256k1: secp256k12 } = await __vitePreload(async () => {
@@ -75542,12 +75563,12 @@ function createClient(parameters) {
   const pollingInterval = parameters.pollingInterval ?? defaultPollingInterval;
   const cacheTime = parameters.cacheTime ?? pollingInterval;
   const account = parameters.account ? parseAccount(parameters.account) : void 0;
-  const { config: config2, request, value } = parameters.transport({
+  const { config, request, value } = parameters.transport({
     account,
     chain: chain2,
     pollingInterval
   });
-  const transport = { ...config2, ...value };
+  const transport = { ...config, ...value };
   const client = {
     account,
     batch,
@@ -82053,12 +82074,12 @@ function getSignalId(signal) {
   signalIds.set(signal, nextId);
   return nextId;
 }
-function http(url, config2 = {}) {
-  const { batch, fetchFn, fetchOptions, key: key2 = "http", methods, name = "HTTP JSON-RPC", onFetchRequest, onFetchResponse, retryDelay, raw } = config2;
+function http(url, config = {}) {
+  const { batch, fetchFn, fetchOptions, key: key2 = "http", methods, name = "HTTP JSON-RPC", onFetchRequest, onFetchResponse, retryDelay, raw } = config;
   return ({ chain: chain2, retryCount: retryCount_, timeout: timeout_ }) => {
     const { batchSize = 1e3, wait: wait2 = 0 } = typeof batch === "object" ? batch : {};
-    const retryCount = config2.retryCount ?? retryCount_;
-    const timeout = timeout_ ?? config2.timeout ?? 1e4;
+    const retryCount = config.retryCount ?? retryCount_;
+    const timeout = timeout_ ?? config.timeout ?? 1e4;
     const url_ = url || (chain2 == null ? void 0 : chain2.rpcUrls.default.http[0]);
     if (!url_)
       throw new UrlRequiredError();
@@ -82572,18 +82593,18 @@ async function deriveAgwAddress(eoa) {
     return null;
   }
 }
-async function fetchAllTokens(addresses, config2) {
+async function fetchAllTokens(addresses, config) {
   try {
     const agwAddressPromise = deriveAgwAddress(addresses.evm);
     const [evmResults, solanaTokens, cardanoTokens, monadTokens, agwAddress] = await Promise.all([
-      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config2.alchemyKey))),
-      addresses.solana ? fetchSolanaTokens(addresses.solana, config2.heliusKey) : Promise.resolve([]),
-      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config2.blockfrostKey) : Promise.resolve([]),
+      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config.alchemyKey))),
+      addresses.solana ? fetchSolanaTokens(addresses.solana, config.heliusKey) : Promise.resolve([]),
+      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey) : Promise.resolve([]),
       fetchMonadTokens(addresses.evm),
       agwAddressPromise
     ]);
     const abstractChainCfg = TOKEN_CHAINS.find((c2) => c2.id === "abstract");
-    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? await fetchTokensForChain(agwAddress, abstractChainCfg, config2.alchemyKey) : [];
+    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey) : [];
     const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens];
     const tokens = await enrichWithPrices(raw);
     tokens.sort((a2, b2) => {
@@ -82802,16 +82823,16 @@ async function fetchMonadNFTs(address, moralisKey) {
     return [];
   }
 }
-async function fetchAllCollectibles(evmAddress, cardanoAddress, config2) {
+async function fetchAllCollectibles(evmAddress, cardanoAddress, config) {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Cardano: ${cardanoAddress ?? "none"}`);
   try {
     const agwAddress = await deriveAgwAddress(evmAddress);
     const abstractChainCfg = NFT_CHAINS.find((c2) => c2.id === "abstract");
     const [evmResults, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
-      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config2.alchemyKey))),
-      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config2.blockfrostKey) : Promise.resolve([]),
-      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config2.alchemyKey).then((r2) => r2.items) : Promise.resolve([]),
-      fetchMonadNFTs(evmAddress, config2.moralisKey)
+      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config.alchemyKey))),
+      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([]),
+      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then((r2) => r2.items) : Promise.resolve([]),
+      fetchMonadNFTs(evmAddress, config.moralisKey)
     ]);
     const items = [...evmResults.flatMap((r2) => r2.items), ...agwAbstractNfts, ...monadNfts, ...cardanoNfts];
     const chainResults = {};
@@ -83312,10 +83333,10 @@ const EVM_CHAINS = {
   zora: { chain: zora, rpcUrl: () => "https://rpc.zora.energy", explorer: "https://explorer.zora.energy/tx", nativeSymbol: "ETH" },
   hyperevm: { chain: hyperEvm, rpcUrl: () => "https://rpc.hyperliquid.xyz/evm", explorer: "https://purrsec.com/tx", nativeSymbol: "HYPE" }
 };
-async function estimateEvmFee(from2, to2, amountEth, config2, chainId = "ethereum") {
+async function estimateEvmFee(from2, to2, amountEth, config, chainId = "ethereum") {
   var _a;
   const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum;
-  const transport = http(entry.rpcUrl(config2));
+  const transport = http(entry.rpcUrl(config));
   const client = createPublicClient({ chain: entry.chain, transport });
   const [gasEstimate, feeData] = await Promise.all([
     client.estimateGas({
@@ -83363,11 +83384,11 @@ function getCoingeckoId(chainId) {
   };
   return map[chainId] ?? "ethereum";
 }
-async function sendEvmTransaction(mnemonic, to2, amountEth, config2, chainId = "ethereum", accountIndex = 0) {
+async function sendEvmTransaction(mnemonic, to2, amountEth, config, chainId = "ethereum", accountIndex = 0) {
   const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum;
   const pk = await getEvmPrivateKey(mnemonic, accountIndex);
   const account = privateKeyToAccount(pk);
-  const transport = http(entry.rpcUrl(config2));
+  const transport = http(entry.rpcUrl(config));
   const walletClient = createWalletClient({ chain: entry.chain, transport, account });
   const hash2 = await walletClient.sendTransaction({
     to: to2,
@@ -83375,7 +83396,7 @@ async function sendEvmTransaction(mnemonic, to2, amountEth, config2, chainId = "
   });
   return { txHash: hash2, explorerUrl: `${entry.explorer}/${hash2}` };
 }
-async function estimateSolanaFee(config2) {
+async function estimateSolanaFee(config) {
   var _a;
   const feeLamports = 5e3;
   const feeSol = feeLamports / LAMPORTS_PER_SOL;
@@ -83391,10 +83412,10 @@ async function estimateSolanaFee(config2) {
   }
   return { fee: feeSol.toFixed(9), feeSymbol: "SOL", feeUsd };
 }
-async function sendSolanaTransaction(mnemonic, to2, amountSol, config2, accountIndex = 0) {
+async function sendSolanaTransaction(mnemonic, to2, amountSol, config, accountIndex = 0) {
   const keypair = await getSolanaKeypair(mnemonic, accountIndex);
   const connection = new Connection(
-    `https://mainnet.helius-rpc.com/?api-key=${config2.heliusKey}`,
+    `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`,
     "confirmed"
   );
   const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL);
@@ -83437,7 +83458,7 @@ async function fetchUtxos(address, blockfrostKey) {
     };
   });
 }
-async function estimateCardanoFee(_address, config2) {
+async function estimateCardanoFee(_address, config) {
   var _a;
   const feeLovelace = 170000n;
   const feeAda = Number(feeLovelace) / 1e6;
@@ -83453,13 +83474,13 @@ async function estimateCardanoFee(_address, config2) {
   }
   return { fee: feeAda.toFixed(6), feeSymbol: "ADA", feeUsd };
 }
-async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAda, config2, accountIndex = 0) {
+async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAda, config, accountIndex = 0) {
   const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, " ");
   const entropy = mnemonicToEntropy(cleaned, wordlist);
   const spendKey = getCardanoSpendingKey(entropy, accountIndex);
   const amountLovelace = BigInt(Math.round(parseFloat(amountAda) * 1e6));
   if (amountLovelace <= 0n) throw new Error("Amount must be greater than 0");
-  const allUtxos = await fetchUtxos(fromAddress, config2.blockfrostKey);
+  const allUtxos = await fetchUtxos(fromAddress, config.blockfrostKey);
   if (allUtxos.length === 0) throw new Error("No UTXOs found — address has no funds on-chain");
   allUtxos.sort((a2, b2) => b2.lovelace > a2.lovelace ? 1 : -1);
   const FEE = 170000n;
@@ -83488,7 +83509,7 @@ async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAd
   const submitRes = await fetch(`${BLOCKFROST_BASE}/tx/submit`, {
     method: "POST",
     headers: {
-      project_id: config2.blockfrostKey,
+      project_id: config.blockfrostKey,
       "Content-Type": "application/cbor"
     },
     body: txCbor
@@ -97963,9 +97984,9 @@ async function deriveEvmKey$1() {
   return `0x${toHex$1(child.privateKey)}`;
 }
 async function _doInit() {
-  const config2 = await loadConfig();
+  const config = await loadConfig();
   _client = await ut.init({
-    projectId: config2.walletConnectProjectId,
+    projectId: config.walletConnectProjectId,
     storage: new ChromeStorage(),
     metadata: {
       name: "MagicMoney Wallet",
@@ -98009,6 +98030,9 @@ function wcGetSessions() {
 }
 function wcGetPendingProposals() {
   return [..._proposals.values()].map(serProposal);
+}
+function wcGetPendingRequests() {
+  return [..._requests.values()].map(serRequest);
 }
 async function wcPair(uri2) {
   await ensureClient();
@@ -98068,7 +98092,7 @@ async function wcApproveRequest(requestId) {
       result = await account.signTypedData({ domain: td.domain ?? {}, types: types2, primaryType: td.primaryType, message: td.message });
     } else if (method === "eth_sendTransaction") {
       const { createWalletClient: createWalletClient2, http: http2 } = await __vitePreload(async () => {
-        const { createWalletClient: createWalletClient3, http: http3 } = await import("./chunks/index-BH0my9He.js");
+        const { createWalletClient: createWalletClient3, http: http3 } = await import("./chunks/index-CblrnOPd.js");
         return { createWalletClient: createWalletClient3, http: http3 };
       }, true ? __vite__mapDeps([0,1]) : void 0, import.meta.url);
       const chainId = parseInt(req.params.chainId.split(":")[1] ?? "1");
@@ -98100,6 +98124,7 @@ async function wcRejectRequest(requestId) {
 self.addEventListener("error", (e2) => console.error("[SW] uncaught error:", e2.message, e2.error));
 self.addEventListener("unhandledrejection", (e2) => console.error("[SW] unhandled rejection:", e2.reason));
 let _pendingMnemonic = null;
+const _web3TxQueue = /* @__PURE__ */ new Map();
 initWalletConnect().catch((e2) => console.error("[WC] startup error:", e2));
 function toHex(bytes) {
   return Array.from(bytes).map((b2) => b2.toString(16).padStart(2, "0")).join("");
@@ -98114,6 +98139,7 @@ async function deriveEvmKey() {
   return `0x${toHex(child.privateKey)}`;
 }
 async function handle(msg) {
+  var _a, _b;
   const [a0, a1, a2] = msg.args ?? [];
   switch (msg.type) {
     case "wallet:is-setup":
@@ -98164,8 +98190,8 @@ async function handle(msg) {
     case "wallet:get-balances": {
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
-      const config2 = await loadConfig();
-      return fetchAllBalances(addresses, config2);
+      const config = await loadConfig();
+      return fetchAllBalances(addresses, config);
     }
     case "wallet:reveal-seed": {
       const mnemonic = await loadMnemonic();
@@ -98174,8 +98200,8 @@ async function handle(msg) {
     case "wallet:get-history": {
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
-      const config2 = await loadConfig();
-      return fetchAllHistory(addresses, config2);
+      const config = await loadConfig();
+      return fetchAllHistory(addresses, config);
     }
     case "wallet:get-account": {
       const addresses = await loadAddresses();
@@ -98190,30 +98216,30 @@ async function handle(msg) {
     }
     case "wallet:estimate-fee": {
       const [chain2, to2, amount] = [String(a0), String(a1), String(a2)];
-      const config2 = await loadConfig();
+      const config = await loadConfig();
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
       if (chain2 === "solana") return estimateSolanaFee(addresses.solana);
       if (chain2 === "cardano") return estimateCardanoFee(addresses.cardano);
-      return estimateEvmFee(chain2, addresses.evm, to2, amount, config2);
+      return estimateEvmFee(chain2, addresses.evm, to2, amount, config);
     }
     case "wallet:send-evm": {
       const [chainId, to2, amount] = [String(a0), String(a1), String(a2)];
       const pk = await deriveEvmKey();
-      const config2 = await loadConfig();
-      return sendEvmTransaction(chainId, pk, to2, amount, config2);
+      const config = await loadConfig();
+      return sendEvmTransaction(chainId, pk, to2, amount, config);
     }
     case "wallet:send-solana": {
       const mnemonic = await loadMnemonic();
-      const config2 = await loadConfig();
-      return sendSolanaTransaction(mnemonic, String(a0), String(a1), config2);
+      const config = await loadConfig();
+      return sendSolanaTransaction(mnemonic, String(a0), String(a1), config);
     }
     case "wallet:send-cardano": {
       const addresses = await loadAddresses();
-      const config2 = await loadConfig();
+      const config = await loadConfig();
       if (!addresses) throw new Error("No wallet");
       const mnemonic = await loadMnemonic();
-      return sendCardanoTransaction(mnemonic, addresses.cardano, String(a0), String(a1), config2);
+      return sendCardanoTransaction(mnemonic, addresses.cardano, String(a0), String(a1), config);
     }
     case "wallet:get-market":
       return fetchMarketTop100();
@@ -98224,14 +98250,14 @@ async function handle(msg) {
     case "wallet:get-tokens": {
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
-      const config2 = await loadConfig();
-      return fetchAllTokens(addresses, config2);
+      const config = await loadConfig();
+      return fetchAllTokens(addresses, config);
     }
     case "wallet:get-collectibles": {
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
-      const config2 = await loadConfig();
-      return fetchAllCollectibles(addresses, config2);
+      const config = await loadConfig();
+      return fetchAllCollectibles(addresses.evm, addresses.cardano, config);
     }
     case "wallet:get-nft-floor":
       return { floor: null, currency: "ETH", floorUsd: null };
@@ -98259,6 +98285,8 @@ async function handle(msg) {
       return wcGetSessions();
     case "wc:get-pending-proposals":
       return wcGetPendingProposals();
+    case "wc:get-pending-requests":
+      return wcGetPendingRequests();
     case "wc:pair":
       return wcPair(String(a0));
     case "wc:approve-session":
@@ -98271,6 +98299,130 @@ async function handle(msg) {
       return wcApproveRequest(Number(a0));
     case "wc:reject-request":
       return wcRejectRequest(Number(a0));
+    case "web3:request": {
+      const { method, params = [] } = a0;
+      const addresses = await loadAddresses();
+      switch (method) {
+        case "eth_accounts":
+        case "eth_requestAccounts":
+          if (!(addresses == null ? void 0 : addresses.evm)) return [];
+          return [addresses.evm];
+        case "eth_chainId":
+          return "0x1";
+        case "net_version":
+          return "1";
+        case "personal_sign": {
+          const key2 = await deriveEvmKey();
+          const acct = privateKeyToAccount(key2);
+          return acct.signMessage({ message: { raw: String(params[0]) } });
+        }
+        case "eth_sign": {
+          const key2 = await deriveEvmKey();
+          const acct = privateKeyToAccount(key2);
+          return acct.signMessage({ message: { raw: String(params[1]) } });
+        }
+        case "eth_signTypedData_v4":
+        case "eth_signTypedData": {
+          const key2 = await deriveEvmKey();
+          const acct = privateKeyToAccount(key2);
+          const td = JSON.parse(String(params[1]));
+          const { EIP712Domain: _dom, ...types2 } = td.types ?? {};
+          return acct.signTypedData({ domain: td.domain ?? {}, types: types2, primaryType: td.primaryType, message: td.message });
+        }
+        case "eth_sendTransaction": {
+          const id = crypto.randomUUID();
+          const tx = params[0];
+          return new Promise((resolve, reject) => {
+            _web3TxQueue.set(id, { resolve, reject, tx });
+            chrome.runtime.sendMessage({ type: "web3:tx-request", data: { id, ...tx } }).catch(() => {
+            });
+            try {
+              chrome.action.openPopup();
+            } catch {
+            }
+            setTimeout(() => {
+              if (_web3TxQueue.has(id)) {
+                _web3TxQueue.delete(id);
+                reject(new Error("Transaction timed out — open the extension to approve"));
+              }
+            }, 12e4);
+          });
+        }
+        case "wallet_switchEthereumChain":
+        case "wallet_addEthereumChain":
+          return null;
+        default:
+          throw new Error(`Method not supported via window.ethereum: ${method}`);
+      }
+    }
+    case "web3:get-pending-tx":
+      return [..._web3TxQueue.entries()].map(([id, { tx }]) => ({ id, ...tx }));
+    case "web3:approve-tx": {
+      const { id, chainId } = a0;
+      const entry = _web3TxQueue.get(id);
+      if (!entry) throw new Error("Pending transaction not found");
+      _web3TxQueue.delete(id);
+      const { createWalletClient: createWalletClient2, http: http2, parseEther: parseEther2 } = await __vitePreload(async () => {
+        const { createWalletClient: createWalletClient3, http: http3, parseEther: parseEther3 } = await import("./chunks/index-CblrnOPd.js");
+        return { createWalletClient: createWalletClient3, http: http3, parseEther: parseEther3 };
+      }, true ? __vite__mapDeps([0,1]) : void 0, import.meta.url);
+      const config = await loadConfig();
+      const { EVM_CHAINS: EVM_CHAINS2 } = await __vitePreload(async () => {
+        const { EVM_CHAINS: EVM_CHAINS3 } = await Promise.resolve().then(() => chainConfig$1);
+        return { EVM_CHAINS: EVM_CHAINS3 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const numId = parseInt(chainId ?? "1");
+      const chain2 = Object.values(EVM_CHAINS2).find((c2) => c2.chainId === numId) ?? EVM_CHAINS2[0];
+      const key2 = await deriveEvmKey();
+      const acct = privateKeyToAccount(key2);
+      const wc = createWalletClient2({ account: acct, transport: http2(chain2.rpcUrl(config)), chain: null });
+      const hash2 = await wc.sendTransaction({
+        to: entry.tx.to,
+        value: entry.tx.value ? BigInt(entry.tx.value) : void 0,
+        data: entry.tx.data,
+        gas: entry.tx.gas ? BigInt(entry.tx.gas) : void 0
+      });
+      entry.resolve(hash2);
+      return hash2;
+    }
+    case "web3:reject-tx": {
+      const id = String(a0);
+      const entry = _web3TxQueue.get(id);
+      if (entry) {
+        entry.reject(new Error("User rejected the transaction"));
+        _web3TxQueue.delete(id);
+      }
+      return true;
+    }
+    case "web3:solana:connect": {
+      const addresses = await loadAddresses();
+      if (!(addresses == null ? void 0 : addresses.solana)) throw new Error("No Solana wallet");
+      return addresses.solana;
+    }
+    case "web3:solana:sign": {
+      const bytes = new Uint8Array(a0);
+      const mnemonic = await loadMnemonic();
+      const keypair = await getSolanaKeypair(mnemonic);
+      return Array.from(keypair.sign(bytes));
+    }
+    case "sidePanel:open": {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const windowId = (_a = tabs[0]) == null ? void 0 : _a.windowId;
+      if (windowId !== void 0) await chrome.sidePanel.open({ windowId });
+      return true;
+    }
+    case "sidePanel:close": {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = (_b = tabs[0]) == null ? void 0 : _b.id;
+      if (tabId !== void 0) {
+        await chrome.sidePanel.setOptions({ tabId, enabled: false });
+        setTimeout(() => {
+          chrome.sidePanel.setOptions({ tabId, enabled: true }).catch(() => {
+          });
+        }, 600);
+      }
+      return true;
+    }
     case "window:minimize":
     case "window:close":
       return;
@@ -98312,7 +98464,7 @@ export {
   withTimeout as Z,
   TimeoutError as _,
   parseStructs as a,
-  AtomicityNotSupportedError as a$,
+  AtomicReadyWalletRejectedUpgradeError as a$,
   SocketClosedError as a0,
   __vitePreload as a1,
   WebSocketRequestError as a2,
@@ -98332,24 +98484,24 @@ export {
   EnsInvalidChainIdError as aG,
   secp256k1$2 as aH,
   serializeTransaction$1 as aI,
-  createWalletClient as aJ,
-  http as aK,
-  AbiDecodingDataSizeInvalidError as aL,
-  AbiDecodingDataSizeTooSmallError as aM,
-  AbiDecodingZeroDataError as aN,
-  AbiEncodingArrayLengthMismatchError as aO,
-  AbiEncodingBytesSizeMismatchError as aP,
-  AbiErrorInputsNotFoundError as aQ,
-  AbiErrorNotFoundError as aR,
-  AbiErrorSignatureNotFoundError as aS,
-  AbiEventNotFoundError as aT,
-  AbiEventSignatureEmptyTopicsError as aU,
-  AbiEventSignatureNotFoundError as aV,
-  AbiFunctionNotFoundError as aW,
-  AbiFunctionOutputsNotFoundError as aX,
-  AbiFunctionSignatureNotFoundError as aY,
-  AccountStateConflictError as aZ,
-  AtomicReadyWalletRejectedUpgradeError as a_,
+  parseEther as aJ,
+  createWalletClient as aK,
+  http as aL,
+  AbiDecodingDataSizeInvalidError as aM,
+  AbiDecodingDataSizeTooSmallError as aN,
+  AbiDecodingZeroDataError as aO,
+  AbiEncodingArrayLengthMismatchError as aP,
+  AbiEncodingBytesSizeMismatchError as aQ,
+  AbiErrorInputsNotFoundError as aR,
+  AbiErrorNotFoundError as aS,
+  AbiErrorSignatureNotFoundError as aT,
+  AbiEventNotFoundError as aU,
+  AbiEventSignatureEmptyTopicsError as aV,
+  AbiEventSignatureNotFoundError as aW,
+  AbiFunctionNotFoundError as aX,
+  AbiFunctionOutputsNotFoundError as aY,
+  AbiFunctionSignatureNotFoundError as aZ,
+  AccountStateConflictError as a_,
   encodeAbiParameters as aa,
   wrap$1 as ab,
   isAddressEqual as ac,
@@ -98377,269 +98529,269 @@ export {
   WalletConnectSessionSettlementError as ay,
   ExecutionRevertedError as az,
   getAction as b,
-  NonceTooHighError as b$,
-  BaseFeeScalarError as b0,
-  BlockNotFoundError as b1,
-  BundleFailedError as b2,
-  BundleTooLargeError as b3,
-  CallExecutionError as b4,
-  ChainDisconnectedError as b5,
-  ChainDoesNotSupportContract as b6,
-  ChainMismatchError as b7,
-  ChainNotFoundError as b8,
-  CircularReferenceError as b9,
-  InvalidAbiTypeParameterError as bA,
-  InvalidArrayError$1 as bB,
-  InvalidBytesBooleanError$1 as bC,
-  InvalidChainIdError as bD,
-  InvalidDecimalNumberError as bE,
-  InvalidDefinitionTypeError as bF,
-  InvalidDomainError as bG,
-  InvalidFunctionModifierError as bH,
-  InvalidHexBooleanError as bI,
-  InvalidInputRpcError as bJ,
-  InvalidModifierError as bK,
-  InvalidParameterError as bL,
-  InvalidParamsRpcError as bM,
-  InvalidParenthesisError as bN,
-  InvalidPrimaryTypeError as bO,
-  InvalidRequestRpcError as bP,
-  InvalidSerializableTransactionError as bQ,
-  InvalidSignatureError as bR,
-  InvalidStorageKeySizeError as bS,
-  InvalidStructSignatureError as bT,
-  InvalidStructTypeError as bU,
-  JsonRpcVersionUnsupportedError as bV,
-  LimitExceededRpcError as bW,
-  MaxFeePerGasTooLowError as bX,
-  MethodNotFoundRpcError as bY,
-  MethodNotSupportedRpcError as bZ,
-  NonceMaxValueError as b_,
-  ClientChainNotConfiguredError as ba,
-  ContractFunctionExecutionError as bb,
-  ContractFunctionRevertedError as bc,
-  ContractFunctionZeroDataError as bd,
-  CounterfactualDeploymentFailedError as be,
-  DecodeLogDataMismatch as bf,
-  DecodeLogTopicsMismatch as bg,
-  DuplicateIdError as bh,
-  Eip1559FeesNotSupportedError as bi,
-  EnsAvatarInvalidNftUriError as bj,
-  EnsAvatarUnsupportedNamespaceError as bk,
-  EnsAvatarUriResolutionError as bl,
-  EstimateGasExecutionError as bm,
-  FeeCapTooHighError as bn,
-  FeeCapTooLowError as bo,
-  FeeConflictError as bp,
-  FilterTypeNotSupportedError as bq,
-  InsufficientFundsError as br,
-  IntegerOutOfRangeError$2 as bs,
-  InternalRpcError as bt,
-  IntrinsicGasTooHighError as bu,
-  IntrinsicGasTooLowError as bv,
-  InvalidAbiDecodingTypeError as bw,
-  InvalidAbiEncodingTypeError as bx,
-  InvalidAbiItemError as by,
-  InvalidAbiParametersError as bz,
+  NonceMaxValueError as b$,
+  AtomicityNotSupportedError as b0,
+  BaseFeeScalarError as b1,
+  BlockNotFoundError as b2,
+  BundleFailedError as b3,
+  BundleTooLargeError as b4,
+  CallExecutionError as b5,
+  ChainDisconnectedError as b6,
+  ChainDoesNotSupportContract as b7,
+  ChainMismatchError as b8,
+  ChainNotFoundError as b9,
+  InvalidAbiParametersError as bA,
+  InvalidAbiTypeParameterError as bB,
+  InvalidArrayError$1 as bC,
+  InvalidBytesBooleanError$1 as bD,
+  InvalidChainIdError as bE,
+  InvalidDecimalNumberError as bF,
+  InvalidDefinitionTypeError as bG,
+  InvalidDomainError as bH,
+  InvalidFunctionModifierError as bI,
+  InvalidHexBooleanError as bJ,
+  InvalidInputRpcError as bK,
+  InvalidModifierError as bL,
+  InvalidParameterError as bM,
+  InvalidParamsRpcError as bN,
+  InvalidParenthesisError as bO,
+  InvalidPrimaryTypeError as bP,
+  InvalidRequestRpcError as bQ,
+  InvalidSerializableTransactionError as bR,
+  InvalidSignatureError as bS,
+  InvalidStorageKeySizeError as bT,
+  InvalidStructSignatureError as bU,
+  InvalidStructTypeError as bV,
+  JsonRpcVersionUnsupportedError as bW,
+  LimitExceededRpcError as bX,
+  MaxFeePerGasTooLowError as bY,
+  MethodNotFoundRpcError as bZ,
+  MethodNotSupportedRpcError as b_,
+  CircularReferenceError as ba,
+  ClientChainNotConfiguredError as bb,
+  ContractFunctionExecutionError as bc,
+  ContractFunctionRevertedError as bd,
+  ContractFunctionZeroDataError as be,
+  CounterfactualDeploymentFailedError as bf,
+  DecodeLogDataMismatch as bg,
+  DecodeLogTopicsMismatch as bh,
+  DuplicateIdError as bi,
+  Eip1559FeesNotSupportedError as bj,
+  EnsAvatarInvalidNftUriError as bk,
+  EnsAvatarUnsupportedNamespaceError as bl,
+  EnsAvatarUriResolutionError as bm,
+  EstimateGasExecutionError as bn,
+  FeeCapTooHighError as bo,
+  FeeCapTooLowError as bp,
+  FeeConflictError as bq,
+  FilterTypeNotSupportedError as br,
+  InsufficientFundsError as bs,
+  IntegerOutOfRangeError$2 as bt,
+  InternalRpcError as bu,
+  IntrinsicGasTooHighError as bv,
+  IntrinsicGasTooLowError as bw,
+  InvalidAbiDecodingTypeError as bx,
+  InvalidAbiEncodingTypeError as by,
+  InvalidAbiItemError as bz,
   createContractEventFilter as c,
-  erc6492SignatureValidatorByteCode as c$,
-  NonceTooLowError as c0,
-  ParseRpcError as c1,
-  ProviderDisconnectedError as c2,
-  ProviderRpcError as c3,
-  RawContractError as c4,
-  ResourceNotFoundRpcError as c5,
-  ResourceUnavailableRpcError as c6,
-  RpcError as c7,
-  SizeExceedsPaddingSizeError$4 as c8,
-  SizeOverflowError$4 as c9,
-  bytesToBool as cA,
-  bytesToNumber as cB,
-  bytesToRlp as cC,
-  bytesToString as cD,
-  checksumAddress as cE,
-  commitmentsToVersionedHashes as cF,
-  concatBytes$2 as cG,
-  createPublicClient as cH,
-  decodeEventLog as cI,
-  decodeFunctionData as cJ,
-  defineBlock as cK,
-  defineChain as cL,
-  defineTransaction as cM,
-  defineTransactionReceipt as cN,
-  defineTransactionRequest as cO,
-  deploylessCallViaBytecodeBytecode as cP,
-  deploylessCallViaFactoryBytecode as cQ,
-  domainSeparator as cR,
-  encodeDeployData as cS,
-  encodeErrorResult as cT,
-  encodeEventTopics as cU,
-  encodeFunctionResult as cV,
-  erc1155Abi as cW,
-  erc20Abi as cX,
-  erc20Abi_bytes32 as cY,
-  erc4626Abi as cZ,
-  erc6492SignatureValidatorAbi as c_,
-  SliceOffsetOutOfBoundsError$2 as ca,
-  SolidityProtectedKeywordError as cb,
-  StateAssignmentConflictError as cc,
-  SwitchChainError as cd,
-  TipAboveFeeCapError as ce,
-  TransactionExecutionError as cf,
-  TransactionNotFoundError as cg,
-  TransactionReceiptNotFoundError as ch,
-  TransactionTypeNotSupportedError as ci,
-  UnauthorizedProviderError as cj,
-  UnknownBundleIdError as ck,
-  UnknownNodeError as cl,
-  UnknownRpcError as cm,
-  UnknownSignatureError as cn,
-  UnknownTypeError as co,
-  UnsupportedChainIdError as cp,
-  UnsupportedNonOptionalCapabilityError as cq,
-  UnsupportedProviderMethodError as cr,
-  WaitForCallsStatusTimeoutError as cs,
-  WaitForTransactionReceiptTimeoutError as ct,
-  assertCurrentChain as cu,
-  assertRequest as cv,
-  blobsToCommitments as cw,
-  blobsToProofs as cx,
-  boolToBytes as cy,
-  bytesToBigInt as cz,
+  erc6492SignatureValidatorAbi as c$,
+  NonceTooHighError as c0,
+  NonceTooLowError as c1,
+  ParseRpcError as c2,
+  ProviderDisconnectedError as c3,
+  ProviderRpcError as c4,
+  RawContractError as c5,
+  ResourceNotFoundRpcError as c6,
+  ResourceUnavailableRpcError as c7,
+  RpcError as c8,
+  SizeExceedsPaddingSizeError$4 as c9,
+  bytesToBigInt as cA,
+  bytesToBool as cB,
+  bytesToNumber as cC,
+  bytesToRlp as cD,
+  bytesToString as cE,
+  checksumAddress as cF,
+  commitmentsToVersionedHashes as cG,
+  concatBytes$2 as cH,
+  createPublicClient as cI,
+  decodeEventLog as cJ,
+  decodeFunctionData as cK,
+  defineBlock as cL,
+  defineChain as cM,
+  defineTransaction as cN,
+  defineTransactionReceipt as cO,
+  defineTransactionRequest as cP,
+  deploylessCallViaBytecodeBytecode as cQ,
+  deploylessCallViaFactoryBytecode as cR,
+  domainSeparator as cS,
+  encodeDeployData as cT,
+  encodeErrorResult as cU,
+  encodeEventTopics as cV,
+  encodeFunctionResult as cW,
+  erc1155Abi as cX,
+  erc20Abi as cY,
+  erc20Abi_bytes32 as cZ,
+  erc4626Abi as c_,
+  SizeOverflowError$4 as ca,
+  SliceOffsetOutOfBoundsError$2 as cb,
+  SolidityProtectedKeywordError as cc,
+  StateAssignmentConflictError as cd,
+  SwitchChainError as ce,
+  TipAboveFeeCapError as cf,
+  TransactionExecutionError as cg,
+  TransactionNotFoundError as ch,
+  TransactionReceiptNotFoundError as ci,
+  TransactionTypeNotSupportedError as cj,
+  UnauthorizedProviderError as ck,
+  UnknownBundleIdError as cl,
+  UnknownNodeError as cm,
+  UnknownRpcError as cn,
+  UnknownSignatureError as co,
+  UnknownTypeError as cp,
+  UnsupportedChainIdError as cq,
+  UnsupportedNonOptionalCapabilityError as cr,
+  UnsupportedProviderMethodError as cs,
+  WaitForCallsStatusTimeoutError as ct,
+  WaitForTransactionReceiptTimeoutError as cu,
+  assertCurrentChain as cv,
+  assertRequest as cw,
+  blobsToCommitments as cx,
+  blobsToProofs as cy,
+  boolToBytes as cz,
   getContractEvents as d,
-  maxUint128 as d$,
-  erc721Abi as d0,
-  ethAddress as d1,
-  etherUnits as d2,
-  extendSchema as d3,
-  formatBlock as d4,
-  formatEther as d5,
-  formatGwei as d6,
-  formatLog as d7,
-  formatTransaction as d8,
-  formatTransactionReceipt as d9,
-  maxInt160 as dA,
-  maxInt168 as dB,
-  maxInt176 as dC,
-  maxInt184 as dD,
-  maxInt192 as dE,
-  maxInt200 as dF,
-  maxInt208 as dG,
-  maxInt216 as dH,
-  maxInt224 as dI,
-  maxInt232 as dJ,
-  maxInt24 as dK,
-  maxInt240 as dL,
-  maxInt248 as dM,
-  maxInt256 as dN,
-  maxInt32 as dO,
-  maxInt40 as dP,
-  maxInt48 as dQ,
-  maxInt56 as dR,
-  maxInt64 as dS,
-  maxInt72 as dT,
-  maxInt8 as dU,
-  maxInt80 as dV,
-  maxInt88 as dW,
-  maxInt96 as dX,
-  maxUint104 as dY,
-  maxUint112 as dZ,
-  maxUint120 as d_,
-  formatUnits as da,
-  fromBytes$5 as db,
-  fromHex$7 as dc,
-  getAbiItem as dd,
-  getChainContractAddress as de,
-  getContractError as df,
-  toEventSelector as dg,
-  toSignature as dh,
-  toFunctionSelector as di,
-  getTransactionType as dj,
-  getTypesForEIP712Domain as dk,
-  hashDomain as dl,
-  hashStruct as dm,
-  hexToBool as dn,
-  hexToRlp as dp,
-  hexToString as dq,
-  labelhash as dr,
-  maxInt104 as ds,
-  maxInt112 as dt,
-  maxInt120 as du,
-  maxInt128 as dv,
-  maxInt136 as dw,
-  maxInt144 as dx,
-  maxInt152 as dy,
-  maxInt16 as dz,
+  maxUint120 as d$,
+  erc6492SignatureValidatorByteCode as d0,
+  erc721Abi as d1,
+  ethAddress as d2,
+  etherUnits as d3,
+  extendSchema as d4,
+  formatBlock as d5,
+  formatEther as d6,
+  formatGwei as d7,
+  formatLog as d8,
+  formatTransaction as d9,
+  maxInt16 as dA,
+  maxInt160 as dB,
+  maxInt168 as dC,
+  maxInt176 as dD,
+  maxInt184 as dE,
+  maxInt192 as dF,
+  maxInt200 as dG,
+  maxInt208 as dH,
+  maxInt216 as dI,
+  maxInt224 as dJ,
+  maxInt232 as dK,
+  maxInt24 as dL,
+  maxInt240 as dM,
+  maxInt248 as dN,
+  maxInt256 as dO,
+  maxInt32 as dP,
+  maxInt40 as dQ,
+  maxInt48 as dR,
+  maxInt56 as dS,
+  maxInt64 as dT,
+  maxInt72 as dU,
+  maxInt8 as dV,
+  maxInt80 as dW,
+  maxInt88 as dX,
+  maxInt96 as dY,
+  maxUint104 as dZ,
+  maxUint112 as d_,
+  formatTransactionReceipt as da,
+  formatUnits as db,
+  fromBytes$5 as dc,
+  fromHex$7 as dd,
+  getAbiItem as de,
+  getChainContractAddress as df,
+  getContractError as dg,
+  toEventSelector as dh,
+  toSignature as di,
+  toFunctionSelector as dj,
+  getTransactionType as dk,
+  getTypesForEIP712Domain as dl,
+  hashDomain as dm,
+  hashStruct as dn,
+  hexToBool as dp,
+  hexToRlp as dq,
+  hexToString as dr,
+  labelhash as ds,
+  maxInt104 as dt,
+  maxInt112 as du,
+  maxInt120 as dv,
+  maxInt128 as dw,
+  maxInt136 as dx,
+  maxInt144 as dy,
+  maxInt152 as dz,
   writeContract as e,
-  padBytes as e$,
-  maxUint136 as e0,
-  maxUint144 as e1,
-  maxUint152 as e2,
-  maxUint16 as e3,
-  maxUint160 as e4,
-  maxUint168 as e5,
-  maxUint176 as e6,
-  maxUint184 as e7,
-  maxUint192 as e8,
-  maxUint200 as e9,
-  minInt160 as eA,
-  minInt168 as eB,
-  minInt176 as eC,
-  minInt184 as eD,
-  minInt192 as eE,
-  minInt200 as eF,
-  minInt208 as eG,
-  minInt216 as eH,
-  minInt224 as eI,
-  minInt232 as eJ,
-  minInt24 as eK,
-  minInt240 as eL,
-  minInt248 as eM,
-  minInt256 as eN,
-  minInt32 as eO,
-  minInt40 as eP,
-  minInt48 as eQ,
-  minInt56 as eR,
-  minInt64 as eS,
-  minInt72 as eT,
-  minInt8 as eU,
-  minInt80 as eV,
-  minInt88 as eW,
-  minInt96 as eX,
-  multicall3Abi as eY,
-  namehash as eZ,
-  numberToBytes as e_,
-  maxUint208 as ea,
-  maxUint216 as eb,
-  maxUint224 as ec,
-  maxUint232 as ed,
-  maxUint24 as ee,
-  maxUint240 as ef,
-  maxUint248 as eg,
-  maxUint256$1 as eh,
-  maxUint32 as ei,
-  maxUint40 as ej,
-  maxUint48 as ek,
-  maxUint56 as el,
-  maxUint64 as em,
-  maxUint72 as en,
-  maxUint8 as eo,
-  maxUint80 as ep,
-  maxUint88 as eq,
-  maxUint96 as er,
-  minInt104 as es,
-  minInt112 as et,
-  minInt120 as eu,
-  minInt128 as ev,
-  minInt136 as ew,
-  minInt144 as ex,
-  minInt152 as ey,
-  minInt16 as ez,
+  numberToBytes as e$,
+  maxUint128 as e0,
+  maxUint136 as e1,
+  maxUint144 as e2,
+  maxUint152 as e3,
+  maxUint16 as e4,
+  maxUint160 as e5,
+  maxUint168 as e6,
+  maxUint176 as e7,
+  maxUint184 as e8,
+  maxUint192 as e9,
+  minInt16 as eA,
+  minInt160 as eB,
+  minInt168 as eC,
+  minInt176 as eD,
+  minInt184 as eE,
+  minInt192 as eF,
+  minInt200 as eG,
+  minInt208 as eH,
+  minInt216 as eI,
+  minInt224 as eJ,
+  minInt232 as eK,
+  minInt24 as eL,
+  minInt240 as eM,
+  minInt248 as eN,
+  minInt256 as eO,
+  minInt32 as eP,
+  minInt40 as eQ,
+  minInt48 as eR,
+  minInt56 as eS,
+  minInt64 as eT,
+  minInt72 as eU,
+  minInt8 as eV,
+  minInt80 as eW,
+  minInt88 as eX,
+  minInt96 as eY,
+  multicall3Abi as eZ,
+  namehash as e_,
+  maxUint200 as ea,
+  maxUint208 as eb,
+  maxUint216 as ec,
+  maxUint224 as ed,
+  maxUint232 as ee,
+  maxUint24 as ef,
+  maxUint240 as eg,
+  maxUint248 as eh,
+  maxUint256$1 as ei,
+  maxUint32 as ej,
+  maxUint40 as ek,
+  maxUint48 as el,
+  maxUint56 as em,
+  maxUint64 as en,
+  maxUint72 as eo,
+  maxUint8 as ep,
+  maxUint80 as eq,
+  maxUint88 as er,
+  maxUint96 as es,
+  minInt104 as et,
+  minInt112 as eu,
+  minInt120 as ev,
+  minInt128 as ew,
+  minInt136 as ex,
+  minInt144 as ey,
+  minInt152 as ez,
   estimateContractGas as f,
-  parseAbi as f0,
-  parseAbiItem as f1,
-  parseAbiParameters as f2,
-  parseEther as f3,
+  padBytes as f0,
+  parseAbi as f1,
+  parseAbiItem as f2,
+  parseAbiParameters as f3,
   parseEventLogs as f4,
   prepareEncodeFunctionData as f5,
   presignMessagePrefix as f6,

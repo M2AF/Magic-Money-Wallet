@@ -217,7 +217,7 @@ async function handle(msg: Msg): Promise<any> {
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
       const config = await store.loadConfig()
-      return fetchAllCollectibles(addresses, config)
+      return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
     }
 
     case 'wallet:get-nft-floor':
@@ -375,6 +375,28 @@ async function handle(msg: Msg): Promise<any> {
       const mnemonic = await store.loadMnemonic()
       const keypair = await getSolanaKeypair(mnemonic)
       return Array.from(keypair.sign(bytes))
+    }
+
+    // ── Side panel ────────────────────────────────────────────────────────
+
+    case 'sidePanel:open': {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+      const windowId = tabs[0]?.windowId
+      if (windowId !== undefined) await (chrome.sidePanel as any).open({ windowId })
+      return true
+    }
+
+    case 'sidePanel:close': {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
+      const tabId = tabs[0]?.id
+      if (tabId !== undefined) {
+        await (chrome.sidePanel as any).setOptions({ tabId, enabled: false })
+        // Re-enable after close so the user can reopen it later
+        setTimeout(() => {
+          (chrome.sidePanel as any).setOptions({ tabId, enabled: true }).catch(() => {})
+        }, 600)
+      }
+      return true
     }
 
     // ── Window controls (no-op in extension) ──────────────────────────────

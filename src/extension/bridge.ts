@@ -131,6 +131,8 @@ export function createExtensionWallet() {
     wcGetSessions:          () => send('wc:get-sessions'),
     wcGetPendingProposals:  () => send('wc:get-pending-proposals'),
     wcGetPendingRequests:   () => send('wc:get-pending-requests'),
+    openSidePanel:          () => send('sidePanel:open'),
+    closeSidePanel:         () => send('sidePanel:close'),
     web3GetPendingTx:       () => send('web3:get-pending-tx'),
     web3ApproveTx:          (id: string, chainId?: string) => send('web3:approve-tx', { id, chainId }),
     web3RejectTx:           (id: string) => send('web3:reject-tx', id),

@@ -841,6 +841,27 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
         </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
+          {/* Sidebar toggle — extension only */}
+          {!!(window as any).__EXT_SIDEBAR_FN__ && (
+            <button
+              type="button"
+              onClick={() => (window as any).__EXT_SIDEBAR_FN__?.()}
+              title={(window as any).__SIDE_PANEL__ ? 'Back to popup' : 'Open in sidebar'}
+              style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              {(window as any).__SIDE_PANEL__ ? (
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="2" width="14" height="12" rx="2"/><line x1="5" y1="2" x2="5" y2="14"/>
+                  <polyline points="9,6 12,8 9,10"/>
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="2" width="14" height="12" rx="2"/><line x1="6" y1="2" x2="6" y2="14"/>
+                  <polyline points="10,6 7,8 10,10"/>
+                </svg>
+              )}
+            </button>
+          )}
           {/* WalletConnect */}
           {onWcOpen && (
             <button

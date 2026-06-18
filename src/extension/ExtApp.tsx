@@ -30,26 +30,57 @@ export function ExtApp() {
     check().catch(() => setPage('app'))
   }, [])
 
-  // Called by App when wallet creation/import finishes — extension needs password
+  // Replace wallet methods so Create/Import pages route to password setup
   useEffect(() => {
-    const original = window.wallet.confirmBackup.bind(window.wallet)
-    // Intercept confirmBackup to redirect to setpassword after addresses derived
-    ;(window.wallet as any)._extConfirmBackup = async () => {
-      const result = await original()
+    const origConfirm = window.wallet.confirmBackup
+    const origImport  = window.wallet.import
+
+    window.wallet.confirmBackup = async () => {
+      const result = await origConfirm.call(window.wallet)
       setPage('setpassword')
       return result
     }
-    const originalImport = window.wallet.import.bind(window.wallet)
-    ;(window.wallet as any)._extImport = async (m: string) => {
-      const result = await originalImport(m)
+
+    window.wallet.import = async (m: string) => {
+      const result = await origImport.call(window.wallet, m)
       setPage('setpassword')
       return result
     }
+
     return () => {
-      delete (window.wallet as any)._extConfirmBackup
-      delete (window.wallet as any)._extImport
+      window.wallet.confirmBackup = origConfirm
+      window.wallet.import        = origImport
     }
   }, [])
+
+  const isSidePanel = !!(window as any).__SIDE_PANEL__
+
+  // Register the sidebar toggle function so DashboardPage can render the button.
+  // Must call chrome APIs directly here — user gesture context is lost over sendMessage.
+  useEffect(() => {
+    const fn = isSidePanel
+      ? () => {
+          // Close side panel: disable for current tab (no gesture requirement)
+          chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+            const tabId = tabs[0]?.id
+            if (tabId == null) return
+            ;(chrome.sidePanel as any).setOptions({ tabId, enabled: false })
+            setTimeout(() => (chrome.sidePanel as any).setOptions({ tabId, enabled: true }), 700)
+          })
+        }
+      : () => {
+          // Open side panel: must stay within user gesture context
+          chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+            const windowId = tabs[0]?.windowId
+            if (windowId == null) return
+            ;(chrome.sidePanel as any).open({ windowId })
+              .then(() => window.close())
+              .catch((e: Error) => console.error('[SidePanel] open failed:', e))
+          })
+        }
+    ;(window as any).__EXT_SIDEBAR_FN__ = fn
+    return () => { delete (window as any).__EXT_SIDEBAR_FN__ }
+  }, [isSidePanel])
 
   if (page === 'checking') {
     return (

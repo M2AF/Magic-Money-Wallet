@@ -1,0 +1,16 @@
+/* Side panel overrides — full height, no titlebar, no size constraints */
+
+.titlebar {
+  display: none !important;
+}
+
+.app-shell {
+  padding-top: 0 !important;
+}
+
+html, body, #root, .app-shell {
+  width: 100% !important;
+  height: 100vh !important;
+  max-width: none !important;
+  overflow: hidden;
+}

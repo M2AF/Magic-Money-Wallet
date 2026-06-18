@@ -26,14 +26,21 @@ export default defineConfig({
           }
         }
         // Vite nests HTML at its source path — move to root and fix asset paths
-        const nested = r('dist-extension/src/extension/popup.html')
-        if (existsSync(nested)) {
-          let html = readFileSync(nested, 'utf-8')
-          // Vite built paths relative to the nested location (e.g. ../../popup.js)
-          // After moving to root they become simply ./popup.js
-          html = html.replace(/src="[^"]*\/popup\.js"/g, 'src="./popup.js"')
-          html = html.replace(/href="[^"]*\/popup\.css"/g, 'href="./popup.css"')
-          writeFileSync(r('dist-extension/popup.html'), html)
+        const nestedDir = r('dist-extension/src/extension')
+        const htmlFiles = [
+          { nested: 'popup.html',     js: 'popup.js',     css: 'popup.css' },
+          { nested: 'sidepanel.html', js: 'sidepanel.js', css: 'sidepanel.css' },
+        ]
+        for (const f of htmlFiles) {
+          const src = `${nestedDir}/${f.nested}`
+          if (existsSync(src)) {
+            let html = readFileSync(src, 'utf-8')
+            html = html.replace(new RegExp(`src="[^"]*/${f.js}"`, 'g'),  `src="./${f.js}"`)
+            html = html.replace(new RegExp(`href="[^"]*/${f.css}"`, 'g'), `href="./${f.css}"`)
+            writeFileSync(r(`dist-extension/${f.nested}`), html)
+          }
+        }
+        if (existsSync(r('dist-extension/src'))) {
           rmSync(r('dist-extension/src'), { recursive: true, force: true })
         }
       }
@@ -70,6 +77,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         popup:      r('src/extension/popup.html'),
+        sidepanel:  r('src/extension/sidepanel.html'),
         background: r('src/extension/background.ts'),
         content:    r('src/extension/content.ts'),
       },

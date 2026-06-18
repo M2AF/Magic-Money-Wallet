@@ -29,10 +29,15 @@
       "world": "MAIN"
     }
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "permissions": [
     "storage",
     "identity",
-    "alarms"
+    "alarms",
+    "sidePanel",
+    "tabs"
   ],
   "host_permissions": ["<all_urls>"],
   "content_security_policy": {
