@@ -6,7 +6,7 @@
  * Private keys and mnemonics never leave this file.
  */
 
-import { generateMnemonic, validateMnemonic, deriveAddresses, getSolanaKeypair } from '../main/wallet-core'
+import { generateMnemonic, validateMnemonic, deriveAddresses, getSolanaKeypair, getBitcoinKey, getPolkadotKey } from '../main/wallet-core'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
@@ -47,7 +47,7 @@ const _connectionQueue = new Map<string, {
   reject:  (e: Error) => void
   origin:  string
   tabId:   number | undefined
-  chain:   'evm' | 'cardano'
+  chain:   'evm' | 'cardano' | 'bitcoin' | 'polkadot'
 }>()
 
 // ── web3 transaction approval queue ──────────────────────────────────────────
@@ -56,6 +56,7 @@ const _web3TxQueue = new Map<string, {
   resolve: (r: unknown) => void
   reject: (e: Error) => void
   tx: Record<string, string>
+  chainId: string
 }>()
 
 // ── Approval popup (works from service worker — no user gesture required) ────
@@ -353,8 +354,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           const id = crypto.randomUUID()
           return new Promise<string[]>((resolve, reject) => {
             _connectionQueue.set(id, { resolve, reject, origin: senderOrigin, tabId: sender?.tabId, chain: 'evm' })
-            chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOrigin } }).catch(() => {})
-            openApprovalPopup()
+            chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOrigin } }).catch(() => openApprovalPopup())
             setTimeout(() => {
               if (_connectionQueue.has(id)) {
                 _connectionQueue.delete(id)
@@ -394,10 +394,10 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
         case 'eth_sendTransaction': {
           const id = crypto.randomUUID()
           const tx = params[0] as Record<string, string>
+          const txChainId = _currentChainId
           return new Promise((resolve, reject) => {
-            _web3TxQueue.set(id, { resolve, reject, tx })
-            chrome.runtime.sendMessage({ type: 'web3:tx-request', data: { id, ...tx } }).catch(() => {})
-            openApprovalPopup()
+            _web3TxQueue.set(id, { resolve, reject, tx, chainId: txChainId })
+            chrome.runtime.sendMessage({ type: 'web3:tx-request', data: { id, chainId: txChainId, ...tx } }).catch(() => openApprovalPopup())
             setTimeout(() => {
               if (_web3TxQueue.has(id)) {
                 _web3TxQueue.delete(id)
@@ -442,9 +442,162 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           return null
         }
 
-        default:
-          throw new Error(`Method not supported via window.ethereum: ${method}`)
+        // Proxy all other read-only RPC calls to the current chain's endpoint
+        default: {
+          const chainNum = parseInt(_currentChainId, 16) || 1
+          const { EVM_CHAINS: evmCfg } = await import('../main/chain-config')
+          const rpcCfg = await store.loadConfig()
+          const chainDef = evmCfg.find(c => c.chainId === chainNum)
+          const rpcUrl = chainDef?.rpcUrl(rpcCfg) ?? `https://eth-mainnet.g.alchemy.com/v2/${rpcCfg.alchemyKey ?? ''}`
+          const rpcRes = await fetch(rpcUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+            signal: AbortSignal.timeout(15_000)
+          })
+          if (!rpcRes.ok) throw new Error(`RPC error ${rpcRes.status}: ${method}`)
+          const rpcJson = await rpcRes.json() as { result?: unknown; error?: { message: string; code?: number } }
+          if (rpcJson.error) throw Object.assign(new Error(rpcJson.error.message), { code: rpcJson.error.code })
+          return rpcJson.result
+        }
       }
+    }
+
+    // ── Bitcoin (window.unisat) dApp handlers ────────────────────────────────
+
+    case 'bitcoin:get-accounts': {
+      const btcAddrs = await store.loadAddresses()
+      return btcAddrs?.bitcoin ? [btcAddrs.bitcoin] : []
+    }
+
+    case 'bitcoin:request-accounts': {
+      const btcOrigin = sender?.origin ?? 'unknown'
+      const btcApproved = await store.getApprovedOrigins()
+      if (btcApproved.includes(btcOrigin)) {
+        const btcAddrs = await store.loadAddresses()
+        return btcAddrs?.bitcoin ? [btcAddrs.bitcoin] : []
+      }
+      const btcId = crypto.randomUUID()
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(btcId, { resolve, reject, origin: btcOrigin, tabId: sender?.tabId, chain: 'bitcoin' })
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id: btcId, origin: btcOrigin } }).catch(() => openApprovalPopup())
+        setTimeout(() => {
+          if (_connectionQueue.has(btcId)) {
+            _connectionQueue.delete(btcId)
+            reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+          }
+        }, 120_000)
+      })
+    }
+
+    case 'bitcoin:get-public-key': {
+      const btcMnemonic = await store.loadMnemonic()
+      const btcAddrs = await store.loadAddresses()
+      const { publicKey: btcPub } = await getBitcoinKey(btcMnemonic, btcAddrs?.accountIndex ?? 0)
+      return Array.from(btcPub).map(b => b.toString(16).padStart(2, '0')).join('')
+    }
+
+    case 'bitcoin:get-balance': {
+      const btcAddrs = await store.loadAddresses()
+      if (!btcAddrs?.bitcoin) throw new Error('No Bitcoin wallet')
+      const btcRes = await fetch(`https://mempool.space/api/address/${btcAddrs.bitcoin}`, { signal: AbortSignal.timeout(10_000) })
+      if (!btcRes.ok) throw new Error(`mempool.space error: ${btcRes.status}`)
+      const btcData = await btcRes.json() as {
+        chain_stats: { funded_txo_sum: number; spent_txo_sum: number }
+        mempool_stats: { funded_txo_sum: number; spent_txo_sum: number }
+      }
+      const confirmed   = btcData.chain_stats.funded_txo_sum   - btcData.chain_stats.spent_txo_sum
+      const unconfirmed = btcData.mempool_stats.funded_txo_sum - btcData.mempool_stats.spent_txo_sum
+      return { confirmed, unconfirmed, total: confirmed + unconfirmed }
+    }
+
+    case 'bitcoin:sign-message': {
+      const btcMsg = String(a0)
+      const btcMnemonic = await store.loadMnemonic()
+      const btcAddrs = await store.loadAddresses()
+      const { privateKey: btcPriv } = await getBitcoinKey(btcMnemonic, btcAddrs?.accountIndex ?? 0)
+      const { secp256k1 } = await import('@noble/curves/secp256k1')
+      const { sha256: sha256fn } = await import('@noble/hashes/sha256')
+      const msgBytes = new TextEncoder().encode(btcMsg)
+      const prefix = new TextEncoder().encode('\x18Bitcoin Signed Message:\n')
+      const len = msgBytes.length
+      const lenBytes = len < 0xfd ? [len] : [0xfd, len & 0xff, (len >> 8) & 0xff]
+      const combined = new Uint8Array([...prefix, ...lenBytes, ...msgBytes])
+      const hash = sha256fn(sha256fn(combined))
+      const sig = secp256k1.sign(hash, btcPriv, { lowS: true })
+      const header = new Uint8Array([27 + (sig.recovery ?? 0)])
+      const sigBytes = new Uint8Array([...header, ...sig.toCompactRawBytes()])
+      return btoa(String.fromCharCode(...sigBytes))
+    }
+
+    case 'bitcoin:sign-psbt':
+      // Full PSBT signing requires @scure/btc-signer — planned for next release
+      throw new Error('PSBT signing not yet supported — use the wallet send screen for Bitcoin transactions')
+
+    case 'bitcoin:push-psbt': {
+      const rawTxHex = String(a0)
+      const pushRes = await fetch('https://mempool.space/api/tx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: rawTxHex,
+        signal: AbortSignal.timeout(15_000)
+      })
+      if (!pushRes.ok) throw new Error(`Broadcast failed: ${pushRes.status}`)
+      return await pushRes.text()
+    }
+
+    case 'bitcoin:send':
+      throw new Error('Bitcoin send via dApp coming soon — use the wallet send screen')
+
+    // ── Polkadot (window.injectedWeb3) dApp handlers ──────────────────────────
+
+    case 'polkadot:enable': {
+      const dotOrigin = sender?.origin ?? 'unknown'
+      const dotApproved = await store.getApprovedOrigins()
+      if (dotApproved.includes(dotOrigin)) return true
+      const dotId = crypto.randomUUID()
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(dotId, { resolve, reject, origin: dotOrigin, tabId: sender?.tabId, chain: 'polkadot' })
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id: dotId, origin: dotOrigin } }).catch(() => openApprovalPopup())
+        setTimeout(() => {
+          if (_connectionQueue.has(dotId)) {
+            _connectionQueue.delete(dotId)
+            reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+          }
+        }, 120_000)
+      })
+    }
+
+    case 'polkadot:get-accounts': {
+      const dotAddrs = await store.loadAddresses()
+      if (!dotAddrs?.polkadot) return []
+      return [{ address: dotAddrs.polkadot, name: 'MagicMoney', type: 'ed25519' }]
+    }
+
+    case 'polkadot:sign-payload': {
+      const dotPayload = a0 as { method?: string; [k: string]: unknown }
+      const dotMnemonic = await store.loadMnemonic()
+      const dotAddrs = await store.loadAddresses()
+      const { privateKey: dotPriv } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
+      const { ed25519: dotEd } = await import('@noble/curves/ed25519')
+      const { blake2b: dotBlake } = await import('@noble/hashes/blake2b')
+      const methodHex = (dotPayload.method ?? '').replace(/^0x/, '')
+      const dataBytes = new Uint8Array((methodHex.match(/.{2}/g) ?? []).map(h => parseInt(h, 16)))
+      const toSign = dataBytes.length > 256 ? dotBlake(dataBytes, { dkLen: 32 }) : dataBytes
+      const sig = dotEd.sign(toSign, dotPriv)
+      return { id: Math.floor(Math.random() * 0xffffff), signature: `0x${Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join('')}` }
+    }
+
+    case 'polkadot:sign-raw': {
+      const dotRaw = a0 as { data?: string }
+      const dotMnemonic = await store.loadMnemonic()
+      const dotAddrs = await store.loadAddresses()
+      const { privateKey: dotPriv2 } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
+      const { ed25519: dotEd2 } = await import('@noble/curves/ed25519')
+      const dataHex = (dotRaw.data ?? '').replace(/^0x/, '')
+      const dataBytes = new Uint8Array((dataHex.match(/.{2}/g) ?? []).map(h => parseInt(h, 16)))
+      const sig = dotEd2.sign(dataBytes, dotPriv2)
+      return { id: Math.floor(Math.random() * 0xffffff), signature: `0x${Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join('')}` }
     }
 
     // ── dApp connection approval ───────────────────────────────────────────────
@@ -459,8 +612,10 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       _connectionQueue.delete(id)
       const connAddresses = await store.loadAddresses()
       await store.addApprovedOrigin(entry.origin)
-      if (entry.chain === 'cardano') {
+      if (entry.chain === 'cardano' || entry.chain === 'polkadot') {
         entry.resolve(true)
+      } else if (entry.chain === 'bitcoin') {
+        entry.resolve(connAddresses?.bitcoin ? [connAddresses.bitcoin] : [])
       } else {
         const addrs = connAddresses?.evm ? [connAddresses.evm] : []
         entry.resolve(addrs)
@@ -483,18 +638,18 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'web3:get-pending-tx':
-      return [..._web3TxQueue.entries()].map(([id, { tx }]) => ({ id, ...tx }))
+      return [..._web3TxQueue.entries()].map(([id, { tx, chainId: c }]) => ({ id, chainId: c, ...tx }))
 
     case 'web3:approve-tx': {
-      const { id, chainId } = a0 as { id: string; chainId?: string }
+      const { id } = a0 as { id: string; chainId?: string }
       const entry = _web3TxQueue.get(id)
       if (!entry) throw new Error('Pending transaction not found')
       _web3TxQueue.delete(id)
       const { createWalletClient, http, parseEther } = await import('viem')
       const config = await store.loadConfig()
       const { EVM_CHAINS } = await import('../main/chain-config')
-      const numId = parseInt(chainId ?? '1')
-      const chain = Object.values(EVM_CHAINS).find(c => c.chainId === numId) ?? EVM_CHAINS[0]
+      const numId = parseInt(entry.chainId ?? '1', 16) || 1
+      const chain = EVM_CHAINS.find(c => c.chainId === numId) ?? EVM_CHAINS[0]
       const key = await deriveEvmKey()
       const acct = privateKeyToAccount(key)
       const wc = createWalletClient({ account: acct, transport: http(chain.rpcUrl(config)), chain: null as unknown as undefined })
@@ -530,11 +685,32 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return Array.from(keypair.sign(bytes))
     }
 
-    case 'web3:solana:sign-and-send':
-      throw new Error('Solana transaction signing not yet implemented — use the wallet send screen')
+    case 'web3:solana:sign-and-send': {
+      const input = a0 as { transaction?: number[] | Uint8Array }
+      if (!input?.transaction) throw new Error('No transaction data provided')
+      const txBytes = input.transaction instanceof Uint8Array ? input.transaction : new Uint8Array(input.transaction as number[])
+      const solMnemonic = await store.loadMnemonic()
+      const solAddresses = await store.loadAddresses()
+      const solConfig = await store.loadConfig()
+      const { VersionedTransaction, Connection: SolConnection } = await import('@solana/web3.js')
+      const solKeypair = await getSolanaKeypair(solMnemonic, solAddresses?.accountIndex ?? 0)
+      const solTx = VersionedTransaction.deserialize(txBytes)
+      solTx.sign([solKeypair])
+      const solConn = new SolConnection(`https://mainnet.helius-rpc.com/?api-key=${solConfig.heliusKey}`, 'confirmed')
+      const solSig = await solConn.sendRawTransaction(solTx.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
+      return { signature: solSig }
+    }
 
-    case 'web3:solana:sign-tx':
-      throw new Error('Solana transaction signing not yet implemented — use the wallet send screen')
+    case 'web3:solana:sign-tx': {
+      const txBytes = new Uint8Array(a0 as number[])
+      const solMnemonic2 = await store.loadMnemonic()
+      const solAddresses2 = await store.loadAddresses()
+      const { VersionedTransaction: VT2 } = await import('@solana/web3.js')
+      const solKeypair2 = await getSolanaKeypair(solMnemonic2, solAddresses2?.accountIndex ?? 0)
+      const solTx2 = VT2.deserialize(txBytes)
+      solTx2.sign([solKeypair2])
+      return Array.from(solTx2.serialize())
+    }
 
     // ── CIP-30 Cardano dApp connectivity ──────────────────────────────────
 
@@ -550,8 +726,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const id = crypto.randomUUID()
       return new Promise((resolve, reject) => {
         _connectionQueue.set(id, { resolve, reject, origin: senderOriginCardano, tabId: sender?.tabId, chain: 'cardano' })
-        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOriginCardano } }).catch(() => {})
-        openApprovalPopup()
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id, origin: senderOriginCardano } }).catch(() => openApprovalPopup())
         setTimeout(() => {
           if (_connectionQueue.has(id)) {
             _connectionQueue.delete(id)

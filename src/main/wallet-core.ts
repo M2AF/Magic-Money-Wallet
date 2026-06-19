@@ -125,3 +125,17 @@ export async function getSolanaKeypair(mnemonic: string, accountIndex = 0): Prom
   const { key } = derivePath(`m/44'/501'/${accountIndex}'/0'`, Buffer.from(seed).toString('hex'))
   return Keypair.fromSeed(key)
 }
+
+export async function getBitcoinKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const node = HDKey.fromMasterSeed(seed).derive(`m/84'/0'/${accountIndex}'/0/0`)
+  if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin key derivation failed')
+  return { privateKey: node.privateKey, publicKey: node.publicKey }
+}
+
+export async function getPolkadotKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const { key: privKey } = derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer.from(seed).toString('hex'))
+  const pubKey = ed25519.getPublicKey(privKey)
+  return { privateKey: privKey, publicKey: pubKey }
+}

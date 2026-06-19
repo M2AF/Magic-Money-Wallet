@@ -89,6 +89,21 @@ window.solana = {
   signMessage(message) {
     return send("web3:solana:sign", [Array.from(message)]).then((sig) => ({ signature: new Uint8Array(sig) }));
   },
+  signTransaction(transaction) {
+    let bytes;
+    const tx = transaction;
+    if (typeof (tx == null ? void 0 : tx.serialize) === "function") {
+      bytes = Array.from(tx.serialize({ requireAllSignatures: false }));
+    } else if (transaction instanceof Uint8Array) {
+      bytes = Array.from(transaction);
+    } else {
+      throw new Error("Cannot serialize transaction");
+    }
+    return send("web3:solana:sign-tx", [bytes]).then((signed) => new Uint8Array(signed));
+  },
+  signAllTransactions(transactions) {
+    return Promise.all(transactions.map((tx) => this.signTransaction(tx)));
+  },
   on(_event, _cb) {
   },
   removeListener(_event, _cb) {
@@ -258,3 +273,42 @@ function announceProvider() {
 }
 announceProvider();
 window.addEventListener("eip6963:requestProvider", announceProvider);
+window.unisat = {
+  isMagicMoney: true,
+  getAccounts: () => send("bitcoin:get-accounts", []),
+  requestAccounts: () => send("bitcoin:request-accounts", []),
+  getPublicKey: () => send("bitcoin:get-public-key", []),
+  getNetwork: () => Promise.resolve("livenet"),
+  getBalance: () => send("bitcoin:get-balance", []),
+  signMessage: (msg, type = "ecdsa") => send("bitcoin:sign-message", [msg, type]),
+  signPsbt: (psbtHex, opts = {}) => send("bitcoin:sign-psbt", [psbtHex, opts]),
+  pushPsbt: (psbtHex) => send("bitcoin:push-psbt", [psbtHex]),
+  sendBitcoin: (to, satoshis, opts = {}) => send("bitcoin:send", [to, satoshis, opts]),
+  on: (_e, _cb) => {
+  },
+  removeListener: (_e, _cb) => {
+  }
+};
+try {
+  const w = window;
+  if (!w.injectedWeb3 || typeof w.injectedWeb3 !== "object") w.injectedWeb3 = {};
+  w.injectedWeb3.magicmoney = {
+    version: "0.1.0",
+    enable: (_origin) => send("polkadot:enable", []).then(() => ({
+      accounts: {
+        get: () => send("polkadot:get-accounts", []),
+        subscribe: (cb) => {
+          send("polkadot:get-accounts", []).then((a) => cb(a));
+          return () => {
+          };
+        }
+      },
+      signer: {
+        signPayload: (payload) => send("polkadot:sign-payload", [payload]),
+        signRaw: (raw) => send("polkadot:sign-raw", [raw])
+      }
+    }))
+  };
+} catch (e) {
+  console.warn("[MagicMoney] Polkadot injection error:", e);
+}

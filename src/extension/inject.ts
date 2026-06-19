@@ -109,6 +109,21 @@ window.addEventListener('message', (event) => {
     return send<number[]>('web3:solana:sign', [Array.from(message)])
       .then((sig) => ({ signature: new Uint8Array(sig) }))
   },
+  signTransaction(transaction: unknown) {
+    let bytes: number[]
+    const tx = transaction as { serialize?: (o?: unknown) => Uint8Array }
+    if (typeof tx?.serialize === 'function') {
+      bytes = Array.from(tx.serialize({ requireAllSignatures: false }))
+    } else if (transaction instanceof Uint8Array) {
+      bytes = Array.from(transaction)
+    } else {
+      throw new Error('Cannot serialize transaction')
+    }
+    return send<number[]>('web3:solana:sign-tx', [bytes]).then(signed => new Uint8Array(signed))
+  },
+  signAllTransactions(transactions: unknown[]) {
+    return Promise.all(transactions.map((tx) => (this as Record<string, unknown>).signTransaction(tx)))
+  },
   on(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
   removeListener(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
 }
@@ -273,3 +288,47 @@ function announceProvider() {
 
 announceProvider()
 window.addEventListener('eip6963:requestProvider', announceProvider)
+
+// ── window.unisat — Bitcoin dApp standard (Ordinals, Runes, BRC-20) ──────────
+
+;(window as Record<string, unknown>).unisat = {
+  isMagicMoney: true,
+
+  getAccounts:     ()                                        => send<string[]>('bitcoin:get-accounts', []),
+  requestAccounts: ()                                        => send<string[]>('bitcoin:request-accounts', []),
+  getPublicKey:    ()                                        => send<string>('bitcoin:get-public-key', []),
+  getNetwork:      ()                                        => Promise.resolve('livenet'),
+  getBalance:      ()                                        => send<{ confirmed: number; unconfirmed: number; total: number }>('bitcoin:get-balance', []),
+  signMessage:     (msg: string, type = 'ecdsa')             => send<string>('bitcoin:sign-message', [msg, type]),
+  signPsbt:        (psbtHex: string, opts = {})              => send<string>('bitcoin:sign-psbt', [psbtHex, opts]),
+  pushPsbt:        (psbtHex: string)                         => send<string>('bitcoin:push-psbt', [psbtHex]),
+  sendBitcoin:     (to: string, satoshis: number, opts = {}) => send<string>('bitcoin:send', [to, satoshis, opts]),
+
+  on:              (_e: string, _cb: (...a: unknown[]) => void) => {},
+  removeListener:  (_e: string, _cb: (...a: unknown[]) => void) => {},
+}
+
+// ── window.injectedWeb3 — Polkadot.js extension standard ─────────────────────
+
+try {
+  const w = window as Record<string, unknown>
+  if (!w.injectedWeb3 || typeof w.injectedWeb3 !== 'object') w.injectedWeb3 = {}
+  ;(w.injectedWeb3 as Record<string, unknown>).magicmoney = {
+    version: '0.1.0',
+    enable: (_origin: string) => send('polkadot:enable', []).then(() => ({
+      accounts: {
+        get:       ()                                        => send<unknown[]>('polkadot:get-accounts', []),
+        subscribe: (cb: (accs: unknown[]) => void) => {
+          send<unknown[]>('polkadot:get-accounts', []).then(a => cb(a))
+          return () => {}
+        },
+      },
+      signer: {
+        signPayload: (payload: unknown) => send<{ id: number; signature: string }>('polkadot:sign-payload', [payload]),
+        signRaw:     (raw: unknown)     => send<{ id: number; signature: string }>('polkadot:sign-raw', [raw]),
+      },
+    })),
+  }
+} catch (e) {
+  console.warn('[MagicMoney] Polkadot injection error:', e)
+}

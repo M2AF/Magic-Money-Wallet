@@ -2780,7 +2780,7 @@ class SHA512_256 extends SHA512$1 {
     this.Hl = T256_IV[15] | 0;
   }
 }
-const sha256$4 = /* @__PURE__ */ createHasher(() => new SHA256());
+const sha256$5 = /* @__PURE__ */ createHasher(() => new SHA256());
 const sha512$3 = /* @__PURE__ */ createHasher(() => new SHA512$1());
 const sha384$2 = /* @__PURE__ */ createHasher(() => new SHA384());
 const sha512_256 = /* @__PURE__ */ createHasher(() => new SHA512_256());
@@ -3197,7 +3197,7 @@ function generateMnemonic$1(wordlist2, strength = 128) {
 }
 const calcChecksum = (entropy) => {
   const bitsLeft = 8 - entropy.length / 4;
-  return new Uint8Array([sha256$4(entropy)[0] >> bitsLeft << bitsLeft]);
+  return new Uint8Array([sha256$5(entropy)[0] >> bitsLeft << bitsLeft]);
 };
 function getCoder(wordlist2) {
   if (!Array.isArray(wordlist2) || wordlist2.length !== 2048 || typeof wordlist2[0] !== "string")
@@ -7106,7 +7106,11 @@ function sqrtMod$3(y3) {
   return root;
 }
 const Fpk1$3 = Field$3(secp256k1_CURVE.p, { sqrt: sqrtMod$3 });
-const secp256k1$5 = createCurve$3({ ...secp256k1_CURVE, Fp: Fpk1$3, lowS: true, endo: secp256k1_ENDO }, sha256$4);
+const secp256k1$5 = createCurve$3({ ...secp256k1_CURVE, Fp: Fpk1$3, lowS: true, endo: secp256k1_ENDO }, sha256$5);
+const secp256k1$6 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  secp256k1: secp256k1$5
+}, Symbol.toStringTag, { value: "Module" }));
 const Rho160 = /* @__PURE__ */ Uint8Array.from([
   7,
   4,
@@ -7225,7 +7229,7 @@ let RIPEMD160$2 = class RIPEMD1602 extends HashMD {
 const ripemd160$2 = /* @__PURE__ */ createHasher(() => new RIPEMD160$2());
 /*! scure-bip32 - MIT License (c) 2022 Patricio Palladino, Paul Miller (paulmillr.com) */
 const Point = secp256k1$5.ProjectivePoint;
-const base58check = createBase58check(sha256$4);
+const base58check = createBase58check(sha256$5);
 function bytesToNumber$1(bytes) {
   abytes$4(bytes);
   const h4 = bytes.length === 0 ? "0" : bytesToHex$5(bytes);
@@ -7239,7 +7243,7 @@ function numberToBytes$1(num) {
 const MASTER_SECRET = utf8ToBytes$1("Bitcoin seed");
 const BITCOIN_VERSIONS = { private: 76066276, public: 76067358 };
 const HARDENED_OFFSET = 2147483648;
-const hash160 = (data) => ripemd160$2(sha256$4(data));
+const hash160 = (data) => ripemd160$2(sha256$5(data));
 const fromU32 = (data) => createView$1(data).getUint32(0, false);
 const toU32 = (n4) => {
   if (!Number.isSafeInteger(n4) || n4 < 0 || n4 > 2 ** 32 - 1) {
@@ -15594,9 +15598,9 @@ Sha256$1.prototype._hash = function() {
   H2.writeInt32BE(this._h, 28);
   return H2;
 };
-var sha256$3 = Sha256$1;
+var sha256$4 = Sha256$1;
 var inherits$3 = inherits_browserExports;
-var Sha256 = sha256$3;
+var Sha256 = sha256$4;
 var Hash$2 = hash$3;
 var Buffer$3 = safeBufferExports$1.Buffer;
 var W$6 = new Array(64);
@@ -16022,7 +16026,7 @@ var sha384$1 = Sha384;
   module.exports.sha = sha$2;
   module.exports.sha1 = sha1$1;
   module.exports.sha224 = sha224$1;
-  module.exports.sha256 = sha256$3;
+  module.exports.sha256 = sha256$4;
   module.exports.sha384 = sha384$1;
   module.exports.sha512 = sha512$2;
 })(sha_js);
@@ -16169,7 +16173,7 @@ const sha512WithRSAEncryption = {
   hash: "sha512",
   id: "3051300d060960864801650304020305000440"
 };
-const sha256$2 = {
+const sha256$3 = {
   sign: "ecdsa/rsa",
   hash: "sha256",
   id: "3031300d060960864801650304020105000420"
@@ -16239,7 +16243,7 @@ const require$$6 = {
     hash: "sha1",
     id: ""
   },
-  sha256: sha256$2,
+  sha256: sha256$3,
   sha224,
   sha384,
   sha512: sha512$1,
@@ -36688,10 +36692,10 @@ function requireKey$1() {
   };
   return key$1;
 }
-var signature$1;
+var signature$2;
 var hasRequiredSignature$1;
 function requireSignature$1() {
-  if (hasRequiredSignature$1) return signature$1;
+  if (hasRequiredSignature$1) return signature$2;
   hasRequiredSignature$1 = 1;
   var BN2 = requireBn$3();
   var utils2 = requireUtils$2();
@@ -36709,7 +36713,7 @@ function requireSignature$1() {
     else
       this.recoveryParam = options.recoveryParam;
   }
-  signature$1 = Signature;
+  signature$2 = Signature;
   function Position() {
     this.place = 0;
   }
@@ -36841,7 +36845,7 @@ function requireSignature$1() {
     res = res.concat(backHalf);
     return utils2.encode(res, enc);
   };
-  return signature$1;
+  return signature$2;
 }
 var ec;
 var hasRequiredEc;
@@ -37124,10 +37128,10 @@ function requireKey() {
   key = KeyPair;
   return key;
 }
-var signature;
+var signature$1;
 var hasRequiredSignature;
 function requireSignature() {
-  if (hasRequiredSignature) return signature;
+  if (hasRequiredSignature) return signature$1;
   hasRequiredSignature = 1;
   var BN2 = requireBn$3();
   var utils2 = requireUtils$2();
@@ -37171,8 +37175,8 @@ function requireSignature() {
   Signature.prototype.toHex = function toHex2() {
     return utils2.encode(this.toBytes(), "hex").toUpperCase();
   };
-  signature = Signature;
-  return signature;
+  signature$1 = Signature;
+  return signature$1;
 }
 var eddsa$1;
 var hasRequiredEddsa;
@@ -51571,6 +51575,11 @@ const x25519 = /* @__PURE__ */ (() => {
     adjustScalarBytes
   });
 })();
+const ed25519$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  ed25519,
+  x25519
+}, Symbol.toStringTag, { value: "Module" }));
 var _Buffer = safeBufferExports$1.Buffer;
 function base$2(ALPHABET2) {
   if (ALPHABET2.length >= 255) {
@@ -51703,7 +51712,11 @@ var basex = src$1;
 var ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 var bs58 = basex(ALPHABET);
 const bs58$1 = /* @__PURE__ */ getDefaultExportFromCjs$2(bs58);
-const sha256$1 = sha256$4;
+const sha256$1 = sha256$5;
+const sha256$2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  sha256: sha256$1
+}, Symbol.toStringTag, { value: "Module" }));
 var lib = {};
 function inRange$3(a2, min2, max2) {
   return min2 <= a2 && a2 <= max2;
@@ -56012,6 +56025,9 @@ class MessageAccountKeys {
 const publicKey = (property = "publicKey") => {
   return blob(32, property);
 };
+const signature = (property = "signature") => {
+  return blob(64, property);
+};
 const rustString = (property = "string") => {
   const rsl = struct([u32$1("length"), u32$1("lengthPadding"), blob(offset(u32$1(), -8), "chars")], property);
   const _decode = rsl.decode.bind(rsl);
@@ -56601,6 +56617,27 @@ class MessageV0 {
     });
   }
 }
+const VersionedMessage = {
+  deserializeMessageVersion(serializedMessage) {
+    const prefix = serializedMessage[0];
+    const maskedPrefix = prefix & VERSION_PREFIX_MASK;
+    if (maskedPrefix === prefix) {
+      return "legacy";
+    }
+    return maskedPrefix;
+  },
+  deserialize: (serializedMessage) => {
+    const version2 = VersionedMessage.deserializeMessageVersion(serializedMessage);
+    if (version2 === "legacy") {
+      return Message.from(serializedMessage);
+    }
+    if (version2 === 0) {
+      return MessageV0.deserialize(serializedMessage);
+    } else {
+      throw new Error(`Transaction message version ${version2} deserialization is not supported`);
+    }
+  }
+};
 let TransactionStatus = /* @__PURE__ */ function(TransactionStatus2) {
   TransactionStatus2[TransactionStatus2["BLOCKHEIGHT_EXCEEDED"] = 0] = "BLOCKHEIGHT_EXCEEDED";
   TransactionStatus2[TransactionStatus2["PROCESSED"] = 1] = "PROCESSED";
@@ -57243,6 +57280,65 @@ Missing signature for public key${sigErrors.missing.length === 1 ? "" : "(s)"} [
     transaction._message = message;
     transaction._json = transaction.toJSON();
     return transaction;
+  }
+}
+class VersionedTransaction {
+  get version() {
+    return this.message.version;
+  }
+  constructor(message, signatures) {
+    this.signatures = void 0;
+    this.message = void 0;
+    if (signatures !== void 0) {
+      assert$b(signatures.length === message.header.numRequiredSignatures, "Expected signatures length to be equal to the number of required signatures");
+      this.signatures = signatures;
+    } else {
+      const defaultSignatures = [];
+      for (let i2 = 0; i2 < message.header.numRequiredSignatures; i2++) {
+        defaultSignatures.push(new Uint8Array(SIGNATURE_LENGTH_IN_BYTES));
+      }
+      this.signatures = defaultSignatures;
+    }
+    this.message = message;
+  }
+  serialize() {
+    const serializedMessage = this.message.serialize();
+    const encodedSignaturesLength = Array();
+    encodeLength(encodedSignaturesLength, this.signatures.length);
+    const transactionLayout = struct([blob(encodedSignaturesLength.length, "encodedSignaturesLength"), seq(signature(), this.signatures.length, "signatures"), blob(serializedMessage.length, "serializedMessage")]);
+    const serializedTransaction = new Uint8Array(2048);
+    const serializedTransactionLength = transactionLayout.encode({
+      encodedSignaturesLength: new Uint8Array(encodedSignaturesLength),
+      signatures: this.signatures,
+      serializedMessage
+    }, serializedTransaction);
+    return serializedTransaction.slice(0, serializedTransactionLength);
+  }
+  static deserialize(serializedTransaction) {
+    let byteArray = [...serializedTransaction];
+    const signatures = [];
+    const signaturesLength = decodeLength(byteArray);
+    for (let i2 = 0; i2 < signaturesLength; i2++) {
+      signatures.push(new Uint8Array(guardedSplice(byteArray, 0, SIGNATURE_LENGTH_IN_BYTES)));
+    }
+    const message = VersionedMessage.deserialize(new Uint8Array(byteArray));
+    return new VersionedTransaction(message, signatures);
+  }
+  sign(signers) {
+    const messageData = this.message.serialize();
+    const signerPubkeys = this.message.staticAccountKeys.slice(0, this.message.header.numRequiredSignatures);
+    for (const signer of signers) {
+      const signerIndex = signerPubkeys.findIndex((pubkey) => pubkey.equals(signer.publicKey));
+      assert$b(signerIndex >= 0, `Cannot sign with non signer key ${signer.publicKey.toBase58()}`);
+      this.signatures[signerIndex] = sign$1(messageData, signer.secretKey);
+    }
+  }
+  addSignature(publicKey2, signature2) {
+    assert$b(signature2.byteLength === 64, "Signature must be 64 bytes long");
+    const signerPubkeys = this.message.staticAccountKeys.slice(0, this.message.header.numRequiredSignatures);
+    const signerIndex = signerPubkeys.findIndex((pubkey) => pubkey.equals(publicKey2));
+    assert$b(signerIndex >= 0, `Can not add signature; \`${publicKey2.toBase58()}\` is not required to sign this transaction`);
+    this.signatures[signerIndex] = signature2;
   }
 }
 const NUM_TICKS_PER_SECOND = 160;
@@ -61722,6 +61818,44 @@ struct([
   struct([nu64("slot"), nu64("timestamp")], "lastTimestamp")
 ]);
 const LAMPORTS_PER_SOL = 1e9;
+const index_browser_esm = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  AddressLookupTableAccount,
+  BLOCKHASH_CACHE_TIMEOUT_MS,
+  Connection,
+  EpochSchedule,
+  FeeCalculatorLayout,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  Lockup,
+  MAX_SEED_LENGTH,
+  Message,
+  MessageAccountKeys,
+  MessageV0,
+  NONCE_ACCOUNT_LENGTH,
+  NonceAccount,
+  PACKET_DATA_SIZE,
+  PUBLIC_KEY_LENGTH,
+  PublicKey,
+  SIGNATURE_LENGTH_IN_BYTES,
+  SOLANA_SCHEMA,
+  SYSTEM_INSTRUCTION_LAYOUTS,
+  SYSVAR_RECENT_BLOCKHASHES_PUBKEY,
+  SYSVAR_RENT_PUBKEY,
+  SendTransactionError,
+  SolanaJSONRPCError,
+  Struct,
+  SystemProgram,
+  Transaction,
+  TransactionExpiredBlockheightExceededError,
+  TransactionExpiredNonceInvalidError,
+  TransactionExpiredTimeoutError,
+  TransactionInstruction,
+  TransactionStatus,
+  VERSION_PREFIX_MASK,
+  VersionedMessage,
+  VersionedTransaction
+}, Symbol.toStringTag, { value: "Module" }));
 const version$3 = "2.52.2";
 let errorConfig = {
   getDocsUrl: ({ docsBaseUrl, docsPath: docsPath2 = "", docsSlug }) => docsPath2 ? `${docsBaseUrl ?? "https://viem.sh"}${docsPath2}${docsSlug ? `#${docsSlug}` : ""}` : void 0,
@@ -63851,7 +63985,7 @@ const secp256k1$2 = createCurve$2({
       return { k1neg, k1, k2neg, k2: k22 };
     }
   }
-}, sha256$4);
+}, sha256$5);
 const secp256k1$3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   secp256k1: secp256k1$2
@@ -66719,8 +66853,12 @@ class BLAKE2b extends BLAKE2 {
     this.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
   }
 }
-const blake2b$2 = /* @__PURE__ */ createOptHasher((opts) => new BLAKE2b(opts));
-const blake2b$1 = blake2b$2;
+const blake2b$3 = /* @__PURE__ */ createOptHasher((opts) => new BLAKE2b(opts));
+const blake2b$1 = blake2b$3;
+const blake2b$2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
+  __proto__: null,
+  blake2b: blake2b$1
+}, Symbol.toStringTag, { value: "Module" }));
 const CURVE_N = ed25519.CURVE.n;
 function leToBI(bytes) {
   return BigInt("0x" + Buffer$g.from(bytes).reverse().toString("hex"));
@@ -66971,6 +67109,18 @@ async function getSolanaKeypair(mnemonic, accountIndex = 0) {
   const seed = await mnemonicToSeed(mnemonic.trim().toLowerCase());
   const { key: key2 } = dist.derivePath(`m/44'/501'/${accountIndex}'/0'`, Buffer$g.from(seed).toString("hex"));
   return Keypair.fromSeed(key2);
+}
+async function getBitcoinKey(mnemonic, accountIndex = 0) {
+  const seed = await mnemonicToSeed(mnemonic.trim().toLowerCase());
+  const node2 = HDKey.fromMasterSeed(seed).derive(`m/84'/0'/${accountIndex}'/0/0`);
+  if (!node2.privateKey || !node2.publicKey) throw new Error("Bitcoin key derivation failed");
+  return { privateKey: node2.privateKey, publicKey: node2.publicKey };
+}
+async function getPolkadotKey(mnemonic, accountIndex = 0) {
+  const seed = await mnemonicToSeed(mnemonic.trim().toLowerCase());
+  const { key: privKey } = dist.derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer$g.from(seed).toString("hex"));
+  const pubKey = ed25519.getPublicKey(privKey);
+  return { privateKey: privKey, publicKey: pubKey };
 }
 const EVM_CHAINS$1 = [
   {
@@ -79490,7 +79640,7 @@ const secp256k1$1 = createCurve$1({
       return { k1neg, k1, k2neg, k2: k22 };
     }
   }
-}, sha256$4);
+}, sha256$5);
 function assert$6(signature2, options = {}) {
   const { recovered } = options;
   if (typeof signature2.r === "undefined")
@@ -89853,7 +90003,7 @@ const secp256k1 = createCurve({
       return { k1neg, k1, k2neg, k2: k22 };
     }
   }
-}, sha256$4);
+}, sha256$5);
 function fromHex(signature2) {
   if (signature2.length !== 130 && signature2.length !== 132)
     throw new InvalidSerializedSizeError({ signature: signature2 });
@@ -92098,7 +92248,7 @@ const p521_CURVE = {
 const Fp256 = Field$3(p256_CURVE.p);
 const Fp384 = Field$3(p384_CURVE.p);
 const Fp521 = Field$3(p521_CURVE.p);
-const p256$1 = createCurve$3({ ...p256_CURVE, Fp: Fp256, lowS: false }, sha256$4);
+const p256$1 = createCurve$3({ ...p256_CURVE, Fp: Fp256, lowS: false }, sha256$5);
 createCurve$3({ ...p384_CURVE, Fp: Fp384, lowS: false }, sha384$2);
 createCurve$3({ ...p521_CURVE, Fp: Fp521, lowS: false, allowedPrivateKeyLengths: [130, 131, 132] }, sha512$3);
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
@@ -93243,11 +93393,11 @@ function nr(e2) {
 function rr(e2) {
   const t = k(e2), n4 = new TextEncoder().encode("TransactionData::"), r2 = new Uint8Array(n4.length + t.length);
   r2.set(n4), r2.set(t, n4.length);
-  const o2 = blake2b$2(r2, { dkLen: 32 });
+  const o2 = blake2b$3(r2, { dkLen: 32 });
   return base58$1.encode(o2);
 }
 function or(e2) {
-  const t = new Uint8Array(sha256$4(at$1(e2)));
+  const t = new Uint8Array(sha256$5(at$1(e2)));
   return base58$1.encode(t);
 }
 function at$1(e2) {
@@ -93272,7 +93422,7 @@ function ye$1(e2) {
 function ir(e2) {
   const t = k(e2.signed.bodyBytes), n4 = k(e2.signed.authInfoBytes), r2 = k(e2.signature.signature), o2 = [];
   o2.push(new Uint8Array([10])), o2.push(ye$1(t.length)), o2.push(t), o2.push(new Uint8Array([18])), o2.push(ye$1(n4.length)), o2.push(n4), o2.push(new Uint8Array([26])), o2.push(ye$1(r2.length)), o2.push(r2);
-  const s2 = concat(o2), i2 = sha256$4(s2);
+  const s2 = concat(o2), i2 = sha256$5(s2);
   return toString(i2, "base16").toUpperCase();
 }
 function cr(e2) {
@@ -98683,9 +98833,7 @@ async function handle(msg, sender) {
           const id = crypto.randomUUID();
           return new Promise((resolve, reject) => {
             _connectionQueue.set(id, { resolve, reject, origin: senderOrigin, tabId: sender == null ? void 0 : sender.tabId, chain: "evm" });
-            chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id, origin: senderOrigin } }).catch(() => {
-            });
-            openApprovalPopup();
+            chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id, origin: senderOrigin } }).catch(() => openApprovalPopup());
             setTimeout(() => {
               if (_connectionQueue.has(id)) {
                 _connectionQueue.delete(id);
@@ -98719,11 +98867,10 @@ async function handle(msg, sender) {
         case "eth_sendTransaction": {
           const id = crypto.randomUUID();
           const tx = params[0];
+          const txChainId = _currentChainId;
           return new Promise((resolve, reject) => {
-            _web3TxQueue.set(id, { resolve, reject, tx });
-            chrome.runtime.sendMessage({ type: "web3:tx-request", data: { id, ...tx } }).catch(() => {
-            });
-            openApprovalPopup();
+            _web3TxQueue.set(id, { resolve, reject, tx, chainId: txChainId });
+            chrome.runtime.sendMessage({ type: "web3:tx-request", data: { id, chainId: txChainId, ...tx } }).catch(() => openApprovalPopup());
             setTimeout(() => {
               if (_web3TxQueue.has(id)) {
                 _web3TxQueue.delete(id);
@@ -98759,9 +98906,159 @@ async function handle(msg, sender) {
           broadcastEthEvent("accountsChanged", []);
           return null;
         }
-        default:
-          throw new Error(`Method not supported via window.ethereum: ${method}`);
+        default: {
+          const chainNum = parseInt(_currentChainId, 16) || 1;
+          const { EVM_CHAINS: evmCfg } = await __vitePreload(async () => {
+            const { EVM_CHAINS: evmCfg2 } = await Promise.resolve().then(() => chainConfig$1);
+            return { EVM_CHAINS: evmCfg2 };
+          }, true ? void 0 : void 0, import.meta.url);
+          const rpcCfg = await loadConfig();
+          const chainDef = evmCfg.find((c2) => c2.chainId === chainNum);
+          const rpcUrl2 = (chainDef == null ? void 0 : chainDef.rpcUrl(rpcCfg)) ?? `https://eth-mainnet.g.alchemy.com/v2/${rpcCfg.alchemyKey ?? ""}`;
+          const rpcRes = await fetch(rpcUrl2, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+            signal: AbortSignal.timeout(15e3)
+          });
+          if (!rpcRes.ok) throw new Error(`RPC error ${rpcRes.status}: ${method}`);
+          const rpcJson = await rpcRes.json();
+          if (rpcJson.error) throw Object.assign(new Error(rpcJson.error.message), { code: rpcJson.error.code });
+          return rpcJson.result;
+        }
       }
+    }
+    case "bitcoin:get-accounts": {
+      const btcAddrs = await loadAddresses();
+      return (btcAddrs == null ? void 0 : btcAddrs.bitcoin) ? [btcAddrs.bitcoin] : [];
+    }
+    case "bitcoin:request-accounts": {
+      const btcOrigin = (sender == null ? void 0 : sender.origin) ?? "unknown";
+      const btcApproved = await getApprovedOrigins();
+      if (btcApproved.includes(btcOrigin)) {
+        const btcAddrs = await loadAddresses();
+        return (btcAddrs == null ? void 0 : btcAddrs.bitcoin) ? [btcAddrs.bitcoin] : [];
+      }
+      const btcId = crypto.randomUUID();
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(btcId, { resolve, reject, origin: btcOrigin, tabId: sender == null ? void 0 : sender.tabId, chain: "bitcoin" });
+        chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id: btcId, origin: btcOrigin } }).catch(() => openApprovalPopup());
+        setTimeout(() => {
+          if (_connectionQueue.has(btcId)) {
+            _connectionQueue.delete(btcId);
+            reject(Object.assign(new Error("User rejected the request."), { code: 4001 }));
+          }
+        }, 12e4);
+      });
+    }
+    case "bitcoin:get-public-key": {
+      const btcMnemonic = await loadMnemonic();
+      const btcAddrs = await loadAddresses();
+      const { publicKey: btcPub } = await getBitcoinKey(btcMnemonic, (btcAddrs == null ? void 0 : btcAddrs.accountIndex) ?? 0);
+      return Array.from(btcPub).map((b2) => b2.toString(16).padStart(2, "0")).join("");
+    }
+    case "bitcoin:get-balance": {
+      const btcAddrs = await loadAddresses();
+      if (!(btcAddrs == null ? void 0 : btcAddrs.bitcoin)) throw new Error("No Bitcoin wallet");
+      const btcRes = await fetch(`https://mempool.space/api/address/${btcAddrs.bitcoin}`, { signal: AbortSignal.timeout(1e4) });
+      if (!btcRes.ok) throw new Error(`mempool.space error: ${btcRes.status}`);
+      const btcData = await btcRes.json();
+      const confirmed = btcData.chain_stats.funded_txo_sum - btcData.chain_stats.spent_txo_sum;
+      const unconfirmed = btcData.mempool_stats.funded_txo_sum - btcData.mempool_stats.spent_txo_sum;
+      return { confirmed, unconfirmed, total: confirmed + unconfirmed };
+    }
+    case "bitcoin:sign-message": {
+      const btcMsg = String(a0);
+      const btcMnemonic = await loadMnemonic();
+      const btcAddrs = await loadAddresses();
+      const { privateKey: btcPriv } = await getBitcoinKey(btcMnemonic, (btcAddrs == null ? void 0 : btcAddrs.accountIndex) ?? 0);
+      const { secp256k1: secp256k12 } = await __vitePreload(async () => {
+        const { secp256k1: secp256k13 } = await Promise.resolve().then(() => secp256k1$6);
+        return { secp256k1: secp256k13 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const { sha256: sha256fn } = await __vitePreload(async () => {
+        const { sha256: sha256fn2 } = await Promise.resolve().then(() => sha256$2);
+        return { sha256: sha256fn2 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const msgBytes = new TextEncoder().encode(btcMsg);
+      const prefix = new TextEncoder().encode("Bitcoin Signed Message:\n");
+      const len2 = msgBytes.length;
+      const lenBytes = len2 < 253 ? [len2] : [253, len2 & 255, len2 >> 8 & 255];
+      const combined = new Uint8Array([...prefix, ...lenBytes, ...msgBytes]);
+      const hash2 = sha256fn(sha256fn(combined));
+      const sig = secp256k12.sign(hash2, btcPriv, { lowS: true });
+      const header = new Uint8Array([27 + (sig.recovery ?? 0)]);
+      const sigBytes = new Uint8Array([...header, ...sig.toCompactRawBytes()]);
+      return btoa(String.fromCharCode(...sigBytes));
+    }
+    case "bitcoin:sign-psbt":
+      throw new Error("PSBT signing not yet supported — use the wallet send screen for Bitcoin transactions");
+    case "bitcoin:push-psbt": {
+      const rawTxHex = String(a0);
+      const pushRes = await fetch("https://mempool.space/api/tx", {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: rawTxHex,
+        signal: AbortSignal.timeout(15e3)
+      });
+      if (!pushRes.ok) throw new Error(`Broadcast failed: ${pushRes.status}`);
+      return await pushRes.text();
+    }
+    case "bitcoin:send":
+      throw new Error("Bitcoin send via dApp coming soon — use the wallet send screen");
+    case "polkadot:enable": {
+      const dotOrigin = (sender == null ? void 0 : sender.origin) ?? "unknown";
+      const dotApproved = await getApprovedOrigins();
+      if (dotApproved.includes(dotOrigin)) return true;
+      const dotId = crypto.randomUUID();
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(dotId, { resolve, reject, origin: dotOrigin, tabId: sender == null ? void 0 : sender.tabId, chain: "polkadot" });
+        chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id: dotId, origin: dotOrigin } }).catch(() => openApprovalPopup());
+        setTimeout(() => {
+          if (_connectionQueue.has(dotId)) {
+            _connectionQueue.delete(dotId);
+            reject(Object.assign(new Error("User rejected the request."), { code: 4001 }));
+          }
+        }, 12e4);
+      });
+    }
+    case "polkadot:get-accounts": {
+      const dotAddrs = await loadAddresses();
+      if (!(dotAddrs == null ? void 0 : dotAddrs.polkadot)) return [];
+      return [{ address: dotAddrs.polkadot, name: "MagicMoney", type: "ed25519" }];
+    }
+    case "polkadot:sign-payload": {
+      const dotPayload = a0;
+      const dotMnemonic = await loadMnemonic();
+      const dotAddrs = await loadAddresses();
+      const { privateKey: dotPriv } = await getPolkadotKey(dotMnemonic, (dotAddrs == null ? void 0 : dotAddrs.accountIndex) ?? 0);
+      const { ed25519: dotEd } = await __vitePreload(async () => {
+        const { ed25519: dotEd2 } = await Promise.resolve().then(() => ed25519$1);
+        return { ed25519: dotEd2 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const { blake2b: dotBlake } = await __vitePreload(async () => {
+        const { blake2b: dotBlake2 } = await Promise.resolve().then(() => blake2b$2);
+        return { blake2b: dotBlake2 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const methodHex = (dotPayload.method ?? "").replace(/^0x/, "");
+      const dataBytes = new Uint8Array((methodHex.match(/.{2}/g) ?? []).map((h4) => parseInt(h4, 16)));
+      const toSign = dataBytes.length > 256 ? dotBlake(dataBytes, { dkLen: 32 }) : dataBytes;
+      const sig = dotEd.sign(toSign, dotPriv);
+      return { id: Math.floor(Math.random() * 16777215), signature: `0x${Array.from(sig).map((b2) => b2.toString(16).padStart(2, "0")).join("")}` };
+    }
+    case "polkadot:sign-raw": {
+      const dotRaw = a0;
+      const dotMnemonic = await loadMnemonic();
+      const dotAddrs = await loadAddresses();
+      const { privateKey: dotPriv2 } = await getPolkadotKey(dotMnemonic, (dotAddrs == null ? void 0 : dotAddrs.accountIndex) ?? 0);
+      const { ed25519: dotEd2 } = await __vitePreload(async () => {
+        const { ed25519: dotEd22 } = await Promise.resolve().then(() => ed25519$1);
+        return { ed25519: dotEd22 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const dataHex = (dotRaw.data ?? "").replace(/^0x/, "");
+      const dataBytes = new Uint8Array((dataHex.match(/.{2}/g) ?? []).map((h4) => parseInt(h4, 16)));
+      const sig = dotEd2.sign(dataBytes, dotPriv2);
+      return { id: Math.floor(Math.random() * 16777215), signature: `0x${Array.from(sig).map((b2) => b2.toString(16).padStart(2, "0")).join("")}` };
     }
     case "web3:get-pending-connections":
       return [..._connectionQueue.entries()].map(([id, { origin }]) => ({ id, origin }));
@@ -98772,8 +99069,10 @@ async function handle(msg, sender) {
       _connectionQueue.delete(id);
       const connAddresses = await loadAddresses();
       await addApprovedOrigin(entry.origin);
-      if (entry.chain === "cardano") {
+      if (entry.chain === "cardano" || entry.chain === "polkadot") {
         entry.resolve(true);
+      } else if (entry.chain === "bitcoin") {
+        entry.resolve((connAddresses == null ? void 0 : connAddresses.bitcoin) ? [connAddresses.bitcoin] : []);
       } else {
         const addrs = (connAddresses == null ? void 0 : connAddresses.evm) ? [connAddresses.evm] : [];
         entry.resolve(addrs);
@@ -98796,9 +99095,9 @@ async function handle(msg, sender) {
       return true;
     }
     case "web3:get-pending-tx":
-      return [..._web3TxQueue.entries()].map(([id, { tx }]) => ({ id, ...tx }));
+      return [..._web3TxQueue.entries()].map(([id, { tx, chainId: c2 }]) => ({ id, chainId: c2, ...tx }));
     case "web3:approve-tx": {
-      const { id, chainId } = a0;
+      const { id } = a0;
       const entry = _web3TxQueue.get(id);
       if (!entry) throw new Error("Pending transaction not found");
       _web3TxQueue.delete(id);
@@ -98811,8 +99110,8 @@ async function handle(msg, sender) {
         const { EVM_CHAINS: EVM_CHAINS3 } = await Promise.resolve().then(() => chainConfig$1);
         return { EVM_CHAINS: EVM_CHAINS3 };
       }, true ? void 0 : void 0, import.meta.url);
-      const numId = parseInt(chainId ?? "1");
-      const chain2 = Object.values(EVM_CHAINS2).find((c2) => c2.chainId === numId) ?? EVM_CHAINS2[0];
+      const numId = parseInt(entry.chainId ?? "1", 16) || 1;
+      const chain2 = EVM_CHAINS2.find((c2) => c2.chainId === numId) ?? EVM_CHAINS2[0];
       const key2 = await deriveEvmKey();
       const acct = privateKeyToAccount(key2);
       const wc = createWalletClient2({ account: acct, transport: http2(chain2.rpcUrl(config)), chain: null });
@@ -98845,10 +99144,37 @@ async function handle(msg, sender) {
       const keypair = await getSolanaKeypair(mnemonic);
       return Array.from(keypair.sign(bytes));
     }
-    case "web3:solana:sign-and-send":
-      throw new Error("Solana transaction signing not yet implemented — use the wallet send screen");
-    case "web3:solana:sign-tx":
-      throw new Error("Solana transaction signing not yet implemented — use the wallet send screen");
+    case "web3:solana:sign-and-send": {
+      const input = a0;
+      if (!(input == null ? void 0 : input.transaction)) throw new Error("No transaction data provided");
+      const txBytes = input.transaction instanceof Uint8Array ? input.transaction : new Uint8Array(input.transaction);
+      const solMnemonic = await loadMnemonic();
+      const solAddresses = await loadAddresses();
+      const solConfig = await loadConfig();
+      const { VersionedTransaction: VersionedTransaction2, Connection: SolConnection } = await __vitePreload(async () => {
+        const { VersionedTransaction: VersionedTransaction3, Connection: SolConnection2 } = await Promise.resolve().then(() => index_browser_esm);
+        return { VersionedTransaction: VersionedTransaction3, Connection: SolConnection2 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const solKeypair = await getSolanaKeypair(solMnemonic, (solAddresses == null ? void 0 : solAddresses.accountIndex) ?? 0);
+      const solTx = VersionedTransaction2.deserialize(txBytes);
+      solTx.sign([solKeypair]);
+      const solConn = new SolConnection(`https://mainnet.helius-rpc.com/?api-key=${solConfig.heliusKey}`, "confirmed");
+      const solSig = await solConn.sendRawTransaction(solTx.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
+      return { signature: solSig };
+    }
+    case "web3:solana:sign-tx": {
+      const txBytes = new Uint8Array(a0);
+      const solMnemonic2 = await loadMnemonic();
+      const solAddresses2 = await loadAddresses();
+      const { VersionedTransaction: VT2 } = await __vitePreload(async () => {
+        const { VersionedTransaction: VT22 } = await Promise.resolve().then(() => index_browser_esm);
+        return { VersionedTransaction: VT22 };
+      }, true ? void 0 : void 0, import.meta.url);
+      const solKeypair2 = await getSolanaKeypair(solMnemonic2, (solAddresses2 == null ? void 0 : solAddresses2.accountIndex) ?? 0);
+      const solTx2 = VT2.deserialize(txBytes);
+      solTx2.sign([solKeypair2]);
+      return Array.from(solTx2.serialize());
+    }
     case "cardano:is-enabled": {
       const approvedCardano = await getApprovedOrigins();
       return approvedCardano.includes((sender == null ? void 0 : sender.origin) ?? "unknown");
@@ -98860,9 +99186,7 @@ async function handle(msg, sender) {
       const id = crypto.randomUUID();
       return new Promise((resolve, reject) => {
         _connectionQueue.set(id, { resolve, reject, origin: senderOriginCardano, tabId: sender == null ? void 0 : sender.tabId, chain: "cardano" });
-        chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id, origin: senderOriginCardano } }).catch(() => {
-        });
-        openApprovalPopup();
+        chrome.runtime.sendMessage({ type: "web3:connection-request", data: { id, origin: senderOriginCardano } }).catch(() => openApprovalPopup());
         setTimeout(() => {
           if (_connectionQueue.has(id)) {
             _connectionQueue.delete(id);
