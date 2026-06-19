@@ -59,6 +59,7 @@ export interface MarketResult {
   coins: MarketCoin[]
   fetchedAt: number
   error: string | null
+  source?: string
 }
 
 export interface WalletToken {

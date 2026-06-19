@@ -140,26 +140,32 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0 }}>
         <TokenLogo token={token} />
 
-        {/* Name + chain */}
+        {/* Name · Ticker · Chain — three stacked rows */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{token.name}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-            <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>{token.symbol}</span>
-            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600 }}>{token.chainLabel}</span>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {token.name}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+            {token.symbol}
+          </div>
+          <div style={{ marginTop: 3 }}>
+            <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: 'inline-block' }}>
+              {token.chainLabel}
+            </span>
           </div>
         </div>
 
-        {/* Quantity / native equiv / USD — full right edge */}
+        {/* Balance · Native equiv · USD — three stacked rows aligned to right */}
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
             {token.balance} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-secondary)' }}>{token.symbol}</span>
           </div>
-          {token.nativeEquivalent && (
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 1 }}>{token.nativeEquivalent}</div>
-          )}
-          {token.usdValue && (
-            <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: 1 }}>{token.usdValue}</div>
-          )}
+          <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 2, minHeight: 14 }}>
+            {token.nativeEquivalent ?? ''}
+          </div>
+          <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: 2, minHeight: 14 }}>
+            {token.usdValue ?? ''}
+          </div>
         </div>
       </div>
 

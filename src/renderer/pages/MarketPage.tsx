@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { MarketCoin, MarketResult } from '../types/wallet'
+
+// ─── Module-level client cache — survives tab switches (component unmount/remount)
+let _pageCache: MarketResult | null = null
+let _pageCacheTime = 0
+const PAGE_CACHE_SHOW_TTL  = 3 * 60 * 1000  // use cached data for up to 3 min
+const PAGE_CACHE_FRESH_TTL = 60 * 1000       // silently refresh if older than 1 min
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -199,8 +205,10 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
 
         {/* Converter */}
         <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Converter</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 10 }}>Converter</div>
+
+          {/* Row 1 — coin amount input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <input
               type="number"
               value={convertAmt}
@@ -208,20 +216,35 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
               placeholder="1"
               style={{
                 flex: 1, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)',
-                borderRadius: 6, padding: '6px 10px', color: 'var(--text-primary)',
-                fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none'
+                borderRadius: 6, padding: '7px 10px', color: 'var(--text-primary)',
+                fontFamily: 'var(--font-mono)', fontSize: 13, outline: 'none', minWidth: 0
               }}
             />
-            <span style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600, minWidth: 36 }}>{coin.symbol}</span>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>=</span>
-            <span style={{ flex: 1, fontSize: 13, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontWeight: 600 }}>
-              {usdVal >= 0.01 ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : `$${usdVal.toFixed(6)}`}
+            <span style={{ fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700, minWidth: 48, textAlign: 'right', letterSpacing: '0.04em' }}>
+              {coin.symbol}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-            <span style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flex: 1, fontWeight: 500 }}>
-              1 USD = {coinVal >= 0.000001 ? coinVal.toPrecision(4) : coinVal.toExponential(2)} {coin.symbol}
+
+          {/* Row 2 — USD output */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <div style={{
+              flex: 1, background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '7px 10px', fontFamily: 'var(--font-mono)',
+              fontSize: 13, color: 'var(--text-primary)', fontWeight: 700, minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
+              {usdVal >= 0.01
+                ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+                : `$${usdVal.toFixed(6)}`}
+            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, minWidth: 48, textAlign: 'right' }}>
+              USD
             </span>
+          </div>
+
+          {/* Rate */}
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+            1 USD = {coinVal >= 0.000001 ? coinVal.toPrecision(5) : coinVal.toExponential(2)} {coin.symbol}
           </div>
         </div>
       </div>
@@ -287,23 +310,49 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
 // ─── Main page ───────────────────────────────────────────────────────────────
 
 export function MarketPage() {
-  const [data, setData]             = useState<MarketResult | null>(null)
-  const [loading, setLoading]       = useState(true)
+  // Seed state from module-level cache instantly — avoids loading flash on tab switch
+  const [data, setData]             = useState<MarketResult | null>(_pageCache)
+  const [loading, setLoading]       = useState(_pageCache === null)
   const [refreshing, setRefreshing] = useState(false)
   const [search, setSearch]         = useState('')
   const [searchResults, setSearchResults] = useState<MarketCoin[] | null>(null)
   const [searching, setSearching]   = useState(false)
   const [selectedCoin, setSelectedCoin] = useState<MarketCoin | null>(null)
+  const mountedRef = useRef(true)
 
-  const loadMarket = useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true)
-    else setRefreshing(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const loadMarket = useCallback(async (forceRefresh = false) => {
+    const now = Date.now()
+    const cacheAge = now - _pageCacheTime
+
+    // If cache is fresh and this isn't a manual refresh, return immediately
+    if (!forceRefresh && _pageCache && cacheAge < PAGE_CACHE_SHOW_TTL) {
+      // Silently refresh in background if cache is > 1 min old
+      if (cacheAge > PAGE_CACHE_FRESH_TTL) {
+        window.wallet.getMarket().then(result => {
+          _pageCache = result
+          _pageCacheTime = Date.now()
+          if (mountedRef.current) setData(result)
+        }).catch(() => { /* silent */ })
+      }
+      return
+    }
+
+    // Cache is stale or manual refresh — show loading indicator
+    if (forceRefresh && _pageCache) setRefreshing(true)
+    else if (!_pageCache) setLoading(true)
+
     try {
       const result = await window.wallet.getMarket()
-      setData(result)
+      _pageCache = result
+      _pageCacheTime = Date.now()
+      if (mountedRef.current) setData(result)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (mountedRef.current) { setLoading(false); setRefreshing(false) }
     }
   }, [])
 
@@ -340,7 +389,7 @@ export function MarketPage() {
             </h1>
             {lastUpdated && !searchResults && (
               <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2 }}>
-                Updated {lastUpdated} · CoinGecko
+                Updated {lastUpdated}{data?.source ? ` · ${data.source}` : ''}
               </div>
             )}
             {searchResults && (

@@ -8145,10 +8145,8 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           /* @__PURE__ */ jsxRuntimeExports.jsx(TokenLogo, { token }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: token.name }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 5, marginTop: 2 }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }, children: token.symbol }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600 }, children: token.chainLabel })
-            ] })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: 2 }, children: token.symbol }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: "inline-block" }, children: token.chainLabel }) })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "right", flexShrink: 0 }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-primary)", whiteSpace: "nowrap" }, children: [
@@ -8156,8 +8154,8 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
               " ",
               /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, fontWeight: 500, color: "var(--text-secondary)" }, children: token.symbol })
             ] }),
-            token.nativeEquivalent && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginTop: 1 }, children: token.nativeEquivalent }),
-            token.usdValue && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", marginTop: 1 }, children: token.usdValue })
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginTop: 2, minHeight: 14 }, children: token.nativeEquivalent ?? "" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", marginTop: 2, minHeight: 14 }, children: token.usdValue ?? "" })
           ] })
         ] }),
         isHovered && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginLeft: 3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(HideSpamButtons, { onHide, onSpam }) })
@@ -8974,6 +8972,10 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
     )
   ] });
 }
+let _pageCache = null;
+let _pageCacheTime = 0;
+const PAGE_CACHE_SHOW_TTL = 3 * 60 * 1e3;
+const PAGE_CACHE_FRESH_TTL = 60 * 1e3;
 function fmtPrice(p2) {
   if (p2 >= 1e3) return `$${p2.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
   if (p2 >= 1) return `$${p2.toFixed(4)}`;
@@ -9172,8 +9174,8 @@ function ChartModal({ coin, onClose }) {
             )) }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginBottom: 16, minHeight: 130 }, children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 130, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 20, height: 20, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" } }) }) : /* @__PURE__ */ jsxRuntimeExports.jsx(FullChart, { data: chartData, color: isUp ? "#22c55e" : "#ef4444" }) }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 12 }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }, children: "Converter" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }, children: "Converter" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }, children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx(
                   "input",
                   {
@@ -9186,24 +9188,41 @@ function ChartModal({ coin, onClose }) {
                       background: "rgba(0,0,0,0.3)",
                       border: "1px solid var(--border)",
                       borderRadius: 6,
-                      padding: "6px 10px",
+                      padding: "7px 10px",
                       color: "var(--text-primary)",
                       fontFamily: "var(--font-mono)",
                       fontSize: 13,
-                      outline: "none"
+                      outline: "none",
+                      minWidth: 0
                     }
                   }
                 ),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-secondary)", fontWeight: 600, minWidth: 36 }, children: coin.symbol }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "=" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { flex: 1, fontSize: 13, fontFamily: "var(--font-mono)", color: "var(--text-primary)", fontWeight: 600 }, children: usdVal >= 0.01 ? `$${usdVal.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${usdVal.toFixed(6)}` })
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-secondary)", fontWeight: 700, minWidth: 48, textAlign: "right", letterSpacing: "0.04em" }, children: coin.symbol })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", flex: 1, fontWeight: 500 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                  flex: 1,
+                  background: "rgba(0,0,0,0.25)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "7px 10px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                  fontWeight: 700,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }, children: usdVal >= 0.01 ? `$${usdVal.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${usdVal.toFixed(6)}` }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-muted)", fontWeight: 600, minWidth: 48, textAlign: "right" }, children: "USD" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", borderTop: "1px solid var(--border)", paddingTop: 8 }, children: [
                 "1 USD = ",
-                coinVal >= 1e-6 ? coinVal.toPrecision(4) : coinVal.toExponential(2),
+                coinVal >= 1e-6 ? coinVal.toPrecision(5) : coinVal.toExponential(2),
                 " ",
                 coin.symbol
-              ] }) })
+              ] })
             ] })
           ]
         }
@@ -9258,22 +9277,46 @@ function CoinRow({ coin, onClick }) {
   );
 }
 function MarketPage() {
-  const [data, setData] = reactExports.useState(null);
-  const [loading, setLoading] = reactExports.useState(true);
+  const [data, setData] = reactExports.useState(_pageCache);
+  const [loading, setLoading] = reactExports.useState(_pageCache === null);
   const [refreshing, setRefreshing] = reactExports.useState(false);
   const [search, setSearch] = reactExports.useState("");
   const [searchResults, setSearchResults] = reactExports.useState(null);
   const [searching, setSearching] = reactExports.useState(false);
   const [selectedCoin, setSelectedCoin] = reactExports.useState(null);
-  const loadMarket = reactExports.useCallback(async (quiet = false) => {
-    if (!quiet) setLoading(true);
-    else setRefreshing(true);
+  const mountedRef = reactExports.useRef(true);
+  reactExports.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const loadMarket = reactExports.useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    const cacheAge = now - _pageCacheTime;
+    if (!forceRefresh && _pageCache && cacheAge < PAGE_CACHE_SHOW_TTL) {
+      if (cacheAge > PAGE_CACHE_FRESH_TTL) {
+        window.wallet.getMarket().then((result) => {
+          _pageCache = result;
+          _pageCacheTime = Date.now();
+          if (mountedRef.current) setData(result);
+        }).catch(() => {
+        });
+      }
+      return;
+    }
+    if (forceRefresh && _pageCache) setRefreshing(true);
+    else if (!_pageCache) setLoading(true);
     try {
       const result = await window.wallet.getMarket();
-      setData(result);
+      _pageCache = result;
+      _pageCacheTime = Date.now();
+      if (mountedRef.current) setData(result);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
   reactExports.useEffect(() => {
@@ -9307,7 +9350,7 @@ function MarketPage() {
           lastUpdated && !searchResults && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 10, color: "var(--text-muted)", marginTop: 2 }, children: [
             "Updated ",
             lastUpdated,
-            " · CoinGecko"
+            (data == null ? void 0 : data.source) ? ` · ${data.source}` : ""
           ] }),
           searchResults && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 10, color: "var(--text-muted)", marginTop: 2 }, children: [
             searchResults.length,

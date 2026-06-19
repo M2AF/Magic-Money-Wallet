@@ -67997,8 +67997,98 @@ async function fetchAllHistory(addresses, config) {
 }
 let _cache = null;
 let _cacheTime = 0;
-const CACHE_TTL = 2 * 60 * 1e3;
-function mapCoin(c2) {
+const CACHE_TTL = 5 * 60 * 1e3;
+const PRICE_TTL = 60 * 1e3;
+const BINANCE_TO_CG = {
+  BTC: "bitcoin",
+  ETH: "ethereum",
+  BNB: "binancecoin",
+  SOL: "solana",
+  XRP: "ripple",
+  ADA: "cardano",
+  AVAX: "avalanche-2",
+  DOGE: "dogecoin",
+  TRX: "tron",
+  LINK: "chainlink",
+  DOT: "polkadot",
+  MATIC: "matic-network",
+  LTC: "litecoin",
+  UNI: "uniswap",
+  ATOM: "cosmos",
+  ETC: "ethereum-classic",
+  NEAR: "near",
+  APT: "aptos",
+  ARB: "arbitrum",
+  OP: "optimism",
+  SUI: "sui",
+  INJ: "injective-protocol",
+  HBAR: "hedera-hashgraph",
+  VET: "vechain",
+  AAVE: "aave",
+  MKR: "maker",
+  RUNE: "thorchain",
+  ALGO: "algorand",
+  XLM: "stellar",
+  XMR: "monero",
+  FTM: "fantom",
+  ZEC: "zcash",
+  XTZ: "tezos",
+  SHIB: "shiba-inu",
+  PEPE: "pepe",
+  FLOKI: "floki",
+  WIF: "dogwifcoin",
+  BONK: "bonk",
+  SEI: "sei-network",
+  TIA: "celestia",
+  PYTH: "pyth-network",
+  JUP: "jupiter-exchange-solana",
+  RENDER: "render-token",
+  FET: "fetch-ai",
+  GRT: "the-graph",
+  LDO: "lido-dao",
+  COMP: "compound-governance-token",
+  SNX: "havven",
+  CRV: "curve-dao-token",
+  SUSHI: "sushi",
+  GMX: "gmx",
+  RPL: "rocket-pool",
+  KSM: "kusama",
+  ROSE: "oasis-network",
+  FLOW: "flow",
+  FIL: "filecoin",
+  EOS: "eos",
+  CAKE: "pancakeswap-token",
+  CHZ: "chiliz",
+  ENJ: "enjincoin",
+  BAT: "basic-attention-token",
+  SAND: "the-sandbox",
+  MANA: "decentraland",
+  "1INCH": "1inch",
+  AUDIO: "audius",
+  STORJ: "storj",
+  ANKR: "ankr",
+  BAND: "band-protocol",
+  CRO: "crypto-com-chain",
+  EGLD: "elrond-erd-2",
+  MON: "monad",
+  HYPE: "hyperliquid",
+  W: "wormhole",
+  JTO: "jito-governance-token",
+  STRK: "starknet",
+  BLUR: "blur",
+  DYDX: "dydx-chain",
+  ZRX: "0x",
+  IOTA: "iota",
+  WAVES: "waves",
+  ZIL: "zilliqa",
+  YFI: "yearn-finance",
+  BAL: "balancer",
+  CVX: "convex-finance"
+};
+const CG_TO_BINANCE = Object.fromEntries(
+  Object.entries(BINANCE_TO_CG).map(([sym, id]) => [id, sym])
+);
+function mapCGCoin(c2) {
   var _a;
   return {
     id: c2.id,
@@ -68012,21 +68102,103 @@ function mapCoin(c2) {
     sparkline: ((_a = c2.sparkline_in_7d) == null ? void 0 : _a.price) ?? null
   };
 }
+async function fetchFromCoinGecko() {
+  const res = await fetch(
+    "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=24h",
+    { signal: AbortSignal.timeout(15e3) }
+  );
+  if (!res.ok) throw Object.assign(new Error(`CoinGecko ${res.status}`), { status: res.status });
+  const json = await res.json();
+  return json.map(mapCGCoin);
+}
+async function fetchBinanceTickers(symbols) {
+  const encoded = encodeURIComponent(JSON.stringify(symbols));
+  const res = await fetch(
+    `https://api.binance.com/api/v3/ticker/24hr?symbols=${encoded}`,
+    { signal: AbortSignal.timeout(8e3) }
+  );
+  if (!res.ok) throw new Error(`Binance ${res.status}`);
+  return res.json();
+}
+async function patchPricesFromBinance(coins) {
+  const STABLE = /* @__PURE__ */ new Set(["USDT", "USDC", "DAI", "BUSD", "TUSD", "FDUSD", "USDP", "GUSD"]);
+  const eligible = coins.filter((c2) => !STABLE.has(c2.symbol));
+  const binanceSymbols = eligible.map((c2) => `${c2.symbol}USDT`);
+  const tickers = await fetchBinanceTickers(binanceSymbols);
+  const bySymbol = new Map(tickers.map((t) => [t.symbol, t]));
+  for (const coin of eligible) {
+    const ticker = bySymbol.get(`${coin.symbol}USDT`);
+    if (!ticker) continue;
+    coin.price = parseFloat(ticker.lastPrice);
+    coin.change24h = parseFloat(ticker.priceChangePercent);
+  }
+}
+async function fetchFromBinance() {
+  const res = await fetch(
+    "https://api.binance.com/api/v3/ticker/24hr",
+    { signal: AbortSignal.timeout(12e3) }
+  );
+  if (!res.ok) throw new Error(`Binance ${res.status}`);
+  const all = await res.json();
+  const STABLE = /* @__PURE__ */ new Set(["USDT", "USDC", "DAI", "BUSD", "TUSD", "FDUSD", "USDP", "GUSD"]);
+  const usdtPairs = all.filter(
+    (t) => t.symbol.endsWith("USDT") && !t.symbol.includes("UP") && !t.symbol.includes("DOWN") && !t.symbol.includes("BEAR") && !t.symbol.includes("BULL")
+  ).sort((a2, b2) => parseFloat(b2.quoteVolume) - parseFloat(a2.quoteVolume)).slice(0, 100);
+  return usdtPairs.map((t, i2) => {
+    const sym = t.symbol.replace(/USDT$/, "");
+    const cgId = BINANCE_TO_CG[sym] ?? sym.toLowerCase();
+    return {
+      id: cgId,
+      rank: i2 + 1,
+      name: sym,
+      symbol: sym,
+      image: "",
+      // no image available from Binance
+      price: parseFloat(t.lastPrice),
+      change24h: parseFloat(t.priceChangePercent),
+      marketCap: null,
+      sparkline: null,
+      ...STABLE.has(sym) ? { price: 1, change24h: 0 } : {}
+    };
+  });
+}
+let _lastPricePatch = 0;
 async function fetchMarketTop100() {
-  if (_cache && Date.now() - _cacheTime < CACHE_TTL) return _cache;
-  try {
-    const res = await fetch(
-      "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=24h",
-      { signal: AbortSignal.timeout(15e3) }
-    );
-    if (!res.ok) return { coins: [], fetchedAt: Date.now(), error: `HTTP ${res.status}` };
-    const json = await res.json();
-    const coins = json.map(mapCoin);
-    _cache = { coins, fetchedAt: Date.now(), error: null };
-    _cacheTime = Date.now();
+  const now = Date.now();
+  if (_cache && now - _cacheTime < CACHE_TTL) {
+    if (now - _lastPricePatch > PRICE_TTL && _cache.coins.length > 0) {
+      _lastPricePatch = now;
+      patchPricesFromBinance(_cache.coins).then(() => {
+        if (_cache) _cache.source = "CoinGecko + Binance";
+      }).catch(() => {
+      });
+    }
     return _cache;
-  } catch (e2) {
-    return { coins: [], fetchedAt: Date.now(), error: String(e2) };
+  }
+  try {
+    const coins = await fetchFromCoinGecko();
+    _cache = { coins, fetchedAt: now, error: null, source: "CoinGecko" };
+    _cacheTime = now;
+    _lastPricePatch = now;
+    patchPricesFromBinance(coins).then(() => {
+      if (_cache) _cache.source = "CoinGecko + Binance";
+    }).catch(() => {
+    });
+    return _cache;
+  } catch (cgErr) {
+    const status = cgErr.status;
+    const isRateLimit = status === 429 || status === 503;
+    try {
+      const coins = await fetchFromBinance();
+      const result = { coins, fetchedAt: now, error: null, source: "Binance" };
+      _cache = result;
+      _cacheTime = now - CACHE_TTL / 2;
+      return result;
+    } catch (binanceErr) {
+      if (_cache) return { ..._cache, error: null };
+      const errMsg = isRateLimit ? "Rate limited — try again in a minute" : String(cgErr);
+      return { coins: [], fetchedAt: now, error: errMsg, source: "CoinGecko" };
+    }
   }
 }
 async function searchMarketCoins(query) {
@@ -68046,10 +68218,29 @@ async function searchMarketCoins(query) {
     );
     if (!priceRes.ok) return [];
     const priceJson = await priceRes.json();
-    return priceJson.map(mapCoin);
+    return priceJson.map(mapCGCoin);
   } catch {
     return [];
   }
+}
+const DAYS_TO_BINANCE = {
+  "1": { interval: "1h", limit: 24 },
+  "7": { interval: "4h", limit: 42 },
+  "30": { interval: "1d", limit: 30 },
+  "365": { interval: "1d", limit: 365 },
+  "max": { interval: "1w", limit: 200 }
+};
+async function fetchCoinChartBinance(coinId, days) {
+  const binanceSym = CG_TO_BINANCE[coinId];
+  if (!binanceSym) return [];
+  const { interval, limit } = DAYS_TO_BINANCE[days] ?? { interval: "1d", limit: 30 };
+  const res = await fetch(
+    `https://api.binance.com/api/v3/klines?symbol=${binanceSym}USDT&interval=${interval}&limit=${limit}`,
+    { signal: AbortSignal.timeout(1e4) }
+  );
+  if (!res.ok) return [];
+  const rows = await res.json();
+  return rows.map((r2) => [r2[0] + (typeof r2[0] === "number" ? 0 : 0), parseFloat(r2[4])]);
 }
 async function fetchCoinChart(coinId, days) {
   try {
@@ -68057,12 +68248,14 @@ async function fetchCoinChart(coinId, days) {
       `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`,
       { signal: AbortSignal.timeout(15e3) }
     );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.prices ?? [];
+    if (res.ok) {
+      const json = await res.json();
+      const prices = json.prices ?? [];
+      if (prices.length > 0) return prices;
+    }
   } catch {
-    return [];
   }
+  return fetchCoinChartBinance(coinId, days);
 }
 const version$2 = "1.2.3";
 let BaseError$2 = class BaseError3 extends Error {
