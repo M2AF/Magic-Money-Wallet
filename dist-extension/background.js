@@ -1987,7 +1987,7 @@ function hexToBytes$5(hex) {
   }
   return array2;
 }
-const nextTick = async () => {
+const nextTick$1 = async () => {
 };
 async function asyncLoop(iters, tick, cb) {
   let ts = Date.now();
@@ -1996,7 +1996,7 @@ async function asyncLoop(iters, tick, cb) {
     const diff = Date.now() - ts;
     if (diff >= 0 && diff < tick)
       continue;
-    await nextTick();
+    await nextTick$1();
     ts += diff;
   }
 }
@@ -2788,12 +2788,12 @@ const sha512_256 = /* @__PURE__ */ createHasher(() => new SHA512_256());
 function isBytes$4(a2) {
   return a2 instanceof Uint8Array || ArrayBuffer.isView(a2) && a2.constructor.name === "Uint8Array";
 }
-function isArrayOf(isString, arr) {
+function isArrayOf(isString2, arr) {
   if (!Array.isArray(arr))
     return false;
   if (arr.length === 0)
     return true;
-  if (isString) {
+  if (isString2) {
     return arr.every((item) => typeof item === "string");
   } else {
     return arr.every((item) => Number.isSafeInteger(item));
@@ -8344,17 +8344,10 @@ var implementation$1 = function bind2(that) {
 var implementation = implementation$1;
 var functionBind = Function.prototype.bind || implementation;
 var functionCall = Function.prototype.call;
-var functionApply;
-var hasRequiredFunctionApply;
-function requireFunctionApply() {
-  if (hasRequiredFunctionApply) return functionApply;
-  hasRequiredFunctionApply = 1;
-  functionApply = Function.prototype.apply;
-  return functionApply;
-}
+var functionApply = Function.prototype.apply;
 var reflectApply = typeof Reflect !== "undefined" && Reflect && Reflect.apply;
 var bind$2 = functionBind;
-var $apply$1 = requireFunctionApply();
+var $apply$1 = functionApply;
 var $call$2 = functionCall;
 var $reflectApply = reflectApply;
 var actualApply = $reflectApply || bind$2.call($call$2, $apply$1);
@@ -8474,7 +8467,7 @@ var hasSymbols = requireHasSymbols()();
 var getProto$1 = requireGetProto();
 var $ObjectGPO = requireObject_getPrototypeOf();
 var $ReflectGPO = requireReflect_getPrototypeOf();
-var $apply = requireFunctionApply();
+var $apply = functionApply;
 var $call = functionCall;
 var needsEval = {};
 var TypedArray = typeof Uint8Array === "undefined" || !getProto$1 ? undefined$1 : getProto$1(Uint8Array);
@@ -9241,7 +9234,7 @@ function requireApplyBind() {
   if (hasRequiredApplyBind) return applyBind;
   hasRequiredApplyBind = 1;
   var bind3 = functionBind;
-  var $apply2 = requireFunctionApply();
+  var $apply2 = functionApply;
   var actualApply$1 = actualApply;
   applyBind = function applyBind2() {
     return actualApply$1(bind3, $apply2, arguments);
@@ -9647,7 +9640,7 @@ var isBufferBrowser = function isBuffer(arg) {
   };
   var formatRegExp = /%[sdj%]/g;
   exports2.format = function(f2) {
-    if (!isString(f2)) {
+    if (!isString2(f2)) {
       var objects = [];
       for (var i2 = 0; i2 < arguments.length; i2++) {
         objects.push(inspect(arguments[i2]));
@@ -9676,7 +9669,7 @@ var isBufferBrowser = function isBuffer(arg) {
       }
     });
     for (var x3 = args[i2]; i2 < len2; x3 = args[++i2]) {
-      if (isNull(x3) || !isObject2(x3)) {
+      if (isNull2(x3) || !isObject2(x3)) {
         str += " " + x3;
       } else {
         str += " " + inspect(x3);
@@ -9739,15 +9732,15 @@ var isBufferBrowser = function isBuffer(arg) {
     };
     if (arguments.length >= 3) ctx.depth = arguments[2];
     if (arguments.length >= 4) ctx.colors = arguments[3];
-    if (isBoolean(opts)) {
+    if (isBoolean2(opts)) {
       ctx.showHidden = opts;
     } else if (opts) {
       exports2._extend(ctx, opts);
     }
-    if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
-    if (isUndefined(ctx.depth)) ctx.depth = 2;
-    if (isUndefined(ctx.colors)) ctx.colors = false;
-    if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+    if (isUndefined2(ctx.showHidden)) ctx.showHidden = false;
+    if (isUndefined2(ctx.depth)) ctx.depth = 2;
+    if (isUndefined2(ctx.colors)) ctx.colors = false;
+    if (isUndefined2(ctx.customInspect)) ctx.customInspect = true;
     if (ctx.colors) ctx.stylize = stylizeWithColor;
     return formatValue(ctx, obj, ctx.depth);
   }
@@ -9797,11 +9790,11 @@ var isBufferBrowser = function isBuffer(arg) {
     return hash2;
   }
   function formatValue(ctx, value, recurseTimes) {
-    if (ctx.customInspect && value && isFunction(value.inspect) && // Filter out the util module, it's inspect function is special
+    if (ctx.customInspect && value && isFunction2(value.inspect) && // Filter out the util module, it's inspect function is special
     value.inspect !== exports2.inspect && // Also filter out any prototype objects using the circular check.
     !(value.constructor && value.constructor.prototype === value)) {
       var ret = value.inspect(recurseTimes, ctx);
-      if (!isString(ret)) {
+      if (!isString2(ret)) {
         ret = formatValue(ctx, ret, recurseTimes);
       }
       return ret;
@@ -9815,21 +9808,21 @@ var isBufferBrowser = function isBuffer(arg) {
     if (ctx.showHidden) {
       keys2 = Object.getOwnPropertyNames(value);
     }
-    if (isError(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
+    if (isError2(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
       return formatError(value);
     }
     if (keys2.length === 0) {
-      if (isFunction(value)) {
+      if (isFunction2(value)) {
         var name = value.name ? ": " + value.name : "";
         return ctx.stylize("[Function" + name + "]", "special");
       }
-      if (isRegExp(value)) {
+      if (isRegExp2(value)) {
         return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
       }
-      if (isDate(value)) {
+      if (isDate2(value)) {
         return ctx.stylize(Date.prototype.toString.call(value), "date");
       }
-      if (isError(value)) {
+      if (isError2(value)) {
         return formatError(value);
       }
     }
@@ -9838,24 +9831,24 @@ var isBufferBrowser = function isBuffer(arg) {
       array2 = true;
       braces = ["[", "]"];
     }
-    if (isFunction(value)) {
+    if (isFunction2(value)) {
       var n4 = value.name ? ": " + value.name : "";
       base3 = " [Function" + n4 + "]";
     }
-    if (isRegExp(value)) {
+    if (isRegExp2(value)) {
       base3 = " " + RegExp.prototype.toString.call(value);
     }
-    if (isDate(value)) {
+    if (isDate2(value)) {
       base3 = " " + Date.prototype.toUTCString.call(value);
     }
-    if (isError(value)) {
+    if (isError2(value)) {
       base3 = " " + formatError(value);
     }
     if (keys2.length === 0 && (!array2 || value.length == 0)) {
       return braces[0] + base3 + braces[1];
     }
     if (recurseTimes < 0) {
-      if (isRegExp(value)) {
+      if (isRegExp2(value)) {
         return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
       } else {
         return ctx.stylize("[Object]", "special");
@@ -9874,17 +9867,17 @@ var isBufferBrowser = function isBuffer(arg) {
     return reduceToSingleString(output, base3, braces);
   }
   function formatPrimitive(ctx, value) {
-    if (isUndefined(value))
+    if (isUndefined2(value))
       return ctx.stylize("undefined", "undefined");
-    if (isString(value)) {
+    if (isString2(value)) {
       var simple = "'" + JSON.stringify(value).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
       return ctx.stylize(simple, "string");
     }
-    if (isNumber(value))
+    if (isNumber2(value))
       return ctx.stylize("" + value, "number");
-    if (isBoolean(value))
+    if (isBoolean2(value))
       return ctx.stylize("" + value, "boolean");
-    if (isNull(value))
+    if (isNull2(value))
       return ctx.stylize("null", "null");
   }
   function formatError(value) {
@@ -9939,7 +9932,7 @@ var isBufferBrowser = function isBuffer(arg) {
     }
     if (!str) {
       if (ctx.seen.indexOf(desc.value) < 0) {
-        if (isNull(recurseTimes)) {
+        if (isNull2(recurseTimes)) {
           str = formatValue(ctx, desc.value, null);
         } else {
           str = formatValue(ctx, desc.value, recurseTimes - 1);
@@ -9959,7 +9952,7 @@ var isBufferBrowser = function isBuffer(arg) {
         str = ctx.stylize("[Circular]", "special");
       }
     }
-    if (isUndefined(name)) {
+    if (isUndefined2(name)) {
       if (array2 && key2.match(/^\d+$/)) {
         return str;
       }
@@ -9989,64 +9982,64 @@ var isBufferBrowser = function isBuffer(arg) {
     return Array.isArray(ar2);
   }
   exports2.isArray = isArray2;
-  function isBoolean(arg) {
+  function isBoolean2(arg) {
     return typeof arg === "boolean";
   }
-  exports2.isBoolean = isBoolean;
-  function isNull(arg) {
+  exports2.isBoolean = isBoolean2;
+  function isNull2(arg) {
     return arg === null;
   }
-  exports2.isNull = isNull;
-  function isNullOrUndefined(arg) {
+  exports2.isNull = isNull2;
+  function isNullOrUndefined2(arg) {
     return arg == null;
   }
-  exports2.isNullOrUndefined = isNullOrUndefined;
-  function isNumber(arg) {
+  exports2.isNullOrUndefined = isNullOrUndefined2;
+  function isNumber2(arg) {
     return typeof arg === "number";
   }
-  exports2.isNumber = isNumber;
-  function isString(arg) {
+  exports2.isNumber = isNumber2;
+  function isString2(arg) {
     return typeof arg === "string";
   }
-  exports2.isString = isString;
-  function isSymbol(arg) {
+  exports2.isString = isString2;
+  function isSymbol2(arg) {
     return typeof arg === "symbol";
   }
-  exports2.isSymbol = isSymbol;
-  function isUndefined(arg) {
+  exports2.isSymbol = isSymbol2;
+  function isUndefined2(arg) {
     return arg === void 0;
   }
-  exports2.isUndefined = isUndefined;
-  function isRegExp(re2) {
-    return isObject2(re2) && objectToString(re2) === "[object RegExp]";
+  exports2.isUndefined = isUndefined2;
+  function isRegExp2(re2) {
+    return isObject2(re2) && objectToString2(re2) === "[object RegExp]";
   }
-  exports2.isRegExp = isRegExp;
-  exports2.types.isRegExp = isRegExp;
+  exports2.isRegExp = isRegExp2;
+  exports2.types.isRegExp = isRegExp2;
   function isObject2(arg) {
     return typeof arg === "object" && arg !== null;
   }
   exports2.isObject = isObject2;
-  function isDate(d3) {
-    return isObject2(d3) && objectToString(d3) === "[object Date]";
+  function isDate2(d3) {
+    return isObject2(d3) && objectToString2(d3) === "[object Date]";
   }
-  exports2.isDate = isDate;
-  exports2.types.isDate = isDate;
-  function isError(e2) {
-    return isObject2(e2) && (objectToString(e2) === "[object Error]" || e2 instanceof Error);
+  exports2.isDate = isDate2;
+  exports2.types.isDate = isDate2;
+  function isError2(e2) {
+    return isObject2(e2) && (objectToString2(e2) === "[object Error]" || e2 instanceof Error);
   }
-  exports2.isError = isError;
-  exports2.types.isNativeError = isError;
-  function isFunction(arg) {
+  exports2.isError = isError2;
+  exports2.types.isNativeError = isError2;
+  function isFunction2(arg) {
     return typeof arg === "function";
   }
-  exports2.isFunction = isFunction;
+  exports2.isFunction = isFunction2;
   function isPrimitive2(arg) {
     return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
     typeof arg === "undefined";
   }
   exports2.isPrimitive = isPrimitive2;
   exports2.isBuffer = isBufferBrowser;
-  function objectToString(o2) {
+  function objectToString2(o2) {
     return Object.prototype.toString.call(o2);
   }
   function pad2(n4) {
@@ -12765,7 +12758,7 @@ var typedArrayBuffer$1 = $typedArrayBuffer || function typedArrayBuffer2(x3) {
   return x3.buffer;
 };
 var Buffer$e = safeBufferExports$1.Buffer;
-var isArray = isarray$2;
+var isArray$1 = isarray$2;
 var typedArrayBuffer = typedArrayBuffer$1;
 var isView$1 = ArrayBuffer.isView || function isView2(obj) {
   try {
@@ -12807,7 +12800,7 @@ var toBuffer$5 = function toBuffer2(data, encoding2) {
   if (useUint8Array$1 && data instanceof Uint8Array) {
     return Buffer$e.from(data);
   }
-  var isArr = isArray(data);
+  var isArr = isArray$1(data);
   if (isArr) {
     for (var i2 = 0; i2 < data.length; i2 += 1) {
       var x3 = data[i2];
@@ -12956,50 +12949,45 @@ var toBuffer_1$1 = function(thing, encoding2) {
 };
 var readableBrowser$1 = { exports: {} };
 var processNextickArgs = { exports: {} };
-var hasRequiredProcessNextickArgs;
-function requireProcessNextickArgs() {
-  if (hasRequiredProcessNextickArgs) return processNextickArgs.exports;
-  hasRequiredProcessNextickArgs = 1;
-  if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
-    processNextickArgs.exports = { nextTick: nextTick2 };
-  } else {
-    processNextickArgs.exports = process$1;
-  }
-  function nextTick2(fn6, arg1, arg2, arg3) {
-    if (typeof fn6 !== "function") {
-      throw new TypeError('"callback" argument must be a function');
-    }
-    var len2 = arguments.length;
-    var args, i2;
-    switch (len2) {
-      case 0:
-      case 1:
-        return process$1.nextTick(fn6);
-      case 2:
-        return process$1.nextTick(function afterTickOne() {
-          fn6.call(null, arg1);
-        });
-      case 3:
-        return process$1.nextTick(function afterTickTwo() {
-          fn6.call(null, arg1, arg2);
-        });
-      case 4:
-        return process$1.nextTick(function afterTickThree() {
-          fn6.call(null, arg1, arg2, arg3);
-        });
-      default:
-        args = new Array(len2 - 1);
-        i2 = 0;
-        while (i2 < args.length) {
-          args[i2++] = arguments[i2];
-        }
-        return process$1.nextTick(function afterTick() {
-          fn6.apply(null, args);
-        });
-    }
-  }
-  return processNextickArgs.exports;
+if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
+  processNextickArgs.exports = { nextTick };
+} else {
+  processNextickArgs.exports = process$1;
 }
+function nextTick(fn6, arg1, arg2, arg3) {
+  if (typeof fn6 !== "function") {
+    throw new TypeError('"callback" argument must be a function');
+  }
+  var len2 = arguments.length;
+  var args, i2;
+  switch (len2) {
+    case 0:
+    case 1:
+      return process$1.nextTick(fn6);
+    case 2:
+      return process$1.nextTick(function afterTickOne() {
+        fn6.call(null, arg1);
+      });
+    case 3:
+      return process$1.nextTick(function afterTickTwo() {
+        fn6.call(null, arg1, arg2);
+      });
+    case 4:
+      return process$1.nextTick(function afterTickThree() {
+        fn6.call(null, arg1, arg2, arg3);
+      });
+    default:
+      args = new Array(len2 - 1);
+      i2 = 0;
+      while (i2 < args.length) {
+        args[i2++] = arguments[i2];
+      }
+      return process$1.nextTick(function afterTick() {
+        fn6.apply(null, args);
+      });
+  }
+}
+var processNextickArgsExports = processNextickArgs.exports;
 var toString$3 = {}.toString;
 var isarray$1 = Array.isArray || function(arr) {
   return toString$3.call(arr) == "[object Array]";
@@ -13061,75 +13049,69 @@ var safeBuffer$1 = { exports: {} };
 })(safeBuffer$1, safeBuffer$1.exports);
 var safeBufferExports = safeBuffer$1.exports;
 var util$5 = {};
-var hasRequiredUtil;
-function requireUtil() {
-  if (hasRequiredUtil) return util$5;
-  hasRequiredUtil = 1;
-  function isArray2(arg) {
-    if (Array.isArray) {
-      return Array.isArray(arg);
-    }
-    return objectToString(arg) === "[object Array]";
+function isArray(arg) {
+  if (Array.isArray) {
+    return Array.isArray(arg);
   }
-  util$5.isArray = isArray2;
-  function isBoolean(arg) {
-    return typeof arg === "boolean";
-  }
-  util$5.isBoolean = isBoolean;
-  function isNull(arg) {
-    return arg === null;
-  }
-  util$5.isNull = isNull;
-  function isNullOrUndefined(arg) {
-    return arg == null;
-  }
-  util$5.isNullOrUndefined = isNullOrUndefined;
-  function isNumber(arg) {
-    return typeof arg === "number";
-  }
-  util$5.isNumber = isNumber;
-  function isString(arg) {
-    return typeof arg === "string";
-  }
-  util$5.isString = isString;
-  function isSymbol(arg) {
-    return typeof arg === "symbol";
-  }
-  util$5.isSymbol = isSymbol;
-  function isUndefined(arg) {
-    return arg === void 0;
-  }
-  util$5.isUndefined = isUndefined;
-  function isRegExp(re2) {
-    return objectToString(re2) === "[object RegExp]";
-  }
-  util$5.isRegExp = isRegExp;
-  function isObject2(arg) {
-    return typeof arg === "object" && arg !== null;
-  }
-  util$5.isObject = isObject2;
-  function isDate(d3) {
-    return objectToString(d3) === "[object Date]";
-  }
-  util$5.isDate = isDate;
-  function isError(e2) {
-    return objectToString(e2) === "[object Error]" || e2 instanceof Error;
-  }
-  util$5.isError = isError;
-  function isFunction(arg) {
-    return typeof arg === "function";
-  }
-  util$5.isFunction = isFunction;
-  function isPrimitive2(arg) {
-    return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
-    typeof arg === "undefined";
-  }
-  util$5.isPrimitive = isPrimitive2;
-  util$5.isBuffer = Buffer$g.isBuffer;
-  function objectToString(o2) {
-    return Object.prototype.toString.call(o2);
-  }
-  return util$5;
+  return objectToString(arg) === "[object Array]";
+}
+util$5.isArray = isArray;
+function isBoolean(arg) {
+  return typeof arg === "boolean";
+}
+util$5.isBoolean = isBoolean;
+function isNull(arg) {
+  return arg === null;
+}
+util$5.isNull = isNull;
+function isNullOrUndefined(arg) {
+  return arg == null;
+}
+util$5.isNullOrUndefined = isNullOrUndefined;
+function isNumber(arg) {
+  return typeof arg === "number";
+}
+util$5.isNumber = isNumber;
+function isString(arg) {
+  return typeof arg === "string";
+}
+util$5.isString = isString;
+function isSymbol(arg) {
+  return typeof arg === "symbol";
+}
+util$5.isSymbol = isSymbol;
+function isUndefined(arg) {
+  return arg === void 0;
+}
+util$5.isUndefined = isUndefined;
+function isRegExp(re2) {
+  return objectToString(re2) === "[object RegExp]";
+}
+util$5.isRegExp = isRegExp;
+function isObject$1(arg) {
+  return typeof arg === "object" && arg !== null;
+}
+util$5.isObject = isObject$1;
+function isDate(d3) {
+  return objectToString(d3) === "[object Date]";
+}
+util$5.isDate = isDate;
+function isError(e2) {
+  return objectToString(e2) === "[object Error]" || e2 instanceof Error;
+}
+util$5.isError = isError;
+function isFunction(arg) {
+  return typeof arg === "function";
+}
+util$5.isFunction = isFunction;
+function isPrimitive$1(arg) {
+  return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
+  typeof arg === "undefined";
+}
+util$5.isPrimitive = isPrimitive$1;
+util$5.isBuffer = Buffer$g.isBuffer;
+function objectToString(o2) {
+  return Object.prototype.toString.call(o2);
 }
 var BufferList$1 = { exports: {} };
 var hasRequiredBufferList$1;
@@ -13211,7 +13193,7 @@ function requireBufferList$1() {
   })(BufferList$1);
   return BufferList$1.exports;
 }
-var pna = requireProcessNextickArgs();
+var pna = processNextickArgsExports;
 function destroy(err, cb) {
   var _this = this;
   var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -13278,7 +13260,7 @@ var hasRequired_stream_writable$1;
 function require_stream_writable$1() {
   if (hasRequired_stream_writable$1) return _stream_writable$1;
   hasRequired_stream_writable$1 = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   _stream_writable$1 = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -13291,7 +13273,7 @@ function require_stream_writable$1() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -13718,7 +13700,7 @@ var hasRequired_stream_duplex$1;
 function require_stream_duplex$1() {
   if (hasRequired_stream_duplex$1) return _stream_duplex$1;
   hasRequired_stream_duplex$1 = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -13727,7 +13709,7 @@ function require_stream_duplex$1() {
     return keys3;
   };
   _stream_duplex$1 = Duplex2;
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable$1();
   var Writable = require_stream_writable$1();
@@ -13792,7 +13774,7 @@ var hasRequired_stream_readable$1;
 function require_stream_readable$1() {
   if (hasRequired_stream_readable$1) return _stream_readable$1;
   hasRequired_stream_readable$1 = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   _stream_readable$1 = Readable;
   var isArray2 = isarray$1;
   var Duplex2;
@@ -13811,7 +13793,7 @@ function require_stream_readable$1() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var debugUtil = util$6;
   var debug = void 0;
@@ -14475,7 +14457,7 @@ function require_stream_readable$1() {
 }
 var _stream_transform$1 = Transform$2;
 var Duplex = require_stream_duplex$1();
-var util$4 = Object.create(requireUtil());
+var util$4 = Object.create(util$5);
 util$4.inherits = inherits_browserExports;
 util$4.inherits(Transform$2, Duplex);
 function afterTransform(er2, data) {
@@ -14568,7 +14550,7 @@ function done(stream, er2, data) {
 }
 var _stream_passthrough$1 = PassThrough;
 var Transform$1 = _stream_transform$1;
-var util$3 = Object.create(requireUtil());
+var util$3 = Object.create(util$5);
 util$3.inherits = inherits_browserExports;
 util$3.inherits(PassThrough, Transform$1);
 function PassThrough(options) {
@@ -25274,7 +25256,7 @@ var hasRequiredDestroy;
 function requireDestroy() {
   if (hasRequiredDestroy) return destroy_1;
   hasRequiredDestroy = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   function destroy2(err, cb) {
     var _this = this;
     var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -25343,7 +25325,7 @@ var hasRequired_stream_writable;
 function require_stream_writable() {
   if (hasRequired_stream_writable) return _stream_writable;
   hasRequired_stream_writable = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   _stream_writable = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -25356,7 +25338,7 @@ function require_stream_writable() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -25783,7 +25765,7 @@ var hasRequired_stream_duplex;
 function require_stream_duplex() {
   if (hasRequired_stream_duplex) return _stream_duplex;
   hasRequired_stream_duplex = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -25792,7 +25774,7 @@ function require_stream_duplex() {
     return keys3;
   };
   _stream_duplex = Duplex2;
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable();
   var Writable = require_stream_writable();
@@ -25857,7 +25839,7 @@ var hasRequired_stream_readable;
 function require_stream_readable() {
   if (hasRequired_stream_readable) return _stream_readable;
   hasRequired_stream_readable = 1;
-  var pna2 = requireProcessNextickArgs();
+  var pna2 = processNextickArgsExports;
   _stream_readable = Readable;
   var isArray2 = requireIsarray();
   var Duplex2;
@@ -25876,7 +25858,7 @@ function require_stream_readable() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   var debugUtil = util$6;
   var debug = void 0;
@@ -26545,7 +26527,7 @@ function require_stream_transform() {
   hasRequired_stream_transform = 1;
   _stream_transform = Transform2;
   var Duplex2 = require_stream_duplex();
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   util2.inherits(Transform2, Duplex2);
   function afterTransform2(er2, data) {
@@ -26645,7 +26627,7 @@ function require_stream_passthrough() {
   hasRequired_stream_passthrough = 1;
   _stream_passthrough = PassThrough2;
   var Transform2 = require_stream_transform();
-  var util2 = Object.create(requireUtil());
+  var util2 = Object.create(util$5);
   util2.inherits = inherits_browserExports;
   util2.inherits(PassThrough2, Transform2);
   function PassThrough2(options) {
@@ -40328,7 +40310,7 @@ function requireReporter() {
     };
   }
   reporter.Reporter = Reporter;
-  Reporter.prototype.isError = function isError(obj) {
+  Reporter.prototype.isError = function isError2(obj) {
     return obj instanceof ReporterError;
   };
   Reporter.prototype.save = function save() {
@@ -54977,13 +54959,13 @@ ClientBrowser.prototype._parseResponse = function(err, responseText, callback) {
   }
   if (callback.length === 3) {
     if (Array.isArray(response)) {
-      const isError = function(res) {
+      const isError2 = function(res) {
         return typeof res.error !== "undefined";
       };
       const isNotError = function(res) {
-        return !isError(res);
+        return !isError2(res);
       };
-      callback(null, response.filter(isError), response.filter(isNotError));
+      callback(null, response.filter(isError2), response.filter(isNotError));
       return;
     } else {
       callback(null, response.error, response.result);

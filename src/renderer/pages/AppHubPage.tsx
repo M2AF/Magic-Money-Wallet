@@ -39,7 +39,7 @@ export function AppHubPage() {
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="apphub-header">
         <h2 className="apphub-title">App Hub</h2>
-        <span className="apphub-count">{APP_HUB.totalApps} apps</span>
+        <span className="apphub-count">{APP_HUB.apps.length} apps</span>
       </div>
 
       {/* ── Search ───────────────────────────────────────────── */}

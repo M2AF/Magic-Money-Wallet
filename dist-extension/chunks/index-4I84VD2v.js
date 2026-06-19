@@ -9423,7 +9423,6 @@ function MarketPage() {
   ] });
 }
 const APP_HUB = {
-  "totalApps": 227,
   "chains": [
     {
       "id": "abstract",
@@ -9507,47 +9506,47 @@ const APP_HUB = {
     {
       "name": "DeFi",
       "short": "DeFi",
-      "count": 36
+      "count": 38
     },
     {
       "name": "DEX",
       "short": "DEX",
-      "count": 37
+      "count": 40
     },
     {
       "name": "Gaming",
       "short": "Gaming",
-      "count": 51
+      "count": 53
     },
     {
       "name": "Launchpad",
       "short": "Launchpad",
-      "count": 6
+      "count": 7
     },
     {
       "name": "Meme",
       "short": "Meme",
-      "count": 5
+      "count": 6
     },
     {
       "name": "NFT Marketplace",
       "short": "NFT",
-      "count": 22
+      "count": 25
     },
     {
       "name": "Portfolio & Analytics",
       "short": "Portfolio",
-      "count": 26
+      "count": 28
     },
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 9
+      "count": 11
     },
     {
       "name": "Wallet",
       "short": "Wallet",
-      "count": 16
+      "count": 21
     }
   ],
   "apps": [
@@ -10690,6 +10689,40 @@ const APP_HUB = {
       }
     },
     {
+      "id": "fluidtokens",
+      "name": "FluidTokens",
+      "website": "https://fluidtokens.com",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=fluidtokens.com&sz=64",
+      "description": "An NFT-DeFi bridge on Cardano enabling users to borrow liquidity against NFT collateral or earn yield by providing loans backed by digital assets.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "An NFT-DeFi bridge on Cardano enabling users to borrow liquidity against NFT collateral or earn yield by providing loans backed by digital assets."
+      }
+    },
+    {
+      "id": "genius-yield",
+      "name": "Genius Yield",
+      "website": "https://www.geniusyield.co",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=geniusyield.co&sz=64",
+      "description": "An all-in-one DeFi platform on Cardano combining a concentrated liquidity DEX with an AI-powered automated yield optimizer.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "An all-in-one DeFi platform on Cardano combining a concentrated liquidity DEX with an AI-powered automated yield optimizer."
+      }
+    },
+    {
       "id": "1inch-network",
       "name": "1inch Network",
       "website": "https://1inch.io",
@@ -11410,6 +11443,57 @@ const APP_HUB = {
       "coverage": 6,
       "categoryMeta": {
         "description": "Description here."
+      }
+    },
+    {
+      "id": "cswap-dex",
+      "name": "CSWAP DEX",
+      "website": "https://www.cswap.info",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cswap.info&sz=64",
+      "description": "A progressive DEX for the Cardano ecosystem merging next-generation DEX capabilities with NFTfi.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A progressive DEX for the Cardano ecosystem merging next-generation DEX capabilities with NFTfi."
+      }
+    },
+    {
+      "id": "muesliswap",
+      "name": "MuesliSwap",
+      "website": "https://ada.muesliswap.com",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=muesliswap.com&sz=64",
+      "description": "A live and operating DEX on Cardano based on a research-driven order book protocol tailored for Cardano's UTxO model.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A live and operating DEX on Cardano based on a research-driven order book protocol tailored for Cardano's UTxO model."
+      }
+    },
+    {
+      "id": "splash",
+      "name": "Splash",
+      "website": "https://splash.trade",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=splash.trade&sz=64",
+      "description": "A decentralized exchange on Cardano by Spectrum Labs featuring concentrated liquidity and efficient on-chain order matching.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A decentralized exchange on Cardano by Spectrum Labs featuring concentrated liquidity and efficient on-chain order matching."
       }
     },
     {
@@ -12285,6 +12369,40 @@ const APP_HUB = {
       }
     },
     {
+      "id": "blitz-tcg",
+      "name": "Blitz TCG",
+      "website": "https://blitztcg.com",
+      "category": "Gaming",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=blitztcg.com&sz=64",
+      "description": "A competitive blockchain-based trading card game on Cardano where players own their cards as NFTs and participate in player-governed tournaments.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A competitive blockchain-based trading card game on Cardano where players own their cards as NFTs and participate in player-governed tournaments."
+      }
+    },
+    {
+      "id": "cornucopias",
+      "name": "Cornucopias",
+      "website": "https://cornucopias.io",
+      "category": "Gaming",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cornucopias.io&sz=64",
+      "description": "A massive Play-To-Earn Cardano blockchain-based game set in a vibrant metaverse where players can own land, build, and earn through gameplay.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A massive Play-To-Earn Cardano blockchain-based game set in a vibrant metaverse where players can own land, build, and earn through gameplay."
+      }
+    },
+    {
       "id": "build-anything",
       "name": "Build Anything",
       "website": "https://buildanything.so/",
@@ -12387,6 +12505,23 @@ const APP_HUB = {
       }
     },
     {
+      "id": "coinecta-finance",
+      "name": "Coinecta Finance",
+      "website": "https://coinecta.fi",
+      "category": "Launchpad",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=coinecta.fi&sz=64",
+      "description": "A next-generation token launch platform on Cardano connecting innovative blockchain projects with early supporters through transparent and fair launches.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A next-generation token launch platform on Cardano connecting innovative blockchain projects with early supporters through transparent and fair launches."
+      }
+    },
+    {
       "id": "bob-monad",
       "name": "Bob Monad",
       "website": "https://bobmonad.com",
@@ -12471,6 +12606,23 @@ const APP_HUB = {
       "coverage": 17,
       "categoryMeta": {
         "description": "IQLabs is a inscription platform that seeks build the blockchain internet through inscribing immutable data to blockchains."
+      }
+    },
+    {
+      "id": "hosky-token",
+      "name": "Hosky Token",
+      "website": "https://hosky.io",
+      "category": "Meme",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hosky.io&sz=64",
+      "description": "The premiere low-quality meme token on the Cardano ecosystem, embracing its own absurdity as a community-driven cultural experiment.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "The premiere low-quality meme token on the Cardano ecosystem, embracing its own absurdity as a community-driven cultural experiment."
       }
     },
     {
@@ -12821,6 +12973,93 @@ const APP_HUB = {
       "coverage": 6,
       "categoryMeta": {
         "description": "Description here."
+      }
+    },
+    {
+      "id": "begin-wallet",
+      "name": "Begin Wallet",
+      "website": "https://begin.is",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=begin.is&sz=64",
+      "description": "A next-generation Cardano wallet designed to bring users into the new era of finance with a clean, modern interface and full DeFi integration.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A next-generation Cardano wallet designed to bring users into the new era of finance with a clean, modern interface and full DeFi integration."
+      }
+    },
+    {
+      "id": "daedalus-wallet",
+      "name": "Daedalus Wallet",
+      "website": "https://daedaluswallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=daedaluswallet.io&sz=64",
+      "description": "The official open-source full-node desktop wallet for Cardano, built by IOG to grow with the Cardano blockchain.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "The official open-source full-node desktop wallet for Cardano, built by IOG to grow with the Cardano blockchain."
+      }
+    },
+    {
+      "id": "gamechanger-wallet",
+      "name": "GameChanger Wallet",
+      "website": "https://gamechanger.finance",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gamechanger.finance&sz=64",
+      "description": "A web-based Cardano wallet with native NFT and token features, designed for developers and users exploring on-chain scripting and dApp interactions.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A web-based Cardano wallet with native NFT and token features, designed for developers and users exploring on-chain scripting and dApp interactions."
+      }
+    },
+    {
+      "id": "nufi-wallet",
+      "name": "NuFi",
+      "website": "https://nu.fi",
+      "category": "Wallet",
+      "chains": [
+        "cardano",
+        "solana",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nu.fi&sz=64",
+      "description": "A non-custodial multi-chain wallet supporting staking on Cardano and other PoS blockchains with hardware wallet integration.",
+      "chainCount": 3,
+      "coverage": 17,
+      "categoryMeta": {
+        "description": "A non-custodial multi-chain wallet supporting staking on Cardano and other PoS blockchains with hardware wallet integration."
+      }
+    },
+    {
+      "id": "typhon-wallet",
+      "name": "Typhon Wallet",
+      "website": "https://typhonwallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=typhonwallet.io&sz=64",
+      "description": "A blazing fast, feature-rich, and secure Cardano web and browser extension wallet with full dApp support and multi-account management.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A blazing fast, feature-rich, and secure Cardano web and browser extension wallet with full dApp support and multi-account management."
       }
     },
     {
@@ -13222,6 +13461,57 @@ const APP_HUB = {
       "coverage": 6,
       "categoryMeta": {
         "description": "Description here."
+      }
+    },
+    {
+      "id": "crashr",
+      "name": "Crashr",
+      "website": "https://crashr.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crashr.io&sz=64",
+      "description": "A Cardano marketplace platform that empowers users and communities through NFT trading, raffles, and community voting mechanics.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A Cardano marketplace platform that empowers users and communities through NFT trading, raffles, and community voting mechanics."
+      }
+    },
+    {
+      "id": "dropspot",
+      "name": "Dropspot",
+      "website": "https://dropspot.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dropspot.io&sz=64",
+      "description": "A launchpad for creators and a marketplace for collectors on Cardano, welcoming artists globally to mint, list, and trade NFTs.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A launchpad for creators and a marketplace for collectors on Cardano, welcoming artists globally to mint, list, and trade NFTs."
+      }
+    },
+    {
+      "id": "jamonbread",
+      "name": "JamOnBread",
+      "website": "https://jamonbread.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jamonbread.io&sz=64",
+      "description": "A user-friendly, fast, and decentralized Cardano NFT marketplace offering a revolutionary smart contract solution for digital collectibles.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A user-friendly, fast, and decentralized Cardano NFT marketplace offering a revolutionary smart contract solution for digital collectibles."
       }
     },
     {
@@ -13797,6 +14087,40 @@ const APP_HUB = {
       }
     },
     {
+      "id": "cardanoscan",
+      "name": "CardanoScan",
+      "website": "https://cardanoscan.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardanoscan.io&sz=64",
+      "description": "A feature-rich blockchain explorer and analytics platform for Cardano, providing transaction tracking, stake pool data, and on-chain analytics.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A feature-rich blockchain explorer and analytics platform for Cardano, providing transaction tracking, stake pool data, and on-chain analytics."
+      }
+    },
+    {
+      "id": "cexplorer",
+      "name": "cexplorer.io",
+      "website": "https://cexplorer.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cexplorer.io&sz=64",
+      "description": "A comprehensive Cardano blockchain explorer offering rich data on transactions, blocks, stake pools, and native assets.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A comprehensive Cardano blockchain explorer offering rich data on transactions, blocks, stake pools, and native assets."
+      }
+    },
+    {
       "id": "atlas",
       "name": "Atlas",
       "website": "https://www.atlasdefi.org/",
@@ -13953,6 +14277,40 @@ const APP_HUB = {
       "categoryMeta": {
         "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange."
       }
+    },
+    {
+      "id": "bodega-market",
+      "name": "Bodega Market",
+      "website": "https://www.bodegacardano.org",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bodegacardano.org&sz=64",
+      "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events."
+      }
+    },
+    {
+      "id": "foreon-network",
+      "name": "Foreon Network",
+      "website": "https://foreon.network",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=foreon.network&sz=64",
+      "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets.",
+      "chainCount": 1,
+      "coverage": 6,
+      "categoryMeta": {
+        "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets."
+      }
     }
   ]
 };
@@ -13985,7 +14343,7 @@ function AppHubPage() {
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-header", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "apphub-title", children: "App Hub" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "apphub-count", children: [
-        APP_HUB.totalApps,
+        APP_HUB.apps.length,
         " apps"
       ] })
     ] }),
