@@ -7084,8 +7084,11 @@ function createExtensionWallet() {
     },
     close: () => {
     },
-    // Browser tab (no-op in extension — user's browser IS the browser)
+    // Browser tab — in the extension the user's real browser is the browser,
+    // so openBrowser lands on the ChainLens site and browserNavigate opens any
+    // URL the AppHub requests directly in a new tab.
     openBrowser: () => {
+      chrome.tabs.create({ url: "https://www.chainlensnft.info/" });
     },
     closeBrowser: () => {
     },
@@ -7097,7 +7100,10 @@ function createExtensionWallet() {
     },
     browserHome: () => {
     },
-    browserNavigate: () => Promise.resolve(),
+    browserNavigate: (url) => {
+      chrome.tabs.create({ url });
+      return Promise.resolve();
+    },
     browserGetState: () => Promise.resolve({ url: "", canBack: false, canForward: false, loading: false }),
     onBrowserUrl: () => {
     },
@@ -13924,6 +13930,11 @@ function AppHubPage() {
   const featured = filtered.filter((a) => a.featured);
   const rest = filtered.filter((a) => !a.featured);
   function openApp(url) {
+    var _a, _b;
+    if ((_b = (_a = globalThis.chrome) == null ? void 0 : _a.tabs) == null ? void 0 : _b.create) {
+      globalThis.chrome.tabs.create({ url });
+      return;
+    }
     window.wallet.openBrowser();
     setTimeout(() => window.wallet.browserNavigate(url), 400);
   }
@@ -15020,6 +15031,7 @@ const secondaryBtnStyle = {
   fontFamily: "var(--font-body)"
 };
 function App() {
+  var _a, _b;
   const [page, setPage] = reactExports.useState("loading");
   const [addresses, setAddresses] = reactExports.useState(null);
   const [activeTab, setActiveTab] = reactExports.useState("portfolio");
@@ -15172,12 +15184,21 @@ function App() {
               background: "#22c55e",
               boxShadow: "0 0 4px #22c55e"
             } }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" })
-            ] }),
-            "Browser"
+            ((_a = globalThis.chrome) == null ? void 0 : _a.tabs) ? (
+              // Extension: chain-link icon + ChainLens label
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" })
+              ] })
+            ) : (
+              // Electron: globe icon
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" })
+              ] })
+            ),
+            ((_b = globalThis.chrome) == null ? void 0 : _b.tabs) ? "ChainLens" : "Browser"
           ]
         }
       )

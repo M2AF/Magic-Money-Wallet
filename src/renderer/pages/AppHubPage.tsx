@@ -22,8 +22,15 @@ export function AppHubPage() {
   const rest      = filtered.filter(a => !a.featured)
 
   function openApp(url: string) {
+    // In Chrome extension context chrome.tabs is available — open directly in a new tab.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((globalThis as any).chrome?.tabs?.create) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).chrome.tabs.create({ url })
+      return
+    }
+    // Electron: open the built-in dApp browser popup then navigate to the URL.
     window.wallet.openBrowser()
-    // slight delay so the popup window has time to create the WebContentsView
     setTimeout(() => window.wallet.browserNavigate(url), 400)
   }
 

@@ -101,14 +101,16 @@ export function createExtensionWallet() {
     minimize: () => {},
     close:    () => {},
 
-    // Browser tab (no-op in extension — user's browser IS the browser)
-    openBrowser:     () => {},
+    // Browser tab — in the extension the user's real browser is the browser,
+    // so openBrowser lands on the ChainLens site and browserNavigate opens any
+    // URL the AppHub requests directly in a new tab.
+    openBrowser:     () => { chrome.tabs.create({ url: 'https://www.chainlensnft.info/' }) },
     closeBrowser:    () => {},
     browserBack:     () => {},
     browserForward:  () => {},
     browserReload:   () => {},
     browserHome:     () => {},
-    browserNavigate: () => Promise.resolve(),
+    browserNavigate: (url: string) => { chrome.tabs.create({ url }); return Promise.resolve() },
     browserGetState: () => Promise.resolve({ url: '', canBack: false, canForward: false, loading: false }),
     onBrowserUrl:        () => {},
     onBrowserLoading:    () => {},
