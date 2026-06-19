@@ -56,6 +56,7 @@ On first launch the app uses built-in free-tier keys. For production use, open *
 | `walletConnectProjectId` | [cloud.walletconnect.com](https://cloud.walletconnect.com) | WalletConnect v2 pairing |
 
 > CoinGecko (prices, sparklines) and DexScreener (token prices) use free public APIs — no key needed.
+> Bitcoin and Polkadot use Tatum's public gateway — no key needed.
 
 ---
 
@@ -101,7 +102,7 @@ The extension shares all business logic with the desktop app. Platform-specific 
 
 **Key extension behaviours:**
 - **Password lock** — mnemonic encrypted with a user-set password at setup; re-enters locked state when the browser is restarted
-- **dApp connectivity** — injects `window.ethereum` (EIP-1193) and `window.solana` into every page via content script; also supports WalletConnect v2 via the popup UI
+- **dApp connectivity** — injects `window.ethereum` (EIP-1193), `window.solana`, and `window.cardano.magicmoney` (CIP-30) into every page via content script; also supports WalletConnect v2 via the popup UI
 - **Sidebar mode** — click the panel icon in the Portfolio header to dock the wallet as a Chrome side panel (Phantom-style); click again to return to popup
 - **Multi-account** — BIP-44 account index switcher (accounts 0–9) in the Portfolio header
 - **Cardano** — fully supported via pure-JS `@noble/*` + `@scure/*` libraries; no native binary required
@@ -122,6 +123,7 @@ dApp page (content script)            Background service worker
 ──────────────────────────            ──────────────────────────────────
 window.ethereum (injected)        ──► content.ts → sendMessage → background.ts
 window.solana   (injected)        ──► content.ts → sendMessage → background.ts
+window.cardano.magicmoney (CIP-30)──► content.ts → sendMessage → background.ts
 WalletConnect URI (popup UI)      ──► wc-ext.ts → @walletconnect/sign-client
 ```
 
@@ -131,6 +133,17 @@ WalletConnect URI (popup UI)      ──► wc-ext.ts → @walletconnect/sign-cl
 - The renderer / popup never receives mnemonics or private keys — only public addresses and balance strings
 - `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false` on desktop
 - Extension content script runs in `MAIN` world for `window.ethereum` injection but has no access to wallet storage
+
+---
+
+## Cardano dApp Connectivity
+
+MagicMoney implements **CIP-30** (the Cardano dApp connector standard) at `window.cardano.magicmoney`. This means any dApp or library that supports CIP-30 can connect to MagicMoney — including [weld](https://github.com/Cardano-Forge/weld), [Lucid](https://lucid.spacebudz.io/), and [Mesh.js](https://meshjs.dev/).
+
+MagicMoney is listed in the **weld** wallet registry as key `magicmoney`.
+
+**Supported CIP-30 methods:**
+`getNetworkId` · `getBalance` · `getUtxos` · `getUsedAddresses` · `getUnusedAddresses` · `getChangeAddress` · `getRewardAddresses` · `signTx` · `signData` · `submitTx`
 
 ---
 
@@ -156,7 +169,7 @@ WalletConnect URI (popup UI)      ──► wc-ext.ts → @walletconnect/sign-cl
 | HyperEVM | EVM L1 | HYPE | hyperliquid.xyz RPC | ✅ |
 | Solana | SVM | SOL | Helius | ✅ |
 | Cardano | UTXO | ADA | Blockfrost | ✅ |
-| Bitcoin | UTXO | BTC | mempool.space | ✅ |
+| Bitcoin | UTXO | BTC | Tatum | ✅ |
 | Polkadot | Substrate | DOT | Tatum | ✅ |
 
 ---
@@ -168,8 +181,11 @@ src/
 ├── main/                    ← Electron main process + shared business logic
 │   ├── index.ts             ← App entry, BrowserWindow, auto-updater
 │   ├── wallet-core.ts       ← BIP-39/32/44 derivation — private keys never leave here
+│   ├── cardano-pure.ts      ← Pure-JS Cardano address derivation (CIP-3 Icarus + CIP-1852)
+│   ├── cardano-cip30.ts     ← CIP-30 handler implementations (getUtxos, signTx, etc.)
 │   ├── secure-store.ts      ← safeStorage wrapper (OS keychain)
-│   ├── balance-fetcher.ts   ← Alchemy, Helius, Blockfrost, mempool.space
+│   ├── browser-manager.ts   ← Detached dApp browser popup (WebContentsView)
+│   ├── balance-fetcher.ts   ← Alchemy, Helius, Blockfrost, Tatum
 │   ├── chain-config.ts      ← RPC endpoints for all 20 networks
 │   ├── market-fetcher.ts    ← CoinGecko + in-memory cache
 │   ├── token-fetcher.ts     ← ERC-20 tokens, SPL tokens, Cardano assets, NFTs
@@ -186,6 +202,7 @@ src/
 │   ├── chrome-store.ts      ← chrome.storage adapter (replaces secure-store)
 │   ├── bridge.ts            ← window.wallet shim via chrome.runtime.sendMessage
 │   ├── content.ts           ← Injects window.ethereum + window.solana into pages
+│   ├── inject.ts            ← window.ethereum, window.solana, window.cardano (CIP-30), EIP-6963, Wallet Standard
 │   ├── wc-ext.ts            ← WalletConnect v2 (extension)
 │   ├── ExtApp.tsx           ← Extension popup wrapper (lock screen, password setup)
 │   ├── popup.html/tsx       ← Extension popup entry
@@ -208,3 +225,10 @@ node scripts/convert-apphub.js
 ```
 
 The script automatically reads from `C:\Users\balla\Desktop\ChainLens\chainlens\app-hub-data.js` and regenerates `src/renderer/data/app-hub.ts`. Commit the updated file to apply the changes.
+
+---
+
+## Roadmap
+
+- **Cardano tx chaining (`supportsTxChaining: true`)** — Currently `getUtxos()` queries Blockfrost, which only returns confirmed UTXOs. Tx chaining requires tracking submitted-but-unconfirmed UTXOs locally (merged with Blockfrost results) so dApps can chain multiple transactions without waiting for each to be confirmed on-chain. Eternl is currently the only wallet in the weld registry with this capability. Implementation requires: (1) caching new UTXOs from each `submitTx` call, (2) merging them into `getUtxos()` responses, (3) pruning once Blockfrost confirms them.
+- **Chrome Web Store** — Public extension listing for first stable release.
