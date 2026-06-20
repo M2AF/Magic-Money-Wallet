@@ -19,7 +19,8 @@ const SLOW_TYPES = new Set([
   'wallet:get-history',
   'wallet:get-tokens',
   'wallet:get-collectibles',
-  'wallet:swap-quote',
+  'swap:getQuote',
+  'swap:getTokenList',
   'ss:estimate',
   'ss:create-exchange',
   'ss:status',
@@ -31,7 +32,7 @@ const SLOW_TYPES = new Set([
 
 // Swap execution can sign an approval, wait for it to mine, then sign the swap —
 // well beyond the heavy-fetch budget. Give it room (SW stays alive while active).
-const VERY_SLOW_TYPES = new Set(['wallet:swap-execute'])
+const VERY_SLOW_TYPES = new Set(['swap:execute'])
 
 function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
   // Snappy calls keep a tight 8s budget so the popup never hangs on "Loading…"
@@ -122,9 +123,9 @@ export function createExtensionWallet() {
     getTokens:      ()                      => send('wallet:get-tokens'),
     getCollectibles:()                      => send('wallet:get-collectibles'),
     getNftFloor:    (c: string, a: string)  => send('wallet:get-nft-floor', c, a),
-    swapQuote:      (params: unknown)       => send('wallet:swap-quote', params),
-    swapExecute:    (params: unknown)       => send('wallet:swap-execute', params),
-    swapTrack:      (hash: string, chainId: string) => send('wallet:swap-track', hash, chainId),
+    swapGetQuote:   (req: unknown)          => send('swap:getQuote', req),
+    swapExecute:    (quote: unknown)        => send('swap:execute', quote),
+    swapGetTokens:  (chain: string)         => send('swap:getTokenList', chain),
     ssEstimate:     (params: unknown)       => send('ss:estimate', params),
     ssCreateExchange:(params: unknown)      => send('ss:create-exchange', params),
     ssStatus:       (id: string)            => send('ss:status', id),

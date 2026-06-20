@@ -41,8 +41,8 @@ import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
-import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from './swap-fetcher'
-import { executeEvmSwap, type SwapExecuteParams } from './swap-executor'
+import { getSwapQuote, getSwapTokenList, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote } from './swap-proxy'
+import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
 import {
@@ -291,18 +291,18 @@ export function registerIpcHandlers(): void {
     return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
   })
 
-  // ── Cross-chain swap (SwapKit REST) ──────────────────────────────────────
-  ipcMain.handle('wallet:swap-quote', async (_e, params: SwapQuoteParams) => {
-    return fetchSwapQuote(params, loadConfig())
+  // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────
+  ipcMain.handle('swap:getQuote', async (_e, req: SwapQuoteRequest) => {
+    return getSwapQuote(req, loadConfig())
   })
 
-  ipcMain.handle('wallet:swap-execute', async (_e, params: SwapExecuteParams) => {
+  ipcMain.handle('swap:execute', async (_e, quote: NormalizedSwapQuote) => {
     const stored = await getFullAddresses()
-    return executeEvmSwap(params, loadMnemonic(), loadConfig(), stored.accountIndex ?? 0)
+    return executeSwap(quote, loadMnemonic(), loadConfig(), stored.accountIndex ?? 0)
   })
 
-  ipcMain.handle('wallet:swap-track', async (_e, hash: string, chainId: string) => {
-    return trackSwap(hash, chainId, loadConfig())
+  ipcMain.handle('swap:getTokenList', async (_e, chain: SwapChain) => {
+    return getSwapTokenList(chain, loadConfig())
   })
 
   // ── SimpleSwap cross-chain exchange (off-chain, deposit-address) ─────────

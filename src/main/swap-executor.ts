@@ -1,84 +1,114 @@
 /**
  * swap-executor.ts — MagicMoney Wallet
  *
- * Stage 2: execute a SwapKit route the user picked, signing with the wallet's
- * own keys. Bridges swap-fetcher (POST /v3/swap) and tx-sender (raw EVM signing).
+ * Layer 4 of the Phantom-style DEX swap: take a NormalizedSwapQuote (fetched via
+ * the proxy) and sign+broadcast it locally. The wallet is a dumb signer — it
+ * never holds liquidity; it only signs the calldata/transaction the aggregator
+ * compiled.
  *
- * Scope: EVM-source swaps only. The wallet can sign arbitrary EVM calldata
- * (ETH, AVAX, and other EVM chains it supports), so those execute end-to-end.
- * Non-EVM source assets (BTC/DOGE/LTC/BCH PSBT, Cosmos, …) can be *quoted* but
- * not signed here yet — they return a clear, actionable error.
+ *   EVM     — ERC-20 approval (if needed) → swap calldata, via tx-sender.
+ *   Solana  — deserialize Jupiter VersionedTransaction, sign, send.
+ *   Cardano — stub (CBOR witness signing not yet wired).
+ *
+ * Private keys are derived inside this process and never leave it.
  */
 
-import { fetchSwapTx, type SwapBuildParams } from './swap-fetcher'
+import { VersionedTransaction, Connection } from '@solana/web3.js'
 import { sendRawEvmTransaction, waitForEvmReceipt } from './tx-sender'
+import { getSolanaKeypair } from './wallet-core'
+import type { NormalizedSwapQuote } from './swap-proxy'
 import type { WalletConfig } from './secure-store'
 
-// SwapKit chain prefix → numeric EVM chainId (fallback if tx.chainId is absent)
-const SK_EVM_CHAIN_ID: Record<string, number> = {
-  ETH: 1, AVAX: 43114, ARB: 42161, OP: 10, BASE: 8453,
-  MATIC: 137, POLYGON: 137, BSC: 56, BLAST: 81457, GNOSIS: 100,
+// Wallet chain id → numeric EVM chainId (matches tx-sender's supported set).
+const EVM_CHAIN_ID: Record<string, number> = {
+  ethereum: 1, arbitrum: 42161, optimism: 10, base: 8453,
+  polygon: 137, avalanche: 43114, bsc: 56,
 }
 
-export interface SwapExecuteParams extends SwapBuildParams {
-  sellAsset: string   // "ETH.ETH" — used for chainId fallback + error messaging
-}
+const SOLSCAN = (sig: string) => `https://solscan.io/tx/${sig}`
 
 export interface SwapExecuteResult {
   txHash: string
   explorerUrl: string
-  chainId: number
   approvalTxHash: string | null
 }
 
-export async function executeEvmSwap(
-  params: SwapExecuteParams,
+export async function executeSwap(
+  quote: NormalizedSwapQuote,
   mnemonic: string,
   config: WalletConfig,
   accountIndex = 0
 ): Promise<SwapExecuteResult> {
-  const built = await fetchSwapTx(
-    { routeId: params.routeId, sourceAddress: params.sourceAddress, destinationAddress: params.destinationAddress },
-    config
-  )
-  if (built.error) throw new Error(built.error)
+  const chain = quote.fromChain
 
-  const sellChain = params.sellAsset.split('.')[0]
-  if (built.txType && built.txType !== 'EVM') {
-    throw new Error(`Signing from ${sellChain} isn't supported in-wallet yet — only EVM-source swaps (e.g. ETH, AVAX) can be executed. The quote is still valid; complete it from an EVM asset.`)
+  if (chain in EVM_CHAIN_ID) return executeEvmSwap(quote, mnemonic, config, accountIndex)
+  if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex)
+  if (chain === 'cardano') {
+    throw new Error('Cardano DEX execution is not enabled yet — use Cross-Chain mode for ADA.')
+  }
+  throw new Error(`Unsupported swap source chain: ${chain}`)
+}
+
+async function executeEvmSwap(
+  quote: NormalizedSwapQuote,
+  mnemonic: string,
+  config: WalletConfig,
+  accountIndex: number
+): Promise<SwapExecuteResult> {
+  const chainId = EVM_CHAIN_ID[quote.fromChain]
+  if (!chainId) throw new Error(`Could not resolve EVM network for ${quote.fromChain}.`)
+  if (!quote.txData.to || !quote.txData.data) {
+    throw new Error('Quote did not include signable EVM calldata.')
   }
 
-  const tx = built.tx
-  if (!tx || typeof tx === 'string' || !tx.to) {
-    throw new Error('SwapKit did not return a signable EVM transaction for this route.')
-  }
-
-  const chainId = tx.chainId ?? SK_EVM_CHAIN_ID[sellChain]
-  if (!chainId) throw new Error(`Could not resolve the EVM network for ${sellChain}.`)
-
-  // 1) ERC-20 approval first (if the route requires spending a token allowance)
+  // Step A — ERC-20 approval first (native assets skip this).
   let approvalTxHash: string | null = null
-  if (built.approvalTx?.to) {
-    const apprChainId = built.approvalTx.chainId ?? chainId
+  if (quote.approvalTx?.to) {
     const appr = await sendRawEvmTransaction(mnemonic, {
-      to: built.approvalTx.to,
-      data: built.approvalTx.data,
-      value: built.approvalTx.value,
-      gas: built.approvalTx.gas,
-      chainId: apprChainId,
+      to: quote.approvalTx.to,
+      data: quote.approvalTx.data,
+      value: quote.approvalTx.value || '0x0',
+      chainId,
     }, config, accountIndex)
     approvalTxHash = appr.txHash
-    await waitForEvmReceipt(apprChainId, appr.txHash, config)
+    await waitForEvmReceipt(chainId, appr.txHash, config)
   }
 
-  // 2) Main swap transaction
+  // Step B — fire the compiled swap calldata.
   const main = await sendRawEvmTransaction(mnemonic, {
-    to: tx.to,
-    data: tx.data,
-    value: tx.value,
-    gas: tx.gas,
+    to: quote.txData.to,
+    data: quote.txData.data,
+    value: quote.txData.value || '0x0',
+    gas: quote.estimatedGasRaw && quote.estimatedGasRaw !== '0' ? quote.estimatedGasRaw : undefined,
     chainId,
   }, config, accountIndex)
 
-  return { txHash: main.txHash, explorerUrl: main.explorerUrl, chainId, approvalTxHash }
+  return { txHash: main.txHash, explorerUrl: main.explorerUrl, approvalTxHash }
+}
+
+async function executeSolanaSwap(
+  quote: NormalizedSwapQuote,
+  mnemonic: string,
+  config: WalletConfig,
+  accountIndex: number
+): Promise<SwapExecuteResult> {
+  if (!quote.txData.swapTransaction) {
+    throw new Error('Quote did not include a Solana transaction to sign.')
+  }
+  const keypair = await getSolanaKeypair(mnemonic, accountIndex)
+  const connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, 'confirmed')
+
+  const buf = Buffer.from(quote.txData.swapTransaction, 'base64')
+  const tx = VersionedTransaction.deserialize(buf)
+  tx.sign([keypair])
+
+  const sig = await connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+    maxRetries: 3,
+  })
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+
+  return { txHash: sig, explorerUrl: SOLSCAN(sig), approvalTxHash: null }
 }

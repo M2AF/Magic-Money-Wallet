@@ -1,0 +1,41 @@
+/**
+ * simpleswap-assets.ts — curated SimpleSwap asset catalog for the cross-chain UI.
+ *
+ * SimpleSwap keys assets by (ticker, network), both lowercase. `addrKey` maps to
+ * the wallet's address book for auto-filling destination/refund (null = the
+ * wallet doesn't hold that chain, so the user pastes manually).
+ */
+
+import type { SimpleSwapAsset } from './simpleswap'
+
+export const SS_ASSETS: SimpleSwapAsset[] = [
+  { ticker: 'btc',  network: 'btc',      label: 'BTC',  name: 'Bitcoin',   addrKey: 'bitcoin' },
+  { ticker: 'eth',  network: 'eth',      label: 'ETH',  name: 'Ethereum',  addrKey: 'evm' },
+  { ticker: 'sol',  network: 'sol',      label: 'SOL',  name: 'Solana',    addrKey: 'solana' },
+  { ticker: 'ada',  network: 'ada',      label: 'ADA',  name: 'Cardano',   addrKey: 'cardano' },
+  { ticker: 'usdc', network: 'eth',      label: 'USDC', name: 'USD Coin (ERC-20)', addrKey: 'evm' },
+  { ticker: 'usdt', network: 'eth',      label: 'USDT', name: 'Tether (ERC-20)',   addrKey: 'evm' },
+  { ticker: 'bnb',  network: 'bsc',      label: 'BNB',  name: 'BNB Chain', addrKey: 'evm' },
+  { ticker: 'pol',  network: 'polygon',  label: 'POL',  name: 'Polygon',   addrKey: 'evm' },
+  { ticker: 'avax', network: 'avaxc',    label: 'AVAX', name: 'Avalanche', addrKey: 'evm' },
+  { ticker: 'ltc',  network: 'ltc',      label: 'LTC',  name: 'Litecoin',  addrKey: null },
+  { ticker: 'doge', network: 'doge',     label: 'DOGE', name: 'Dogecoin',  addrKey: null },
+  { ticker: 'xmr',  network: 'xmr',      label: 'XMR',  name: 'Monero',    addrKey: null },
+  { ticker: 'trx',  network: 'trx',      label: 'TRX',  name: 'Tron',      addrKey: null },
+  { ticker: 'xrp',  network: 'xrp',      label: 'XRP',  name: 'XRP',       addrKey: null },
+]
+
+/** Stable key for selects/lookups. */
+export const ssKey = (a: { ticker: string; network: string }) => `${a.ticker}:${a.network}`
+
+export function findSsAsset(key: string): SimpleSwapAsset | undefined {
+  return SS_ASSETS.find(a => ssKey(a) === key)
+}
+
+/** Chains reachable by the on-chain DEX side (so the toggle can suggest Cross-Chain otherwise). */
+const DEX_REACHABLE_NETWORKS = new Set(['eth', 'bsc', 'polygon', 'avaxc', 'sol', 'arbitrum', 'optimism', 'base'])
+
+/** True if a SimpleSwap asset can NOT be reached by the DEX (e.g. BTC, LTC, XMR). */
+export function requiresCrossChain(a: { network: string }): boolean {
+  return !DEX_REACHABLE_NETWORKS.has(a.network)
+}

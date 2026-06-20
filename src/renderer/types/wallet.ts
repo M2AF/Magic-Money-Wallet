@@ -1,4 +1,5 @@
 import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange } from './simpleswap'
+import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain } from './swap'
 
 export interface WalletAddresses {
   evm: string
@@ -194,61 +195,8 @@ export interface ChainlensSyncResult {
 
 export type MainTab = 'portfolio' | 'market' | 'swap' | 'apphub' | 'profile'
 
-// ─── Cross-chain swap (SwapKit) ───────────────────────────────────────────────
-
-export interface SwapQuoteParams {
-  sellAsset: string   // "ETH.ETH" | "ETH.USDC-0x..."
-  buyAsset: string
-  sellAmount: string  // decimal string in whole units
-  slippage?: number   // percent
-}
-
-export interface SwapFee {
-  type?: string
-  amount?: string
-  asset?: string
-  chain?: string
-}
-
-export interface SwapRoute {
-  routeId: string
-  providers: string[]
-  sellAsset: string
-  buyAsset: string
-  sellAmount: string
-  expectedBuyAmount: string
-  expectedBuyAmountMaxSlippage: string
-  estimatedTime: { total?: number } | null
-  totalSlippageBps: number | null
-  fees: SwapFee[]
-  tags: string[]
-}
-
-export interface SwapQuoteResult {
-  quoteId: string | null
-  routes: SwapRoute[]
-  error: string | null
-}
-
-export interface SwapExecuteParams {
-  routeId: string
-  sourceAddress: string
-  destinationAddress: string
-  sellAsset: string
-}
-
-export interface SwapExecuteResult {
-  txHash: string
-  explorerUrl: string
-  chainId: number
-  approvalTxHash: string | null
-}
-
-export interface SwapTrackResult {
-  status: string | null
-  hash: string | null
-  error: string | null
-}
+// ─── DEX swap types live in ./swap (re-exported here for convenience) ─────────
+export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse } from './swap'
 
 export type AppPage =
   | 'loading'
@@ -300,9 +248,9 @@ declare global {
       getTokens(): Promise<TokensResult>
       getCollectibles(): Promise<CollectiblesResult>
       getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
-      swapQuote(params: SwapQuoteParams): Promise<SwapQuoteResult>
-      swapExecute(params: SwapExecuteParams): Promise<SwapExecuteResult>
-      swapTrack(hash: string, chainId: string): Promise<SwapTrackResult>
+      swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
+      swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>
+      swapGetTokens(chain: SwapChain): Promise<SwapTokenListResponse>
       ssEstimate(params: SsEstimateParams): Promise<SsEstimate>
       ssCreateExchange(params: SsCreateParams): Promise<SsExchange>
       ssStatus(id: string): Promise<SsExchange>

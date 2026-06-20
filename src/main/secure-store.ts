@@ -82,7 +82,7 @@ export interface WalletConfig {
   supabaseUrl: string
   supabaseKey: string
   walletConnectProjectId: string
-  swapKitApiKey: string
+  swapProxyUrl: string       // MagicMoney swap proxy (Cloudflare Worker) origin — empty until deployed
   simpleSwapApiKey: string
 }
 
@@ -96,8 +96,9 @@ const DEFAULT_CONFIG: WalletConfig = {
   supabaseUrl: 'https://REDACTED_SUPABASE_PROJECT.supabase.co',
   supabaseKey: 'REDACTED_SUPABASE_SECRET',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
-  swapKitApiKey: 'b1ae0318-0e5f-413b-8e8e-add2dec933d9',
-  // SimpleSwap DeFi (crypto) key — rotate before release; moves to the proxy when hardened.
+  // DEX swaps route through this proxy (keys injected server-side).
+  swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
+  // SimpleSwap DeFi (crypto) key — direct calls for now; moves behind swapProxyUrl /ss/* when deployed.
   simpleSwapApiKey: 'e7f2026e-5e26-41ba-a6ed-dc688d2fcae8'
 }
 

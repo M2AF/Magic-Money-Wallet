@@ -1,0 +1,17 @@
+name = "magicmoney-swap-proxy"
+main = "swap-proxy.js"
+compatibility_date = "2024-11-01"
+
+# Bind a custom domain in the Cloudflare dashboard, e.g. api.magicmoneywallet.com
+# routes = [{ pattern = "api.magicmoneywallet.com/*", custom_domain = true }]
+
+# Secrets are NOT stored here. Set them with wrangler so keys never enter source:
+#   wrangler secret put ZEROX_API_KEY
+#   wrangler secret put ONEINCH_API_KEY
+#   wrangler secret put JUPITER_API_KEY      # optional
+#   wrangler secret put LIFI_API_KEY         # optional
+#   wrangler secret put SIMPLESWAP_API_KEY
+#
+# Non-secret vars (optional):
+# [vars]
+# ALLOWED_ORIGIN = "*"

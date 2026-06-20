@@ -11,8 +11,8 @@ import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
-import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from '../main/swap-fetcher'
-import { executeEvmSwap, type SwapExecuteParams } from '../main/swap-executor'
+import { getSwapQuote, getSwapTokenList, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote } from '../main/swap-proxy'
+import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
@@ -288,22 +288,22 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
     }
 
-    case 'wallet:swap-quote': {
+    case 'swap:getQuote': {
       const config = await store.loadConfig()
-      return fetchSwapQuote(a0 as SwapQuoteParams, config)
+      return getSwapQuote(a0 as SwapQuoteRequest, config)
     }
 
-    case 'wallet:swap-execute': {
+    case 'swap:execute': {
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
       const config = await store.loadConfig()
       const mnemonic = await store.loadMnemonic()
-      return executeEvmSwap(a0 as SwapExecuteParams, mnemonic, config, addresses.accountIndex ?? 0)
+      return executeSwap(a0 as NormalizedSwapQuote, mnemonic, config, addresses.accountIndex ?? 0)
     }
 
-    case 'wallet:swap-track': {
+    case 'swap:getTokenList': {
       const config = await store.loadConfig()
-      return trackSwap(String(a0), String(a1), config)
+      return getSwapTokenList(a0 as SwapChain, config)
     }
 
     case 'ss:estimate':

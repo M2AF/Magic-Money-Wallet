@@ -8344,17 +8344,10 @@ var implementation$1 = function bind2(that) {
 var implementation = implementation$1;
 var functionBind = Function.prototype.bind || implementation;
 var functionCall = Function.prototype.call;
-var functionApply;
-var hasRequiredFunctionApply;
-function requireFunctionApply() {
-  if (hasRequiredFunctionApply) return functionApply;
-  hasRequiredFunctionApply = 1;
-  functionApply = Function.prototype.apply;
-  return functionApply;
-}
+var functionApply = Function.prototype.apply;
 var reflectApply = typeof Reflect !== "undefined" && Reflect && Reflect.apply;
 var bind$2 = functionBind;
-var $apply$1 = requireFunctionApply();
+var $apply$1 = functionApply;
 var $call$2 = functionCall;
 var $reflectApply = reflectApply;
 var actualApply = $reflectApply || bind$2.call($call$2, $apply$1);
@@ -8474,7 +8467,7 @@ var hasSymbols = requireHasSymbols()();
 var getProto = requireGetProto();
 var $ObjectGPO = requireObject_getPrototypeOf();
 var $ReflectGPO = requireReflect_getPrototypeOf();
-var $apply = requireFunctionApply();
+var $apply = functionApply;
 var $call = functionCall;
 var needsEval = {};
 var TypedArray = typeof Uint8Array === "undefined" || !getProto ? undefined$1 : getProto(Uint8Array);
@@ -9269,7 +9262,7 @@ function requireApplyBind() {
   if (hasRequiredApplyBind) return applyBind;
   hasRequiredApplyBind = 1;
   var bind3 = functionBind;
-  var $apply2 = requireFunctionApply();
+  var $apply2 = functionApply;
   var actualApply$1 = actualApply;
   applyBind = function applyBind2() {
     return actualApply$1(bind3, $apply2, arguments);
@@ -83299,113 +83292,51 @@ async function fetchAllCollectibles(evmAddress, cardanoAddress, config) {
     return { items: [], fetchedAt: Date.now(), error: String(e2), chainResults: {} };
   }
 }
-const SWAPKIT_API = "https://api.swapkit.dev";
-function normalizeRoute(r2) {
-  var _a;
-  return {
-    routeId: r2.routeId ?? "",
-    providers: r2.providers ?? [],
-    sellAsset: r2.sellAsset ?? "",
-    buyAsset: r2.buyAsset ?? "",
-    sellAmount: r2.sellAmount ?? "",
-    expectedBuyAmount: r2.expectedBuyAmount ?? "",
-    expectedBuyAmountMaxSlippage: r2.expectedBuyAmountMaxSlippage ?? "",
-    estimatedTime: r2.estimatedTime ?? null,
-    totalSlippageBps: r2.totalSlippageBps ?? null,
-    fees: r2.fees ?? [],
-    tags: ((_a = r2.meta) == null ? void 0 : _a.tags) ?? []
-  };
+function proxyBase(config) {
+  const base3 = (config.swapProxyUrl || "").trim().replace(/\/+$/, "");
+  return base3 || null;
 }
-async function fetchSwapTx(params, config) {
-  if (!params.routeId || !params.sourceAddress || !params.destinationAddress) {
-    return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: "Missing swap build parameters." };
-  }
+const NOT_CONFIGURED = "DEX swap proxy is not configured yet. Deploy the Cloudflare Worker and set swapProxyUrl to enable on-chain swaps.";
+const msg$1 = (e2) => e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
+async function getSwapQuote(req, config) {
+  const base3 = proxyBase(config);
+  if (!base3) return { quote: null, error: NOT_CONFIGURED };
+  const params = new URLSearchParams({
+    chain: req.fromChain,
+    sell: req.fromToken,
+    buy: req.toToken,
+    sellSymbol: req.fromSymbol,
+    buySymbol: req.toSymbol,
+    amount: req.sellAmountRaw,
+    slippageBps: String(req.slippageBps),
+    taker: req.taker
+  });
   try {
-    const res = await fetch(`${SWAPKIT_API}/v3/swap`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": config.swapKitApiKey },
-      body: JSON.stringify({
-        routeId: params.routeId,
-        sourceAddress: params.sourceAddress,
-        destinationAddress: params.destinationAddress
-      }),
-      signal: AbortSignal.timeout(25e3)
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: `SwapKit ${res.status}${body ? `: ${body.slice(0, 180)}` : ""}` };
-    }
-    const json = await res.json();
-    if (json.error) return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: json.error };
-    return {
-      swapId: json.swapId ?? null,
-      txType: json.txType ?? null,
-      tx: json.tx ?? null,
-      approvalTx: json.approvalTx ?? null,
-      targetAddress: json.targetAddress ?? null,
-      error: null
-    };
-  } catch (e2) {
-    return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: e2 instanceof Error ? e2.message : "Network error" };
-  }
-}
-async function trackSwap(hash2, chainId, config) {
-  if (!hash2) return { status: null, hash: null, error: "Missing tx hash." };
-  try {
-    const res = await fetch(`${SWAPKIT_API}/track`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": config.swapKitApiKey },
-      body: JSON.stringify({ hash: hash2, chainId }),
-      signal: AbortSignal.timeout(15e3)
-    });
-    if (!res.ok) return { status: null, hash: hash2, error: `SwapKit ${res.status}` };
-    const json = await res.json();
-    if (json.error) return { status: null, hash: hash2, error: json.error };
-    return { status: json.status ?? null, hash: json.hash ?? hash2, error: null };
-  } catch (e2) {
-    return { status: null, hash: hash2, error: e2 instanceof Error ? e2.message : "Network error" };
-  }
-}
-async function fetchSwapQuote(params, config) {
-  const { sellAsset, buyAsset, sellAmount } = params;
-  if (!sellAsset || !buyAsset || !sellAmount) {
-    return { quoteId: null, routes: [], error: "Select both assets and an amount." };
-  }
-  if (sellAsset === buyAsset) {
-    return { quoteId: null, routes: [], error: "Choose two different assets." };
-  }
-  if (!(parseFloat(sellAmount) > 0)) {
-    return { quoteId: null, routes: [], error: "Enter an amount greater than zero." };
-  }
-  try {
-    const res = await fetch(`${SWAPKIT_API}/v3/quote`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": config.swapKitApiKey
-      },
-      body: JSON.stringify({
-        sellAsset,
-        buyAsset,
-        sellAmount,
-        slippage: params.slippage ?? 3
-      }),
+    const res = await fetch(`${base3}/quote?${params}`, {
+      headers: { accept: "application/json" },
       signal: AbortSignal.timeout(2e4)
     });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      return { quoteId: null, routes: [], error: `SwapKit ${res.status}${body ? `: ${body.slice(0, 180)}` : ""}` };
-    }
-    const json = await res.json();
-    if (json.error) return { quoteId: null, routes: [], error: json.error };
-    const routes = (json.routes ?? []).map(normalizeRoute).filter((r2) => r2.routeId);
-    if (routes.length === 0) {
-      return { quoteId: json.quoteId ?? null, routes: [], error: "No routes available for this pair." };
-    }
-    return { quoteId: json.quoteId ?? null, routes, error: null };
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { quote: null, error: data && data.error || `Proxy ${res.status}` };
+    if (!data) return { quote: null, error: "Malformed proxy response." };
+    return { quote: data.quote ?? null, error: data.error ?? (data.quote ? null : "No route available.") };
   } catch (e2) {
-    const msg2 = e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
-    return { quoteId: null, routes: [], error: msg2 };
+    return { quote: null, error: msg$1(e2) };
+  }
+}
+async function getSwapTokenList(chain2, config) {
+  const base3 = proxyBase(config);
+  if (!base3) return { tokens: [], error: null };
+  try {
+    const res = await fetch(`${base3}/tokens?chain=${encodeURIComponent(chain2)}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(15e3)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return { tokens: [], error: null };
+    return { tokens: data.tokens ?? [], error: data.error ?? null };
+  } catch {
+    return { tokens: [], error: null };
   }
 }
 const contracts = {
@@ -84109,56 +84040,69 @@ async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAd
     explorerUrl: `https://cardanoscan.io/transaction/${txHash}`
   };
 }
-const SK_EVM_CHAIN_ID = {
-  ETH: 1,
-  AVAX: 43114,
-  ARB: 42161,
-  OP: 10,
-  BASE: 8453,
-  MATIC: 137,
-  POLYGON: 137,
-  BSC: 56,
-  BLAST: 81457,
-  GNOSIS: 100
+const EVM_CHAIN_ID = {
+  ethereum: 1,
+  arbitrum: 42161,
+  optimism: 10,
+  base: 8453,
+  polygon: 137,
+  avalanche: 43114,
+  bsc: 56
 };
-async function executeEvmSwap(params, mnemonic, config, accountIndex = 0) {
+const SOLSCAN = (sig) => `https://solscan.io/tx/${sig}`;
+async function executeSwap(quote, mnemonic, config, accountIndex = 0) {
+  const chain2 = quote.fromChain;
+  if (chain2 in EVM_CHAIN_ID) return executeEvmSwap(quote, mnemonic, config, accountIndex);
+  if (chain2 === "solana") return executeSolanaSwap(quote, mnemonic, config, accountIndex);
+  if (chain2 === "cardano") {
+    throw new Error("Cardano DEX execution is not enabled yet — use Cross-Chain mode for ADA.");
+  }
+  throw new Error(`Unsupported swap source chain: ${chain2}`);
+}
+async function executeEvmSwap(quote, mnemonic, config, accountIndex) {
   var _a;
-  const built = await fetchSwapTx(
-    { routeId: params.routeId, sourceAddress: params.sourceAddress, destinationAddress: params.destinationAddress },
-    config
-  );
-  if (built.error) throw new Error(built.error);
-  const sellChain = params.sellAsset.split(".")[0];
-  if (built.txType && built.txType !== "EVM") {
-    throw new Error(`Signing from ${sellChain} isn't supported in-wallet yet — only EVM-source swaps (e.g. ETH, AVAX) can be executed. The quote is still valid; complete it from an EVM asset.`);
+  const chainId = EVM_CHAIN_ID[quote.fromChain];
+  if (!chainId) throw new Error(`Could not resolve EVM network for ${quote.fromChain}.`);
+  if (!quote.txData.to || !quote.txData.data) {
+    throw new Error("Quote did not include signable EVM calldata.");
   }
-  const tx = built.tx;
-  if (!tx || typeof tx === "string" || !tx.to) {
-    throw new Error("SwapKit did not return a signable EVM transaction for this route.");
-  }
-  const chainId = tx.chainId ?? SK_EVM_CHAIN_ID[sellChain];
-  if (!chainId) throw new Error(`Could not resolve the EVM network for ${sellChain}.`);
   let approvalTxHash = null;
-  if ((_a = built.approvalTx) == null ? void 0 : _a.to) {
-    const apprChainId = built.approvalTx.chainId ?? chainId;
+  if ((_a = quote.approvalTx) == null ? void 0 : _a.to) {
     const appr = await sendRawEvmTransaction(mnemonic, {
-      to: built.approvalTx.to,
-      data: built.approvalTx.data,
-      value: built.approvalTx.value,
-      gas: built.approvalTx.gas,
-      chainId: apprChainId
+      to: quote.approvalTx.to,
+      data: quote.approvalTx.data,
+      value: quote.approvalTx.value || "0x0",
+      chainId
     }, config, accountIndex);
     approvalTxHash = appr.txHash;
-    await waitForEvmReceipt(apprChainId, appr.txHash, config);
+    await waitForEvmReceipt(chainId, appr.txHash, config);
   }
   const main = await sendRawEvmTransaction(mnemonic, {
-    to: tx.to,
-    data: tx.data,
-    value: tx.value,
-    gas: tx.gas,
+    to: quote.txData.to,
+    data: quote.txData.data,
+    value: quote.txData.value || "0x0",
+    gas: quote.estimatedGasRaw && quote.estimatedGasRaw !== "0" ? quote.estimatedGasRaw : void 0,
     chainId
   }, config, accountIndex);
-  return { txHash: main.txHash, explorerUrl: main.explorerUrl, chainId, approvalTxHash };
+  return { txHash: main.txHash, explorerUrl: main.explorerUrl, approvalTxHash };
+}
+async function executeSolanaSwap(quote, mnemonic, config, accountIndex) {
+  if (!quote.txData.swapTransaction) {
+    throw new Error("Quote did not include a Solana transaction to sign.");
+  }
+  const keypair = await getSolanaKeypair(mnemonic, accountIndex);
+  const connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, "confirmed");
+  const buf = Buffer$g.from(quote.txData.swapTransaction, "base64");
+  const tx = VersionedTransaction.deserialize(buf);
+  tx.sign([keypair]);
+  const sig = await connection.sendRawTransaction(tx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: "confirmed",
+    maxRetries: 3
+  });
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+  return { txHash: sig, explorerUrl: SOLSCAN(sig), approvalTxHash: null };
 }
 const SS_API = "https://api.simpleswap.io/v3";
 function ssHeaders(key2) {
@@ -84305,7 +84249,7 @@ const DEFAULT_CONFIG = {
   supabaseUrl: "https://REDACTED_SUPABASE_PROJECT.supabase.co",
   supabaseKey: "REDACTED_SUPABASE_SECRET",
   walletConnectProjectId: "1db049748ab5fecc3a39e64fbc11a41c",
-  swapKitApiKey: "b1ae0318-0e5f-413b-8e8e-add2dec933d9",
+  swapProxyUrl: "https://magicmoney-swap-proxy.guildfordking.workers.dev",
   simpleSwapApiKey: "e7f2026e-5e26-41ba-a6ed-dc688d2fcae8"
 };
 async function deriveKey(password, salt) {
@@ -99378,20 +99322,20 @@ async function handle(msg2, sender) {
       const config = await loadConfig();
       return fetchAllCollectibles(addresses.evm, addresses.cardano, config);
     }
-    case "wallet:swap-quote": {
+    case "swap:getQuote": {
       const config = await loadConfig();
-      return fetchSwapQuote(a0, config);
+      return getSwapQuote(a0, config);
     }
-    case "wallet:swap-execute": {
+    case "swap:execute": {
       const addresses = await loadAddresses();
       if (!addresses) throw new Error("No wallet");
       const config = await loadConfig();
       const mnemonic = await loadMnemonic();
-      return executeEvmSwap(a0, mnemonic, config, addresses.accountIndex ?? 0);
+      return executeSwap(a0, mnemonic, config, addresses.accountIndex ?? 0);
     }
-    case "wallet:swap-track": {
+    case "swap:getTokenList": {
       const config = await loadConfig();
-      return trackSwap(String(a0), String(a1), config);
+      return getSwapTokenList(a0, config);
     }
     case "ss:estimate":
       return ssEstimate(a0, await loadConfig());

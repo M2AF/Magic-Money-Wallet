@@ -44,9 +44,9 @@ contextBridge.exposeInMainWorld('wallet', {
   getCollectibles: ()                  => ipcRenderer.invoke('wallet:get-collectibles'),
   getNftFloor:     (chain: string, contractAddress: string) =>
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
-  swapQuote:       (params: unknown)   => ipcRenderer.invoke('wallet:swap-quote', params),
-  swapExecute:     (params: unknown)   => ipcRenderer.invoke('wallet:swap-execute', params),
-  swapTrack:       (hash: string, chainId: string) => ipcRenderer.invoke('wallet:swap-track', hash, chainId),
+  swapGetQuote:    (req: unknown)      => ipcRenderer.invoke('swap:getQuote', req),
+  swapExecute:     (quote: unknown)    => ipcRenderer.invoke('swap:execute', quote),
+  swapGetTokens:   (chain: string)     => ipcRenderer.invoke('swap:getTokenList', chain),
   ssEstimate:      (params: unknown)   => ipcRenderer.invoke('ss:estimate', params),
   ssCreateExchange:(params: unknown)   => ipcRenderer.invoke('ss:create-exchange', params),
   ssStatus:        (id: string)        => ipcRenderer.invoke('ss:status', id),
