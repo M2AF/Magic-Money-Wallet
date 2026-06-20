@@ -15,7 +15,7 @@ import { SWAP_TOKEN_LISTS, DEX_CHAINS, takerKeyForChain } from '../types/swap-to
 import { SwapQuoteCard } from './SwapQuoteCard'
 import { SwapSettings } from './SwapSettings'
 
-interface Props { addresses: WalletAddresses }
+interface Props { addresses: WalletAddresses; active: boolean }
 
 const STABLES = new Set(['USDC', 'USDT', 'DAI', 'BUSD', 'USDP'])
 const BLUE_CHIP = new Set(['SOL', 'ETH'])
@@ -45,7 +45,7 @@ function rawToHuman(raw: string, decimals: number): number {
 
 type ExecState = 'idle' | 'swapping' | 'success' | 'error'
 
-export function DexSwapWidget({ addresses }: Props) {
+export function DexSwapWidget({ addresses, active }: Props) {
   const [chain, setChain] = useState<SwapChain>('ethereum')
   const tokens = SWAP_TOKEN_LISTS[chain]
   const [fromToken, setFromToken] = useState<SwapToken>(tokens[0])
@@ -86,6 +86,7 @@ export function DexSwapWidget({ addresses }: Props) {
 
   // ── Load balances (native + from-token) ───────────────────────────────────
   useEffect(() => {
+    if (!active) return
     let on = true
     ;(async () => {
       try {
@@ -94,9 +95,10 @@ export function DexSwapWidget({ addresses }: Props) {
       } catch { /* ignore */ }
     })()
     return () => { on = false }
-  }, [chain])
+  }, [chain, active])
 
   useEffect(() => {
+    if (!active) return
     let on = true
     ;(async () => {
       if (fromToken.isNative) { setFromBal(nativeBal); return }
@@ -107,7 +109,7 @@ export function DexSwapWidget({ addresses }: Props) {
       } catch { if (on) setFromBal(null) }
     })()
     return () => { on = false }
-  }, [fromToken, chain, nativeBal])
+  }, [fromToken, chain, nativeBal, active])
 
   // ── Quote fetch ───────────────────────────────────────────────────────────
   const fetchQuote = useCallback(async (silent = false): Promise<NormalizedSwapQuote | null> => {
@@ -141,7 +143,7 @@ export function DexSwapWidget({ addresses }: Props) {
 
   // ── Guard 2: 12s refresh ticker ───────────────────────────────────────────
   useEffect(() => {
-    if (!quote || priceChanged || execState !== 'idle') { setRefreshIn(null); return }
+    if (!quote || priceChanged || execState !== 'idle' || !active) { setRefreshIn(null); return }
     setRefreshIn(12)
     const countdown = setInterval(() => setRefreshIn(s => (s != null && s > 0 ? s - 1 : s)), 1000)
     const refresh = setInterval(async () => {
@@ -154,7 +156,7 @@ export function DexSwapWidget({ addresses }: Props) {
     }, 12_000)
     return () => { clearInterval(countdown); clearInterval(refresh) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quote, priceChanged, execState, fetchQuote, toToken.decimals])
+  }, [quote, priceChanged, execState, active, fetchQuote, toToken.decimals])
 
   const acceptNewPrice = () => { if (quote) { acceptedBuyRaw.current = quote.buyAmountRaw; setPriceChanged(false) } }
 
@@ -243,7 +245,7 @@ export function DexSwapWidget({ addresses }: Props) {
       {/* Chain selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>NETWORK</span>
-        <select value={chain} onChange={e => setChain(e.target.value as SwapChain)} style={selectStyle}>
+        <select aria-label="Network" value={chain} onChange={e => setChain(e.target.value as SwapChain)} style={selectStyle}>
           {DEX_CHAINS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
       </div>
@@ -258,7 +260,7 @@ export function DexSwapWidget({ addresses }: Props) {
           <input type="number" inputMode="decimal" min="0" placeholder="0.0" value={amount}
             onChange={e => { setAmount(e.target.value); setQuote(null); acceptedBuyRaw.current = null }}
             style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)' }} />
-          <select value={fromToken.symbol} onChange={e => { setFromToken(tokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
+          <select aria-label="Pay token" value={fromToken.symbol} onChange={e => { setFromToken(tokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
             {tokens.map(t => <option key={t.symbol} value={t.symbol}>{t.symbol}</option>)}
           </select>
         </div>
@@ -275,10 +277,10 @@ export function DexSwapWidget({ addresses }: Props) {
       <div style={cardStyle}>
         <span style={labelStyle}>YOU RECEIVE</span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: expectedBuy != null ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: expectedBuy != null ? 'var(--text-primary)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {expectedBuy != null ? expectedBuy.toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'}
           </div>
-          <select value={toToken.symbol} onChange={e => { setToToken(tokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
+          <select aria-label="Receive token" value={toToken.symbol} onChange={e => { setToToken(tokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
             {tokens.map(t => <option key={t.symbol} value={t.symbol}>{t.symbol}</option>)}
           </select>
         </div>
@@ -308,8 +310,8 @@ const Spinner = () => <span style={{ width: 14, height: 14, border: '2px solid r
 
 const cardStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }
 const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }
-const inputStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none' }
-const selectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 14, cursor: 'pointer', outline: 'none', minWidth: 90 }
+const inputStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0 }
+const selectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 14, cursor: 'pointer', outline: 'none', flexShrink: 0, width: 104 }
 const maxBtn: React.CSSProperties = { padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--accent-dim)', color: 'var(--accent)' }
 function btn(enabled: boolean, bg = 'var(--accent)', color = '#0d0d0d'): React.CSSProperties {
   return { padding: '13px', borderRadius: 'var(--radius-sm)', border: bg === 'transparent' ? '1px solid var(--border)' : 'none', fontSize: 14, fontWeight: 700, cursor: enabled ? 'pointer' : 'not-allowed', background: enabled ? bg : 'var(--border)', color: enabled ? (bg === 'transparent' ? 'var(--text-primary)' : color) : 'var(--text-muted)', width: '100%' }

@@ -91,7 +91,9 @@ export function App() {
         />
       )}
       {inDashboard && addresses && activeTab === 'market' && <MarketPage {...toolbarProps} />}
-      {inDashboard && addresses && activeTab === 'swap' && <SwapPage addresses={addresses} {...toolbarProps} />}
+      {/* Swap stays mounted while in the dashboard so in-progress swap state (and the
+          SimpleSwap status poller) survive switching to other tabs and back. */}
+      {inDashboard && addresses && <SwapPage addresses={addresses} hidden={activeTab !== 'swap'} {...toolbarProps} />}
       {inDashboard && activeTab === 'apphub' && <AppHubPage {...toolbarProps} />}
 
       {/* Global settings sheet — opened from any tab's header toolbar */}

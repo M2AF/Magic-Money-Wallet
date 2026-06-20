@@ -7,19 +7,20 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { WalletAddresses } from '../types/wallet'
+import type { WalletAddresses, AllBalances } from '../types/wallet'
 import type { SsExchange, SimpleSwapRateType } from '../types/simpleswap'
-import { SS_ASSETS, ssKey, findSsAsset } from '../types/simpleswap-assets'
+import { SS_ASSETS, ssKey, findSsAsset, ssBalanceChain } from '../types/simpleswap-assets'
 import { ExchangeStatusCard } from './ExchangeStatusCard'
 
-interface Props { addresses: WalletAddresses }
+interface Props { addresses: WalletAddresses; active: boolean }
 
 const selectStyle: React.CSSProperties = {
   background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)',
-  borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 14, cursor: 'pointer', outline: 'none', minWidth: 150,
+  borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 14, cursor: 'pointer', outline: 'none',
+  flexShrink: 0, width: 132, maxWidth: '46%',
 }
 const inputStyle: React.CSSProperties = {
-  width: '100%', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+  width: '100%', minWidth: 0, background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
   padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', fontFamily: 'var(--font-body)',
 }
 
@@ -32,7 +33,7 @@ function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' |
   return ''
 }
 
-export function SimpleSwapWidget({ addresses }: Props) {
+export function SimpleSwapWidget({ addresses, active }: Props) {
   const [fromKey, setFromKey] = useState(ssKey({ ticker: 'sol', network: 'sol' }))
   const [toKey, setToKey]     = useState(ssKey({ ticker: 'btc', network: 'btc' }))
   const [amount, setAmount]   = useState('')
@@ -53,8 +54,22 @@ export function SimpleSwapWidget({ addresses }: Props) {
   const [createError, setCreateError] = useState<string | null>(null)
   const [exchange, setExchange] = useState<SsExchange | null>(null)
 
+  const [balances, setBalances] = useState<AllBalances | null>(null)
+
   const from = findSsAsset(fromKey)!
   const to = findSsAsset(toKey)!
+
+  // Native balance of the FROM asset's chain (BTC/SOL/ADA/etc.), if the wallet holds it.
+  const fromBalChain = ssBalanceChain(from)
+  const fromBal = fromBalChain && balances ? (parseFloat(balances.chains[fromBalChain]?.native ?? '0') || 0) : null
+
+  // ── Wallet balances (for the FROM balance + Max) ──────────────────────────
+  useEffect(() => {
+    if (!active) return
+    let on = true
+    window.wallet.getBalances().then(b => { if (on) setBalances(b) }).catch(() => { /* ignore */ })
+    return () => { on = false }
+  }, [active])
 
   // ── Auto-fill addresses from the wallet when the pair changes ─────────────
   useEffect(() => {
@@ -144,14 +159,25 @@ export function SimpleSwapWidget({ addresses }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* YOU SEND */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>YOU SEND</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>YOU SEND</span>
+          {fromBal != null && (
+            <button type="button" onClick={() => setAmount(String(fromBal))}
+              style={{ padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--accent-dim)', color: 'var(--accent)' }}>MAX</button>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input type="number" inputMode="decimal" min="0" placeholder="0.0" value={amount} onChange={e => setAmount(e.target.value)}
             style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)' }} />
-          <select value={fromKey} onChange={e => setFromKey(e.target.value)} style={selectStyle}>
+          <select aria-label="Send asset" value={fromKey} onChange={e => setFromKey(e.target.value)} style={selectStyle}>
             {SS_ASSETS.map(a => <option key={ssKey(a)} value={ssKey(a)}>{label(a)}</option>)}
           </select>
         </div>
+        {fromBal != null && (
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Balance: {fromBal.toLocaleString('en-US', { maximumFractionDigits: 6 })} {from.label}
+          </span>
+        )}
         {range.min != null && (
           <div style={{ fontSize: 11, color: belowMin || aboveMax ? '#fca5a5' : 'var(--text-muted)' }}>
             Min {range.min} {from.label}{range.max ? ` · Max ${range.max} ${from.label}` : ''}
@@ -173,7 +199,7 @@ export function SimpleSwapWidget({ addresses }: Props) {
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: estimate ? 'var(--text-primary)' : 'var(--text-muted)' }}>
             {estLoading ? '…' : estimate ? `≈ ${estimate}` : '—'}
           </div>
-          <select value={toKey} onChange={e => setToKey(e.target.value)} style={selectStyle}>
+          <select aria-label="Receive asset" value={toKey} onChange={e => setToKey(e.target.value)} style={selectStyle}>
             {SS_ASSETS.map(a => <option key={ssKey(a)} value={ssKey(a)}>{label(a)}</option>)}
           </select>
         </div>

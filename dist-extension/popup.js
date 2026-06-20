@@ -1,4 +1,4 @@
-import { c as createExtensionWallet, a as createRoot, j as jsxRuntimeExports, r as reactExports, E as ExtApp } from "./chunks/index-BhhEsw7s.js";
+import { c as createExtensionWallet, a as createRoot, j as jsxRuntimeExports, r as reactExports, E as ExtApp } from "./chunks/index-v_Wo2M1L.js";
 window.wallet = createExtensionWallet();
 const root = document.getElementById("root");
 createRoot(root).render(

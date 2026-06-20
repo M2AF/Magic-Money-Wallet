@@ -9660,7 +9660,7 @@ function rawToHuman(raw, decimals) {
     return Number(raw) / 10 ** decimals;
   }
 }
-function DexSwapWidget({ addresses }) {
+function DexSwapWidget({ addresses, active }) {
   const [chain, setChain] = reactExports.useState("ethereum");
   const tokens = SWAP_TOKEN_LISTS[chain];
   const [fromToken, setFromToken] = reactExports.useState(tokens[0]);
@@ -9697,6 +9697,7 @@ function DexSwapWidget({ addresses }) {
     setPriceChanged(false);
   }, [chain]);
   reactExports.useEffect(() => {
+    if (!active) return;
     let on2 = true;
     (async () => {
       var _a;
@@ -9709,8 +9710,9 @@ function DexSwapWidget({ addresses }) {
     return () => {
       on2 = false;
     };
-  }, [chain]);
+  }, [chain, active]);
   reactExports.useEffect(() => {
+    if (!active) return;
     let on2 = true;
     (async () => {
       if (fromToken.isNative) {
@@ -9728,7 +9730,7 @@ function DexSwapWidget({ addresses }) {
     return () => {
       on2 = false;
     };
-  }, [fromToken, chain, nativeBal]);
+  }, [fromToken, chain, nativeBal, active]);
   const fetchQuote = reactExports.useCallback(async (silent = false) => {
     if (!(parseFloat(amount) > 0) || fromToken.address === toToken.address) return null;
     if (!silent) {
@@ -9770,7 +9772,7 @@ function DexSwapWidget({ addresses }) {
     }
   };
   reactExports.useEffect(() => {
-    if (!quote || priceChanged || execState !== "idle") {
+    if (!quote || priceChanged || execState !== "idle" || !active) {
       setRefreshIn(null);
       return;
     }
@@ -9794,7 +9796,7 @@ function DexSwapWidget({ addresses }) {
       clearInterval(countdown);
       clearInterval(refresh);
     };
-  }, [quote, priceChanged, execState, fetchQuote, toToken.decimals]);
+  }, [quote, priceChanged, execState, active, fetchQuote, toToken.decimals]);
   const acceptNewPrice = () => {
     if (quote) {
       acceptedBuyRaw.current = quote.buyAmountRaw;
@@ -9899,7 +9901,7 @@ function DexSwapWidget({ addresses }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "NETWORK" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: chain, onChange: (e) => setChain(e.target.value), style: selectStyle$1, children: DEX_CHAINS.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: c.id, children: c.label }, c.id)) })
+      /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Network", value: chain, onChange: (e) => setChain(e.target.value), style: selectStyle$1, children: DEX_CHAINS.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: c.id, children: c.label }, c.id)) })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: cardStyle, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
@@ -9923,7 +9925,7 @@ function DexSwapWidget({ addresses }) {
             style: { ...inputStyle$2, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)" }
           }
         ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: fromToken.symbol, onChange: (e) => {
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Pay token", value: fromToken.symbol, onChange: (e) => {
           setFromToken(tokens.find((t2) => t2.symbol === e.target.value));
           setQuote(null);
         }, style: selectStyle$1, children: tokens.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: t2.symbol, children: t2.symbol }, t2.symbol)) })
@@ -9942,8 +9944,8 @@ function DexSwapWidget({ addresses }) {
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: cardStyle, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: labelStyle, children: "YOU RECEIVE" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: expectedBuy != null ? "var(--text-primary)" : "var(--text-muted)" }, children: expectedBuy != null ? expectedBuy.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "—" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: toToken.symbol, onChange: (e) => {
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: expectedBuy != null ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis" }, children: expectedBuy != null ? expectedBuy.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "—" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Receive token", value: toToken.symbol, onChange: (e) => {
           setToToken(tokens.find((t2) => t2.symbol === e.target.value));
           setQuote(null);
         }, style: selectStyle$1, children: tokens.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: t2.symbol, children: t2.symbol }, t2.symbol)) })
@@ -9962,8 +9964,8 @@ function nativeSymbolFor(chain) {
 const Spinner = () => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { width: 14, height: 14, border: "2px solid rgba(0,0,0,0.3)", borderTopColor: "#0d0d0d", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite", marginRight: 6, verticalAlign: "middle" } });
 const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 8 };
 const labelStyle = { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" };
-const inputStyle$2 = { background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", color: "var(--text-primary)", fontSize: 14, outline: "none" };
-const selectStyle$1 = { background: "var(--bg-card)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", fontSize: 14, cursor: "pointer", outline: "none", minWidth: 90 };
+const inputStyle$2 = { background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", color: "var(--text-primary)", fontSize: 14, outline: "none", minWidth: 0 };
+const selectStyle$1 = { background: "var(--bg-card)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", fontSize: 14, cursor: "pointer", outline: "none", flexShrink: 0, width: 104 };
 const maxBtn = { padding: "2px 10px", borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1px solid var(--border)", background: "var(--accent-dim)", color: "var(--accent)" };
 function btn(enabled, bg2 = "var(--accent)", color = "#0d0d0d") {
   return { padding: "13px", borderRadius: "var(--radius-sm)", border: bg2 === "transparent" ? "1px solid var(--border)" : "none", fontSize: 14, fontWeight: 700, cursor: enabled ? "pointer" : "not-allowed", background: enabled ? bg2 : "var(--border)", color: enabled ? bg2 === "transparent" ? "var(--text-primary)" : color : "var(--text-muted)", width: "100%" };
@@ -9987,6 +9989,18 @@ const SS_ASSETS = [
 const ssKey = (a) => `${a.ticker}:${a.network}`;
 function findSsAsset(key) {
   return SS_ASSETS.find((a) => ssKey(a) === key);
+}
+const SS_BALANCE_CHAIN = {
+  "btc:btc": "bitcoin",
+  "eth:eth": "ethereum",
+  "sol:sol": "solana",
+  "ada:ada": "cardano",
+  "bnb:bsc": "bsc",
+  "pol:polygon": "polygon",
+  "avax:avaxc": "avalanche"
+};
+function ssBalanceChain(a) {
+  return SS_BALANCE_CHAIN[ssKey(a)] ?? null;
 }
 const STEPS = [
   { key: "waiting", label: "Waiting for deposit" },
@@ -10137,10 +10151,13 @@ const selectStyle = {
   fontSize: 14,
   cursor: "pointer",
   outline: "none",
-  minWidth: 150
+  flexShrink: 0,
+  width: 132,
+  maxWidth: "46%"
 };
 const inputStyle$1 = {
   width: "100%",
+  minWidth: 0,
   background: "transparent",
   border: "1px solid var(--border)",
   borderRadius: "var(--radius-sm)",
@@ -10158,7 +10175,8 @@ function addrFor(addresses, key) {
   if (key === "bitcoin") return addresses.bitcoin;
   return "";
 }
-function SimpleSwapWidget({ addresses }) {
+function SimpleSwapWidget({ addresses, active }) {
+  var _a;
   const [fromKey, setFromKey] = reactExports.useState(ssKey({ ticker: "sol", network: "sol" }));
   const [toKey, setToKey] = reactExports.useState(ssKey({ ticker: "btc", network: "btc" }));
   const [amount, setAmount] = reactExports.useState("");
@@ -10175,8 +10193,22 @@ function SimpleSwapWidget({ addresses }) {
   const [creating, setCreating] = reactExports.useState(false);
   const [createError, setCreateError] = reactExports.useState(null);
   const [exchange, setExchange] = reactExports.useState(null);
+  const [balances, setBalances] = reactExports.useState(null);
   const from = findSsAsset(fromKey);
   const to = findSsAsset(toKey);
+  const fromBalChain = ssBalanceChain(from);
+  const fromBal = fromBalChain && balances ? parseFloat(((_a = balances.chains[fromBalChain]) == null ? void 0 : _a.native) ?? "0") || 0 : null;
+  reactExports.useEffect(() => {
+    if (!active) return;
+    let on2 = true;
+    window.wallet.getBalances().then((b) => {
+      if (on2) setBalances(b);
+    }).catch(() => {
+    });
+    return () => {
+      on2 = false;
+    };
+  }, [active]);
   reactExports.useEffect(() => {
     if (!destTouched) setDestination(addrFor(addresses, to.addrKey));
     if (!refundTouched) setRefund(addrFor(addresses, from.addrKey));
@@ -10276,7 +10308,18 @@ function SimpleSwapWidget({ addresses }) {
   const label = (a) => `${a.label} · ${a.name}`;
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU SEND" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU SEND" }),
+        fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setAmount(String(fromBal)),
+            style: { padding: "2px 10px", borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1px solid var(--border)", background: "var(--accent-dim)", color: "var(--accent)" },
+            children: "MAX"
+          }
+        )
+      ] }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(
           "input",
@@ -10290,7 +10333,13 @@ function SimpleSwapWidget({ addresses }) {
             style: { ...inputStyle$1, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)" }
           }
         ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: fromKey, onChange: (e) => setFromKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Send asset", value: fromKey, onChange: (e) => setFromKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
+      ] }),
+      fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+        "Balance: ",
+        fromBal.toLocaleString("en-US", { maximumFractionDigits: 6 }),
+        " ",
+        from.label
       ] }),
       range.min != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: belowMin || aboveMax ? "#fca5a5" : "var(--text-muted)" }, children: [
         "Min ",
@@ -10317,7 +10366,7 @@ function SimpleSwapWidget({ addresses }) {
       /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU RECEIVE" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: estimate ? "var(--text-primary)" : "var(--text-muted)" }, children: estLoading ? "…" : estimate ? `≈ ${estimate}` : "—" }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: toKey, onChange: (e) => setToKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Receive asset", value: toKey, onChange: (e) => setToKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
       ] })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 6 }, children: [
@@ -10381,7 +10430,7 @@ function SimpleSwapWidget({ addresses }) {
     )
   ] });
 }
-function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
+function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
   const [mode, setMode] = reactExports.useState("dex");
   const [epoch, setEpoch] = reactExports.useState(0);
   const switchMode = (m2) => {
@@ -10390,7 +10439,7 @@ function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onProfile,
       setEpoch((e) => e + 1);
     }
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden" }, children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden", display: hidden ? "none" : "flex" }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px 16px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", style: { fontSize: 18 }, children: "Swap" }),
@@ -10407,10 +10456,10 @@ function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onProfile,
         }
       )
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, overflowY: "auto", padding: "14px 16px 18px", display: "flex", flexDirection: "column", gap: 14 }, children: [
-      mode === "dex" ? /* @__PURE__ */ jsxRuntimeExports.jsx(DexSwapWidget, { addresses }, `dex-${epoch}`) : /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleSwapWidget, { addresses }, `ss-${epoch}`),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "14px 16px 18px", display: "flex", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }, children: [
+      mode === "dex" ? /* @__PURE__ */ jsxRuntimeExports.jsx(DexSwapWidget, { addresses, active: !hidden }, `dex-${epoch}`) : /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleSwapWidget, { addresses, active: !hidden }, `ss-${epoch}`),
       /* @__PURE__ */ jsxRuntimeExports.jsx(SwapModeToggle, { mode, onChange: switchMode })
-    ] })
+    ] }) })
   ] });
 }
 const APP_HUB = {
@@ -16668,7 +16717,7 @@ function App() {
       }
     ),
     inDashboard && addresses && activeTab === "market" && /* @__PURE__ */ jsxRuntimeExports.jsx(MarketPage, { ...toolbarProps }),
-    inDashboard && addresses && activeTab === "swap" && /* @__PURE__ */ jsxRuntimeExports.jsx(SwapPage, { addresses, ...toolbarProps }),
+    inDashboard && addresses && /* @__PURE__ */ jsxRuntimeExports.jsx(SwapPage, { addresses, hidden: activeTab !== "swap", ...toolbarProps }),
     inDashboard && activeTab === "apphub" && /* @__PURE__ */ jsxRuntimeExports.jsx(AppHubPage, { ...toolbarProps }),
     inDashboard && showSettings && /* @__PURE__ */ jsxRuntimeExports.jsx(
       SettingsModal,

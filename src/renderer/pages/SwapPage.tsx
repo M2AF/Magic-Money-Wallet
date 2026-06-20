@@ -19,6 +19,7 @@ import { SimpleSwapWidget } from '../components/SimpleSwapWidget'
 
 interface Props {
   addresses: WalletAddresses
+  hidden?: boolean
   onWcOpen?: () => void
   wcActiveSessions?: number
   wcPending?: boolean
@@ -26,7 +27,7 @@ interface Props {
   onSettings?: () => void
 }
 
-export function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: Props) {
+export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: Props) {
   const [mode, setMode] = useState<SwapMode>('dex')
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
@@ -34,7 +35,7 @@ export function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onP
   const switchMode = (m: SwapMode) => { if (m !== mode) { setMode(m); setEpoch(e => e + 1) } }
 
   return (
-    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden' }}>
+    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', display: hidden ? 'none' : 'flex' }}>
       <div style={{ padding: '16px 16px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title" style={{ fontSize: 18 }}>Swap</h1>
@@ -51,12 +52,16 @@ export function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onP
         />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {mode === 'dex'
-          ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} />
-          : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} />}
+      <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px 16px 18px', display: 'flex', justifyContent: 'center' }}>
+        {/* Centered, max-width column so the layout is identical across popup (400px),
+            docked sidebar (fluid), and the resizable Electron window. */}
+        <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {mode === 'dex'
+            ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} />
+            : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
 
-        <SwapModeToggle mode={mode} onChange={switchMode} />
+          <SwapModeToggle mode={mode} onChange={switchMode} />
+        </div>
       </div>
     </div>
   )

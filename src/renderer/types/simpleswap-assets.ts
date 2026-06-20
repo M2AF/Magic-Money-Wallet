@@ -39,3 +39,21 @@ const DEX_REACHABLE_NETWORKS = new Set(['eth', 'bsc', 'polygon', 'avaxc', 'sol',
 export function requiresCrossChain(a: { network: string }): boolean {
   return !DEX_REACHABLE_NETWORKS.has(a.network)
 }
+
+// SimpleSwap native coins → the wallet's balance chain id (from chain-config / AllBalances).
+// Only native coins the wallet actually tracks are mapped; tokens (usdc/usdt) and
+// chains we don't hold (ltc/doge/xmr/trx/xrp) return null → no balance shown.
+const SS_BALANCE_CHAIN: Record<string, string> = {
+  'btc:btc': 'bitcoin',
+  'eth:eth': 'ethereum',
+  'sol:sol': 'solana',
+  'ada:ada': 'cardano',
+  'bnb:bsc': 'bsc',
+  'pol:polygon': 'polygon',
+  'avax:avaxc': 'avalanche',
+}
+
+/** The wallet balance-chain id for a SimpleSwap asset, or null if not held/known. */
+export function ssBalanceChain(a: { ticker: string; network: string }): string | null {
+  return SS_BALANCE_CHAIN[ssKey(a)] ?? null
+}
