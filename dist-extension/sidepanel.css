@@ -4,6 +4,11 @@
   display: none !important;
 }
 
+/* Show the brand banner here, since the titlebar (with the logo) is hidden */
+.tab-banner {
+  display: flex !important;
+}
+
 .app-shell {
   padding-top: 0 !important;
 }

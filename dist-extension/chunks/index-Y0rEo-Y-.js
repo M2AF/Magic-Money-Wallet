@@ -7181,6 +7181,7 @@ function createExtensionWallet() {
   };
 }
 const logoUrl = "" + new URL("../logo.png", import.meta.url).href;
+const bannerUrl = "" + new URL("../title-bar.png", import.meta.url).href;
 function LoadingPage() {
   return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "page", style: { alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "spinner", style: { marginBottom: 16 } }),
@@ -16699,6 +16700,7 @@ function App() {
         /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "titlebar-btn close", onClick: () => window.wallet.close(), title: "Close" })
       ] })
     ] }),
+    inDashboard && ["portfolio", "market", "swap", "apphub"].includes(activeTab) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "tab-banner", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: bannerUrl, alt: "Magic Money", draggable: false }) }),
     page === "loading" && /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingPage, {}),
     page === "welcome" && /* @__PURE__ */ jsxRuntimeExports.jsx(WelcomePage, { onNavigate: setPage }),
     page === "create" && /* @__PURE__ */ jsxRuntimeExports.jsx(CreatePage, { onNavigate: setPage, onComplete: handleWalletReady }),

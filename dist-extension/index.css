@@ -154,6 +154,32 @@ html, body, #root {
 
 .titlebar-btn.min    { background: #febc2e; }
 
+/* ── Main-tab brand banner ───────────────────────────────────────────────────── */
+
+/* Hidden by default (the Electron build already shows the titlebar logo); the
+   extension overrides (popup.css / sidepanel.css) reveal it where the titlebar
+   is hidden, so the wordmark isn't lost. */
+
+.tab-banner {
+  display: none;
+  align-items: center;
+  justify-content: center;  /* ← horizontal position: center | flex-start (left) | flex-end (right) */
+  flex-shrink: 0;
+  padding: 10px 0px 10px 0px;   /* ← spacing: top | right | bottom | left (controls vertical position) */
+}
+
+.tab-banner img {
+  height: 55px;             /* ← SIZE: increase to enlarge the logo (e.g. 56px, 72px) */
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  margin-top: 0;            /* ← nudge down (+) / up (-), e.g. margin-top: -4px */
+  margin-left: -15px;           /* ← nudge right (+) / left (-) */
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
 /* ── Page container ──────────────────────────────────────────────────────────── */
 
 .page {

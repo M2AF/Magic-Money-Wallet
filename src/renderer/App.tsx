@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { AppPage, WalletAddresses, MainTab } from './types/wallet'
 import logoUrl from './assets/logo.png'
+import bannerUrl from './assets/title-bar.png'
 import { LoadingPage } from './pages/LoadingPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { CreatePage } from './pages/CreatePage'
@@ -75,6 +76,14 @@ export function App() {
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
         </div>
       </div>
+
+      {/* Brand banner — shown only on the main tabs where the titlebar is hidden
+          (the extension). Hidden by default in CSS; extension overrides reveal it. */}
+      {inDashboard && ['portfolio', 'market', 'swap', 'apphub'].includes(activeTab) && (
+        <div className="tab-banner">
+          <img src={bannerUrl} alt="Magic Money" draggable={false} />
+        </div>
+      )}
 
       {/* Page router */}
       {page === 'loading'  && <LoadingPage />}
