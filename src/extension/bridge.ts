@@ -9,10 +9,33 @@
 
 type MsgResult = { ok: true; result: unknown } | { ok: false; error: string }
 
+// Heavy aggregation calls fan out across ~18 chains and enrich every result
+// with external price APIs (CoinGecko / DexScreener). They routinely take far
+// longer than a single RPC call, so they get a generous timeout — otherwise a
+// wallet with many tokens gets cut off mid-fetch and the data silently drops.
+// (Electron's ipcRenderer.invoke has no timeout, which is why these work there.)
+const SLOW_TYPES = new Set([
+  'wallet:get-balances',
+  'wallet:get-history',
+  'wallet:get-tokens',
+  'wallet:get-collectibles',
+  'wallet:swap-quote',
+  'wallet:get-market',
+  'wallet:search-market',
+  'wallet:get-coin-chart',
+  'wallet:get-nft-floor',
+])
+
+// Swap execution can sign an approval, wait for it to mine, then sign the swap —
+// well beyond the heavy-fetch budget. Give it room (SW stays alive while active).
+const VERY_SLOW_TYPES = new Set(['wallet:swap-execute'])
+
 function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
+  // Snappy calls keep a tight 8s budget so the popup never hangs on "Loading…"
+  // if the SW is down; heavy data fetches get 45s; on-chain execution gets 180s.
+  const timeoutMs = VERY_SLOW_TYPES.has(type) ? 180_000 : SLOW_TYPES.has(type) ? 45_000 : 8_000
   return new Promise((resolve, reject) => {
-    // 8-second timeout so the popup never hangs on "Loading…" if the SW is down
-    const timer = setTimeout(() => reject(new Error('Background not responding — try closing and reopening the extension')), 8000)
+    const timer = setTimeout(() => reject(new Error('Background not responding — try closing and reopening the extension')), timeoutMs)
 
     chrome.runtime.sendMessage({ type, args }, (response: MsgResult) => {
       clearTimeout(timer)
@@ -96,6 +119,9 @@ export function createExtensionWallet() {
     getTokens:      ()                      => send('wallet:get-tokens'),
     getCollectibles:()                      => send('wallet:get-collectibles'),
     getNftFloor:    (c: string, a: string)  => send('wallet:get-nft-floor', c, a),
+    swapQuote:      (params: unknown)       => send('wallet:swap-quote', params),
+    swapExecute:    (params: unknown)       => send('wallet:swap-execute', params),
+    swapTrack:      (hash: string, chainId: string) => send('wallet:swap-track', hash, chainId),
 
     // Window controls (no-op in extension)
     minimize: () => {},

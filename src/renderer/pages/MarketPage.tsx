@@ -1,5 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { MarketCoin, MarketResult } from '../types/wallet'
+import { HeaderToolbar } from '../components/HeaderToolbar'
+
+interface TabProps {
+  onWcOpen?: () => void
+  wcActiveSessions?: number
+  wcPending?: boolean
+  onProfile?: () => void
+  onSettings?: () => void
+}
 
 // ─── Module-level client cache — survives tab switches (component unmount/remount)
 let _pageCache: MarketResult | null = null
@@ -309,7 +318,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
-export function MarketPage() {
+export function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: TabProps) {
   // Seed state from module-level cache instantly — avoids loading flash on tab switch
   const [data, setData]             = useState<MarketResult | null>(_pageCache)
   const [loading, setLoading]       = useState(_pageCache === null)
@@ -398,17 +407,15 @@ export function MarketPage() {
               </div>
             )}
           </div>
-          <button
-            onClick={() => loadMarket(true)}
-            disabled={refreshing || loading}
-            title="Refresh"
-            style={{ width: 30, height: 30, borderRadius: 'var(--radius-sm)', background: 'var(--accent-dim)', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: refreshing ? 0.5 : 1 }}
-          >
-            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-          </button>
+          <HeaderToolbar
+            onWcOpen={onWcOpen}
+            wcActiveSessions={wcActiveSessions}
+            wcPending={wcPending}
+            onRefresh={() => loadMarket(true)}
+            refreshing={refreshing}
+            onProfile={onProfile}
+            onSettings={onSettings}
+          />
         </div>
 
         {/* Search */}

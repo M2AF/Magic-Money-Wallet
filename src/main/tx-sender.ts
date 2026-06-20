@@ -166,6 +166,61 @@ export async function sendEvmTransaction(
   return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
 }
 
+// Reverse lookup: numeric EVM chain id → chain entry (for raw/swap txs)
+function evmEntryByChainId(chainId: number): EvmChainEntry | null {
+  for (const entry of Object.values(EVM_CHAINS)) {
+    if (entry.chain.id === chainId) return entry
+  }
+  return null
+}
+
+export interface RawEvmTx {
+  to: string
+  data?: string
+  value?: string   // hex ("0x..") or decimal string of wei
+  gas?: string     // hex or decimal gas limit
+  chainId: number
+}
+
+const toBig = (v?: string): bigint | undefined =>
+  (v == null || v === '' || v === '0x') ? undefined : BigInt(v)
+
+/**
+ * Sign + broadcast an arbitrary EVM transaction (to/data/value) on the chain
+ * identified by numeric chainId. Used for swap routes (SwapKit returns calldata).
+ * viem fills nonce + fees; gas limit is taken from the caller when provided.
+ */
+export async function sendRawEvmTransaction(
+  mnemonic: string,
+  tx: RawEvmTx,
+  config: WalletConfig,
+  accountIndex = 0
+): Promise<SendResult> {
+  const entry = evmEntryByChainId(tx.chainId)
+  if (!entry) throw new Error(`Unsupported EVM network (chainId ${tx.chainId}) — can't sign here yet.`)
+
+  const pk = await getEvmPrivateKey(mnemonic, accountIndex)
+  const account = privateKeyToAccount(pk)
+  const walletClient = createWalletClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)), account })
+
+  const hash = await walletClient.sendTransaction({
+    to: tx.to as `0x${string}`,
+    data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
+    value: toBig(tx.value) ?? 0n,
+    gas: toBig(tx.gas),
+  })
+
+  return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
+}
+
+/** Block until an EVM tx is mined (used to sequence ERC-20 approval before the swap). */
+export async function waitForEvmReceipt(chainId: number, hash: string, config: WalletConfig): Promise<void> {
+  const entry = evmEntryByChainId(chainId)
+  if (!entry) return
+  const client = createPublicClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)) })
+  await client.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 })
+}
+
 // ─── Solana ───────────────────────────────────────────────────────────────────
 
 export async function estimateSolanaFee(config: WalletConfig): Promise<FeeEstimate> {

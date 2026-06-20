@@ -82,6 +82,7 @@ export interface WalletConfig {
   supabaseUrl: string
   supabaseKey: string
   walletConnectProjectId: string
+  swapKitApiKey: string
 }
 
 const DEFAULT_CONFIG: WalletConfig = {
@@ -93,7 +94,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   openseaKey: 'REDACTED_OPENSEA_KEY',
   supabaseUrl: 'https://REDACTED_SUPABASE_PROJECT.supabase.co',
   supabaseKey: 'REDACTED_SUPABASE_SECRET',
-  walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c'
+  walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
+  swapKitApiKey: 'b1ae0318-0e5f-413b-8e8e-add2dec933d9'
 }
 
 export function loadConfig(): WalletConfig {

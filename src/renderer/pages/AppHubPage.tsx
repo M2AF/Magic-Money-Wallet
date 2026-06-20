@@ -1,9 +1,18 @@
 import { useState, useMemo } from 'react'
 import APP_HUB, { AppEntry } from '../data/app-hub'
+import { HeaderToolbar } from '../components/HeaderToolbar'
 
 const ALL = 'All'
 
-export function AppHubPage() {
+interface TabProps {
+  onWcOpen?: () => void
+  wcActiveSessions?: number
+  wcPending?: boolean
+  onProfile?: () => void
+  onSettings?: () => void
+}
+
+export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: TabProps) {
   const [chainFilter, setChainFilter]       = useState<string>(ALL)
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
   const [search, setSearch]                 = useState('')
@@ -37,9 +46,18 @@ export function AppHubPage() {
   return (
     <div className="apphub-page">
       {/* ── Header ───────────────────────────────────────────── */}
-      <div className="apphub-header">
-        <h2 className="apphub-title">App Hub</h2>
-        <span className="apphub-count">{APP_HUB.apps.length} apps</span>
+      <div className="apphub-header" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <h2 className="apphub-title">App Hub</h2>
+          <span className="apphub-count">{APP_HUB.apps.length} apps</span>
+        </div>
+        <HeaderToolbar
+          onWcOpen={onWcOpen}
+          wcActiveSessions={wcActiveSessions}
+          wcPending={wcPending}
+          onProfile={onProfile}
+          onSettings={onSettings}
+        />
       </div>
 
       {/* ── Search ───────────────────────────────────────────── */}

@@ -41,6 +41,8 @@ import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
+import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from './swap-fetcher'
+import { executeEvmSwap, type SwapExecuteParams } from './swap-executor'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
 import {
   wcGetSessions, wcGetPendingProposals,
@@ -286,6 +288,20 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+  })
+
+  // ── Cross-chain swap (SwapKit REST) ──────────────────────────────────────
+  ipcMain.handle('wallet:swap-quote', async (_e, params: SwapQuoteParams) => {
+    return fetchSwapQuote(params, loadConfig())
+  })
+
+  ipcMain.handle('wallet:swap-execute', async (_e, params: SwapExecuteParams) => {
+    const stored = await getFullAddresses()
+    return executeEvmSwap(params, loadMnemonic(), loadConfig(), stored.accountIndex ?? 0)
+  })
+
+  ipcMain.handle('wallet:swap-track', async (_e, hash: string, chainId: string) => {
+    return trackSwap(hash, chainId, loadConfig())
   })
 
   // ── NFT floor price via OpenSea (EVM) ─────────────────────────────────────

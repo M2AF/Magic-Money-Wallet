@@ -3,7 +3,7 @@
  *
  * Fetches recent transaction history for all supported chains.
  * - Alchemy:    all EVM chains with alchemyNetwork set (15 chains)
- * - Blockscout: monad (monadexplorer.com — Moralis not available)
+ * - Moralis:    monad (v2.2 wallet history, chain 0x8f) → Blockscout fallback
  * - Helius:     solana
  * - Blockfrost: cardano
  */
@@ -453,13 +453,75 @@ async function fetchPolkadotHistory(address: string): Promise<ChainHistory> {
   }
 }
 
+// ─── Monad via Moralis (mirrors ChainLens) ────────────────────────────────────
+
+type MoralisTx = {
+  hash?: string
+  transaction_hash?: string
+  from_address?: string
+  to_address?: string | null
+  value?: string
+  block_timestamp?: string
+}
+
+async function fetchMoralisMonadHistory(
+  address: string,
+  moralisKey: string,
+  explorerBase: string,
+  fallback?: () => Promise<ChainHistory>
+): Promise<ChainHistory> {
+  if (!moralisKey) return fallback ? fallback() : { records: [], error: 'No Moralis key' }
+
+  try {
+    const res = await fetch(
+      `https://deep-index.moralis.io/api/v2.2/${address}/history?chain=0x8f&order=DESC&limit=10`,
+      { headers: { accept: 'application/json', 'X-API-Key': moralisKey }, signal: AbortSignal.timeout(10_000) }
+    )
+    if (!res.ok) {
+      return fallback ? fallback() : { records: [], error: `Moralis ${res.status}` }
+    }
+
+    const json = await res.json() as { result?: MoralisTx[] }
+    const addr = address.toLowerCase()
+
+    const records: TxRecord[] = (json.result ?? [])
+      .filter(tx => tx.block_timestamp)
+      .slice(0, 10)
+      .map(tx => {
+        const hash = tx.hash ?? tx.transaction_hash ?? ''
+        const from = tx.from_address?.toLowerCase() ?? ''
+        const to   = tx.to_address?.toLowerCase() ?? null
+        let direction: 'in' | 'out' | 'self' = 'self'
+        if (from === addr && to !== addr) direction = 'out'
+        else if (to === addr && from !== addr) direction = 'in'
+
+        const value = parseFloat(tx.value ?? '0') / 1e18
+        return {
+          hash,
+          direction,
+          amount: value > 0 ? value.toFixed(6) : null,
+          symbol: 'MON',
+          timestamp: tx.block_timestamp ? new Date(tx.block_timestamp).getTime() : 0,
+          counterparty: direction === 'out' ? (tx.to_address ?? null) : (tx.from_address ?? null),
+          explorerUrl: `${explorerBase}/${hash}`
+        }
+      })
+
+    // Moralis returned nothing usable — fall back to the block explorer
+    if (records.length === 0 && fallback) return fallback()
+    return { records, error: null }
+  } catch {
+    return fallback ? fallback() : { records: [], error: 'Network error' }
+  }
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllHistory(
   addresses: { evm: string; solana: string; cardano: string | null; bitcoin?: string; polkadot?: string },
   config: WalletConfig
 ): Promise<AllHistory> {
-  // Monad handled via Tatum (with Blockscout fallback); all others via Alchemy or Blockscout
+  // Monad handled via Moralis (with Blockscout fallback); all others via Alchemy or Blockscout
   const alchemyChains    = EVM_CHAINS.filter(c => c.alchemyNetwork)
   const blockscoutChains = EVM_CHAINS.filter(c => c.blockscoutUrl && !c.alchemyNetwork && c.id !== 'monad')
   const etherscanChains  = EVM_CHAINS.filter(c => c.etherscanApiUrl && !c.alchemyNetwork && !c.blockscoutUrl)
@@ -472,9 +534,9 @@ export async function fetchAllHistory(
     )),
     ...blockscoutChains.map(c => fetchBlockscoutHistory(addresses.evm, c.blockscoutUrl!, c.nativeSymbol)),
     ...etherscanChains.map(c  => fetchEtherscanHistory(addresses.evm, c.etherscanApiUrl!, c.nativeSymbol, c.explorerTx)),
-    // Monad: Tatum → Blockscout fallback
-    fetchTatumHistory(
-      addresses.evm, config.tatumKey, 'monad', 'MON', 'https://monadexplorer.com/tx',
+    // Monad: Moralis (proven via NFTs) → Blockscout fallback
+    fetchMoralisMonadHistory(
+      addresses.evm, config.moralisKey, 'https://monadexplorer.com/tx',
       () => fetchBlockscoutHistory(addresses.evm, 'https://monadexplorer.com', 'MON')
     ),
     fetchSolanaHistory(addresses.solana, config.heliusKey),

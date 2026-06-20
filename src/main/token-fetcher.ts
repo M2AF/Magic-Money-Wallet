@@ -74,6 +74,7 @@ const NATIVE_CG: Record<string, string> = {
   soneium: 'ethereum',     worldchain: 'ethereum',  zora: 'ethereum',
   polygon: 'matic-network', avalanche: 'avalanche-2',
   gnosis: 'xdai',          apechain: 'apecoin',     ronin: 'ronin',
+  monad: 'monad',
   solana: 'solana',        cardano: 'cardano',
 }
 
@@ -82,7 +83,7 @@ const NATIVE_SYMBOL: Record<string, string> = {
   ethereum: 'ETH',  arbitrum: 'ETH',  optimism: 'ETH', base: 'ETH',
   blast: 'ETH',     abstract: 'ETH',  soneium: 'ETH',  worldchain: 'ETH', zora: 'ETH',
   polygon: 'POL',   avalanche: 'AVAX', gnosis: 'xDAI',
-  apechain: 'APE',  ronin: 'RON',
+  apechain: 'APE',  ronin: 'RON',     monad: 'MON',
   solana: 'SOL',    cardano: 'ADA',
 }
 
@@ -91,8 +92,16 @@ const DS_CHAIN: Record<string, string> = {
   ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
   polygon: 'polygon',   avalanche: 'avalanche', blast: 'blast',    gnosis: 'gnosis',
   abstract: 'abstract', apechain: 'apechain',   ronin: 'ronin',    soneium: 'soneium',
-  worldchain: 'worldchain', zora: 'zora',       solana: 'solana',
+  worldchain: 'worldchain', zora: 'zora',       monad: 'monad',    solana: 'solana',
 }
+
+// DefiLlama Coins API chain slugs — free, no key. Used to backfill prices for
+// chains where DexScreener coverage is thin (notably Monad, which is new).
+const LLAMA_CHAIN: Record<string, string> = {
+  monad: 'monad',
+}
+
+const NATIVE_ADDR = '0x0000000000000000000000000000000000000000'
 
 // TrustWallet chain slugs for logo fallback
 const TW_CHAIN: Record<string, string> = {
@@ -191,6 +200,32 @@ async function fetchDexScreenerChain(
         if (!existing || liq > (existing as DsResult & { liq?: number }).liq!) {
           out.set(addr, { priceUsd: price, imageUrl: normalizeImageUrl(pair.info?.imageUrl ?? null) })
         }
+      }
+    } catch { /* skip chunk */ }
+  }
+  return out
+}
+
+// ─── DefiLlama price fallback (batched) ──────────────────────────────────────
+// Mirrors ChainLens: when DexScreener can't price a token (common on Monad),
+// query DefiLlama's free Coins API. One request covers many tokens:
+//   https://coins.llama.fi/prices/current/monad:0xabc,monad:0xdef
+async function fetchLlamaPrices(chainId: string, addresses: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>()
+  const slug = LLAMA_CHAIN[chainId]
+  if (!slug || addresses.length === 0) return out
+
+  for (let i = 0; i < addresses.length; i += 50) {
+    const ids = addresses.slice(i, i + 50).map(a => `${slug}:${a}`).join(',')
+    try {
+      const res = await fetch(`https://coins.llama.fi/prices/current/${ids}`, {
+        signal: AbortSignal.timeout(8_000)
+      })
+      if (!res.ok) continue
+      const json = await res.json() as { coins?: Record<string, { price?: number }> }
+      for (const [k, v] of Object.entries(json.coins ?? {})) {
+        const addr = k.split(':')[1]?.toLowerCase()
+        if (addr && v?.price) out.set(addr, v.price)
       }
     } catch { /* skip chunk */ }
   }
@@ -423,11 +458,32 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
     })
   )
 
+  // DefiLlama backfill for chains with thin DexScreener coverage (Monad).
+  // Only query ERC-20s (skip the native placeholder) still missing a price.
+  await Promise.all(
+    chains.filter(c => LLAMA_CHAIN[c]).map(async chainId => {
+      const missing = tokens
+        .filter(t => t.chain === chainId
+          && t.contractAddress.toLowerCase() !== NATIVE_ADDR
+          && !(dsPrices.get(`${chainId}:${t.contractAddress.toLowerCase()}`)?.priceUsd))
+        .map(t => t.contractAddress)
+      const llama = await fetchLlamaPrices(chainId, missing)
+      for (const [addr, price] of llama) {
+        const k = `${chainId}:${addr}`
+        const existing = dsPrices.get(k)
+        dsPrices.set(k, { priceUsd: price, imageUrl: existing?.imageUrl ?? null })
+      }
+    })
+  )
+
   return tokens.map(t => {
     const key = `${t.chain}:${t.contractAddress.toLowerCase()}`
     const ds = dsPrices.get(key)
-    const tokenPriceUsd = ds?.priceUsd ?? 0
     const nativePriceUsd = getNativePrice(t.chain)
+    // Native coins (0x0 placeholder) aren't on DexScreener — price them off the
+    // chain's native CoinGecko price instead.
+    const isNative = t.contractAddress.toLowerCase() === NATIVE_ADDR
+    const tokenPriceUsd = isNative ? nativePriceUsd : (ds?.priceUsd ?? 0)
 
     const balNum  = parseBalance(t.balance)
     const totalUsd  = balNum * tokenPriceUsd
@@ -512,7 +568,9 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
         name: t.name, symbol: t.symbol, decimals: t.decimals,
         balance: bal.toLocaleString('en-US', { maximumFractionDigits: 6 }),
         usdValue: null, nativeEquivalent: null, nativeSymbol: 'MON',
-        logoUri: trustWalletUrl('ethereum', t.address), // fallback TW lookup
+        // Leave null — TrustWallet has no Monad assets. enrichWithPrices fills
+        // this from the token's DexScreener image (same source ChainLens uses).
+        logoUri: null,
         chain: 'monad', chainLabel: 'Monad', chainColor: '#836EF9'
       })
     }

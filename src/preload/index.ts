@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('wallet', {
   getCollectibles: ()                  => ipcRenderer.invoke('wallet:get-collectibles'),
   getNftFloor:     (chain: string, contractAddress: string) =>
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
+  swapQuote:       (params: unknown)   => ipcRenderer.invoke('wallet:swap-quote', params),
+  swapExecute:     (params: unknown)   => ipcRenderer.invoke('wallet:swap-execute', params),
+  swapTrack:       (hash: string, chainId: string) => ipcRenderer.invoke('wallet:swap-track', hash, chainId),
 
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),

@@ -11,6 +11,8 @@ import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
+import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from '../main/swap-fetcher'
+import { executeEvmSwap, type SwapExecuteParams } from '../main/swap-executor'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -283,6 +285,24 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!addresses) throw new Error('No wallet')
       const config = await store.loadConfig()
       return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+    }
+
+    case 'wallet:swap-quote': {
+      const config = await store.loadConfig()
+      return fetchSwapQuote(a0 as SwapQuoteParams, config)
+    }
+
+    case 'wallet:swap-execute': {
+      const addresses = await store.loadAddresses()
+      if (!addresses) throw new Error('No wallet')
+      const config = await store.loadConfig()
+      const mnemonic = await store.loadMnemonic()
+      return executeEvmSwap(a0 as SwapExecuteParams, mnemonic, config, addresses.accountIndex ?? 0)
+    }
+
+    case 'wallet:swap-track': {
+      const config = await store.loadConfig()
+      return trackSwap(String(a0), String(a1), config)
     }
 
     case 'wallet:get-nft-floor':

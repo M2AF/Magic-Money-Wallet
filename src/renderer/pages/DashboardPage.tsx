@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
+import { HeaderToolbar } from '../components/HeaderToolbar'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
 
@@ -182,27 +183,17 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
 // ─── Tokens sub-tab ───────────────────────────────────────────────────────────
 
 interface TokensViewProps {
+  result: TokensResult | null
+  loading: boolean
   hiddenItems: Set<string>
   spamItems: Set<string>
   onHide: (id: string) => void
   onSpam: (id: string) => void
   onShowManager: () => void
-  onTokensLoaded: (tokens: WalletToken[]) => void
 }
 
-function TokensView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onTokensLoaded }: TokensViewProps) {
-  const [result, setResult]   = useState<TokensResult | null>(null)
-  const [loading, setLoading] = useState(true)
+function TokensView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager }: TokensViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
-  const notifiedRef = useRef(false)
-
-  useEffect(() => {
-    window.wallet.getTokens().then(r => {
-      setResult(r)
-      setLoading(false)
-      if (!notifiedRef.current) { notifiedRef.current = true; onTokensLoaded(r.tokens) }
-    })
-  }, [onTokensLoaded])
 
   const hiddenCount = result ? result.tokens.filter(t => hiddenItems.has(tokenKey(t)) || spamItems.has(tokenKey(t))).length : 0
   const visible     = result ? result.tokens.filter(t => !hiddenItems.has(tokenKey(t)) && !spamItems.has(tokenKey(t))) : []
@@ -647,6 +638,8 @@ interface Props {
   onNavigate: (page: AppPage) => void
   onWalletDeleted: () => void
   onWcOpen?: () => void
+  onProfile?: () => void
+  onSettings?: () => void
   wcActiveSessions?: number
   wcPending?: boolean
 }
@@ -678,18 +671,14 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   return addresses.evm
 }
 
-export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcActiveSessions = 0, wcPending = false }: Props) {
+export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }: Props) {
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
   const [loading, setLoading]               = useState(true)
   const [refreshing, setRefreshing]         = useState(false)
   const [history, setHistory]               = useState<AllHistory | null>(null)
   const [accountSwitching, setAccountSwitching] = useState(false)
-  const [showSettings, setShowSettings]     = useState(false)
-  const [showSeed, setShowSeed]             = useState(false)
   const [portfolioTab, setPortfolioTab]     = useState<PortfolioTab>('networks')
-  const [seedWords, setSeedWords]           = useState<string[]>([])
-  const [deleting, setDeleting]             = useState(false)
   const [sendChain, setSendChain]           = useState<string | null>(null)
 
   // Spam filter state — persisted per account
@@ -699,7 +688,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const [hiddenItems, setHiddenItems] = useState<Set<string>>(() => loadSet(hiddenKey))
   const [spamItems,   setSpamItems]   = useState<Set<string>>(() => loadSet(spamKey))
   const [showManager, setShowManager] = useState(false)
-  const [allTokens,   setAllTokens]   = useState<WalletToken[]>([])
+  const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
+  const [tokensLoading, setTokensLoading] = useState(true)
   const [allNfts,     setAllNfts]     = useState<WalletCollectible[]>([])
   const [selectedNft, setSelectedNft] = useState<WalletCollectible | null>(null)
 
@@ -716,7 +706,6 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
     setSpamItems(prev  => { const next = new Set(prev);  next.delete(id); saveSet(spamKey, next);   return next })
   }, [hiddenKey, spamKey])
 
-  const onTokensLoaded  = useCallback((tokens: WalletToken[])      => setAllTokens(tokens),  [])
   const onNftsLoaded    = useCallback((nfts: WalletCollectible[])   => setAllNfts(nfts),      [])
 
   const fetchBalances = useCallback(async (quiet = false) => {
@@ -742,21 +731,36 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
     }
   }, [])
 
+  const fetchTokens = useCallback(async () => {
+    setTokensLoading(true)
+    try {
+      const result = await window.wallet.getTokens()
+      setTokensResult(result)
+    } catch (err) {
+      console.error('Token fetch failed', err)
+    } finally {
+      setTokensLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchBalances()
     fetchHistory()
-  }, [fetchBalances, fetchHistory])
+    fetchTokens()
+  }, [fetchBalances, fetchHistory, fetchTokens])
 
   const switchAccount = async (newIndex: number) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return
     setAccountSwitching(true)
     setBalances(null)
     setHistory(null)
+    setTokensResult(null)
     try {
       const newAddresses = await window.wallet.setAccount(newIndex)
       setLocalAddresses(newAddresses)
       fetchBalances()
       fetchHistory()
+      fetchTokens()
     } catch (err) {
       console.error('Account switch failed', err)
     } finally {
@@ -766,24 +770,22 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
 
   const totalUsd = (() => {
     if (!balances) return null
-    const total = Object.values(balances.chains)
+
+    const chainTotal = Object.values(balances.chains)
       .map(b => b?.usdValue ? parseFloat(b.usdValue.replace(/[$,]/g, '')) : 0)
       .reduce((a, b) => a + b, 0)
+
+    const tokenTotal = (tokensResult?.tokens ?? [])
+      .filter(t => {
+        const k = tokenKey(t)
+        return !hiddenItems.has(k) && !spamItems.has(k)
+      })
+      .map(t => t.usdValue ? parseFloat(t.usdValue.replace(/[$,]/g, '')) : 0)
+      .reduce((a, b) => a + b, 0)
+
+    const total = chainTotal + tokenTotal
     return total > 0 ? `$${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : null
   })()
-
-  const handleRevealSeed = async () => {
-    if (showSeed) { setShowSeed(false); setSeedWords([]); return }
-    const words = await window.wallet.revealSeed()
-    setSeedWords(words)
-    setShowSeed(true)
-  }
-
-  const handleDelete = async () => {
-    if (!deleting) { setDeleting(true); return }
-    await window.wallet.deleteWallet()
-    onWalletDeleted()
-  }
 
   const lastUpdated = balances
     ? new Date(balances.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -807,7 +809,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const activeSendSymbol  = sendChain ? balances?.chains[sendChain]?.symbol ?? sendChain.toUpperCase() : ''
 
   return (
-    <div className="page fade-in" style={{ gap: 16, position: 'relative' }}>
+    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', position: 'relative' }}>
+      {/* Fixed header + divider — keeps the titlebar logo clear of scrolling content */}
+      <div style={{ padding: '24px 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
@@ -846,121 +850,21 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
-          {/* Sidebar toggle — extension only */}
-          {!!(window as any).__EXT_SIDEBAR_FN__ && (
-            <button
-              type="button"
-              onClick={() => (window as any).__EXT_SIDEBAR_FN__?.()}
-              title={(window as any).__SIDE_PANEL__ ? 'Back to popup' : 'Open in sidebar'}
-              style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              {(window as any).__SIDE_PANEL__ ? (
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="2" width="14" height="12" rx="2"/><line x1="5" y1="2" x2="5" y2="14"/>
-                  <polyline points="9,6 12,8 9,10"/>
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="2" width="14" height="12" rx="2"/><line x1="6" y1="2" x2="6" y2="14"/>
-                  <polyline points="10,6 7,8 10,10"/>
-                </svg>
-              )}
-            </button>
-          )}
-          {/* WalletConnect */}
-          {onWcOpen && (
-            <button
-              type="button"
-              onClick={onWcOpen}
-              title="WalletConnect"
-              style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: wcActiveSessions > 0 ? 'var(--accent-dim)' : 'transparent', border: `1px solid ${wcActiveSessions > 0 ? 'var(--border-active)' : 'var(--border)'}`, color: wcActiveSessions > 0 ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
-            >
-              {wcPending && (
-                <span style={{ position: 'absolute', top: 4, right: 4, width: 6, height: 6, borderRadius: '50%', background: '#f97316', boxShadow: '0 0 5px #f97316' }} />
-              )}
-              <svg width="22" height="15" viewBox="0 0 480 360" fill="none" stroke="currentColor" strokeWidth="32" strokeLinecap="round">
-                <path d="M98.3,120.1 C182.3,37.4 325.7,37.4 409.7,120.1 L419.8,130 C430.1,140.2 430.1,156.5 419.8,166.7 L387.9,198.2 C382.7,203.3 374.1,203.3 369,198.2 L355.1,184.5 C299.1,129.4 180.9,129.4 124.9,184.5 L110,198.2 C104.9,203.3 96.3,203.3 91.1,198.2 L60.2,166.7 C49.9,156.5 49.9,140.2 60.2,130 Z"/>
-                <path d="M183.5,204.7 C222.6,166 278.5,166 317.6,204.7 L323.9,210.9 C334.2,221.1 334.2,237.4 323.9,247.6 L292.6,278.5 C287.5,283.6 278.9,283.6 273.7,278.5 L263.4,268.4 C247.3,252.5 232.7,252.5 216.6,268.4 L206.3,278.5 C201.1,283.6 192.5,283.6 187.4,278.5 L156.1,247.6 C145.8,237.4 145.8,221.1 156.1,210.9 Z"/>
-              </svg>
-            </button>
-          )}
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={() => { fetchBalances(true); fetchHistory() }}
-            disabled={refreshing || loading}
-            title="Refresh balances"
-            style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: 'var(--accent-dim)', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: refreshing ? 0.5 : 1, transition: 'opacity var(--transition)' }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>
-              <polyline points="23 4 23 10 17 10"/>
-              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-            </svg>
-          </button>
-          {/* Settings */}
-          <button
-            onClick={() => setShowSettings(s => !s)}
-            title="Settings"
-            style={{ width: 34, height: 34, borderRadius: 'var(--radius-sm)', background: showSettings ? 'var(--accent-dim)' : 'transparent', border: `1px solid ${showSettings ? 'var(--border-active)' : 'var(--border)'}`, color: showSettings ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-        </div>
+        <HeaderToolbar
+          onWcOpen={onWcOpen}
+          wcActiveSessions={wcActiveSessions}
+          wcPending={wcPending}
+          onRefresh={() => { fetchBalances(true); fetchHistory() }}
+          refreshing={refreshing}
+          onProfile={onProfile}
+          onSettings={onSettings}
+        />
       </div>
+      </div>{/* end fixed header */}
 
-      {/* Settings panel */}
-      {showSettings && (
-        <div className="card fade-in" style={{ gap: 16, display: 'flex', flexDirection: 'column' }}>
-          <p className="label">Security</p>
+      {/* Scrollable content */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px 16px', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
 
-          <div>
-            <button
-              className="btn btn-ghost"
-              onClick={handleRevealSeed}
-              style={{ fontSize: 13, padding: '10px 16px' }}
-            >
-              {showSeed ? 'Hide Seed Phrase' : '🔑 Reveal Seed Phrase'}
-            </button>
-            {showSeed && seedWords.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <div className="warning-box" style={{ marginBottom: 10 }}>
-                  <span className="warning-icon">⚠️</span>
-                  <span>Keep this private. Anyone with these words owns your wallet.</span>
-                </div>
-                <div className="seed-grid">
-                  {seedWords.map((w, i) => (
-                    <div key={i} className="seed-word">
-                      <span className="seed-word-num">{i + 1}</span>
-                      <span className="seed-word-text">{w}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="divider" />
-
-          <div>
-            <button
-              className="btn btn-danger"
-              onClick={handleDelete}
-              style={{ fontSize: 13, padding: '10px 16px' }}
-            >
-              {deleting ? '⚠️ Click again to permanently delete wallet' : '🗑 Delete Wallet'}
-            </button>
-            {deleting && (
-              <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
-                This will wipe your encrypted seed from this device. Make sure you have your phrase backed up.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Portfolio sub-tab bar */}
       <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
@@ -998,12 +902,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       ))}
       {portfolioTab === 'tokens' && (
         <TokensView
+          result={tokensResult}
+          loading={tokensLoading}
           hiddenItems={hiddenItems}
           spamItems={spamItems}
           onHide={hideItem}
           onSpam={markSpam}
           onShowManager={() => setShowManager(true)}
-          onTokensLoaded={onTokensLoaded}
         />
       )}
       {portfolioTab === 'collectibles' && (
@@ -1017,6 +922,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
           onSelectNft={setSelectedNft}
         />
       )}
+
+      </div>{/* end scrollable content */}
 
       {selectedNft && (
         <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} />
@@ -1037,7 +944,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
         <SpamManagerModal
           hiddenItems={hiddenItems}
           spamItems={spamItems}
-          allTokens={allTokens}
+          allTokens={tokensResult?.tokens ?? []}
           allNfts={allNfts}
           onRestore={restoreItem}
           onClose={() => setShowManager(false)}

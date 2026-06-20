@@ -8,8 +8,10 @@ import { ConfirmPage } from './pages/ConfirmPage'
 import { ImportPage } from './pages/ImportPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { MarketPage } from './pages/MarketPage'
+import { SwapPage } from './pages/SwapPage'
 import { AppHubPage } from './pages/AppHubPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
 
 export function App() {
@@ -20,6 +22,16 @@ export function App() {
   const [wcPanelOpen, setWcPanelOpen] = useState(false)
   const [wcActiveSessions, setWcActiveSessions] = useState(0)
   const [wcPending, setWcPending] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
+
+  // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
+  const toolbarProps = {
+    onWcOpen: () => setWcPanelOpen(true),
+    onProfile: () => setActiveTab('profile'),
+    onSettings: () => setShowSettings(true),
+    wcActiveSessions,
+    wcPending,
+  }
 
   useEffect(() => {
     window.wallet.isSetup().then(exists => {
@@ -75,13 +87,20 @@ export function App() {
           addresses={addresses}
           onNavigate={setPage}
           onWalletDeleted={() => { setAddresses(null); setPage('welcome') }}
-          onWcOpen={() => setWcPanelOpen(true)}
-          wcActiveSessions={wcActiveSessions}
-          wcPending={wcPending}
+          {...toolbarProps}
         />
       )}
-      {inDashboard && addresses && activeTab === 'market' && <MarketPage />}
-      {inDashboard && activeTab === 'apphub' && <AppHubPage />}
+      {inDashboard && addresses && activeTab === 'market' && <MarketPage {...toolbarProps} />}
+      {inDashboard && addresses && activeTab === 'swap' && <SwapPage addresses={addresses} {...toolbarProps} />}
+      {inDashboard && activeTab === 'apphub' && <AppHubPage {...toolbarProps} />}
+
+      {/* Global settings sheet — opened from any tab's header toolbar */}
+      {inDashboard && showSettings && (
+        <SettingsModal
+          onClose={() => setShowSettings(false)}
+          onDeleteWallet={() => { setShowSettings(false); setAddresses(null); setPage('welcome') }}
+        />
+      )}
       {inDashboard && activeTab === 'profile' && <ProfilePage />}
 
       {/* WalletConnect manager — proposal/request modals + session panel */}
@@ -124,6 +143,20 @@ export function App() {
 
           <button
             type="button"
+            className={`bottom-nav-btn${activeTab === 'swap' ? ' active' : ''}`}
+            onClick={() => setActiveTab('swap')}
+          >
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+              <polyline points="17 1 21 5 17 9"/>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+            Swap
+          </button>
+
+          <button
+            type="button"
             className={`bottom-nav-btn${activeTab === 'apphub' ? ' active' : ''}`}
             onClick={() => setActiveTab('apphub')}
           >
@@ -134,18 +167,6 @@ export function App() {
               <rect x="14" y="14" width="7" height="7" rx="1.5"/>
             </svg>
             Apps
-          </button>
-
-          <button
-            type="button"
-            className={`bottom-nav-btn${activeTab === 'profile' ? ' active' : ''}`}
-            onClick={() => setActiveTab('profile')}
-          >
-            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
-              <circle cx="12" cy="8" r="4"/>
-              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-            Profile
           </button>
 
           {/* Browser / ChainLens — opens a detached popup in Electron; new tab in extension */}

@@ -67755,38 +67755,6 @@ async function fetchEtherscanHistory(address, apiUrl, symbol, explorerBase) {
     return { records: [], error: String(err) };
   }
 }
-async function fetchTatumHistory(address, tatumKey, chain2, symbol, explorerBase, fallback) {
-  if (!tatumKey) {
-    return fallback ? fallback() : { records: [], error: "No Tatum key" };
-  }
-  try {
-    const res = await fetch(
-      `https://api.tatum.io/v4/data/transaction/history?chain=${chain2}&addresses=${address}&pageSize=10`,
-      { headers: { "x-api-key": tatumKey }, signal: AbortSignal.timeout(1e4) }
-    );
-    if (!res.ok) {
-      return fallback ? fallback() : { records: [], error: `Tatum ${res.status}` };
-    }
-    const json = await res.json();
-    const records = (json.data ?? []).slice(0, 10).map((tx) => {
-      const direction = tx.transactionSubtype === "incoming" ? "in" : tx.transactionSubtype === "outgoing" ? "out" : "self";
-      const abs2 = Math.abs(parseFloat(tx.amount ?? "0"));
-      const ts = tx.timestamp > 1e12 ? tx.timestamp : tx.timestamp * 1e3;
-      return {
-        hash: tx.hash,
-        direction,
-        amount: abs2 > 0 ? abs2.toFixed(8) : null,
-        symbol,
-        timestamp: ts,
-        counterparty: tx.counterAddress ?? null,
-        explorerUrl: `${explorerBase}/${tx.hash}`
-      };
-    });
-    return { records, error: null };
-  } catch {
-    return fallback ? fallback() : { records: [], error: "Network error" };
-  }
-}
 async function fetchSolanaHistory(address, heliusKey) {
   try {
     const res = await fetch(
@@ -67933,6 +67901,43 @@ async function fetchPolkadotHistory(address) {
     return { records: [], error: String(err) };
   }
 }
+async function fetchMoralisMonadHistory(address, moralisKey, explorerBase, fallback) {
+  if (!moralisKey) return fallback ? fallback() : { records: [], error: "No Moralis key" };
+  try {
+    const res = await fetch(
+      `https://deep-index.moralis.io/api/v2.2/${address}/history?chain=0x8f&order=DESC&limit=10`,
+      { headers: { accept: "application/json", "X-API-Key": moralisKey }, signal: AbortSignal.timeout(1e4) }
+    );
+    if (!res.ok) {
+      return fallback ? fallback() : { records: [], error: `Moralis ${res.status}` };
+    }
+    const json = await res.json();
+    const addr = address.toLowerCase();
+    const records = (json.result ?? []).filter((tx) => tx.block_timestamp).slice(0, 10).map((tx) => {
+      var _a, _b;
+      const hash2 = tx.hash ?? tx.transaction_hash ?? "";
+      const from2 = ((_a = tx.from_address) == null ? void 0 : _a.toLowerCase()) ?? "";
+      const to2 = ((_b = tx.to_address) == null ? void 0 : _b.toLowerCase()) ?? null;
+      let direction = "self";
+      if (from2 === addr && to2 !== addr) direction = "out";
+      else if (to2 === addr && from2 !== addr) direction = "in";
+      const value = parseFloat(tx.value ?? "0") / 1e18;
+      return {
+        hash: hash2,
+        direction,
+        amount: value > 0 ? value.toFixed(6) : null,
+        symbol: "MON",
+        timestamp: tx.block_timestamp ? new Date(tx.block_timestamp).getTime() : 0,
+        counterparty: direction === "out" ? tx.to_address ?? null : tx.from_address ?? null,
+        explorerUrl: `${explorerBase}/${hash2}`
+      };
+    });
+    if (records.length === 0 && fallback) return fallback();
+    return { records, error: null };
+  } catch {
+    return fallback ? fallback() : { records: [], error: "Network error" };
+  }
+}
 async function fetchAllHistory(addresses, config) {
   const alchemyChains = EVM_CHAINS$1.filter((c2) => c2.alchemyNetwork);
   const blockscoutChains = EVM_CHAINS$1.filter((c2) => c2.blockscoutUrl && !c2.alchemyNetwork && c2.id !== "monad");
@@ -67945,12 +67950,10 @@ async function fetchAllHistory(addresses, config) {
     )),
     ...blockscoutChains.map((c2) => fetchBlockscoutHistory(addresses.evm, c2.blockscoutUrl, c2.nativeSymbol)),
     ...etherscanChains.map((c2) => fetchEtherscanHistory(addresses.evm, c2.etherscanApiUrl, c2.nativeSymbol, c2.explorerTx)),
-    // Monad: Tatum → Blockscout fallback
-    fetchTatumHistory(
+    // Monad: Moralis (proven via NFTs) → Blockscout fallback
+    fetchMoralisMonadHistory(
       addresses.evm,
-      config.tatumKey,
-      "monad",
-      "MON",
+      config.moralisKey,
       "https://monadexplorer.com/tx",
       () => fetchBlockscoutHistory(addresses.evm, "https://monadexplorer.com", "MON")
     ),
@@ -82508,6 +82511,7 @@ const NATIVE_CG = {
   gnosis: "xdai",
   apechain: "apecoin",
   ronin: "ronin",
+  monad: "monad",
   solana: "solana",
   cardano: "cardano"
 };
@@ -82526,6 +82530,7 @@ const NATIVE_SYMBOL = {
   gnosis: "xDAI",
   apechain: "APE",
   ronin: "RON",
+  monad: "MON",
   solana: "SOL",
   cardano: "ADA"
 };
@@ -82544,8 +82549,13 @@ const DS_CHAIN = {
   soneium: "soneium",
   worldchain: "worldchain",
   zora: "zora",
+  monad: "monad",
   solana: "solana"
 };
+const LLAMA_CHAIN = {
+  monad: "monad"
+};
+const NATIVE_ADDR = "0x0000000000000000000000000000000000000000";
 const TW_CHAIN = {
   ethereum: "ethereum",
   arbitrum: "arbitrum",
@@ -82621,6 +82631,28 @@ async function fetchDexScreenerChain(chainId, addresses) {
         if (!existing || liq > existing.liq) {
           out.set(addr, { priceUsd: price, imageUrl: normalizeImageUrl(((_b = pair.info) == null ? void 0 : _b.imageUrl) ?? null) });
         }
+      }
+    } catch {
+    }
+  }
+  return out;
+}
+async function fetchLlamaPrices(chainId, addresses) {
+  var _a;
+  const out = /* @__PURE__ */ new Map();
+  const slug = LLAMA_CHAIN[chainId];
+  if (!slug || addresses.length === 0) return out;
+  for (let i2 = 0; i2 < addresses.length; i2 += 50) {
+    const ids = addresses.slice(i2, i2 + 50).map((a2) => `${slug}:${a2}`).join(",");
+    try {
+      const res = await fetch(`https://coins.llama.fi/prices/current/${ids}`, {
+        signal: AbortSignal.timeout(8e3)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      for (const [k2, v6] of Object.entries(json.coins ?? {})) {
+        const addr = (_a = k2.split(":")[1]) == null ? void 0 : _a.toLowerCase();
+        if (addr && (v6 == null ? void 0 : v6.price)) out.set(addr, v6.price);
       }
     } catch {
     }
@@ -82812,11 +82844,26 @@ async function enrichWithPrices(tokens) {
       }
     })
   );
+  await Promise.all(
+    chains.filter((c2) => LLAMA_CHAIN[c2]).map(async (chainId) => {
+      const missing = tokens.filter((t) => {
+        var _a;
+        return t.chain === chainId && t.contractAddress.toLowerCase() !== NATIVE_ADDR && !((_a = dsPrices.get(`${chainId}:${t.contractAddress.toLowerCase()}`)) == null ? void 0 : _a.priceUsd);
+      }).map((t) => t.contractAddress);
+      const llama = await fetchLlamaPrices(chainId, missing);
+      for (const [addr, price] of llama) {
+        const k2 = `${chainId}:${addr}`;
+        const existing = dsPrices.get(k2);
+        dsPrices.set(k2, { priceUsd: price, imageUrl: (existing == null ? void 0 : existing.imageUrl) ?? null });
+      }
+    })
+  );
   return tokens.map((t) => {
     const key2 = `${t.chain}:${t.contractAddress.toLowerCase()}`;
     const ds = dsPrices.get(key2);
-    const tokenPriceUsd = (ds == null ? void 0 : ds.priceUsd) ?? 0;
     const nativePriceUsd = getNativePrice(t.chain);
+    const isNative = t.contractAddress.toLowerCase() === NATIVE_ADDR;
+    const tokenPriceUsd = isNative ? nativePriceUsd : (ds == null ? void 0 : ds.priceUsd) ?? 0;
     const balNum = parseBalance(t.balance);
     const totalUsd = balNum * tokenPriceUsd;
     const nativeEq = nativePriceUsd > 0 ? totalUsd / nativePriceUsd : 0;
@@ -82895,8 +82942,9 @@ async function fetchMonadTokens(address) {
         usdValue: null,
         nativeEquivalent: null,
         nativeSymbol: "MON",
-        logoUri: trustWalletUrl("ethereum", t.address),
-        // fallback TW lookup
+        // Leave null — TrustWallet has no Monad assets. enrichWithPrices fills
+        // this from the token's DexScreener image (same source ChainLens uses).
+        logoUri: null,
         chain: "monad",
         chainLabel: "Monad",
         chainColor: "#836EF9"
@@ -83184,6 +83232,115 @@ async function fetchAllCollectibles(evmAddress, cardanoAddress, config) {
     return { items, fetchedAt: Date.now(), error: null, chainResults };
   } catch (e2) {
     return { items: [], fetchedAt: Date.now(), error: String(e2), chainResults: {} };
+  }
+}
+const SWAPKIT_API = "https://api.swapkit.dev";
+function normalizeRoute(r2) {
+  var _a;
+  return {
+    routeId: r2.routeId ?? "",
+    providers: r2.providers ?? [],
+    sellAsset: r2.sellAsset ?? "",
+    buyAsset: r2.buyAsset ?? "",
+    sellAmount: r2.sellAmount ?? "",
+    expectedBuyAmount: r2.expectedBuyAmount ?? "",
+    expectedBuyAmountMaxSlippage: r2.expectedBuyAmountMaxSlippage ?? "",
+    estimatedTime: r2.estimatedTime ?? null,
+    totalSlippageBps: r2.totalSlippageBps ?? null,
+    fees: r2.fees ?? [],
+    tags: ((_a = r2.meta) == null ? void 0 : _a.tags) ?? []
+  };
+}
+async function fetchSwapTx(params, config) {
+  if (!params.routeId || !params.sourceAddress || !params.destinationAddress) {
+    return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: "Missing swap build parameters." };
+  }
+  try {
+    const res = await fetch(`${SWAPKIT_API}/v3/swap`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": config.swapKitApiKey },
+      body: JSON.stringify({
+        routeId: params.routeId,
+        sourceAddress: params.sourceAddress,
+        destinationAddress: params.destinationAddress
+      }),
+      signal: AbortSignal.timeout(25e3)
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: `SwapKit ${res.status}${body ? `: ${body.slice(0, 180)}` : ""}` };
+    }
+    const json = await res.json();
+    if (json.error) return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: json.error };
+    return {
+      swapId: json.swapId ?? null,
+      txType: json.txType ?? null,
+      tx: json.tx ?? null,
+      approvalTx: json.approvalTx ?? null,
+      targetAddress: json.targetAddress ?? null,
+      error: null
+    };
+  } catch (e2) {
+    return { swapId: null, txType: null, tx: null, approvalTx: null, targetAddress: null, error: e2 instanceof Error ? e2.message : "Network error" };
+  }
+}
+async function trackSwap(hash2, chainId, config) {
+  if (!hash2) return { status: null, hash: null, error: "Missing tx hash." };
+  try {
+    const res = await fetch(`${SWAPKIT_API}/track`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": config.swapKitApiKey },
+      body: JSON.stringify({ hash: hash2, chainId }),
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!res.ok) return { status: null, hash: hash2, error: `SwapKit ${res.status}` };
+    const json = await res.json();
+    if (json.error) return { status: null, hash: hash2, error: json.error };
+    return { status: json.status ?? null, hash: json.hash ?? hash2, error: null };
+  } catch (e2) {
+    return { status: null, hash: hash2, error: e2 instanceof Error ? e2.message : "Network error" };
+  }
+}
+async function fetchSwapQuote(params, config) {
+  const { sellAsset, buyAsset, sellAmount } = params;
+  if (!sellAsset || !buyAsset || !sellAmount) {
+    return { quoteId: null, routes: [], error: "Select both assets and an amount." };
+  }
+  if (sellAsset === buyAsset) {
+    return { quoteId: null, routes: [], error: "Choose two different assets." };
+  }
+  if (!(parseFloat(sellAmount) > 0)) {
+    return { quoteId: null, routes: [], error: "Enter an amount greater than zero." };
+  }
+  try {
+    const res = await fetch(`${SWAPKIT_API}/v3/quote`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": config.swapKitApiKey
+      },
+      body: JSON.stringify({
+        sellAsset,
+        buyAsset,
+        sellAmount,
+        slippage: params.slippage ?? 3
+      }),
+      signal: AbortSignal.timeout(2e4)
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      return { quoteId: null, routes: [], error: `SwapKit ${res.status}${body ? `: ${body.slice(0, 180)}` : ""}` };
+    }
+    const json = await res.json();
+    if (json.error) return { quoteId: null, routes: [], error: json.error };
+    const routes = (json.routes ?? []).map(normalizeRoute).filter((r2) => r2.routeId);
+    if (routes.length === 0) {
+      return { quoteId: json.quoteId ?? null, routes: [], error: "No routes available for this pair." };
+    }
+    return { quoteId: json.quoteId ?? null, routes, error: null };
+  } catch (e2) {
+    const msg = e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
+    return { quoteId: null, routes: [], error: msg };
   }
 }
 const contracts = {
@@ -83733,6 +83890,33 @@ async function sendEvmTransaction(mnemonic, to2, amountEth, config, chainId = "e
   });
   return { txHash: hash2, explorerUrl: `${entry.explorer}/${hash2}` };
 }
+function evmEntryByChainId(chainId) {
+  for (const entry of Object.values(EVM_CHAINS)) {
+    if (entry.chain.id === chainId) return entry;
+  }
+  return null;
+}
+const toBig = (v6) => v6 == null || v6 === "" || v6 === "0x" ? void 0 : BigInt(v6);
+async function sendRawEvmTransaction(mnemonic, tx, config, accountIndex = 0) {
+  const entry = evmEntryByChainId(tx.chainId);
+  if (!entry) throw new Error(`Unsupported EVM network (chainId ${tx.chainId}) — can't sign here yet.`);
+  const pk = await getEvmPrivateKey(mnemonic, accountIndex);
+  const account = privateKeyToAccount(pk);
+  const walletClient = createWalletClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)), account });
+  const hash2 = await walletClient.sendTransaction({
+    to: tx.to,
+    data: tx.data && tx.data !== "0x" ? tx.data : void 0,
+    value: toBig(tx.value) ?? 0n,
+    gas: toBig(tx.gas)
+  });
+  return { txHash: hash2, explorerUrl: `${entry.explorer}/${hash2}` };
+}
+async function waitForEvmReceipt(chainId, hash2, config) {
+  const entry = evmEntryByChainId(chainId);
+  if (!entry) return;
+  const client = createPublicClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)) });
+  await client.waitForTransactionReceipt({ hash: hash2, timeout: 12e4 });
+}
 async function estimateSolanaFee(config) {
   var _a;
   const feeLamports = 5e3;
@@ -83860,6 +84044,57 @@ async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAd
     explorerUrl: `https://cardanoscan.io/transaction/${txHash}`
   };
 }
+const SK_EVM_CHAIN_ID = {
+  ETH: 1,
+  AVAX: 43114,
+  ARB: 42161,
+  OP: 10,
+  BASE: 8453,
+  MATIC: 137,
+  POLYGON: 137,
+  BSC: 56,
+  BLAST: 81457,
+  GNOSIS: 100
+};
+async function executeEvmSwap(params, mnemonic, config, accountIndex = 0) {
+  var _a;
+  const built = await fetchSwapTx(
+    { routeId: params.routeId, sourceAddress: params.sourceAddress, destinationAddress: params.destinationAddress },
+    config
+  );
+  if (built.error) throw new Error(built.error);
+  const sellChain = params.sellAsset.split(".")[0];
+  if (built.txType && built.txType !== "EVM") {
+    throw new Error(`Signing from ${sellChain} isn't supported in-wallet yet — only EVM-source swaps (e.g. ETH, AVAX) can be executed. The quote is still valid; complete it from an EVM asset.`);
+  }
+  const tx = built.tx;
+  if (!tx || typeof tx === "string" || !tx.to) {
+    throw new Error("SwapKit did not return a signable EVM transaction for this route.");
+  }
+  const chainId = tx.chainId ?? SK_EVM_CHAIN_ID[sellChain];
+  if (!chainId) throw new Error(`Could not resolve the EVM network for ${sellChain}.`);
+  let approvalTxHash = null;
+  if ((_a = built.approvalTx) == null ? void 0 : _a.to) {
+    const apprChainId = built.approvalTx.chainId ?? chainId;
+    const appr = await sendRawEvmTransaction(mnemonic, {
+      to: built.approvalTx.to,
+      data: built.approvalTx.data,
+      value: built.approvalTx.value,
+      gas: built.approvalTx.gas,
+      chainId: apprChainId
+    }, config, accountIndex);
+    approvalTxHash = appr.txHash;
+    await waitForEvmReceipt(apprChainId, appr.txHash, config);
+  }
+  const main = await sendRawEvmTransaction(mnemonic, {
+    to: tx.to,
+    data: tx.data,
+    value: tx.value,
+    gas: tx.gas,
+    chainId
+  }, config, accountIndex);
+  return { txHash: main.txHash, explorerUrl: main.explorerUrl, chainId, approvalTxHash };
+}
 async function syncWallets() {
   return { success: false, profile: null, error: "ChainLens sync not available in extension" };
 }
@@ -83878,7 +84113,8 @@ const DEFAULT_CONFIG = {
   openseaKey: "REDACTED_OPENSEA_KEY",
   supabaseUrl: "https://REDACTED_SUPABASE_PROJECT.supabase.co",
   supabaseKey: "REDACTED_SUPABASE_SECRET",
-  walletConnectProjectId: "1db049748ab5fecc3a39e64fbc11a41c"
+  walletConnectProjectId: "1db049748ab5fecc3a39e64fbc11a41c",
+  swapKitApiKey: "b1ae0318-0e5f-413b-8e8e-add2dec933d9"
 };
 async function deriveKey(password, salt) {
   const raw = await crypto.subtle.importKey(
@@ -98949,6 +99185,21 @@ async function handle(msg, sender) {
       if (!addresses) throw new Error("No wallet");
       const config = await loadConfig();
       return fetchAllCollectibles(addresses.evm, addresses.cardano, config);
+    }
+    case "wallet:swap-quote": {
+      const config = await loadConfig();
+      return fetchSwapQuote(a0, config);
+    }
+    case "wallet:swap-execute": {
+      const addresses = await loadAddresses();
+      if (!addresses) throw new Error("No wallet");
+      const config = await loadConfig();
+      const mnemonic = await loadMnemonic();
+      return executeEvmSwap(a0, mnemonic, config, addresses.accountIndex ?? 0);
+    }
+    case "wallet:swap-track": {
+      const config = await loadConfig();
+      return trackSwap(String(a0), String(a1), config);
     }
     case "wallet:get-nft-floor":
       return { floor: null, currency: "ETH", floorUsd: null };

@@ -6999,9 +6999,22 @@ var m = reactDomExports;
   createRoot = m.createRoot;
   m.hydrateRoot;
 }
+const SLOW_TYPES = /* @__PURE__ */ new Set([
+  "wallet:get-balances",
+  "wallet:get-history",
+  "wallet:get-tokens",
+  "wallet:get-collectibles",
+  "wallet:swap-quote",
+  "wallet:get-market",
+  "wallet:search-market",
+  "wallet:get-coin-chart",
+  "wallet:get-nft-floor"
+]);
+const VERY_SLOW_TYPES = /* @__PURE__ */ new Set(["wallet:swap-execute"]);
 function send(type, ...args) {
+  const timeoutMs = VERY_SLOW_TYPES.has(type) ? 18e4 : SLOW_TYPES.has(type) ? 45e3 : 8e3;
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("Background not responding — try closing and reopening the extension")), 8e3);
+    const timer = setTimeout(() => reject(new Error("Background not responding — try closing and reopening the extension")), timeoutMs);
     chrome.runtime.sendMessage({ type, args }, (response) => {
       clearTimeout(timer);
       if (chrome.runtime.lastError) {
@@ -7079,6 +7092,9 @@ function createExtensionWallet() {
     getTokens: () => send("wallet:get-tokens"),
     getCollectibles: () => send("wallet:get-collectibles"),
     getNftFloor: (c, a) => send("wallet:get-nft-floor", c, a),
+    swapQuote: (params) => send("wallet:swap-quote", params),
+    swapExecute: (params) => send("wallet:swap-execute", params),
+    swapTrack: (hash, chainId) => send("wallet:swap-track", hash, chainId),
     // Window controls (no-op in extension)
     minimize: () => {
     },
@@ -8015,6 +8031,103 @@ function SendModal({ chainId, balance, symbol, onClose }) {
     }
   );
 }
+const iconBtn = {
+  width: 34,
+  height: 34,
+  borderRadius: "var(--radius-sm)",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+};
+function HeaderToolbar({
+  onWcOpen,
+  wcActiveSessions = 0,
+  wcPending = false,
+  onRefresh,
+  refreshing = false,
+  onProfile,
+  onSettings
+}) {
+  const sidebarFn = window.__EXT_SIDEBAR_FN__;
+  const isSidePanel = window.__SIDE_PANEL__;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, flexShrink: 0 }, children: [
+    !!sidebarFn && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => sidebarFn == null ? void 0 : sidebarFn(),
+        title: isSidePanel ? "Back to popup" : "Open in sidebar",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: isSidePanel ? /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "5", y1: "2", x2: "5", y2: "14" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9,6 12,8 9,10" })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "2", x2: "6", y2: "14" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "10,6 7,8 10,10" })
+        ] })
+      }
+    ),
+    onWcOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: onWcOpen,
+        title: "WalletConnect",
+        style: { ...iconBtn, background: wcActiveSessions > 0 ? "var(--accent-dim)" : "transparent", border: `1px solid ${wcActiveSessions > 0 ? "var(--border-active)" : "var(--border)"}`, color: wcActiveSessions > 0 ? "var(--accent)" : "var(--text-muted)", position: "relative" },
+        children: [
+          wcPending && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { position: "absolute", top: 4, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 5px #f97316" } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "22", height: "15", viewBox: "0 0 480 360", fill: "none", stroke: "currentColor", strokeWidth: "32", strokeLinecap: "round", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M98.3,120.1 C182.3,37.4 325.7,37.4 409.7,120.1 L419.8,130 C430.1,140.2 430.1,156.5 419.8,166.7 L387.9,198.2 C382.7,203.3 374.1,203.3 369,198.2 L355.1,184.5 C299.1,129.4 180.9,129.4 124.9,184.5 L110,198.2 C104.9,203.3 96.3,203.3 91.1,198.2 L60.2,166.7 C49.9,156.5 49.9,140.2 60.2,130 Z" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M183.5,204.7 C222.6,166 278.5,166 317.6,204.7 L323.9,210.9 C334.2,221.1 334.2,237.4 323.9,247.6 L292.6,278.5 C287.5,283.6 278.9,283.6 273.7,278.5 L263.4,268.4 C247.3,252.5 232.7,252.5 216.6,268.4 L206.3,278.5 C201.1,283.6 192.5,283.6 187.4,278.5 L156.1,247.6 C145.8,237.4 145.8,221.1 156.1,210.9 Z" })
+          ] })
+        ]
+      }
+    ),
+    onRefresh && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onRefresh,
+        disabled: refreshing,
+        title: "Refresh",
+        style: { ...iconBtn, background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", opacity: refreshing ? 0.5 : 1, transition: "opacity var(--transition)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { animation: refreshing ? "spin 0.8s linear infinite" : "none" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "23 4 23 10 17 10" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.49 15a9 9 0 1 1-2.12-9.36L23 10" })
+        ] })
+      }
+    ),
+    onProfile && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onProfile,
+        title: "Profile",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "15", height: "15", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "8", r: "4" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20c0-4 3.6-7 8-7s8 3 8 7" })
+        ] })
+      }
+    ),
+    onSettings && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onSettings,
+        title: "Settings",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })
+        ] })
+      }
+    )
+  ] });
+}
 function tokenKey(t2) {
   return `${t2.chain}:${t2.contractAddress}`;
 }
@@ -8163,21 +8276,8 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
     }
   );
 }
-function TokensView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onTokensLoaded }) {
-  const [result, setResult] = reactExports.useState(null);
-  const [loading, setLoading] = reactExports.useState(true);
+function TokensView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager }) {
   const [hovered, setHovered] = reactExports.useState(null);
-  const notifiedRef = reactExports.useRef(false);
-  reactExports.useEffect(() => {
-    window.wallet.getTokens().then((r2) => {
-      setResult(r2);
-      setLoading(false);
-      if (!notifiedRef.current) {
-        notifiedRef.current = true;
-        onTokensLoaded(r2.tokens);
-      }
-    });
-  }, [onTokensLoaded]);
   const hiddenCount = result ? result.tokens.filter((t2) => hiddenItems.has(tokenKey(t2)) || spamItems.has(tokenKey(t2))).length : 0;
   const visible = result ? result.tokens.filter((t2) => !hiddenItems.has(tokenKey(t2)) && !spamItems.has(tokenKey(t2))) : [];
   if (loading) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: Array.from({ length: 5 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10 }, children: [
@@ -8603,7 +8703,7 @@ function getAddress(chainId, addresses) {
   if (chainId === "polkadot") return addresses.polkadot || null;
   return addresses.evm;
 }
-function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcActiveSessions = 0, wcPending = false }) {
+function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }) {
   var _a, _b;
   const [localAddresses, setLocalAddresses] = reactExports.useState(addresses);
   const [balances, setBalances] = reactExports.useState(null);
@@ -8611,11 +8711,7 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
   const [refreshing, setRefreshing] = reactExports.useState(false);
   const [history, setHistory] = reactExports.useState(null);
   const [accountSwitching, setAccountSwitching] = reactExports.useState(false);
-  const [showSettings, setShowSettings] = reactExports.useState(false);
-  const [showSeed, setShowSeed] = reactExports.useState(false);
   const [portfolioTab, setPortfolioTab] = reactExports.useState("networks");
-  const [seedWords, setSeedWords] = reactExports.useState([]);
-  const [deleting, setDeleting] = reactExports.useState(false);
   const [sendChain, setSendChain] = reactExports.useState(null);
   const acctIdx = addresses.accountIndex ?? 0;
   const hiddenKey = `mmw_hidden_${acctIdx}`;
@@ -8623,7 +8719,8 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
   const [hiddenItems, setHiddenItems] = reactExports.useState(() => loadSet(hiddenKey));
   const [spamItems, setSpamItems] = reactExports.useState(() => loadSet(spamKey));
   const [showManager, setShowManager] = reactExports.useState(false);
-  const [allTokens, setAllTokens] = reactExports.useState([]);
+  const [tokensResult, setTokensResult] = reactExports.useState(null);
+  const [tokensLoading, setTokensLoading] = reactExports.useState(true);
   const [allNfts, setAllNfts] = reactExports.useState([]);
   const [selectedNft, setSelectedNft] = reactExports.useState(null);
   const hideItem = reactExports.useCallback((id2) => {
@@ -8654,7 +8751,6 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
       return next;
     });
   }, [hiddenKey, spamKey]);
-  const onTokensLoaded = reactExports.useCallback((tokens) => setAllTokens(tokens), []);
   const onNftsLoaded = reactExports.useCallback((nfts) => setAllNfts(nfts), []);
   const fetchBalances = reactExports.useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -8677,20 +8773,34 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
       console.error("History fetch failed", err);
     }
   }, []);
+  const fetchTokens = reactExports.useCallback(async () => {
+    setTokensLoading(true);
+    try {
+      const result = await window.wallet.getTokens();
+      setTokensResult(result);
+    } catch (err) {
+      console.error("Token fetch failed", err);
+    } finally {
+      setTokensLoading(false);
+    }
+  }, []);
   reactExports.useEffect(() => {
     fetchBalances();
     fetchHistory();
-  }, [fetchBalances, fetchHistory]);
+    fetchTokens();
+  }, [fetchBalances, fetchHistory, fetchTokens]);
   const switchAccount = async (newIndex) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return;
     setAccountSwitching(true);
     setBalances(null);
     setHistory(null);
+    setTokensResult(null);
     try {
       const newAddresses = await window.wallet.setAccount(newIndex);
       setLocalAddresses(newAddresses);
       fetchBalances();
       fetchHistory();
+      fetchTokens();
     } catch (err) {
       console.error("Account switch failed", err);
     } finally {
@@ -8699,27 +8809,14 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
   };
   const totalUsd = (() => {
     if (!balances) return null;
-    const total = Object.values(balances.chains).map((b) => (b == null ? void 0 : b.usdValue) ? parseFloat(b.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const chainTotal = Object.values(balances.chains).map((b) => (b == null ? void 0 : b.usdValue) ? parseFloat(b.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const tokenTotal = ((tokensResult == null ? void 0 : tokensResult.tokens) ?? []).filter((t2) => {
+      const k2 = tokenKey(t2);
+      return !hiddenItems.has(k2) && !spamItems.has(k2);
+    }).map((t2) => t2.usdValue ? parseFloat(t2.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const total = chainTotal + tokenTotal;
     return total > 0 ? `$${total.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : null;
   })();
-  const handleRevealSeed = async () => {
-    if (showSeed) {
-      setShowSeed(false);
-      setSeedWords([]);
-      return;
-    }
-    const words = await window.wallet.revealSeed();
-    setSeedWords(words);
-    setShowSeed(true);
-  };
-  const handleDelete = async () => {
-    if (!deleting) {
-      setDeleting(true);
-      return;
-    }
-    await window.wallet.deleteWallet();
-    onWalletDeleted();
-  };
   const lastUpdated = balances ? new Date(balances.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : null;
   const HISTORY_CHAINS = /* @__PURE__ */ new Set([
     "ethereum",
@@ -8750,8 +8847,8 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
   };
   const activeSendBalance = sendChain ? ((_a = balances == null ? void 0 : balances.chains[sendChain]) == null ? void 0 : _a.native) ?? null : null;
   const activeSendSymbol = sendChain ? ((_b = balances == null ? void 0 : balances.chains[sendChain]) == null ? void 0 : _b.symbol) ?? sendChain.toUpperCase() : "";
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 16, position: "relative" }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden", position: "relative" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "24px 20px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", style: { fontSize: 18 }, children: "Portfolio" }),
         totalUsd && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 28, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text-primary)", marginTop: 4 }, children: totalUsd }),
@@ -8784,171 +8881,84 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
           )
         ] })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
-        !!window.__EXT_SIDEBAR_FN__ && /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: () => {
-              var _a2;
-              return (_a2 = window.__EXT_SIDEBAR_FN__) == null ? void 0 : _a2.call(window);
-            },
-            title: window.__SIDE_PANEL__ ? "Back to popup" : "Open in sidebar",
-            style: { width: 34, height: 34, borderRadius: "var(--radius-sm)", background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
-            children: window.__SIDE_PANEL__ ? /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "5", y1: "2", x2: "5", y2: "14" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9,6 12,8 9,10" })
-            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "2", x2: "6", y2: "14" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "10,6 7,8 10,10" })
-            ] })
-          }
-        ),
-        onWcOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs(
-          "button",
-          {
-            type: "button",
-            onClick: onWcOpen,
-            title: "WalletConnect",
-            style: { width: 34, height: 34, borderRadius: "var(--radius-sm)", background: wcActiveSessions > 0 ? "var(--accent-dim)" : "transparent", border: `1px solid ${wcActiveSessions > 0 ? "var(--border-active)" : "var(--border)"}`, color: wcActiveSessions > 0 ? "var(--accent)" : "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" },
-            children: [
-              wcPending && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { position: "absolute", top: 4, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 5px #f97316" } }),
-              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "22", height: "15", viewBox: "0 0 480 360", fill: "none", stroke: "currentColor", strokeWidth: "32", strokeLinecap: "round", children: [
-                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M98.3,120.1 C182.3,37.4 325.7,37.4 409.7,120.1 L419.8,130 C430.1,140.2 430.1,156.5 419.8,166.7 L387.9,198.2 C382.7,203.3 374.1,203.3 369,198.2 L355.1,184.5 C299.1,129.4 180.9,129.4 124.9,184.5 L110,198.2 C104.9,203.3 96.3,203.3 91.1,198.2 L60.2,166.7 C49.9,156.5 49.9,140.2 60.2,130 Z" }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M183.5,204.7 C222.6,166 278.5,166 317.6,204.7 L323.9,210.9 C334.2,221.1 334.2,237.4 323.9,247.6 L292.6,278.5 C287.5,283.6 278.9,283.6 273.7,278.5 L263.4,268.4 C247.3,252.5 232.7,252.5 216.6,268.4 L206.3,278.5 C201.1,283.6 192.5,283.6 187.4,278.5 L156.1,247.6 C145.8,237.4 145.8,221.1 156.1,210.9 Z" })
-              ] })
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            type: "button",
-            onClick: () => {
-              fetchBalances(true);
-              fetchHistory();
-            },
-            disabled: refreshing || loading,
-            title: "Refresh balances",
-            style: { width: 34, height: 34, borderRadius: "var(--radius-sm)", background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: refreshing ? 0.5 : 1, transition: "opacity var(--transition)" },
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { animation: refreshing ? "spin 0.8s linear infinite" : "none" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "23 4 23 10 17 10" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.49 15a9 9 0 1 1-2.12-9.36L23 10" })
-            ] })
-          }
-        ),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            onClick: () => setShowSettings((s) => !s),
-            title: "Settings",
-            style: { width: 34, height: 34, borderRadius: "var(--radius-sm)", background: showSettings ? "var(--accent-dim)" : "transparent", border: `1px solid ${showSettings ? "var(--border-active)" : "var(--border)"}`, color: showSettings ? "var(--accent)" : "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })
-            ] })
-          }
-        )
-      ] })
-    ] }),
-    showSettings && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "card fade-in", style: { gap: 16, display: "flex", flexDirection: "column" }, children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "label", children: "Security" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            className: "btn btn-ghost",
-            onClick: handleRevealSeed,
-            style: { fontSize: 13, padding: "10px 16px" },
-            children: showSeed ? "Hide Seed Phrase" : "🔑 Reveal Seed Phrase"
-          }
-        ),
-        showSeed && seedWords.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 12 }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "warning-box", style: { marginBottom: 10 }, children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "warning-icon", children: "⚠️" }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Keep this private. Anyone with these words owns your wallet." })
-          ] }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "seed-grid", children: seedWords.map((w2, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "seed-word", children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "seed-word-num", children: i + 1 }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "seed-word-text", children: w2 })
-          ] }, i)) })
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "divider" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
-          {
-            className: "btn btn-danger",
-            onClick: handleDelete,
-            style: { fontSize: 13, padding: "10px 16px" },
-            children: deleting ? "⚠️ Click again to permanently delete wallet" : "🗑 Delete Wallet"
-          }
-        ),
-        deleting && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 6 }, children: "This will wipe your encrypted seed from this device. Make sure you have your phrase backed up." })
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 4, background: "rgba(0,0,0,0.2)", borderRadius: "var(--radius-sm)", padding: 3, flexShrink: 0 }, children: ["networks", "tokens", "collectibles"].map((tab) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-      "button",
-      {
-        type: "button",
-        onClick: () => setPortfolioTab(tab),
-        style: {
-          flex: 1,
-          padding: "6px 0",
-          borderRadius: 6,
-          border: `1px solid ${portfolioTab === tab ? "var(--border-active)" : "transparent"}`,
-          background: portfolioTab === tab ? "var(--accent-dim)" : "transparent",
-          color: portfolioTab === tab ? "var(--accent)" : "var(--text-muted)",
-          fontSize: 11,
-          fontWeight: 600,
-          cursor: "pointer",
-          fontFamily: "var(--font-body)",
-          letterSpacing: "0.04em",
-          transition: "all var(--transition)",
-          textTransform: "capitalize"
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        HeaderToolbar,
+        {
+          onWcOpen,
+          wcActiveSessions,
+          wcPending,
+          onRefresh: () => {
+            fetchBalances(true);
+            fetchHistory();
+          },
+          refreshing,
+          onProfile,
+          onSettings
+        }
+      )
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, overflowY: "auto", padding: "14px 20px 16px", display: "flex", flexDirection: "column", gap: 16, position: "relative" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 4, background: "rgba(0,0,0,0.2)", borderRadius: "var(--radius-sm)", padding: 3, flexShrink: 0 }, children: ["networks", "tokens", "collectibles"].map((tab) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => setPortfolioTab(tab),
+          style: {
+            flex: 1,
+            padding: "6px 0",
+            borderRadius: 6,
+            border: `1px solid ${portfolioTab === tab ? "var(--border-active)" : "transparent"}`,
+            background: portfolioTab === tab ? "var(--accent-dim)" : "transparent",
+            color: portfolioTab === tab ? "var(--accent)" : "var(--text-muted)",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "var(--font-body)",
+            letterSpacing: "0.04em",
+            transition: "all var(--transition)",
+            textTransform: "capitalize"
+          },
+          children: tab
         },
-        children: tab
-      },
-      tab
-    )) }),
-    portfolioTab === "networks" && sortedChains(balances).map((chainId) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-      ChainCard,
-      {
-        chainId,
-        balance: (balances == null ? void 0 : balances.chains[chainId]) ?? null,
-        address: getAddress(chainId, localAddresses),
-        loading,
-        onSend: () => setSendChain(chainId),
-        history: historyFor(chainId)
-      },
-      chainId
-    )),
-    portfolioTab === "tokens" && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      TokensView,
-      {
-        hiddenItems,
-        spamItems,
-        onHide: hideItem,
-        onSpam: markSpam,
-        onShowManager: () => setShowManager(true),
-        onTokensLoaded
-      }
-    ),
-    portfolioTab === "collectibles" && /* @__PURE__ */ jsxRuntimeExports.jsx(
-      CollectiblesView,
-      {
-        hiddenItems,
-        spamItems,
-        onHide: hideItem,
-        onSpam: markSpam,
-        onShowManager: () => setShowManager(true),
-        onNftsLoaded,
-        onSelectNft: setSelectedNft
-      }
-    ),
+        tab
+      )) }),
+      portfolioTab === "networks" && sortedChains(balances).map((chainId) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChainCard,
+        {
+          chainId,
+          balance: (balances == null ? void 0 : balances.chains[chainId]) ?? null,
+          address: getAddress(chainId, localAddresses),
+          loading,
+          onSend: () => setSendChain(chainId),
+          history: historyFor(chainId)
+        },
+        chainId
+      )),
+      portfolioTab === "tokens" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        TokensView,
+        {
+          result: tokensResult,
+          loading: tokensLoading,
+          hiddenItems,
+          spamItems,
+          onHide: hideItem,
+          onSpam: markSpam,
+          onShowManager: () => setShowManager(true)
+        }
+      ),
+      portfolioTab === "collectibles" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        CollectiblesView,
+        {
+          hiddenItems,
+          spamItems,
+          onHide: hideItem,
+          onSpam: markSpam,
+          onShowManager: () => setShowManager(true),
+          onNftsLoaded,
+          onSelectNft: setSelectedNft
+        }
+      )
+    ] }),
     selectedNft && /* @__PURE__ */ jsxRuntimeExports.jsx(NftDetailModal, { nft: selectedNft, onClose: () => setSelectedNft(null) }),
     sendChain && /* @__PURE__ */ jsxRuntimeExports.jsx(
       SendModal,
@@ -8964,7 +8974,7 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, wcAct
       {
         hiddenItems,
         spamItems,
-        allTokens,
+        allTokens: (tokensResult == null ? void 0 : tokensResult.tokens) ?? [],
         allNfts,
         onRestore: restoreItem,
         onClose: () => setShowManager(false)
@@ -9276,7 +9286,7 @@ function CoinRow({ coin, onClick }) {
     }
   );
 }
-function MarketPage() {
+function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
   const [data, setData] = reactExports.useState(_pageCache);
   const [loading, setLoading] = reactExports.useState(_pageCache === null);
   const [refreshing, setRefreshing] = reactExports.useState(false);
@@ -9362,16 +9372,15 @@ function MarketPage() {
           ] })
         ] }),
         /* @__PURE__ */ jsxRuntimeExports.jsx(
-          "button",
+          HeaderToolbar,
           {
-            onClick: () => loadMarket(true),
-            disabled: refreshing || loading,
-            title: "Refresh",
-            style: { width: 30, height: 30, borderRadius: "var(--radius-sm)", background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", opacity: refreshing ? 0.5 : 1 },
-            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { animation: refreshing ? "spin 0.8s linear infinite" : "none" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "23 4 23 10 17 10" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.49 15a9 9 0 1 1-2.12-9.36L23 10" })
-            ] })
+            onWcOpen,
+            wcActiveSessions,
+            wcPending,
+            onRefresh: () => loadMarket(true),
+            refreshing,
+            onProfile,
+            onSettings
           }
         )
       ] }),
@@ -9420,6 +9429,391 @@ function MarketPage() {
       borderBottom: "1px solid var(--border)"
     }, children: [16, 100, 60, 40, 50, 50].map((w2, j) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 10, width: w2, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite", justifySelf: j > 1 ? "end" : "start" } }, j)) }, i)) : (data == null ? void 0 : data.error) && !searchResults ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }, children: "Failed to load market data. Check your connection and try again." }) : displayCoins.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }, children: searchResults ? "No coins found." : "No data." }) : displayCoins.map((coin) => /* @__PURE__ */ jsxRuntimeExports.jsx(CoinRow, { coin, onClick: () => setSelectedCoin(coin) }, coin.id)) }),
     selectedCoin && /* @__PURE__ */ jsxRuntimeExports.jsx(ChartModal, { coin: selectedCoin, onClose: () => setSelectedCoin(null) })
+  ] });
+}
+const SWAP_ASSETS = [
+  { id: "BTC.BTC", label: "BTC", chain: "Bitcoin" },
+  { id: "ETH.ETH", label: "ETH", chain: "Ethereum" },
+  { id: "ETH.USDC-0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", label: "USDC", chain: "Ethereum" },
+  { id: "ETH.USDT-0xdAC17F958D2ee523a2206206994597C13D831ec7", label: "USDT", chain: "Ethereum" },
+  { id: "AVAX.AVAX", label: "AVAX", chain: "Avalanche" },
+  { id: "BSC.BNB", label: "BNB", chain: "BNB Chain" },
+  { id: "SOL.SOL", label: "SOL", chain: "Solana" },
+  { id: "GAIA.ATOM", label: "ATOM", chain: "Cosmos" },
+  { id: "DOGE.DOGE", label: "DOGE", chain: "Dogecoin" },
+  { id: "LTC.LTC", label: "LTC", chain: "Litecoin" },
+  { id: "BCH.BCH", label: "BCH", chain: "Bitcoin Cash" }
+];
+const RECEIVE_ADDR = {
+  ETH: "evm",
+  AVAX: "evm",
+  BSC: "evm",
+  ARB: "evm",
+  OP: "evm",
+  BASE: "evm",
+  MATIC: "evm",
+  POLYGON: "evm",
+  BLAST: "evm",
+  GNOSIS: "evm",
+  BTC: "bitcoin",
+  SOL: "solana",
+  ADA: "cardano"
+};
+const SIGNABLE_SELL = /* @__PURE__ */ new Set(["ETH", "AVAX", "ARB", "OP", "BASE", "MATIC", "POLYGON", "BLAST", "GNOSIS"]);
+const chainOf = (asset) => asset.split(".")[0];
+const labelFor = (id2) => {
+  var _a, _b;
+  return ((_a = SWAP_ASSETS.find((a) => a.id === id2)) == null ? void 0 : _a.label) ?? ((_b = id2.split(".")[1]) == null ? void 0 : _b.split("-")[0]) ?? id2;
+};
+function fmtAmount(s) {
+  const n2 = parseFloat(s);
+  if (!isFinite(n2)) return s;
+  if (n2 === 0) return "0";
+  if (n2 >= 1) return n2.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  return n2.toPrecision(4);
+}
+function fmtTime(sec) {
+  if (!sec || sec <= 0) return null;
+  if (sec < 60) return `~${Math.round(sec)}s`;
+  return `~${Math.round(sec / 60)}m`;
+}
+const TAG_COLOR = {
+  RECOMMENDED: "#22c55e",
+  FASTEST: "#38bdf8",
+  CHEAPEST: "#a78bfa"
+};
+const STATUS_LABEL = {
+  pending: "Pending — detected in mempool",
+  swapping: "Swapping…",
+  completed: "Completed",
+  refunded: "Refunded (slippage)",
+  failed: "Failed",
+  not_started: "Awaiting inbound tx",
+  unknown: "Submitted"
+};
+const selectStyle = {
+  background: "var(--bg-card)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  padding: "10px 12px",
+  fontSize: 14,
+  fontFamily: "var(--font-body)",
+  cursor: "pointer",
+  outline: "none",
+  minWidth: 120
+};
+function SwapPage({ addresses, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
+  const [sellAsset, setSellAsset] = reactExports.useState("ETH.ETH");
+  const [buyAsset, setBuyAsset] = reactExports.useState("BTC.BTC");
+  const [amount, setAmount] = reactExports.useState("");
+  const [slippage, setSlippage] = reactExports.useState(3);
+  const [loading, setLoading] = reactExports.useState(false);
+  const [result, setResult] = reactExports.useState(null);
+  const [confirmRoute, setConfirmRoute] = reactExports.useState(null);
+  const [execState, setExecState] = reactExports.useState("idle");
+  const [execResult, setExecResult] = reactExports.useState(null);
+  const [execError, setExecError] = reactExports.useState(null);
+  const [trackStatus, setTrackStatus] = reactExports.useState(null);
+  const alive = reactExports.useRef(true);
+  reactExports.useEffect(() => () => {
+    alive.current = false;
+  }, []);
+  const flip = () => {
+    setSellAsset(buyAsset);
+    setBuyAsset(sellAsset);
+    setResult(null);
+  };
+  const getQuote = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const r2 = await window.wallet.swapQuote({ sellAsset, buyAsset, sellAmount: amount.trim(), slippage });
+      setResult(r2);
+    } catch (e) {
+      setResult({ quoteId: null, routes: [], error: e instanceof Error ? e.message : "Quote failed" });
+    } finally {
+      setLoading(false);
+    }
+  };
+  const execBlockReason = (route) => {
+    const sc2 = chainOf(route.sellAsset);
+    const bc2 = chainOf(route.buyAsset);
+    if (!SIGNABLE_SELL.has(sc2)) return `Signing from ${sc2} isn't supported yet — sell an EVM asset (ETH, AVAX) to swap.`;
+    const key = RECEIVE_ADDR[bc2];
+    if (!key || !addresses[key]) return `This wallet has no ${bc2} address to receive into.`;
+    return null;
+  };
+  const pollTrack = async (hash, chainId) => {
+    for (let i = 0; i < 20 && alive.current; i++) {
+      try {
+        const t2 = await window.wallet.swapTrack(hash, chainId);
+        if (alive.current && t2.status) setTrackStatus(t2.status);
+        if (t2.status && ["completed", "refunded", "failed"].includes(t2.status)) return;
+      } catch {
+      }
+      await new Promise((r2) => setTimeout(r2, 12e3));
+    }
+  };
+  const runSwap = async (route) => {
+    setExecState("executing");
+    setExecError(null);
+    setExecResult(null);
+    setTrackStatus(null);
+    const buyChain = chainOf(route.buyAsset);
+    const destKey = RECEIVE_ADDR[buyChain];
+    try {
+      const r2 = await window.wallet.swapExecute({
+        routeId: route.routeId,
+        sourceAddress: addresses.evm,
+        destinationAddress: destKey ? addresses[destKey] : "",
+        sellAsset: route.sellAsset
+      });
+      if (!alive.current) return;
+      setExecResult(r2);
+      setExecState("done");
+      pollTrack(r2.txHash, String(r2.chainId));
+    } catch (e) {
+      if (!alive.current) return;
+      setExecError(e instanceof Error ? e.message : "Swap failed");
+      setExecState("error");
+    }
+  };
+  const closeConfirm = () => {
+    if (execState === "executing") return;
+    setConfirmRoute(null);
+    setExecState("idle");
+    setExecResult(null);
+    setExecError(null);
+    setTrackStatus(null);
+  };
+  const canQuote = !!amount && parseFloat(amount) > 0 && sellAsset !== buyAsset && !loading;
+  const best = result == null ? void 0 : result.routes[0];
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px 16px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", style: { fontSize: 18 }, children: "Swap" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: "Cross-chain swaps routed by SwapKit" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        HeaderToolbar,
+        {
+          onWcOpen,
+          wcActiveSessions,
+          wcPending,
+          onRefresh: getQuote,
+          refreshing: loading,
+          onProfile,
+          onSettings
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, overflowY: "auto", padding: "14px 16px 18px", display: "flex", flexDirection: "column", gap: 14 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 12 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU PAY" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "input",
+              {
+                type: "number",
+                inputMode: "decimal",
+                value: amount,
+                onChange: (e) => setAmount(e.target.value),
+                placeholder: "0.0",
+                min: "0",
+                style: { flex: 1, background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", color: "var(--text-primary)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", outline: "none" }
+              }
+            ),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: sellAsset, onChange: (e) => {
+              setSellAsset(e.target.value);
+              setResult(null);
+            }, style: selectStyle, children: SWAP_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: a.id, children: [
+              a.label,
+              " · ",
+              a.chain
+            ] }, a.id)) })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: flip,
+            title: "Flip direction",
+            style: { width: 32, height: 32, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+            children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 10 12 5 17 10" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 14 12 19 7 14" })
+            ] })
+          }
+        ) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU RECEIVE" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: best ? "var(--text-primary)" : "var(--text-muted)" }, children: best ? fmtAmount(best.expectedBuyAmount) : "—" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("select", { value: buyAsset, onChange: (e) => {
+              setBuyAsset(e.target.value);
+              setResult(null);
+            }, style: selectStyle, children: SWAP_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsxs("option", { value: a.id, children: [
+              a.label,
+              " · ",
+              a.chain
+            ] }, a.id)) })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-muted)" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Slippage" }),
+          [1, 3, 5].map((s) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: () => setSlippage(s),
+              style: { padding: "3px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${slippage === s ? "var(--border-active)" : "var(--border)"}`, background: slippage === s ? "var(--accent-dim)" : "transparent", color: slippage === s ? "var(--accent)" : "var(--text-muted)" },
+              children: [
+                s,
+                "%"
+              ]
+            },
+            s
+          ))
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: getQuote,
+            disabled: !canQuote,
+            style: { marginTop: 2, padding: "12px", borderRadius: "var(--radius-sm)", border: "none", fontSize: 14, fontWeight: 700, fontFamily: "var(--font-body)", cursor: canQuote ? "pointer" : "not-allowed", background: canQuote ? "var(--accent)" : "var(--border)", color: canQuote ? "#0d0d0d" : "var(--text-muted)" },
+            children: loading ? "Fetching routes…" : "Get Quote"
+          }
+        )
+      ] }),
+      (result == null ? void 0 : result.error) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: 12, color: "#fca5a5" }, children: result.error }),
+      result && result.routes.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: [
+          result.routes.length,
+          " ROUTE",
+          result.routes.length > 1 ? "S" : ""
+        ] }),
+        result.routes.map((r2, i) => {
+          var _a;
+          const t2 = fmtTime((_a = r2.estimatedTime) == null ? void 0 : _a.total);
+          const blocked = execBlockReason(r2);
+          return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: `1px solid ${i === 0 ? "var(--border-active)" : "var(--border)"}`, borderRadius: "var(--radius-sm)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }, children: r2.providers.join(" → ") || "Route" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 15, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text-primary)" }, children: [
+                fmtAmount(r2.expectedBuyAmount),
+                " ",
+                labelFor(r2.buyAsset)
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }, children: [
+              r2.tags.map((tag) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, fontWeight: 700, letterSpacing: "0.05em", padding: "2px 7px", borderRadius: 99, color: TAG_COLOR[tag] ?? "var(--text-muted)", background: `${TAG_COLOR[tag] ?? "#64748b"}22` }, children: tag }, tag)),
+              t2 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: t2 }),
+              r2.totalSlippageBps != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+                "· ",
+                (r2.totalSlippageBps / 100).toFixed(2),
+                "% slip"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                type: "button",
+                onClick: () => {
+                  setConfirmRoute(r2);
+                  setExecState("idle");
+                  setExecError(null);
+                  setExecResult(null);
+                  setTrackStatus(null);
+                },
+                disabled: !!blocked,
+                title: blocked ?? "Review and swap",
+                style: { marginTop: 2, padding: "9px", borderRadius: "var(--radius-sm)", border: "none", fontSize: 13, fontWeight: 700, cursor: blocked ? "not-allowed" : "pointer", background: blocked ? "var(--border)" : i === 0 ? "var(--accent)" : "var(--accent-dim)", color: blocked ? "var(--text-muted)" : i === 0 ? "#0d0d0d" : "var(--accent)" },
+                children: blocked ? "Sell an EVM asset to swap" : "Swap"
+              }
+            )
+          ] }, r2.routeId);
+        })
+      ] })
+    ] }),
+    confirmRoute && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", inset: 0, zIndex: 9e3, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 20, width: "100%", maxWidth: 340, display: "flex", flexDirection: "column", gap: 14 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }, children: "Confirm Swap" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: closeConfirm,
+            disabled: execState === "executing",
+            style: { background: "transparent", border: "none", color: "var(--text-muted)", fontSize: 18, cursor: execState === "executing" ? "default" : "pointer" },
+            children: "×"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: "You pay" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-primary)", fontWeight: 600 }, children: [
+            fmtAmount(amount),
+            " ",
+            labelFor(confirmRoute.sellAsset)
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: "You receive (est.)" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-primary)", fontWeight: 600 }, children: [
+            fmtAmount(confirmRoute.expectedBuyAmount),
+            " ",
+            labelFor(confirmRoute.buyAsset)
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: "Route" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-primary)" }, children: confirmRoute.providers.join(" → ") })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: "Min received" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-primary)" }, children: [
+            fmtAmount(confirmRoute.expectedBuyAmountMaxSlippage),
+            " ",
+            labelFor(confirmRoute.buyAsset)
+          ] })
+        ] })
+      ] }),
+      execState === "idle" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5, background: "rgba(250,204,21,0.08)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: "var(--radius-sm)", padding: "8px 10px" }, children: "This signs and broadcasts a real on-chain transaction from your wallet. A token swap may require an approval transaction first." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => runSwap(confirmRoute),
+            style: { padding: "12px", borderRadius: "var(--radius-sm)", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", background: "var(--accent)", color: "#0d0d0d" },
+            children: "Confirm & Swap"
+          }
+        )
+      ] }),
+      execState === "executing" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", color: "var(--text-muted)", fontSize: 13 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { width: 16, height: 16, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" } }),
+        "Signing & broadcasting… approve any prompts. This can take a moment."
+      ] }),
+      execState === "done" && execResult && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 700, color: "#22c55e" }, children: "✓ Swap submitted" }),
+        trackStatus && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "var(--text-muted)" }, children: STATUS_LABEL[trackStatus] ?? trackStatus }),
+        execResult.approvalTxHash && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Approval mined ✓" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: execResult.explorerUrl, target: "_blank", rel: "noreferrer", style: { fontSize: 12, color: "var(--accent)", wordBreak: "break-all" }, children: "View transaction ↗" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: closeConfirm, style: { marginTop: 4, padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }, children: "Done" })
+      ] }),
+      execState === "error" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "#fca5a5", lineHeight: 1.5, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-sm)", padding: "8px 10px" }, children: execError }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => runSwap(confirmRoute), style: { flex: 1, padding: "10px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--accent)", color: "#0d0d0d", fontSize: 13, fontWeight: 700, cursor: "pointer" }, children: "Retry" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: closeConfirm, style: { flex: 1, padding: "10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }, children: "Close" })
+        ] })
+      ] })
+    ] }) })
   ] });
 }
 const APP_HUB = {
@@ -14315,7 +14709,7 @@ const APP_HUB = {
   ]
 };
 const ALL = "All";
-function AppHubPage() {
+function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
   const [chainFilter, setChainFilter] = reactExports.useState(ALL);
   const [categoryFilter, setCategoryFilter] = reactExports.useState(ALL);
   const [search, setSearch] = reactExports.useState("");
@@ -14340,12 +14734,24 @@ function AppHubPage() {
     setTimeout(() => window.wallet.browserNavigate(url), 400);
   }
   return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-page", children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-header", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "apphub-title", children: "App Hub" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "apphub-count", children: [
-        APP_HUB.apps.length,
-        " apps"
-      ] })
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-header", style: { justifyContent: "space-between", alignItems: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "apphub-title", children: "App Hub" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "apphub-count", children: [
+          APP_HUB.apps.length,
+          " apps"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        HeaderToolbar,
+        {
+          onWcOpen,
+          wcActiveSessions,
+          wcPending,
+          onProfile,
+          onSettings
+        }
+      )
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-search-wrap", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { className: "apphub-search-icon", width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
@@ -14932,6 +15338,171 @@ function SocialIcon({ provider }) {
   if (provider === "discord") return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "#5865f2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z" }) });
   return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-muted)", fontWeight: 700 }, children: provider[0].toUpperCase() });
 }
+function SettingsModal({ onClose, onDeleteWallet }) {
+  const [confirmDelete, setConfirmDelete] = reactExports.useState(false);
+  const [deleting, setDeleting] = reactExports.useState(false);
+  const [copied, setCopied] = reactExports.useState(false);
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await window.wallet.deleteWallet();
+      onDeleteWallet();
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const copyAddresses = async () => {
+    const addrs = await window.wallet.getAddresses().catch(() => null);
+    if (!addrs) return;
+    const text = [
+      `EVM:      ${addrs.evm}`,
+      `Solana:   ${addrs.solana}`,
+      `Cardano:  ${addrs.cardano}`,
+      `Bitcoin:  ${addrs.bitcoin}`,
+      `Polkadot: ${addrs.polkadot}`
+    ].join("\n");
+    navigator.clipboard.writeText(text).catch(() => {
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      onClick: onClose,
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 9997,
+        background: "rgba(0,0,0,0.65)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center"
+      },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          onClick: (e) => e.stopPropagation(),
+          style: {
+            background: "var(--bg-card)",
+            borderRadius: "16px 16px 0 0",
+            border: "1px solid var(--border)",
+            width: "100%",
+            maxWidth: 480,
+            padding: "0 0 24px",
+            boxShadow: "0 -8px 32px rgba(0,0,0,0.5)"
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 36, height: 4, borderRadius: 999, background: "var(--border)" } }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px 16px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 800, fontSize: 16 }, children: "Settings" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 22, lineHeight: 1, padding: 0 }, children: "×" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "Wallet", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SettingsRow,
+                {
+                  icon: "📋",
+                  label: copied ? "Copied!" : "Copy All Addresses",
+                  sublabel: "EVM, Solana, Cardano, Bitcoin, Polkadot",
+                  onClick: copyAddresses
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SettingsRow,
+                {
+                  icon: "🔑",
+                  label: "Reveal Secret Phrase",
+                  sublabel: "Only do this in a private location",
+                  onClick: async () => {
+                    const words = await window.wallet.revealSeed().catch(() => null);
+                    if (words) {
+                      await navigator.clipboard.writeText(words.join(" ")).catch(() => {
+                      });
+                      alert("Seed phrase copied to clipboard — store it safely!");
+                    }
+                  }
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "About", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "⚡", label: "MagicMoney Wallet", sublabel: "Phase 10 — WalletConnect", onClick: () => {
+              } }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "🔗", label: "Powered by ChainLens", sublabel: "chainlensnft.info", onClick: () => {
+              } })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsSection, { label: "Danger Zone", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                onClick: handleDelete,
+                disabled: deleting,
+                style: {
+                  width: "100%",
+                  padding: "13px 18px",
+                  background: "none",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  cursor: "pointer",
+                  borderBottom: "1px solid var(--border)",
+                  textAlign: "left"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: "🗑" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "#ef4444" }, children: confirmDelete ? "Tap again to confirm — this cannot be undone" : "Delete Wallet" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Removes keys from this device permanently" })
+                  ] })
+                ]
+              }
+            ) })
+          ]
+        }
+      )
+    }
+  );
+}
+function SettingsSection({ label, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginBottom: 4 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "4px 18px 6px", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }, children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }, children })
+  ] });
+}
+function SettingsRow({ icon, label, sublabel, onClick }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      type: "button",
+      onClick,
+      style: {
+        width: "100%",
+        padding: "12px 18px",
+        background: "none",
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        cursor: "pointer",
+        borderBottom: "1px solid var(--border)",
+        textAlign: "left"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: icon }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text)" }, children: label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: sublabel })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { color: "var(--text-muted)", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9 18 15 12 9 6" }) })
+      ]
+    }
+  );
+}
 function PeerIcon({ icon, name, size = 40 }) {
   const [imgErr, setImgErr] = reactExports.useState(false);
   const initial = name.slice(0, 2).toUpperCase();
@@ -15440,6 +16011,14 @@ function App() {
   const [wcPanelOpen, setWcPanelOpen] = reactExports.useState(false);
   const [wcActiveSessions, setWcActiveSessions] = reactExports.useState(0);
   const [wcPending, setWcPending] = reactExports.useState(false);
+  const [showSettings, setShowSettings] = reactExports.useState(false);
+  const toolbarProps = {
+    onWcOpen: () => setWcPanelOpen(true),
+    onProfile: () => setActiveTab("profile"),
+    onSettings: () => setShowSettings(true),
+    wcActiveSessions,
+    wcPending
+  };
   reactExports.useEffect(() => {
     window.wallet.isSetup().then((exists) => {
       if (exists) {
@@ -15488,13 +16067,23 @@ function App() {
           setAddresses(null);
           setPage("welcome");
         },
-        onWcOpen: () => setWcPanelOpen(true),
-        wcActiveSessions,
-        wcPending
+        ...toolbarProps
       }
     ),
-    inDashboard && addresses && activeTab === "market" && /* @__PURE__ */ jsxRuntimeExports.jsx(MarketPage, {}),
-    inDashboard && activeTab === "apphub" && /* @__PURE__ */ jsxRuntimeExports.jsx(AppHubPage, {}),
+    inDashboard && addresses && activeTab === "market" && /* @__PURE__ */ jsxRuntimeExports.jsx(MarketPage, { ...toolbarProps }),
+    inDashboard && addresses && activeTab === "swap" && /* @__PURE__ */ jsxRuntimeExports.jsx(SwapPage, { addresses, ...toolbarProps }),
+    inDashboard && activeTab === "apphub" && /* @__PURE__ */ jsxRuntimeExports.jsx(AppHubPage, { ...toolbarProps }),
+    inDashboard && showSettings && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SettingsModal,
+      {
+        onClose: () => setShowSettings(false),
+        onDeleteWallet: () => {
+          setShowSettings(false);
+          setAddresses(null);
+          setPage("welcome");
+        }
+      }
+    ),
     inDashboard && activeTab === "profile" && /* @__PURE__ */ jsxRuntimeExports.jsx(ProfilePage, {}),
     inDashboard && /* @__PURE__ */ jsxRuntimeExports.jsx(
       WalletConnectManager,
@@ -15539,6 +16128,23 @@ function App() {
         "button",
         {
           type: "button",
+          className: `bottom-nav-btn${activeTab === "swap" ? " active" : ""}`,
+          onClick: () => setActiveTab("swap"),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 1 21 5 17 9" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 11V9a4 4 0 0 1 4-4h14" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 23 3 19 7 15" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 13v2a4 4 0 0 1-4 4H3" })
+            ] }),
+            "Swap"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
           className: `bottom-nav-btn${activeTab === "apphub" ? " active" : ""}`,
           onClick: () => setActiveTab("apphub"),
           children: [
@@ -15549,21 +16155,6 @@ function App() {
               /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "14", y: "14", width: "7", height: "7", rx: "1.5" })
             ] }),
             "Apps"
-          ]
-        }
-      ),
-      /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "button",
-        {
-          type: "button",
-          className: `bottom-nav-btn${activeTab === "profile" ? " active" : ""}`,
-          onClick: () => setActiveTab("profile"),
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "8", r: "4" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20c0-4 3.6-7 8-7s8 3 8 7" })
-            ] }),
-            "Profile"
           ]
         }
       ),
