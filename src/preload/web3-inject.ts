@@ -4,8 +4,9 @@
  * Injects window.ethereum (EIP-1193), window.solana, window.cardano (CIP-30),
  * and Solana Wallet Standard into dApp pages loaded inside the Electron built-in browser.
  *
- * ethereum / solana — contextBridge.exposeInMainWorld (synchronous)
- *   dApps detect these at page load before their own scripts run.
+ * ethereum / solana — webFrame.executeJavaScript (main world plain object)
+ *   dApps and wallet selectors inspect the page's own window, so provider
+ *   objects must be created there. contextBridge is only used for IPC relay.
  *
  * cardano — webFrame.executeJavaScript (main world plain object)
  *   contextBridge proxies have null prototypes that many dApp wallet scanners
@@ -27,68 +28,10 @@ contextBridge.exposeInMainWorld('__mmBridge__', {
   call: (channel: string, args: unknown[]) => ipcRenderer.invoke(channel, ...args)
 })
 
-// ── EIP-1193 window.ethereum ──────────────────────────────────────────────────
-
-contextBridge.exposeInMainWorld('ethereum', {
-  isMetaMask:   true,
-  isMagicMoney: true,
-
-  request({ method, params }: { method: string; params?: unknown[] }): Promise<unknown> {
-    return ipcRenderer.invoke('web3:request', { method, params: params ?? [] })
-  },
-
-  on(event: string, callback: (...args: unknown[]) => void): void {
-    ipcRenderer.on(`web3:event:${event}`, (_evt, ...args) => callback(...args))
-  },
-
-  removeListener(event: string, callback: (...args: unknown[]) => void): void {
-    ipcRenderer.removeListener(`web3:event:${event}`, callback as never)
-  },
-
-  send(method: string, params: unknown[]): Promise<unknown> {
-    return ipcRenderer.invoke('web3:request', { method, params })
-  },
-
-  sendAsync(request: { method: string; params?: unknown[] }, callback: (err: Error | null, response: unknown) => void): void {
-    ipcRenderer.invoke('web3:request', request)
-      .then(result => callback(null, { id: 1, jsonrpc: '2.0', result }))
-      .catch((err: Error) => callback(err, null))
-  },
-
-  enable(): Promise<string[]> {
-    return ipcRenderer.invoke('web3:request', { method: 'eth_requestAccounts', params: [] }) as Promise<string[]>
-  }
-})
-
-// ── window.solana ─────────────────────────────────────────────────────────────
-
-contextBridge.exposeInMainWorld('solana', {
-  isMagicMoney: true,
-  isConnected:  false,
-  publicKey:    null as string | null,
-
-  connect(): Promise<{ publicKey: { toBase58(): string; toString(): string } }> {
-    return ipcRenderer.invoke('web3:solana-connect').then((pk: string) => {
-      const key = { toBase58: () => pk, toString: () => pk }
-      return { publicKey: key }
-    })
-  },
-
-  disconnect(): Promise<void> { return Promise.resolve() },
-
-  signMessage(message: Uint8Array): Promise<{ signature: Uint8Array }> {
-    return ipcRenderer.invoke('web3:solana-sign-message', Array.from(message))
-      .then((sig: number[]) => ({ signature: new Uint8Array(sig) }))
-  },
-
-  on(event: string, callback: (...args: unknown[]) => void): void {
-    ipcRenderer.on(`web3:solana:${event}`, (_evt, ...args) => callback(...args))
-  }
-})
-
 // ── Icon constant (used in both webFrame template strings below) ─────────────
 
 const _ICON = _ICON_IMPORT
+const _ICON_JSON = JSON.stringify(_ICON)
 
 // ── Solana Wallet Standard + Cardano (main-world injection) ──────────────────
 // webFrame.executeJavaScript runs in the dApp's main JS context giving plain
@@ -97,6 +40,132 @@ const _ICON = _ICON_IMPORT
 
 webFrame.executeJavaScript(`(function () {
   const call = (ch, ...a) => window.__mmBridge__.call(ch, a);
+
+  if (window.__MAGICMONEY_WEB3_INJECTED__) return;
+  Object.defineProperty(window, '__MAGICMONEY_WEB3_INJECTED__', {
+    value: true, configurable: false, enumerable: false
+  });
+
+  // ── EIP-1193 + EIP-6963 EVM provider ───────────────────────────────────
+  try {
+    const _ethListeners = {};
+    function _ethOn(event, cb) {
+      if (typeof cb !== 'function') return;
+      if (!_ethListeners[event]) _ethListeners[event] = [];
+      _ethListeners[event].push(cb);
+    }
+    function _ethRemove(event, cb) {
+      if (!_ethListeners[event]) return;
+      _ethListeners[event] = _ethListeners[event].filter(l => l !== cb);
+    }
+    function _ethEmit(event, ...args) {
+      for (const cb of _ethListeners[event] ?? []) {
+        try { cb(...args); } catch (e) { setTimeout(() => { throw e; }); }
+      }
+    }
+
+    const mmEthereum = {
+      isMagicMoney: true,
+      chainId: '0x1',
+      networkVersion: '1',
+      selectedAddress: null,
+
+      request({ method, params } = {}) {
+        if (typeof method !== 'string') {
+          const err = new Error('Invalid request: missing method');
+          err.code = -32600;
+          return Promise.reject(err);
+        }
+        return call('web3:request', { method, params: params ?? [] }).then(result => {
+          if (method === 'eth_requestAccounts' || method === 'eth_accounts') {
+            const accounts = Array.isArray(result) ? result : [];
+            mmEthereum.selectedAddress = accounts[0] ?? null;
+            _ethEmit('accountsChanged', accounts);
+          }
+          if (method === 'eth_chainId' && typeof result === 'string') {
+            mmEthereum.chainId = result;
+            mmEthereum.networkVersion = String(parseInt(result, 16));
+          }
+          return result;
+        });
+      },
+
+      on(event, cb) { _ethOn(event, cb); return mmEthereum; },
+      removeListener(event, cb) { _ethRemove(event, cb); return mmEthereum; },
+      send(method, params) { return mmEthereum.request({ method, params }); },
+      sendAsync(req, cb) {
+        mmEthereum.request(req)
+          .then(result => cb(null, { id: req?.id ?? 1, jsonrpc: '2.0', result }))
+          .catch(error => cb(error, null));
+      },
+      enable() { return mmEthereum.request({ method: 'eth_requestAccounts', params: [] }); }
+    };
+
+    if (typeof window.ethereum === 'undefined') {
+      try { window.ethereum = mmEthereum; } catch (_) {}
+    }
+
+    const mmProviderInfo = Object.freeze({
+      uuid: 'b3e4f2a1-7c8d-4e9f-a0b1-2c3d4e5f6a7b',
+      name: 'MagicMoney Wallet',
+      icon: ${_ICON_JSON},
+      rdns: 'info.chainlens.magicmoney'
+    });
+
+    function announceMagicMoneyProvider() {
+      window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+        detail: Object.freeze({ info: mmProviderInfo, provider: mmEthereum })
+      }));
+    }
+
+    announceMagicMoneyProvider();
+    window.addEventListener('eip6963:requestProvider', announceMagicMoneyProvider);
+    window.dispatchEvent(new Event('ethereum#initialized'));
+
+    window.addEventListener('message', event => {
+      if (event.source !== window) return;
+      const m = event.data;
+      if (!m || m.__mm !== 'main→page:event' || m.chain !== 'eth') return;
+      if (m.event === 'chainChanged') {
+        mmEthereum.chainId = m.data;
+        mmEthereum.networkVersion = String(parseInt(m.data, 16));
+      }
+      if (m.event === 'accountsChanged') {
+        mmEthereum.selectedAddress = (m.data ?? [])[0] ?? null;
+      }
+      _ethEmit(m.event, m.data);
+    });
+  } catch(e) { console.error('[MagicMoney] EVM injection failed:', e); }
+
+  // ── Legacy Solana provider (plain object in page main world) ───────────
+  try {
+    if (typeof window.solana === 'undefined') {
+      window.solana = {
+        isMagicMoney: true,
+        isConnected: false,
+        publicKey: null,
+        connect() {
+          return call('web3:solana-connect').then(pk => {
+            const key = { toBase58: () => pk, toString: () => pk };
+            this.publicKey = key;
+            this.isConnected = true;
+            return { publicKey: key };
+          });
+        },
+        disconnect() {
+          this.publicKey = null;
+          this.isConnected = false;
+          return Promise.resolve();
+        },
+        signMessage(message) {
+          return call('web3:solana-sign-message', Array.from(message))
+            .then(sig => ({ signature: new Uint8Array(sig) }));
+        },
+        on() {},
+        removeListener() {}
+      };
+    }
+  } catch(e) { console.error('[MagicMoney] Solana legacy injection failed:', e); }
 
   // ── Cardano CIP-30 (plain object — passes instanceof / constructor checks) ─
   try {
@@ -115,7 +184,7 @@ webFrame.executeJavaScript(`(function () {
     const mmWallet = {
       apiVersion: '0.1.0',
       name:       'MagicMoney Wallet',
-      icon:       '${_ICON}',
+      icon:       ${_ICON_JSON},
       isEnabled:  () => call('cardano:is-enabled').catch(() => false),
       enable:     () => call('cardano:enable').then(() => fullApi()),
     };
@@ -163,7 +232,7 @@ webFrame.executeJavaScript(`(function () {
   }
 
   const _wsMM = {
-    version: '1.0.0', name: 'MagicMoney Wallet', icon: '${_ICON}',
+    version: '1.0.0', name: 'MagicMoney Wallet', icon: ${_ICON_JSON},
     chains: ['solana:mainnet', 'solana:devnet'],
     features: {
       'standard:connect': {

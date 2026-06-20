@@ -24,6 +24,9 @@ import {
   loadAddresses,
   loadConfig,
   saveConfig,
+  getApprovedOrigins,
+  addApprovedOrigin,
+  removeApprovedOrigin,
   type WalletConfig
 } from './secure-store'
 import {
@@ -135,6 +138,10 @@ async function getFullAddresses() {
   const full = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
   saveAddresses(full)
   return full
+}
+
+function getSenderOrigin(url: string): string {
+  try { return new URL(url).origin } catch { return 'unknown' }
 }
 
 export function registerIpcHandlers(): void {
@@ -372,25 +379,24 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('browser:get-state', () => getBrowserState())
 
   // ── Phase 6: Web3 dApp requests (from web3-inject preload) ───────────────
-  let _dappConnected = false
-
   ipcMain.handle('web3:request', async (
-    _event,
+    event,
     { method, params }: { method: string; params: unknown[] }
   ) => {
     // Always show signing dialogs in the main wallet window, not the popup
     const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
     const config = loadConfig()
+    const origin = getSenderOrigin(event.sender.getURL())
 
     switch (method) {
       // ── Connection ──────────────────────────────────────────────────────
       case 'eth_requestAccounts': {
-        if (_dappConnected && addresses?.evm) return [addresses.evm]
+        if (getApprovedOrigins().includes(origin) && addresses?.evm) return [addresses.evm]
         const { response } = await dialog.showMessageBox(win, {
           type: 'question',
           title: 'Connect Wallet',
-          message: 'A dApp wants to connect to your wallet',
+          message: `${origin} wants to connect to your wallet`,
           detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
           buttons: ['Connect', 'Reject'],
           defaultId: 0,
@@ -400,13 +406,12 @@ export function registerIpcHandlers(): void {
           const err = Object.assign(new Error('User rejected the request.'), { code: 4001 })
           throw err
         }
-        _dappConnected = true
-        win.webContents.send('web3:accounts-changed', [addresses?.evm ?? ''])
+        addApprovedOrigin(origin)
         return [addresses?.evm ?? '']
       }
 
       case 'eth_accounts':
-        return _dappConnected && addresses?.evm ? [addresses.evm] : []
+        return getApprovedOrigins().includes(origin) && addresses?.evm ? [addresses.evm] : []
 
       case 'eth_chainId':
         return '0x1'
@@ -414,11 +419,31 @@ export function registerIpcHandlers(): void {
       case 'net_version':
         return '1'
 
-      case 'wallet_requestPermissions':
+      case 'wallet_requestPermissions': {
+        if (!getApprovedOrigins().includes(origin)) {
+          const { response } = await dialog.showMessageBox(win, {
+            type: 'question',
+            title: 'Connect Wallet',
+            message: `${origin} wants permission to access your EVM account`,
+            detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
+            buttons: ['Connect', 'Reject'],
+            defaultId: 0,
+            cancelId: 1
+          })
+          if (response === 1) {
+            throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+          }
+          addApprovedOrigin(origin)
+        }
         return [{ parentCapability: 'eth_accounts' }]
+      }
 
       case 'wallet_getPermissions':
-        return _dappConnected ? [{ parentCapability: 'eth_accounts' }] : []
+        return getApprovedOrigins().includes(origin) ? [{ parentCapability: 'eth_accounts' }] : []
+
+      case 'wallet_revokePermissions':
+        removeApprovedOrigin(origin)
+        return null
 
       // ── Message signing ─────────────────────────────────────────────────
       case 'personal_sign': {

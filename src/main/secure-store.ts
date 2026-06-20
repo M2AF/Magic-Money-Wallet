@@ -18,6 +18,7 @@ const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
 const addressesPath = () => join(userData(), 'addresses.json')
 const configPath = () => join(userData(), 'config.json')
+const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
 
 // ─── Mnemonic (encrypted) ────────────────────────────────────────────────────
 
@@ -120,4 +121,29 @@ export function saveConfig(config: Partial<WalletConfig>): void {
   const current = loadConfig()
   mkdirSync(userData(), { recursive: true })
   writeFileSync(configPath(), JSON.stringify({ ...current, ...config }, null, 2))
+}
+
+// ─── Approved dApp origins (plain JSON, not secrets) ────────────────────────
+
+export function getApprovedOrigins(): string[] {
+  if (!existsSync(approvedOriginsPath())) return []
+  try {
+    const parsed = JSON.parse(readFileSync(approvedOriginsPath(), 'utf-8'))
+    return Array.isArray(parsed) ? parsed.filter((origin): origin is string => typeof origin === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+export function addApprovedOrigin(origin: string): void {
+  const existing = getApprovedOrigins()
+  if (existing.includes(origin)) return
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(approvedOriginsPath(), JSON.stringify([...existing, origin], null, 2))
+}
+
+export function removeApprovedOrigin(origin: string): void {
+  const existing = getApprovedOrigins()
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(approvedOriginsPath(), JSON.stringify(existing.filter(o => o !== origin), null, 2))
 }
