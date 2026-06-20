@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('wallet', {
   swapQuote:       (params: unknown)   => ipcRenderer.invoke('wallet:swap-quote', params),
   swapExecute:     (params: unknown)   => ipcRenderer.invoke('wallet:swap-execute', params),
   swapTrack:       (hash: string, chainId: string) => ipcRenderer.invoke('wallet:swap-track', hash, chainId),
+  ssEstimate:      (params: unknown)   => ipcRenderer.invoke('ss:estimate', params),
+  ssCreateExchange:(params: unknown)   => ipcRenderer.invoke('ss:create-exchange', params),
+  ssStatus:        (id: string)        => ipcRenderer.invoke('ss:status', id),
 
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),

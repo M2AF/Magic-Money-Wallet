@@ -1,3 +1,5 @@
+import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange } from './simpleswap'
+
 export interface WalletAddresses {
   evm: string
   solana: string
@@ -301,6 +303,9 @@ declare global {
       swapQuote(params: SwapQuoteParams): Promise<SwapQuoteResult>
       swapExecute(params: SwapExecuteParams): Promise<SwapExecuteResult>
       swapTrack(hash: string, chainId: string): Promise<SwapTrackResult>
+      ssEstimate(params: SsEstimateParams): Promise<SsEstimate>
+      ssCreateExchange(params: SsCreateParams): Promise<SsExchange>
+      ssStatus(id: string): Promise<SsExchange>
       minimize(): void
       close(): void
       // Phase 6: popup dApp browser

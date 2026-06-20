@@ -467,7 +467,7 @@ ieee754.write = function(buffer2, value, offset2, isLE2, mLen, nBytes) {
     }
     return Buffer2.alloc(+length);
   }
-  Buffer2.isBuffer = function isBuffer2(b2) {
+  Buffer2.isBuffer = function isBuffer(b2) {
     return b2 != null && b2._isBuffer === true && b2 !== Buffer2.prototype;
   };
   Buffer2.compare = function compare(a2, b2) {
@@ -1649,7 +1649,7 @@ ieee754.write = function(buffer2, value, offset2, isLE2, mLen, nBytes) {
   E2(
     "ERR_OUT_OF_RANGE",
     function(str, range2, input) {
-      let msg = `The value of "${str}" is out of range.`;
+      let msg2 = `The value of "${str}" is out of range.`;
       let received = input;
       if (Number.isInteger(input) && Math.abs(input) > 2 ** 32) {
         received = addNumericalSeparator(String(input));
@@ -1660,8 +1660,8 @@ ieee754.write = function(buffer2, value, offset2, isLE2, mLen, nBytes) {
         }
         received += "n";
       }
-      msg += ` It must be ${range2}. Received ${received}`;
-      return msg;
+      msg2 += ` It must be ${range2}. Received ${received}`;
+      return msg2;
     },
     RangeError
   );
@@ -1832,8 +1832,8 @@ ieee754.write = function(buffer2, value, offset2, isLE2, mLen, nBytes) {
     }
     return table;
   }();
-  function defineBigIntMethod(fn6) {
-    return typeof BigInt === "undefined" ? BufferBigIntNotDefined : fn6;
+  function defineBigIntMethod(fn) {
+    return typeof BigInt === "undefined" ? BufferBigIntNotDefined : fn;
   }
   function BufferBigIntNotDefined() {
     throw new Error("BigInt not supported");
@@ -1987,7 +1987,7 @@ function hexToBytes$5(hex) {
   }
   return array2;
 }
-const nextTick$1 = async () => {
+const nextTick = async () => {
 };
 async function asyncLoop(iters, tick, cb) {
   let ts = Date.now();
@@ -1996,7 +1996,7 @@ async function asyncLoop(iters, tick, cb) {
     const diff = Date.now() - ts;
     if (diff >= 0 && diff < tick)
       continue;
-    await nextTick$1();
+    await nextTick();
     ts += diff;
   }
 }
@@ -2041,7 +2041,7 @@ function checkOpts$1(defaults, opts) {
 let Hash$7 = class Hash2 {
 };
 function createHasher(hashCons) {
-  const hashC = (msg) => hashCons().update(toBytes$2(msg)).digest();
+  const hashC = (msg2) => hashCons().update(toBytes$2(msg2)).digest();
   const tmp = hashCons();
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
@@ -2049,7 +2049,7 @@ function createHasher(hashCons) {
   return hashC;
 }
 function createOptHasher(hashCons) {
-  const hashC = (msg, opts) => hashCons(opts).update(toBytes$2(msg)).digest();
+  const hashC = (msg2, opts) => hashCons(opts).update(toBytes$2(msg2)).digest();
   const tmp = hashCons({});
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
@@ -2788,12 +2788,12 @@ const sha512_256 = /* @__PURE__ */ createHasher(() => new SHA512_256());
 function isBytes$4(a2) {
   return a2 instanceof Uint8Array || ArrayBuffer.isView(a2) && a2.constructor.name === "Uint8Array";
 }
-function isArrayOf(isString2, arr) {
+function isArrayOf(isString, arr) {
   if (!Array.isArray(arr))
     return false;
   if (arr.length === 0)
     return true;
-  if (isString2) {
+  if (isString) {
     return arr.every((item) => typeof item === "string");
   } else {
     return arr.every((item) => Number.isSafeInteger(item));
@@ -3029,23 +3029,23 @@ function radix2(bits, revPadding = false) {
     }
   };
 }
-function unsafeWrapper(fn6) {
-  afn(fn6);
+function unsafeWrapper(fn) {
+  afn(fn);
   return function(...args) {
     try {
-      return fn6.apply(null, args);
+      return fn.apply(null, args);
     } catch (e2) {
     }
   };
 }
-function checksum$4(len2, fn6) {
+function checksum$4(len2, fn) {
   anumber$1(len2);
-  afn(fn6);
+  afn(fn);
   return {
     encode(data) {
       if (!isBytes$4(data))
         throw new Error("checksum.encode: input should be Uint8Array");
-      const sum = fn6(data).slice(0, len2);
+      const sum = fn(data).slice(0, len2);
       const res = new Uint8Array(data.length + len2);
       res.set(data);
       res.set(sum, data.length);
@@ -3056,7 +3056,7 @@ function checksum$4(len2, fn6) {
         throw new Error("checksum.decode: input should be Uint8Array");
       const payload = data.slice(0, -len2);
       const oldChecksum = data.slice(-len2);
-      const newChecksum = fn6(payload).slice(0, len2);
+      const newChecksum = fn(payload).slice(0, len2);
       for (let i2 = 0; i2 < len2; i2++)
         if (newChecksum[i2] !== oldChecksum[i2])
           throw new Error("Invalid checksum");
@@ -5426,13 +5426,13 @@ function _validateObject(object, fields, optFields = {}) {
   Object.entries(fields).forEach(([k2, v6]) => checkField(k2, v6, false));
   Object.entries(optFields).forEach(([k2, v6]) => checkField(k2, v6, true));
 }
-function memoized$3(fn6) {
+function memoized$3(fn) {
   const map = /* @__PURE__ */ new WeakMap();
   return (arg, ...args) => {
     const val = map.get(arg);
     if (val !== void 0)
       return val;
-    const computed = fn6(arg, ...args);
+    const computed = fn(arg, ...args);
     map.set(arg, computed);
     return computed;
   };
@@ -8212,8 +8212,8 @@ var sign$4 = function sign2(number2) {
   }
   return number2 < 0 ? -1 : 1;
 };
-var gOPD$1 = Object.getOwnPropertyDescriptor;
-var $gOPD$1 = gOPD$1;
+var gOPD = Object.getOwnPropertyDescriptor;
+var $gOPD$1 = gOPD;
 if ($gOPD$1) {
   try {
     $gOPD$1([], "length");
@@ -8273,7 +8273,7 @@ function requireObject_getPrototypeOf() {
   return Object_getPrototypeOf;
 }
 var ERROR_MESSAGE = "Function.prototype.bind called on incompatible ";
-var toStr$1 = Object.prototype.toString;
+var toStr = Object.prototype.toString;
 var max$1 = Math.max;
 var funcType = "[object Function]";
 var concatty = function concatty2(a2, b2) {
@@ -8305,7 +8305,7 @@ var joiny = function(arr, joiner) {
 };
 var implementation$1 = function bind2(that) {
   var target = this;
-  if (typeof target !== "function" || toStr$1.apply(target) !== funcType) {
+  if (typeof target !== "function" || toStr.apply(target) !== funcType) {
     throw new TypeError(ERROR_MESSAGE + target);
   }
   var args = slicy(arguments, 1);
@@ -8344,20 +8344,27 @@ var implementation$1 = function bind2(that) {
 var implementation = implementation$1;
 var functionBind = Function.prototype.bind || implementation;
 var functionCall = Function.prototype.call;
-var functionApply = Function.prototype.apply;
+var functionApply;
+var hasRequiredFunctionApply;
+function requireFunctionApply() {
+  if (hasRequiredFunctionApply) return functionApply;
+  hasRequiredFunctionApply = 1;
+  functionApply = Function.prototype.apply;
+  return functionApply;
+}
 var reflectApply = typeof Reflect !== "undefined" && Reflect && Reflect.apply;
 var bind$2 = functionBind;
-var $apply$1 = functionApply;
+var $apply$1 = requireFunctionApply();
 var $call$2 = functionCall;
 var $reflectApply = reflectApply;
 var actualApply = $reflectApply || bind$2.call($call$2, $apply$1);
 var bind$1 = functionBind;
-var $TypeError$3 = type$1;
+var $TypeError$2 = type$1;
 var $call$1 = functionCall;
 var $actualApply = actualApply;
 var callBindApplyHelpers = function callBindBasic2(args) {
   if (args.length < 1 || typeof args[0] !== "function") {
-    throw new $TypeError$3("a function is required");
+    throw new $TypeError$2("a function is required");
   }
   return $actualApply(bind$1, $call$1, args);
 };
@@ -8392,15 +8399,15 @@ function requireGet() {
   ) : false;
   return get$1;
 }
-var getProto$2;
+var getProto$1;
 var hasRequiredGetProto;
 function requireGetProto() {
-  if (hasRequiredGetProto) return getProto$2;
+  if (hasRequiredGetProto) return getProto$1;
   hasRequiredGetProto = 1;
   var reflectGetProto = requireReflect_getPrototypeOf();
   var originalGetProto = requireObject_getPrototypeOf();
   var getDunderProto = requireGet();
-  getProto$2 = reflectGetProto ? function getProto2(O2) {
+  getProto$1 = reflectGetProto ? function getProto2(O2) {
     return reflectGetProto(O2);
   } : originalGetProto ? function getProto2(O2) {
     if (!O2 || typeof O2 !== "object" && typeof O2 !== "function") {
@@ -8410,7 +8417,7 @@ function requireGetProto() {
   } : getDunderProto ? function getProto2(O2) {
     return getDunderProto(O2);
   } : null;
-  return getProto$2;
+  return getProto$1;
 }
 var hasown;
 var hasRequiredHasown;
@@ -8430,7 +8437,7 @@ var $EvalError = _eval;
 var $RangeError = range;
 var $ReferenceError = ref;
 var $SyntaxError = syntax;
-var $TypeError$2 = type$1;
+var $TypeError$1 = type$1;
 var $URIError = uri;
 var abs = abs$1;
 var floor = floor$1;
@@ -8449,7 +8456,7 @@ var getEvalledConstructor = function(expressionSyntax) {
 var $gOPD = gopd;
 var $defineProperty = esDefineProperty;
 var throwTypeError = function() {
-  throw new $TypeError$2();
+  throw new $TypeError$1();
 };
 var ThrowTypeError = $gOPD ? function() {
   try {
@@ -8464,19 +8471,19 @@ var ThrowTypeError = $gOPD ? function() {
   }
 }() : throwTypeError;
 var hasSymbols = requireHasSymbols()();
-var getProto$1 = requireGetProto();
+var getProto = requireGetProto();
 var $ObjectGPO = requireObject_getPrototypeOf();
 var $ReflectGPO = requireReflect_getPrototypeOf();
-var $apply = functionApply;
+var $apply = requireFunctionApply();
 var $call = functionCall;
 var needsEval = {};
-var TypedArray = typeof Uint8Array === "undefined" || !getProto$1 ? undefined$1 : getProto$1(Uint8Array);
+var TypedArray = typeof Uint8Array === "undefined" || !getProto ? undefined$1 : getProto(Uint8Array);
 var INTRINSICS = {
   __proto__: null,
   "%AggregateError%": typeof AggregateError === "undefined" ? undefined$1 : AggregateError,
   "%Array%": Array,
   "%ArrayBuffer%": typeof ArrayBuffer === "undefined" ? undefined$1 : ArrayBuffer,
-  "%ArrayIteratorPrototype%": hasSymbols && getProto$1 ? getProto$1([][Symbol.iterator]()) : undefined$1,
+  "%ArrayIteratorPrototype%": hasSymbols && getProto ? getProto([][Symbol.iterator]()) : undefined$1,
   "%AsyncFromSyncIteratorPrototype%": undefined$1,
   "%AsyncFunction%": needsEval,
   "%AsyncGenerator%": needsEval,
@@ -8508,10 +8515,10 @@ var INTRINSICS = {
   "%Int32Array%": typeof Int32Array === "undefined" ? undefined$1 : Int32Array,
   "%isFinite%": isFinite,
   "%isNaN%": isNaN,
-  "%IteratorPrototype%": hasSymbols && getProto$1 ? getProto$1(getProto$1([][Symbol.iterator]())) : undefined$1,
+  "%IteratorPrototype%": hasSymbols && getProto ? getProto(getProto([][Symbol.iterator]())) : undefined$1,
   "%JSON%": typeof JSON === "object" ? JSON : undefined$1,
   "%Map%": typeof Map === "undefined" ? undefined$1 : Map,
-  "%MapIteratorPrototype%": typeof Map === "undefined" || !hasSymbols || !getProto$1 ? undefined$1 : getProto$1((/* @__PURE__ */ new Map())[Symbol.iterator]()),
+  "%MapIteratorPrototype%": typeof Map === "undefined" || !hasSymbols || !getProto ? undefined$1 : getProto((/* @__PURE__ */ new Map())[Symbol.iterator]()),
   "%Math%": Math,
   "%Number%": Number,
   "%Object%": $Object,
@@ -8525,15 +8532,15 @@ var INTRINSICS = {
   "%Reflect%": typeof Reflect === "undefined" ? undefined$1 : Reflect,
   "%RegExp%": RegExp,
   "%Set%": typeof Set === "undefined" ? undefined$1 : Set,
-  "%SetIteratorPrototype%": typeof Set === "undefined" || !hasSymbols || !getProto$1 ? undefined$1 : getProto$1((/* @__PURE__ */ new Set())[Symbol.iterator]()),
+  "%SetIteratorPrototype%": typeof Set === "undefined" || !hasSymbols || !getProto ? undefined$1 : getProto((/* @__PURE__ */ new Set())[Symbol.iterator]()),
   "%SharedArrayBuffer%": typeof SharedArrayBuffer === "undefined" ? undefined$1 : SharedArrayBuffer,
   "%String%": String,
-  "%StringIteratorPrototype%": hasSymbols && getProto$1 ? getProto$1(""[Symbol.iterator]()) : undefined$1,
+  "%StringIteratorPrototype%": hasSymbols && getProto ? getProto(""[Symbol.iterator]()) : undefined$1,
   "%Symbol%": hasSymbols ? Symbol : undefined$1,
   "%SyntaxError%": $SyntaxError,
   "%ThrowTypeError%": ThrowTypeError,
   "%TypedArray%": TypedArray,
-  "%TypeError%": $TypeError$2,
+  "%TypeError%": $TypeError$1,
   "%Uint8Array%": typeof Uint8Array === "undefined" ? undefined$1 : Uint8Array,
   "%Uint8ClampedArray%": typeof Uint8ClampedArray === "undefined" ? undefined$1 : Uint8ClampedArray,
   "%Uint16Array%": typeof Uint16Array === "undefined" ? undefined$1 : Uint16Array,
@@ -8555,11 +8562,11 @@ var INTRINSICS = {
   "%Math.sign%": sign$3,
   "%Reflect.getPrototypeOf%": $ReflectGPO
 };
-if (getProto$1) {
+if (getProto) {
   try {
     null.error;
   } catch (e2) {
-    var errorProto = getProto$1(getProto$1(e2));
+    var errorProto = getProto(getProto(e2));
     INTRINSICS["%Error.prototype%"] = errorProto;
   }
 }
@@ -8572,14 +8579,14 @@ var doEval = function doEval2(name) {
   } else if (name === "%AsyncGeneratorFunction%") {
     value = getEvalledConstructor("async function* () {}");
   } else if (name === "%AsyncGenerator%") {
-    var fn6 = doEval2("%AsyncGeneratorFunction%");
-    if (fn6) {
-      value = fn6.prototype;
+    var fn = doEval2("%AsyncGeneratorFunction%");
+    if (fn) {
+      value = fn.prototype;
     }
   } else if (name === "%AsyncIteratorPrototype%") {
     var gen2 = doEval2("%AsyncGenerator%");
-    if (gen2 && getProto$1) {
-      value = getProto$1(gen2.prototype);
+    if (gen2 && getProto) {
+      value = getProto(gen2.prototype);
     }
   }
   INTRINSICS[name] = value;
@@ -8640,12 +8647,12 @@ var LEGACY_ALIASES = {
   "%WeakSetPrototype%": ["WeakSet", "prototype"]
 };
 var bind = functionBind;
-var hasOwn$1 = requireHasown();
+var hasOwn = requireHasown();
 var $concat = bind.call($call, Array.prototype.concat);
 var $spliceApply = bind.call($apply, Array.prototype.splice);
 var $replace = bind.call($call, String.prototype.replace);
 var $strSlice = bind.call($call, String.prototype.slice);
-var $exec$2 = bind.call($call, RegExp.prototype.exec);
+var $exec = bind.call($call, RegExp.prototype.exec);
 var rePropName = /[^%.[\]]+|\[(?:(-?\d+(?:\.\d+)?)|(["'])((?:(?!\2)[^\\]|\\.)*?)\2)\]|(?=(?:\.|\[\])(?:\.|\[\]|%$))/g;
 var reEscapeChar = /\\(\\)?/g;
 var stringToPath = function stringToPath2(string2) {
@@ -8665,17 +8672,17 @@ var stringToPath = function stringToPath2(string2) {
 var getBaseIntrinsic = function getBaseIntrinsic2(name, allowMissing) {
   var intrinsicName = name;
   var alias;
-  if (hasOwn$1(LEGACY_ALIASES, intrinsicName)) {
+  if (hasOwn(LEGACY_ALIASES, intrinsicName)) {
     alias = LEGACY_ALIASES[intrinsicName];
     intrinsicName = "%" + alias[0] + "%";
   }
-  if (hasOwn$1(INTRINSICS, intrinsicName)) {
+  if (hasOwn(INTRINSICS, intrinsicName)) {
     var value = INTRINSICS[intrinsicName];
     if (value === needsEval) {
       value = doEval(intrinsicName);
     }
     if (typeof value === "undefined" && !allowMissing) {
-      throw new $TypeError$2("intrinsic " + name + " exists, but is not available. Please file an issue!");
+      throw new $TypeError$1("intrinsic " + name + " exists, but is not available. Please file an issue!");
     }
     return {
       alias,
@@ -8687,12 +8694,12 @@ var getBaseIntrinsic = function getBaseIntrinsic2(name, allowMissing) {
 };
 var getIntrinsic = function GetIntrinsic2(name, allowMissing) {
   if (typeof name !== "string" || name.length === 0) {
-    throw new $TypeError$2("intrinsic name must be a non-empty string");
+    throw new $TypeError$1("intrinsic name must be a non-empty string");
   }
   if (arguments.length > 1 && typeof allowMissing !== "boolean") {
-    throw new $TypeError$2('"allowMissing" argument must be a boolean');
+    throw new $TypeError$1('"allowMissing" argument must be a boolean');
   }
-  if ($exec$2(/^%?[^%]*%?$/, name) === null) {
+  if ($exec(/^%?[^%]*%?$/, name) === null) {
     throw new $SyntaxError("`%` may not be present anywhere but at the beginning and end of the intrinsic name");
   }
   var parts = stringToPath(name);
@@ -8718,12 +8725,12 @@ var getIntrinsic = function GetIntrinsic2(name, allowMissing) {
     }
     intrinsicBaseName += "." + part;
     intrinsicRealName = "%" + intrinsicBaseName + "%";
-    if (hasOwn$1(INTRINSICS, intrinsicRealName)) {
+    if (hasOwn(INTRINSICS, intrinsicRealName)) {
       value = INTRINSICS[intrinsicRealName];
     } else if (value != null) {
       if (!(part in value)) {
         if (!allowMissing) {
-          throw new $TypeError$2("base intrinsic for " + name + " exists, but the property is not available.");
+          throw new $TypeError$1("base intrinsic for " + name + " exists, but the property is not available.");
         }
         return void 0;
       }
@@ -8736,7 +8743,7 @@ var getIntrinsic = function GetIntrinsic2(name, allowMissing) {
           value = value[part];
         }
       } else {
-        isOwn = hasOwn$1(value, part);
+        isOwn = hasOwn(value, part);
         value = value[part];
       }
       if (isOwn && !skipFurtherCaching) {
@@ -8749,7 +8756,7 @@ var getIntrinsic = function GetIntrinsic2(name, allowMissing) {
 var GetIntrinsic = getIntrinsic;
 var callBindBasic = callBindApplyHelpers;
 var $indexOf = callBindBasic([GetIntrinsic("%String.prototype.indexOf%")]);
-var callBound$5 = function callBoundIntrinsic(name, allowMissing) {
+var callBound$1 = function callBoundIntrinsic(name, allowMissing) {
   var intrinsic = (
     /** @type {(this: unknown, ...args: unknown[]) => unknown} */
     GetIntrinsic(name, !!allowMissing)
@@ -8762,94 +8769,115 @@ var callBound$5 = function callBoundIntrinsic(name, allowMissing) {
   }
   return intrinsic;
 };
-var hasToStringTag$2 = requireShams()();
-var callBound$4 = callBound$5;
-var $toString$1 = callBound$4("Object.prototype.toString");
-var isStandardArguments = function isArguments2(value) {
-  if (hasToStringTag$2 && value && typeof value === "object" && Symbol.toStringTag in value) {
-    return false;
-  }
-  return $toString$1(value) === "[object Arguments]";
-};
-var isLegacyArguments = function isArguments3(value) {
-  if (isStandardArguments(value)) {
-    return true;
-  }
-  return value !== null && typeof value === "object" && "length" in value && typeof value.length === "number" && value.length >= 0 && $toString$1(value) !== "[object Array]" && "callee" in value && $toString$1(value.callee) === "[object Function]";
-};
-var supportsStandardArguments = function() {
-  return isStandardArguments(arguments);
-}();
-isStandardArguments.isLegacyArguments = isLegacyArguments;
-var isArguments = supportsStandardArguments ? isStandardArguments : isLegacyArguments;
-var callBound$3 = callBound$5;
-var hasToStringTag$1 = requireShams()();
-var hasOwn = requireHasown();
-var gOPD = gopd;
-var fn;
-if (hasToStringTag$1) {
-  var $exec$1 = callBound$3("RegExp.prototype.exec");
-  var isRegexMarker = {};
-  var throwRegexMarker = function() {
-    throw isRegexMarker;
-  };
-  var badStringifier = {
-    toString: throwRegexMarker,
-    valueOf: throwRegexMarker
-  };
-  if (typeof Symbol.toPrimitive === "symbol") {
-    badStringifier[Symbol.toPrimitive] = throwRegexMarker;
-  }
-  fn = function isRegex2(value) {
-    if (!value || typeof value !== "object") {
+var isArguments;
+var hasRequiredIsArguments;
+function requireIsArguments() {
+  if (hasRequiredIsArguments) return isArguments;
+  hasRequiredIsArguments = 1;
+  var hasToStringTag = requireShams()();
+  var callBound2 = callBound$1;
+  var $toString = callBound2("Object.prototype.toString");
+  var isStandardArguments = function isArguments2(value) {
+    if (hasToStringTag && value && typeof value === "object" && Symbol.toStringTag in value) {
       return false;
     }
-    var descriptor = (
-      /** @type {NonNullable<typeof gOPD>} */
-      gOPD(
-        /** @type {{ lastIndex?: unknown }} */
-        value,
-        "lastIndex"
-      )
-    );
-    var hasLastIndexDataProperty = descriptor && hasOwn(descriptor, "value");
-    if (!hasLastIndexDataProperty) {
-      return false;
-    }
-    try {
-      $exec$1(
-        value,
-        /** @type {string} */
-        /** @type {unknown} */
-        badStringifier
-      );
-    } catch (e2) {
-      return e2 === isRegexMarker;
-    }
+    return $toString(value) === "[object Arguments]";
   };
-} else {
-  var $toString = callBound$3("Object.prototype.toString");
-  var regexClass = "[object RegExp]";
-  fn = function isRegex2(value) {
-    if (!value || typeof value !== "object" && typeof value !== "function") {
-      return false;
+  var isLegacyArguments = function isArguments2(value) {
+    if (isStandardArguments(value)) {
+      return true;
     }
-    return $toString(value) === regexClass;
+    return value !== null && typeof value === "object" && "length" in value && typeof value.length === "number" && value.length >= 0 && $toString(value) !== "[object Array]" && "callee" in value && $toString(value.callee) === "[object Function]";
   };
+  var supportsStandardArguments = function() {
+    return isStandardArguments(arguments);
+  }();
+  isStandardArguments.isLegacyArguments = isLegacyArguments;
+  isArguments = supportsStandardArguments ? isStandardArguments : isLegacyArguments;
+  return isArguments;
 }
-var isRegex$1 = fn;
-var callBound$2 = callBound$5;
-var isRegex = isRegex$1;
-var $exec = callBound$2("RegExp.prototype.exec");
-var $TypeError$1 = type$1;
-var safeRegexTest$1 = function regexTester(regex) {
-  if (!isRegex(regex)) {
-    throw new $TypeError$1("`regex` must be a RegExp");
+var isRegex;
+var hasRequiredIsRegex;
+function requireIsRegex() {
+  if (hasRequiredIsRegex) return isRegex;
+  hasRequiredIsRegex = 1;
+  var callBound2 = callBound$1;
+  var hasToStringTag = requireShams()();
+  var hasOwn2 = requireHasown();
+  var gOPD2 = gopd;
+  var fn;
+  if (hasToStringTag) {
+    var $exec2 = callBound2("RegExp.prototype.exec");
+    var isRegexMarker = {};
+    var throwRegexMarker = function() {
+      throw isRegexMarker;
+    };
+    var badStringifier = {
+      toString: throwRegexMarker,
+      valueOf: throwRegexMarker
+    };
+    if (typeof Symbol.toPrimitive === "symbol") {
+      badStringifier[Symbol.toPrimitive] = throwRegexMarker;
+    }
+    fn = function isRegex2(value) {
+      if (!value || typeof value !== "object") {
+        return false;
+      }
+      var descriptor = (
+        /** @type {NonNullable<typeof gOPD>} */
+        gOPD2(
+          /** @type {{ lastIndex?: unknown }} */
+          value,
+          "lastIndex"
+        )
+      );
+      var hasLastIndexDataProperty = descriptor && hasOwn2(descriptor, "value");
+      if (!hasLastIndexDataProperty) {
+        return false;
+      }
+      try {
+        $exec2(
+          value,
+          /** @type {string} */
+          /** @type {unknown} */
+          badStringifier
+        );
+      } catch (e2) {
+        return e2 === isRegexMarker;
+      }
+    };
+  } else {
+    var $toString = callBound2("Object.prototype.toString");
+    var regexClass = "[object RegExp]";
+    fn = function isRegex2(value) {
+      if (!value || typeof value !== "object" && typeof value !== "function") {
+        return false;
+      }
+      return $toString(value) === regexClass;
+    };
   }
-  return function test(s2) {
-    return $exec(regex, s2) !== null;
+  isRegex = fn;
+  return isRegex;
+}
+var safeRegexTest;
+var hasRequiredSafeRegexTest;
+function requireSafeRegexTest() {
+  if (hasRequiredSafeRegexTest) return safeRegexTest;
+  hasRequiredSafeRegexTest = 1;
+  var callBound2 = callBound$1;
+  var isRegex2 = requireIsRegex();
+  var $exec2 = callBound2("RegExp.prototype.exec");
+  var $TypeError2 = type$1;
+  safeRegexTest = function regexTester(regex) {
+    if (!isRegex2(regex)) {
+      throw new $TypeError2("`regex` must be a RegExp");
+    }
+    return function test(s2) {
+      return $exec2(regex, s2) !== null;
+    };
   };
-};
+  return safeRegexTest;
+}
 var generatorFunction;
 var hasRequiredGeneratorFunction;
 function requireGeneratorFunction() {
@@ -8863,37 +8891,44 @@ function requireGeneratorFunction() {
   generatorFunction = () => cached;
   return generatorFunction;
 }
-var callBound$1 = callBound$5;
-var safeRegexTest = safeRegexTest$1;
-var isFnRegex = safeRegexTest(/^\s*(?:function)?\*/);
-var hasToStringTag = requireShams()();
-var getProto = requireGetProto();
-var toStr = callBound$1("Object.prototype.toString");
-var fnToStr = callBound$1("Function.prototype.toString");
-var getGeneratorFunction = requireGeneratorFunction();
-var isGeneratorFunction = function isGeneratorFunction2(fn6) {
-  if (typeof fn6 !== "function") {
-    return false;
-  }
-  if (isFnRegex(fnToStr(fn6))) {
-    return true;
-  }
-  if (!hasToStringTag) {
-    var str = toStr(fn6);
-    return str === "[object GeneratorFunction]";
-  }
-  if (!getProto) {
-    return false;
-  }
-  var GeneratorFunction = getGeneratorFunction();
-  return GeneratorFunction && getProto(fn6) === GeneratorFunction.prototype;
-};
+var isGeneratorFunction;
+var hasRequiredIsGeneratorFunction;
+function requireIsGeneratorFunction() {
+  if (hasRequiredIsGeneratorFunction) return isGeneratorFunction;
+  hasRequiredIsGeneratorFunction = 1;
+  var callBound2 = callBound$1;
+  var safeRegexTest2 = requireSafeRegexTest();
+  var isFnRegex = safeRegexTest2(/^\s*(?:function)?\*/);
+  var hasToStringTag = requireShams()();
+  var getProto2 = requireGetProto();
+  var toStr2 = callBound2("Object.prototype.toString");
+  var fnToStr = callBound2("Function.prototype.toString");
+  var getGeneratorFunction = requireGeneratorFunction();
+  isGeneratorFunction = function isGeneratorFunction2(fn) {
+    if (typeof fn !== "function") {
+      return false;
+    }
+    if (isFnRegex(fnToStr(fn))) {
+      return true;
+    }
+    if (!hasToStringTag) {
+      var str = toStr2(fn);
+      return str === "[object GeneratorFunction]";
+    }
+    if (!getProto2) {
+      return false;
+    }
+    var GeneratorFunction = getGeneratorFunction();
+    return GeneratorFunction && getProto2(fn) === GeneratorFunction.prototype;
+  };
+  return isGeneratorFunction;
+}
 var isCallable;
 var hasRequiredIsCallable;
 function requireIsCallable() {
   if (hasRequiredIsCallable) return isCallable;
   hasRequiredIsCallable = 1;
-  var fnToStr2 = Function.prototype.toString;
+  var fnToStr = Function.prototype.toString;
   var reflectApply2 = typeof Reflect === "object" && Reflect !== null && Reflect.apply;
   var badArrayLike;
   var isCallableMarker;
@@ -8919,7 +8954,7 @@ function requireIsCallable() {
   var constructorRegex = /^\s*class\b/;
   var isES6ClassFn = function isES6ClassFunction(value) {
     try {
-      var fnStr = fnToStr2.call(value);
+      var fnStr = fnToStr.call(value);
       return constructorRegex.test(fnStr);
     } catch (e2) {
       return false;
@@ -8930,7 +8965,7 @@ function requireIsCallable() {
       if (isES6ClassFn(value)) {
         return false;
       }
-      fnToStr2.call(value);
+      fnToStr.call(value);
       return true;
     } catch (e2) {
       return false;
@@ -8943,7 +8978,7 @@ function requireIsCallable() {
   var ddaClass = "[object HTMLAllCollection]";
   var ddaClass2 = "[object HTML document.all class]";
   var ddaClass3 = "[object HTMLCollection]";
-  var hasToStringTag2 = typeof Symbol === "function" && !!Symbol.toStringTag;
+  var hasToStringTag = typeof Symbol === "function" && !!Symbol.toStringTag;
   var isIE68 = !(0 in [,]);
   var isDDA = function isDocumentDotAll() {
     return false;
@@ -8991,7 +9026,7 @@ function requireIsCallable() {
     if (typeof value !== "function" && typeof value !== "object") {
       return false;
     }
-    if (hasToStringTag2) {
+    if (hasToStringTag) {
       return tryFunctionObject(value);
     }
     if (isES6ClassFn(value)) {
@@ -9186,8 +9221,8 @@ function requireSetFunctionLength() {
   var gOPD2 = gopd;
   var $TypeError2 = type$1;
   var $floor = GetIntrinsic3("%Math.floor%");
-  setFunctionLength = function setFunctionLength2(fn6, length) {
-    if (typeof fn6 !== "function") {
+  setFunctionLength = function setFunctionLength2(fn, length) {
+    if (typeof fn !== "function") {
       throw new $TypeError2("`fn` is not a function");
     }
     if (typeof length !== "number" || length < 0 || length > 4294967295 || $floor(length) !== length) {
@@ -9196,8 +9231,8 @@ function requireSetFunctionLength() {
     var loose = arguments.length > 2 && !!arguments[2];
     var functionLengthIsConfigurable = true;
     var functionLengthIsWritable = true;
-    if ("length" in fn6 && gOPD2) {
-      var desc = gOPD2(fn6, "length");
+    if ("length" in fn && gOPD2) {
+      var desc = gOPD2(fn, "length");
       if (desc && !desc.configurable) {
         functionLengthIsConfigurable = false;
       }
@@ -9209,7 +9244,7 @@ function requireSetFunctionLength() {
       if (hasDescriptors) {
         define2(
           /** @type {Parameters<define>[0]} */
-          fn6,
+          fn,
           "length",
           length,
           true,
@@ -9218,13 +9253,13 @@ function requireSetFunctionLength() {
       } else {
         define2(
           /** @type {Parameters<define>[0]} */
-          fn6,
+          fn,
           "length",
           length
         );
       }
     }
-    return fn6;
+    return fn;
   };
   return setFunctionLength;
 }
@@ -9234,7 +9269,7 @@ function requireApplyBind() {
   if (hasRequiredApplyBind) return applyBind;
   hasRequiredApplyBind = 1;
   var bind3 = functionBind;
-  var $apply2 = functionApply;
+  var $apply2 = requireFunctionApply();
   var actualApply$1 = actualApply;
   applyBind = function applyBind2() {
     return actualApply$1(bind3, $apply2, arguments);
@@ -9275,11 +9310,11 @@ function requireWhichTypedArray() {
   var forEach2 = requireForEach();
   var availableTypedArrays2 = requireAvailableTypedArrays();
   var callBind2 = requireCallBind();
-  var callBound2 = callBound$5;
+  var callBound2 = callBound$1;
   var gOPD2 = gopd;
   var getProto2 = requireGetProto();
-  var $toString2 = callBound2("Object.prototype.toString");
-  var hasToStringTag2 = requireShams()();
+  var $toString = callBound2("Object.prototype.toString");
+  var hasToStringTag = requireShams()();
   var g3 = typeof globalThis === "undefined" ? commonjsGlobal : globalThis;
   var typedArrays = availableTypedArrays2();
   var $slice = callBound2("String.prototype.slice");
@@ -9292,7 +9327,7 @@ function requireWhichTypedArray() {
     return -1;
   };
   var cache = { __proto__: null };
-  if (hasToStringTag2 && gOPD2 && getProto2) {
+  if (hasToStringTag && gOPD2 && getProto2) {
     forEach2(typedArrays, function(typedArray) {
       var arr = new g3[typedArray]();
       if (Symbol.toStringTag in arr && getProto2) {
@@ -9314,12 +9349,12 @@ function requireWhichTypedArray() {
   } else {
     forEach2(typedArrays, function(typedArray) {
       var arr = new g3[typedArray]();
-      var fn6 = arr.slice || arr.set;
-      if (fn6) {
+      var fn = arr.slice || arr.set;
+      if (fn) {
         var bound = (
           /** @type {BoundSlice | BoundSet} */
           // @ts-expect-error TODO FIXME
-          callBind2(fn6)
+          callBind2(fn)
         );
         cache[
           /** @type {`$${TypedArrayName}`} */
@@ -9374,8 +9409,8 @@ function requireWhichTypedArray() {
     if (!value || typeof value !== "object") {
       return false;
     }
-    if (!hasToStringTag2) {
-      var tag = $slice($toString2(value), 8, -1);
+    if (!hasToStringTag) {
+      var tag = $slice($toString(value), 8, -1);
       if (isTATag(tag)) {
         return tag;
       }
@@ -9402,785 +9437,804 @@ function requireIsTypedArray() {
   };
   return isTypedArray$1;
 }
-(function(exports2) {
-  var isArgumentsObject = isArguments;
-  var isGeneratorFunction$1 = isGeneratorFunction;
-  var whichTypedArray2 = requireWhichTypedArray();
-  var isTypedArray2 = requireIsTypedArray();
-  function uncurryThis(f2) {
-    return f2.call.bind(f2);
-  }
-  var BigIntSupported = typeof BigInt !== "undefined";
-  var SymbolSupported = typeof Symbol !== "undefined";
-  var ObjectToString = uncurryThis(Object.prototype.toString);
-  var numberValue = uncurryThis(Number.prototype.valueOf);
-  var stringValue = uncurryThis(String.prototype.valueOf);
-  var booleanValue = uncurryThis(Boolean.prototype.valueOf);
-  if (BigIntSupported) {
-    var bigIntValue = uncurryThis(BigInt.prototype.valueOf);
-  }
-  if (SymbolSupported) {
-    var symbolValue = uncurryThis(Symbol.prototype.valueOf);
-  }
-  function checkBoxedPrimitive(value, prototypeValueOf) {
-    if (typeof value !== "object") {
-      return false;
+var hasRequiredTypes$1;
+function requireTypes$1() {
+  if (hasRequiredTypes$1) return types$1;
+  hasRequiredTypes$1 = 1;
+  (function(exports2) {
+    var isArgumentsObject = requireIsArguments();
+    var isGeneratorFunction2 = requireIsGeneratorFunction();
+    var whichTypedArray2 = requireWhichTypedArray();
+    var isTypedArray2 = requireIsTypedArray();
+    function uncurryThis(f2) {
+      return f2.call.bind(f2);
     }
-    try {
-      prototypeValueOf(value);
-      return true;
-    } catch (e2) {
-      return false;
+    var BigIntSupported = typeof BigInt !== "undefined";
+    var SymbolSupported = typeof Symbol !== "undefined";
+    var ObjectToString = uncurryThis(Object.prototype.toString);
+    var numberValue = uncurryThis(Number.prototype.valueOf);
+    var stringValue = uncurryThis(String.prototype.valueOf);
+    var booleanValue = uncurryThis(Boolean.prototype.valueOf);
+    if (BigIntSupported) {
+      var bigIntValue = uncurryThis(BigInt.prototype.valueOf);
     }
-  }
-  exports2.isArgumentsObject = isArgumentsObject;
-  exports2.isGeneratorFunction = isGeneratorFunction$1;
-  exports2.isTypedArray = isTypedArray2;
-  function isPromise(input) {
-    return typeof Promise !== "undefined" && input instanceof Promise || input !== null && typeof input === "object" && typeof input.then === "function" && typeof input.catch === "function";
-  }
-  exports2.isPromise = isPromise;
-  function isArrayBufferView(value) {
-    if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView) {
-      return ArrayBuffer.isView(value);
+    if (SymbolSupported) {
+      var symbolValue = uncurryThis(Symbol.prototype.valueOf);
     }
-    return isTypedArray2(value) || isDataView(value);
-  }
-  exports2.isArrayBufferView = isArrayBufferView;
-  function isUint8Array(value) {
-    return whichTypedArray2(value) === "Uint8Array";
-  }
-  exports2.isUint8Array = isUint8Array;
-  function isUint8ClampedArray(value) {
-    return whichTypedArray2(value) === "Uint8ClampedArray";
-  }
-  exports2.isUint8ClampedArray = isUint8ClampedArray;
-  function isUint16Array(value) {
-    return whichTypedArray2(value) === "Uint16Array";
-  }
-  exports2.isUint16Array = isUint16Array;
-  function isUint32Array(value) {
-    return whichTypedArray2(value) === "Uint32Array";
-  }
-  exports2.isUint32Array = isUint32Array;
-  function isInt8Array(value) {
-    return whichTypedArray2(value) === "Int8Array";
-  }
-  exports2.isInt8Array = isInt8Array;
-  function isInt16Array(value) {
-    return whichTypedArray2(value) === "Int16Array";
-  }
-  exports2.isInt16Array = isInt16Array;
-  function isInt32Array(value) {
-    return whichTypedArray2(value) === "Int32Array";
-  }
-  exports2.isInt32Array = isInt32Array;
-  function isFloat32Array(value) {
-    return whichTypedArray2(value) === "Float32Array";
-  }
-  exports2.isFloat32Array = isFloat32Array;
-  function isFloat64Array(value) {
-    return whichTypedArray2(value) === "Float64Array";
-  }
-  exports2.isFloat64Array = isFloat64Array;
-  function isBigInt64Array(value) {
-    return whichTypedArray2(value) === "BigInt64Array";
-  }
-  exports2.isBigInt64Array = isBigInt64Array;
-  function isBigUint64Array(value) {
-    return whichTypedArray2(value) === "BigUint64Array";
-  }
-  exports2.isBigUint64Array = isBigUint64Array;
-  function isMapToString(value) {
-    return ObjectToString(value) === "[object Map]";
-  }
-  isMapToString.working = typeof Map !== "undefined" && isMapToString(/* @__PURE__ */ new Map());
-  function isMap(value) {
-    if (typeof Map === "undefined") {
-      return false;
-    }
-    return isMapToString.working ? isMapToString(value) : value instanceof Map;
-  }
-  exports2.isMap = isMap;
-  function isSetToString(value) {
-    return ObjectToString(value) === "[object Set]";
-  }
-  isSetToString.working = typeof Set !== "undefined" && isSetToString(/* @__PURE__ */ new Set());
-  function isSet(value) {
-    if (typeof Set === "undefined") {
-      return false;
-    }
-    return isSetToString.working ? isSetToString(value) : value instanceof Set;
-  }
-  exports2.isSet = isSet;
-  function isWeakMapToString(value) {
-    return ObjectToString(value) === "[object WeakMap]";
-  }
-  isWeakMapToString.working = typeof WeakMap !== "undefined" && isWeakMapToString(/* @__PURE__ */ new WeakMap());
-  function isWeakMap(value) {
-    if (typeof WeakMap === "undefined") {
-      return false;
-    }
-    return isWeakMapToString.working ? isWeakMapToString(value) : value instanceof WeakMap;
-  }
-  exports2.isWeakMap = isWeakMap;
-  function isWeakSetToString(value) {
-    return ObjectToString(value) === "[object WeakSet]";
-  }
-  isWeakSetToString.working = typeof WeakSet !== "undefined" && isWeakSetToString(/* @__PURE__ */ new WeakSet());
-  function isWeakSet(value) {
-    return isWeakSetToString(value);
-  }
-  exports2.isWeakSet = isWeakSet;
-  function isArrayBufferToString(value) {
-    return ObjectToString(value) === "[object ArrayBuffer]";
-  }
-  isArrayBufferToString.working = typeof ArrayBuffer !== "undefined" && isArrayBufferToString(new ArrayBuffer());
-  function isArrayBuffer(value) {
-    if (typeof ArrayBuffer === "undefined") {
-      return false;
-    }
-    return isArrayBufferToString.working ? isArrayBufferToString(value) : value instanceof ArrayBuffer;
-  }
-  exports2.isArrayBuffer = isArrayBuffer;
-  function isDataViewToString(value) {
-    return ObjectToString(value) === "[object DataView]";
-  }
-  isDataViewToString.working = typeof ArrayBuffer !== "undefined" && typeof DataView !== "undefined" && isDataViewToString(new DataView(new ArrayBuffer(1), 0, 1));
-  function isDataView(value) {
-    if (typeof DataView === "undefined") {
-      return false;
-    }
-    return isDataViewToString.working ? isDataViewToString(value) : value instanceof DataView;
-  }
-  exports2.isDataView = isDataView;
-  var SharedArrayBufferCopy = typeof SharedArrayBuffer !== "undefined" ? SharedArrayBuffer : void 0;
-  function isSharedArrayBufferToString(value) {
-    return ObjectToString(value) === "[object SharedArrayBuffer]";
-  }
-  function isSharedArrayBuffer(value) {
-    if (typeof SharedArrayBufferCopy === "undefined") {
-      return false;
-    }
-    if (typeof isSharedArrayBufferToString.working === "undefined") {
-      isSharedArrayBufferToString.working = isSharedArrayBufferToString(new SharedArrayBufferCopy());
-    }
-    return isSharedArrayBufferToString.working ? isSharedArrayBufferToString(value) : value instanceof SharedArrayBufferCopy;
-  }
-  exports2.isSharedArrayBuffer = isSharedArrayBuffer;
-  function isAsyncFunction(value) {
-    return ObjectToString(value) === "[object AsyncFunction]";
-  }
-  exports2.isAsyncFunction = isAsyncFunction;
-  function isMapIterator(value) {
-    return ObjectToString(value) === "[object Map Iterator]";
-  }
-  exports2.isMapIterator = isMapIterator;
-  function isSetIterator(value) {
-    return ObjectToString(value) === "[object Set Iterator]";
-  }
-  exports2.isSetIterator = isSetIterator;
-  function isGeneratorObject(value) {
-    return ObjectToString(value) === "[object Generator]";
-  }
-  exports2.isGeneratorObject = isGeneratorObject;
-  function isWebAssemblyCompiledModule(value) {
-    return ObjectToString(value) === "[object WebAssembly.Module]";
-  }
-  exports2.isWebAssemblyCompiledModule = isWebAssemblyCompiledModule;
-  function isNumberObject(value) {
-    return checkBoxedPrimitive(value, numberValue);
-  }
-  exports2.isNumberObject = isNumberObject;
-  function isStringObject(value) {
-    return checkBoxedPrimitive(value, stringValue);
-  }
-  exports2.isStringObject = isStringObject;
-  function isBooleanObject(value) {
-    return checkBoxedPrimitive(value, booleanValue);
-  }
-  exports2.isBooleanObject = isBooleanObject;
-  function isBigIntObject(value) {
-    return BigIntSupported && checkBoxedPrimitive(value, bigIntValue);
-  }
-  exports2.isBigIntObject = isBigIntObject;
-  function isSymbolObject(value) {
-    return SymbolSupported && checkBoxedPrimitive(value, symbolValue);
-  }
-  exports2.isSymbolObject = isSymbolObject;
-  function isBoxedPrimitive(value) {
-    return isNumberObject(value) || isStringObject(value) || isBooleanObject(value) || isBigIntObject(value) || isSymbolObject(value);
-  }
-  exports2.isBoxedPrimitive = isBoxedPrimitive;
-  function isAnyArrayBuffer(value) {
-    return typeof Uint8Array !== "undefined" && (isArrayBuffer(value) || isSharedArrayBuffer(value));
-  }
-  exports2.isAnyArrayBuffer = isAnyArrayBuffer;
-  ["isProxy", "isExternal", "isModuleNamespaceObject"].forEach(function(method) {
-    Object.defineProperty(exports2, method, {
-      enumerable: false,
-      value: function() {
-        throw new Error(method + " is not supported in userland");
+    function checkBoxedPrimitive(value, prototypeValueOf) {
+      if (typeof value !== "object") {
+        return false;
       }
-    });
-  });
-})(types$1);
-var isBufferBrowser = function isBuffer(arg) {
-  return arg && typeof arg === "object" && typeof arg.copy === "function" && typeof arg.fill === "function" && typeof arg.readUInt8 === "function";
-};
-(function(exports2) {
-  var define_process_env_default2 = {};
-  var getOwnPropertyDescriptors = Object.getOwnPropertyDescriptors || function getOwnPropertyDescriptors2(obj) {
-    var keys2 = Object.keys(obj);
-    var descriptors = {};
-    for (var i2 = 0; i2 < keys2.length; i2++) {
-      descriptors[keys2[i2]] = Object.getOwnPropertyDescriptor(obj, keys2[i2]);
-    }
-    return descriptors;
-  };
-  var formatRegExp = /%[sdj%]/g;
-  exports2.format = function(f2) {
-    if (!isString2(f2)) {
-      var objects = [];
-      for (var i2 = 0; i2 < arguments.length; i2++) {
-        objects.push(inspect(arguments[i2]));
-      }
-      return objects.join(" ");
-    }
-    var i2 = 1;
-    var args = arguments;
-    var len2 = args.length;
-    var str = String(f2).replace(formatRegExp, function(x22) {
-      if (x22 === "%%") return "%";
-      if (i2 >= len2) return x22;
-      switch (x22) {
-        case "%s":
-          return String(args[i2++]);
-        case "%d":
-          return Number(args[i2++]);
-        case "%j":
-          try {
-            return JSON.stringify(args[i2++]);
-          } catch (_3) {
-            return "[Circular]";
-          }
-        default:
-          return x22;
-      }
-    });
-    for (var x3 = args[i2]; i2 < len2; x3 = args[++i2]) {
-      if (isNull2(x3) || !isObject2(x3)) {
-        str += " " + x3;
-      } else {
-        str += " " + inspect(x3);
+      try {
+        prototypeValueOf(value);
+        return true;
+      } catch (e2) {
+        return false;
       }
     }
-    return str;
-  };
-  exports2.deprecate = function(fn6, msg) {
-    if (typeof process$1 !== "undefined" && process$1.noDeprecation === true) {
-      return fn6;
+    exports2.isArgumentsObject = isArgumentsObject;
+    exports2.isGeneratorFunction = isGeneratorFunction2;
+    exports2.isTypedArray = isTypedArray2;
+    function isPromise(input) {
+      return typeof Promise !== "undefined" && input instanceof Promise || input !== null && typeof input === "object" && typeof input.then === "function" && typeof input.catch === "function";
     }
-    if (typeof process$1 === "undefined") {
-      return function() {
-        return exports2.deprecate(fn6, msg).apply(this, arguments);
-      };
+    exports2.isPromise = isPromise;
+    function isArrayBufferView(value) {
+      if (typeof ArrayBuffer !== "undefined" && ArrayBuffer.isView) {
+        return ArrayBuffer.isView(value);
+      }
+      return isTypedArray2(value) || isDataView(value);
     }
-    var warned = false;
-    function deprecated() {
-      if (!warned) {
-        if (process$1.throwDeprecation) {
-          throw new Error(msg);
-        } else if (process$1.traceDeprecation) {
-          console.trace(msg);
-        } else {
-          console.error(msg);
+    exports2.isArrayBufferView = isArrayBufferView;
+    function isUint8Array(value) {
+      return whichTypedArray2(value) === "Uint8Array";
+    }
+    exports2.isUint8Array = isUint8Array;
+    function isUint8ClampedArray(value) {
+      return whichTypedArray2(value) === "Uint8ClampedArray";
+    }
+    exports2.isUint8ClampedArray = isUint8ClampedArray;
+    function isUint16Array(value) {
+      return whichTypedArray2(value) === "Uint16Array";
+    }
+    exports2.isUint16Array = isUint16Array;
+    function isUint32Array(value) {
+      return whichTypedArray2(value) === "Uint32Array";
+    }
+    exports2.isUint32Array = isUint32Array;
+    function isInt8Array(value) {
+      return whichTypedArray2(value) === "Int8Array";
+    }
+    exports2.isInt8Array = isInt8Array;
+    function isInt16Array(value) {
+      return whichTypedArray2(value) === "Int16Array";
+    }
+    exports2.isInt16Array = isInt16Array;
+    function isInt32Array(value) {
+      return whichTypedArray2(value) === "Int32Array";
+    }
+    exports2.isInt32Array = isInt32Array;
+    function isFloat32Array(value) {
+      return whichTypedArray2(value) === "Float32Array";
+    }
+    exports2.isFloat32Array = isFloat32Array;
+    function isFloat64Array(value) {
+      return whichTypedArray2(value) === "Float64Array";
+    }
+    exports2.isFloat64Array = isFloat64Array;
+    function isBigInt64Array(value) {
+      return whichTypedArray2(value) === "BigInt64Array";
+    }
+    exports2.isBigInt64Array = isBigInt64Array;
+    function isBigUint64Array(value) {
+      return whichTypedArray2(value) === "BigUint64Array";
+    }
+    exports2.isBigUint64Array = isBigUint64Array;
+    function isMapToString(value) {
+      return ObjectToString(value) === "[object Map]";
+    }
+    isMapToString.working = typeof Map !== "undefined" && isMapToString(/* @__PURE__ */ new Map());
+    function isMap(value) {
+      if (typeof Map === "undefined") {
+        return false;
+      }
+      return isMapToString.working ? isMapToString(value) : value instanceof Map;
+    }
+    exports2.isMap = isMap;
+    function isSetToString(value) {
+      return ObjectToString(value) === "[object Set]";
+    }
+    isSetToString.working = typeof Set !== "undefined" && isSetToString(/* @__PURE__ */ new Set());
+    function isSet(value) {
+      if (typeof Set === "undefined") {
+        return false;
+      }
+      return isSetToString.working ? isSetToString(value) : value instanceof Set;
+    }
+    exports2.isSet = isSet;
+    function isWeakMapToString(value) {
+      return ObjectToString(value) === "[object WeakMap]";
+    }
+    isWeakMapToString.working = typeof WeakMap !== "undefined" && isWeakMapToString(/* @__PURE__ */ new WeakMap());
+    function isWeakMap(value) {
+      if (typeof WeakMap === "undefined") {
+        return false;
+      }
+      return isWeakMapToString.working ? isWeakMapToString(value) : value instanceof WeakMap;
+    }
+    exports2.isWeakMap = isWeakMap;
+    function isWeakSetToString(value) {
+      return ObjectToString(value) === "[object WeakSet]";
+    }
+    isWeakSetToString.working = typeof WeakSet !== "undefined" && isWeakSetToString(/* @__PURE__ */ new WeakSet());
+    function isWeakSet(value) {
+      return isWeakSetToString(value);
+    }
+    exports2.isWeakSet = isWeakSet;
+    function isArrayBufferToString(value) {
+      return ObjectToString(value) === "[object ArrayBuffer]";
+    }
+    isArrayBufferToString.working = typeof ArrayBuffer !== "undefined" && isArrayBufferToString(new ArrayBuffer());
+    function isArrayBuffer(value) {
+      if (typeof ArrayBuffer === "undefined") {
+        return false;
+      }
+      return isArrayBufferToString.working ? isArrayBufferToString(value) : value instanceof ArrayBuffer;
+    }
+    exports2.isArrayBuffer = isArrayBuffer;
+    function isDataViewToString(value) {
+      return ObjectToString(value) === "[object DataView]";
+    }
+    isDataViewToString.working = typeof ArrayBuffer !== "undefined" && typeof DataView !== "undefined" && isDataViewToString(new DataView(new ArrayBuffer(1), 0, 1));
+    function isDataView(value) {
+      if (typeof DataView === "undefined") {
+        return false;
+      }
+      return isDataViewToString.working ? isDataViewToString(value) : value instanceof DataView;
+    }
+    exports2.isDataView = isDataView;
+    var SharedArrayBufferCopy = typeof SharedArrayBuffer !== "undefined" ? SharedArrayBuffer : void 0;
+    function isSharedArrayBufferToString(value) {
+      return ObjectToString(value) === "[object SharedArrayBuffer]";
+    }
+    function isSharedArrayBuffer(value) {
+      if (typeof SharedArrayBufferCopy === "undefined") {
+        return false;
+      }
+      if (typeof isSharedArrayBufferToString.working === "undefined") {
+        isSharedArrayBufferToString.working = isSharedArrayBufferToString(new SharedArrayBufferCopy());
+      }
+      return isSharedArrayBufferToString.working ? isSharedArrayBufferToString(value) : value instanceof SharedArrayBufferCopy;
+    }
+    exports2.isSharedArrayBuffer = isSharedArrayBuffer;
+    function isAsyncFunction(value) {
+      return ObjectToString(value) === "[object AsyncFunction]";
+    }
+    exports2.isAsyncFunction = isAsyncFunction;
+    function isMapIterator(value) {
+      return ObjectToString(value) === "[object Map Iterator]";
+    }
+    exports2.isMapIterator = isMapIterator;
+    function isSetIterator(value) {
+      return ObjectToString(value) === "[object Set Iterator]";
+    }
+    exports2.isSetIterator = isSetIterator;
+    function isGeneratorObject(value) {
+      return ObjectToString(value) === "[object Generator]";
+    }
+    exports2.isGeneratorObject = isGeneratorObject;
+    function isWebAssemblyCompiledModule(value) {
+      return ObjectToString(value) === "[object WebAssembly.Module]";
+    }
+    exports2.isWebAssemblyCompiledModule = isWebAssemblyCompiledModule;
+    function isNumberObject(value) {
+      return checkBoxedPrimitive(value, numberValue);
+    }
+    exports2.isNumberObject = isNumberObject;
+    function isStringObject(value) {
+      return checkBoxedPrimitive(value, stringValue);
+    }
+    exports2.isStringObject = isStringObject;
+    function isBooleanObject(value) {
+      return checkBoxedPrimitive(value, booleanValue);
+    }
+    exports2.isBooleanObject = isBooleanObject;
+    function isBigIntObject(value) {
+      return BigIntSupported && checkBoxedPrimitive(value, bigIntValue);
+    }
+    exports2.isBigIntObject = isBigIntObject;
+    function isSymbolObject(value) {
+      return SymbolSupported && checkBoxedPrimitive(value, symbolValue);
+    }
+    exports2.isSymbolObject = isSymbolObject;
+    function isBoxedPrimitive(value) {
+      return isNumberObject(value) || isStringObject(value) || isBooleanObject(value) || isBigIntObject(value) || isSymbolObject(value);
+    }
+    exports2.isBoxedPrimitive = isBoxedPrimitive;
+    function isAnyArrayBuffer(value) {
+      return typeof Uint8Array !== "undefined" && (isArrayBuffer(value) || isSharedArrayBuffer(value));
+    }
+    exports2.isAnyArrayBuffer = isAnyArrayBuffer;
+    ["isProxy", "isExternal", "isModuleNamespaceObject"].forEach(function(method) {
+      Object.defineProperty(exports2, method, {
+        enumerable: false,
+        value: function() {
+          throw new Error(method + " is not supported in userland");
         }
-        warned = true;
-      }
-      return fn6.apply(this, arguments);
-    }
-    return deprecated;
-  };
-  var debugs = {};
-  var debugEnvRegex = /^$/;
-  if (define_process_env_default2.NODE_DEBUG) {
-    var debugEnv = define_process_env_default2.NODE_DEBUG;
-    debugEnv = debugEnv.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*").replace(/,/g, "$|^").toUpperCase();
-    debugEnvRegex = new RegExp("^" + debugEnv + "$", "i");
-  }
-  exports2.debuglog = function(set2) {
-    set2 = set2.toUpperCase();
-    if (!debugs[set2]) {
-      if (debugEnvRegex.test(set2)) {
-        var pid = process$1.pid;
-        debugs[set2] = function() {
-          var msg = exports2.format.apply(exports2, arguments);
-          console.error("%s %d: %s", set2, pid, msg);
-        };
-      } else {
-        debugs[set2] = function() {
-        };
-      }
-    }
-    return debugs[set2];
-  };
-  function inspect(obj, opts) {
-    var ctx = {
-      seen: [],
-      stylize: stylizeNoColor
-    };
-    if (arguments.length >= 3) ctx.depth = arguments[2];
-    if (arguments.length >= 4) ctx.colors = arguments[3];
-    if (isBoolean2(opts)) {
-      ctx.showHidden = opts;
-    } else if (opts) {
-      exports2._extend(ctx, opts);
-    }
-    if (isUndefined2(ctx.showHidden)) ctx.showHidden = false;
-    if (isUndefined2(ctx.depth)) ctx.depth = 2;
-    if (isUndefined2(ctx.colors)) ctx.colors = false;
-    if (isUndefined2(ctx.customInspect)) ctx.customInspect = true;
-    if (ctx.colors) ctx.stylize = stylizeWithColor;
-    return formatValue(ctx, obj, ctx.depth);
-  }
-  exports2.inspect = inspect;
-  inspect.colors = {
-    "bold": [1, 22],
-    "italic": [3, 23],
-    "underline": [4, 24],
-    "inverse": [7, 27],
-    "white": [37, 39],
-    "grey": [90, 39],
-    "black": [30, 39],
-    "blue": [34, 39],
-    "cyan": [36, 39],
-    "green": [32, 39],
-    "magenta": [35, 39],
-    "red": [31, 39],
-    "yellow": [33, 39]
-  };
-  inspect.styles = {
-    "special": "cyan",
-    "number": "yellow",
-    "boolean": "yellow",
-    "undefined": "grey",
-    "null": "bold",
-    "string": "green",
-    "date": "magenta",
-    // "name": intentionally not styling
-    "regexp": "red"
-  };
-  function stylizeWithColor(str, styleType) {
-    var style = inspect.styles[styleType];
-    if (style) {
-      return "\x1B[" + inspect.colors[style][0] + "m" + str + "\x1B[" + inspect.colors[style][1] + "m";
-    } else {
-      return str;
-    }
-  }
-  function stylizeNoColor(str, styleType) {
-    return str;
-  }
-  function arrayToHash(array2) {
-    var hash2 = {};
-    array2.forEach(function(val, idx) {
-      hash2[val] = true;
-    });
-    return hash2;
-  }
-  function formatValue(ctx, value, recurseTimes) {
-    if (ctx.customInspect && value && isFunction2(value.inspect) && // Filter out the util module, it's inspect function is special
-    value.inspect !== exports2.inspect && // Also filter out any prototype objects using the circular check.
-    !(value.constructor && value.constructor.prototype === value)) {
-      var ret = value.inspect(recurseTimes, ctx);
-      if (!isString2(ret)) {
-        ret = formatValue(ctx, ret, recurseTimes);
-      }
-      return ret;
-    }
-    var primitive = formatPrimitive(ctx, value);
-    if (primitive) {
-      return primitive;
-    }
-    var keys2 = Object.keys(value);
-    var visibleKeys = arrayToHash(keys2);
-    if (ctx.showHidden) {
-      keys2 = Object.getOwnPropertyNames(value);
-    }
-    if (isError2(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
-      return formatError(value);
-    }
-    if (keys2.length === 0) {
-      if (isFunction2(value)) {
-        var name = value.name ? ": " + value.name : "";
-        return ctx.stylize("[Function" + name + "]", "special");
-      }
-      if (isRegExp2(value)) {
-        return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
-      }
-      if (isDate2(value)) {
-        return ctx.stylize(Date.prototype.toString.call(value), "date");
-      }
-      if (isError2(value)) {
-        return formatError(value);
-      }
-    }
-    var base3 = "", array2 = false, braces = ["{", "}"];
-    if (isArray2(value)) {
-      array2 = true;
-      braces = ["[", "]"];
-    }
-    if (isFunction2(value)) {
-      var n4 = value.name ? ": " + value.name : "";
-      base3 = " [Function" + n4 + "]";
-    }
-    if (isRegExp2(value)) {
-      base3 = " " + RegExp.prototype.toString.call(value);
-    }
-    if (isDate2(value)) {
-      base3 = " " + Date.prototype.toUTCString.call(value);
-    }
-    if (isError2(value)) {
-      base3 = " " + formatError(value);
-    }
-    if (keys2.length === 0 && (!array2 || value.length == 0)) {
-      return braces[0] + base3 + braces[1];
-    }
-    if (recurseTimes < 0) {
-      if (isRegExp2(value)) {
-        return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
-      } else {
-        return ctx.stylize("[Object]", "special");
-      }
-    }
-    ctx.seen.push(value);
-    var output;
-    if (array2) {
-      output = formatArray(ctx, value, recurseTimes, visibleKeys, keys2);
-    } else {
-      output = keys2.map(function(key2) {
-        return formatProperty(ctx, value, recurseTimes, visibleKeys, key2, array2);
       });
-    }
-    ctx.seen.pop();
-    return reduceToSingleString(output, base3, braces);
-  }
-  function formatPrimitive(ctx, value) {
-    if (isUndefined2(value))
-      return ctx.stylize("undefined", "undefined");
-    if (isString2(value)) {
-      var simple = "'" + JSON.stringify(value).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
-      return ctx.stylize(simple, "string");
-    }
-    if (isNumber2(value))
-      return ctx.stylize("" + value, "number");
-    if (isBoolean2(value))
-      return ctx.stylize("" + value, "boolean");
-    if (isNull2(value))
-      return ctx.stylize("null", "null");
-  }
-  function formatError(value) {
-    return "[" + Error.prototype.toString.call(value) + "]";
-  }
-  function formatArray(ctx, value, recurseTimes, visibleKeys, keys2) {
-    var output = [];
-    for (var i2 = 0, l2 = value.length; i2 < l2; ++i2) {
-      if (hasOwnProperty(value, String(i2))) {
-        output.push(formatProperty(
-          ctx,
-          value,
-          recurseTimes,
-          visibleKeys,
-          String(i2),
-          true
-        ));
-      } else {
-        output.push("");
-      }
-    }
-    keys2.forEach(function(key2) {
-      if (!key2.match(/^\d+$/)) {
-        output.push(formatProperty(
-          ctx,
-          value,
-          recurseTimes,
-          visibleKeys,
-          key2,
-          true
-        ));
-      }
     });
-    return output;
-  }
-  function formatProperty(ctx, value, recurseTimes, visibleKeys, key2, array2) {
-    var name, str, desc;
-    desc = Object.getOwnPropertyDescriptor(value, key2) || { value: value[key2] };
-    if (desc.get) {
-      if (desc.set) {
-        str = ctx.stylize("[Getter/Setter]", "special");
-      } else {
-        str = ctx.stylize("[Getter]", "special");
+  })(types$1);
+  return types$1;
+}
+var isBufferBrowser;
+var hasRequiredIsBufferBrowser;
+function requireIsBufferBrowser() {
+  if (hasRequiredIsBufferBrowser) return isBufferBrowser;
+  hasRequiredIsBufferBrowser = 1;
+  isBufferBrowser = function isBuffer(arg) {
+    return arg && typeof arg === "object" && typeof arg.copy === "function" && typeof arg.fill === "function" && typeof arg.readUInt8 === "function";
+  };
+  return isBufferBrowser;
+}
+var hasRequiredUtil$1;
+function requireUtil$1() {
+  if (hasRequiredUtil$1) return util$6;
+  hasRequiredUtil$1 = 1;
+  (function(exports2) {
+    var define_process_env_default2 = {};
+    var getOwnPropertyDescriptors = Object.getOwnPropertyDescriptors || function getOwnPropertyDescriptors2(obj) {
+      var keys2 = Object.keys(obj);
+      var descriptors = {};
+      for (var i2 = 0; i2 < keys2.length; i2++) {
+        descriptors[keys2[i2]] = Object.getOwnPropertyDescriptor(obj, keys2[i2]);
       }
-    } else {
-      if (desc.set) {
-        str = ctx.stylize("[Setter]", "special");
+      return descriptors;
+    };
+    var formatRegExp = /%[sdj%]/g;
+    exports2.format = function(f2) {
+      if (!isString(f2)) {
+        var objects = [];
+        for (var i2 = 0; i2 < arguments.length; i2++) {
+          objects.push(inspect(arguments[i2]));
+        }
+        return objects.join(" ");
       }
-    }
-    if (!hasOwnProperty(visibleKeys, key2)) {
-      name = "[" + key2 + "]";
-    }
-    if (!str) {
-      if (ctx.seen.indexOf(desc.value) < 0) {
-        if (isNull2(recurseTimes)) {
-          str = formatValue(ctx, desc.value, null);
+      var i2 = 1;
+      var args = arguments;
+      var len2 = args.length;
+      var str = String(f2).replace(formatRegExp, function(x22) {
+        if (x22 === "%%") return "%";
+        if (i2 >= len2) return x22;
+        switch (x22) {
+          case "%s":
+            return String(args[i2++]);
+          case "%d":
+            return Number(args[i2++]);
+          case "%j":
+            try {
+              return JSON.stringify(args[i2++]);
+            } catch (_3) {
+              return "[Circular]";
+            }
+          default:
+            return x22;
+        }
+      });
+      for (var x3 = args[i2]; i2 < len2; x3 = args[++i2]) {
+        if (isNull(x3) || !isObject2(x3)) {
+          str += " " + x3;
         } else {
-          str = formatValue(ctx, desc.value, recurseTimes - 1);
+          str += " " + inspect(x3);
         }
-        if (str.indexOf("\n") > -1) {
-          if (array2) {
-            str = str.split("\n").map(function(line) {
-              return "  " + line;
-            }).join("\n").slice(2);
-          } else {
-            str = "\n" + str.split("\n").map(function(line) {
-              return "   " + line;
-            }).join("\n");
-          }
-        }
-      } else {
-        str = ctx.stylize("[Circular]", "special");
       }
+      return str;
+    };
+    exports2.deprecate = function(fn, msg2) {
+      if (typeof process$1 !== "undefined" && process$1.noDeprecation === true) {
+        return fn;
+      }
+      if (typeof process$1 === "undefined") {
+        return function() {
+          return exports2.deprecate(fn, msg2).apply(this, arguments);
+        };
+      }
+      var warned = false;
+      function deprecated() {
+        if (!warned) {
+          if (process$1.throwDeprecation) {
+            throw new Error(msg2);
+          } else if (process$1.traceDeprecation) {
+            console.trace(msg2);
+          } else {
+            console.error(msg2);
+          }
+          warned = true;
+        }
+        return fn.apply(this, arguments);
+      }
+      return deprecated;
+    };
+    var debugs = {};
+    var debugEnvRegex = /^$/;
+    if (define_process_env_default2.NODE_DEBUG) {
+      var debugEnv = define_process_env_default2.NODE_DEBUG;
+      debugEnv = debugEnv.replace(/[|\\{}()[\]^$+?.]/g, "\\$&").replace(/\*/g, ".*").replace(/,/g, "$|^").toUpperCase();
+      debugEnvRegex = new RegExp("^" + debugEnv + "$", "i");
     }
-    if (isUndefined2(name)) {
-      if (array2 && key2.match(/^\d+$/)) {
+    exports2.debuglog = function(set2) {
+      set2 = set2.toUpperCase();
+      if (!debugs[set2]) {
+        if (debugEnvRegex.test(set2)) {
+          var pid = process$1.pid;
+          debugs[set2] = function() {
+            var msg2 = exports2.format.apply(exports2, arguments);
+            console.error("%s %d: %s", set2, pid, msg2);
+          };
+        } else {
+          debugs[set2] = function() {
+          };
+        }
+      }
+      return debugs[set2];
+    };
+    function inspect(obj, opts) {
+      var ctx = {
+        seen: [],
+        stylize: stylizeNoColor
+      };
+      if (arguments.length >= 3) ctx.depth = arguments[2];
+      if (arguments.length >= 4) ctx.colors = arguments[3];
+      if (isBoolean(opts)) {
+        ctx.showHidden = opts;
+      } else if (opts) {
+        exports2._extend(ctx, opts);
+      }
+      if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+      if (isUndefined(ctx.depth)) ctx.depth = 2;
+      if (isUndefined(ctx.colors)) ctx.colors = false;
+      if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
+      if (ctx.colors) ctx.stylize = stylizeWithColor;
+      return formatValue(ctx, obj, ctx.depth);
+    }
+    exports2.inspect = inspect;
+    inspect.colors = {
+      "bold": [1, 22],
+      "italic": [3, 23],
+      "underline": [4, 24],
+      "inverse": [7, 27],
+      "white": [37, 39],
+      "grey": [90, 39],
+      "black": [30, 39],
+      "blue": [34, 39],
+      "cyan": [36, 39],
+      "green": [32, 39],
+      "magenta": [35, 39],
+      "red": [31, 39],
+      "yellow": [33, 39]
+    };
+    inspect.styles = {
+      "special": "cyan",
+      "number": "yellow",
+      "boolean": "yellow",
+      "undefined": "grey",
+      "null": "bold",
+      "string": "green",
+      "date": "magenta",
+      // "name": intentionally not styling
+      "regexp": "red"
+    };
+    function stylizeWithColor(str, styleType) {
+      var style = inspect.styles[styleType];
+      if (style) {
+        return "\x1B[" + inspect.colors[style][0] + "m" + str + "\x1B[" + inspect.colors[style][1] + "m";
+      } else {
         return str;
       }
-      name = JSON.stringify("" + key2);
-      if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
-        name = name.slice(1, -1);
-        name = ctx.stylize(name, "name");
+    }
+    function stylizeNoColor(str, styleType) {
+      return str;
+    }
+    function arrayToHash(array2) {
+      var hash2 = {};
+      array2.forEach(function(val, idx) {
+        hash2[val] = true;
+      });
+      return hash2;
+    }
+    function formatValue(ctx, value, recurseTimes) {
+      if (ctx.customInspect && value && isFunction(value.inspect) && // Filter out the util module, it's inspect function is special
+      value.inspect !== exports2.inspect && // Also filter out any prototype objects using the circular check.
+      !(value.constructor && value.constructor.prototype === value)) {
+        var ret = value.inspect(recurseTimes, ctx);
+        if (!isString(ret)) {
+          ret = formatValue(ctx, ret, recurseTimes);
+        }
+        return ret;
+      }
+      var primitive = formatPrimitive(ctx, value);
+      if (primitive) {
+        return primitive;
+      }
+      var keys2 = Object.keys(value);
+      var visibleKeys = arrayToHash(keys2);
+      if (ctx.showHidden) {
+        keys2 = Object.getOwnPropertyNames(value);
+      }
+      if (isError(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
+        return formatError(value);
+      }
+      if (keys2.length === 0) {
+        if (isFunction(value)) {
+          var name = value.name ? ": " + value.name : "";
+          return ctx.stylize("[Function" + name + "]", "special");
+        }
+        if (isRegExp(value)) {
+          return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
+        }
+        if (isDate(value)) {
+          return ctx.stylize(Date.prototype.toString.call(value), "date");
+        }
+        if (isError(value)) {
+          return formatError(value);
+        }
+      }
+      var base3 = "", array2 = false, braces = ["{", "}"];
+      if (isArray2(value)) {
+        array2 = true;
+        braces = ["[", "]"];
+      }
+      if (isFunction(value)) {
+        var n4 = value.name ? ": " + value.name : "";
+        base3 = " [Function" + n4 + "]";
+      }
+      if (isRegExp(value)) {
+        base3 = " " + RegExp.prototype.toString.call(value);
+      }
+      if (isDate(value)) {
+        base3 = " " + Date.prototype.toUTCString.call(value);
+      }
+      if (isError(value)) {
+        base3 = " " + formatError(value);
+      }
+      if (keys2.length === 0 && (!array2 || value.length == 0)) {
+        return braces[0] + base3 + braces[1];
+      }
+      if (recurseTimes < 0) {
+        if (isRegExp(value)) {
+          return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
+        } else {
+          return ctx.stylize("[Object]", "special");
+        }
+      }
+      ctx.seen.push(value);
+      var output;
+      if (array2) {
+        output = formatArray(ctx, value, recurseTimes, visibleKeys, keys2);
       } else {
-        name = name.replace(/'/g, "\\'").replace(/\\"/g, '"').replace(/(^"|"$)/g, "'");
-        name = ctx.stylize(name, "string");
+        output = keys2.map(function(key2) {
+          return formatProperty(ctx, value, recurseTimes, visibleKeys, key2, array2);
+        });
       }
+      ctx.seen.pop();
+      return reduceToSingleString(output, base3, braces);
     }
-    return name + ": " + str;
-  }
-  function reduceToSingleString(output, base3, braces) {
-    var length = output.reduce(function(prev, cur) {
-      if (cur.indexOf("\n") >= 0) ;
-      return prev + cur.replace(/\u001b\[\d\d?m/g, "").length + 1;
-    }, 0);
-    if (length > 60) {
-      return braces[0] + (base3 === "" ? "" : base3 + "\n ") + " " + output.join(",\n  ") + " " + braces[1];
-    }
-    return braces[0] + base3 + " " + output.join(", ") + " " + braces[1];
-  }
-  exports2.types = types$1;
-  function isArray2(ar2) {
-    return Array.isArray(ar2);
-  }
-  exports2.isArray = isArray2;
-  function isBoolean2(arg) {
-    return typeof arg === "boolean";
-  }
-  exports2.isBoolean = isBoolean2;
-  function isNull2(arg) {
-    return arg === null;
-  }
-  exports2.isNull = isNull2;
-  function isNullOrUndefined2(arg) {
-    return arg == null;
-  }
-  exports2.isNullOrUndefined = isNullOrUndefined2;
-  function isNumber2(arg) {
-    return typeof arg === "number";
-  }
-  exports2.isNumber = isNumber2;
-  function isString2(arg) {
-    return typeof arg === "string";
-  }
-  exports2.isString = isString2;
-  function isSymbol2(arg) {
-    return typeof arg === "symbol";
-  }
-  exports2.isSymbol = isSymbol2;
-  function isUndefined2(arg) {
-    return arg === void 0;
-  }
-  exports2.isUndefined = isUndefined2;
-  function isRegExp2(re2) {
-    return isObject2(re2) && objectToString2(re2) === "[object RegExp]";
-  }
-  exports2.isRegExp = isRegExp2;
-  exports2.types.isRegExp = isRegExp2;
-  function isObject2(arg) {
-    return typeof arg === "object" && arg !== null;
-  }
-  exports2.isObject = isObject2;
-  function isDate2(d3) {
-    return isObject2(d3) && objectToString2(d3) === "[object Date]";
-  }
-  exports2.isDate = isDate2;
-  exports2.types.isDate = isDate2;
-  function isError2(e2) {
-    return isObject2(e2) && (objectToString2(e2) === "[object Error]" || e2 instanceof Error);
-  }
-  exports2.isError = isError2;
-  exports2.types.isNativeError = isError2;
-  function isFunction2(arg) {
-    return typeof arg === "function";
-  }
-  exports2.isFunction = isFunction2;
-  function isPrimitive2(arg) {
-    return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
-    typeof arg === "undefined";
-  }
-  exports2.isPrimitive = isPrimitive2;
-  exports2.isBuffer = isBufferBrowser;
-  function objectToString2(o2) {
-    return Object.prototype.toString.call(o2);
-  }
-  function pad2(n4) {
-    return n4 < 10 ? "0" + n4.toString(10) : n4.toString(10);
-  }
-  var months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec"
-  ];
-  function timestamp() {
-    var d3 = /* @__PURE__ */ new Date();
-    var time2 = [
-      pad2(d3.getHours()),
-      pad2(d3.getMinutes()),
-      pad2(d3.getSeconds())
-    ].join(":");
-    return [d3.getDate(), months[d3.getMonth()], time2].join(" ");
-  }
-  exports2.log = function() {
-    console.log("%s - %s", timestamp(), exports2.format.apply(exports2, arguments));
-  };
-  exports2.inherits = inherits_browserExports;
-  exports2._extend = function(origin, add2) {
-    if (!add2 || !isObject2(add2)) return origin;
-    var keys2 = Object.keys(add2);
-    var i2 = keys2.length;
-    while (i2--) {
-      origin[keys2[i2]] = add2[keys2[i2]];
-    }
-    return origin;
-  };
-  function hasOwnProperty(obj, prop) {
-    return Object.prototype.hasOwnProperty.call(obj, prop);
-  }
-  var kCustomPromisifiedSymbol = typeof Symbol !== "undefined" ? Symbol("util.promisify.custom") : void 0;
-  exports2.promisify = function promisify(original) {
-    if (typeof original !== "function")
-      throw new TypeError('The "original" argument must be of type Function');
-    if (kCustomPromisifiedSymbol && original[kCustomPromisifiedSymbol]) {
-      var fn6 = original[kCustomPromisifiedSymbol];
-      if (typeof fn6 !== "function") {
-        throw new TypeError('The "util.promisify.custom" argument must be of type Function');
+    function formatPrimitive(ctx, value) {
+      if (isUndefined(value))
+        return ctx.stylize("undefined", "undefined");
+      if (isString(value)) {
+        var simple = "'" + JSON.stringify(value).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
+        return ctx.stylize(simple, "string");
       }
-      Object.defineProperty(fn6, kCustomPromisifiedSymbol, {
-        value: fn6,
+      if (isNumber(value))
+        return ctx.stylize("" + value, "number");
+      if (isBoolean(value))
+        return ctx.stylize("" + value, "boolean");
+      if (isNull(value))
+        return ctx.stylize("null", "null");
+    }
+    function formatError(value) {
+      return "[" + Error.prototype.toString.call(value) + "]";
+    }
+    function formatArray(ctx, value, recurseTimes, visibleKeys, keys2) {
+      var output = [];
+      for (var i2 = 0, l2 = value.length; i2 < l2; ++i2) {
+        if (hasOwnProperty(value, String(i2))) {
+          output.push(formatProperty(
+            ctx,
+            value,
+            recurseTimes,
+            visibleKeys,
+            String(i2),
+            true
+          ));
+        } else {
+          output.push("");
+        }
+      }
+      keys2.forEach(function(key2) {
+        if (!key2.match(/^\d+$/)) {
+          output.push(formatProperty(
+            ctx,
+            value,
+            recurseTimes,
+            visibleKeys,
+            key2,
+            true
+          ));
+        }
+      });
+      return output;
+    }
+    function formatProperty(ctx, value, recurseTimes, visibleKeys, key2, array2) {
+      var name, str, desc;
+      desc = Object.getOwnPropertyDescriptor(value, key2) || { value: value[key2] };
+      if (desc.get) {
+        if (desc.set) {
+          str = ctx.stylize("[Getter/Setter]", "special");
+        } else {
+          str = ctx.stylize("[Getter]", "special");
+        }
+      } else {
+        if (desc.set) {
+          str = ctx.stylize("[Setter]", "special");
+        }
+      }
+      if (!hasOwnProperty(visibleKeys, key2)) {
+        name = "[" + key2 + "]";
+      }
+      if (!str) {
+        if (ctx.seen.indexOf(desc.value) < 0) {
+          if (isNull(recurseTimes)) {
+            str = formatValue(ctx, desc.value, null);
+          } else {
+            str = formatValue(ctx, desc.value, recurseTimes - 1);
+          }
+          if (str.indexOf("\n") > -1) {
+            if (array2) {
+              str = str.split("\n").map(function(line) {
+                return "  " + line;
+              }).join("\n").slice(2);
+            } else {
+              str = "\n" + str.split("\n").map(function(line) {
+                return "   " + line;
+              }).join("\n");
+            }
+          }
+        } else {
+          str = ctx.stylize("[Circular]", "special");
+        }
+      }
+      if (isUndefined(name)) {
+        if (array2 && key2.match(/^\d+$/)) {
+          return str;
+        }
+        name = JSON.stringify("" + key2);
+        if (name.match(/^"([a-zA-Z_][a-zA-Z_0-9]*)"$/)) {
+          name = name.slice(1, -1);
+          name = ctx.stylize(name, "name");
+        } else {
+          name = name.replace(/'/g, "\\'").replace(/\\"/g, '"').replace(/(^"|"$)/g, "'");
+          name = ctx.stylize(name, "string");
+        }
+      }
+      return name + ": " + str;
+    }
+    function reduceToSingleString(output, base3, braces) {
+      var length = output.reduce(function(prev, cur) {
+        if (cur.indexOf("\n") >= 0) ;
+        return prev + cur.replace(/\u001b\[\d\d?m/g, "").length + 1;
+      }, 0);
+      if (length > 60) {
+        return braces[0] + (base3 === "" ? "" : base3 + "\n ") + " " + output.join(",\n  ") + " " + braces[1];
+      }
+      return braces[0] + base3 + " " + output.join(", ") + " " + braces[1];
+    }
+    exports2.types = requireTypes$1();
+    function isArray2(ar2) {
+      return Array.isArray(ar2);
+    }
+    exports2.isArray = isArray2;
+    function isBoolean(arg) {
+      return typeof arg === "boolean";
+    }
+    exports2.isBoolean = isBoolean;
+    function isNull(arg) {
+      return arg === null;
+    }
+    exports2.isNull = isNull;
+    function isNullOrUndefined(arg) {
+      return arg == null;
+    }
+    exports2.isNullOrUndefined = isNullOrUndefined;
+    function isNumber(arg) {
+      return typeof arg === "number";
+    }
+    exports2.isNumber = isNumber;
+    function isString(arg) {
+      return typeof arg === "string";
+    }
+    exports2.isString = isString;
+    function isSymbol(arg) {
+      return typeof arg === "symbol";
+    }
+    exports2.isSymbol = isSymbol;
+    function isUndefined(arg) {
+      return arg === void 0;
+    }
+    exports2.isUndefined = isUndefined;
+    function isRegExp(re2) {
+      return isObject2(re2) && objectToString(re2) === "[object RegExp]";
+    }
+    exports2.isRegExp = isRegExp;
+    exports2.types.isRegExp = isRegExp;
+    function isObject2(arg) {
+      return typeof arg === "object" && arg !== null;
+    }
+    exports2.isObject = isObject2;
+    function isDate(d3) {
+      return isObject2(d3) && objectToString(d3) === "[object Date]";
+    }
+    exports2.isDate = isDate;
+    exports2.types.isDate = isDate;
+    function isError(e2) {
+      return isObject2(e2) && (objectToString(e2) === "[object Error]" || e2 instanceof Error);
+    }
+    exports2.isError = isError;
+    exports2.types.isNativeError = isError;
+    function isFunction(arg) {
+      return typeof arg === "function";
+    }
+    exports2.isFunction = isFunction;
+    function isPrimitive2(arg) {
+      return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
+      typeof arg === "undefined";
+    }
+    exports2.isPrimitive = isPrimitive2;
+    exports2.isBuffer = requireIsBufferBrowser();
+    function objectToString(o2) {
+      return Object.prototype.toString.call(o2);
+    }
+    function pad2(n4) {
+      return n4 < 10 ? "0" + n4.toString(10) : n4.toString(10);
+    }
+    var months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec"
+    ];
+    function timestamp() {
+      var d3 = /* @__PURE__ */ new Date();
+      var time2 = [
+        pad2(d3.getHours()),
+        pad2(d3.getMinutes()),
+        pad2(d3.getSeconds())
+      ].join(":");
+      return [d3.getDate(), months[d3.getMonth()], time2].join(" ");
+    }
+    exports2.log = function() {
+      console.log("%s - %s", timestamp(), exports2.format.apply(exports2, arguments));
+    };
+    exports2.inherits = inherits_browserExports;
+    exports2._extend = function(origin, add2) {
+      if (!add2 || !isObject2(add2)) return origin;
+      var keys2 = Object.keys(add2);
+      var i2 = keys2.length;
+      while (i2--) {
+        origin[keys2[i2]] = add2[keys2[i2]];
+      }
+      return origin;
+    };
+    function hasOwnProperty(obj, prop) {
+      return Object.prototype.hasOwnProperty.call(obj, prop);
+    }
+    var kCustomPromisifiedSymbol = typeof Symbol !== "undefined" ? Symbol("util.promisify.custom") : void 0;
+    exports2.promisify = function promisify(original) {
+      if (typeof original !== "function")
+        throw new TypeError('The "original" argument must be of type Function');
+      if (kCustomPromisifiedSymbol && original[kCustomPromisifiedSymbol]) {
+        var fn = original[kCustomPromisifiedSymbol];
+        if (typeof fn !== "function") {
+          throw new TypeError('The "util.promisify.custom" argument must be of type Function');
+        }
+        Object.defineProperty(fn, kCustomPromisifiedSymbol, {
+          value: fn,
+          enumerable: false,
+          writable: false,
+          configurable: true
+        });
+        return fn;
+      }
+      function fn() {
+        var promiseResolve, promiseReject;
+        var promise = new Promise(function(resolve, reject) {
+          promiseResolve = resolve;
+          promiseReject = reject;
+        });
+        var args = [];
+        for (var i2 = 0; i2 < arguments.length; i2++) {
+          args.push(arguments[i2]);
+        }
+        args.push(function(err, value) {
+          if (err) {
+            promiseReject(err);
+          } else {
+            promiseResolve(value);
+          }
+        });
+        try {
+          original.apply(this, args);
+        } catch (err) {
+          promiseReject(err);
+        }
+        return promise;
+      }
+      Object.setPrototypeOf(fn, Object.getPrototypeOf(original));
+      if (kCustomPromisifiedSymbol) Object.defineProperty(fn, kCustomPromisifiedSymbol, {
+        value: fn,
         enumerable: false,
         writable: false,
         configurable: true
       });
-      return fn6;
-    }
-    function fn6() {
-      var promiseResolve, promiseReject;
-      var promise = new Promise(function(resolve, reject) {
-        promiseResolve = resolve;
-        promiseReject = reject;
-      });
-      var args = [];
-      for (var i2 = 0; i2 < arguments.length; i2++) {
-        args.push(arguments[i2]);
-      }
-      args.push(function(err, value) {
-        if (err) {
-          promiseReject(err);
-        } else {
-          promiseResolve(value);
-        }
-      });
-      try {
-        original.apply(this, args);
-      } catch (err) {
-        promiseReject(err);
-      }
-      return promise;
-    }
-    Object.setPrototypeOf(fn6, Object.getPrototypeOf(original));
-    if (kCustomPromisifiedSymbol) Object.defineProperty(fn6, kCustomPromisifiedSymbol, {
-      value: fn6,
-      enumerable: false,
-      writable: false,
-      configurable: true
-    });
-    return Object.defineProperties(
-      fn6,
-      getOwnPropertyDescriptors(original)
-    );
-  };
-  exports2.promisify.custom = kCustomPromisifiedSymbol;
-  function callbackifyOnRejected(reason, cb) {
-    if (!reason) {
-      var newReason = new Error("Promise was rejected with a falsy value");
-      newReason.reason = reason;
-      reason = newReason;
-    }
-    return cb(reason);
-  }
-  function callbackify(original) {
-    if (typeof original !== "function") {
-      throw new TypeError('The "original" argument must be of type Function');
-    }
-    function callbackified() {
-      var args = [];
-      for (var i2 = 0; i2 < arguments.length; i2++) {
-        args.push(arguments[i2]);
-      }
-      var maybeCb = args.pop();
-      if (typeof maybeCb !== "function") {
-        throw new TypeError("The last argument must be of type Function");
-      }
-      var self2 = this;
-      var cb = function() {
-        return maybeCb.apply(self2, arguments);
-      };
-      original.apply(this, args).then(
-        function(ret) {
-          process$1.nextTick(cb.bind(null, null, ret));
-        },
-        function(rej) {
-          process$1.nextTick(callbackifyOnRejected.bind(null, rej, cb));
-        }
+      return Object.defineProperties(
+        fn,
+        getOwnPropertyDescriptors(original)
       );
+    };
+    exports2.promisify.custom = kCustomPromisifiedSymbol;
+    function callbackifyOnRejected(reason, cb) {
+      if (!reason) {
+        var newReason = new Error("Promise was rejected with a falsy value");
+        newReason.reason = reason;
+        reason = newReason;
+      }
+      return cb(reason);
     }
-    Object.setPrototypeOf(callbackified, Object.getPrototypeOf(original));
-    Object.defineProperties(
-      callbackified,
-      getOwnPropertyDescriptors(original)
-    );
-    return callbackified;
-  }
-  exports2.callbackify = callbackify;
-})(util$6);
+    function callbackify(original) {
+      if (typeof original !== "function") {
+        throw new TypeError('The "original" argument must be of type Function');
+      }
+      function callbackified() {
+        var args = [];
+        for (var i2 = 0; i2 < arguments.length; i2++) {
+          args.push(arguments[i2]);
+        }
+        var maybeCb = args.pop();
+        if (typeof maybeCb !== "function") {
+          throw new TypeError("The last argument must be of type Function");
+        }
+        var self2 = this;
+        var cb = function() {
+          return maybeCb.apply(self2, arguments);
+        };
+        original.apply(this, args).then(
+          function(ret) {
+            process$1.nextTick(cb.bind(null, null, ret));
+          },
+          function(rej) {
+            process$1.nextTick(callbackifyOnRejected.bind(null, rej, cb));
+          }
+        );
+      }
+      Object.setPrototypeOf(callbackified, Object.getPrototypeOf(original));
+      Object.defineProperties(
+        callbackified,
+        getOwnPropertyDescriptors(original)
+      );
+      return callbackified;
+    }
+    exports2.callbackify = callbackify;
+  })(util$6);
+  return util$6;
+}
 var buffer_list;
 var hasRequiredBuffer_list;
 function requireBuffer_list() {
@@ -10250,7 +10304,7 @@ function requireBuffer_list() {
     return String(input);
   }
   var _require = require$$0$4, Buffer2 = _require.Buffer;
-  var _require2 = util$6, inspect = _require2.inspect;
+  var _require2 = requireUtil$1(), inspect = _require2.inspect;
   var custom = inspect && inspect.custom || "inspect";
   function copyBuffer(src2, target, offset2) {
     Buffer2.prototype.copy.call(src2, target, offset2);
@@ -10589,15 +10643,15 @@ function requireErrorsBrowser() {
     } else {
       determiner = "must be";
     }
-    var msg;
+    var msg2;
     if (endsWith(name, " argument")) {
-      msg = "The ".concat(name, " ").concat(determiner, " ").concat(oneOf(expected, "type"));
+      msg2 = "The ".concat(name, " ").concat(determiner, " ").concat(oneOf(expected, "type"));
     } else {
       var type2 = includes(name, ".") ? "property" : "argument";
-      msg = 'The "'.concat(name, '" ').concat(type2, " ").concat(determiner, " ").concat(oneOf(expected, "type"));
+      msg2 = 'The "'.concat(name, '" ').concat(type2, " ").concat(determiner, " ").concat(oneOf(expected, "type"));
     }
-    msg += ". Received type ".concat(typeof actual);
-    return msg;
+    msg2 += ". Received type ".concat(typeof actual);
+    return msg2;
   }, TypeError);
   createErrorType("ERR_STREAM_PUSH_AFTER_EOF", "stream.push() after EOF");
   createErrorType("ERR_METHOD_NOT_IMPLEMENTED", function(name) {
@@ -10649,23 +10703,23 @@ function requireBrowser$a() {
   if (hasRequiredBrowser$a) return browser$c;
   hasRequiredBrowser$a = 1;
   browser$c = deprecate;
-  function deprecate(fn6, msg) {
+  function deprecate(fn, msg2) {
     if (config("noDeprecation")) {
-      return fn6;
+      return fn;
     }
     var warned = false;
     function deprecated() {
       if (!warned) {
         if (config("throwDeprecation")) {
-          throw new Error(msg);
+          throw new Error(msg2);
         } else if (config("traceDeprecation")) {
-          console.trace(msg);
+          console.trace(msg2);
         } else {
-          console.warn(msg);
+          console.warn(msg2);
         }
         warned = true;
       }
-      return fn6.apply(this, arguments);
+      return fn.apply(this, arguments);
     }
     return deprecated;
   }
@@ -11769,7 +11823,7 @@ function require_stream_readable$2() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var debugUtil = util$6;
+  var debugUtil = requireUtil$1();
   var debug;
   if (debugUtil && debugUtil.debuglog) {
     debug = debugUtil.debuglog("stream");
@@ -11787,11 +11841,11 @@ function require_stream_readable$2() {
   inherits_browserExports(Readable, Stream2);
   var errorOrDestroy = destroyImpl.errorOrDestroy;
   var kProxyEvents = ["error", "close", "destroy", "pause", "resume"];
-  function prependListener2(emitter, event, fn6) {
-    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn6);
-    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn6);
-    else if (Array.isArray(emitter._events[event])) emitter._events[event].unshift(fn6);
-    else emitter._events[event] = [fn6, emitter._events[event]];
+  function prependListener2(emitter, event, fn) {
+    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn);
+    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);
+    else if (Array.isArray(emitter._events[event])) emitter._events[event].unshift(fn);
+    else emitter._events[event] = [fn, emitter._events[event]];
   }
   function ReadableState(options, stream, isDuplex) {
     Duplex2 = Duplex2 || require_stream_duplex$2();
@@ -12239,8 +12293,8 @@ function require_stream_readable$2() {
     dest.emit("unpipe", this, unpipeInfo);
     return this;
   };
-  Readable.prototype.on = function(ev, fn6) {
-    var res = Stream2.prototype.on.call(this, ev, fn6);
+  Readable.prototype.on = function(ev, fn) {
+    var res = Stream2.prototype.on.call(this, ev, fn);
     var state2 = this._readableState;
     if (ev === "data") {
       state2.readableListening = this.listenerCount("readable") > 0;
@@ -12261,8 +12315,8 @@ function require_stream_readable$2() {
     return res;
   };
   Readable.prototype.addListener = Readable.prototype.on;
-  Readable.prototype.removeListener = function(ev, fn6) {
-    var res = Stream2.prototype.removeListener.call(this, ev, fn6);
+  Readable.prototype.removeListener = function(ev, fn) {
+    var res = Stream2.prototype.removeListener.call(this, ev, fn);
     if (ev === "readable") {
       process$1.nextTick(updateReadableListening, this);
     }
@@ -12635,8 +12689,8 @@ function requirePipeline() {
       callback(err || new ERR_STREAM_DESTROYED("pipe"));
     };
   }
-  function call2(fn6) {
-    fn6();
+  function call2(fn) {
+    fn();
   }
   function pipe(from2, to2) {
     return from2.pipe(to2);
@@ -12748,7 +12802,7 @@ var isarray$2 = Array.isArray || function(arr) {
   return toString$4.call(arr) == "[object Array]";
 };
 var $TypeError = type$1;
-var callBound = callBound$5;
+var callBound = callBound$1;
 var $typedArrayBuffer = callBound("TypedArray.prototype.buffer", true);
 var isTypedArray = requireIsTypedArray();
 var typedArrayBuffer$1 = $typedArrayBuffer || function typedArrayBuffer2(x3) {
@@ -12758,7 +12812,7 @@ var typedArrayBuffer$1 = $typedArrayBuffer || function typedArrayBuffer2(x3) {
   return x3.buffer;
 };
 var Buffer$e = safeBufferExports$1.Buffer;
-var isArray$1 = isarray$2;
+var isArray = isarray$2;
 var typedArrayBuffer = typedArrayBuffer$1;
 var isView$1 = ArrayBuffer.isView || function isView2(obj) {
   try {
@@ -12800,7 +12854,7 @@ var toBuffer$5 = function toBuffer2(data, encoding2) {
   if (useUint8Array$1 && data instanceof Uint8Array) {
     return Buffer$e.from(data);
   }
-  var isArr = isArray$1(data);
+  var isArr = isArray(data);
   if (isArr) {
     for (var i2 = 0; i2 < data.length; i2 += 1) {
       var x3 = data[i2];
@@ -12949,45 +13003,50 @@ var toBuffer_1$1 = function(thing, encoding2) {
 };
 var readableBrowser$1 = { exports: {} };
 var processNextickArgs = { exports: {} };
-if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
-  processNextickArgs.exports = { nextTick };
-} else {
-  processNextickArgs.exports = process$1;
-}
-function nextTick(fn6, arg1, arg2, arg3) {
-  if (typeof fn6 !== "function") {
-    throw new TypeError('"callback" argument must be a function');
+var hasRequiredProcessNextickArgs;
+function requireProcessNextickArgs() {
+  if (hasRequiredProcessNextickArgs) return processNextickArgs.exports;
+  hasRequiredProcessNextickArgs = 1;
+  if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
+    processNextickArgs.exports = { nextTick: nextTick2 };
+  } else {
+    processNextickArgs.exports = process$1;
   }
-  var len2 = arguments.length;
-  var args, i2;
-  switch (len2) {
-    case 0:
-    case 1:
-      return process$1.nextTick(fn6);
-    case 2:
-      return process$1.nextTick(function afterTickOne() {
-        fn6.call(null, arg1);
-      });
-    case 3:
-      return process$1.nextTick(function afterTickTwo() {
-        fn6.call(null, arg1, arg2);
-      });
-    case 4:
-      return process$1.nextTick(function afterTickThree() {
-        fn6.call(null, arg1, arg2, arg3);
-      });
-    default:
-      args = new Array(len2 - 1);
-      i2 = 0;
-      while (i2 < args.length) {
-        args[i2++] = arguments[i2];
-      }
-      return process$1.nextTick(function afterTick() {
-        fn6.apply(null, args);
-      });
+  function nextTick2(fn, arg1, arg2, arg3) {
+    if (typeof fn !== "function") {
+      throw new TypeError('"callback" argument must be a function');
+    }
+    var len2 = arguments.length;
+    var args, i2;
+    switch (len2) {
+      case 0:
+      case 1:
+        return process$1.nextTick(fn);
+      case 2:
+        return process$1.nextTick(function afterTickOne() {
+          fn.call(null, arg1);
+        });
+      case 3:
+        return process$1.nextTick(function afterTickTwo() {
+          fn.call(null, arg1, arg2);
+        });
+      case 4:
+        return process$1.nextTick(function afterTickThree() {
+          fn.call(null, arg1, arg2, arg3);
+        });
+      default:
+        args = new Array(len2 - 1);
+        i2 = 0;
+        while (i2 < args.length) {
+          args[i2++] = arguments[i2];
+        }
+        return process$1.nextTick(function afterTick() {
+          fn.apply(null, args);
+        });
+    }
   }
+  return processNextickArgs.exports;
 }
-var processNextickArgsExports = processNextickArgs.exports;
 var toString$3 = {}.toString;
 var isarray$1 = Array.isArray || function(arr) {
   return toString$3.call(arr) == "[object Array]";
@@ -13049,69 +13108,75 @@ var safeBuffer$1 = { exports: {} };
 })(safeBuffer$1, safeBuffer$1.exports);
 var safeBufferExports = safeBuffer$1.exports;
 var util$5 = {};
-function isArray(arg) {
-  if (Array.isArray) {
-    return Array.isArray(arg);
+var hasRequiredUtil;
+function requireUtil() {
+  if (hasRequiredUtil) return util$5;
+  hasRequiredUtil = 1;
+  function isArray2(arg) {
+    if (Array.isArray) {
+      return Array.isArray(arg);
+    }
+    return objectToString(arg) === "[object Array]";
   }
-  return objectToString(arg) === "[object Array]";
-}
-util$5.isArray = isArray;
-function isBoolean(arg) {
-  return typeof arg === "boolean";
-}
-util$5.isBoolean = isBoolean;
-function isNull(arg) {
-  return arg === null;
-}
-util$5.isNull = isNull;
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-util$5.isNullOrUndefined = isNullOrUndefined;
-function isNumber(arg) {
-  return typeof arg === "number";
-}
-util$5.isNumber = isNumber;
-function isString(arg) {
-  return typeof arg === "string";
-}
-util$5.isString = isString;
-function isSymbol(arg) {
-  return typeof arg === "symbol";
-}
-util$5.isSymbol = isSymbol;
-function isUndefined(arg) {
-  return arg === void 0;
-}
-util$5.isUndefined = isUndefined;
-function isRegExp(re2) {
-  return objectToString(re2) === "[object RegExp]";
-}
-util$5.isRegExp = isRegExp;
-function isObject$1(arg) {
-  return typeof arg === "object" && arg !== null;
-}
-util$5.isObject = isObject$1;
-function isDate(d3) {
-  return objectToString(d3) === "[object Date]";
-}
-util$5.isDate = isDate;
-function isError(e2) {
-  return objectToString(e2) === "[object Error]" || e2 instanceof Error;
-}
-util$5.isError = isError;
-function isFunction(arg) {
-  return typeof arg === "function";
-}
-util$5.isFunction = isFunction;
-function isPrimitive$1(arg) {
-  return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
-  typeof arg === "undefined";
-}
-util$5.isPrimitive = isPrimitive$1;
-util$5.isBuffer = Buffer$g.isBuffer;
-function objectToString(o2) {
-  return Object.prototype.toString.call(o2);
+  util$5.isArray = isArray2;
+  function isBoolean(arg) {
+    return typeof arg === "boolean";
+  }
+  util$5.isBoolean = isBoolean;
+  function isNull(arg) {
+    return arg === null;
+  }
+  util$5.isNull = isNull;
+  function isNullOrUndefined(arg) {
+    return arg == null;
+  }
+  util$5.isNullOrUndefined = isNullOrUndefined;
+  function isNumber(arg) {
+    return typeof arg === "number";
+  }
+  util$5.isNumber = isNumber;
+  function isString(arg) {
+    return typeof arg === "string";
+  }
+  util$5.isString = isString;
+  function isSymbol(arg) {
+    return typeof arg === "symbol";
+  }
+  util$5.isSymbol = isSymbol;
+  function isUndefined(arg) {
+    return arg === void 0;
+  }
+  util$5.isUndefined = isUndefined;
+  function isRegExp(re2) {
+    return objectToString(re2) === "[object RegExp]";
+  }
+  util$5.isRegExp = isRegExp;
+  function isObject2(arg) {
+    return typeof arg === "object" && arg !== null;
+  }
+  util$5.isObject = isObject2;
+  function isDate(d3) {
+    return objectToString(d3) === "[object Date]";
+  }
+  util$5.isDate = isDate;
+  function isError(e2) {
+    return objectToString(e2) === "[object Error]" || e2 instanceof Error;
+  }
+  util$5.isError = isError;
+  function isFunction(arg) {
+    return typeof arg === "function";
+  }
+  util$5.isFunction = isFunction;
+  function isPrimitive2(arg) {
+    return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
+    typeof arg === "undefined";
+  }
+  util$5.isPrimitive = isPrimitive2;
+  util$5.isBuffer = Buffer$g.isBuffer;
+  function objectToString(o2) {
+    return Object.prototype.toString.call(o2);
+  }
+  return util$5;
 }
 var BufferList$1 = { exports: {} };
 var hasRequiredBufferList$1;
@@ -13125,7 +13190,7 @@ function requireBufferList$1() {
       }
     }
     var Buffer2 = safeBufferExports.Buffer;
-    var util2 = util$6;
+    var util2 = requireUtil$1();
     function copyBuffer(src2, target, offset2) {
       src2.copy(target, offset2);
     }
@@ -13193,7 +13258,7 @@ function requireBufferList$1() {
   })(BufferList$1);
   return BufferList$1.exports;
 }
-var pna = processNextickArgsExports;
+var pna = requireProcessNextickArgs();
 function destroy(err, cb) {
   var _this = this;
   var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -13260,7 +13325,7 @@ var hasRequired_stream_writable$1;
 function require_stream_writable$1() {
   if (hasRequired_stream_writable$1) return _stream_writable$1;
   hasRequired_stream_writable$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_writable$1 = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -13273,7 +13338,7 @@ function require_stream_writable$1() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -13700,7 +13765,7 @@ var hasRequired_stream_duplex$1;
 function require_stream_duplex$1() {
   if (hasRequired_stream_duplex$1) return _stream_duplex$1;
   hasRequired_stream_duplex$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -13709,7 +13774,7 @@ function require_stream_duplex$1() {
     return keys3;
   };
   _stream_duplex$1 = Duplex2;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable$1();
   var Writable = require_stream_writable$1();
@@ -13774,7 +13839,7 @@ var hasRequired_stream_readable$1;
 function require_stream_readable$1() {
   if (hasRequired_stream_readable$1) return _stream_readable$1;
   hasRequired_stream_readable$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_readable$1 = Readable;
   var isArray2 = isarray$1;
   var Duplex2;
@@ -13793,9 +13858,9 @@ function require_stream_readable$1() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
-  var debugUtil = util$6;
+  var debugUtil = requireUtil$1();
   var debug = void 0;
   if (debugUtil && debugUtil.debuglog) {
     debug = debugUtil.debuglog("stream");
@@ -13808,11 +13873,11 @@ function require_stream_readable$1() {
   var StringDecoder2;
   util2.inherits(Readable, Stream2);
   var kProxyEvents = ["error", "close", "destroy", "pause", "resume"];
-  function prependListener2(emitter, event, fn6) {
-    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn6);
-    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn6);
-    else if (isArray2(emitter._events[event])) emitter._events[event].unshift(fn6);
-    else emitter._events[event] = [fn6, emitter._events[event]];
+  function prependListener2(emitter, event, fn) {
+    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn);
+    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);
+    else if (isArray2(emitter._events[event])) emitter._events[event].unshift(fn);
+    else emitter._events[event] = [fn, emitter._events[event]];
   }
   function ReadableState(options, stream) {
     Duplex2 = Duplex2 || require_stream_duplex$1();
@@ -14234,8 +14299,8 @@ function require_stream_readable$1() {
     dest.emit("unpipe", this, unpipeInfo);
     return this;
   };
-  Readable.prototype.on = function(ev, fn6) {
-    var res = Stream2.prototype.on.call(this, ev, fn6);
+  Readable.prototype.on = function(ev, fn) {
+    var res = Stream2.prototype.on.call(this, ev, fn);
     if (ev === "data") {
       if (this._readableState.flowing !== false) this.resume();
     } else if (ev === "readable") {
@@ -14457,7 +14522,7 @@ function require_stream_readable$1() {
 }
 var _stream_transform$1 = Transform$2;
 var Duplex = require_stream_duplex$1();
-var util$4 = Object.create(util$5);
+var util$4 = Object.create(requireUtil());
 util$4.inherits = inherits_browserExports;
 util$4.inherits(Transform$2, Duplex);
 function afterTransform(er2, data) {
@@ -14550,7 +14615,7 @@ function done(stream, er2, data) {
 }
 var _stream_passthrough$1 = PassThrough;
 var Transform$1 = _stream_transform$1;
-var util$3 = Object.create(util$5);
+var util$3 = Object.create(requireUtil());
 util$3.inherits = inherits_browserExports;
 util$3.inherits(PassThrough, Transform$1);
 function PassThrough(options) {
@@ -17384,13 +17449,13 @@ function requireMinimalisticAssert() {
   if (hasRequiredMinimalisticAssert) return minimalisticAssert;
   hasRequiredMinimalisticAssert = 1;
   minimalisticAssert = assert2;
-  function assert2(val, msg) {
+  function assert2(val, msg2) {
     if (!val)
-      throw new Error(msg || "Assertion failed");
+      throw new Error(msg2 || "Assertion failed");
   }
-  assert2.equal = function assertEqual(l2, r2, msg) {
+  assert2.equal = function assertEqual(l2, r2, msg2) {
     if (l2 != r2)
-      throw new Error(msg || "Assertion failed: " + l2 + " != " + r2);
+      throw new Error(msg2 || "Assertion failed: " + l2 + " != " + r2);
   };
   return minimalisticAssert;
 }
@@ -18997,8 +19062,8 @@ function requireBn$5() {
   hasRequiredBn$5 = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -21811,8 +21876,8 @@ function requireBn$4() {
   hasRequiredBn$4 = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -25183,7 +25248,7 @@ function requireBufferList() {
       }
     }
     var Buffer2 = requireSafeBuffer().Buffer;
-    var util2 = util$6;
+    var util2 = requireUtil$1();
     function copyBuffer(src2, target, offset2) {
       src2.copy(target, offset2);
     }
@@ -25256,7 +25321,7 @@ var hasRequiredDestroy;
 function requireDestroy() {
   if (hasRequiredDestroy) return destroy_1;
   hasRequiredDestroy = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   function destroy2(err, cb) {
     var _this = this;
     var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -25325,7 +25390,7 @@ var hasRequired_stream_writable;
 function require_stream_writable() {
   if (hasRequired_stream_writable) return _stream_writable;
   hasRequired_stream_writable = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_writable = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -25338,7 +25403,7 @@ function require_stream_writable() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -25765,7 +25830,7 @@ var hasRequired_stream_duplex;
 function require_stream_duplex() {
   if (hasRequired_stream_duplex) return _stream_duplex;
   hasRequired_stream_duplex = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -25774,7 +25839,7 @@ function require_stream_duplex() {
     return keys3;
   };
   _stream_duplex = Duplex2;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable();
   var Writable = require_stream_writable();
@@ -25839,7 +25904,7 @@ var hasRequired_stream_readable;
 function require_stream_readable() {
   if (hasRequired_stream_readable) return _stream_readable;
   hasRequired_stream_readable = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_readable = Readable;
   var isArray2 = requireIsarray();
   var Duplex2;
@@ -25858,9 +25923,9 @@ function require_stream_readable() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
-  var debugUtil = util$6;
+  var debugUtil = requireUtil$1();
   var debug = void 0;
   if (debugUtil && debugUtil.debuglog) {
     debug = debugUtil.debuglog("stream");
@@ -25873,11 +25938,11 @@ function require_stream_readable() {
   var StringDecoder2;
   util2.inherits(Readable, Stream2);
   var kProxyEvents = ["error", "close", "destroy", "pause", "resume"];
-  function prependListener2(emitter, event, fn6) {
-    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn6);
-    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn6);
-    else if (isArray2(emitter._events[event])) emitter._events[event].unshift(fn6);
-    else emitter._events[event] = [fn6, emitter._events[event]];
+  function prependListener2(emitter, event, fn) {
+    if (typeof emitter.prependListener === "function") return emitter.prependListener(event, fn);
+    if (!emitter._events || !emitter._events[event]) emitter.on(event, fn);
+    else if (isArray2(emitter._events[event])) emitter._events[event].unshift(fn);
+    else emitter._events[event] = [fn, emitter._events[event]];
   }
   function ReadableState(options, stream) {
     Duplex2 = Duplex2 || require_stream_duplex();
@@ -26299,8 +26364,8 @@ function require_stream_readable() {
     dest.emit("unpipe", this, unpipeInfo);
     return this;
   };
-  Readable.prototype.on = function(ev, fn6) {
-    var res = Stream2.prototype.on.call(this, ev, fn6);
+  Readable.prototype.on = function(ev, fn) {
+    var res = Stream2.prototype.on.call(this, ev, fn);
     if (ev === "data") {
       if (this._readableState.flowing !== false) this.resume();
     } else if (ev === "readable") {
@@ -26527,7 +26592,7 @@ function require_stream_transform() {
   hasRequired_stream_transform = 1;
   _stream_transform = Transform2;
   var Duplex2 = require_stream_duplex();
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   util2.inherits(Transform2, Duplex2);
   function afterTransform2(er2, data) {
@@ -26627,7 +26692,7 @@ function require_stream_passthrough() {
   hasRequired_stream_passthrough = 1;
   _stream_passthrough = PassThrough2;
   var Transform2 = require_stream_transform();
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   util2.inherits(PassThrough2, Transform2);
   function PassThrough2(options) {
@@ -26659,8 +26724,8 @@ var bn$4 = { exports: {} };
 bn$4.exports;
 (function(module) {
   (function(module2, exports2) {
-    function assert2(val, msg) {
-      if (!val) throw new Error(msg || "Assertion failed");
+    function assert2(val, msg2) {
+      if (!val) throw new Error(msg2 || "Assertion failed");
     }
     function inherits2(ctor, superCtor) {
       ctor.super_ = superCtor;
@@ -29425,10 +29490,10 @@ function requireBrowserifyRsa() {
     var blinder = r2.toRed(BN2.mont(priv.modulus)).redPow(new BN2(priv.publicExponent)).fromRed();
     return { blinder, unblinder: r2.invm(priv.modulus) };
   }
-  function crt(msg, priv) {
+  function crt(msg2, priv) {
     var blinds = blind(priv);
     var len2 = priv.modulus.byteLength();
-    var blinded = new BN2(msg).mul(blinds.blinder).umod(priv.modulus);
+    var blinded = new BN2(msg2).mul(blinds.blinder).umod(priv.modulus);
     var c1 = blinded.toRed(BN2.mont(priv.prime1));
     var c2 = blinded.toRed(BN2.mont(priv.prime2));
     var qinv = priv.coefficient;
@@ -29457,8 +29522,8 @@ function requireBn$3() {
   hasRequiredBn$3 = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -32270,26 +32335,26 @@ function requireUtils$3() {
   hasRequiredUtils$3 = 1;
   (function(exports2) {
     var utils2 = exports2;
-    function toArray(msg, enc) {
-      if (Array.isArray(msg))
-        return msg.slice();
-      if (!msg)
+    function toArray(msg2, enc) {
+      if (Array.isArray(msg2))
+        return msg2.slice();
+      if (!msg2)
         return [];
       var res = [];
-      if (typeof msg !== "string") {
-        for (var i2 = 0; i2 < msg.length; i2++)
-          res[i2] = msg[i2] | 0;
+      if (typeof msg2 !== "string") {
+        for (var i2 = 0; i2 < msg2.length; i2++)
+          res[i2] = msg2[i2] | 0;
         return res;
       }
       if (enc === "hex") {
-        msg = msg.replace(/[^a-z0-9]+/ig, "");
-        if (msg.length % 2 !== 0)
-          msg = "0" + msg;
-        for (var i2 = 0; i2 < msg.length; i2 += 2)
-          res.push(parseInt(msg[i2] + msg[i2 + 1], 16));
+        msg2 = msg2.replace(/[^a-z0-9]+/ig, "");
+        if (msg2.length % 2 !== 0)
+          msg2 = "0" + msg2;
+        for (var i2 = 0; i2 < msg2.length; i2 += 2)
+          res.push(parseInt(msg2[i2] + msg2[i2 + 1], 16));
       } else {
-        for (var i2 = 0; i2 < msg.length; i2++) {
-          var c2 = msg.charCodeAt(i2);
+        for (var i2 = 0; i2 < msg2.length; i2++) {
+          var c2 = msg2.charCodeAt(i2);
           var hi = c2 >> 8;
           var lo2 = c2 & 255;
           if (hi)
@@ -32308,10 +32373,10 @@ function requireUtils$3() {
         return word;
     }
     utils2.zero2 = zero2;
-    function toHex2(msg) {
+    function toHex2(msg2) {
       var res = "";
-      for (var i2 = 0; i2 < msg.length; i2++)
-        res += zero2(msg[i2].toString(16));
+      for (var i2 = 0; i2 < msg2.length; i2++)
+        res += zero2(msg2[i2].toString(16));
       return res;
     }
     utils2.toHex = toHex2;
@@ -33903,33 +33968,33 @@ function requireUtils$1() {
   var assert2 = requireMinimalisticAssert();
   var inherits2 = inherits_browserExports;
   utils$2.inherits = inherits2;
-  function isSurrogatePair(msg, i2) {
-    if ((msg.charCodeAt(i2) & 64512) !== 55296) {
+  function isSurrogatePair(msg2, i2) {
+    if ((msg2.charCodeAt(i2) & 64512) !== 55296) {
       return false;
     }
-    if (i2 < 0 || i2 + 1 >= msg.length) {
+    if (i2 < 0 || i2 + 1 >= msg2.length) {
       return false;
     }
-    return (msg.charCodeAt(i2 + 1) & 64512) === 56320;
+    return (msg2.charCodeAt(i2 + 1) & 64512) === 56320;
   }
-  function toArray(msg, enc) {
-    if (Array.isArray(msg))
-      return msg.slice();
-    if (!msg)
+  function toArray(msg2, enc) {
+    if (Array.isArray(msg2))
+      return msg2.slice();
+    if (!msg2)
       return [];
     var res = [];
-    if (typeof msg === "string") {
+    if (typeof msg2 === "string") {
       if (!enc) {
         var p3 = 0;
-        for (var i2 = 0; i2 < msg.length; i2++) {
-          var c2 = msg.charCodeAt(i2);
+        for (var i2 = 0; i2 < msg2.length; i2++) {
+          var c2 = msg2.charCodeAt(i2);
           if (c2 < 128) {
             res[p3++] = c2;
           } else if (c2 < 2048) {
             res[p3++] = c2 >> 6 | 192;
             res[p3++] = c2 & 63 | 128;
-          } else if (isSurrogatePair(msg, i2)) {
-            c2 = 65536 + ((c2 & 1023) << 10) + (msg.charCodeAt(++i2) & 1023);
+          } else if (isSurrogatePair(msg2, i2)) {
+            c2 = 65536 + ((c2 & 1023) << 10) + (msg2.charCodeAt(++i2) & 1023);
             res[p3++] = c2 >> 18 | 240;
             res[p3++] = c2 >> 12 & 63 | 128;
             res[p3++] = c2 >> 6 & 63 | 128;
@@ -33941,23 +34006,23 @@ function requireUtils$1() {
           }
         }
       } else if (enc === "hex") {
-        msg = msg.replace(/[^a-z0-9]+/ig, "");
-        if (msg.length % 2 !== 0)
-          msg = "0" + msg;
-        for (i2 = 0; i2 < msg.length; i2 += 2)
-          res.push(parseInt(msg[i2] + msg[i2 + 1], 16));
+        msg2 = msg2.replace(/[^a-z0-9]+/ig, "");
+        if (msg2.length % 2 !== 0)
+          msg2 = "0" + msg2;
+        for (i2 = 0; i2 < msg2.length; i2 += 2)
+          res.push(parseInt(msg2[i2] + msg2[i2 + 1], 16));
       }
     } else {
-      for (i2 = 0; i2 < msg.length; i2++)
-        res[i2] = msg[i2] | 0;
+      for (i2 = 0; i2 < msg2.length; i2++)
+        res[i2] = msg2[i2] | 0;
     }
     return res;
   }
   utils$2.toArray = toArray;
-  function toHex2(msg) {
+  function toHex2(msg2) {
     var res = "";
-    for (var i2 = 0; i2 < msg.length; i2++)
-      res += zero2(msg[i2].toString(16));
+    for (var i2 = 0; i2 < msg2.length; i2++)
+      res += zero2(msg2[i2].toString(16));
     return res;
   }
   utils$2.toHex = toHex2;
@@ -33966,10 +34031,10 @@ function requireUtils$1() {
     return res >>> 0;
   }
   utils$2.htonl = htonl;
-  function toHex32(msg, endian) {
+  function toHex32(msg2, endian) {
     var res = "";
-    for (var i2 = 0; i2 < msg.length; i2++) {
-      var w2 = msg[i2];
+    for (var i2 = 0; i2 < msg2.length; i2++) {
+      var w2 = msg2[i2];
       if (endian === "little")
         w2 = htonl(w2);
       res += zero8(w2.toString(16));
@@ -34003,25 +34068,25 @@ function requireUtils$1() {
       return word;
   }
   utils$2.zero8 = zero8;
-  function join32(msg, start, end, endian) {
+  function join32(msg2, start, end, endian) {
     var len2 = end - start;
     assert2(len2 % 4 === 0);
     var res = new Array(len2 / 4);
     for (var i2 = 0, k2 = start; i2 < res.length; i2++, k2 += 4) {
       var w2;
       if (endian === "big")
-        w2 = msg[k2] << 24 | msg[k2 + 1] << 16 | msg[k2 + 2] << 8 | msg[k2 + 3];
+        w2 = msg2[k2] << 24 | msg2[k2 + 1] << 16 | msg2[k2 + 2] << 8 | msg2[k2 + 3];
       else
-        w2 = msg[k2 + 3] << 24 | msg[k2 + 2] << 16 | msg[k2 + 1] << 8 | msg[k2];
+        w2 = msg2[k2 + 3] << 24 | msg2[k2 + 2] << 16 | msg2[k2 + 1] << 8 | msg2[k2];
       res[i2] = w2 >>> 0;
     }
     return res;
   }
   utils$2.join32 = join32;
-  function split32(msg, endian) {
-    var res = new Array(msg.length * 4);
-    for (var i2 = 0, k2 = 0; i2 < msg.length; i2++, k2 += 4) {
-      var m2 = msg[i2];
+  function split32(msg2, endian) {
+    var res = new Array(msg2.length * 4);
+    for (var i2 = 0, k2 = 0; i2 < msg2.length; i2++, k2 += 4) {
+      var m2 = msg2[i2];
       if (endian === "big") {
         res[k2] = m2 >>> 24;
         res[k2 + 1] = m2 >>> 16 & 255;
@@ -34159,22 +34224,22 @@ function requireCommon$1() {
     this._delta32 = this.blockSize / 32;
   }
   common$1.BlockHash = BlockHash;
-  BlockHash.prototype.update = function update(msg, enc) {
-    msg = utils2.toArray(msg, enc);
+  BlockHash.prototype.update = function update(msg2, enc) {
+    msg2 = utils2.toArray(msg2, enc);
     if (!this.pending)
-      this.pending = msg;
+      this.pending = msg2;
     else
-      this.pending = this.pending.concat(msg);
-    this.pendingTotal += msg.length;
+      this.pending = this.pending.concat(msg2);
+    this.pendingTotal += msg2.length;
     if (this.pending.length >= this._delta8) {
-      msg = this.pending;
-      var r2 = msg.length % this._delta8;
-      this.pending = msg.slice(msg.length - r2, msg.length);
+      msg2 = this.pending;
+      var r2 = msg2.length % this._delta8;
+      this.pending = msg2.slice(msg2.length - r2, msg2.length);
       if (this.pending.length === 0)
         this.pending = null;
-      msg = utils2.join32(msg, 0, msg.length - r2, this.endian);
-      for (var i2 = 0; i2 < msg.length; i2 += this._delta32)
-        this._update(msg, i2, i2 + this._delta32);
+      msg2 = utils2.join32(msg2, 0, msg2.length - r2, this.endian);
+      for (var i2 = 0; i2 < msg2.length; i2 += this._delta32)
+        this._update(msg2, i2, i2 + this._delta32);
     }
     return this;
   };
@@ -34304,10 +34369,10 @@ function require_1() {
   SHA1.outSize = 160;
   SHA1.hmacStrength = 80;
   SHA1.padLength = 64;
-  SHA1.prototype._update = function _update(msg, start) {
+  SHA1.prototype._update = function _update(msg2, start) {
     var W2 = this.W;
     for (var i2 = 0; i2 < 16; i2++)
-      W2[i2] = msg[start + i2];
+      W2[i2] = msg2[start + i2];
     for (; i2 < W2.length; i2++)
       W2[i2] = rotl32(W2[i2 - 3] ^ W2[i2 - 8] ^ W2[i2 - 14] ^ W2[i2 - 16], 1);
     var a2 = this.h[0];
@@ -34446,10 +34511,10 @@ function require_256() {
   SHA2562.outSize = 256;
   SHA2562.hmacStrength = 192;
   SHA2562.padLength = 64;
-  SHA2562.prototype._update = function _update(msg, start) {
+  SHA2562.prototype._update = function _update(msg2, start) {
     var W2 = this.W;
     for (var i2 = 0; i2 < 16; i2++)
-      W2[i2] = msg[start + i2];
+      W2[i2] = msg2[start + i2];
     for (; i2 < W2.length; i2++)
       W2[i2] = sum32_4(g1_256(W2[i2 - 2]), W2[i2 - 7], g0_256(W2[i2 - 15]), W2[i2 - 16]);
     var a2 = this.h[0];
@@ -34739,10 +34804,10 @@ function require_512() {
   SHA5123.outSize = 512;
   SHA5123.hmacStrength = 192;
   SHA5123.padLength = 128;
-  SHA5123.prototype._prepareBlock = function _prepareBlock(msg, start) {
+  SHA5123.prototype._prepareBlock = function _prepareBlock(msg2, start) {
     var W2 = this.W;
     for (var i2 = 0; i2 < 32; i2++)
-      W2[i2] = msg[start + i2];
+      W2[i2] = msg2[start + i2];
     for (; i2 < W2.length; i2 += 2) {
       var c0_hi = g1_512_hi(W2[i2 - 4], W2[i2 - 3]);
       var c0_lo = g1_512_lo(W2[i2 - 4], W2[i2 - 3]);
@@ -34774,8 +34839,8 @@ function require_512() {
       );
     }
   };
-  SHA5123.prototype._update = function _update(msg, start) {
-    this._prepareBlock(msg, start);
+  SHA5123.prototype._update = function _update(msg2, start) {
+    this._prepareBlock(msg2, start);
     var W2 = this.W;
     var ah = this.h[0];
     var al = this.h[1];
@@ -35045,7 +35110,7 @@ function requireRipemd() {
   RIPEMD1603.outSize = 160;
   RIPEMD1603.hmacStrength = 192;
   RIPEMD1603.padLength = 64;
-  RIPEMD1603.prototype._update = function update(msg, start) {
+  RIPEMD1603.prototype._update = function update(msg2, start) {
     var A2 = this.h[0];
     var B2 = this.h[1];
     var C3 = this.h[2];
@@ -35059,7 +35124,7 @@ function requireRipemd() {
     for (var j2 = 0; j2 < 80; j2++) {
       var T2 = sum32(
         rotl32(
-          sum32_4(A2, f2(j2, B2, C3, D2), msg[r2[j2] + start], K3(j2)),
+          sum32_4(A2, f2(j2, B2, C3, D2), msg2[r2[j2] + start], K3(j2)),
           s2[j2]
         ),
         E2
@@ -35071,7 +35136,7 @@ function requireRipemd() {
       B2 = T2;
       T2 = sum32(
         rotl32(
-          sum32_4(Ah, f2(79 - j2, Bh, Ch2, Dh), msg[rh[j2] + start], Kh(j2)),
+          sum32_4(Ah, f2(79 - j2, Bh, Ch2, Dh), msg2[rh[j2] + start], Kh(j2)),
           sh[j2]
         ),
         Eh
@@ -35492,8 +35557,8 @@ function requireHmac() {
       key2[i2] ^= 106;
     this.outer = new this.Hash().update(key2);
   };
-  Hmac2.prototype.update = function update(msg, enc) {
-    this.inner.update(msg, enc);
+  Hmac2.prototype.update = function update(msg2, enc) {
+    this.inner.update(msg2, enc);
     return this;
   };
   Hmac2.prototype.digest = function digest(enc) {
@@ -36663,11 +36728,11 @@ function requireKey$1() {
     }
     return pub.mul(this.priv).getX();
   };
-  KeyPair.prototype.sign = function sign3(msg, enc, options) {
-    return this.ec.sign(msg, this, enc, options);
+  KeyPair.prototype.sign = function sign3(msg2, enc, options) {
+    return this.ec.sign(msg2, this, enc, options);
   };
-  KeyPair.prototype.verify = function verify2(msg, signature2, options) {
-    return this.ec.verify(msg, signature2, this, void 0, options);
+  KeyPair.prototype.verify = function verify2(msg2, signature2, options) {
+    return this.ec.verify(msg2, signature2, this, void 0, options);
   };
   KeyPair.prototype.inspect = function inspect() {
     return "<Key priv: " + (this.priv && this.priv.toString(16, 2)) + " pub: " + (this.pub && this.pub.inspect()) + " >";
@@ -36893,52 +36958,52 @@ function requireEc() {
       return this.keyFromPrivate(priv);
     }
   };
-  EC.prototype._truncateToN = function _truncateToN(msg, truncOnly, bitLength) {
+  EC.prototype._truncateToN = function _truncateToN(msg2, truncOnly, bitLength) {
     var byteLength2;
-    if (BN2.isBN(msg) || typeof msg === "number") {
-      msg = new BN2(msg, 16);
-      byteLength2 = msg.byteLength();
-    } else if (typeof msg === "object") {
-      byteLength2 = msg.length;
-      msg = new BN2(msg, 16);
+    if (BN2.isBN(msg2) || typeof msg2 === "number") {
+      msg2 = new BN2(msg2, 16);
+      byteLength2 = msg2.byteLength();
+    } else if (typeof msg2 === "object") {
+      byteLength2 = msg2.length;
+      msg2 = new BN2(msg2, 16);
     } else {
-      var str = msg.toString();
+      var str = msg2.toString();
       byteLength2 = str.length + 1 >>> 1;
-      msg = new BN2(str, 16);
+      msg2 = new BN2(str, 16);
     }
     if (typeof bitLength !== "number") {
       bitLength = byteLength2 * 8;
     }
     var delta = bitLength - this.n.bitLength();
     if (delta > 0)
-      msg = msg.ushrn(delta);
-    if (!truncOnly && msg.cmp(this.n) >= 0)
-      return msg.sub(this.n);
+      msg2 = msg2.ushrn(delta);
+    if (!truncOnly && msg2.cmp(this.n) >= 0)
+      return msg2.sub(this.n);
     else
-      return msg;
+      return msg2;
   };
-  EC.prototype.sign = function sign3(msg, key2, enc, options) {
+  EC.prototype.sign = function sign3(msg2, key2, enc, options) {
     if (typeof enc === "object") {
       options = enc;
       enc = null;
     }
     if (!options)
       options = {};
-    if (typeof msg !== "string" && typeof msg !== "number" && !BN2.isBN(msg)) {
+    if (typeof msg2 !== "string" && typeof msg2 !== "number" && !BN2.isBN(msg2)) {
       assert2(
-        typeof msg === "object" && msg && typeof msg.length === "number",
+        typeof msg2 === "object" && msg2 && typeof msg2.length === "number",
         "Expected message to be an array-like, a hex string, or a BN instance"
       );
-      assert2(msg.length >>> 0 === msg.length);
-      for (var i2 = 0; i2 < msg.length; i2++) assert2((msg[i2] & 255) === msg[i2]);
+      assert2(msg2.length >>> 0 === msg2.length);
+      for (var i2 = 0; i2 < msg2.length; i2++) assert2((msg2[i2] & 255) === msg2[i2]);
     }
     key2 = this.keyFromPrivate(key2, enc);
-    msg = this._truncateToN(msg, false, options.msgBitLength);
-    assert2(!msg.isNeg(), "Can not sign a negative message");
+    msg2 = this._truncateToN(msg2, false, options.msgBitLength);
+    assert2(!msg2.isNeg(), "Can not sign a negative message");
     var bytes = this.n.byteLength();
     var bkey = key2.getPrivate().toArray("be", bytes);
-    var nonce = msg.toArray("be", bytes);
-    assert2(new BN2(nonce).eq(msg), "Can not sign message");
+    var nonce = msg2.toArray("be", bytes);
+    assert2(new BN2(nonce).eq(msg2), "Can not sign message");
     var drbg = new HmacDRBG({
       hash: this.hash,
       entropy: bkey,
@@ -36959,7 +37024,7 @@ function requireEc() {
       var r2 = kpX.umod(this.n);
       if (r2.cmpn(0) === 0)
         continue;
-      var s2 = k2.invm(this.n).mul(r2.mul(key2.getPrivate()).iadd(msg));
+      var s2 = k2.invm(this.n).mul(r2.mul(key2.getPrivate()).iadd(msg2));
       s2 = s2.umod(this.n);
       if (s2.cmpn(0) === 0)
         continue;
@@ -36971,10 +37036,10 @@ function requireEc() {
       return new Signature({ r: r2, s: s2, recoveryParam });
     }
   };
-  EC.prototype.verify = function verify2(msg, signature2, key2, enc, options) {
+  EC.prototype.verify = function verify2(msg2, signature2, key2, enc, options) {
     if (!options)
       options = {};
-    msg = this._truncateToN(msg, false, options.msgBitLength);
+    msg2 = this._truncateToN(msg2, false, options.msgBitLength);
     key2 = this.keyFromPublic(key2, enc);
     signature2 = new Signature(signature2, "hex");
     var r2 = signature2.r;
@@ -36984,7 +37049,7 @@ function requireEc() {
     if (s2.cmpn(1) < 0 || s2.cmp(this.n) >= 0)
       return false;
     var sinv = s2.invm(this.n);
-    var u1 = sinv.mul(msg).umod(this.n);
+    var u1 = sinv.mul(msg2).umod(this.n);
     var u2 = sinv.mul(r2).umod(this.n);
     var p3;
     if (!this.curve._maxwellTrick) {
@@ -36998,11 +37063,11 @@ function requireEc() {
       return false;
     return p3.eqXToP(r2);
   };
-  EC.prototype.recoverPubKey = function(msg, signature2, j2, enc) {
+  EC.prototype.recoverPubKey = function(msg2, signature2, j2, enc) {
     assert2((3 & j2) === j2, "The recovery param is more than two bits");
     signature2 = new Signature(signature2, enc);
     var n4 = this.n;
-    var e2 = new BN2(msg);
+    var e2 = new BN2(msg2);
     var r2 = signature2.r;
     var s2 = signature2.s;
     var isYOdd = j2 & 1;
@@ -37274,8 +37339,8 @@ function requireBn$2() {
   hasRequiredBn$2 = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -40102,10 +40167,10 @@ function requireVmBrowserify() {
         return res;
       }
     };
-    var forEach = function(xs, fn6) {
-      if (xs.forEach) return xs.forEach(fn6);
+    var forEach = function(xs, fn) {
+      if (xs.forEach) return xs.forEach(fn);
       else for (var i2 = 0; i2 < xs.length; i2++) {
-        fn6(xs[i2], i2, xs);
+        fn(xs[i2], i2, xs);
       }
     };
     var defineProp = function() {
@@ -40310,7 +40375,7 @@ function requireReporter() {
     };
   }
   reporter.Reporter = Reporter;
-  Reporter.prototype.isError = function isError2(obj) {
+  Reporter.prototype.isError = function isError(obj) {
     return obj instanceof ReporterError;
   };
   Reporter.prototype.save = function save() {
@@ -40350,16 +40415,16 @@ function requireReporter() {
     state2.obj = prev;
     return now;
   };
-  Reporter.prototype.error = function error(msg) {
+  Reporter.prototype.error = function error(msg2) {
     var err;
     var state2 = this._reporterState;
-    var inherited = msg instanceof ReporterError;
+    var inherited = msg2 instanceof ReporterError;
     if (inherited) {
-      err = msg;
+      err = msg2;
     } else {
       err = new ReporterError(state2.path.map(function(elem) {
         return "[" + JSON.stringify(elem) + "]";
-      }).join(""), msg.message || msg, msg.stack);
+      }).join(""), msg2.message || msg2, msg2.stack);
     }
     if (!state2.options.partial)
       throw err;
@@ -40376,13 +40441,13 @@ function requireReporter() {
       errors: state2.errors
     };
   };
-  function ReporterError(path, msg) {
+  function ReporterError(path, msg2) {
     this.path = path;
-    this.rethrow(msg);
+    this.rethrow(msg2);
   }
   inherits2(ReporterError, Error);
-  ReporterError.prototype.rethrow = function rethrow(msg) {
-    this.message = msg + " at: " + (this.path || "(shallow)");
+  ReporterError.prototype.rethrow = function rethrow(msg2) {
+    this.message = msg2 + " at: " + (this.path || "(shallow)");
     if (Error.captureStackTrace)
       Error.captureStackTrace(this, ReporterError);
     if (!this.stack) {
@@ -42413,8 +42478,8 @@ function requireBn$1() {
   hasRequiredBn$1 = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -45386,8 +45451,8 @@ function requireBn() {
   hasRequiredBn = 1;
   (function(module) {
     (function(module2, exports2) {
-      function assert2(val, msg) {
-        if (!val) throw new Error(msg || "Assertion failed");
+      function assert2(val, msg2) {
+        if (!val) throw new Error(msg2 || "Assertion failed");
       }
       function inherits2(ctor, superCtor) {
         ctor.super_ = superCtor;
@@ -48219,7 +48284,7 @@ function requirePublicEncrypt() {
   var withPublic = requireWithPublic();
   var crt = requireBrowserifyRsa();
   var Buffer2 = safeBufferExports$1.Buffer;
-  publicEncrypt = function publicEncrypt2(publicKey2, msg, reverse) {
+  publicEncrypt = function publicEncrypt2(publicKey2, msg2, reverse) {
     var padding2;
     if (publicKey2.padding) {
       padding2 = publicKey2.padding;
@@ -48231,11 +48296,11 @@ function requirePublicEncrypt() {
     var key2 = parseKeys(publicKey2);
     var paddedMsg;
     if (padding2 === 4) {
-      paddedMsg = oaep(key2, msg);
+      paddedMsg = oaep(key2, msg2);
     } else if (padding2 === 1) {
-      paddedMsg = pkcs1(key2, msg, reverse);
+      paddedMsg = pkcs1(key2, msg2, reverse);
     } else if (padding2 === 3) {
-      paddedMsg = new BN2(msg);
+      paddedMsg = new BN2(msg2);
       if (paddedMsg.cmp(key2.modulus) >= 0) {
         throw new Error("data too long for modulus");
       }
@@ -48248,9 +48313,9 @@ function requirePublicEncrypt() {
       return withPublic(paddedMsg, key2);
     }
   };
-  function oaep(key2, msg) {
+  function oaep(key2, msg2) {
     var k2 = key2.modulus.byteLength();
-    var mLen = msg.length;
+    var mLen = msg2.length;
     var iHash = createHash("sha1").update(Buffer2.alloc(0)).digest();
     var hLen = iHash.length;
     var hLen2 = 2 * hLen;
@@ -48260,12 +48325,12 @@ function requirePublicEncrypt() {
     var ps = Buffer2.alloc(k2 - mLen - hLen2 - 2);
     var dblen = k2 - hLen - 1;
     var seed = randomBytes2(hLen);
-    var maskedDb = xor2(Buffer2.concat([iHash, ps, Buffer2.alloc(1, 1), msg], dblen), mgf2(seed, dblen));
+    var maskedDb = xor2(Buffer2.concat([iHash, ps, Buffer2.alloc(1, 1), msg2], dblen), mgf2(seed, dblen));
     var maskedSeed = xor2(seed, mgf2(maskedDb, hLen));
     return new BN2(Buffer2.concat([Buffer2.alloc(1), maskedSeed, maskedDb], k2));
   }
-  function pkcs1(key2, msg, reverse) {
-    var mLen = msg.length;
+  function pkcs1(key2, msg2, reverse) {
+    var mLen = msg2.length;
     var k2 = key2.modulus.byteLength();
     if (mLen > k2 - 11) {
       throw new Error("message too long");
@@ -48276,7 +48341,7 @@ function requirePublicEncrypt() {
     } else {
       ps = nonZero(k2 - mLen - 3);
     }
-    return new BN2(Buffer2.concat([Buffer2.from([0, reverse ? 1 : 2]), ps, Buffer2.alloc(1), msg], k2));
+    return new BN2(Buffer2.concat([Buffer2.from([0, reverse ? 1 : 2]), ps, Buffer2.alloc(1), msg2], k2));
   }
   function nonZero(len2) {
     var out = Buffer2.allocUnsafe(len2);
@@ -48325,33 +48390,33 @@ function requirePrivateDecrypt() {
     if (enc.length > k2 || new BN2(enc).cmp(key2.modulus) >= 0) {
       throw new Error("decryption error");
     }
-    var msg;
+    var msg2;
     if (reverse) {
-      msg = withPublic(new BN2(enc), key2);
+      msg2 = withPublic(new BN2(enc), key2);
     } else {
-      msg = crt(enc, key2);
+      msg2 = crt(enc, key2);
     }
-    var zBuffer = Buffer2.alloc(k2 - msg.length);
-    msg = Buffer2.concat([zBuffer, msg], k2);
+    var zBuffer = Buffer2.alloc(k2 - msg2.length);
+    msg2 = Buffer2.concat([zBuffer, msg2], k2);
     if (padding2 === 4) {
-      return oaep(key2, msg);
+      return oaep(key2, msg2);
     } else if (padding2 === 1) {
-      return pkcs1(key2, msg, reverse);
+      return pkcs1(key2, msg2, reverse);
     } else if (padding2 === 3) {
-      return msg;
+      return msg2;
     } else {
       throw new Error("unknown padding");
     }
   };
-  function oaep(key2, msg) {
+  function oaep(key2, msg2) {
     var k2 = key2.modulus.byteLength();
     var iHash = createHash("sha1").update(Buffer2.alloc(0)).digest();
     var hLen = iHash.length;
-    if (msg[0] !== 0) {
+    if (msg2[0] !== 0) {
       throw new Error("decryption error");
     }
-    var maskedSeed = msg.slice(1, hLen + 1);
-    var maskedDb = msg.slice(hLen + 1);
+    var maskedSeed = msg2.slice(1, hLen + 1);
+    var maskedDb = msg2.slice(hLen + 1);
     var seed = xor2(maskedSeed, mgf2(maskedDb, hLen));
     var db = xor2(maskedDb, mgf2(seed, k2 - hLen - 1));
     if (compare(iHash, db.slice(0, hLen))) {
@@ -48366,17 +48431,17 @@ function requirePrivateDecrypt() {
     }
     return db.slice(i2);
   }
-  function pkcs1(key2, msg, reverse) {
-    var p1 = msg.slice(0, 2);
+  function pkcs1(key2, msg2, reverse) {
+    var p1 = msg2.slice(0, 2);
     var i2 = 2;
     var status = 0;
-    while (msg[i2++] !== 0) {
-      if (i2 >= msg.length) {
+    while (msg2[i2++] !== 0) {
+      if (i2 >= msg2.length) {
         status++;
         break;
       }
     }
-    var ps = msg.slice(2, i2 - 1);
+    var ps = msg2.slice(2, i2 - 1);
     if (p1.toString("hex") !== "0002" && !reverse || p1.toString("hex") !== "0001" && reverse) {
       status++;
     }
@@ -48386,7 +48451,7 @@ function requirePrivateDecrypt() {
     if (status) {
       throw new Error("decryption error");
     }
-    return msg.slice(i2);
+    return msg2.slice(i2);
   }
   function compare(a2, b2) {
     a2 = Buffer2.from(a2);
@@ -50637,12 +50702,12 @@ function requireCryptoBrowserify() {
       randombytes(b2, n4);
       return b2;
     };
-    nacl2.secretbox = function(msg, nonce, key2) {
-      checkArrayTypes(msg, nonce, key2);
+    nacl2.secretbox = function(msg2, nonce, key2) {
+      checkArrayTypes(msg2, nonce, key2);
       checkLengths(key2, nonce);
-      var m2 = new Uint8Array(crypto_secretbox_ZEROBYTES + msg.length);
+      var m2 = new Uint8Array(crypto_secretbox_ZEROBYTES + msg2.length);
       var c2 = new Uint8Array(m2.length);
-      for (var i2 = 0; i2 < msg.length; i2++) m2[i2 + crypto_secretbox_ZEROBYTES] = msg[i2];
+      for (var i2 = 0; i2 < msg2.length; i2++) m2[i2 + crypto_secretbox_ZEROBYTES] = msg2[i2];
       crypto_secretbox(c2, m2, m2.length, nonce, key2);
       return c2.subarray(crypto_secretbox_BOXZEROBYTES);
     };
@@ -50676,9 +50741,9 @@ function requireCryptoBrowserify() {
     };
     nacl2.scalarMult.scalarLength = crypto_scalarmult_SCALARBYTES;
     nacl2.scalarMult.groupElementLength = crypto_scalarmult_BYTES;
-    nacl2.box = function(msg, nonce, publicKey2, secretKey) {
+    nacl2.box = function(msg2, nonce, publicKey2, secretKey) {
       var k2 = nacl2.box.before(publicKey2, secretKey);
-      return nacl2.secretbox(msg, nonce, k2);
+      return nacl2.secretbox(msg2, nonce, k2);
     };
     nacl2.box.before = function(publicKey2, secretKey) {
       checkArrayTypes(publicKey2, secretKey);
@@ -50688,9 +50753,9 @@ function requireCryptoBrowserify() {
       return k2;
     };
     nacl2.box.after = nacl2.secretbox;
-    nacl2.box.open = function(msg, nonce, publicKey2, secretKey) {
+    nacl2.box.open = function(msg2, nonce, publicKey2, secretKey) {
       var k2 = nacl2.box.before(publicKey2, secretKey);
-      return nacl2.secretbox.open(msg, nonce, k2);
+      return nacl2.secretbox.open(msg2, nonce, k2);
     };
     nacl2.box.open.after = nacl2.secretbox.open;
     nacl2.box.keyPair = function() {
@@ -50712,12 +50777,12 @@ function requireCryptoBrowserify() {
     nacl2.box.sharedKeyLength = crypto_box_BEFORENMBYTES;
     nacl2.box.nonceLength = crypto_box_NONCEBYTES;
     nacl2.box.overheadLength = nacl2.secretbox.overheadLength;
-    nacl2.sign = function(msg, secretKey) {
-      checkArrayTypes(msg, secretKey);
+    nacl2.sign = function(msg2, secretKey) {
+      checkArrayTypes(msg2, secretKey);
       if (secretKey.length !== crypto_sign_SECRETKEYBYTES)
         throw new Error("bad secret key size");
-      var signedMsg = new Uint8Array(crypto_sign_BYTES + msg.length);
-      crypto_sign(signedMsg, msg, msg.length, secretKey);
+      var signedMsg = new Uint8Array(crypto_sign_BYTES + msg2.length);
+      crypto_sign(signedMsg, msg2, msg2.length, secretKey);
       return signedMsg;
     };
     nacl2.sign.open = function(signedMsg, publicKey2) {
@@ -50731,23 +50796,23 @@ function requireCryptoBrowserify() {
       for (var i2 = 0; i2 < m2.length; i2++) m2[i2] = tmp[i2];
       return m2;
     };
-    nacl2.sign.detached = function(msg, secretKey) {
-      var signedMsg = nacl2.sign(msg, secretKey);
+    nacl2.sign.detached = function(msg2, secretKey) {
+      var signedMsg = nacl2.sign(msg2, secretKey);
       var sig = new Uint8Array(crypto_sign_BYTES);
       for (var i2 = 0; i2 < sig.length; i2++) sig[i2] = signedMsg[i2];
       return sig;
     };
-    nacl2.sign.detached.verify = function(msg, sig, publicKey2) {
-      checkArrayTypes(msg, sig, publicKey2);
+    nacl2.sign.detached.verify = function(msg2, sig, publicKey2) {
+      checkArrayTypes(msg2, sig, publicKey2);
       if (sig.length !== crypto_sign_BYTES)
         throw new Error("bad signature size");
       if (publicKey2.length !== crypto_sign_PUBLICKEYBYTES)
         throw new Error("bad public key size");
-      var sm = new Uint8Array(crypto_sign_BYTES + msg.length);
-      var m2 = new Uint8Array(crypto_sign_BYTES + msg.length);
+      var sm = new Uint8Array(crypto_sign_BYTES + msg2.length);
+      var m2 = new Uint8Array(crypto_sign_BYTES + msg2.length);
       var i2;
       for (i2 = 0; i2 < crypto_sign_BYTES; i2++) sm[i2] = sig[i2];
-      for (i2 = 0; i2 < msg.length; i2++) sm[i2 + crypto_sign_BYTES] = msg[i2];
+      for (i2 = 0; i2 < msg2.length; i2++) sm[i2 + crypto_sign_BYTES] = msg2[i2];
       return crypto_sign_open(m2, sm, sm.length, publicKey2) >= 0;
     };
     nacl2.sign.keyPair = function() {
@@ -50778,10 +50843,10 @@ function requireCryptoBrowserify() {
     nacl2.sign.secretKeyLength = crypto_sign_SECRETKEYBYTES;
     nacl2.sign.seedLength = crypto_sign_SEEDBYTES;
     nacl2.sign.signatureLength = crypto_sign_BYTES;
-    nacl2.hash = function(msg) {
-      checkArrayTypes(msg);
+    nacl2.hash = function(msg2) {
+      checkArrayTypes(msg2);
       var h4 = new Uint8Array(crypto_hash_BYTES);
-      crypto_hash(h4, msg, msg.length);
+      crypto_hash(h4, msg2, msg2.length);
       return h4;
     };
     nacl2.hash.hashLength = crypto_hash_BYTES;
@@ -50791,8 +50856,8 @@ function requireCryptoBrowserify() {
       if (x3.length !== y3.length) return false;
       return vn2(x3, 0, y3, 0, x3.length) === 0 ? true : false;
     };
-    nacl2.setPRNG = function(fn6) {
-      randombytes = fn6;
+    nacl2.setPRNG = function(fn) {
+      randombytes = fn;
     };
     (function() {
       var crypto2 = typeof self !== "undefined" ? self.crypto || self.msCrypto : null;
@@ -51204,17 +51269,17 @@ function eddsa(Point2, cHash, eddsaOpts = {}) {
     return getExtendedPublicKey(secretKey).pointBytes;
   }
   function hashDomainToScalar(context = Uint8Array.of(), ...msgs) {
-    const msg = concatBytes$4(...msgs);
-    return modN_LE(cHash(domain(msg, ensureBytes$3("context", context), !!prehash)));
+    const msg2 = concatBytes$4(...msgs);
+    return modN_LE(cHash(domain(msg2, ensureBytes$3("context", context), !!prehash)));
   }
-  function sign3(msg, secretKey, options = {}) {
-    msg = ensureBytes$3("message", msg);
+  function sign3(msg2, secretKey, options = {}) {
+    msg2 = ensureBytes$3("message", msg2);
     if (prehash)
-      msg = prehash(msg);
+      msg2 = prehash(msg2);
     const { prefix, scalar, pointBytes } = getExtendedPublicKey(secretKey);
-    const r2 = hashDomainToScalar(options.context, prefix, msg);
+    const r2 = hashDomainToScalar(options.context, prefix, msg2);
     const R2 = BASE.multiply(r2).toBytes();
-    const k2 = hashDomainToScalar(options.context, R2, pointBytes, msg);
+    const k2 = hashDomainToScalar(options.context, R2, pointBytes, msg2);
     const s2 = Fn2.create(r2 + k2 * scalar);
     if (!Fn2.isValid(s2))
       throw new Error("sign failed: invalid s");
@@ -51222,16 +51287,16 @@ function eddsa(Point2, cHash, eddsaOpts = {}) {
     return _abytes2(rs, lengths.signature, "result");
   }
   const verifyOpts = { zip215: true };
-  function verify2(sig, msg, publicKey2, options = verifyOpts) {
+  function verify2(sig, msg2, publicKey2, options = verifyOpts) {
     const { context, zip215 } = options;
     const len2 = lengths.signature;
     sig = ensureBytes$3("signature", sig, len2);
-    msg = ensureBytes$3("message", msg);
+    msg2 = ensureBytes$3("message", msg2);
     publicKey2 = ensureBytes$3("publicKey", publicKey2, lengths.publicKey);
     if (zip215 !== void 0)
       _abool2(zip215, "zip215");
     if (prehash)
-      msg = prehash(msg);
+      msg2 = prehash(msg2);
     const mid = len2 / 2;
     const r2 = sig.subarray(0, mid);
     const s2 = bytesToNumberLE$3(sig.subarray(mid, len2));
@@ -51245,7 +51310,7 @@ function eddsa(Point2, cHash, eddsaOpts = {}) {
     }
     if (!zip215 && A2.isSmallOrder())
       return false;
-    const k2 = hashDomainToScalar(context, R2.toBytes(), A2.toBytes(), msg);
+    const k2 = hashDomainToScalar(context, R2.toBytes(), A2.toBytes(), msg2);
     const RkA = R2.add(A2.multiplyUnsafe(k2));
     return RkA.subtract(SB).clearCofactor().is0();
   }
@@ -52185,12 +52250,12 @@ class BinaryWriter {
   writeFixedArray(array2) {
     this.writeBuffer(Buffer$g.from(array2));
   }
-  writeArray(array2, fn6) {
+  writeArray(array2, fn) {
     this.maybeResize();
     this.writeU32(array2.length);
     for (const elem of array2) {
       this.maybeResize();
-      fn6(elem);
+      fn(elem);
     }
   }
   toArray() {
@@ -52270,11 +52335,11 @@ class BinaryReader {
   readFixedArray(len2) {
     return new Uint8Array(this.readBuffer(len2));
   }
-  readArray(fn6) {
+  readArray(fn) {
     const len2 = this.readU32();
     const result = Array();
     for (let i2 = 0; i2 < len2; ++i2) {
-      result.push(fn6());
+      result.push(fn());
     }
     return result;
   }
@@ -54037,10 +54102,10 @@ class StructError extends TypeError {
     let cached;
     const { message, explanation, ...rest } = failure;
     const { path } = failure;
-    const msg = path.length === 0 ? message : `At path: ${path.join(".")} -- ${message}`;
-    super(explanation ?? msg);
+    const msg2 = path.length === 0 ? message : `At path: ${path.join(".")} -- ${message}`;
+    super(explanation ?? msg2);
     if (explanation != null)
-      this.cause = msg;
+      this.cause = msg2;
     Object.assign(this, rest);
     this.name = this.constructor.name;
     this.failures = () => {
@@ -54591,10 +54656,10 @@ function v35(name, version2, hashfunc) {
 }
 function md5(bytes) {
   if (typeof bytes === "string") {
-    var msg = unescape(encodeURIComponent(bytes));
-    bytes = new Uint8Array(msg.length);
-    for (var i2 = 0; i2 < msg.length; ++i2) {
-      bytes[i2] = msg.charCodeAt(i2);
+    var msg2 = unescape(encodeURIComponent(bytes));
+    bytes = new Uint8Array(msg2.length);
+    for (var i2 = 0; i2 < msg2.length; ++i2) {
+      bytes[i2] = msg2.charCodeAt(i2);
     }
   }
   return md5ToHexEncodedArray(wordsToMd5(bytesToWords(bytes), bytes.length * 8));
@@ -54764,10 +54829,10 @@ function sha1(bytes) {
   var K3 = [1518500249, 1859775393, 2400959708, 3395469782];
   var H2 = [1732584193, 4023233417, 2562383102, 271733878, 3285377520];
   if (typeof bytes === "string") {
-    var msg = unescape(encodeURIComponent(bytes));
+    var msg2 = unescape(encodeURIComponent(bytes));
     bytes = [];
-    for (var i2 = 0; i2 < msg.length; ++i2) {
-      bytes.push(msg.charCodeAt(i2));
+    for (var i2 = 0; i2 < msg2.length; ++i2) {
+      bytes.push(msg2.charCodeAt(i2));
     }
   } else if (!Array.isArray(bytes)) {
     bytes = Array.prototype.slice.call(bytes);
@@ -54959,13 +55024,13 @@ ClientBrowser.prototype._parseResponse = function(err, responseText, callback) {
   }
   if (callback.length === 3) {
     if (Array.isArray(response)) {
-      const isError2 = function(res) {
+      const isError = function(res) {
         return typeof res.error !== "undefined";
       };
       const isNotError = function(res) {
-        return !isError2(res);
+        return !isError(res);
       };
-      callback(null, response.filter(isError2), response.filter(isNotError));
+      callback(null, response.filter(isError), response.filter(isNotError));
       return;
     } else {
       callback(null, response.error, response.result);
@@ -54984,16 +55049,16 @@ var eventemitter3 = { exports: {} };
     Events.prototype = /* @__PURE__ */ Object.create(null);
     if (!new Events().__proto__) prefix = false;
   }
-  function EE2(fn6, context, once3) {
-    this.fn = fn6;
+  function EE2(fn, context, once3) {
+    this.fn = fn;
     this.context = context;
     this.once = once3 || false;
   }
-  function addListener2(emitter, event, fn6, context, once3) {
-    if (typeof fn6 !== "function") {
+  function addListener2(emitter, event, fn, context, once3) {
+    if (typeof fn !== "function") {
       throw new TypeError("The listener must be a function");
     }
-    var listener = new EE2(fn6, context || emitter, once3), evt = prefix ? prefix + event : event;
+    var listener = new EE2(fn, context || emitter, once3), evt = prefix ? prefix + event : event;
     if (!emitter._events[evt]) emitter._events[evt] = listener, emitter._eventsCount++;
     else if (!emitter._events[evt].fn) emitter._events[evt].push(listener);
     else emitter._events[evt] = [emitter._events[evt], listener];
@@ -55084,27 +55149,27 @@ var eventemitter3 = { exports: {} };
     }
     return true;
   };
-  EventEmitter2.prototype.on = function on2(event, fn6, context) {
-    return addListener2(this, event, fn6, context, false);
+  EventEmitter2.prototype.on = function on2(event, fn, context) {
+    return addListener2(this, event, fn, context, false);
   };
-  EventEmitter2.prototype.once = function once3(event, fn6, context) {
-    return addListener2(this, event, fn6, context, true);
+  EventEmitter2.prototype.once = function once3(event, fn, context) {
+    return addListener2(this, event, fn, context, true);
   };
-  EventEmitter2.prototype.removeListener = function removeListener2(event, fn6, context, once3) {
+  EventEmitter2.prototype.removeListener = function removeListener2(event, fn, context, once3) {
     var evt = prefix ? prefix + event : event;
     if (!this._events[evt]) return this;
-    if (!fn6) {
+    if (!fn) {
       clearEvent(this, evt);
       return this;
     }
     var listeners2 = this._events[evt];
     if (listeners2.fn) {
-      if (listeners2.fn === fn6 && (!once3 || listeners2.once) && (!context || listeners2.context === context)) {
+      if (listeners2.fn === fn && (!once3 || listeners2.once) && (!context || listeners2.context === context)) {
         clearEvent(this, evt);
       }
     } else {
       for (var i2 = 0, events2 = [], length = listeners2.length; i2 < length; i2++) {
-        if (listeners2[i2].fn !== fn6 || once3 && !listeners2[i2].once || context && listeners2[i2].context !== context) {
+        if (listeners2[i2].fn !== fn || once3 && !listeners2[i2].once || context && listeners2[i2].context !== context) {
           events2.push(listeners2[i2]);
         }
       }
@@ -61915,16 +61980,16 @@ let BaseError$3 = class BaseError2 extends Error {
     this.shortMessage = shortMessage;
     this.version = version$3;
   }
-  walk(fn6) {
-    return walk$2(this, fn6);
+  walk(fn) {
+    return walk$2(this, fn);
   }
 };
-function walk$2(err, fn6) {
-  if (fn6 == null ? void 0 : fn6(err))
+function walk$2(err, fn) {
+  if (fn == null ? void 0 : fn(err))
     return err;
   if (err && typeof err === "object" && "cause" in err && err.cause !== void 0)
-    return walk$2(err.cause, fn6);
-  return fn6 ? null : err;
+    return walk$2(err.cause, fn);
+  return fn ? null : err;
 }
 let IntegerOutOfRangeError$2 = class IntegerOutOfRangeError2 extends BaseError$3 {
   constructor({ max: max2, min: min2, signed, size: size2, value }) {
@@ -62494,13 +62559,13 @@ function validateObject$2(object, validators, optValidators = {}) {
     checkField(fieldName, type2, true);
   return object;
 }
-function memoized$2(fn6) {
+function memoized$2(fn) {
   const map = /* @__PURE__ */ new WeakMap();
   return (arg, ...args) => {
     const val = map.get(arg);
     if (val !== void 0)
       return val;
-    const computed = fn6(arg, ...args);
+    const computed = fn(arg, ...args);
     map.set(arg, computed);
     return computed;
   };
@@ -66574,8 +66639,8 @@ const B2B_IV = /* @__PURE__ */ Uint32Array.from([
   1541459225
 ]);
 const BBUF = /* @__PURE__ */ new Uint32Array(32);
-function G1b(a2, b2, c2, d3, msg, x3) {
-  const Xl = msg[x3], Xh = msg[x3 + 1];
+function G1b(a2, b2, c2, d3, msg2, x3) {
+  const Xl = msg2[x3], Xh = msg2[x3 + 1];
   let Al = BBUF[2 * a2], Ah = BBUF[2 * a2 + 1];
   let Bl = BBUF[2 * b2], Bh = BBUF[2 * b2 + 1];
   let Cl = BBUF[2 * c2], Ch2 = BBUF[2 * c2 + 1];
@@ -66593,8 +66658,8 @@ function G1b(a2, b2, c2, d3, msg, x3) {
   BBUF[2 * c2] = Cl, BBUF[2 * c2 + 1] = Ch2;
   BBUF[2 * d3] = Dl, BBUF[2 * d3 + 1] = Dh;
 }
-function G2b(a2, b2, c2, d3, msg, x3) {
-  const Xl = msg[x3], Xh = msg[x3 + 1];
+function G2b(a2, b2, c2, d3, msg2, x3) {
+  const Xl = msg2[x3], Xh = msg2[x3 + 1];
   let Al = BBUF[2 * a2], Ah = BBUF[2 * a2 + 1];
   let Bl = BBUF[2 * b2], Bh = BBUF[2 * b2 + 1];
   let Cl = BBUF[2 * c2], Ch2 = BBUF[2 * c2 + 1];
@@ -66781,7 +66846,7 @@ class BLAKE2b extends BLAKE2 {
     this.v7l = v7l | 0;
     this.v7h = v7h | 0;
   }
-  compress(msg, offset2, isLast) {
+  compress(msg2, offset2, isLast) {
     this.get().forEach((v6, i2) => BBUF[i2] = v6);
     BBUF.set(B2B_IV, 16);
     let { h: h4, l: l2 } = fromBig(BigInt(this.length));
@@ -66794,22 +66859,22 @@ class BLAKE2b extends BLAKE2 {
     let j2 = 0;
     const s2 = BSIGMA;
     for (let i2 = 0; i2 < 12; i2++) {
-      G1b(0, 4, 8, 12, msg, offset2 + 2 * s2[j2++]);
-      G2b(0, 4, 8, 12, msg, offset2 + 2 * s2[j2++]);
-      G1b(1, 5, 9, 13, msg, offset2 + 2 * s2[j2++]);
-      G2b(1, 5, 9, 13, msg, offset2 + 2 * s2[j2++]);
-      G1b(2, 6, 10, 14, msg, offset2 + 2 * s2[j2++]);
-      G2b(2, 6, 10, 14, msg, offset2 + 2 * s2[j2++]);
-      G1b(3, 7, 11, 15, msg, offset2 + 2 * s2[j2++]);
-      G2b(3, 7, 11, 15, msg, offset2 + 2 * s2[j2++]);
-      G1b(0, 5, 10, 15, msg, offset2 + 2 * s2[j2++]);
-      G2b(0, 5, 10, 15, msg, offset2 + 2 * s2[j2++]);
-      G1b(1, 6, 11, 12, msg, offset2 + 2 * s2[j2++]);
-      G2b(1, 6, 11, 12, msg, offset2 + 2 * s2[j2++]);
-      G1b(2, 7, 8, 13, msg, offset2 + 2 * s2[j2++]);
-      G2b(2, 7, 8, 13, msg, offset2 + 2 * s2[j2++]);
-      G1b(3, 4, 9, 14, msg, offset2 + 2 * s2[j2++]);
-      G2b(3, 4, 9, 14, msg, offset2 + 2 * s2[j2++]);
+      G1b(0, 4, 8, 12, msg2, offset2 + 2 * s2[j2++]);
+      G2b(0, 4, 8, 12, msg2, offset2 + 2 * s2[j2++]);
+      G1b(1, 5, 9, 13, msg2, offset2 + 2 * s2[j2++]);
+      G2b(1, 5, 9, 13, msg2, offset2 + 2 * s2[j2++]);
+      G1b(2, 6, 10, 14, msg2, offset2 + 2 * s2[j2++]);
+      G2b(2, 6, 10, 14, msg2, offset2 + 2 * s2[j2++]);
+      G1b(3, 7, 11, 15, msg2, offset2 + 2 * s2[j2++]);
+      G2b(3, 7, 11, 15, msg2, offset2 + 2 * s2[j2++]);
+      G1b(0, 5, 10, 15, msg2, offset2 + 2 * s2[j2++]);
+      G2b(0, 5, 10, 15, msg2, offset2 + 2 * s2[j2++]);
+      G1b(1, 6, 11, 12, msg2, offset2 + 2 * s2[j2++]);
+      G2b(1, 6, 11, 12, msg2, offset2 + 2 * s2[j2++]);
+      G1b(2, 7, 8, 13, msg2, offset2 + 2 * s2[j2++]);
+      G2b(2, 7, 8, 13, msg2, offset2 + 2 * s2[j2++]);
+      G1b(3, 4, 9, 14, msg2, offset2 + 2 * s2[j2++]);
+      G2b(3, 4, 9, 14, msg2, offset2 + 2 * s2[j2++]);
     }
     this.v0l ^= BBUF[0] ^ BBUF[16];
     this.v0h ^= BBUF[1] ^ BBUF[17];
@@ -66911,7 +66976,7 @@ function buildChild(parent, Z2, I2) {
 }
 function deriveCardanoAddress(entropy, accountIndex = 0) {
   const root = rootKeyFromEntropy(entropy);
-  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn6, i2) => fn6(key2, [1852, 1815, accountIndex][i2]), root);
+  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn, i2) => fn(key2, [1852, 1815, accountIndex][i2]), root);
   const payPub = pubFromKL(deriveSoft(deriveSoft(account, 0), 0).kL);
   const stkPub = pubFromKL(deriveSoft(deriveSoft(account, 2), 0).kL);
   const payHash = blake2b$1(payPub, { dkLen: 28 });
@@ -66921,7 +66986,7 @@ function deriveCardanoAddress(entropy, accountIndex = 0) {
 }
 function deriveCardanoStakeAddress(entropy, accountIndex = 0) {
   const root = rootKeyFromEntropy(entropy);
-  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn6, i2) => fn6(key2, [1852, 1815, accountIndex][i2]), root);
+  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn, i2) => fn(key2, [1852, 1815, accountIndex][i2]), root);
   const stkPub = pubFromKL(deriveSoft(deriveSoft(account, 2), 0).kL);
   const stkHash = blake2b$1(stkPub, { dkLen: 28 });
   const addrBytes = Buffer$g.concat([Buffer$g.from([225]), stkHash]);
@@ -66929,7 +66994,7 @@ function deriveCardanoStakeAddress(entropy, accountIndex = 0) {
 }
 function getCardanoSpendingKey(entropy, accountIndex = 0) {
   const root = rootKeyFromEntropy(entropy);
-  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn6, i2) => fn6(key2, [1852, 1815, accountIndex][i2]), root);
+  const account = [deriveHardened, deriveHardened, deriveHardened].reduce((key2, fn, i2) => fn(key2, [1852, 1815, accountIndex][i2]), root);
   const spendNode = deriveSoft(deriveSoft(account, 0), 0);
   return {
     kL: spendNode.kL,
@@ -67459,8 +67524,8 @@ async function fetchEvmNative(chain2, address, config) {
     }
     return { native, tokenCount, error: null };
   } catch (err) {
-    const msg = String(err);
-    return { native: 0, tokenCount: 0, error: msg.includes("abort") || msg.includes("timeout") ? "Timed out" : "Network error" };
+    const msg2 = String(err);
+    return { native: 0, tokenCount: 0, error: msg2.includes("abort") || msg2.includes("timeout") ? "Timed out" : "Network error" };
   }
 }
 async function fetchBitcoinNative(address) {
@@ -67475,8 +67540,8 @@ async function fetchBitcoinNative(address) {
     const pending = json.mempool_stats.funded_txo_sum - json.mempool_stats.spent_txo_sum;
     return { native: (confirmed + pending) / 1e8, tokenCount: 0, error: null };
   } catch (err) {
-    const msg = String(err);
-    return { native: 0, tokenCount: 0, error: msg.includes("abort") ? "Timed out" : "Network error" };
+    const msg2 = String(err);
+    return { native: 0, tokenCount: 0, error: msg2.includes("abort") ? "Timed out" : "Network error" };
   }
 }
 const DOT_SYSTEM_ACCOUNT_PREFIX = "26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9";
@@ -67505,8 +67570,8 @@ async function fetchPolkadotNative(address, tatumKey) {
     const planck = lo2 + hi * BigInt("18446744073709551616");
     return { native: Number(planck) / 1e10, tokenCount: 0, error: null };
   } catch (err) {
-    const msg = String(err);
-    return { native: 0, tokenCount: 0, error: msg.includes("abort") ? "Timed out" : "Network error" };
+    const msg2 = String(err);
+    return { native: 0, tokenCount: 0, error: msg2.includes("abort") ? "Timed out" : "Network error" };
   }
 }
 async function fetchSolanaNative(address, config) {
@@ -69088,11 +69153,11 @@ const toSignature = (def) => {
   })();
   return normalizeSignature$1(def_);
 };
-function toSignatureHash(fn6) {
-  return hashSignature(toSignature(fn6));
+function toSignatureHash(fn) {
+  return hashSignature(toSignature(fn));
 }
 const toEventSelector = toSignatureHash;
-const toFunctionSelector = (fn6) => slice$3(toSignatureHash(fn6), 0, 4);
+const toFunctionSelector = (fn) => slice$3(toSignatureHash(fn), 0, 4);
 function getAbiItem(parameters) {
   const { abi: abi2, args = [], name } = parameters;
   const isSelector = isHex(name, { strict: false });
@@ -71975,13 +72040,13 @@ function validateObject$1(object, validators, optValidators = {}) {
     checkField(fieldName, type2, true);
   return object;
 }
-function memoized$1(fn6) {
+function memoized$1(fn) {
   const map = /* @__PURE__ */ new WeakMap();
   return (arg, ...args) => {
     const val = map.get(arg);
     if (val !== void 0)
       return val;
-    const computed = fn6(arg, ...args);
+    const computed = fn(arg, ...args);
     map.set(arg, computed);
     return computed;
   };
@@ -72094,8 +72159,8 @@ let BaseError$1 = class BaseError4 extends Error {
     this.showVersion = showVersion;
     this.version = version2;
   }
-  walk(fn6) {
-    return walk$1(this, fn6);
+  walk(fn) {
+    return walk$1(this, fn);
   }
 };
 Object.defineProperty(BaseError$1, "defaultStaticOptions", {
@@ -72111,12 +72176,12 @@ Object.defineProperty(BaseError$1, "defaultStaticOptions", {
 (() => {
   BaseError$1.setStaticOptions(BaseError$1.defaultStaticOptions);
 })();
-function walk$1(err, fn6) {
-  if (fn6 == null ? void 0 : fn6(err))
+function walk$1(err, fn) {
+  if (fn == null ? void 0 : fn(err))
     return err;
   if (err && typeof err === "object" && "cause" in err && err.cause)
-    return walk$1(err.cause, fn6);
-  return fn6 ? null : err;
+    return walk$1(err.cause, fn);
+  return fn ? null : err;
 }
 function assertSize$3(bytes, size_) {
   if (size$4(bytes) > size_)
@@ -74653,14 +74718,14 @@ function withResolvers() {
   return { promise, resolve, reject };
 }
 const schedulerCache = /* @__PURE__ */ new Map();
-function createBatchScheduler({ fn: fn6, id, shouldSplitBatch, wait: wait2 = 0, sort }) {
+function createBatchScheduler({ fn, id, shouldSplitBatch, wait: wait2 = 0, sort }) {
   const exec = async () => {
     const scheduler = getScheduler();
     flush();
     const args = scheduler.map(({ args: args2 }) => args2);
     if (args.length === 0)
       return;
-    fn6(args).then((data) => {
+    fn(args).then((data) => {
       if (sort && Array.isArray(data))
         data.sort(sort);
       for (let i2 = 0; i2 < scheduler.length; i2++) {
@@ -75017,7 +75082,7 @@ async function simulateContract(client, parameters) {
 const listenersCache = /* @__PURE__ */ new Map();
 const cleanupCache = /* @__PURE__ */ new Map();
 let callbackCount = 0;
-function observe(observerId, callbacks, fn6) {
+function observe(observerId, callbacks, fn) {
   const callbackId = ++callbackCount;
   const getListeners = () => listenersCache.get(observerId) || [];
   const unsubscribe = () => {
@@ -75061,7 +75126,7 @@ function observe(observerId, callbacks, fn6) {
         (_b = (_a = listener.fns)[key2]) == null ? void 0 : _b.call(_a, ...args);
     };
   }
-  const cleanup = fn6(emit2);
+  const cleanup = fn(emit2);
   if (typeof cleanup === "function")
     cleanupCache.set(observerId, cleanup);
   return unwatch;
@@ -75085,19 +75150,19 @@ async function wait(time2, { signal } = {}) {
     signal == null ? void 0 : signal.addEventListener("abort", onAbort, { once: true });
   });
 }
-function poll(fn6, { emitOnBegin, initialWaitTime, interval }) {
+function poll(fn, { emitOnBegin, initialWaitTime, interval }) {
   let active = true;
   const unwatch = () => active = false;
   const watch2 = async () => {
     let data;
     if (emitOnBegin)
-      data = await fn6({ unpoll: unwatch });
+      data = await fn({ unpoll: unwatch });
     const initialWait = await (initialWaitTime == null ? void 0 : initialWaitTime(data)) ?? interval;
     await wait(initialWait);
     const poll2 = async () => {
       if (!active)
         return;
-      await fn6({ unpoll: unwatch });
+      await fn({ unpoll: unwatch });
       await wait(interval);
       poll2();
     };
@@ -75125,7 +75190,7 @@ function getCache(cacheKey2) {
     response
   };
 }
-async function withCache(fn6, { cacheKey: cacheKey2, cacheTime = Number.POSITIVE_INFINITY }) {
+async function withCache(fn, { cacheKey: cacheKey2, cacheTime = Number.POSITIVE_INFINITY }) {
   const cache = getCache(cacheKey2);
   const response = cache.response.get();
   if (response && cacheTime > 0) {
@@ -75135,7 +75200,7 @@ async function withCache(fn6, { cacheKey: cacheKey2, cacheTime = Number.POSITIVE
   }
   let promise = cache.promise.get();
   if (!promise) {
-    promise = fn6();
+    promise = fn();
     cache.promise.set(promise);
   }
   try {
@@ -75585,7 +75650,7 @@ class BundleFailedError extends BaseError$3 {
     this.result = result;
   }
 }
-function withRetry(fn6, { delay: delay_ = 100, retryCount = 2, shouldRetry: shouldRetry2 = () => true, signal } = {}) {
+function withRetry(fn, { delay: delay_ = 100, retryCount = 2, shouldRetry: shouldRetry2 = () => true, signal } = {}) {
   return new Promise((resolve, reject) => {
     const attemptRetry = async ({ count = 0 } = {}) => {
       if (signal == null ? void 0 : signal.aborted) {
@@ -75605,7 +75670,7 @@ function withRetry(fn6, { delay: delay_ = 100, retryCount = 2, shouldRetry: shou
         attemptRetry({ count: count + 1 });
       };
       try {
-        const data = await fn6();
+        const data = await fn();
         resolve(data);
       } catch (err) {
         if (signal == null ? void 0 : signal.aborted) {
@@ -75842,10 +75907,10 @@ async function waitForCallsStatus(client, parameters) {
   let timer;
   const unobserve = observe(observerId, { resolve, reject }, (emit2) => {
     const unpoll = poll(async () => {
-      const done2 = (fn6) => {
+      const done2 = (fn) => {
         clearTimeout(timer);
         unpoll();
-        fn6();
+        fn();
         unobserve();
       };
       try {
@@ -76861,12 +76926,12 @@ async function verifyAuthorization({ address, authorization, signature: signatur
   }));
 }
 const promiseCache = /* @__PURE__ */ new LruMap$2(8192);
-function withDedupe(fn6, { enabled = true, id }) {
+function withDedupe(fn, { enabled = true, id }) {
   if (!enabled || !id)
-    return fn6();
+    return fn();
   if (promiseCache.get(id))
     return promiseCache.get(id);
-  const promise = fn6().finally(() => promiseCache.delete(id));
+  const promise = fn().finally(() => promiseCache.delete(id));
   promiseCache.set(id, promise);
   return promise;
 }
@@ -77047,7 +77112,7 @@ function defineChain(chain2) {
 function extendSchema() {
   return {};
 }
-function withTimeout(fn6, { errorInstance = new Error("timed out"), timeout, signal }) {
+function withTimeout(fn, { errorInstance = new Error("timed out"), timeout, signal }) {
   return new Promise((resolve, reject) => {
     (async () => {
       let timeoutId;
@@ -77062,7 +77127,7 @@ function withTimeout(fn6, { errorInstance = new Error("timed out"), timeout, sig
             }
           }, timeout);
         }
-        resolve(await fn6({ signal: (controller == null ? void 0 : controller.signal) || null }));
+        resolve(await fn({ signal: (controller == null ? void 0 : controller.signal) || null }));
       } catch (err) {
         if ((controller == null ? void 0 : controller.signal.aborted) && isAbortError(err)) {
           reject(errorInstance);
@@ -81342,10 +81407,10 @@ async function waitForTransactionReceipt(client, parameters) {
       poll: true,
       pollingInterval,
       async onBlockNumber(blockNumber_) {
-        const done2 = (fn6) => {
+        const done2 = (fn) => {
           clearTimeout(timer);
           _unwatch == null ? void 0 : _unwatch();
-          fn6();
+          fn();
           _unobserve == null ? void 0 : _unobserve();
         };
         let blockNumber = blockNumber_;
@@ -82449,13 +82514,13 @@ function http(url, config = {}) {
           }),
           sort: (a2, b2) => a2.id - b2.id
         });
-        const fn6 = async (body2) => batch ? schedule(body2) : [
+        const fn = async (body2) => batch ? schedule(body2) : [
           await rpcClient.request({
             body: body2,
             fetchOptions: fetchOptions2
           })
         ];
-        const [{ error, result }] = await fn6(body);
+        const [{ error, result }] = await fn(body);
         if (raw)
           return { error, result };
         if (error)
@@ -83130,9 +83195,9 @@ async function fetchNftsForChain(address, chain2, key2) {
     const res = await fetch(url, { signal: AbortSignal.timeout(15e3) });
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      const msg = `HTTP ${res.status}: ${body.slice(0, 200)}`;
-      console.error(`[NFT] ${chain2.label} error: ${msg}`);
-      return { chain: chain2, items: [], error: msg };
+      const msg2 = `HTTP ${res.status}: ${body.slice(0, 200)}`;
+      console.error(`[NFT] ${chain2.label} error: ${msg2}`);
+      return { chain: chain2, items: [], error: msg2 };
     }
     const json = await res.json();
     if (json.error) {
@@ -83160,9 +83225,9 @@ async function fetchNftsForChain(address, chain2, key2) {
     console.log(`[NFT] ${chain2.label}: found ${items.length} NFTs`);
     return { chain: chain2, items, error: null };
   } catch (e2) {
-    const msg = String(e2);
-    console.error(`[NFT] ${chain2.label} exception: ${msg}`);
-    return { chain: chain2, items: [], error: msg };
+    const msg2 = String(e2);
+    console.error(`[NFT] ${chain2.label} exception: ${msg2}`);
+    return { chain: chain2, items: [], error: msg2 };
   }
 }
 async function fetchMonadNFTs(address, moralisKey) {
@@ -83339,8 +83404,8 @@ async function fetchSwapQuote(params, config) {
     }
     return { quoteId: json.quoteId ?? null, routes, error: null };
   } catch (e2) {
-    const msg = e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
-    return { quoteId: null, routes: [], error: msg };
+    const msg2 = e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
+    return { quoteId: null, routes: [], error: msg2 };
   }
 }
 const contracts = {
@@ -84095,6 +84160,132 @@ async function executeEvmSwap(params, mnemonic, config, accountIndex = 0) {
   }, config, accountIndex);
   return { txHash: main.txHash, explorerUrl: main.explorerUrl, chainId, approvalTxHash };
 }
+const SS_API = "https://api.simpleswap.io/v3";
+function ssHeaders(key2) {
+  return { "x-api-key": key2, accept: "application/json" };
+}
+const msg = (e2) => e2 instanceof Error && e2.name === "TimeoutError" ? "Request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
+async function ssError(res) {
+  try {
+    const j2 = await res.json();
+    const m2 = j2.description ?? j2.message ?? j2.error;
+    if (typeof m2 === "string" && m2) return m2;
+  } catch {
+  }
+  return `SimpleSwap ${res.status}`;
+}
+function normalizeExchange(r2) {
+  return {
+    id: String((r2 == null ? void 0 : r2.id) ?? ""),
+    status: String((r2 == null ? void 0 : r2.status) ?? "waiting"),
+    tickerFrom: (r2 == null ? void 0 : r2.tickerFrom) ?? (r2 == null ? void 0 : r2.currency_from) ?? "",
+    tickerTo: (r2 == null ? void 0 : r2.tickerTo) ?? (r2 == null ? void 0 : r2.currency_to) ?? "",
+    networkFrom: (r2 == null ? void 0 : r2.networkFrom) ?? "",
+    networkTo: (r2 == null ? void 0 : r2.networkTo) ?? "",
+    amountFrom: String((r2 == null ? void 0 : r2.amountFrom) ?? (r2 == null ? void 0 : r2.amount_from) ?? ""),
+    amountTo: String((r2 == null ? void 0 : r2.amountTo) ?? (r2 == null ? void 0 : r2.amount_to) ?? ""),
+    addressFrom: (r2 == null ? void 0 : r2.addressFrom) ?? (r2 == null ? void 0 : r2.address_from) ?? "",
+    addressTo: (r2 == null ? void 0 : r2.addressTo) ?? (r2 == null ? void 0 : r2.address_to) ?? "",
+    extraIdFrom: (r2 == null ? void 0 : r2.extraIdFrom) ?? (r2 == null ? void 0 : r2.extra_id_from) ?? null,
+    rateType: (r2 == null ? void 0 : r2.type) === "fixed" || (r2 == null ? void 0 : r2.fixed) === true ? "fixed" : "floating",
+    validUntil: (r2 == null ? void 0 : r2.validUntil) ?? null,
+    createdAt: (r2 == null ? void 0 : r2.createdAt) ?? (r2 == null ? void 0 : r2.timestamp) ?? null,
+    error: null
+  };
+}
+function errorExchange(error) {
+  return {
+    id: "",
+    status: "failed",
+    tickerFrom: "",
+    tickerTo: "",
+    networkFrom: "",
+    networkTo: "",
+    amountFrom: "",
+    amountTo: "",
+    addressFrom: "",
+    addressTo: "",
+    extraIdFrom: null,
+    rateType: "floating",
+    validUntil: null,
+    createdAt: null,
+    error
+  };
+}
+async function ssEstimate(params, config) {
+  var _a, _b, _c, _d, _e3;
+  const key2 = config.simpleSwapApiKey;
+  if (!key2) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: "SimpleSwap key missing." };
+  const base3 = `tickerFrom=${params.tickerFrom}&networkFrom=${params.networkFrom}&tickerTo=${params.tickerTo}&networkTo=${params.networkTo}`;
+  try {
+    const [estRes, rangeRes] = await Promise.all([
+      fetch(`${SS_API}/estimates?${base3}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}&reverse=false`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) }),
+      fetch(`${SS_API}/ranges?${base3}&fixed=${params.fixed}`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) })
+    ]);
+    let estimatedAmount = null, rateId = null, validUntil = null, error = null;
+    if (estRes.ok) {
+      const j2 = await estRes.json();
+      estimatedAmount = ((_a = j2.result) == null ? void 0 : _a.estimatedAmount) ?? null;
+      rateId = ((_b = j2.result) == null ? void 0 : _b.rateId) ?? null;
+      validUntil = ((_c = j2.result) == null ? void 0 : _c.validUntil) ?? null;
+    } else {
+      error = await ssError(estRes);
+    }
+    let min2 = null, max2 = null;
+    if (rangeRes.ok) {
+      const j2 = await rangeRes.json();
+      min2 = ((_d = j2.result) == null ? void 0 : _d.min) ?? null;
+      max2 = ((_e3 = j2.result) == null ? void 0 : _e3.max) ?? null;
+    }
+    return { estimatedAmount, rateId, validUntil, min: min2, max: max2, error };
+  } catch (e2) {
+    return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: msg(e2) };
+  }
+}
+async function ssCreateExchange(params, config) {
+  const key2 = config.simpleSwapApiKey;
+  if (!key2) return errorExchange("SimpleSwap key missing.");
+  if (!params.addressTo) return errorExchange("Destination address is required.");
+  try {
+    const res = await fetch(`${SS_API}/exchanges`, {
+      method: "POST",
+      headers: { ...ssHeaders(key2), "content-type": "application/json" },
+      body: JSON.stringify({
+        fixed: params.fixed,
+        tickerFrom: params.tickerFrom,
+        tickerTo: params.tickerTo,
+        networkFrom: params.networkFrom,
+        networkTo: params.networkTo,
+        amount: params.amount,
+        reverse: false,
+        addressTo: params.addressTo,
+        extraIdTo: params.extraIdTo ?? "",
+        userRefundAddress: params.userRefundAddress ?? "",
+        userRefundExtraId: params.userRefundExtraId ?? "",
+        rateId: params.rateId ?? null
+      }),
+      signal: AbortSignal.timeout(2e4)
+    });
+    if (!res.ok) return errorExchange(await ssError(res));
+    const j2 = await res.json();
+    return normalizeExchange(j2.result ?? j2);
+  } catch (e2) {
+    return errorExchange(msg(e2));
+  }
+}
+async function ssGetStatus(id, config) {
+  const key2 = config.simpleSwapApiKey;
+  if (!key2) return errorExchange("SimpleSwap key missing.");
+  if (!id) return errorExchange("Missing exchange id.");
+  try {
+    const res = await fetch(`${SS_API}/exchanges/${encodeURIComponent(id)}`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) });
+    if (!res.ok) return errorExchange(await ssError(res));
+    const j2 = await res.json();
+    return normalizeExchange(j2.result ?? j2);
+  } catch (e2) {
+    return errorExchange(msg(e2));
+  }
+}
 async function syncWallets() {
   return { success: false, profile: null, error: "ChainLens sync not available in extension" };
 }
@@ -84114,7 +84305,8 @@ const DEFAULT_CONFIG = {
   supabaseUrl: "https://REDACTED_SUPABASE_PROJECT.supabase.co",
   supabaseKey: "REDACTED_SUPABASE_SECRET",
   walletConnectProjectId: "1db049748ab5fecc3a39e64fbc11a41c",
-  swapKitApiKey: "b1ae0318-0e5f-413b-8e8e-add2dec933d9"
+  swapKitApiKey: "b1ae0318-0e5f-413b-8e8e-add2dec933d9",
+  simpleSwapApiKey: "e7f2026e-5e26-41ba-a6ed-dc688d2fcae8"
 };
 async function deriveKey(password, salt) {
   const raw = await crypto.subtle.importKey(
@@ -86663,8 +86855,8 @@ function yr$1(t) {
         const se2 = c2(A2 * yt$1 * R2), ie2 = c2(U2 * yt$1 * $2), ue2 = ie2 + se2, ce2 = oe2 + re2, ae2 = ie2 - se2, Dn = c2(ue2 * mt2), dn = c2(ce2 * ae2), hn = c2(ue2 * ae2), ln = c2(mt2 * ce2);
         return new d3(Dn, dn, ln, hn);
       }
-      const V2 = c2(B2 * _3), Y2 = c2(C3 * T2), Z2 = c2(U2 * E2 * R2), X2 = c2(A2 * $2), et2 = c2((B2 + C3) * (_3 + T2) - V2 - Y2), pt2 = X2 - Z2, ee2 = X2 + Z2, ne2 = c2(Y2 - b2 * V2), un = c2(et2 * pt2), cn = c2(ee2 * ne2), an = c2(et2 * ne2), fn6 = c2(pt2 * ee2);
-      return new d3(un, cn, fn6, an);
+      const V2 = c2(B2 * _3), Y2 = c2(C3 * T2), Z2 = c2(U2 * E2 * R2), X2 = c2(A2 * $2), et2 = c2((B2 + C3) * (_3 + T2) - V2 - Y2), pt2 = X2 - Z2, ee2 = X2 + Z2, ne2 = c2(Y2 - b2 * V2), un = c2(et2 * pt2), cn = c2(ee2 * ne2), an = c2(et2 * ne2), fn = c2(pt2 * ee2);
+      return new d3(un, cn, fn, an);
     }
     subtract(f2) {
       return this.add(f2.negate());
@@ -88100,16 +88292,16 @@ class BaseError extends Error {
     this.docsPath = docsPath2;
     this.shortMessage = shortMessage;
   }
-  walk(fn6) {
-    return walk(this, fn6);
+  walk(fn) {
+    return walk(this, fn);
   }
 }
-function walk(err, fn6) {
-  if (fn6 == null ? void 0 : fn6(err))
+function walk(err, fn) {
+  if (fn == null ? void 0 : fn(err))
     return err;
   if (err && typeof err === "object" && "cause" in err && err.cause)
-    return walk(err.cause, fn6);
-  return fn6 ? null : err;
+    return walk(err.cause, fn);
+  return fn ? null : err;
 }
 /*! noble-curves - MIT License (c) 2022 Paul Miller (paulmillr.com) */
 const _0n$4 = /* @__PURE__ */ BigInt(0);
@@ -88320,13 +88512,13 @@ function validateObject(object, validators, optValidators = {}) {
     checkField(fieldName, type2, true);
   return object;
 }
-function memoized(fn6) {
+function memoized(fn) {
   const map = /* @__PURE__ */ new WeakMap();
   return (arg, ...args) => {
     const val = map.get(arg);
     if (val !== void 0)
       return val;
-    const computed = fn6(arg, ...args);
+    const computed = fn(arg, ...args);
     map.set(arg, computed);
     return computed;
   };
@@ -92446,7 +92638,7 @@ class Poly1305 {
   }
 }
 function wrapConstructorWithKey(hashCons) {
-  const hashC = (msg, key2) => hashCons(key2).update(toBytes(msg)).digest();
+  const hashC = (msg2, key2) => hashCons(key2).update(toBytes(msg2)).digest();
   const tmp = hashCons(new Uint8Array(32));
   hashC.outputLen = tmp.outputLen;
   hashC.blockLen = tmp.blockLen;
@@ -92547,15 +92739,15 @@ const chacha20 = /* @__PURE__ */ createCipher(chachaCore, {
   allowShortKeys: false
 });
 const ZEROS16 = /* @__PURE__ */ new Uint8Array(16);
-const updatePadded = (h4, msg) => {
-  h4.update(msg);
-  const left = msg.length % 16;
+const updatePadded = (h4, msg2) => {
+  h4.update(msg2);
+  const left = msg2.length % 16;
   if (left)
     h4.update(ZEROS16.subarray(left));
 };
 const ZEROS32 = /* @__PURE__ */ new Uint8Array(32);
-function computeTag(fn6, key2, nonce, data, AAD) {
-  const authKey = fn6(key2, nonce, ZEROS32);
+function computeTag(fn, key2, nonce, data, AAD) {
+  const authKey = fn(key2, nonce, ZEROS32);
   const h4 = poly1305.create(authKey);
   if (AAD)
     updatePadded(h4, AAD);
@@ -92687,23 +92879,23 @@ function uint32ToHex(val) {
   return (4294967296 + val).toString(16).substring(1);
 }
 function debugPrint(label, arr, size2) {
-  let msg = "\n" + label + " = ";
+  let msg2 = "\n" + label + " = ";
   for (let i2 = 0; i2 < arr.length; i2 += 2) {
     if (size2 === 32) {
-      msg += uint32ToHex(arr[i2]).toUpperCase();
-      msg += " ";
-      msg += uint32ToHex(arr[i2 + 1]).toUpperCase();
+      msg2 += uint32ToHex(arr[i2]).toUpperCase();
+      msg2 += " ";
+      msg2 += uint32ToHex(arr[i2 + 1]).toUpperCase();
     } else if (size2 === 64) {
-      msg += uint32ToHex(arr[i2 + 1]).toUpperCase();
-      msg += uint32ToHex(arr[i2]).toUpperCase();
+      msg2 += uint32ToHex(arr[i2 + 1]).toUpperCase();
+      msg2 += uint32ToHex(arr[i2]).toUpperCase();
     } else throw new Error("Invalid size " + size2);
     if (i2 % 6 === 4) {
-      msg += "\n" + new Array(label.length + 4).join(" ");
+      msg2 += "\n" + new Array(label.length + 4).join(" ");
     } else if (i2 < arr.length - 2) {
-      msg += " ";
+      msg2 += " ";
     }
   }
-  console.log(msg);
+  console.log(msg2);
 }
 function testSpeed(hashFn, N2, M3) {
   let startMs = (/* @__PURE__ */ new Date()).getTime();
@@ -99005,8 +99197,8 @@ async function cip30SubmitTx(txHex, blockfrostKey) {
     signal: AbortSignal.timeout(2e4)
   });
   if (!res.ok) {
-    const msg = await res.text().catch(() => String(res.status));
-    throw new Error(`Submit failed: ${msg}`);
+    const msg2 = await res.text().catch(() => String(res.status));
+    throw new Error(`Submit failed: ${msg2}`);
   }
   return res.json();
 }
@@ -99065,10 +99257,10 @@ async function deriveEvmKey() {
   if (!child.privateKey) throw new Error("Key derivation failed");
   return `0x${toHex(child.privateKey)}`;
 }
-async function handle(msg, sender) {
+async function handle(msg2, sender) {
   var _a, _b, _c;
-  const [a0, a1, a2] = msg.args ?? [];
-  switch (msg.type) {
+  const [a0, a1, a2] = msg2.args ?? [];
+  switch (msg2.type) {
     case "wallet:is-setup":
       return walletExists();
     case "wallet:is-unlocked":
@@ -99201,6 +99393,12 @@ async function handle(msg, sender) {
       const config = await loadConfig();
       return trackSwap(String(a0), String(a1), config);
     }
+    case "ss:estimate":
+      return ssEstimate(a0, await loadConfig());
+    case "ss:create-exchange":
+      return ssCreateExchange(a0, await loadConfig());
+    case "ss:status":
+      return ssGetStatus(String(a0), await loadConfig());
     case "wallet:get-nft-floor":
       return { floor: null, currency: "ETH", floorUsd: null };
     case "chainlens:get-profile": {
@@ -99693,7 +99891,7 @@ async function handle(msg, sender) {
     case "window:close":
       return;
     default:
-      throw new Error(`Unknown message type: ${msg.type}`);
+      throw new Error(`Unknown message type: ${msg2.type}`);
   }
 }
 chrome.runtime.onMessage.addListener((message, rawSender, sendResponse) => {

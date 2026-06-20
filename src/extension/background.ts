@@ -13,6 +13,7 @@ import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/ma
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
 import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from '../main/swap-fetcher'
 import { executeEvmSwap, type SwapExecuteParams } from '../main/swap-executor'
+import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -304,6 +305,15 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const config = await store.loadConfig()
       return trackSwap(String(a0), String(a1), config)
     }
+
+    case 'ss:estimate':
+      return ssEstimate(a0 as SsEstimateParams, await store.loadConfig())
+
+    case 'ss:create-exchange':
+      return ssCreateExchange(a0 as SsCreateParams, await store.loadConfig())
+
+    case 'ss:status':
+      return ssGetStatus(String(a0), await store.loadConfig())
 
     case 'wallet:get-nft-floor':
       return { floor: null, currency: 'ETH', floorUsd: null }

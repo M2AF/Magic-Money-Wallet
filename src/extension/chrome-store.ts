@@ -24,6 +24,7 @@ export interface WalletConfig {
   supabaseKey: string
   walletConnectProjectId: string
   swapKitApiKey: string
+  simpleSwapApiKey: string
 }
 
 const DEFAULT_CONFIG: WalletConfig = {
@@ -36,7 +37,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   supabaseUrl:            'https://REDACTED_SUPABASE_PROJECT.supabase.co',
   supabaseKey:            'REDACTED_SUPABASE_SECRET',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
-  swapKitApiKey:          'b1ae0318-0e5f-413b-8e8e-add2dec933d9'
+  swapKitApiKey:          'b1ae0318-0e5f-413b-8e8e-add2dec933d9',
+  simpleSwapApiKey:       'e7f2026e-5e26-41ba-a6ed-dc688d2fcae8'
 }
 
 // ── WebCrypto helpers ─────────────────────────────────────────────────────────

@@ -20,6 +20,9 @@ const SLOW_TYPES = new Set([
   'wallet:get-tokens',
   'wallet:get-collectibles',
   'wallet:swap-quote',
+  'ss:estimate',
+  'ss:create-exchange',
+  'ss:status',
   'wallet:get-market',
   'wallet:search-market',
   'wallet:get-coin-chart',
@@ -122,6 +125,9 @@ export function createExtensionWallet() {
     swapQuote:      (params: unknown)       => send('wallet:swap-quote', params),
     swapExecute:    (params: unknown)       => send('wallet:swap-execute', params),
     swapTrack:      (hash: string, chainId: string) => send('wallet:swap-track', hash, chainId),
+    ssEstimate:     (params: unknown)       => send('ss:estimate', params),
+    ssCreateExchange:(params: unknown)      => send('ss:create-exchange', params),
+    ssStatus:       (id: string)            => send('ss:status', id),
 
     // Window controls (no-op in extension)
     minimize: () => {},

@@ -43,6 +43,7 @@ import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-f
 import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
 import { fetchSwapQuote, trackSwap, type SwapQuoteParams } from './swap-fetcher'
 import { executeEvmSwap, type SwapExecuteParams } from './swap-executor'
+import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
 import {
   wcGetSessions, wcGetPendingProposals,
@@ -302,6 +303,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('wallet:swap-track', async (_e, hash: string, chainId: string) => {
     return trackSwap(hash, chainId, loadConfig())
+  })
+
+  // ── SimpleSwap cross-chain exchange (off-chain, deposit-address) ─────────
+  ipcMain.handle('ss:estimate', async (_e, params: SsEstimateParams) => {
+    return ssEstimate(params, loadConfig())
+  })
+
+  ipcMain.handle('ss:create-exchange', async (_e, params: SsCreateParams) => {
+    return ssCreateExchange(params, loadConfig())
+  })
+
+  ipcMain.handle('ss:status', async (_e, id: string) => {
+    return ssGetStatus(id, loadConfig())
   })
 
   // ── NFT floor price via OpenSea (EVM) ─────────────────────────────────────
