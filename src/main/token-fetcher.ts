@@ -22,11 +22,17 @@ export interface TokensResult {
   error: string | null
 }
 
+export interface NftTrait {
+  trait_type: string
+  value: string
+}
+
 export interface WalletCollectible {
   id: string
   name: string
   description: string | null
   image: string | null
+  animationUrl: string | null
   collectionName: string | null
   chain: string
   chainLabel: string
@@ -34,6 +40,7 @@ export interface WalletCollectible {
   tokenId: string
   contractAddress: string
   contractType: string
+  traits: NftTrait[]
 }
 
 export interface CollectiblesResult {
@@ -354,6 +361,79 @@ async function fetchSolanaTokens(address: string, heliusKey: string): Promise<Wa
       })
       .filter(t => t.symbol !== '???')
   } catch { return [] }
+}
+
+// ─── Solana NFTs via Helius DAS API ───────────────────────────────────────────
+
+interface HeliusNftItem {
+  id: string
+  interface: string
+  content?: {
+    metadata?: { name?: string; description?: string; attributes?: Array<{ trait_type?: string; value?: unknown }> }
+    links?: { image?: string; animation_url?: string }
+    files?: Array<{ uri?: string; cdn_uri?: string; mime?: string }>
+  }
+  grouping?: Array<{ group_key: string; group_value: string; collection_metadata?: { name?: string } }>
+  compression?: { compressed?: boolean }
+}
+
+async function fetchSolanaNFTs(address: string, heliusKey: string): Promise<WalletCollectible[]> {
+  if (!address) return []
+  try {
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0', id: 'sol-nfts', method: 'getAssetsByOwner',
+        params: {
+          ownerAddress: address, page: 1, limit: 1000,
+          displayOptions: { showFungible: false, showCollectionMetadata: true }
+        }
+      }),
+      signal: AbortSignal.timeout(15_000)
+    })
+    if (!res.ok) {
+      console.error(`[NFT] Solana Helius HTTP ${res.status}`)
+      return []
+    }
+
+    const json = await res.json() as { result?: { items?: HeliusNftItem[] } }
+    const items = (json.result?.items ?? [])
+      .filter(item => item.interface !== 'FungibleToken' && item.interface !== 'FungibleAsset')
+
+    console.log(`[NFT] Solana: found ${items.length} NFTs via Helius`)
+
+    return items.map(item => {
+      const meta = item.content?.metadata ?? {}
+      const collection = item.grouping?.find(g => g.group_key === 'collection')
+      const imageFile = item.content?.files?.find(f => f.mime?.startsWith('image/'))
+      const animFile  = item.content?.files?.find(f => f.mime?.startsWith('video/') || f.mime?.startsWith('model/'))
+      const image = normalizeImageUrl(
+        item.content?.links?.image ?? imageFile?.cdn_uri ?? imageFile?.uri ?? null
+      )
+      const animationUrl = normalizeImageUrl(
+        item.content?.links?.animation_url ?? animFile?.cdn_uri ?? animFile?.uri ?? null
+      )
+      return {
+        id: `solana:${item.id}`,
+        name: meta.name ?? 'Unnamed',
+        description: meta.description ?? null,
+        image,
+        animationUrl,
+        collectionName: collection?.collection_metadata?.name ?? null,
+        chain: 'solana', chainLabel: 'Solana', chainColor: '#9945FF',
+        tokenId: item.id,
+        contractAddress: collection?.group_value ?? item.id,
+        contractType: item.compression?.compressed ? 'cNFT' : 'NFT',
+        traits: (Array.isArray(meta.attributes) ? meta.attributes : [])
+          .filter(a => a.trait_type != null && a.value != null)
+          .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
+      } satisfies WalletCollectible
+    })
+  } catch (e) {
+    console.error('[NFT] Solana Helius fetch failed:', e)
+    return []
+  }
 }
 
 // ─── Cardano native assets via Blockfrost ────────────────────────────────────
@@ -843,7 +923,10 @@ async function fetchNftsForChain(
       tokenId: nft.tokenId,
       contractAddress: nft.contract.address,
       contractType: nft.contract.tokenType,
-      traits: (nft.raw?.metadata?.attributes ?? [])
+      // Spam/malformed NFTs sometimes return `attributes` as an object or string
+      // instead of an array. Guard with Array.isArray — without it, .filter throws
+      // and the whole chain's .map aborts, dropping every NFT on that chain.
+      traits: (Array.isArray(nft.raw?.metadata?.attributes) ? nft.raw!.metadata!.attributes! : [])
         .filter(a => a.trait_type != null && a.value != null)
         .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
     }))
@@ -923,15 +1006,17 @@ async function fetchMonadNFTs(address: string, moralisKey: string): Promise<Wall
 export async function fetchAllCollectibles(
   evmAddress: string,
   cardanoAddress: string | undefined,
-  config: WalletConfig
+  config: WalletConfig,
+  solanaAddress?: string
 ): Promise<CollectiblesResult> {
-  console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Cardano: ${cardanoAddress ?? 'none'}`)
+  console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
     const agwAddress = await deriveAgwAddress(evmAddress)
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
-    const [evmResults, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
       Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config.alchemyKey))),
+      solanaAddress  ? fetchSolanaNFTs(solanaAddress, config.heliusKey)       : Promise.resolve([] as WalletCollectible[]),
       cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
         ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then(r => r.items)
@@ -939,12 +1024,15 @@ export async function fetchAllCollectibles(
       fetchMonadNFTs(evmAddress, config.moralisKey),
     ])
 
-    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...cardanoNfts]
+    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts]
     const chainResults: Record<string, { count: number; error: string | null }> = {}
     for (const r of evmResults) {
       chainResults[r.chain.id] = { count: r.items.length, error: r.error }
     }
     chainResults['monad']   = { count: monadNfts.length,  error: null }
+    if (solanaAddress) {
+      chainResults['solana'] = { count: solanaNfts.length, error: null }
+    }
     if (cardanoAddress) {
       chainResults['cardano'] = { count: cardanoNfts.length, error: null }
     }

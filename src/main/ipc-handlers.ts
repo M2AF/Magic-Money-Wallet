@@ -340,7 +340,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async () => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana)
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────
