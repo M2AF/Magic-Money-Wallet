@@ -31,6 +31,11 @@ export interface WalletAddresses {
   bitcoin: string        // BIP-84 P2WPKH native SegWit (bc1q…)
   polkadot: string       // SS58 ED25519 (1…)
   accountIndex: number   // BIP-44 account index (0 = default)
+  // Abstract Global Wallet (smart account) — resolved, not seed-derived.
+  // agw = manual override ?? auto-derived from evm. agwOwned = this EOA can sign
+  // for it (i.e. it is the AGW's initial signer) → required to send from it.
+  agw?: string
+  agwOwned?: boolean
 }
 
 // ─── Mnemonic helpers ────────────────────────────────────────────────────────

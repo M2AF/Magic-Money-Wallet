@@ -26,6 +26,8 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:estimate-fee', chain, to, amount),
   sendEvm:       (chainId: string, to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-evm', chainId, to, amount),
+  sendAgw:       (to: string, amount: string, token?: { contractAddress: string; decimals: number }) =>
+    ipcRenderer.invoke('wallet:send-agw', to, amount, token),
   sendSolana:    (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-solana', to, amount),
   sendCardano:   (to: string, amount: string) =>
@@ -35,6 +37,8 @@ contextBridge.exposeInMainWorld('wallet', {
   getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),
   getAccountIndex: ()                  => ipcRenderer.invoke('wallet:get-account'),
   setAccount:      (index: number)     => ipcRenderer.invoke('wallet:set-account', index),
+  setAgw:          (accountIndex: number, address: string | null) =>
+    ipcRenderer.invoke('wallet:set-agw', accountIndex, address),
 
   // ── Phase 5: Market Watch + Tokens + Collectibles ────────────────────
   getMarket:       ()                  => ipcRenderer.invoke('wallet:get-market'),

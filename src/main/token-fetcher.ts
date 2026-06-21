@@ -1,5 +1,5 @@
 import type { WalletConfig } from './secure-store'
-import { keccak256, toBytes, encodeFunctionData, parseAbi } from 'viem'
+import { deriveAgwAddress } from './agw'
 
 export interface WalletToken {
   contractAddress: string
@@ -14,6 +14,7 @@ export interface WalletToken {
   chain: string
   chainLabel: string
   chainColor: string
+  source?: 'agw'   // present when the asset lives in the Abstract Global Wallet (smart account)
 }
 
 export interface TokensResult {
@@ -41,6 +42,7 @@ export interface WalletCollectible {
   contractAddress: string
   contractType: string
   traits: NftTrait[]
+  source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
 }
 
 export interface CollectiblesResult {
@@ -660,39 +662,13 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
   return tokens
 }
 
-// ─── Abstract AGW token fetch ─────────────────────────────────────────────────
-
-const AGW_FACTORY    = '0xe86Bf72715dF28a0b7c3C8F596E7fE05a22A139c' as const
-const ABSTRACT_RPC   = 'https://api.mainnet.abs.xyz'
-const AGW_FACTORY_ABI = parseAbi(['function getAddressForSalt(bytes32 salt) view returns (address)'])
-
-async function deriveAgwAddress(eoa: string): Promise<string | null> {
-  try {
-    const salt     = keccak256(toBytes(eoa as `0x${string}`))
-    const callData = encodeFunctionData({ abi: AGW_FACTORY_ABI, functionName: 'getAddressForSalt', args: [salt] })
-    const res = await fetch(ABSTRACT_RPC, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_call', params: [{ to: AGW_FACTORY, data: callData }, 'latest'] }),
-      signal: AbortSignal.timeout(8_000)
-    })
-    const json = await res.json() as { result?: string }
-    const hex = json.result
-    if (!hex || hex === '0x' || hex.length < 40) return null
-    const agw = '0x' + hex.slice(-40)
-    console.log(`[Abstract] AGW address: ${eoa.slice(0, 10)}… → ${agw}`)
-    return agw
-  } catch {
-    return null
-  }
-}
-
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export interface AllAddresses {
   evm: string
   solana?: string
   cardano?: string
+  agw?: string   // resolved Abstract Global Wallet (override ?? auto-derive); null/absent = derive
 }
 
 export async function fetchAllTokens(
@@ -700,8 +676,11 @@ export async function fetchAllTokens(
   config: WalletConfig
 ): Promise<TokensResult> {
   try {
-    // Derive Abstract AGW address in parallel with everything else
-    const agwAddressPromise = deriveAgwAddress(addresses.evm)
+    // Use the caller-resolved AGW (override ?? auto-derive); fall back to deriving
+    // here for callers that don't pass one.
+    const agwAddressPromise = addresses.agw
+      ? Promise.resolve(addresses.agw)
+      : deriveAgwAddress(addresses.evm)
 
     const [evmResults, solanaTokens, cardanoTokens, monadTokens, agwAddress] = await Promise.all([
       Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config.alchemyKey))),
@@ -711,10 +690,11 @@ export async function fetchAllTokens(
       agwAddressPromise,
     ])
 
-    // Fetch Abstract tokens from AGW smart account if address differs from EOA
+    // Fetch Abstract tokens from AGW smart account if address differs from EOA,
+    // tagging each so the UI can badge it as living in the smart wallet.
     const abstractChainCfg = TOKEN_CHAINS.find(c => c.id === 'abstract')!
     const agwTokens = (agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg)
-      ? await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)
+      ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
     const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens]
@@ -1007,11 +987,13 @@ export async function fetchAllCollectibles(
   evmAddress: string,
   cardanoAddress: string | undefined,
   config: WalletConfig,
-  solanaAddress?: string
+  solanaAddress?: string,
+  agw?: string
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
-    const agwAddress = await deriveAgwAddress(evmAddress)
+    // Use the caller-resolved AGW (override ?? auto-derive); fall back to deriving.
+    const agwAddress = agw ?? await deriveAgwAddress(evmAddress)
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
@@ -1019,7 +1001,7 @@ export async function fetchAllCollectibles(
       solanaAddress  ? fetchSolanaNFTs(solanaAddress, config.heliusKey)       : Promise.resolve([] as WalletCollectible[]),
       cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
-        ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then(r => r.items)
+        ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
       fetchMonadNFTs(evmAddress, config.moralisKey),
     ])

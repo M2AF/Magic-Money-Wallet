@@ -6,6 +6,7 @@ interface Props {
   balance: string | null
   symbol: string
   onClose: () => void
+  source?: 'eoa' | 'agw'  // 'agw' sends from the Abstract Global Wallet (smart account)
 }
 
 type Step = 'form' | 'confirm' | 'sending' | 'success' | 'error'
@@ -34,7 +35,7 @@ function getChainLabel(chainId: string, symbol: string): string {
   return labels[chainId] ?? `${symbol} Network`
 }
 
-export function SendModal({ chainId, balance, symbol, onClose }: Props) {
+export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }: Props) {
   const [step, setStep]             = useState<Step>('form')
   const [to, setTo]                 = useState('')
   const [amount, setAmount]         = useState('')
@@ -81,7 +82,8 @@ export function SendModal({ chainId, balance, symbol, onClose }: Props) {
     setError(null)
     try {
       let res: SendResult
-      if (chainType === 'solana')       res = await window.wallet.sendSolana(to.trim(), amount.trim())
+      if (source === 'agw')             res = await window.wallet.sendAgw(to.trim(), amount.trim())
+      else if (chainType === 'solana')  res = await window.wallet.sendSolana(to.trim(), amount.trim())
       else if (chainType === 'cardano') res = await window.wallet.sendCardano(to.trim(), amount.trim())
       else                              res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim())
       setResult(res)
@@ -109,7 +111,7 @@ export function SendModal({ chainId, balance, symbol, onClose }: Props) {
               Send {symbol}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              {getChainLabel(chainId, symbol)}
+              {source === 'agw' ? 'Abstract Smart Wallet (AGW)' : getChainLabel(chainId, symbol)}
             </div>
           </div>
           <button
@@ -191,7 +193,13 @@ export function SendModal({ chainId, balance, symbol, onClose }: Props) {
               </div>
             )}
 
-            {step === 'form' && fee && (
+            {source === 'agw' && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                Sending from your Abstract Smart Wallet. Gas is paid in ETH from the smart wallet itself.
+              </div>
+            )}
+
+            {step === 'form' && (fee || source === 'agw') && (
               <button type="button" className="btn btn-primary" onClick={() => setStep('confirm')}>
                 Review Transaction
               </button>

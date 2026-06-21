@@ -19,6 +19,7 @@ const walletEncPath = () => join(userData(), 'wallet.enc')
 const addressesPath = () => join(userData(), 'addresses.json')
 const configPath = () => join(userData(), 'config.json')
 const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
+const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
 
 // ─── Mnemonic (encrypted) ────────────────────────────────────────────────────
 
@@ -87,6 +88,45 @@ export function loadAddresses(): WalletAddresses | null {
   }
   addressesCached = true
   return addressesCache
+}
+
+// ─── AGW overrides (per-account manual Abstract Global Wallet address) ───────
+// Stored separately from addresses.json because switching accounts re-derives
+// addresses wholesale. Map: accountIndex (string) → AGW address. A null/missing
+// entry means "auto-derive from the EOA".
+
+let agwOverridesCache: Record<string, string> | null = null
+
+function loadAgwOverrides(): Record<string, string> {
+  if (agwOverridesCache) return agwOverridesCache
+  if (!existsSync(agwOverridesPath())) {
+    agwOverridesCache = {}
+    return agwOverridesCache
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(agwOverridesPath(), 'utf-8'))
+    agwOverridesCache = (parsed && typeof parsed === 'object') ? parsed as Record<string, string> : {}
+  } catch {
+    agwOverridesCache = {}
+  }
+  return agwOverridesCache
+}
+
+export function loadAgwOverride(accountIndex: number): string | null {
+  return loadAgwOverrides()[String(accountIndex)] ?? null
+}
+
+/** Set (or clear, when address is null) the manual AGW override for an account. */
+export function saveAgwOverride(accountIndex: number, address: string | null): void {
+  const current = { ...loadAgwOverrides() }
+  if (address) {
+    current[String(accountIndex)] = address
+  } else {
+    delete current[String(accountIndex)]
+  }
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(agwOverridesPath(), JSON.stringify(current, null, 2))
+  agwOverridesCache = current
 }
 
 // ─── API config (plain JSON) ─────────────────────────────────────────────────

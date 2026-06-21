@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 251,
+  "totalApps": 252,
   "totalChains": 18,
   "chains": [
     {
@@ -148,7 +148,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 11
+      "count": 12
     },
     {
       "name": "Wallet",
@@ -199,7 +199,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "monad",
-      "count": 32
+      "count": 33
     },
     {
       "id": "optimism",
@@ -4262,6 +4262,20 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hyperfoundation.org&sz=64",
       "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "perpl",
+      "name": "Perpl",
+      "website": "https://app.perpl.xyz",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=perpl.xyz&sz=64",
+      "description": "A decentralized perpetual exchange built on Monad, focusing on high-speed trading and efficient capital utilization for various market pairs.",
       "chainCount": 1,
       "coverage": 6
     },

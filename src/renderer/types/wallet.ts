@@ -9,6 +9,10 @@ export interface WalletAddresses {
   bitcoin: string
   polkadot: string
   accountIndex: number
+  // Abstract Global Wallet (smart account). agw = manual override ?? auto-derived.
+  // agwOwned = this wallet's EOA can sign for it (required to send from it).
+  agw?: string
+  agwOwned?: boolean
 }
 
 export interface ChainBalance {
@@ -78,6 +82,7 @@ export interface WalletToken {
   chain: string
   chainLabel: string
   chainColor: string
+  source?: 'agw'   // asset lives in the Abstract Global Wallet (smart account)
 }
 
 export interface TokensResult {
@@ -105,6 +110,7 @@ export interface WalletCollectible {
   contractAddress: string
   contractType: string
   traits: NftTrait[]
+  source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
 }
 
 export interface NftFloorPrice {
@@ -234,12 +240,14 @@ declare global {
       // Phase 2
       estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
       sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>
+      sendAgw(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
       // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>
       setAccount(index: number): Promise<WalletAddresses>
+      setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
       deleteWallet(): Promise<boolean>
       // Phase 5
       getMarket(): Promise<MarketResult>

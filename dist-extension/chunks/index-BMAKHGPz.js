@@ -7804,7 +7804,7 @@ function getChainLabel(chainId, symbol) {
   };
   return labels[chainId] ?? `${symbol} Network`;
 }
-function SendModal({ chainId, balance, symbol, onClose }) {
+function SendModal({ chainId, balance, symbol, onClose, source = "eoa" }) {
   const [step, setStep] = reactExports.useState("form");
   const [to, setTo] = reactExports.useState("");
   const [amount, setAmount] = reactExports.useState("");
@@ -7847,7 +7847,8 @@ function SendModal({ chainId, balance, symbol, onClose }) {
     setError(null);
     try {
       let res;
-      if (chainType === "solana") res = await window.wallet.sendSolana(to.trim(), amount.trim());
+      if (source === "agw") res = await window.wallet.sendAgw(to.trim(), amount.trim());
+      else if (chainType === "solana") res = await window.wallet.sendSolana(to.trim(), amount.trim());
       else if (chainType === "cardano") res = await window.wallet.sendCardano(to.trim(), amount.trim());
       else res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim());
       setResult(res);
@@ -7875,7 +7876,7 @@ function SendModal({ chainId, balance, symbol, onClose }) {
                   "Send ",
                   symbol
                 ] }),
-                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: getChainLabel(chainId, symbol) })
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: source === "agw" ? "Abstract Smart Wallet (AGW)" : getChainLabel(chainId, symbol) })
               ] }),
               /* @__PURE__ */ jsxRuntimeExports.jsx(
                 "button",
@@ -7970,7 +7971,8 @@ function SendModal({ chainId, balance, symbol, onClose }) {
                   " fee"
                 ] })
               ] }),
-              step === "form" && fee && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", onClick: () => setStep("confirm"), children: "Review Transaction" }),
+              source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }, children: "Sending from your Abstract Smart Wallet. Gas is paid in ETH from the smart wallet itself." }),
+              step === "form" && (fee || source === "agw") && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", onClick: () => setStep("confirm"), children: "Review Transaction" }),
               step === "confirm" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "warning-box", children: [
                   /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "warning-icon", children: "⚠️" }),
@@ -8036,6 +8038,126 @@ function SendModal({ chainId, balance, symbol, onClose }) {
           ]
         }
       )
+    }
+  );
+}
+const AGW_GREEN = "#1FCE92";
+function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
+  const [copied, setCopied] = reactExports.useState(false);
+  const [editing, setEditing] = reactExports.useState(false);
+  const [input, setInput] = reactExports.useState(addresses.agw ?? "");
+  const [busy, setBusy] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const agw = addresses.agw ?? null;
+  const owned = addresses.agwOwned === true;
+  const acctIdx = addresses.accountIndex ?? 0;
+  const truncate2 = (a) => a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  const copyAddress = async () => {
+    if (!agw) return;
+    await navigator.clipboard.writeText(agw);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  const apply = async (address) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await window.wallet.setAgw(acctIdx, address);
+      if (updated) onAgwChanged(updated);
+      setEditing(false);
+    } catch (err) {
+      setError(String(err).replace("Error: ", ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "chain-card",
+      style: { ["--chain-color"]: AGW_GREEN, ["--chain-color-rgb"]: "31, 206, 146", borderColor: "rgba(31,206,146,0.35)" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-header", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-info", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-dot" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-name", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+                "Abstract Smart Wallet",
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 6px", borderRadius: 99, fontWeight: 700, background: owned ? "rgba(31,206,146,0.16)" : "rgba(148,163,184,0.16)", color: owned ? AGW_GREEN : "var(--text-muted)" }, children: owned ? "Connected" : "Watch-only" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-networks", children: "Abstract Global Wallet (AGW)" })
+            ] })
+          ] }),
+          balance && !balance.error && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-balance", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-amount", children: [
+              balance.native,
+              " ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }, children: balance.symbol })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-usd", children: balance.usdValue ?? "$0.00" })
+          ] })
+        ] }),
+        agw && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "address-chip", onClick: copyAddress, title: agw, style: { cursor: "pointer" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { flexShrink: 0, opacity: 0.5 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { flex: 1 }, children: truncate2(agw) }),
+          copied ? /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "11", height: "11", fill: "none", stroke: "#22c55e", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "20 6 9 17 4 12" }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { opacity: 0.4 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10 }, children: [
+          owned && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: onSend,
+              style: { flex: 1, padding: "8px 12px", background: "var(--accent-dim)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--accent)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "22", y1: "2", x2: "11", y2: "13" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "22 2 15 22 11 13 2 9 22 2" })
+                ] }),
+                "Send ETH"
+              ]
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                setEditing((e) => !e);
+                setInput(addresses.agw ?? "");
+                setError(null);
+              },
+              style: { flex: owned ? "0 0 auto" : 1, padding: "8px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer" },
+              children: editing ? "Cancel" : "Edit address"
+            }
+          )
+        ] }),
+        editing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }, children: "Auto-derived from your wallet. Paste a different AGW address if yours was created with email/social login (it will be watch-only — display works, but you can’t send from it)." }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              className: "input",
+              style: { fontFamily: "var(--font-mono)", fontSize: 12 },
+              placeholder: "0x… Abstract Global Wallet address",
+              value: input,
+              spellCheck: false,
+              onChange: (e) => setInput(e.target.value)
+            }
+          ),
+          error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "var(--error)" }, children: error }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", disabled: busy || !input.trim(), onClick: () => apply(input.trim()), style: { flex: 1, fontSize: 12 }, children: busy ? "Saving…" : "Save" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", disabled: busy, onClick: () => apply(null), style: { flex: 1, fontSize: 12 }, children: "Use auto-derived" })
+          ] })
+        ] })
+      ]
     }
   );
 }
@@ -8135,6 +8257,16 @@ function HeaderToolbar({
       }
     )
   ] });
+}
+function AgwBadge() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "span",
+    {
+      title: "Held in your Abstract Global Wallet (smart account)",
+      style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: "rgba(31, 206, 146, 0.14)", color: "#1FCE92", fontWeight: 700, display: "inline-block", letterSpacing: "0.02em" },
+      children: "◆ Smart Wallet"
+    }
+  );
 }
 function tokenKey(t2) {
   return `${t2.chain}:${t2.contractAddress}`;
@@ -8267,7 +8399,10 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: token.name }),
             /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: 2 }, children: token.symbol }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: "inline-block" }, children: token.chainLabel }) })
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: "inline-block" }, children: token.chainLabel }),
+              token.source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx(AgwBadge, {})
+            ] })
           ] }),
           /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "right", flexShrink: 0 }, children: [
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-primary)", whiteSpace: "nowrap" }, children: [
@@ -8627,7 +8762,10 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "8px 10px" }, children: [
               /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: nft.name }),
               nft.collectionName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }, children: nft.collectionName }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 4 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }, children: nft.chainLabel }) })
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }, children: nft.chainLabel }),
+                nft.source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx(AgwBadge, {})
+              ] })
             ] })
           ]
         },
@@ -8930,6 +9068,19 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
         },
         tab
       )) }),
+      portfolioTab === "networks" && localAddresses.agw && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        AgwPanel,
+        {
+          addresses: localAddresses,
+          balance: (balances == null ? void 0 : balances.chains["abstract-agw"]) ?? null,
+          onSend: () => setSendChain("abstract-agw"),
+          onAgwChanged: (updated) => {
+            setLocalAddresses(updated);
+            fetchBalances(true);
+            fetchTokens();
+          }
+        }
+      ),
       portfolioTab === "networks" && sortedChains(balances).map((chainId) => /* @__PURE__ */ jsxRuntimeExports.jsx(
         ChainCard,
         {
@@ -8971,7 +9122,8 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
     sendChain && /* @__PURE__ */ jsxRuntimeExports.jsx(
       SendModal,
       {
-        chainId: sendChain,
+        chainId: sendChain === "abstract-agw" ? "abstract" : sendChain,
+        source: sendChain === "abstract-agw" ? "agw" : "eoa",
         balance: activeSendBalance,
         symbol: activeSendSymbol,
         onClose: () => setSendChain(null)
@@ -10582,7 +10734,7 @@ const APP_HUB = {
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 11
+      "count": 12
     },
     {
       "name": "Wallet",
@@ -14622,6 +14774,20 @@ const APP_HUB = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hyperfoundation.org&sz=64",
       "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "perpl",
+      "name": "Perpl",
+      "website": "https://app.perpl.xyz",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=perpl.xyz&sz=64",
+      "description": "A decentralized perpetual exchange built on Monad, focusing on high-speed trading and efficient capital utilization for various market pairs.",
       "chainCount": 1,
       "coverage": 6
     },

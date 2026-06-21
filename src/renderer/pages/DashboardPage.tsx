@@ -2,9 +2,23 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
+import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
+
+// Small "Smart Wallet" chip shown on AGW-held tokens/NFTs so the user can tell
+// which assets physically live in the Abstract Global Wallet (smart account).
+function AgwBadge() {
+  return (
+    <span
+      title="Held in your Abstract Global Wallet (smart account)"
+      style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: 'rgba(31, 206, 146, 0.14)', color: '#1FCE92', fontWeight: 700, display: 'inline-block', letterSpacing: '0.02em' }}
+    >
+      ◆ Smart Wallet
+    </span>
+  )
+}
 
 // ─── Spam filter helpers ──────────────────────────────────────────────────────
 
@@ -149,10 +163,11 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
             {token.symbol}
           </div>
-          <div style={{ marginTop: 3 }}>
+          <div style={{ marginTop: 3, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: 'inline-block' }}>
               {token.chainLabel}
             </span>
+            {token.source === 'agw' && <AgwBadge />}
           </div>
         </div>
 
@@ -593,8 +608,9 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
                 {nft.collectionName && (
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{nft.collectionName}</div>
                 )}
-                <div style={{ marginTop: 4 }}>
+                <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }}>{nft.chainLabel}</span>
+                  {nft.source === 'agw' && <AgwBadge />}
                 </div>
               </div>
             </div>
@@ -889,6 +905,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       </div>
 
       {/* Tab content */}
+      {portfolioTab === 'networks' && localAddresses.agw && (
+        <AgwPanel
+          addresses={localAddresses}
+          balance={balances?.chains['abstract-agw'] ?? null}
+          onSend={() => setSendChain('abstract-agw')}
+          onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens() }}
+        />
+      )}
       {portfolioTab === 'networks' && sortedChains(balances).map(chainId => (
         <ChainCard
           key={chainId}
@@ -932,7 +956,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       {/* Send modal */}
       {sendChain && (
         <SendModal
-          chainId={sendChain}
+          chainId={sendChain === 'abstract-agw' ? 'abstract' : sendChain}
+          source={sendChain === 'abstract-agw' ? 'agw' : 'eoa'}
           balance={activeSendBalance}
           symbol={activeSendSymbol}
           onClose={() => setSendChain(null)}

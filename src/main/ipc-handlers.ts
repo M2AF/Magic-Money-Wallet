@@ -29,8 +29,12 @@ import {
   getApprovedOrigins,
   addApprovedOrigin,
   removeApprovedOrigin,
+  loadAgwOverride,
+  saveAgwOverride,
   type WalletConfig
 } from './secure-store'
+import { deriveAgwAddress } from './agw'
+import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
   closeBrowserWindow,
@@ -61,6 +65,7 @@ import {
   estimateSolanaFee,
   estimateCardanoFee,
   sendEvmTransaction,
+  sendAgwTransaction,
   sendSolanaTransaction,
   sendCardanoTransaction
 } from './tx-sender'
@@ -130,17 +135,42 @@ async function sendEvmFromDapp(
 let _pendingMnemonic: string | null = null
 
 /**
+ * Resolve the Abstract Global Wallet for an account:
+ *   agw      = manual override ?? auto-derived from the EOA
+ *   agwOwned = this EOA can sign for it (true when there's no override, or the
+ *              override equals the deterministic derivation). Watch-only otherwise.
+ * Returns a new object — never mutates the input. On RPC failure with no override,
+ * agw is left undefined so the next read retries.
+ */
+async function resolveAgw(addresses: WalletAddresses): Promise<WalletAddresses> {
+  const override = loadAgwOverride(addresses.accountIndex ?? 0)
+  const derived  = await deriveAgwAddress(addresses.evm)
+  if (override) {
+    const owned = derived != null && override.toLowerCase() === derived.toLowerCase()
+    return { ...addresses, agw: override, agwOwned: owned }
+  }
+  return { ...addresses, agw: derived ?? undefined, agwOwned: derived != null }
+}
+
+/**
  * Load addresses, auto-migrating if newer fields (bitcoin, polkadot) are absent.
  * Wallets created before those chains were added won't have them in addresses.json.
+ * The AGW is resolved + persisted lazily on first read (and re-resolved while it
+ * remains unresolved, e.g. after an RPC failure).
  */
 async function getFullAddresses() {
-  const stored = loadAddresses()
+  let stored = loadAddresses()
   if (!stored) throw new Error('No addresses found — wallet not set up')
-  if (stored.bitcoin && stored.polkadot) return stored
-  // Re-derive from mnemonic to fill in missing fields, then persist
-  const full = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
-  saveAddresses(full)
-  return full
+  if (!stored.bitcoin || !stored.polkadot) {
+    // Re-derive from mnemonic to fill in missing fields (drops any resolved agw)
+    stored = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
+    saveAddresses(stored)
+  }
+  if (stored.agw === undefined) {
+    stored = await resolveAgw(stored)
+    saveAddresses(stored)
+  }
+  return stored
 }
 
 function getSenderOrigin(url: string): string {
@@ -281,6 +311,23 @@ export function registerIpcHandlers(): void {
     return sendEvmTransaction(mnemonic, to, amountEth, config, chainId, accountIndex)
   })
 
+  // ── Send FROM the Abstract Global Wallet (smart account) on Abstract ────
+  // Native ETH when token is omitted; ERC-20 transfer otherwise. Gated on
+  // ownership — a watch-only (override) AGW cannot be signed for.
+  ipcMain.handle('wallet:send-agw', async (
+    _event,
+    to: string,
+    amount: string,
+    token?: { contractAddress: string; decimals: number }
+  ) => {
+    const addresses = await getFullAddresses()
+    if (!addresses.agw) throw new Error('No Abstract Global Wallet linked for this account')
+    if (!addresses.agwOwned) throw new Error('This wallet can’t sign for the linked AGW — it is watch-only')
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    return sendAgwTransaction(mnemonic, to, amount, config, addresses.accountIndex ?? 0, { token, agwAddress: addresses.agw })
+  })
+
   // ── Phase 2: Send Solana ──────────────────────────────────────────────
   ipcMain.handle('wallet:send-solana', async (_event, to: string, amountSol: string) => {
     const mnemonic = loadMnemonic()
@@ -311,9 +358,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:set-account', async (_event, accountIndex: number) => {
     if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
     const mnemonic = loadMnemonic()
-    const newAddresses = await deriveAddresses(mnemonic, accountIndex)
+    const derived = await deriveAddresses(mnemonic, accountIndex)
+    const newAddresses = await resolveAgw(derived)
     saveAddresses(newAddresses)
     return newAddresses
+  })
+
+  // ── Abstract Global Wallet: set/clear the manual address override ──────────
+  // address = null clears the override (falls back to auto-derive). Re-resolves
+  // and persists the active account so the renderer gets the updated agw/agwOwned.
+  ipcMain.handle('wallet:set-agw', async (_event, accountIndex: number, address: string | null) => {
+    if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+    if (address != null) {
+      const trimmed = address.trim()
+      if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) throw new Error('Invalid Abstract address — must be a 0x… EVM address')
+      saveAgwOverride(accountIndex, trimmed)
+    } else {
+      saveAgwOverride(accountIndex, null)
+    }
+    const current = loadAddresses()
+    if (current && (current.accountIndex ?? 0) === accountIndex) {
+      const resolved = await resolveAgw(current)
+      saveAddresses(resolved)
+      return resolved
+    }
+    return current
   })
 
   // ── Phase 5: Market Watch ────────────────────────────────────────────────
@@ -332,7 +401,7 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllTokens(
-      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano },
+      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, agw: addresses.agw },
       config
     )
   })
@@ -340,7 +409,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async () => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw)
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────

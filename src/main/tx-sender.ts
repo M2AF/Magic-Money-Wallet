@@ -10,6 +10,9 @@ import {
   createWalletClient,
   http,
   parseEther,
+  parseUnits,
+  encodeFunctionData,
+  parseAbi,
   defineChain,
   type Chain
 } from 'viem'
@@ -211,6 +214,57 @@ export async function sendRawEvmTransaction(
   })
 
   return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
+}
+
+// ─── Abstract Global Wallet (smart account) send ──────────────────────────────
+
+const ERC20_TRANSFER_ABI = parseAbi(['function transfer(address to, uint256 amount) returns (bool)'])
+
+/**
+ * Send native ETH or an ERC-20 FROM the Abstract Global Wallet (smart account)
+ * on Abstract. The signer is this wallet's EOA — only valid when it is the AGW's
+ * initial signer, so callers MUST gate on `agwOwned`. @abstract-foundation/agw-client
+ * builds + signs the zkSync EIP-712 (type-113) account-abstraction transaction and
+ * auto-deploys the smart account on its first send. The AGW pays its own gas, so it
+ * must hold a little ETH (no paymaster sponsorship wired up here).
+ */
+export async function sendAgwTransaction(
+  mnemonic: string,
+  to: string,
+  amount: string,
+  config: WalletConfig,
+  accountIndex = 0,
+  opts?: { token?: { contractAddress: string; decimals: number }; agwAddress?: string }
+): Promise<SendResult> {
+  const pk = await getEvmPrivateKey(mnemonic, accountIndex)
+  const signer = privateKeyToAccount(pk)
+
+  // Lazy-load the heavy SDK + zkSync-configured chain only when actually sending.
+  const { createAbstractClient } = await import('@abstract-foundation/agw-client')
+  const { abstract } = await import('viem/chains')
+
+  const agwClient = await createAbstractClient({
+    signer,
+    chain: abstract,
+    transport: http(EVM_CHAINS.abstract.rpcUrl(config)),
+    ...(opts?.agwAddress ? { address: opts.agwAddress as `0x${string}` } : {})
+  })
+
+  const explorer = EVM_CHAINS.abstract.explorer
+
+  let hash: `0x${string}`
+  if (opts?.token) {
+    const data = encodeFunctionData({
+      abi: ERC20_TRANSFER_ABI,
+      functionName: 'transfer',
+      args: [to as `0x${string}`, parseUnits(amount, opts.token.decimals)]
+    })
+    hash = await agwClient.sendTransaction({ to: opts.token.contractAddress as `0x${string}`, data })
+  } else {
+    hash = await agwClient.sendTransaction({ to: to as `0x${string}`, value: parseEther(amount) })
+  }
+
+  return { txHash: hash, explorerUrl: `${explorer}/${hash}` }
 }
 
 /** Block until an EVM tx is mined (used to sequence ERC-20 approval before the swap). */

@@ -308,12 +308,18 @@ async function fetchCardanaNative(
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; polkadot?: string },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; polkadot?: string; agw?: string },
   config: WalletConfig
 ): Promise<AllBalances> {
   const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot']
 
   const COMING_SOON = { native: 0, tokenCount: 0, error: 'coming-soon' }
+
+  // Abstract Global Wallet native ETH lives at a different address than the EOA,
+  // so the per-chain EOA fetch above misses it. Fetch it concurrently.
+  const abstractDef = CHAIN_MAP['abstract']
+  const hasAgw = !!addresses.agw && addresses.agw.toLowerCase() !== addresses.evm.toLowerCase()
+  const NO_AGW = { native: 0, tokenCount: 0, error: 'no-agw' }
 
   // Fire market data + all chain fetches concurrently
   const [prices, ...rawResults] = await Promise.all([
@@ -328,7 +334,10 @@ export async function fetchAllBalances(
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     addresses.polkadot
       ? fetchPolkadotNative(addresses.polkadot, config.tatumKey)
-      : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' })
+      : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
+    (hasAgw && abstractDef)
+      ? fetchEvmNative(abstractDef, addresses.agw!, config)
+      : Promise.resolve<typeof NO_AGW>(NO_AGW)
   ])
 
   const marketMap  = prices as Record<string, MarketData>
@@ -337,6 +346,7 @@ export async function fetchAllBalances(
   const cardanoRaw= rawResults[EVM_CHAINS.length + 1] as { native: number; tokenCount: number; error: string | null }
   const bitcoinRaw= rawResults[EVM_CHAINS.length + 2] as { native: number; tokenCount: number; error: string | null }
   const polkadotRaw=rawResults[EVM_CHAINS.length + 3] as { native: number; tokenCount: number; error: string | null }
+  const agwRaw    = rawResults[EVM_CHAINS.length + 4] as { native: number; tokenCount: number; error: string | null }
 
   const toBalance = (chain: ChainDef, raw: typeof solanaRaw, decimals = 6): ChainBalance => {
     const market = marketMap[chain.coingeckoId]
@@ -365,6 +375,14 @@ export async function fetchAllBalances(
   chains['cardano']  = toBalance(CHAIN_MAP['cardano'],  cardanoRaw)
   chains['bitcoin']  = toBalance(CHAIN_MAP['bitcoin'],  bitcoinRaw,  8)
   chains['polkadot'] = toBalance(CHAIN_MAP['polkadot'], polkadotRaw, 4)
+
+  // Abstract Global Wallet native ETH — surfaced as its own entry so it both
+  // counts toward the portfolio total (the dashboard sums Object.values(chains))
+  // and can be badged as the smart wallet. Only added when it holds ETH, to
+  // avoid an empty card when the AGW is token/NFT-only or absent.
+  if (abstractDef && hasAgw && !agwRaw.error && agwRaw.native > 0) {
+    chains['abstract-agw'] = toBalance(abstractDef, agwRaw)
+  }
 
   // Aggregate 7d portfolio sparkline — group by coingeckoId to avoid double-counting
   // (e.g. ETH balance across Ethereum + Arbitrum + Base etc.)
