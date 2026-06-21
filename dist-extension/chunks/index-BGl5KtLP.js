@@ -10577,7 +10577,7 @@ const APP_HUB = {
     {
       "name": "Portfolio & Analytics",
       "short": "Portfolio",
-      "count": 28
+      "count": 30
     },
     {
       "name": "Perps & Prediction Markets",
@@ -10587,7 +10587,7 @@ const APP_HUB = {
     {
       "name": "Wallet",
       "short": "Wallet",
-      "count": 21
+      "count": 22
     }
   ],
   "apps": [
@@ -10608,10 +10608,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=across.to&sz=64",
       "description": "Description here.",
       "chainCount": 6,
-      "coverage": 33,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 33
     },
     {
       "id": "axelar",
@@ -10633,10 +10630,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=axelar.network&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "bungee",
@@ -10656,10 +10650,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bungee.exchange&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "celer-network",
@@ -10680,10 +10671,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=celer.network&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "chainport",
@@ -10703,10 +10691,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=chainport.io&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "debridge",
@@ -10727,10 +10712,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=debridge.finance&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "everclear",
@@ -10753,10 +10735,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=connext.network&sz=128",
       "description": "Description here.",
       "chainCount": 10,
-      "coverage": 56,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 56
     },
     {
       "id": "hop-protocol",
@@ -10775,10 +10754,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hop.exchange&sz=128",
       "description": "Description here.",
       "chainCount": 6,
-      "coverage": 33,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 33
     },
     {
       "id": "layerzero",
@@ -10808,10 +10784,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=layerzero.network&sz=64",
       "description": "Description here.",
       "chainCount": 17,
-      "coverage": 94,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 94
     },
     {
       "id": "lifi",
@@ -10833,10 +10806,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=li.fi&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "orbiter-finance",
@@ -10858,10 +10828,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=orbiter.finance&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "owlto-finance",
@@ -10882,10 +10849,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=owlto.finance&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "relay",
@@ -10916,10 +10880,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=relay.link&sz=64",
       "description": "Description here.",
       "chainCount": 18,
-      "coverage": 100,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 100
     },
     {
       "id": "stargate-finance",
@@ -10939,10 +10900,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=stargate.finance&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "symbiosis-finance",
@@ -10964,10 +10922,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=symbiosis.finance&sz=128",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "synapse",
@@ -10987,10 +10942,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=synapseprotocol.com&sz=128",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "thorchain",
@@ -11021,10 +10973,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=thorchain.org&sz=128",
       "description": "Description here.",
       "chainCount": 18,
-      "coverage": 100,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 100
     },
     {
       "id": "wanbridge",
@@ -11044,10 +10993,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=wanchain.org&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "wormhole",
@@ -11071,10 +11017,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=wormhole.com&sz=64",
       "description": "Description here.",
       "chainCount": 11,
-      "coverage": 61,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 61
     },
     {
       "id": "aave",
@@ -11094,10 +11037,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=aave.com&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "aerodrome",
@@ -11111,10 +11051,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=aerodrome.finance&sz=128",
       "description": "The central liquidity hub and primary decentralized exchange (DEX) on the Base network, utilizing a ve(3,3) tokenomics model to incentivize deep liquidity for token swaps.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "The central liquidity hub and primary decentralized exchange (DEX) on the Base network, utilizing a ve(3,3) tokenomics model to incentivize deep liquidity for token swaps."
-      }
+      "coverage": 6
     },
     {
       "id": "alchemix",
@@ -11130,10 +11067,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=alchemix.fi&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "compound",
@@ -11151,10 +11085,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=compound.finance&sz=64",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "convex-finance",
@@ -11170,10 +11101,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=convexfinance.com&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "curvance",
@@ -11188,10 +11116,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=curvance.com&sz=128",
       "description": "An omnichain money market and liquidity management protocol that enables users to collateralize yield-bearing assets, leverage positions, and auto-compound rewards through a simplified, one-click interface.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "An omnichain money market and liquidity management protocol that enables users to collateralize yield-bearing assets, leverage positions, and auto-compound rewards through a simplified, one-click interface."
-      }
+      "coverage": 11
     },
     {
       "id": "dydx",
@@ -11205,10 +11130,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dydx.exchange&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "eigenlayer",
@@ -11222,10 +11144,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=eigenlayer.xyz&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "ens",
@@ -11239,10 +11158,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ens.domains&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "francium",
@@ -11256,10 +11172,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=francium.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "frax-finance",
@@ -11276,10 +11189,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=frax.finance&sz=64",
       "description": "Description here.",
       "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 22
     },
     {
       "id": "gmx",
@@ -11294,10 +11204,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gmx.io&sz=64",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "hubble-protocol",
@@ -11311,10 +11218,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hubbleprotocol.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "indigo-protocol",
@@ -11328,10 +11232,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=indigoprotocol.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "instadapp",
@@ -11350,10 +11251,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=instadapp.io&sz=128",
       "description": "Description here.",
       "chainCount": 6,
-      "coverage": 33,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 33
     },
     {
       "id": "jito",
@@ -11367,10 +11265,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=jito.network&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "kamino-finance",
@@ -11384,10 +11279,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=kamino.finance&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "lenfi",
@@ -11401,10 +11293,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lenfi.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "lido",
@@ -11422,10 +11311,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lido.fi&sz=128",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "liquity",
@@ -11439,10 +11325,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=liquity.org&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "liqwid-finance",
@@ -11456,10 +11339,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=liqwid.finance&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "makerdao",
@@ -11473,10 +11353,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=makerdao.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "mango-markets",
@@ -11490,10 +11367,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=mango.markets&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "marginfi",
@@ -11507,10 +11381,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=marginfi.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "morpho",
@@ -11525,10 +11396,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=morpho.org&sz=64",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "nexus-mutual",
@@ -11542,10 +11410,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=nexusmutual.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "optim-finance",
@@ -11559,30 +11424,26 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=optim.finance&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "pendle",
       "name": "Pendle",
-      "website": "https://pendle.finance",
+      "website": "https://www.pendle.finance/",
       "category": "DeFi",
       "chains": [
-        "arbitrum",
-        "base",
         "ethereum",
-        "optimism"
+        "monad",
+        "optimism",
+        "hype",
+        "base",
+        "arbitrum"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pendle.finance&sz=64",
-      "description": "Description here.",
-      "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "description": "A yield-trading protocol that allows users to tokenize and trade future yield, enhancing capital efficiency across multiple ecosystems as shown in image_15e6be.png.",
+      "chainCount": 6,
+      "coverage": 33
     },
     {
       "id": "ribbon-finance",
@@ -11598,10 +11459,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ribbon.finance&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "rocket-pool",
@@ -11615,10 +11473,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=rocketpool.net&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sanctum",
@@ -11632,10 +11487,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sanctum.so&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "solend",
@@ -11649,10 +11501,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=solend.fi&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "spark-protocol",
@@ -11667,10 +11516,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=spark.fi&sz=64",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "synthetix",
@@ -11686,10 +11532,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=synthetix.io&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "tulip-protocol",
@@ -11703,10 +11546,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=tulip.garden&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "yearn-finance",
@@ -11724,10 +11564,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=yearn.fi&sz=64",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "fluidtokens",
@@ -11741,10 +11578,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=fluidtokens.com&sz=64",
       "description": "An NFT-DeFi bridge on Cardano enabling users to borrow liquidity against NFT collateral or earn yield by providing loans backed by digital assets.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "An NFT-DeFi bridge on Cardano enabling users to borrow liquidity against NFT collateral or earn yield by providing loans backed by digital assets."
-      }
+      "coverage": 6
     },
     {
       "id": "genius-yield",
@@ -11758,10 +11592,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=geniusyield.co&sz=64",
       "description": "An all-in-one DeFi platform on Cardano combining a concentrated liquidity DEX with an AI-powered automated yield optimizer.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "An all-in-one DeFi platform on Cardano combining a concentrated liquidity DEX with an AI-powered automated yield optimizer."
-      }
+      "coverage": 6
     },
     {
       "id": "1inch-network",
@@ -11782,10 +11613,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=1inch.io&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "aborean-finance",
@@ -11799,10 +11627,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=aborean.finance&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "ambient",
@@ -11819,10 +11644,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ambient.finance&sz=64",
       "description": "Description here.",
       "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 22
     },
     {
       "id": "balancer",
@@ -11842,10 +11664,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=balancer.fi&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "bancor",
@@ -11859,10 +11678,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bancor.network&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "blue-protocol",
@@ -11876,10 +11692,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gblue.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "crema-finance",
@@ -11893,10 +11706,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=crema.finance&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "curve-finance",
@@ -11917,10 +11727,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=curve.fi&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "dexhunter",
@@ -11934,10 +11741,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dexhunter.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "drift-protocol",
@@ -11951,10 +11755,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=drift.trade&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "jumper-exchange",
@@ -11977,10 +11778,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=jumper.exchange&sz=64",
       "description": "Description here.",
       "chainCount": 10,
-      "coverage": 56,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 56
     },
     {
       "id": "jupiter",
@@ -11994,10 +11792,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=jup.ag&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "kona",
@@ -12011,10 +11806,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=app.kona.surf&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "kyberswap",
@@ -12036,10 +11828,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=kyberswap.com&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "lfj-trader-joe",
@@ -12057,10 +11846,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lfj.gg&sz=64",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "lifinity",
@@ -12074,10 +11860,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lifinity.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "loopring",
@@ -12091,10 +11874,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=loopring.org&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "lyra",
@@ -12110,10 +11890,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lyra.finance&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "matcha",
@@ -12135,10 +11912,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=matcha.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "meteora",
@@ -12152,10 +11926,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=meteora.ag&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "minswap",
@@ -12169,10 +11940,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=minswap.org&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "odos",
@@ -12193,10 +11961,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=odos.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "openbook",
@@ -12210,10 +11975,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=openbook-dex.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "openocean",
@@ -12235,10 +11997,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=openocean.finance&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "orca",
@@ -12252,10 +12011,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=orca.so&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "pancakeswap",
@@ -12273,10 +12029,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pancakeswap.finance&sz=64",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "pandora-swap",
@@ -12290,10 +12043,7 @@ const APP_HUB = {
       "favicon": "https://abs.xyz/imagetransform/width=100,format=webp/https%3A%2F%2Fabstract-portal-metadata-prod.s3.amazonaws.com%2F7d15d15e-a70a-4c73-9e3e-1f1288233317.png",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "paraswap",
@@ -12312,10 +12062,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=paraswap.io&sz=64",
       "description": "Description here.",
       "chainCount": 6,
-      "coverage": 33,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 33
     },
     {
       "id": "phoenix",
@@ -12329,10 +12076,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "raydium",
@@ -12346,10 +12090,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=raydium.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sakura-swap",
@@ -12363,10 +12104,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sakuraswap.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sundaeswap",
@@ -12380,10 +12118,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sundaeswap.finance&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sushiswap",
@@ -12404,10 +12139,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sushi.com&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "uniswap",
@@ -12430,10 +12162,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=uniswap.org&sz=64",
       "description": "Description here.",
       "chainCount": 10,
-      "coverage": 56,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 56
     },
     {
       "id": "vyfinance",
@@ -12447,10 +12176,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=vyfi.org&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "wingriders",
@@ -12464,10 +12190,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=wingriders.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "zeta-markets",
@@ -12481,10 +12204,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=zeta.markets&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "cswap-dex",
@@ -12498,10 +12218,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=cswap.info&sz=64",
       "description": "A progressive DEX for the Cardano ecosystem merging next-generation DEX capabilities with NFTfi.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A progressive DEX for the Cardano ecosystem merging next-generation DEX capabilities with NFTfi."
-      }
+      "coverage": 6
     },
     {
       "id": "muesliswap",
@@ -12515,10 +12232,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=muesliswap.com&sz=64",
       "description": "A live and operating DEX on Cardano based on a research-driven order book protocol tailored for Cardano's UTxO model.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A live and operating DEX on Cardano based on a research-driven order book protocol tailored for Cardano's UTxO model."
-      }
+      "coverage": 6
     },
     {
       "id": "splash",
@@ -12532,10 +12246,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=splash.trade&sz=64",
       "description": "A decentralized exchange on Cardano by Spectrum Labs featuring concentrated liquidity and efficient on-chain order matching.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A decentralized exchange on Cardano by Spectrum Labs featuring concentrated liquidity and efficient on-chain order matching."
-      }
+      "coverage": 6
     },
     {
       "id": "anichess",
@@ -12549,10 +12260,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=anichess.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "aurory",
@@ -12566,10 +12274,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=aurory.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "axie-infinity",
@@ -12584,10 +12289,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=axieinfinity.com&sz=128",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "bigcoin",
@@ -12601,10 +12303,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bigcoin.tech&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "breath-of-estova",
@@ -12618,10 +12317,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=breathofestova.com&sz=128",
       "description": "A 2D top-down MMORPG built on the Monad network featuring play-to-earn mechanics, real-time action combat, and a player-driven economy.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A 2D top-down MMORPG built on the Monad network featuring play-to-earn mechanics, real-time action combat, and a player-driven economy."
-      }
+      "coverage": 6
     },
     {
       "id": "cambria",
@@ -12635,10 +12331,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=cambria.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "captain-company",
@@ -12652,10 +12345,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=capnco.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "caves-dig-dash",
@@ -12669,10 +12359,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=caves.wolf.game&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "decentraland",
@@ -12687,10 +12374,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=decentraland.org&sz=128",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "defi-land",
@@ -12704,10 +12388,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=defiland.app&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "duper",
@@ -12721,10 +12402,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=duper.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "ev.io",
@@ -12738,10 +12416,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ev.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "gala-games",
@@ -12755,10 +12430,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gala.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "genopets",
@@ -12772,10 +12444,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=genopets.me&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "gigachadbat",
@@ -12789,10 +12458,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gigachadbat.fun&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "gigaverse",
@@ -12806,10 +12472,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gigaverse.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "gods-unchained",
@@ -12823,10 +12486,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=godsunchained.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "illuvium",
@@ -12840,10 +12500,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=illuvium.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "khuga-bash",
@@ -12857,10 +12514,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=portal.khuga.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "kintara",
@@ -12874,10 +12528,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=kintara.gg&sz=128",
       "description": "A browser-based isometric massively multiplayer online (MMO) game where players gather resources, battle monsters, and trade on the Solana blockchain.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A browser-based isometric massively multiplayer online (MMO) game where players gather resources, battle monsters, and trade on the Solana blockchain."
-      }
+      "coverage": 6
     },
     {
       "id": "lingo",
@@ -12891,10 +12542,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=witty.game&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "maze-of-gains",
@@ -12908,10 +12556,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=playmog.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "moody-madness",
@@ -12925,10 +12570,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=moodymadness.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "nifty-island",
@@ -12942,10 +12584,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=niftyisland.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "onchain-heroes",
@@ -12959,10 +12598,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=onchainheroes.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "pangu-clash",
@@ -12976,10 +12612,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=panguclash.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "pengu-clash",
@@ -12993,10 +12626,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=penguclash.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "penguin-life",
@@ -13010,10 +12640,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=penguinlife.playember.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "plooshy-island",
@@ -13027,10 +12654,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=http://island.theplooshies.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "plooshy-pile-up",
@@ -13044,10 +12668,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pileup.theplooshies.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "polar-pair-up",
@@ -13061,10 +12682,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=polarpairup.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "promotion-royale",
@@ -13078,10 +12696,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=play.promotionroyale.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "proof-of-play-arcade",
@@ -13095,10 +12710,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=proofofplay.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "pudgy-world",
@@ -13112,10 +12724,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pudgyworld.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "rugpull-bakery",
@@ -13129,10 +12738,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=rugpullbakery.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "ruyui-roots-of-embervault",
@@ -13146,10 +12752,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=embervault.ruyui.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sappy-seals",
@@ -13164,10 +12767,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sappyseals.io&sz=64",
       "description": "Iconic Ethereum NFT collection and community hub.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Iconic Ethereum NFT collection and community hub."
-      }
+      "coverage": 11
     },
     {
       "id": "sorare",
@@ -13181,10 +12781,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sorare.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "spellborne",
@@ -13198,10 +12795,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=spellborne.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "star-atlas",
@@ -13215,10 +12809,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=staratlas.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "stepn",
@@ -13232,10 +12823,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=stepn.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "sugartown",
@@ -13249,10 +12837,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sugar.town&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "supertripland",
@@ -13266,10 +12851,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=supertripland.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "the-sandbox",
@@ -13284,10 +12866,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=sandbox.game&sz=128",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "tollan-universe",
@@ -13301,10 +12880,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hub.tollan.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "trivia-rush",
@@ -13318,10 +12894,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=triviarush.fun&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "unchained",
@@ -13335,10 +12908,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=unchained.game&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "vibes-tcg",
@@ -13352,10 +12922,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=vibes.game&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "waifu-sweeper",
@@ -13369,10 +12936,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=waifusweeper.fun&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "yield-guild-games",
@@ -13387,10 +12951,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=yieldguild.io&sz=128",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "otherside",
@@ -13404,10 +12965,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=otherside.xyz&sz=128",
       "description": "A gamified, interoperable metaverse and metaRPG by Yuga Labs, featuring multiplayer social spaces, NFT-linked ownership, and user-created worlds on ApeChain.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A gamified, interoperable metaverse and metaRPG by Yuga Labs, featuring multiplayer social spaces, NFT-linked ownership, and user-created worlds on ApeChain."
-      }
+      "coverage": 6
     },
     {
       "id": "blitz-tcg",
@@ -13421,10 +12979,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=blitztcg.com&sz=64",
       "description": "A competitive blockchain-based trading card game on Cardano where players own their cards as NFTs and participate in player-governed tournaments.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A competitive blockchain-based trading card game on Cardano where players own their cards as NFTs and participate in player-governed tournaments."
-      }
+      "coverage": 6
     },
     {
       "id": "cornucopias",
@@ -13438,10 +12993,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=cornucopias.io&sz=64",
       "description": "A massive Play-To-Earn Cardano blockchain-based game set in a vibrant metaverse where players can own land, build, and earn through gameplay.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A massive Play-To-Earn Cardano blockchain-based game set in a vibrant metaverse where players can own land, build, and earn through gameplay."
-      }
+      "coverage": 6
     },
     {
       "id": "build-anything",
@@ -13455,10 +13007,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=buildanything.so&sz=128",
       "description": "An AI-powered development platform and educational curriculum focused on helping creators build, ship, and launch applications on the Monad network.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "An AI-powered development platform and educational curriculum focused on helping creators build, ship, and launch applications on the Monad network."
-      }
+      "coverage": 6
     },
     {
       "id": "chog-fun",
@@ -13472,10 +13021,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=chog.fun&sz=128",
       "description": "A community-focused launchpad and platform for meme tokens and cultural projects within the Monad ecosystem, centered around the Chog mascot.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A community-focused launchpad and platform for meme tokens and cultural projects within the Monad ecosystem, centered around the Chog mascot."
-      }
+      "coverage": 6
     },
     {
       "id": "moonit",
@@ -13489,10 +13035,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=abstract.moon.it&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "snek-fun",
@@ -13506,10 +13049,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=snek.fun&sz=64",
       "description": "A fair-launch memecoin launchpad on the Cardano blockchain with built-in liquidity protection and token instant-creation mechanics.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A fair-launch memecoin launchpad on the Cardano blockchain with built-in liquidity protection and token instant-creation mechanics."
-      }
+      "coverage": 6
     },
     {
       "id": "nad-fun",
@@ -13523,10 +13063,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=nad.fun&sz=64",
       "description": "Memecoin launchpad platform.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Memecoin launchpad platform."
-      }
+      "coverage": 6
     },
     {
       "id": "pump-fun",
@@ -13540,10 +13077,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pump.fun&sz=64",
       "description": "Memecoin launchpad platform.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Memecoin launchpad platform."
-      }
+      "coverage": 6
     },
     {
       "id": "coinecta-finance",
@@ -13557,10 +13091,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=coinecta.fi&sz=64",
       "description": "A next-generation token launch platform on Cardano connecting innovative blockchain projects with early supporters through transparent and fair launches.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A next-generation token launch platform on Cardano connecting innovative blockchain projects with early supporters through transparent and fair launches."
-      }
+      "coverage": 6
     },
     {
       "id": "bob-monad",
@@ -13574,10 +13105,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bobmonad.com&sz=128",
       "description": "Launchpad platform on Monad coming soon.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Launchpad platform on Monad coming soon."
-      }
+      "coverage": 6
     },
     {
       "id": "emonad",
@@ -13591,10 +13119,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=emonad.lol&sz=64",
       "description": "I lost it all on day one.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "I lost it all on day one."
-      }
+      "coverage": 6
     },
     {
       "id": "snek",
@@ -13608,10 +13133,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=snek.com&sz=64",
       "description": "The premier culture and community-driven memecoin asset native to the Cardano blockchain ecosystem.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "The premier culture and community-driven memecoin asset native to the Cardano blockchain ecosystem."
-      }
+      "coverage": 6
     },
     {
       "id": "chog",
@@ -13625,10 +13147,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=chog.xyz&sz=128",
       "description": "A community-driven meme project native to the Monad ecosystem.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A community-driven meme project native to the Monad ecosystem."
-      }
+      "coverage": 6
     },
     {
       "id": "iqlabs",
@@ -13644,10 +13163,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=iqlabs.dev&sz=64",
       "description": "IQLabs is a inscription platform that seeks build the blockchain internet through inscribing immutable data to blockchains.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "IQLabs is a inscription platform that seeks build the blockchain internet through inscribing immutable data to blockchains."
-      }
+      "coverage": 17
     },
     {
       "id": "hosky-token",
@@ -13661,10 +13177,21 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hosky.io&sz=64",
       "description": "The premiere low-quality meme token on the Cardano ecosystem, embracing its own absurdity as a community-driven cultural experiment.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "The premiere low-quality meme token on the Cardano ecosystem, embracing its own absurdity as a community-driven cultural experiment."
-      }
+      "coverage": 6
+    },
+    {
+      "id": "abstract-global-wallet",
+      "name": "Abstract Global Wallet",
+      "website": "https://portal.abs.xyz/",
+      "category": "Wallet",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=abs.xyz&sz=128",
+      "description": "A cross-application smart contract wallet powering the Abstract ecosystem, utilizing native account abstraction to allow users to sign up via familiar methods like email, social accounts, and passkeys.",
+      "chainCount": 1,
+      "coverage": 6
     },
     {
       "id": "backpack-wallet",
@@ -13682,10 +13209,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=backpack.app&sz=64",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "coinbase-wallet",
@@ -13705,10 +13229,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=coinbase.com&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "eternl",
@@ -13722,10 +13243,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=eternl.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "exodus",
@@ -13747,10 +13265,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=exodus.com&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "flint-wallet",
@@ -13766,10 +13281,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=flint-wallet.io&sz=64",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "lace",
@@ -13783,10 +13295,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lace.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "metamask",
@@ -13814,10 +13323,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=metamask.io&sz=64",
       "description": "Description here.",
       "chainCount": 15,
-      "coverage": 83,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 83
     },
     {
       "id": "nami-wallet",
@@ -13831,10 +13337,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=namiwallet.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "phantom",
@@ -13853,10 +13356,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=phantom.app&sz=64",
       "description": "Description here.",
       "chainCount": 6,
-      "coverage": 33,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 33
     },
     {
       "id": "rabby-wallet",
@@ -13881,10 +13381,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=rabby.io&sz=64",
       "description": "Description here.",
       "chainCount": 12,
-      "coverage": 67,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 67
     },
     {
       "id": "rainbow-wallet",
@@ -13904,10 +13401,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=rainbow.me&sz=64",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "safe",
@@ -13927,10 +13421,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=safe.global&sz=128",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "trust-wallet",
@@ -13953,10 +13444,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=trustwallet.com&sz=64",
       "description": "Description here.",
       "chainCount": 10,
-      "coverage": 56,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 56
     },
     {
       "id": "vespr",
@@ -13970,10 +13458,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=vespr.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "xdefi-ctrl-wallet",
@@ -13994,10 +13479,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ctrl.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "yoroi-wallet",
@@ -14011,10 +13493,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=yoroi-wallet.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "begin-wallet",
@@ -14028,10 +13507,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=begin.is&sz=64",
       "description": "A next-generation Cardano wallet designed to bring users into the new era of finance with a clean, modern interface and full DeFi integration.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A next-generation Cardano wallet designed to bring users into the new era of finance with a clean, modern interface and full DeFi integration."
-      }
+      "coverage": 6
     },
     {
       "id": "daedalus-wallet",
@@ -14045,10 +13521,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=daedaluswallet.io&sz=64",
       "description": "The official open-source full-node desktop wallet for Cardano, built by IOG to grow with the Cardano blockchain.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "The official open-source full-node desktop wallet for Cardano, built by IOG to grow with the Cardano blockchain."
-      }
+      "coverage": 6
     },
     {
       "id": "gamechanger-wallet",
@@ -14062,10 +13535,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gamechanger.finance&sz=64",
       "description": "A web-based Cardano wallet with native NFT and token features, designed for developers and users exploring on-chain scripting and dApp interactions.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A web-based Cardano wallet with native NFT and token features, designed for developers and users exploring on-chain scripting and dApp interactions."
-      }
+      "coverage": 6
     },
     {
       "id": "nufi-wallet",
@@ -14081,10 +13551,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=nu.fi&sz=64",
       "description": "A non-custodial multi-chain wallet supporting staking on Cardano and other PoS blockchains with hardware wallet integration.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "A non-custodial multi-chain wallet supporting staking on Cardano and other PoS blockchains with hardware wallet integration."
-      }
+      "coverage": 17
     },
     {
       "id": "typhon-wallet",
@@ -14098,10 +13565,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=typhonwallet.io&sz=64",
       "description": "A blazing fast, feature-rich, and secure Cardano web and browser extension wallet with full dApp support and multi-account management.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A blazing fast, feature-rich, and secure Cardano web and browser extension wallet with full dApp support and multi-account management."
-      }
+      "coverage": 6
     },
     {
       "id": "blever",
@@ -14115,10 +13579,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=blever.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "wayup",
@@ -14132,10 +13593,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=wayup.io&sz=64",
       "description": "A specialized NFT marketplace and minting platform running natively on the Cardano blockchain infrastructure.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A specialized NFT marketplace and minting platform running natively on the Cardano blockchain infrastructure."
-      }
+      "coverage": 6
     },
     {
       "id": "blur",
@@ -14151,10 +13609,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=blur.io&sz=64",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "book-io",
@@ -14171,10 +13626,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=book.io&sz=64",
       "description": "Description here.",
       "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 22
     },
     {
       "id": "dyli",
@@ -14188,10 +13640,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dyli.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "element-market",
@@ -14213,10 +13662,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=element.market&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "exchange.art",
@@ -14230,10 +13676,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=exchange.art&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "foundation",
@@ -14248,10 +13691,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=foundation.app&sz=128",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "hyperspace",
@@ -14265,10 +13705,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hyperspace.xyz&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "jpg-store",
@@ -14282,10 +13719,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=jpg.store&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "looksrare",
@@ -14300,10 +13734,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=looksrare.org&sz=64",
       "description": "Description here.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 11
     },
     {
       "id": "magic-eden",
@@ -14317,10 +13748,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=magiceden.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "mintify",
@@ -14334,10 +13762,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=mintify.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "nmkr",
@@ -14351,10 +13776,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=nmkr.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "opensea",
@@ -14377,10 +13799,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=opensea.io&sz=64",
       "description": "Description here.",
       "chainCount": 10,
-      "coverage": 56,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 56
     },
     {
       "id": "rarible",
@@ -14397,10 +13816,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=rarible.com&sz=128",
       "description": "Description here.",
       "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 22
     },
     {
       "id": "scatter",
@@ -14414,10 +13830,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=scatter.art&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "segmint",
@@ -14431,10 +13844,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=segmint.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "solanart",
@@ -14448,10 +13858,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=solanart.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "superrare",
@@ -14465,10 +13872,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=superrare.com&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "tensor",
@@ -14482,10 +13886,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=tensor.trade&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "x2y2",
@@ -14499,10 +13900,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=x2y2.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "crashr",
@@ -14516,10 +13914,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=crashr.io&sz=64",
       "description": "A Cardano marketplace platform that empowers users and communities through NFT trading, raffles, and community voting mechanics.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A Cardano marketplace platform that empowers users and communities through NFT trading, raffles, and community voting mechanics."
-      }
+      "coverage": 6
     },
     {
       "id": "dropspot",
@@ -14533,10 +13928,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dropspot.io&sz=64",
       "description": "A launchpad for creators and a marketplace for collectors on Cardano, welcoming artists globally to mint, list, and trade NFTs.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A launchpad for creators and a marketplace for collectors on Cardano, welcoming artists globally to mint, list, and trade NFTs."
-      }
+      "coverage": 6
     },
     {
       "id": "jamonbread",
@@ -14550,10 +13942,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=jamonbread.io&sz=64",
       "description": "A user-friendly, fast, and decentralized Cardano NFT marketplace offering a revolutionary smart contract solution for digital collectibles.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A user-friendly, fast, and decentralized Cardano NFT marketplace offering a revolutionary smart contract solution for digital collectibles."
-      }
+      "coverage": 6
     },
     {
       "id": "aragon",
@@ -14569,10 +13958,21 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=aragon.org&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
+    },
+    {
+      "id": "bendingai",
+      "name": "BendingAI",
+      "website": "https://bending.ai/market",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bending.ai&sz=64",
+      "description": "A data-driven platform on Cardano providing advanced market analytics and portfolio tracking tools to monitor ecosystem trends.",
+      "chainCount": 1,
+      "coverage": 6
     },
     {
       "id": "coinstats",
@@ -14594,10 +13994,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=coinstats.app&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "dappradar",
@@ -14622,10 +14019,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dappradar.com&sz=64",
       "description": "Description here.",
       "chainCount": 12,
-      "coverage": 67,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 67
     },
     {
       "id": "debank",
@@ -14649,10 +14043,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=debank.com&sz=64",
       "description": "Description here.",
       "chainCount": 11,
-      "coverage": 61,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 61
     },
     {
       "id": "defillama",
@@ -14683,10 +14074,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=defillama.com&sz=64",
       "description": "Description here.",
       "chainCount": 18,
-      "coverage": 100,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 100
     },
     {
       "id": "depth-protocol",
@@ -14700,10 +14088,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=depthsoul.com&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "dexscreener",
@@ -14730,10 +14115,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dexscreener.com&sz=64",
       "description": "Description here.",
       "chainCount": 14,
-      "coverage": 78,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 78
     },
     {
       "id": "dialect",
@@ -14747,10 +14129,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dialect.to&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "dune-analytics",
@@ -14770,10 +14149,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=dune.com&sz=128",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "etherscan",
@@ -14787,10 +14163,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=etherscan.io&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "ethos-network",
@@ -14805,10 +14178,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ethos.network&sz=128",
       "description": "A decentralized credibility protocol that uses on-chain reputation scores, reviews, and vouching mechanisms to foster trust and accountability within the Web3 ecosystem.",
       "chainCount": 2,
-      "coverage": 11,
-      "categoryMeta": {
-        "description": "A decentralized credibility protocol that uses on-chain reputation scores, reviews, and vouching mechanisms to foster trust and accountability within the Web3 ecosystem."
-      }
+      "coverage": 11
     },
     {
       "id": "farcaster",
@@ -14824,10 +14194,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
     },
     {
       "id": "geckoterminal",
@@ -14853,10 +14220,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=geckoterminal.com&sz=64",
       "description": "Description here.",
       "chainCount": 13,
-      "coverage": 72,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 72
     },
     {
       "id": "gitcoin",
@@ -14872,10 +14236,21 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=gitcoin.co&sz=128",
       "description": "Description here.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 17
+    },
+    {
+      "id": "konnektr",
+      "name": "Konnektr",
+      "website": "https://konnektr.net/",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=konnektr.net&sz=64",
+      "description": "An open-source developer toolset and SDK for PostgreSQL/Apache AGE, providing graph database capabilities and integration libraries for C# and .NET environments.",
+      "chainCount": 1,
+      "coverage": 6
     },
     {
       "id": "lens-protocol",
@@ -14889,10 +14264,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lens.xyz&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "lute",
@@ -14906,10 +14278,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=lute.gg&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "nansen",
@@ -14930,10 +14299,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=nansen.ai&sz=128",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "pulsar-finance",
@@ -14955,10 +14321,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pulsar.finance&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "pyth-network",
@@ -14979,10 +14342,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=pyth.network&sz=128",
       "description": "Description here.",
       "chainCount": 8,
-      "coverage": 44,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 44
     },
     {
       "id": "realms",
@@ -14996,10 +14356,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=realms.today&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "snapshot",
@@ -15017,10 +14374,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=snapshot.org&sz=128",
       "description": "Description here.",
       "chainCount": 5,
-      "coverage": 28,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 28
     },
     {
       "id": "squads",
@@ -15034,10 +14388,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=squads.so&sz=128",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "taptools",
@@ -15051,10 +14402,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=taptools.io&sz=64",
       "description": "Description here.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 6
     },
     {
       "id": "token-terminal",
@@ -15074,10 +14422,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=tokenterminal.com&sz=128",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "zapper",
@@ -15099,10 +14444,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=zapper.xyz&sz=64",
       "description": "Description here.",
       "chainCount": 9,
-      "coverage": 50,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 50
     },
     {
       "id": "zerion",
@@ -15122,10 +14464,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=zerion.io&sz=128",
       "description": "Description here.",
       "chainCount": 7,
-      "coverage": 39,
-      "categoryMeta": {
-        "description": "Description here."
-      }
+      "coverage": 39
     },
     {
       "id": "cardanoscan",
@@ -15139,10 +14478,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=cardanoscan.io&sz=64",
       "description": "A feature-rich blockchain explorer and analytics platform for Cardano, providing transaction tracking, stake pool data, and on-chain analytics.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A feature-rich blockchain explorer and analytics platform for Cardano, providing transaction tracking, stake pool data, and on-chain analytics."
-      }
+      "coverage": 6
     },
     {
       "id": "cexplorer",
@@ -15156,10 +14492,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=cexplorer.io&sz=64",
       "description": "A comprehensive Cardano blockchain explorer offering rich data on transactions, blocks, stake pools, and native assets.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A comprehensive Cardano blockchain explorer offering rich data on transactions, blocks, stake pools, and native assets."
-      }
+      "coverage": 6
     },
     {
       "id": "atlas",
@@ -15173,10 +14506,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=atlasdefi.org&sz=128",
       "description": "A privacy-focused yield tokenization protocol on Cardano that enables users to split yield-bearing assets into tradable Principal Tokens (PT) and Yield Tokens (YT).",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A privacy-focused yield tokenization protocol on Cardano that enables users to split yield-bearing assets into tradable Principal Tokens (PT) and Yield Tokens (YT)."
-      }
+      "coverage": 6
     },
     {
       "id": "bean",
@@ -15190,10 +14520,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bean.exchange&sz=128",
       "description": "A high-performance hybrid decentralized exchange on Monad featuring DLMM spot trading and perpetual futures with integrated privacy-preserving order execution.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A high-performance hybrid decentralized exchange on Monad featuring DLMM spot trading and perpetual futures with integrated privacy-preserving order execution."
-      }
+      "coverage": 6
     },
     {
       "id": "crsh-market",
@@ -15207,10 +14534,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=crshmarket.com&sz=128",
       "description": "A decentralized trading platform on Monad focusing on perpetuals and prediction markets, enabling high-efficiency derivative trading.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A decentralized trading platform on Monad focusing on perpetuals and prediction markets, enabling high-efficiency derivative trading."
-      }
+      "coverage": 6
     },
     {
       "id": "kizzy",
@@ -15224,10 +14548,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=kizzy.io&sz=128",
       "description": "A social media betting platform on Monad that allows users to place real-money wagers on influencer content performance, including engagement metrics like views, likes, and follower growth.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A social media betting platform on Monad that allows users to place real-money wagers on influencer content performance, including engagement metrics like views, likes, and follower growth."
-      }
+      "coverage": 6
     },
     {
       "id": "polymarket",
@@ -15244,10 +14565,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=polymarket.com&sz=64",
       "description": "A leading decentralized prediction market platform allowing users to trade on real-world event outcomes using stablecoins.",
       "chainCount": 4,
-      "coverage": 22,
-      "categoryMeta": {
-        "description": "A leading decentralized prediction market platform allowing users to trade on real-world event outcomes using stablecoins."
-      }
+      "coverage": 22
     },
     {
       "id": "kalshi",
@@ -15263,10 +14581,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=kalshi.com&sz=64",
       "description": "A CFTC-regulated prediction market exchange for trading contracts on real-world events and economic indicators.",
       "chainCount": 3,
-      "coverage": 17,
-      "categoryMeta": {
-        "description": "A CFTC-regulated prediction market exchange for trading contracts on real-world events and economic indicators."
-      }
+      "coverage": 17
     },
     {
       "id": "ascend",
@@ -15280,10 +14595,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=ascend.market&sz=64",
       "description": "A decentralized prediction and perpetual market protocol built natively on the Cardano blockchain.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A decentralized prediction and perpetual market protocol built natively on the Cardano blockchain."
-      }
+      "coverage": 6
     },
     {
       "id": "strike",
@@ -15297,10 +14609,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=strikefinance.org&sz=64",
       "description": "A comprehensive decentralized platform on Cardano offering perpetual futures and prediction market capabilities.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A comprehensive decentralized platform on Cardano offering perpetual futures and prediction market capabilities."
-      }
+      "coverage": 6
     },
     {
       "id": "hyperfoundation",
@@ -15314,10 +14623,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=hyperfoundation.org&sz=64",
       "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange."
-      }
+      "coverage": 6
     },
     {
       "id": "bodega-market",
@@ -15331,10 +14637,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=bodegacardano.org&sz=64",
       "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events."
-      }
+      "coverage": 6
     },
     {
       "id": "foreon-network",
@@ -15348,10 +14651,7 @@ const APP_HUB = {
       "favicon": "https://www.google.com/s2/favicons?domain=foreon.network&sz=64",
       "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets.",
       "chainCount": 1,
-      "coverage": 6,
-      "categoryMeta": {
-        "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets."
-      }
+      "coverage": 6
     }
   ]
 };
@@ -15360,6 +14660,7 @@ function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettin
   const [chainFilter, setChainFilter] = reactExports.useState(ALL);
   const [categoryFilter, setCategoryFilter] = reactExports.useState(ALL);
   const [search, setSearch] = reactExports.useState("");
+  const [openDropdown, setOpenDropdown] = reactExports.useState(null);
   const filtered = reactExports.useMemo(() => {
     const q2 = search.trim().toLowerCase();
     return APP_HUB.apps.filter((app) => {
@@ -15417,46 +14718,37 @@ function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettin
         }
       )
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-pills-row", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-filters-row", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
+        FilterDropdown,
         {
-          className: `apphub-pill${categoryFilter === ALL ? " active" : ""}`,
-          onClick: () => setCategoryFilter(ALL),
-          children: "All"
+          label: "Category",
+          value: categoryFilter,
+          options: [
+            { value: ALL, label: "All Categories" },
+            ...APP_HUB.categories.map((c) => ({ value: c.name, label: c.short, count: c.count }))
+          ],
+          onChange: setCategoryFilter,
+          open: openDropdown === "category",
+          onToggle: () => setOpenDropdown((o) => o === "category" ? null : "category"),
+          onClose: () => setOpenDropdown(null)
         }
       ),
-      APP_HUB.categories.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "button",
-        {
-          className: `apphub-pill${categoryFilter === c.name ? " active" : ""}`,
-          onClick: () => setCategoryFilter(c.name),
-          children: [
-            c.short,
-            /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-pill-count", children: c.count })
-          ]
-        },
-        c.name
-      ))
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-pills-row apphub-chains-row", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
+        FilterDropdown,
         {
-          className: `apphub-pill chain-pill${chainFilter === ALL ? " active" : ""}`,
-          onClick: () => setChainFilter(ALL),
-          children: "All chains"
+          label: "Chain",
+          value: chainFilter,
+          options: [
+            { value: ALL, label: "All Chains" },
+            ...APP_HUB.chains.map((ch2) => ({ value: ch2.id, label: ch2.label }))
+          ],
+          onChange: setChainFilter,
+          open: openDropdown === "chain",
+          onToggle: () => setOpenDropdown((o) => o === "chain" ? null : "chain"),
+          onClose: () => setOpenDropdown(null)
         }
-      ),
-      APP_HUB.chains.map((ch2) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-        "button",
-        {
-          className: `apphub-pill chain-pill${chainFilter === ch2.id ? " active" : ""}`,
-          onClick: () => setChainFilter(ch2.id),
-          children: ch2.label
-        },
-        ch2.id
-      ))
+      )
     ] }),
     filtered.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-empty", children: "No apps match your filters" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-scroll", children: [
       featured.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
@@ -15468,6 +14760,68 @@ function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettin
         /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-grid", children: rest.map((app) => /* @__PURE__ */ jsxRuntimeExports.jsx(AppCard, { app, onOpen: openApp }, app.id)) })
       ] })
     ] })
+  ] });
+}
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange,
+  open,
+  onToggle,
+  onClose
+}) {
+  const ref = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (!open) return;
+    function handle(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open, onClose]);
+  const selected = options.find((o) => o.value === value) ?? options[0];
+  const isFiltered = value !== options[0].value;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-dropdown", ref, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        className: `apphub-dropdown-btn${isFiltered ? " active" : ""}`,
+        onClick: onToggle,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-prefix", children: label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-value", children: selected.label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "svg",
+            {
+              className: `apphub-dropdown-caret${open ? " open" : ""}`,
+              width: "11",
+              height: "11",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: "2",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "6 9 12 15 18 9" })
+            }
+          )
+        ]
+      }
+    ),
+    open && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-dropdown-menu", children: options.map((o) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        className: `apphub-dropdown-item${o.value === value ? " active" : ""}`,
+        onClick: () => {
+          onChange(o.value);
+          onClose();
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: o.label }),
+          o.count != null && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-count", children: o.count })
+        ]
+      },
+      o.value
+    )) })
   ] });
 }
 function AppCard({ app, onOpen }) {
