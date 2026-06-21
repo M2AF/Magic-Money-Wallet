@@ -33,7 +33,7 @@ import {
   saveAgwOverride,
   type WalletConfig
 } from './secure-store'
-import { deriveAgwAddress } from './agw'
+import { resolveAccountAgw } from './agw'
 import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
@@ -136,20 +136,17 @@ let _pendingMnemonic: string | null = null
 
 /**
  * Resolve the Abstract Global Wallet for an account:
- *   agw      = manual override ?? auto-derived from the EOA
- *   agwOwned = this EOA can sign for it (true when there's no override, or the
- *              override equals the deterministic derivation). Watch-only otherwise.
- * Returns a new object — never mutates the input. On RPC failure with no override,
- * agw is left undefined so the next read retries.
+ *   agw      = manual override ?? on-chain linked AGW (no counterfactual guessing)
+ *   agwOwned = this EOA is a real on-chain K1 owner of the AGW → direct send works.
+ *              Most AGWs are owned by a Privy embedded signer, so this is usually
+ *              false and the AGW is shown read-only (writes go via the portal).
+ * Returns a new object — never mutates the input. On RPC failure agw is left
+ * undefined so the next read retries.
  */
 async function resolveAgw(addresses: WalletAddresses): Promise<WalletAddresses> {
   const override = loadAgwOverride(addresses.accountIndex ?? 0)
-  const derived  = await deriveAgwAddress(addresses.evm)
-  if (override) {
-    const owned = derived != null && override.toLowerCase() === derived.toLowerCase()
-    return { ...addresses, agw: override, agwOwned: owned }
-  }
-  return { ...addresses, agw: derived ?? undefined, agwOwned: derived != null }
+  const { agw, agwOwned } = await resolveAccountAgw(addresses.evm, override)
+  return { ...addresses, agw, agwOwned }
 }
 
 /**
@@ -166,7 +163,9 @@ async function getFullAddresses() {
     stored = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
     saveAddresses(stored)
   }
-  if (stored.agw === undefined) {
+  // Resolve the AGW once (agwOwned is always set afterwards, even when there's
+  // no AGW — so this won't re-query the resolver on every read).
+  if (stored.agwOwned === undefined) {
     stored = await resolveAgw(stored)
     saveAddresses(stored)
   }

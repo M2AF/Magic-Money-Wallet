@@ -1,5 +1,4 @@
 import type { WalletConfig } from './secure-store'
-import { deriveAgwAddress } from './agw'
 
 export interface WalletToken {
   contractAddress: string
@@ -43,6 +42,8 @@ export interface WalletCollectible {
   contractType: string
   traits: NftTrait[]
   source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
+  floorPrice?: number | null   // collection floor in the chain's native unit
+  usdValue?: string | null     // floor × native price, e.g. "$42.10"
 }
 
 export interface CollectiblesResult {
@@ -676,21 +677,18 @@ export async function fetchAllTokens(
   config: WalletConfig
 ): Promise<TokensResult> {
   try {
-    // Use the caller-resolved AGW (override ?? auto-derive); fall back to deriving
-    // here for callers that don't pass one.
-    const agwAddressPromise = addresses.agw
-      ? Promise.resolve(addresses.agw)
-      : deriveAgwAddress(addresses.evm)
+    // The AGW address is resolved by the caller (override ?? on-chain link). We
+    // never derive a counterfactual address here — only fetch what was resolved.
+    const agwAddress = addresses.agw ?? null
 
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, agwAddress] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens] = await Promise.all([
       Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config.alchemyKey))),
       addresses.solana  ? fetchSolanaTokens(addresses.solana,   config.heliusKey)      : Promise.resolve([] as WalletToken[]),
       addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey)  : Promise.resolve([] as WalletToken[]),
       fetchMonadTokens(addresses.evm),
-      agwAddressPromise,
     ])
 
-    // Fetch Abstract tokens from AGW smart account if address differs from EOA,
+    // Fetch Abstract tokens from the AGW smart account if it differs from the EOA,
     // tagging each so the UI can badge it as living in the smart wallet.
     const abstractChainCfg = TOKEN_CHAINS.find(c => c.id === 'abstract')!
     const agwTokens = (agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg)
@@ -877,7 +875,7 @@ async function fetchNftsForChain(
     const json = await res.json() as {
       ownedNfts?: Array<{
         tokenId: string
-        contract: { address: string; name: string | null; tokenType: string }
+        contract: { address: string; name: string | null; tokenType: string; openSeaMetadata?: { floorPrice?: number | null } }
         name: string | null
         description: string | null
         image?: { cachedUrl: string | null; thumbnailUrl: string | null; originalUrl: string | null; pngUrl: string | null }
@@ -908,7 +906,9 @@ async function fetchNftsForChain(
       // and the whole chain's .map aborts, dropping every NFT on that chain.
       traits: (Array.isArray(nft.raw?.metadata?.attributes) ? nft.raw!.metadata!.attributes! : [])
         .filter(a => a.trait_type != null && a.value != null)
-        .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
+        .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) })),
+      // Alchemy returns collection floor (native unit) inline — free, no extra call.
+      floorPrice: nft.contract.openSeaMetadata?.floorPrice ?? null
     }))
 
     console.log(`[NFT] ${chain.label}: found ${items.length} NFTs`)
@@ -983,6 +983,179 @@ async function fetchMonadNFTs(address: string, moralisKey: string): Promise<Wall
   }
 }
 
+// ─── NFT floor-price valuation (OpenSea) ─────────────────────────────────────
+
+// Wallet chain id → OpenSea v2 chain slug. Floors are priced via OpenSea for
+// every chain it supports (all major EVMs + Solana). Chains absent here (Cardano,
+// Monad) have no OpenSea coverage and stay unvalued.
+const OPENSEA_NFT_CHAIN: Record<string, string> = {
+  ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
+  polygon: 'matic', abstract: 'abstract', blast: 'blast', avalanche: 'avalanche',
+  zora: 'zora', apechain: 'ape_chain', ronin: 'ronin', soneium: 'soneium',
+  gnosis: 'gnosis', monad: 'monad', solana: 'solana',
+}
+
+// Floor-price currency symbol → CoinGecko id, for converting a floor to USD.
+const FLOOR_SYMBOL_CG: Record<string, string> = {
+  ETH: 'ethereum', WETH: 'ethereum', POL: 'matic-network', MATIC: 'matic-network',
+  APE: 'apecoin', RON: 'ronin', AVAX: 'avalanche-2', SOL: 'solana', XDAI: 'xdai',
+  MON: 'monad',
+}
+
+// Floor cache shared across fetches (NFTs are now fetched eagerly on load, so
+// this avoids re-hitting OpenSea for the same collection every refresh).
+interface FloorEntry { floor: number; symbol: string }
+const floorCache = new Map<string, { value: FloorEntry | null; exp: number }>()
+const FLOOR_TTL = 10 * 60_000
+
+async function osGet<T>(path: string, key: string): Promise<T | null> {
+  try {
+    const res = await fetch(`https://api.opensea.io/api/v2/${path}`,
+      { headers: { 'x-api-key': key, accept: 'application/json' }, signal: AbortSignal.timeout(8_000) })
+    if (!res.ok) return null
+    return await res.json() as T
+  } catch { return null }
+}
+
+async function osCollectionFloor(slug: string, key: string): Promise<FloorEntry | null> {
+  const cacheKey = `slug:${slug}`
+  const hit = floorCache.get(cacheKey)
+  if (hit && hit.exp > Date.now()) return hit.value
+  const json = await osGet<{ total?: { floor_price?: number; floor_price_symbol?: string } }>(`collections/${slug}/stats`, key)
+  const total = json?.total
+  const value: FloorEntry | null = (total?.floor_price != null && total.floor_price > 0)
+    ? { floor: total.floor_price, symbol: total.floor_price_symbol ?? 'ETH' } : null
+  floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
+  return value
+}
+
+/** EVM: contract address → OpenSea collection slug (reliable for EVM chains). */
+async function osEvmContractFloor(osChain: string, contract: string, key: string): Promise<FloorEntry | null> {
+  const cacheKey = `${osChain}:${contract.toLowerCase()}`
+  const hit = floorCache.get(cacheKey)
+  if (hit && hit.exp > Date.now()) return hit.value
+  const json = await osGet<{ collection?: string }>(`chain/${osChain}/contract/${contract}`, key)
+  const value = json?.collection ? await osCollectionFloor(json.collection, key) : null
+  floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
+  return value
+}
+
+/** Solana: contract→slug is unreliable, so map each owned NFT's mint → slug via account/nfts. */
+async function osSolanaMintSlugs(address: string, key: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  let next: string | undefined
+  for (let page = 0; page < 5; page++) {  // cap pagination
+    const json = await osGet<{ nfts?: Array<{ identifier?: string; collection?: string }>; next?: string }>(
+      `chain/solana/account/${address}/nfts?limit=50${next ? `&next=${next}` : ''}`, key)
+    if (!json?.nfts?.length) break
+    for (const n of json.nfts) if (n.identifier && n.collection) out.set(n.identifier, n.collection)
+    if (!json.next) break
+    next = json.next
+  }
+  return out
+}
+
+// ─── Magic Eden (primary Solana floor source — far better coverage than OpenSea) ─
+
+const ME_BASE = 'https://api-mainnet.magiceden.dev/v2'
+
+async function meGet<T>(path: string): Promise<T | null> {
+  try {
+    const res = await fetch(`${ME_BASE}/${path}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(9_000) })
+    if (!res.ok) return null
+    return await res.json() as T
+  } catch { return null }
+}
+
+/** Owned Solana NFT mint → Magic Eden collection symbol (one paginated sweep, no key). */
+async function meWalletSymbols(address: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  for (let page = 0; page < 6; page++) {  // up to 600 NFTs
+    const tokens = await meGet<Array<{ mintAddress?: string; collection?: string }>>(`wallets/${address}/tokens?offset=${page * 100}&limit=100`)
+    if (!tokens?.length) break
+    for (const t of tokens) if (t.mintAddress && t.collection) out.set(t.mintAddress, t.collection)
+    if (tokens.length < 100) break
+  }
+  return out
+}
+
+/** Magic Eden collection floor (lamports → SOL). Cached alongside the OpenSea floors. */
+async function meCollectionFloor(symbol: string): Promise<FloorEntry | null> {
+  const cacheKey = `me:${symbol}`
+  const hit = floorCache.get(cacheKey)
+  if (hit && hit.exp > Date.now()) return hit.value
+  const stats = await meGet<{ floorPrice?: number }>(`collections/${symbol}/stats`)
+  const value: FloorEntry | null = (stats?.floorPrice && stats.floorPrice > 0)
+    ? { floor: stats.floorPrice / 1e9, symbol: 'SOL' } : null
+  floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
+  return value
+}
+
+/**
+ * Attach a USD value to each NFT from its collection floor, then sort the list by
+ * USD value (highest first) — matching how tokens/networks are ordered. EVM/Monad
+ * use OpenSea contract→slug→floor; Solana uses Magic Eden (mint→symbol→floor) with
+ * OpenSea as a fallback. Mutates+returns.
+ */
+async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig, solanaAddress?: string): Promise<WalletCollectible[]> {
+  const key = config.openseaKey
+  const prices = await fetchNativePrices([...items.map(i => i.chain), 'solana'])
+
+  // Solana floors: Magic Eden first (dominant Solana marketplace), OpenSea as a
+  // fallback for collections ME doesn't list. Both are owned-mint → collection sweeps.
+  const hasSolana = items.some(i => i.chain === 'solana')
+  const [meSymbols, solSlugs] = await Promise.all([
+    (hasSolana && solanaAddress) ? meWalletSymbols(solanaAddress) : Promise.resolve(new Map<string, string>()),
+    (hasSolana && solanaAddress && key) ? osSolanaMintSlugs(solanaAddress, key) : Promise.resolve(new Map<string, string>()),
+  ])
+
+  // Collapse items to ONE floor task per collection. Without this, every NFT in a
+  // collection fires its own OpenSea lookup in parallel — a big wallet then makes
+  // hundreds of simultaneous calls, gets rate-limited, and later chains (Monad,
+  // Solana) silently come back empty. Deduped tasks run in small concurrent batches.
+  const taskKeyOf = new Map<WalletCollectible, string | null>()
+  const tasks = new Map<string, () => Promise<FloorEntry | null>>()
+  for (const i of items) {
+    if (i.floorPrice != null) { taskKeyOf.set(i, null); continue }  // already has an inline floor
+    const osChain = OPENSEA_NFT_CHAIN[i.chain]
+    if (!osChain || !key) { taskKeyOf.set(i, null); continue }
+    let tk: string | null = null
+    if (i.chain === 'solana') {
+      const meSym = meSymbols.get(i.tokenId)
+      const osSlug = solSlugs.get(i.tokenId)
+      if (meSym) { tk = `me:${meSym}`; if (!tasks.has(tk)) tasks.set(tk, () => meCollectionFloor(meSym)) }
+      else if (osSlug) { tk = `slug:${osSlug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, key)) }
+    } else {
+      tk = `${osChain}:${i.contractAddress.toLowerCase()}`
+      if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i.contractAddress, key))
+    }
+    taskKeyOf.set(i, tk)
+  }
+
+  const resolved = new Map<string, FloorEntry | null>()
+  const entries = [...tasks.entries()].slice(0, 200)  // hard cap on distinct collections per pass
+  const CONCURRENCY = 6
+  for (let s = 0; s < entries.length; s += CONCURRENCY) {
+    const batch = await Promise.all(entries.slice(s, s + CONCURRENCY).map(async ([k, run]) => [k, await run()] as const))
+    for (const [k, r] of batch) resolved.set(k, r)
+  }
+
+  for (const i of items) {
+    const tk = taskKeyOf.get(i)
+    const f: FloorEntry | null = (i.floorPrice != null)
+      ? { floor: i.floorPrice, symbol: NATIVE_SYMBOL[i.chain] ?? 'ETH' }   // Alchemy inline floor
+      : (tk ? resolved.get(tk) ?? null : null)
+    const cg = f ? (FLOOR_SYMBOL_CG[f.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]) : NATIVE_CG[i.chain]
+    const price = prices[cg] ?? 0
+    i.floorPrice = f?.floor ?? null
+    i.usdValue = (f && f.floor > 0 && price > 0) ? `$${(f.floor * price).toFixed(2)}` : null
+  }
+
+  const usd = (i: WalletCollectible) => parseFloat(i.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
+  items.sort((a, b) => usd(b) - usd(a))
+  return items
+}
+
 export async function fetchAllCollectibles(
   evmAddress: string,
   cardanoAddress: string | undefined,
@@ -992,8 +1165,8 @@ export async function fetchAllCollectibles(
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
-    // Use the caller-resolved AGW (override ?? auto-derive); fall back to deriving.
-    const agwAddress = agw ?? await deriveAgwAddress(evmAddress)
+    // AGW resolved by the caller (override ?? on-chain link); no counterfactual derive.
+    const agwAddress = agw ?? null
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
@@ -1018,6 +1191,9 @@ export async function fetchAllCollectibles(
     if (cardanoAddress) {
       chainResults['cardano'] = { count: cardanoNfts.length, error: null }
     }
+
+    // Value each NFT by collection floor and sort by USD (highest first).
+    await enrichNftFloors(items, config, solanaAddress)
 
     console.log(`[NFT] Total NFTs found: ${items.length}`)
     return { items, fetchedAt: Date.now(), error: null, chainResults }

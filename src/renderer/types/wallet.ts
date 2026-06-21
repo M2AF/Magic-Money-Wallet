@@ -111,6 +111,8 @@ export interface WalletCollectible {
   contractType: string
   traits: NftTrait[]
   source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
+  floorPrice?: number | null   // collection floor in the chain's native unit
+  usdValue?: string | null     // floor × native price, e.g. "$42.10"
 }
 
 export interface NftFloorPrice {

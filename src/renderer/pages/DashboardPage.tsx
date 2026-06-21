@@ -506,28 +506,18 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
 // ─── Collectibles sub-tab ─────────────────────────────────────────────────────
 
 interface CollectiblesViewProps {
+  result: CollectiblesResult | null
+  loading: boolean
   hiddenItems: Set<string>
   spamItems: Set<string>
   onHide: (id: string) => void
   onSpam: (id: string) => void
   onShowManager: () => void
-  onNftsLoaded: (nfts: WalletCollectible[]) => void
   onSelectNft: (nft: WalletCollectible) => void
 }
 
-function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onNftsLoaded, onSelectNft }: CollectiblesViewProps) {
-  const [result, setResult]   = useState<CollectiblesResult | null>(null)
-  const [loading, setLoading] = useState(true)
+function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager, onSelectNft }: CollectiblesViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
-  const notifiedRef = useRef(false)
-
-  useEffect(() => {
-    window.wallet.getCollectibles().then(r => {
-      setResult(r)
-      setLoading(false)
-      if (!notifiedRef.current) { notifiedRef.current = true; onNftsLoaded(r.items) }
-    })
-  }, [onNftsLoaded])
 
   const hiddenCount = result ? result.items.filter(n => hiddenItems.has(nftKey(n)) || spamItems.has(nftKey(n))).length : 0
   const visible     = result ? result.items.filter(n => !hiddenItems.has(nftKey(n)) && !spamItems.has(nftKey(n))) : []
@@ -604,7 +594,12 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
                 )}
               </div>
               <div style={{ padding: '8px 10px' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nft.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nft.name}</div>
+                  {nft.usdValue && (
+                    <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flexShrink: 0 }}>{nft.usdValue}</div>
+                  )}
+                </div>
                 {nft.collectionName && (
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{nft.collectionName}</div>
                 )}
@@ -706,8 +701,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const [showManager, setShowManager] = useState(false)
   const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
   const [tokensLoading, setTokensLoading] = useState(true)
-  const [allNfts,     setAllNfts]     = useState<WalletCollectible[]>([])
+  const [collectibles, setCollectibles] = useState<CollectiblesResult | null>(null)
+  const [collectiblesLoading, setCollectiblesLoading] = useState(true)
   const [selectedNft, setSelectedNft] = useState<WalletCollectible | null>(null)
+  const allNfts = collectibles?.items ?? []
 
   const hideItem = useCallback((id: string) => {
     setHiddenItems(prev => { const next = new Set(prev).add(id); saveSet(hiddenKey, next); return next })
@@ -722,7 +719,17 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
     setSpamItems(prev  => { const next = new Set(prev);  next.delete(id); saveSet(spamKey, next);   return next })
   }, [hiddenKey, spamKey])
 
-  const onNftsLoaded    = useCallback((nfts: WalletCollectible[])   => setAllNfts(nfts),      [])
+  const fetchCollectibles = useCallback(async () => {
+    setCollectiblesLoading(true)
+    try {
+      const result = await window.wallet.getCollectibles()
+      setCollectibles(result)
+    } catch (err) {
+      console.error('Collectibles fetch failed', err)
+    } finally {
+      setCollectiblesLoading(false)
+    }
+  }, [])
 
   const fetchBalances = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
@@ -763,7 +770,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
     fetchBalances()
     fetchHistory()
     fetchTokens()
-  }, [fetchBalances, fetchHistory, fetchTokens])
+    fetchCollectibles()
+  }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles])
 
   const switchAccount = async (newIndex: number) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return
@@ -771,12 +779,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
     setBalances(null)
     setHistory(null)
     setTokensResult(null)
+    setCollectibles(null)
     try {
       const newAddresses = await window.wallet.setAccount(newIndex)
       setLocalAddresses(newAddresses)
       fetchBalances()
       fetchHistory()
       fetchTokens()
+      fetchCollectibles()
     } catch (err) {
       console.error('Account switch failed', err)
     } finally {
@@ -799,7 +809,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       .map(t => t.usdValue ? parseFloat(t.usdValue.replace(/[$,]/g, '')) : 0)
       .reduce((a, b) => a + b, 0)
 
-    const total = chainTotal + tokenTotal
+    // NFTs valued at collection floor (hidden/spam excluded).
+    const nftTotal = allNfts
+      .filter(n => { const k = nftKey(n); return !hiddenItems.has(k) && !spamItems.has(k) })
+      .map(n => n.usdValue ? parseFloat(n.usdValue.replace(/[$,]/g, '')) : 0)
+      .reduce((a, b) => a + b, 0)
+
+    const total = chainTotal + tokenTotal + nftTotal
     return total > 0 ? `$${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : null
   })()
 
@@ -905,12 +921,12 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       </div>
 
       {/* Tab content */}
-      {portfolioTab === 'networks' && localAddresses.agw && (
+      {portfolioTab === 'networks' && (
         <AgwPanel
           addresses={localAddresses}
           balance={balances?.chains['abstract-agw'] ?? null}
           onSend={() => setSendChain('abstract-agw')}
-          onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens() }}
+          onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
         />
       )}
       {portfolioTab === 'networks' && sortedChains(balances).map(chainId => (
@@ -937,12 +953,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
       )}
       {portfolioTab === 'collectibles' && (
         <CollectiblesView
+          result={collectibles}
+          loading={collectiblesLoading}
           hiddenItems={hiddenItems}
           spamItems={spamItems}
           onHide={hideItem}
           onSpam={markSpam}
           onShowManager={() => setShowManager(true)}
-          onNftsLoaded={onNftsLoaded}
           onSelectNft={setSelectedNft}
         />
       )}

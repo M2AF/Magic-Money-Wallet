@@ -46,10 +46,12 @@ function walletPreloadPath(): string {
   return join(__dirname, '../preload/index.js')
 }
 
-// Preload for connect/auth popups — injects the branded MagicMoney titlebar.
-// Built by build:inject into out/inject/ alongside web3-inject.js.
-function popupChromePath(): string {
-  return join(__dirname, '../inject/popup-chrome.js')
+// Preload for connect/auth popups — combines the branded MagicMoney titlebar
+// with the full web3 provider (window.ethereum + EIP-6963) so flows like
+// Abstract Global Wallet "Login with Wallet" can detect MagicMoney and sign
+// INSIDE the popup. Built by build:inject into out/inject/popup-connect.js.
+function popupConnectPath(): string {
+  return join(__dirname, '../inject/popup-connect.js')
 }
 
 function isSafe(url: string): boolean {
@@ -237,7 +239,9 @@ function attachDappView(): void {
         frame: false,             // frameless — we draw our own branded titlebar
         backgroundColor: '#0b1220',
         webPreferences: {
-          preload: popupChromePath(),  // injects the MagicMoney titlebar overlay
+          // Titlebar + full web3 provider, so AGW/Privy "Login with Wallet" and
+          // other in-popup wallet flows can detect MagicMoney and sign here.
+          preload: popupConnectPath(),
           contextIsolation: true,
           sandbox: true,
           nodeIntegration: false

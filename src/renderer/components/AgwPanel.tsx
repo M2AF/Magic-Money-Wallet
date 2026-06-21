@@ -37,6 +37,12 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
     setTimeout(() => setCopied(false), 1800)
   }
 
+  const openPortal = () => {
+    window.wallet.openBrowser()
+    // Give the browser window a moment to create its web view, then navigate.
+    setTimeout(() => { window.wallet.browserNavigate('https://portal.abs.xyz').catch(() => {}) }, 500)
+  }
+
   const apply = async (address: string | null) => {
     setBusy(true)
     setError(null)
@@ -63,11 +69,13 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
           <div>
             <div className="chain-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               Abstract Smart Wallet
-              <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 99, fontWeight: 700, background: owned ? 'rgba(31,206,146,0.16)' : 'rgba(148,163,184,0.16)', color: owned ? AGW_GREEN : 'var(--text-muted)' }}>
-                {owned ? 'Connected' : 'Watch-only'}
-              </span>
+              {agw && (
+                <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 99, fontWeight: 700, background: owned ? 'rgba(31,206,146,0.16)' : 'rgba(148,163,184,0.16)', color: owned ? AGW_GREEN : 'var(--text-muted)' }}>
+                  {owned ? 'Connected' : 'Watch-only'}
+                </span>
+              )}
             </div>
-            <div className="chain-networks">Abstract Global Wallet (AGW)</div>
+            <div className="chain-networks">{agw ? 'Abstract Global Wallet (AGW)' : 'Not linked — add your AGW address'}</div>
           </div>
         </div>
 
@@ -97,9 +105,17 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
         </div>
       )}
 
+      {/* Watch-only explainer — most AGWs are controlled by an Abstract/Privy
+          signer, so this app can't sign for them directly; writes go via the portal. */}
+      {agw && !owned && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4, marginTop: 8 }}>
+          Read-only here — this AGW is controlled by Abstract/Privy, not your wallet key. Open the portal to send or manage it.
+        </div>
+      )}
+
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        {owned && (
+        {owned ? (
           <button
             type="button"
             onClick={onSend}
@@ -108,13 +124,21 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
             <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             Send ETH
           </button>
-        )}
+        ) : agw ? (
+          <button
+            type="button"
+            onClick={openPortal}
+            style={{ flex: 1, padding: '8px 12px', background: 'rgba(31,206,146,0.12)', border: '1px solid rgba(31,206,146,0.35)', borderRadius: 'var(--radius-sm)', color: AGW_GREEN, fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+          >
+            Open Abstract Portal ↗
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => { setEditing(e => !e); setInput(addresses.agw ?? ''); setError(null) }}
-          style={{ flex: owned ? '0 0 auto' : 1, padding: '8px 12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+          style={{ flex: agw ? '0 0 auto' : 1, padding: '8px 12px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
         >
-          {editing ? 'Cancel' : 'Edit address'}
+          {editing ? 'Cancel' : agw ? 'Edit address' : 'Add address'}
         </button>
       </div>
 
