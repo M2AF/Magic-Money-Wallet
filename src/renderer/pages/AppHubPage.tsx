@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import APP_HUB, { AppEntry } from '../data/app-hub'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 
 const ALL = 'All'
+
+interface DropdownOption { value: string; label: string; count?: number }
 
 interface TabProps {
   onWcOpen?: () => void
@@ -16,6 +18,7 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
   const [chainFilter, setChainFilter]       = useState<string>(ALL)
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
   const [search, setSearch]                 = useState('')
+  const [openDropdown, setOpenDropdown]     = useState<'category' | 'chain' | null>(null)
 
   const filtered = useMemo<AppEntry[]>(() => {
     const q = search.trim().toLowerCase()
@@ -75,39 +78,32 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
         />
       </div>
 
-      {/* ── Category pills ───────────────────────────────────── */}
-      <div className="apphub-pills-row">
-        <button
-          className={`apphub-pill${categoryFilter === ALL ? ' active' : ''}`}
-          onClick={() => setCategoryFilter(ALL)}
-        >All</button>
-        {APP_HUB.categories.map(c => (
-          <button
-            key={c.name}
-            className={`apphub-pill${categoryFilter === c.name ? ' active' : ''}`}
-            onClick={() => setCategoryFilter(c.name)}
-          >
-            {c.short}
-            <span className="apphub-pill-count">{c.count}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* ── Chain pills ──────────────────────────────────────── */}
-      <div className="apphub-pills-row apphub-chains-row">
-        <button
-          className={`apphub-pill chain-pill${chainFilter === ALL ? ' active' : ''}`}
-          onClick={() => setChainFilter(ALL)}
-        >All chains</button>
-        {APP_HUB.chains.map(ch => (
-          <button
-            key={ch.id}
-            className={`apphub-pill chain-pill${chainFilter === ch.id ? ' active' : ''}`}
-            onClick={() => setChainFilter(ch.id)}
-          >
-            {ch.label}
-          </button>
-        ))}
+      {/* ── Filters (dropdowns) ──────────────────────────────── */}
+      <div className="apphub-filters-row">
+        <FilterDropdown
+          label="Category"
+          value={categoryFilter}
+          options={[
+            { value: ALL, label: 'All Categories' },
+            ...APP_HUB.categories.map(c => ({ value: c.name, label: c.short, count: c.count })),
+          ]}
+          onChange={setCategoryFilter}
+          open={openDropdown === 'category'}
+          onToggle={() => setOpenDropdown(o => (o === 'category' ? null : 'category'))}
+          onClose={() => setOpenDropdown(null)}
+        />
+        <FilterDropdown
+          label="Chain"
+          value={chainFilter}
+          options={[
+            { value: ALL, label: 'All Chains' },
+            ...APP_HUB.chains.map(ch => ({ value: ch.id, label: ch.label })),
+          ]}
+          onChange={setChainFilter}
+          open={openDropdown === 'chain'}
+          onToggle={() => setOpenDropdown(o => (o === 'chain' ? null : 'chain'))}
+          onClose={() => setOpenDropdown(null)}
+        />
       </div>
 
       {/* ── Results ──────────────────────────────────────────── */}
@@ -131,6 +127,74 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
               </div>
             </>
           )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange,
+  open,
+  onToggle,
+  onClose,
+}: {
+  label: string
+  value: string
+  options: DropdownOption[]
+  onChange: (v: string) => void
+  open: boolean
+  onToggle: () => void
+  onClose: () => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open, onClose])
+
+  const selected = options.find(o => o.value === value) ?? options[0]
+  const isFiltered = value !== options[0].value
+
+  return (
+    <div className="apphub-dropdown" ref={ref}>
+      <button
+        className={`apphub-dropdown-btn${isFiltered ? ' active' : ''}`}
+        onClick={onToggle}
+      >
+        <span className="apphub-dropdown-prefix">{label}</span>
+        <span className="apphub-dropdown-value">{selected.label}</span>
+        <svg
+          className={`apphub-dropdown-caret${open ? ' open' : ''}`}
+          width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="apphub-dropdown-menu">
+          {options.map(o => (
+            <button
+              key={o.value}
+              className={`apphub-dropdown-item${o.value === value ? ' active' : ''}`}
+              onClick={() => {
+                onChange(o.value)
+                onClose()
+              }}
+            >
+              <span>{o.label}</span>
+              {o.count != null && <span className="apphub-dropdown-count">{o.count}</span>}
+            </button>
+          ))}
         </div>
       )}
     </div>

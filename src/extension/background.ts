@@ -711,8 +711,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'web3:solana:sign': {
       const bytes = new Uint8Array(a0 as number[])
       const mnemonic = await store.loadMnemonic()
-      const keypair = await getSolanaKeypair(mnemonic)
-      return Array.from(keypair.sign(bytes))
+      const addresses = await store.loadAddresses()
+      const keypair = await getSolanaKeypair(mnemonic, addresses?.accountIndex ?? 0)
+      // @solana/web3.js Keypair has NO .sign() method. Ed25519-sign the raw
+      // message bytes with the 32-byte seed (secretKey = seed||pubkey).
+      const { ed25519 } = await import('@noble/curves/ed25519')
+      return Array.from(ed25519.sign(bytes, keypair.secretKey.slice(0, 32)))
     }
 
     case 'web3:solana:sign-and-send': {

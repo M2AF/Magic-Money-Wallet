@@ -4,8 +4,8 @@
 //
 // Source file is resolved in this order:
 //   1. APPHUB_SRC env variable (absolute path)
-//   2. ../chainlens/app-hub-data.js  (sibling ChainLens repo at C:\Users\balla\Desktop\ChainLens\chainlens)
-//   3. ChainLens_Files/app-hub-data.js  (legacy local copy fallback)
+//   2. ChainLens_Files/app-hub-data.js  (the in-repo copy you edit — canonical source)
+//   3. ../chainlens/app-hub-data.js  (sibling ChainLens repo fallback)
 
 const fs  = require('fs')
 const vm  = require('vm')
@@ -13,8 +13,8 @@ const path = require('path')
 
 const candidates = [
   process.env.APPHUB_SRC,
-  path.join(__dirname, '../../chainlens/app-hub-data.js'),
   path.join(__dirname, '../ChainLens_Files/app-hub-data.js'),
+  path.join(__dirname, '../../chainlens/app-hub-data.js'),
 ].filter(Boolean)
 
 const srcPath = candidates.find(p => fs.existsSync(p))
@@ -34,12 +34,23 @@ vm.runInNewContext(code, ctx)
 
 const data = ctx.window.appHubData
 
-// Google faviconV2 returns 404 for http:// URLs — upgrade to https://
-data.apps.forEach(app => {
-  if (app.favicon) {
-    app.favicon = app.favicon.replace(/url=http:\/\//g, 'url=https://')
-  }
-})
+// Normalize each app to exactly the AppEntry shape below. The source data may
+// carry incidental extra fields (e.g. categoryMeta) that the renderer doesn't
+// use — stripping them here keeps the generated TS valid against AppEntry no
+// matter what the source adds.
+data.apps = data.apps.map(app => ({
+  id:          app.id,
+  name:        app.name,
+  website:     app.website,
+  category:    app.category,
+  chains:      app.chains,
+  featured:    !!app.featured,
+  // Google faviconV2 returns 404 for http:// URLs — upgrade to https://
+  favicon:     (app.favicon || '').replace(/url=http:\/\//g, 'url=https://'),
+  description: app.description || '',
+  chainCount:  app.chainCount,
+  coverage:    app.coverage,
+}))
 
 const ts = `// AUTO-GENERATED — do not edit by hand.
 // Source: ChainLens_Files/app-hub-data.js

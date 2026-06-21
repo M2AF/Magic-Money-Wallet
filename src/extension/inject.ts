@@ -241,9 +241,18 @@ const _wsMagicMoney = {
     },
     'solana:signMessage': {
       version: '1.0.0',
-      async signMessage({ message }: { message: Uint8Array; account?: unknown }) {
-        const sig = await send<number[]>('web3:solana:sign', [Array.from(message)])
-        return { signature: new Uint8Array(sig), signedMessage: message }
+      // Wallet Standard: accept N inputs, return N outputs as an ARRAY. Returning
+      // a single object made dApps (OpenSea) read result[0] as undefined →
+      // "Wallet error occurred".
+      async signMessage(...inputs: { message: Uint8Array; account?: unknown }[]) {
+        return Promise.all(inputs.map(async (input) => {
+          const sig = await send<number[]>('web3:solana:sign', [Array.from(input.message)])
+          return {
+            signedMessage: input.message,
+            signature: new Uint8Array(sig),
+            signatureType: 'ed25519' as const
+          }
+        }))
       }
     },
   },

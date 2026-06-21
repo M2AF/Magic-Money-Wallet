@@ -6,7 +6,10 @@
   "private": true,
   "scripts": {
     "build:inject": "npx esbuild src/preload/web3-inject.ts src/preload/popup-chrome.ts src/preload/approval-preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=out/inject",
+    "apphub": "node scripts/convert-apphub.js",
+    "predev": "node scripts/convert-apphub.js",
     "dev": "npm run build:inject && electron-vite dev",
+    "prebuild": "node scripts/convert-apphub.js",
     "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",
     "package": "npm run build && electron-builder",
