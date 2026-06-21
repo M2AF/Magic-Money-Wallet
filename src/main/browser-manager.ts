@@ -16,8 +16,10 @@
  * the MAIN wallet window so the user sees them inside the wallet UI.
  */
 
-import { WebContentsView, BrowserWindow, dialog, shell, app } from 'electron'
+import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain } from 'electron'
+import type { IpcMainEvent } from 'electron'
 import { join } from 'path'
+import { WALLET_ICON } from '../preload/wallet-icon'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
 
@@ -304,22 +306,123 @@ export function getBrowserState() {
 
 export function getMainWin(): BrowserWindow | null { return mainWin }
 
+// ── Branded approval / signing window ────────────────────────────────────────
+// Replaces the native dialog.showMessageBox() prompts with an in-house frameless
+// window styled to match the wallet (MagicMoney titlebar + dark UI). The content
+// is OUR HTML, so we control the look entirely; the user's decision comes back
+// over the `approval:respond` IPC.
+
+export interface ApprovalOptions {
+  title: string          // window title (accessibility / taskbar)
+  heading: string        // bold prompt line
+  detail: string         // body text (message / tx / address)
+  confirmLabel: string   // 'Sign' | 'Connect' | 'Send' | …
+  tone?: 'primary' | 'danger'
+  origin?: string        // shown in the titlebar (🔒 origin)
+}
+
+function approvalPreloadPath(): string {
+  return join(__dirname, '../inject/approval-preload.js')
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
+function buildApprovalHtml(opts: ApprovalOptions): string {
+  const accent = opts.tone === 'danger' ? '#f59e0b' : '#2563eb'
+  const accentHover = opts.tone === 'danger' ? '#d97706' : '#1d4ed8'
+  const originBadge = opts.origin ? `🔒 ${escapeHtml(opts.origin)}` : ''
+  // Our own trusted content (all dynamic values are HTML-escaped) loaded from a
+  // data: URL — no CSP so the inline button handlers are guaranteed to fire.
+  return `<!doctype html><html><head><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#0b1220;color:#e5e7eb;font:14px/1.5 -apple-system,'Segoe UI',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  #bar{height:36px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 6px 0 10px;background:#0b1220;border-bottom:1px solid rgba(255,255,255,.08);-webkit-app-region:drag;user-select:none}
+  #bar img{width:18px;height:18px;border-radius:5px;flex:0 0 auto}
+  #bar .nm{font-weight:700;color:#f1f5f9;font-size:12px;flex:0 0 auto}
+  #bar .og{flex:1 1 auto;text-align:center;color:#9aa4b2;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #bar .x{-webkit-app-region:no-drag;cursor:pointer;border:0;background:transparent;color:#9aa4b2;font-size:13px;width:28px;height:24px;border-radius:6px}
+  #bar .x:hover{background:rgba(255,90,90,.18);color:#ff6b6b}
+  main{flex:1 1 auto;display:flex;flex-direction:column;padding:18px 18px 0;min-height:0}
+  h1{font-size:16px;font-weight:700;color:#f8fafc;margin-bottom:12px}
+  .detail{flex:1 1 auto;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:#cbd5e1}
+  footer{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;padding:14px 18px 18px}
+  button.act{-webkit-app-region:no-drag;cursor:pointer;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700;transition:background .12s}
+  .confirm{background:${accent};color:#fff}
+  .confirm:hover{background:${accentHover}}
+  .reject{background:transparent;color:#9aa4b2;border:1px solid rgba(255,255,255,.12)}
+  .reject:hover{background:rgba(255,255,255,.05);color:#e5e7eb}
+</style></head><body>
+  <div id="bar">
+    <img src="${WALLET_ICON}"/>
+    <span class="nm">MagicMoney</span>
+    <span class="og">${originBadge}</span>
+    <button class="x" onclick="__mmApproval__.respond(false)" title="Close">✕</button>
+  </div>
+  <main>
+    <h1>${escapeHtml(opts.heading)}</h1>
+    <div class="detail">${escapeHtml(opts.detail)}</div>
+  </main>
+  <footer>
+    <button class="act confirm" onclick="__mmApproval__.respond(true)">${escapeHtml(opts.confirmLabel)}</button>
+    <button class="act reject" onclick="__mmApproval__.respond(false)">Reject</button>
+  </footer>
+</body></html>`
+}
+
 /**
- * Owner window for a dApp signing dialog: the main WALLET window.
- *
- * CRITICAL: do NOT call show()/focus() on the window right before
- * dialog.showMessageBox(). On Windows, programmatically activating the owner
- * window races with the native modal's own activation and leaves the dialog
- * visible but completely inert — you can't click "Sign" or even close it. The
- * native modal raises itself to the foreground when shown, so it needs no help.
- * We only un-minimize the owner so the modal isn't hidden behind a minimized
- * window.
+ * Shows the branded approval window and resolves true (confirmed) / false
+ * (rejected or closed). Parented to the dApp browser popup when it's open (where
+ * the user is looking), otherwise the main wallet window.
  */
-export function raiseDappDialogParent(): BrowserWindow | undefined {
-  const target =
-    mainWin && !mainWin.isDestroyed() ? mainWin
-    : popupWin && !popupWin.isDestroyed() ? popupWin
-    : BrowserWindow.getAllWindows().find(w => !w.isDestroyed())
-  if (target && target.isMinimized()) target.restore()
-  return target
+export function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    const parent =
+      popupWin && !popupWin.isDestroyed() ? popupWin
+      : mainWin && !mainWin.isDestroyed() ? mainWin
+      : undefined
+    if (parent?.isMinimized()) parent.restore()
+
+    const win = new BrowserWindow({
+      width: 440,
+      height: 560,
+      parent,
+      resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      frame: false,
+      show: false,
+      backgroundColor: '#0b1220',
+      title: opts.title,
+      webPreferences: {
+        preload: approvalPreloadPath(),
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false
+      }
+    })
+
+    let settled = false
+    const finish = (approved: boolean): void => {
+      if (settled) return
+      settled = true
+      ipcMain.removeListener('approval:respond', onRespond)
+      if (!win.isDestroyed()) win.close()
+      resolve(approved)
+    }
+    const onRespond = (event: IpcMainEvent, approved: boolean): void => {
+      if (!win.isDestroyed() && event.sender === win.webContents) finish(!!approved)
+    }
+
+    ipcMain.on('approval:respond', onRespond)
+    win.on('closed', () => finish(false))   // closing the window counts as reject
+    win.once('ready-to-show', () => win.show())
+    win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(buildApprovalHtml(opts)))
+  })
 }

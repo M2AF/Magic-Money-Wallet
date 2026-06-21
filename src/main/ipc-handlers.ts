@@ -10,10 +10,12 @@ import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
+import { ed25519 } from '@noble/curves/ed25519'
 import {
   generateMnemonic,
   validateMnemonic,
-  deriveAddresses
+  deriveAddresses,
+  getSolanaKeypair
 } from './wallet-core'
 import {
   saveMnemonic,
@@ -39,7 +41,7 @@ import {
   browserHome,
   getBrowserState,
   getMainWin,
-  raiseDappDialogParent
+  showApprovalWindow
 } from './browser-manager'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
@@ -426,8 +428,6 @@ export function registerIpcHandlers(): void {
     event,
     { method, params }: { method: string; params: unknown[] }
   ) => {
-    // Always show signing dialogs in the main wallet window, not the popup
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
     const config = loadConfig()
     const origin = getSenderOrigin(event.sender.getURL())
@@ -436,16 +436,14 @@ export function registerIpcHandlers(): void {
       // ── Connection ──────────────────────────────────────────────────────
       case 'eth_requestAccounts': {
         if (getApprovedOrigins().includes(origin) && addresses?.evm) return [addresses.evm]
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'question',
+        const approved = await showApprovalWindow({
           title: 'Connect Wallet',
-          message: `${origin} wants to connect to your wallet`,
+          heading: `${origin} wants to connect to your wallet`,
           detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
-          buttons: ['Connect', 'Reject'],
-          defaultId: 0,
-          cancelId: 1
+          confirmLabel: 'Connect',
+          origin
         })
-        if (response === 1) {
+        if (!approved) {
           const err = Object.assign(new Error('User rejected the request.'), { code: 4001 })
           throw err
         }
@@ -464,16 +462,14 @@ export function registerIpcHandlers(): void {
 
       case 'wallet_requestPermissions': {
         if (!getApprovedOrigins().includes(origin)) {
-          const { response } = await dialog.showMessageBox(win, {
-            type: 'question',
+          const approved = await showApprovalWindow({
             title: 'Connect Wallet',
-            message: `${origin} wants permission to access your EVM account`,
+            heading: `${origin} wants permission to access your EVM account`,
             detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
-            buttons: ['Connect', 'Reject'],
-            defaultId: 0,
-            cancelId: 1
+            confirmLabel: 'Connect',
+            origin
           })
-          if (response === 1) {
+          if (!approved) {
             throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
           }
           addApprovedOrigin(origin)
@@ -497,16 +493,14 @@ export function registerIpcHandlers(): void {
         } catch {
           displayText = hexMsg
         }
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'question',
+        const approved = await showApprovalWindow({
           title: 'Sign Message',
-          message: 'A dApp wants you to sign a message',
-          detail: displayText.slice(0, 400),
-          buttons: ['Sign', 'Reject'],
-          defaultId: 0,
-          cancelId: 1
+          heading: 'A dApp wants you to sign a message',
+          detail: displayText.slice(0, 1000),
+          confirmLabel: 'Sign',
+          origin
         })
-        if (response === 1) {
+        if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
         const mnemonic = loadMnemonic()
@@ -518,16 +512,15 @@ export function registerIpcHandlers(): void {
 
       case 'eth_sign': {
         const [, hexMsg] = params as [string, string]
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'warning',
+        const approved = await showApprovalWindow({
           title: 'Sign Data (eth_sign)',
-          message: 'A dApp wants to sign raw data. Only proceed if you trust this site.',
-          detail: hexMsg.slice(0, 200),
-          buttons: ['Sign', 'Reject'],
-          defaultId: 1,
-          cancelId: 1
+          heading: 'A dApp wants to sign raw data. Only proceed if you trust this site.',
+          detail: hexMsg.slice(0, 1000),
+          confirmLabel: 'Sign',
+          tone: 'danger',
+          origin
         })
-        if (response === 1) {
+        if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
         const mnemonic = loadMnemonic()
@@ -545,20 +538,18 @@ export function registerIpcHandlers(): void {
         const valueEth = tx.value
           ? (BigInt(tx.value) / BigInt(1e18)).toString() + ' ETH'
           : '0 ETH'
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'question',
+        const approved = await showApprovalWindow({
           title: 'Send Transaction',
-          message: 'A dApp wants to send a transaction',
+          heading: 'A dApp wants to send a transaction',
           detail: [
             `To: ${tx.to ?? '(contract)'}`,
             `Value: ${valueEth}`,
-            tx.data ? `Data: ${tx.data.slice(0, 60)}…` : 'No data'
+            tx.data ? `Data: ${tx.data.slice(0, 200)}…` : 'No data'
           ].join('\n'),
-          buttons: ['Send', 'Reject'],
-          defaultId: 0,
-          cancelId: 1
+          confirmLabel: 'Send',
+          origin
         })
-        if (response === 1) {
+        if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
         const mnemonic = loadMnemonic()
@@ -584,19 +575,17 @@ export function registerIpcHandlers(): void {
           throw Object.assign(new Error('Invalid typed data payload'), { code: -32602 })
         }
         const domainName = typeof typed?.domain?.name === 'string' ? typed.domain.name : ''
-        const { response } = await dialog.showMessageBox(win, {
-          type: 'question',
+        const approved = await showApprovalWindow({
           title: 'Sign Typed Data',
-          message: 'A dApp wants you to sign structured data (EIP-712)',
+          heading: 'A dApp wants you to sign structured data (EIP-712)',
           detail: [
             `Type: ${typed?.primaryType || '(unknown)'}`,
             domainName ? `Domain: ${domainName}` : ''
           ].filter(Boolean).join('\n'),
-          buttons: ['Sign', 'Reject'],
-          defaultId: 0,
-          cancelId: 1
+          confirmLabel: 'Sign',
+          origin
         })
-        if (response === 1) {
+        if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
         const mnemonic = loadMnemonic()
@@ -617,40 +606,39 @@ export function registerIpcHandlers(): void {
 
   // ── Phase 6: Solana dApp requests ─────────────────────────────────────────
   ipcMain.handle('web3:solana-connect', async () => {
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
+    const approved = await showApprovalWindow({
       title: 'Connect Solana Wallet',
-      message: 'A dApp wants to connect to your Solana wallet',
+      heading: 'A dApp wants to connect to your Solana wallet',
       detail: `Address:\n${addresses?.solana ?? 'Not available'}`,
-      buttons: ['Connect', 'Reject'],
-      defaultId: 0,
-      cancelId: 1
+      confirmLabel: 'Connect'
     })
-    if (response === 1) {
+    if (!approved) {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     }
     return addresses?.solana ?? ''
   })
 
   ipcMain.handle('web3:solana-sign-message', async (_event, messageBytes: number[]) => {
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const decoded = (() => { try { return Buffer.from(messageBytes).toString('utf8') } catch { return `${messageBytes.length} bytes` } })()
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
+    const approved = await showApprovalWindow({
       title: 'Sign Solana Message',
-      message: 'A dApp wants to sign a message with your Solana wallet',
-      detail: decoded.slice(0, 400),
-      buttons: ['Sign', 'Reject'],
-      defaultId: 0,
-      cancelId: 1
+      heading: 'A dApp wants to sign a message with your Solana wallet',
+      detail: decoded.slice(0, 1000),
+      confirmLabel: 'Sign'
     })
-    if (response === 1) {
+    if (!approved) {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     }
-    // Full Solana signing would require nacl here — placeholder signature for now
-    throw new Error('Solana message signing not yet implemented')
+    // Ed25519-sign the raw message bytes with the Solana key. The Solana
+    // secretKey is 64 bytes (32-byte seed + 32-byte pubkey); @noble/curves takes
+    // the 32-byte seed as the private key. Returns the 64-byte signature as a
+    // number[] so it serializes over IPC (preload rebuilds the Uint8Array).
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
+    const seed = keypair.secretKey.slice(0, 32)
+    const signature = ed25519.sign(Uint8Array.from(messageBytes), seed)
+    return Array.from(signature)
   })
 
   // ── CIP-30 Cardano dApp requests ─────────────────────────────────────────
@@ -659,18 +647,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('cardano:is-enabled', () => _cardanoConnected)
 
   ipcMain.handle('cardano:enable', async () => {
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
+    const approved = await showApprovalWindow({
       title: 'Connect Cardano Wallet',
-      message: 'A dApp wants to connect to your Cardano wallet',
+      heading: 'A dApp wants to connect to your Cardano wallet',
       detail: `Address:\n${addresses?.cardano ?? 'Not available'}`,
-      buttons: ['Connect', 'Reject'],
-      defaultId: 0,
-      cancelId: 1
+      confirmLabel: 'Connect'
     })
-    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     _cardanoConnected = true
     return true
   })
@@ -711,32 +695,26 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('cardano:sign-tx', async (_event, txHex: string, _partial: boolean) => {
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
+    const approved = await showApprovalWindow({
       title: 'Sign Transaction',
-      message: 'A dApp wants you to sign a Cardano transaction',
-      buttons: ['Sign', 'Reject'],
-      defaultId: 0,
-      cancelId: 1
+      heading: 'A dApp wants you to sign a Cardano transaction',
+      detail: `Transaction:\n${txHex.slice(0, 200)}${txHex.length > 200 ? '…' : ''}`,
+      confirmLabel: 'Sign'
     })
-    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const mnemonic = loadMnemonic()
     const addresses = loadAddresses()
     return cip30SignTx(txHex, mnemonic, addresses?.accountIndex ?? 0)
   })
 
   ipcMain.handle('cardano:sign-data', async (_event, address: string, payloadHex: string) => {
-    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
+    const approved = await showApprovalWindow({
       title: 'Sign Data',
-      message: 'A dApp wants you to sign data with your Cardano wallet',
-      buttons: ['Sign', 'Reject'],
-      defaultId: 0,
-      cancelId: 1
+      heading: 'A dApp wants you to sign data with your Cardano wallet',
+      detail: `Data:\n${payloadHex.slice(0, 200)}${payloadHex.length > 200 ? '…' : ''}`,
+      confirmLabel: 'Sign'
     })
-    if (response === 1) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const mnemonic = loadMnemonic()
     const addresses = loadAddresses()
     const signingAddr = address || addresses?.cardano || ''

@@ -271,9 +271,17 @@ webFrame.executeJavaScript(`(function () {
       },
       'solana:signMessage': {
         version: '1.0.0',
-        signMessage({ message }) {
-          return call('web3:solana-sign-message', Array.from(message))
-            .then(sig => ({ signature: new Uint8Array(sig), signedMessage: message }));
+        // Wallet Standard: accept N inputs, return N outputs as an ARRAY.
+        // Returning a single object made dApps read result[0] as undefined →
+        // "Wallet error occurred" and a retry (the second popup).
+        signMessage(...inputs) {
+          return Promise.all(inputs.map(input =>
+            call('web3:solana-sign-message', Array.from(input.message)).then(sig => ({
+              signedMessage: input.message,
+              signature: new Uint8Array(sig),
+              signatureType: 'ed25519'
+            }))
+          ));
         }
       },
     },
