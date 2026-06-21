@@ -38,7 +38,8 @@ import {
   browserReload,
   browserHome,
   getBrowserState,
-  getMainWin
+  getMainWin,
+  raiseDappDialogParent
 } from './browser-manager'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
@@ -142,6 +143,48 @@ async function getFullAddresses() {
 
 function getSenderOrigin(url: string): string {
   try { return new URL(url).origin } catch { return 'unknown' }
+}
+
+// ── Forwarded read-RPC de-dup + tiny TTL cache ───────────────────────────────
+// Connected dApps poll the same reads repeatedly. Coalescing concurrent
+// identical calls into one fetch (always safe — same params, same result) and
+// briefly caching the highest-frequency block/gas reads cuts redundant Alchemy
+// round-trips and main-thread JSON work while a dApp is connected.
+const RPC_TTL_METHODS = new Set(['eth_blockNumber', 'eth_gasPrice'])
+const rpcInflight = new Map<string, Promise<unknown>>()
+const rpcTtlCache = new Map<string, { value: unknown; expires: number }>()
+
+async function forwardEvmRpc(method: string, params: unknown[], alchemyKey: string): Promise<unknown> {
+  const key = `${method}|${JSON.stringify(params ?? [])}`
+
+  if (RPC_TTL_METHODS.has(method)) {
+    const hit = rpcTtlCache.get(key)
+    if (hit && hit.expires > Date.now()) return hit.value
+  }
+
+  const existing = rpcInflight.get(key)
+  if (existing) return existing
+
+  const p = (async () => {
+    const res = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    })
+    const data = await res.json() as { result?: unknown; error?: { message: string } }
+    if (data.error) throw new Error(data.error.message)
+    if (RPC_TTL_METHODS.has(method)) {
+      rpcTtlCache.set(key, { value: data.result, expires: Date.now() + 1000 })
+    }
+    return data.result
+  })()
+
+  rpcInflight.set(key, p)
+  try {
+    return await p
+  } finally {
+    rpcInflight.delete(key)
+  }
 }
 
 export function registerIpcHandlers(): void {
@@ -384,7 +427,7 @@ export function registerIpcHandlers(): void {
     { method, params }: { method: string; params: unknown[] }
   ) => {
     // Always show signing dialogs in the main wallet window, not the popup
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
     const config = loadConfig()
     const origin = getSenderOrigin(event.sender.getURL())
@@ -523,24 +566,58 @@ export function registerIpcHandlers(): void {
         return sendEvmFromDapp(mnemonic, accountIndex, tx, config)
       }
 
-      // ── Read-only: proxy to Alchemy ETH mainnet ─────────────────────────
-      default: {
-        const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${config.alchemyKey}`
-        const res = await fetch(alchemyUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+      // ── Typed-data signing (EIP-712) — used by OpenSea / Seaport ────────
+      case 'eth_signTypedData':
+      case 'eth_signTypedData_v3':
+      case 'eth_signTypedData_v4': {
+        // v3/v4: params = [address, typedData]; legacy v1: params = [typedData, address]
+        const rawPayload = method === 'eth_signTypedData' ? params[0] : params[1]
+        let typed: {
+          domain: Record<string, unknown>
+          types: Record<string, unknown>
+          primaryType: string
+          message: Record<string, unknown>
+        }
+        try {
+          typed = (typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload) as typeof typed
+        } catch {
+          throw Object.assign(new Error('Invalid typed data payload'), { code: -32602 })
+        }
+        const domainName = typeof typed?.domain?.name === 'string' ? typed.domain.name : ''
+        const { response } = await dialog.showMessageBox(win, {
+          type: 'question',
+          title: 'Sign Typed Data',
+          message: 'A dApp wants you to sign structured data (EIP-712)',
+          detail: [
+            `Type: ${typed?.primaryType || '(unknown)'}`,
+            domainName ? `Domain: ${domainName}` : ''
+          ].filter(Boolean).join('\n'),
+          buttons: ['Sign', 'Reject'],
+          defaultId: 0,
+          cancelId: 1
         })
-        const data = await res.json() as { result?: unknown; error?: { message: string } }
-        if (data.error) throw new Error(data.error.message)
-        return data.result
+        if (response === 1) {
+          throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+        }
+        const mnemonic = loadMnemonic()
+        const accountIndex = addresses?.accountIndex ?? 0
+        const pk = deriveEvmKey(mnemonic, accountIndex)
+        const account = privateKeyToAccount(pk)
+        // viem's signTypedData is strongly generic; the payload is dynamic dApp input.
+        return account.signTypedData(
+          typed as unknown as Parameters<typeof account.signTypedData>[0]
+        )
       }
+
+      // ── Read-only: proxy to Alchemy ETH mainnet (de-duped + briefly cached) ──
+      default:
+        return forwardEvmRpc(method, params, config.alchemyKey)
     }
   })
 
   // ── Phase 6: Solana dApp requests ─────────────────────────────────────────
   ipcMain.handle('web3:solana-connect', async () => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
@@ -558,7 +635,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('web3:solana-sign-message', async (_event, messageBytes: number[]) => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const decoded = (() => { try { return Buffer.from(messageBytes).toString('utf8') } catch { return `${messageBytes.length} bytes` } })()
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
@@ -582,7 +659,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('cardano:is-enabled', () => _cardanoConnected)
 
   ipcMain.handle('cardano:enable', async () => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const addresses = loadAddresses()
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
@@ -634,7 +711,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('cardano:sign-tx', async (_event, txHex: string, _partial: boolean) => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
       title: 'Sign Transaction',
@@ -650,7 +727,7 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('cardano:sign-data', async (_event, address: string, payloadHex: string) => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    const win = raiseDappDialogParent() ?? BrowserWindow.getAllWindows()[0]
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
       title: 'Sign Data',
@@ -689,8 +766,13 @@ export function registerIpcHandlers(): void {
 
   // ── Phase 9: Avatar picker ────────────────────────────────────────────────
   ipcMain.handle('chainlens:pick-avatar', async () => {
-    const win = getMainWin() ?? BrowserWindow.getAllWindows()[0]
-    const { filePaths, canceled } = await dialog.showOpenDialog(win, {
+    // Profile picker is a wallet action — keep it on the main wallet window.
+    const avatarWin = getMainWin() ?? BrowserWindow.getAllWindows()[0]
+    if (avatarWin && !avatarWin.isDestroyed()) {
+      if (avatarWin.isMinimized()) avatarWin.restore()
+      avatarWin.focus()
+    }
+    const { filePaths, canceled } = await dialog.showOpenDialog(avatarWin, {
       title: 'Choose Profile Photo',
       filters: [{ name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] }],
       properties: ['openFile']

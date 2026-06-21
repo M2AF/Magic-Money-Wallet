@@ -6,10 +6,10 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        input: {
-          index: 'src/main/index.ts',
-          'web3-inject': 'src/preload/web3-inject.ts'
-        }
+        // web3-inject.ts is the dApp-browser preload. It is built separately by
+        // the `build:inject` esbuild script into out/inject/ (a directory
+        // electron-vite never manages, so it is never wiped on rebuild).
+        input: { index: 'src/main/index.ts' }
       }
     }
   },

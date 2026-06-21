@@ -10,7 +10,7 @@
  *   ├── Chrome renderer: src/renderer/browser.html (titlebar + address bar)
  *   │   Preload: preload/index.js  — exposes wallet.browserNavigate() etc.
  *   └── WebContentsView (dApp content)
- *       Preload: main/web3-inject.js — exposes window.ethereum / window.solana
+ *       Preload: inject/web3-inject.js — exposes window.ethereum / window.solana
  *
  * Web3 signing dialogs (eth_requestAccounts, personal_sign, etc.) attach to
  * the MAIN wallet window so the user sees them inside the wallet UI.
@@ -35,11 +35,19 @@ const PHISHING_BLOCKLIST = new Set([
 ])
 
 function web3InjectPath(): string {
-  return join(__dirname, 'web3-inject.js')
+  // Built by the `build:inject` esbuild script into out/inject/web3-inject.js.
+  // __dirname is out/main at runtime (dev and packaged) → resolves to out/inject/.
+  return join(__dirname, '../inject/web3-inject.js')
 }
 
 function walletPreloadPath(): string {
   return join(__dirname, '../preload/index.js')
+}
+
+// Preload for connect/auth popups — injects the branded MagicMoney titlebar.
+// Built by build:inject into out/inject/ alongside web3-inject.js.
+function popupChromePath(): string {
+  return join(__dirname, '../inject/popup-chrome.js')
 }
 
 function isSafe(url: string): boolean {
@@ -97,6 +105,15 @@ export function openBrowserWindow(): void {
   popupWin.once('ready-to-show', () => {
     popupWin?.show()
     attachDappView()
+  })
+
+  popupWin.on('close', () => {
+    // A WebContentsView is NOT auto-destroyed when its window closes, so the
+    // dApp renderer (OpenSea etc.) would keep running in the background —
+    // websockets, animation frames, and RPC polling through web3:request —
+    // which starves the wallet window and makes it sluggish to drag long after
+    // the browser is gone. Tear it down while the window is still valid.
+    destroyDappView()
   })
 
   popupWin.on('closed', () => {
@@ -192,16 +209,73 @@ function attachDappView(): void {
   })
 
   dappView.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http')) {
-      dappView?.webContents.loadURL(url)
-    } else {
+    // Non-web schemes (mailto:, etc.) → hand off to the OS.
+    if (!/^https?:\/\//i.test(url)) {
       shell.openExternal(url)
+      return { action: 'deny' }
     }
-    return { action: 'deny' }
+    // Phishing blocklist parity with in-view navigation — block, don't relocate.
+    if (!isSafe(url)) return { action: 'deny' }
+
+    // Open a REAL popup window. Wallet-connect / OAuth flows (Abstract Global
+    // Wallet cross-app connect, Google sign-in, WalletConnect web) rely on
+    // window.open + window.opener.postMessage to return their result to the
+    // dApp. Reloading the URL in the same view broke that channel and left the
+    // approval UI inert (Approve/Reject did nothing). Letting Electron create
+    // the popup keeps the opener relationship and makes it independently
+    // interactive.
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        width: 480,
+        height: 760,
+        minWidth: 360,
+        minHeight: 480,
+        parent: popupWin ?? undefined,
+        frame: false,             // frameless — we draw our own branded titlebar
+        backgroundColor: '#0b1220',
+        webPreferences: {
+          preload: popupChromePath(),  // injects the MagicMoney titlebar overlay
+          contextIsolation: true,
+          sandbox: true,
+          nodeIntegration: false
+        }
+      }
+    }
+  })
+
+  // Configure each popup the dApp opens (auth / wallet-connect windows) so its
+  // own nested popups and external links are handled too.
+  dappView.webContents.on('did-create-window', (childWin) => {
+    childWin.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^https?:\/\//i.test(url) && isSafe(url)) return { action: 'allow' }
+      shell.openExternal(url)
+      return { action: 'deny' }
+    })
   })
 }
 
 // ── Control functions called by IPC handlers ──────────────────────────────
+
+/**
+ * Fully tears down the dApp WebContents so it stops consuming CPU/GPU and
+ * network once the browser is closed. Without this the renderer leaks and the
+ * wallet UI stays laggy. Safe to call multiple times.
+ */
+function destroyDappView(): void {
+  if (!dappView) return
+  try {
+    const wc = dappView.webContents
+    if (popupWin && !popupWin.isDestroyed()) {
+      popupWin.contentView.removeChildView(dappView)
+    }
+    if (wc && !wc.isDestroyed()) {
+      wc.stop()
+      wc.close()
+    }
+  } catch { /* already torn down — safe to ignore */ }
+  dappView = null
+}
 
 export function closeBrowserWindow(): void {
   if (popupWin && !popupWin.isDestroyed()) popupWin.close()
@@ -229,3 +303,23 @@ export function getBrowserState() {
 }
 
 export function getMainWin(): BrowserWindow | null { return mainWin }
+
+/**
+ * Owner window for a dApp signing dialog: the main WALLET window.
+ *
+ * CRITICAL: do NOT call show()/focus() on the window right before
+ * dialog.showMessageBox(). On Windows, programmatically activating the owner
+ * window races with the native modal's own activation and leaves the dialog
+ * visible but completely inert — you can't click "Sign" or even close it. The
+ * native modal raises itself to the foreground when shown, so it needs no help.
+ * We only un-minimize the owner so the modal isn't hidden behind a minimized
+ * window.
+ */
+export function raiseDappDialogParent(): BrowserWindow | undefined {
+  const target =
+    mainWin && !mainWin.isDestroyed() ? mainWin
+    : popupWin && !popupWin.isDestroyed() ? popupWin
+    : BrowserWindow.getAllWindows().find(w => !w.isDestroyed())
+  if (target && target.isMinimized()) target.restore()
+  return target
+}

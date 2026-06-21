@@ -51,24 +51,42 @@ export function walletExists(): boolean {
 export function deleteWallet(): void {
   if (existsSync(walletEncPath())) unlinkSync(walletEncPath())
   if (existsSync(addressesPath())) unlinkSync(addressesPath())
+  addressesCache = null
+  addressesCached = false
 }
 
 // ─── Public addresses (plain JSON, not secrets) ──────────────────────────────
 
+// In-memory caches for the hot read path. Connected dApps poll web3:request
+// many times per second; without caching, each poll did a synchronous
+// readFileSync + JSON.parse on the main thread, stalling window dragging.
+// These values only change through the setters below, so invalidation is exact.
+let addressesCache: WalletAddresses | null = null
+let addressesCached = false
+
 export function saveAddresses(addresses: WalletAddresses): void {
   mkdirSync(userData(), { recursive: true })
   writeFileSync(addressesPath(), JSON.stringify(addresses, null, 2))
+  addressesCache = addresses
+  addressesCached = true
 }
 
 export function loadAddresses(): WalletAddresses | null {
-  if (!existsSync(addressesPath())) return null
+  if (addressesCached) return addressesCache
+  if (!existsSync(addressesPath())) {
+    addressesCache = null
+    addressesCached = true
+    return null
+  }
   try {
     const parsed = JSON.parse(readFileSync(addressesPath(), 'utf-8'))
     // Default accountIndex to 0 for wallets created before multi-account support
-    return { accountIndex: 0, ...parsed }
+    addressesCache = { accountIndex: 0, ...parsed }
   } catch {
-    return null
+    addressesCache = null
   }
+  addressesCached = true
+  return addressesCache
 }
 
 // ─── API config (plain JSON) ─────────────────────────────────────────────────
@@ -103,47 +121,67 @@ const DEFAULT_CONFIG: WalletConfig = {
   simpleSwapApiKey: 'e7f2026e-5e26-41ba-a6ed-dc688d2fcae8'
 }
 
+let configCache: WalletConfig | null = null
+
 export function loadConfig(): WalletConfig {
+  if (configCache) return configCache
   if (!existsSync(configPath())) {
     // Write defaults on first run
     mkdirSync(userData(), { recursive: true })
     writeFileSync(configPath(), JSON.stringify(DEFAULT_CONFIG, null, 2))
-    return DEFAULT_CONFIG
+    configCache = DEFAULT_CONFIG
+    return configCache
   }
   try {
-    return { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(configPath(), 'utf-8')) }
+    configCache = { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(configPath(), 'utf-8')) }
   } catch {
-    return DEFAULT_CONFIG
+    configCache = DEFAULT_CONFIG
   }
+  return configCache ?? DEFAULT_CONFIG
 }
 
 export function saveConfig(config: Partial<WalletConfig>): void {
   const current = loadConfig()
+  const merged = { ...current, ...config }
   mkdirSync(userData(), { recursive: true })
-  writeFileSync(configPath(), JSON.stringify({ ...current, ...config }, null, 2))
+  writeFileSync(configPath(), JSON.stringify(merged, null, 2))
+  configCache = merged
 }
 
 // ─── Approved dApp origins (plain JSON, not secrets) ────────────────────────
 
+let approvedOriginsCache: string[] | null = null
+
 export function getApprovedOrigins(): string[] {
-  if (!existsSync(approvedOriginsPath())) return []
+  if (approvedOriginsCache) return approvedOriginsCache
+  if (!existsSync(approvedOriginsPath())) {
+    approvedOriginsCache = []
+    return approvedOriginsCache
+  }
   try {
     const parsed = JSON.parse(readFileSync(approvedOriginsPath(), 'utf-8'))
-    return Array.isArray(parsed) ? parsed.filter((origin): origin is string => typeof origin === 'string') : []
+    approvedOriginsCache = Array.isArray(parsed)
+      ? parsed.filter((origin): origin is string => typeof origin === 'string')
+      : []
   } catch {
-    return []
+    approvedOriginsCache = []
   }
+  return approvedOriginsCache
 }
 
 export function addApprovedOrigin(origin: string): void {
   const existing = getApprovedOrigins()
   if (existing.includes(origin)) return
+  const next = [...existing, origin]
   mkdirSync(userData(), { recursive: true })
-  writeFileSync(approvedOriginsPath(), JSON.stringify([...existing, origin], null, 2))
+  writeFileSync(approvedOriginsPath(), JSON.stringify(next, null, 2))
+  approvedOriginsCache = next
 }
 
 export function removeApprovedOrigin(origin: string): void {
   const existing = getApprovedOrigins()
+  const next = existing.filter(o => o !== origin)
   mkdirSync(userData(), { recursive: true })
-  writeFileSync(approvedOriginsPath(), JSON.stringify(existing.filter(o => o !== origin), null, 2))
+  writeFileSync(approvedOriginsPath(), JSON.stringify(next, null, 2))
+  approvedOriginsCache = next
 }
