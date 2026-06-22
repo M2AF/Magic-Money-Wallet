@@ -950,25 +950,43 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       </div>
 
       {/* Tab content */}
-      {portfolioTab === 'networks' && (
-        <AgwPanel
-          addresses={localAddresses}
-          balance={balances?.chains['abstract-agw'] ?? null}
-          onSend={() => setSendChain('abstract-agw')}
-          onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
-        />
-      )}
-      {portfolioTab === 'networks' && sortedChains(balances).map(chainId => (
-        <ChainCard
-          key={chainId}
-          chainId={chainId}
-          balance={balances?.chains[chainId] ?? null}
-          address={getAddress(chainId, localAddresses)}
-          loading={loading}
-          onSend={() => setSendChain(chainId)}
-          history={historyFor(chainId)}
-        />
-      ))}
+      {portfolioTab === 'networks' && (() => {
+        // The AGW smart-wallet card is interleaved with the regular chain cards
+        // and sorted by USD value (then native) exactly like any other chain —
+        // its value comes from the synthetic 'abstract-agw' balance entry.
+        const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
+        const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
+        const rows = sortedChains(balances).map(chainId => ({
+          usd: usdOf(chainId),
+          nat: natOf(chainId),
+          node: (
+            <ChainCard
+              key={chainId}
+              chainId={chainId}
+              balance={balances?.chains[chainId] ?? null}
+              address={getAddress(chainId, localAddresses)}
+              loading={loading}
+              onSend={() => setSendChain(chainId)}
+              history={historyFor(chainId)}
+            />
+          )
+        }))
+        rows.push({
+          usd: usdOf('abstract-agw'),
+          nat: natOf('abstract-agw'),
+          node: (
+            <AgwPanel
+              key="abstract-agw"
+              addresses={localAddresses}
+              balance={balances?.chains['abstract-agw'] ?? null}
+              onSend={() => setSendChain('abstract-agw')}
+              onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
+            />
+          )
+        })
+        rows.sort((a, b) => (b.usd - a.usd) || (b.nat - a.nat))
+        return rows.map(r => r.node)
+      })()}
       {portfolioTab === 'tokens' && (
         <TokensView
           result={tokensResult}

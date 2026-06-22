@@ -1405,14 +1405,13 @@ const APP_HUB: AppHubData = {
       "chains": [
         "solana",
         "base",
-        "monad",
-        "bnb-chain"
+        "monad"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=fomo.family&sz=64",
       "description": "A social-first crypto trading app that enables cross-chain trading, real-time social signals, and unified balance management across multiple blockchains.",
-      "chainCount": 4,
-      "coverage": 22
+      "chainCount": 3,
+      "coverage": 17
     },
     {
       "id": "jumper-exchange",

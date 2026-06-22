@@ -9133,32 +9133,53 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false,
         },
         tab
       )) }),
-      portfolioTab === "networks" && /* @__PURE__ */ jsxRuntimeExports.jsx(
-        AgwPanel,
-        {
-          addresses: localAddresses,
-          balance: (balances == null ? void 0 : balances.chains["abstract-agw"]) ?? null,
-          onSend: () => setSendChain("abstract-agw"),
-          onAgwChanged: (updated) => {
-            setLocalAddresses(updated);
-            fetchBalances(true);
-            fetchTokens();
-            fetchCollectibles();
-          }
-        }
-      ),
-      portfolioTab === "networks" && sortedChains(balances).map((chainId) => /* @__PURE__ */ jsxRuntimeExports.jsx(
-        ChainCard,
-        {
-          chainId,
-          balance: (balances == null ? void 0 : balances.chains[chainId]) ?? null,
-          address: getAddress(chainId, localAddresses),
-          loading,
-          onSend: () => setSendChain(chainId),
-          history: historyFor(chainId)
-        },
-        chainId
-      )),
+      portfolioTab === "networks" && (() => {
+        const usdOf = (id2) => {
+          var _a2, _b2;
+          return parseFloat(((_b2 = (_a2 = balances == null ? void 0 : balances.chains[id2]) == null ? void 0 : _a2.usdValue) == null ? void 0 : _b2.replace(/[$,]/g, "")) ?? "0") || 0;
+        };
+        const natOf = (id2) => {
+          var _a2;
+          return parseFloat(((_a2 = balances == null ? void 0 : balances.chains[id2]) == null ? void 0 : _a2.native) ?? "0") || 0;
+        };
+        const rows = sortedChains(balances).map((chainId) => ({
+          usd: usdOf(chainId),
+          nat: natOf(chainId),
+          node: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            ChainCard,
+            {
+              chainId,
+              balance: (balances == null ? void 0 : balances.chains[chainId]) ?? null,
+              address: getAddress(chainId, localAddresses),
+              loading,
+              onSend: () => setSendChain(chainId),
+              history: historyFor(chainId)
+            },
+            chainId
+          )
+        }));
+        rows.push({
+          usd: usdOf("abstract-agw"),
+          nat: natOf("abstract-agw"),
+          node: /* @__PURE__ */ jsxRuntimeExports.jsx(
+            AgwPanel,
+            {
+              addresses: localAddresses,
+              balance: (balances == null ? void 0 : balances.chains["abstract-agw"]) ?? null,
+              onSend: () => setSendChain("abstract-agw"),
+              onAgwChanged: (updated) => {
+                setLocalAddresses(updated);
+                fetchBalances(true);
+                fetchTokens();
+                fetchCollectibles();
+              }
+            },
+            "abstract-agw"
+          )
+        });
+        rows.sort((a, b) => b.usd - a.usd || b.nat - a.nat);
+        return rows.map((r2) => r2.node);
+      })(),
       portfolioTab === "tokens" && /* @__PURE__ */ jsxRuntimeExports.jsx(
         TokensView,
         {
@@ -11984,14 +12005,13 @@ const APP_HUB = {
       "chains": [
         "solana",
         "base",
-        "monad",
-        "bnb-chain"
+        "monad"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=fomo.family&sz=64",
       "description": "A social-first crypto trading app that enables cross-chain trading, real-time social signals, and unified balance management across multiple blockchains.",
-      "chainCount": 4,
-      "coverage": 22
+      "chainCount": 3,
+      "coverage": 17
     },
     {
       "id": "jumper-exchange",
