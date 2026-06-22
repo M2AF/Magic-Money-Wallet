@@ -154,6 +154,23 @@ export async function saveConfig(config: Partial<WalletConfig>): Promise<void> {
   await chrome.storage.local.set({ 'wallet.config': { ...current, ...config } })
 }
 
+// ── Abstract Global Wallet manual override (per account) ──────────────────────
+// Mirrors secure-store.ts's agw-overrides.json, but persisted in chrome.storage.
+
+export async function loadAgwOverride(accountIndex: number): Promise<string | null> {
+  const r = await chrome.storage.local.get('wallet.agw_overrides')
+  const map = (r['wallet.agw_overrides'] ?? {}) as Record<string, string>
+  return map[String(accountIndex)] ?? null
+}
+
+export async function saveAgwOverride(accountIndex: number, address: string | null): Promise<void> {
+  const r = await chrome.storage.local.get('wallet.agw_overrides')
+  const map = { ...((r['wallet.agw_overrides'] ?? {}) as Record<string, string>) }
+  if (address) map[String(accountIndex)] = address
+  else delete map[String(accountIndex)]
+  await chrome.storage.local.set({ 'wallet.agw_overrides': map })
+}
+
 // ── Approved dApp origins ─────────────────────────────────────────────────────
 
 export async function getApprovedOrigins(): Promise<string[]> {

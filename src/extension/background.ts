@@ -14,7 +14,8 @@ import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
 import { getSwapQuote, getSwapTokenList, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote } from '../main/swap-proxy'
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
+import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
@@ -127,6 +128,28 @@ async function deriveEvmKey(): Promise<`0x${string}`> {
   return `0x${toHex(child.privateKey)}` as `0x${string}`
 }
 
+// ── Abstract Global Wallet resolution ─────────────────────────────────────────
+// Mirrors ipc-handlers.ts: resolve the linked AGW (manual override ?? on-chain
+// linked) once and persist agwOwned so we don't re-query the resolver each read.
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveAgw(addresses: any): Promise<any> {
+  const override = await store.loadAgwOverride(addresses.accountIndex ?? 0)
+  const { agw, agwOwned } = await resolveAccountAgw(addresses.evm, override)
+  return { ...addresses, agw, agwOwned }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadFullAddresses(): Promise<any> {
+  let stored = await store.loadAddresses()
+  if (!stored) throw new Error('No wallet')
+  if ((stored as { agwOwned?: boolean }).agwOwned === undefined) {
+    stored = await resolveAgw(stored)
+    await store.saveAddresses(stored)
+  }
+  return stored
+}
+
 // ── Message router ────────────────────────────────────────────────────────────
 
 type Msg = { type: string; args: unknown[] }
@@ -195,12 +218,13 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     // ── Data reads ─────────────────────────────────────────────────────────
 
-    case 'wallet:get-addresses':
-      return store.loadAddresses()
+    case 'wallet:get-addresses': {
+      if (!(await store.loadAddresses())) return null
+      return loadFullAddresses()
+    }
 
     case 'wallet:get-balances': {
-      const addresses = await store.loadAddresses()
-      if (!addresses) throw new Error('No wallet')
+      const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       return fetchAllBalances(addresses, config)
     }
@@ -225,7 +249,8 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wallet:set-account': {
       const idx = Number(a0)
       const mnemonic = await store.loadMnemonic()
-      const addresses = await deriveAddresses(mnemonic, idx)
+      const derived = await deriveAddresses(mnemonic, idx)
+      const addresses = await resolveAgw(derived)
       await store.saveAddresses(addresses)
       return addresses
     }
@@ -263,6 +288,39 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return sendCardanoTransaction(mnemonic, addresses.cardano, String(a0), String(a1), config)
     }
 
+    // ── Abstract Global Wallet: send + manual address override ──────────────
+    case 'wallet:send-agw': {
+      const to = String(a0)
+      const amount = String(a1)
+      const token = a2 as { contractAddress: string; decimals: number } | undefined
+      const addresses = await loadFullAddresses()
+      if (!addresses.agw) throw new Error('No Abstract Global Wallet linked for this account')
+      if (!addresses.agwOwned) throw new Error('This wallet can’t sign for the linked AGW — it is watch-only')
+      const mnemonic = await store.loadMnemonic()
+      const config = await store.loadConfig()
+      return sendAgwTransaction(mnemonic, to, amount, config, addresses.accountIndex ?? 0, { token, agwAddress: addresses.agw })
+    }
+
+    case 'wallet:set-agw': {
+      const accountIndex = Number(a0)
+      const address = a1 == null ? null : String(a1)
+      if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+      if (address != null) {
+        const trimmed = address.trim()
+        if (!/^0x[0-9a-fA-F]{40}$/.test(trimmed)) throw new Error('Invalid Abstract address — must be a 0x… EVM address')
+        await store.saveAgwOverride(accountIndex, trimmed)
+      } else {
+        await store.saveAgwOverride(accountIndex, null)
+      }
+      const current = await store.loadAddresses()
+      if (current && (current.accountIndex ?? 0) === accountIndex) {
+        const resolved = await resolveAgw(current)
+        await store.saveAddresses(resolved)
+        return resolved
+      }
+      return current
+    }
+
     // ── Market ─────────────────────────────────────────────────────────────
 
     case 'wallet:get-market':
@@ -275,17 +333,19 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return fetchCoinChart(String(a0), String(a1))
 
     case 'wallet:get-tokens': {
-      const addresses = await store.loadAddresses()
-      if (!addresses) throw new Error('No wallet')
+      const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
-      return fetchAllTokens(addresses, config)
+      return fetchAllTokens(
+        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, agw: addresses.agw },
+        config
+      )
     }
 
     case 'wallet:get-collectibles': {
-      const addresses = await store.loadAddresses()
-      if (!addresses) throw new Error('No wallet')
+      const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
-      return fetchAllCollectibles(addresses.evm, addresses.cardano, config)
+      const excludeIds = Array.isArray(a0) ? (a0 as string[]) : undefined
+      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, excludeIds)
     }
 
     case 'swap:getQuote': {

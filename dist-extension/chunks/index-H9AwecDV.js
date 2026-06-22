@@ -1,8 +1,10 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./native-DVo4siv2.js","../background.js"])))=>i.map(i=>d[i]);
-import { L as LruMap, g as getTransactionCount, p as parseAbiParameter$1, m as modifiers, a as parseStructs, i as isStructSignature, I as InvalidAbiParameterError, b as getAction, r as readContract, s as simulateContract, c as createContractEventFilter, d as getContractEvents, w as watchContractEvent, e as writeContract, f as estimateContractGas, A as AbiEncodingLengthMismatchError, h as concatHex, j as isAddress, k as InvalidAddressError, l as pad, n as stringToHex, o as boolToHex, q as integerRegex, t as numberToHex, u as bytesRegex, B as BytesSizeMismatchError, v as arrayRegex, U as UnsupportedPackedAbiType, x as toBytes, y as getAddress, z as keccak256, C as slice, D as concat, E as toRlp, F as localBatchGatewayUrl, G as decodeFunctionResult, H as encodeFunctionData, J as decodeErrorResult, K as batchGatewayAbi, M as solidityError, N as HttpRequestError, O as InvalidHexValueError, P as hexToBytes, Q as createCursor, R as bytesToHex, S as BaseError, T as isHex, V as size, W as ripemd160$1, X as toHex, Y as createBatchScheduler, Z as withTimeout, _ as TimeoutError, $ as idCache, a0 as SocketClosedError, a1 as __vitePreload, a2 as WebSocketRequestError, a3 as sliceHex, a4 as validate, a5 as decodeAbiParameters, a6 as unwrap, a7 as recoverAddress, a8 as hashMessage, a9 as hashTypedData, aa as encodeAbiParameters, ab as wrap, ac as isAddressEqual, ad as hexToNumber, ae as InvalidSerializedTransactionTypeError, af as InvalidSerializedTransactionError, ag as hexToBigInt, ah as assertTransactionEIP1559, ai as assertTransactionEIP2930, aj as toBlobSidecars, ak as assertTransactionEIP4844, al as assertTransactionEIP7702, am as assertTransactionLegacy, an as InvalidLegacyVError, ao as trim, ap as padHex, aq as parseUnits, ar as gweiUnits, as as extract, at as formatTransactionRequest, au as createClient, av as createTransport, aw as TransactionRejectedRpcError, ax as UserRejectedRequestError, ay as WalletConnectSessionSettlementError, az as ExecutionRevertedError, aA as wait, aB as UrlRequiredError, aC as RpcRequestError, aD as AbiConstructorNotFoundError, aE as AbiConstructorParamsNotFoundError, aF as commitmentToVersionedHash, aG as EnsInvalidChainIdError, aH as secp256k1, aI as serializeTransaction, aJ as parseEther, aK as createWalletClient, aL as http } from "../background.js";
-import { aM, aN, aO, aP, aQ, aR, aS, aT, aU, aV, aW, aX, aY, aZ, a_, a$, b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, ba, bb, bc, bd, be, bf, bg, bh, bi, bj, bk, bl, bm, bn, bo, bp, bq, br, bs, bt, bu, bv, bw, bx, by, bz, bA, bB, bC, bD, bE, bF, bG, bH, bI, bJ, bK, bL, bM, bN, bO, bP, bQ, bR, bS, bT, bU, bV, bW, bX, bY, bZ, b_, b$, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, ca, cb, cc, cd, ce, cf, cg, ch, ci, cj, ck, cl, cm, cn, co, cp, cq, cr, cs, ct, cu, cv, cw, cx, cy, cz, cA, cB, cC, cD, cE, cF, cG, cH, cI, cJ, cK, cL, cM, cN, cO, cP, cQ, cR, cS, cT, cU, cV, cW, cX, cY, cZ, c_, c$, d0, d1, d2, d3, d4, d5, d6, d7, d8, d9, da, db, dc, dd, de, df, dg, dh, di, dj, di as di2, dk, dl, dm, dn, dp, dq, dr, ds, dt, du, dv, dw, dx, dy, dz, dA, dB, dC, dD, dE, dF, dG, dH, dI, dJ, dK, dL, dM, dN, dO, dP, dQ, dR, dS, dT, dU, dV, dW, dX, dY, dZ, d_, d$, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, ea, eb, ec, ed, ee, ef, eg, eh, ei, ej, ek, el, em, en, eo, ep, eq, er, es, et, eu, ev, ew, ex, ey, ez, eA, eB, eC, eD, eE, eF, eG, eH, eI, eJ, eK, eL, eM, eN, eO, eP, eQ, eR, eS, eT, eU, eV, eW, eX, eY, eZ, e_, e$, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, fa, fb, fc, fd, fe, ff, fc as fc2, fg, fh, fi, fj, fk, dh as dh2, di as di3, fk as fk2, dj as dj2, di as di4, fl, fm, c$ as c$2, d0 as d02, fn, fo, fp, fq, fr, fs } from "../background.js";
-import { ccipRequest } from "./ccip-DqswiKlF.js";
-import { offchainLookup, offchainLookupAbiItem, offchainLookupSignature } from "./ccip-DqswiKlF.js";
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["./native-BtLK-bZi.js","../background.js"])))=>i.map(i=>d[i]);
+import { ag as LruMap, $ as getTransactionCount, ah as parseAbiParameter$1, ai as modifiers, aj as parseStructs, ak as isStructSignature, al as InvalidAbiParameterError, y as getAction, F as readContract, am as simulateContract, an as createContractEventFilter, ao as getContractEvents, ap as watchContractEvent, ac as writeContract, aq as estimateContractGas, ar as AbiEncodingLengthMismatchError, p as concatHex, aa as isAddress, ab as InvalidAddressError, as as pad, at as stringToHex, au as boolToHex, av as integerRegex, aw as numberToHex, ax as bytesRegex, ay as BytesSizeMismatchError, az as arrayRegex, aA as UnsupportedPackedAbiType, t as toBytes, D as getAddress, u as keccak256, aB as slice, h as concat, aC as toRlp, l as localBatchGatewayUrl, aD as decodeFunctionResult, A as encodeFunctionData, d as decodeErrorResult, aE as batchGatewayAbi, aF as solidityError, H as HttpRequestError, i as isHex, aG as size, aH as ripemd160$1, v as toHex, aI as createBatchScheduler, aJ as withTimeout, aK as TimeoutError, aL as idCache, aM as SocketClosedError, aN as __vitePreload, aO as WebSocketRequestError, aP as sliceHex, aQ as validate, M as decodeAbiParameters, aR as unwrap, aS as recoverAddress, af as hashMessage, T as hashTypedData, aT as wrap, m as hexToBytes, c as isAddressEqual, aU as hexToNumber, aV as InvalidSerializedTransactionTypeError, aW as InvalidSerializedTransactionError, aX as hexToBigInt, aY as assertTransactionEIP1559, aZ as assertTransactionEIP2930, a_ as toBlobSidecars, a$ as assertTransactionEIP4844, b0 as assertTransactionEIP7702, b1 as assertTransactionLegacy, b2 as InvalidLegacyVError, b3 as trim, b4 as padHex, b5 as parseUnits, b6 as gweiUnits, b7 as extract, b8 as formatTransactionRequest, Y as createClient, q as createTransport, b9 as TransactionRejectedRpcError, ba as UserRejectedRequestError, bb as WalletConnectSessionSettlementError, a3 as ExecutionRevertedError, bc as wait, bd as UrlRequiredError, a2 as RpcRequestError, G as AbiConstructorNotFoundError, J as AbiConstructorParamsNotFoundError, n as createCursor, o as bytesToHex, be as commitmentToVersionedHash, bf as EnsInvalidChainIdError, bg as secp256k1, bh as serializeTransaction, bi as parseEther, Z as createWalletClient, V as http } from "../background.js";
+import { bj, bk, bl, bm, bn, bo, bp, bq, br, bs, bt, bu, bv, bw, bx, by, bz, B, bA, bB, bC, bD, bE, bF, bG, bH, bI, bJ, bK, bL, bM, bN, bO, bP, bQ, bR, bS, bT, bU, bV, bW, bX, bY, bZ, b_, b$, c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, ca, cb, cc, cd, ce, cf, cg, I, ch, ci, a6, cj, ck, cl, cm, cn, co, cp, cq, cr, cs, ct, cu, cv, cw, cx, cy, cz, cA, cB, cC, cD, cE, cF, cG, cH, cI, cJ, cK, cL, cM, cN, cO, cP, a8, cQ, cR, cS, cT, cU, cV, cW, a9, ad, cX, cY, cZ, P, r, c_, c$, d0, d1, d2, d3, d4, ae, d5, d6, d7, W, d8, L, d9, da, db, dc, dd, de, df, dg, j, dh, di, dj, dk, dl, dm, dn, dp, dq, dr, ds, dt, du, dv, dw, dx, dy, dz, dA, dB, dC, dD, x, C, dE, U, dF, dG, N, dG as dG2, dH, dI, dJ, dK, dL, dM, dN, dO, dP, dQ, dR, dS, dT, dU, dV, dW, dX, dY, dZ, d_, d$, e0, e1, e2, e3, e4, e5, e6, e7, e8, e9, ea, eb, ec, ed, ee, ef, eg, eh, ei, ej, ek, el, em, en, eo, ep, eq, er, es, et, eu, ev, ew, ex, ey, ez, eA, eB, eC, eD, eE, eF, eG, eH, eI, eJ, eK, eL, eM, eN, eO, eP, eQ, eR, eS, eT, eU, eV, eW, eX, eY, eZ, e_, e$, f0, f1, f2, f3, f4, f5, f6, f7, f8, f9, fa, fb, fc, fd, fe, ff, fg, fh, fi, fj, fk, fl, fm, fn, fo, R, fp, fq, fr, fs, ft, fu, fv, fw, fx, fy, fz, fA, fx as fx2, fB, fC, s, fD, fE, dF as dF2, dG as dG3, fE as fE2, N as N2, dG as dG4, fF, fG, dq as dq2, dr as dr2, fH, fI, fJ, fK, fL, S } from "../background.js";
+import { e as erc6492MagicBytes, f as fromRlp } from "./custom-BLL-GDtV.js";
+import { c, s as s2, z } from "./custom-BLL-GDtV.js";
+import { ccipRequest } from "./ccip-D0l70fcZ.js";
+import { offchainLookup, offchainLookupAbiItem, offchainLookupSignature } from "./ccip-D0l70fcZ.js";
 function createNonceManager(parameters) {
   const { source } = parameters;
   const deltaMap = /* @__PURE__ */ new Map();
@@ -158,7 +160,7 @@ function getContract({ abi, address, client: client_ }) {
       contract.createEventFilter = new Proxy({}, {
         get(_, eventName) {
           return (...parameters) => {
-            const abiEvent = abi.find((x) => x.type === "event" && x.name === eventName);
+            const abiEvent = abi.find((x2) => x2.type === "event" && x2.name === eventName);
             const { args, options } = getEventParameters(parameters, abiEvent);
             return getAction(publicClient, createContractEventFilter, "createContractEventFilter")({
               abi,
@@ -173,7 +175,7 @@ function getContract({ abi, address, client: client_ }) {
       contract.getEvents = new Proxy({}, {
         get(_, eventName) {
           return (...parameters) => {
-            const abiEvent = abi.find((x) => x.type === "event" && x.name === eventName);
+            const abiEvent = abi.find((x2) => x2.type === "event" && x2.name === eventName);
             const { args, options } = getEventParameters(parameters, abiEvent);
             return getAction(publicClient, getContractEvents, "getContractEvents")({
               abi,
@@ -188,7 +190,7 @@ function getContract({ abi, address, client: client_ }) {
       contract.watchEvent = new Proxy({}, {
         get(_, eventName) {
           return (...parameters) => {
-            const abiEvent = abi.find((x) => x.type === "event" && x.name === eventName);
+            const abiEvent = abi.find((x2) => x2.type === "event" && x2.name === eventName);
             const { args, options } = getEventParameters(parameters, abiEvent);
             return getAction(publicClient, watchContractEvent, "watchContractEvent")({
               abi,
@@ -253,7 +255,7 @@ function getEventParameters(values, abiEvent) {
   if (Array.isArray(values[0]))
     hasArgs = true;
   else if (values.length === 1) {
-    hasArgs = abiEvent.inputs.some((x) => x.indexed);
+    hasArgs = abiEvent.inputs.some((x2) => x2.indexed);
   } else if (values.length === 2) {
     hasArgs = true;
   }
@@ -411,57 +413,6 @@ function ccipReadTunnel({ batchGateways, ccipRequest: ccipRequest$1 = ccipReques
 }
 function extractChain({ chains, id }) {
   return chains.find((chain) => chain.id === id);
-}
-function fromRlp(value, to = "hex") {
-  const bytes = (() => {
-    if (typeof value === "string") {
-      if (value.length > 3 && value.length % 2 !== 0)
-        throw new InvalidHexValueError(value);
-      return hexToBytes(value);
-    }
-    return value;
-  })();
-  const cursor = createCursor(bytes, {
-    recursiveReadLimit: Number.POSITIVE_INFINITY
-  });
-  const result = fromRlpCursor(cursor, to);
-  return result;
-}
-function fromRlpCursor(cursor, to = "hex") {
-  if (cursor.bytes.length === 0)
-    return to === "hex" ? bytesToHex(cursor.bytes) : cursor.bytes;
-  const prefix = cursor.readByte();
-  if (prefix < 128)
-    cursor.decrementPosition(1);
-  if (prefix < 192) {
-    const length2 = readLength(cursor, prefix, 128);
-    const bytes = cursor.readBytes(length2);
-    return to === "hex" ? bytesToHex(bytes) : bytes;
-  }
-  const length = readLength(cursor, prefix, 192);
-  return readList(cursor, length, to);
-}
-function readLength(cursor, prefix, offset) {
-  if (offset === 128 && prefix < 128)
-    return 1;
-  if (prefix <= offset + 55)
-    return prefix - offset;
-  if (prefix === offset + 55 + 1)
-    return cursor.readUint8();
-  if (prefix === offset + 55 + 2)
-    return cursor.readUint16();
-  if (prefix === offset + 55 + 3)
-    return cursor.readUint24();
-  if (prefix === offset + 55 + 4)
-    return cursor.readUint32();
-  throw new BaseError("Invalid RLP prefix");
-}
-function readList(cursor, length, to) {
-  const position = cursor.position;
-  const value = [];
-  while (cursor.position - position < length)
-    value.push(fromRlpCursor(cursor, to));
-  return value;
 }
 function isHash(hash) {
   return isHex(hash) && size(hash) === 32;
@@ -646,7 +597,7 @@ async function getWebSocketRpcClient(url, options = {}) {
   const { keepAlive, reconnect } = options;
   return getSocketRpcClient({
     async getSocket({ onClose, onError, onOpen, onResponse }) {
-      const WebSocket = await __vitePreload(() => import("./native-DVo4siv2.js"), true ? __vite__mapDeps([0,1]) : void 0, import.meta.url).then((module) => module.WebSocket);
+      const WebSocket = await __vitePreload(() => import("./native-BtLK-bZi.js"), true ? __vite__mapDeps([0,1]) : void 0, import.meta.url).then((module) => module.WebSocket);
       const socket = new WebSocket(url);
       function onClose_() {
         socket.removeEventListener("close", onClose_);
@@ -724,8 +675,6 @@ async function getSocket(url) {
     subscriptions: client.subscriptions
   });
 }
-const erc6492MagicBytes = "0x6492649264926492649264926492649264926492649264926492649264926492";
-const zeroHash = "0x0000000000000000000000000000000000000000000000000000000000000000";
 function isErc6492Signature(signature) {
   return sliceHex(signature, -32) === erc6492MagicBytes;
 }
@@ -769,16 +718,6 @@ async function recoverTypedDataAddress(parameters) {
     }),
     signature
   });
-}
-function serializeErc6492Signature(parameters) {
-  const { address, data, signature, to = "hex" } = parameters;
-  const signature_ = concatHex([
-    encodeAbiParameters([{ type: "address" }, { type: "bytes" }, { type: "bytes" }], [address, data, signature]),
-    erc6492MagicBytes
-  ]);
-  if (to === "hex")
-    return signature_;
-  return hexToBytes(signature_);
 }
 function serializeErc8010Signature(parameters) {
   const { address, data, signature, to = "hex" } = parameters;
@@ -843,7 +782,7 @@ function parseTransaction(serializedTransaction) {
 }
 function parseTransactionEIP7702(serializedTransaction) {
   const transactionArray = toTransactionArray(serializedTransaction);
-  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, authorizationList, v, r, s] = transactionArray;
+  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, authorizationList, v, r2, s3] = transactionArray;
   if (transactionArray.length !== 10 && transactionArray.length !== 13)
     throw new InvalidSerializedTransactionError({
       attributes: {
@@ -859,8 +798,8 @@ function parseTransactionEIP7702(serializedTransaction) {
         authorizationList,
         ...transactionArray.length > 9 ? {
           v,
-          r,
-          s
+          r: r2,
+          s: s3
         } : {}
       },
       serializedTransaction,
@@ -897,7 +836,7 @@ function parseTransactionEIP4844(serializedTransaction) {
   const hasNetworkWrapper = transactionOrWrapperArray.length === 4;
   const transactionArray = hasNetworkWrapper ? transactionOrWrapperArray[0] : transactionOrWrapperArray;
   const wrapperArray = hasNetworkWrapper ? transactionOrWrapperArray.slice(1) : [];
-  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, maxFeePerBlobGas, blobVersionedHashes, v, r, s] = transactionArray;
+  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, maxFeePerBlobGas, blobVersionedHashes, v, r2, s3] = transactionArray;
   const [blobs, commitments, proofs] = wrapperArray;
   if (!(transactionArray.length === 11 || transactionArray.length === 14))
     throw new InvalidSerializedTransactionError({
@@ -913,8 +852,8 @@ function parseTransactionEIP4844(serializedTransaction) {
         accessList,
         ...transactionArray.length > 9 ? {
           v,
-          r,
-          s
+          r: r2,
+          s: s3
         } : {}
       },
       serializedTransaction,
@@ -954,7 +893,7 @@ function parseTransactionEIP4844(serializedTransaction) {
 }
 function parseTransactionEIP1559(serializedTransaction) {
   const transactionArray = toTransactionArray(serializedTransaction);
-  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, v, r, s] = transactionArray;
+  const [chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, gas, to, value, data, accessList, v, r2, s3] = transactionArray;
   if (!(transactionArray.length === 9 || transactionArray.length === 12))
     throw new InvalidSerializedTransactionError({
       attributes: {
@@ -969,8 +908,8 @@ function parseTransactionEIP1559(serializedTransaction) {
         accessList,
         ...transactionArray.length > 9 ? {
           v,
-          r,
-          s
+          r: r2,
+          s: s3
         } : {}
       },
       serializedTransaction,
@@ -1002,7 +941,7 @@ function parseTransactionEIP1559(serializedTransaction) {
 }
 function parseTransactionEIP2930(serializedTransaction) {
   const transactionArray = toTransactionArray(serializedTransaction);
-  const [chainId, nonce, gasPrice, gas, to, value, data, accessList, v, r, s] = transactionArray;
+  const [chainId, nonce, gasPrice, gas, to, value, data, accessList, v, r2, s3] = transactionArray;
   if (!(transactionArray.length === 8 || transactionArray.length === 11))
     throw new InvalidSerializedTransactionError({
       attributes: {
@@ -1016,8 +955,8 @@ function parseTransactionEIP2930(serializedTransaction) {
         accessList,
         ...transactionArray.length > 8 ? {
           v,
-          r,
-          s
+          r: r2,
+          s: s3
         } : {}
       },
       serializedTransaction,
@@ -1047,7 +986,7 @@ function parseTransactionEIP2930(serializedTransaction) {
 }
 function parseTransactionLegacy(serializedTransaction) {
   const transactionArray = fromRlp(serializedTransaction, "hex");
-  const [nonce, gasPrice, gas, to, value, data, chainIdOrV_, r, s] = transactionArray;
+  const [nonce, gasPrice, gas, to, value, data, chainIdOrV_, r2, s3] = transactionArray;
   if (!(transactionArray.length === 6 || transactionArray.length === 9))
     throw new InvalidSerializedTransactionError({
       attributes: {
@@ -1059,8 +998,8 @@ function parseTransactionLegacy(serializedTransaction) {
         data,
         ...transactionArray.length > 6 ? {
           v: chainIdOrV_,
-          r,
-          s
+          r: r2,
+          s: s3
         } : {}
       },
       serializedTransaction,
@@ -1085,7 +1024,7 @@ function parseTransactionLegacy(serializedTransaction) {
   if (transactionArray.length === 6)
     return transaction;
   const chainIdOrV = isHex(chainIdOrV_) && chainIdOrV_ !== "0x" ? hexToBigInt(chainIdOrV_) : 0n;
-  if (s === "0x" && r === "0x") {
+  if (s3 === "0x" && r2 === "0x") {
     if (chainIdOrV > 0)
       transaction.chainId = Number(chainIdOrV);
     return transaction;
@@ -1097,8 +1036,8 @@ function parseTransactionLegacy(serializedTransaction) {
   else if (v !== 27n && v !== 28n)
     throw new InvalidLegacyVError({ v });
   transaction.v = v;
-  transaction.s = s;
-  transaction.r = r;
+  transaction.s = s3;
+  transaction.r = r2;
   transaction.yParity = v % 2n === 0n ? 1 : 0;
   return transaction;
 }
@@ -1121,12 +1060,12 @@ function parseAccessList(accessList_) {
 function parseAuthorizationList(serializedAuthorizationList) {
   const authorizationList = [];
   for (let i = 0; i < serializedAuthorizationList.length; i++) {
-    const [chainId, address, nonce, yParity, r, s] = serializedAuthorizationList[i];
+    const [chainId, address, nonce, yParity, r2, s3] = serializedAuthorizationList[i];
     authorizationList.push({
       address,
       chainId: chainId === "0x" ? 0 : hexToNumber(chainId),
       nonce: nonce === "0x" ? 0 : hexToNumber(nonce),
-      ...parseEIP155Signature([yParity, r, s])
+      ...parseEIP155Signature([yParity, r2, s3])
     });
   }
   return authorizationList;
@@ -1434,18 +1373,6 @@ function createTestClient(parameters) {
     ...testActions({ mode })(config)
   }));
 }
-function custom(provider, config = {}) {
-  const { key = "custom", methods, name = "Custom Provider", retryDelay } = config;
-  return ({ retryCount: defaultRetryCount }) => createTransport({
-    key,
-    methods,
-    name,
-    request: provider.request.bind(provider),
-    retryCount: config.retryCount ?? defaultRetryCount,
-    retryDelay,
-    type: "custom"
-  });
-}
 function fallback(transports_, config = {}) {
   const { key = "fallback", name = "Fallback", rank = false, shouldThrow: shouldThrow_ = shouldThrow, retryCount, retryDelay } = config;
   return ({ chain, pollingInterval = 4e3, timeout, ...rest }) => {
@@ -1684,7 +1611,7 @@ function decodeDeployData(parameters) {
   const { abi, bytecode, data } = parameters;
   if (data === bytecode)
     return { bytecode };
-  const description = abi.find((x) => "type" in x && x.type === "constructor");
+  const description = abi.find((x2) => "type" in x2 && x2.type === "constructor");
   if (!description)
     throw new AbiConstructorNotFoundError({ docsPath });
   if (!("inputs" in description))
@@ -1696,7 +1623,7 @@ function decodeDeployData(parameters) {
 }
 function fromBlobs(parameters) {
   const to = parameters.to ?? (typeof parameters.blobs[0] === "string" ? "hex" : "bytes");
-  const blobs = typeof parameters.blobs[0] === "string" ? parameters.blobs.map((x) => hexToBytes(x)) : parameters.blobs;
+  const blobs = typeof parameters.blobs[0] === "string" ? parameters.blobs.map((x2) => hexToBytes(x2)) : parameters.blobs;
   const length = blobs.reduce((length2, blob) => length2 + blob.length, 0);
   const data = createCursor(new Uint8Array(length));
   let active = true;
@@ -1758,23 +1685,23 @@ function setupKzg(parameters, path) {
   }
   return defineKzg(parameters);
 }
-function compactSignatureToSignature({ r, yParityAndS }) {
+function compactSignatureToSignature({ r: r2, yParityAndS }) {
   const yParityAndS_bytes = hexToBytes(yParityAndS);
   const yParity = yParityAndS_bytes[0] & 128 ? 1 : 0;
-  const s = yParityAndS_bytes;
+  const s3 = yParityAndS_bytes;
   if (yParity === 1)
-    s[0] &= 127;
-  return { r, s: bytesToHex(s), yParity };
+    s3[0] &= 127;
+  return { r: r2, s: bytesToHex(s3), yParity };
 }
 function parseCompactSignature(signatureHex) {
-  const { r, s } = secp256k1.Signature.fromCompact(signatureHex.slice(2, 130));
+  const { r: r2, s: s3 } = secp256k1.Signature.fromCompact(signatureHex.slice(2, 130));
   return {
-    r: numberToHex(r, { size: 32 }),
-    yParityAndS: numberToHex(s, { size: 32 })
+    r: numberToHex(r2, { size: 32 }),
+    yParityAndS: numberToHex(s3, { size: 32 })
   };
 }
 function parseSignature(signatureHex) {
-  const { r, s } = secp256k1.Signature.fromCompact(signatureHex.slice(2, 130));
+  const { r: r2, s: s3 } = secp256k1.Signature.fromCompact(signatureHex.slice(2, 130));
   const yParityOrV = Number(`0x${signatureHex.slice(130)}`);
   const [v, yParity] = (() => {
     if (yParityOrV === 0 || yParityOrV === 1)
@@ -1787,14 +1714,14 @@ function parseSignature(signatureHex) {
   })();
   if (typeof v !== "undefined")
     return {
-      r: numberToHex(r, { size: 32 }),
-      s: numberToHex(s, { size: 32 }),
+      r: numberToHex(r2, { size: 32 }),
+      s: numberToHex(s3, { size: 32 }),
       v,
       yParity
     };
   return {
-    r: numberToHex(r, { size: 32 }),
-    s: numberToHex(s, { size: 32 }),
+    r: numberToHex(r2, { size: 32 }),
+    s: numberToHex(s3, { size: 32 }),
     yParity
   };
 }
@@ -1820,262 +1747,262 @@ async function recoverTransactionAddress(parameters) {
     signature
   });
 }
-function serializeCompactSignature({ r, yParityAndS }) {
-  return `0x${new secp256k1.Signature(hexToBigInt(r), hexToBigInt(yParityAndS)).toCompactHex()}`;
+function serializeCompactSignature({ r: r2, yParityAndS }) {
+  return `0x${new secp256k1.Signature(hexToBigInt(r2), hexToBigInt(yParityAndS)).toCompactHex()}`;
 }
 function signatureToCompactSignature(signature) {
-  const { r, s, v, yParity } = signature;
+  const { r: r2, s: s3, v, yParity } = signature;
   const yParity_ = Number(yParity ?? v - 27n);
-  let yParityAndS = s;
+  let yParityAndS = s3;
   if (yParity_ === 1) {
-    const bytes = hexToBytes(s);
+    const bytes = hexToBytes(s3);
     bytes[0] |= 128;
     yParityAndS = bytesToHex(bytes);
   }
-  return { r, yParityAndS };
+  return { r: r2, yParityAndS };
 }
 export {
   AbiConstructorNotFoundError,
   AbiConstructorParamsNotFoundError,
-  aM as AbiDecodingDataSizeInvalidError,
-  aN as AbiDecodingDataSizeTooSmallError,
-  aO as AbiDecodingZeroDataError,
-  aP as AbiEncodingArrayLengthMismatchError,
-  aQ as AbiEncodingBytesSizeMismatchError,
+  bj as AbiDecodingDataSizeInvalidError,
+  bk as AbiDecodingDataSizeTooSmallError,
+  bl as AbiDecodingZeroDataError,
+  bm as AbiEncodingArrayLengthMismatchError,
+  bn as AbiEncodingBytesSizeMismatchError,
   AbiEncodingLengthMismatchError,
-  aR as AbiErrorInputsNotFoundError,
-  aS as AbiErrorNotFoundError,
-  aT as AbiErrorSignatureNotFoundError,
-  aU as AbiEventNotFoundError,
-  aV as AbiEventSignatureEmptyTopicsError,
-  aW as AbiEventSignatureNotFoundError,
-  aX as AbiFunctionNotFoundError,
-  aY as AbiFunctionOutputsNotFoundError,
-  aZ as AbiFunctionSignatureNotFoundError,
-  a_ as AccountStateConflictError,
-  a$ as AtomicReadyWalletRejectedUpgradeError,
-  b0 as AtomicityNotSupportedError,
-  BaseError,
-  b1 as BaseFeeScalarError,
-  b2 as BlockNotFoundError,
-  b3 as BundleFailedError,
-  b4 as BundleTooLargeError,
+  bo as AbiErrorInputsNotFoundError,
+  bp as AbiErrorNotFoundError,
+  bq as AbiErrorSignatureNotFoundError,
+  br as AbiEventNotFoundError,
+  bs as AbiEventSignatureEmptyTopicsError,
+  bt as AbiEventSignatureNotFoundError,
+  bu as AbiFunctionNotFoundError,
+  bv as AbiFunctionOutputsNotFoundError,
+  bw as AbiFunctionSignatureNotFoundError,
+  bx as AccountStateConflictError,
+  by as AtomicReadyWalletRejectedUpgradeError,
+  bz as AtomicityNotSupportedError,
+  B as BaseError,
+  bA as BaseFeeScalarError,
+  bB as BlockNotFoundError,
+  bC as BundleFailedError,
+  bD as BundleTooLargeError,
   BytesSizeMismatchError,
-  b5 as CallExecutionError,
-  b6 as ChainDisconnectedError,
-  b7 as ChainDoesNotSupportContract,
-  b8 as ChainMismatchError,
-  b9 as ChainNotFoundError,
-  ba as CircularReferenceError,
-  bb as ClientChainNotConfiguredError,
-  bc as ContractFunctionExecutionError,
-  bd as ContractFunctionRevertedError,
-  be as ContractFunctionZeroDataError,
-  bf as CounterfactualDeploymentFailedError,
-  bg as DecodeLogDataMismatch,
-  bh as DecodeLogTopicsMismatch,
-  bi as DuplicateIdError,
+  bE as CallExecutionError,
+  bF as ChainDisconnectedError,
+  bG as ChainDoesNotSupportContract,
+  bH as ChainMismatchError,
+  bI as ChainNotFoundError,
+  bJ as CircularReferenceError,
+  bK as ClientChainNotConfiguredError,
+  bL as ContractFunctionExecutionError,
+  bM as ContractFunctionRevertedError,
+  bN as ContractFunctionZeroDataError,
+  bO as CounterfactualDeploymentFailedError,
+  bP as DecodeLogDataMismatch,
+  bQ as DecodeLogTopicsMismatch,
+  bR as DuplicateIdError,
   ProviderRpcError as EIP1193ProviderRpcError,
-  bj as Eip1559FeesNotSupportedError,
-  bk as EnsAvatarInvalidNftUriError,
-  bl as EnsAvatarUnsupportedNamespaceError,
-  bm as EnsAvatarUriResolutionError,
+  bS as Eip1559FeesNotSupportedError,
+  bT as EnsAvatarInvalidNftUriError,
+  bU as EnsAvatarUnsupportedNamespaceError,
+  bV as EnsAvatarUriResolutionError,
   EnsInvalidChainIdError,
-  bn as EstimateGasExecutionError,
+  bW as EstimateGasExecutionError,
   ExecutionRevertedError,
-  bo as FeeCapTooHighError,
-  bp as FeeCapTooLowError,
-  bq as FeeConflictError,
-  br as FilterTypeNotSupportedError,
+  bX as FeeCapTooHighError,
+  bY as FeeCapTooLowError,
+  bZ as FeeConflictError,
+  b_ as FilterTypeNotSupportedError,
   HttpRequestError,
-  bs as InsufficientFundsError,
-  bt as IntegerOutOfRangeError,
-  bu as InternalRpcError,
-  bv as IntrinsicGasTooHighError,
-  bw as IntrinsicGasTooLowError,
-  bx as InvalidAbiDecodingTypeError,
-  by as InvalidAbiEncodingTypeError,
-  bz as InvalidAbiItemError,
+  b$ as InsufficientFundsError,
+  c0 as IntegerOutOfRangeError,
+  c1 as InternalRpcError,
+  c2 as IntrinsicGasTooHighError,
+  c3 as IntrinsicGasTooLowError,
+  c4 as InvalidAbiDecodingTypeError,
+  c5 as InvalidAbiEncodingTypeError,
+  c6 as InvalidAbiItemError,
   InvalidAbiParameterError,
-  bA as InvalidAbiParametersError,
-  bB as InvalidAbiTypeParameterError,
+  c7 as InvalidAbiParametersError,
+  c8 as InvalidAbiTypeParameterError,
   InvalidAddressError,
-  bC as InvalidArrayError,
-  bD as InvalidBytesBooleanError,
-  bE as InvalidChainIdError,
-  bF as InvalidDecimalNumberError,
-  bG as InvalidDefinitionTypeError,
-  bH as InvalidDomainError,
-  bI as InvalidFunctionModifierError,
-  bJ as InvalidHexBooleanError,
-  InvalidHexValueError,
-  bK as InvalidInputRpcError,
+  c9 as InvalidArrayError,
+  ca as InvalidBytesBooleanError,
+  cb as InvalidChainIdError,
+  cc as InvalidDecimalNumberError,
+  cd as InvalidDefinitionTypeError,
+  ce as InvalidDomainError,
+  cf as InvalidFunctionModifierError,
+  cg as InvalidHexBooleanError,
+  I as InvalidHexValueError,
+  ch as InvalidInputRpcError,
   InvalidLegacyVError,
-  bL as InvalidModifierError,
-  bM as InvalidParameterError,
-  bN as InvalidParamsRpcError,
-  bO as InvalidParenthesisError,
-  bP as InvalidPrimaryTypeError,
-  bQ as InvalidRequestRpcError,
-  bR as InvalidSerializableTransactionError,
+  ci as InvalidModifierError,
+  a6 as InvalidParameterError,
+  cj as InvalidParamsRpcError,
+  ck as InvalidParenthesisError,
+  cl as InvalidPrimaryTypeError,
+  cm as InvalidRequestRpcError,
+  cn as InvalidSerializableTransactionError,
   InvalidSerializedTransactionError,
   InvalidSerializedTransactionTypeError,
-  bS as InvalidSignatureError,
-  bT as InvalidStorageKeySizeError,
-  bU as InvalidStructSignatureError,
-  bV as InvalidStructTypeError,
-  bW as JsonRpcVersionUnsupportedError,
-  bX as LimitExceededRpcError,
-  bY as MaxFeePerGasTooLowError,
-  bZ as MethodNotFoundRpcError,
-  b_ as MethodNotSupportedRpcError,
-  b$ as NonceMaxValueError,
-  c0 as NonceTooHighError,
-  c1 as NonceTooLowError,
-  c2 as ParseRpcError,
-  c3 as ProviderDisconnectedError,
-  c4 as ProviderRpcError,
-  c5 as RawContractError,
-  c6 as ResourceNotFoundRpcError,
-  c7 as ResourceUnavailableRpcError,
-  c8 as RpcError,
+  co as InvalidSignatureError,
+  cp as InvalidStorageKeySizeError,
+  cq as InvalidStructSignatureError,
+  cr as InvalidStructTypeError,
+  cs as JsonRpcVersionUnsupportedError,
+  ct as LimitExceededRpcError,
+  cu as MaxFeePerGasTooLowError,
+  cv as MethodNotFoundRpcError,
+  cw as MethodNotSupportedRpcError,
+  cx as NonceMaxValueError,
+  cy as NonceTooHighError,
+  cz as NonceTooLowError,
+  cA as ParseRpcError,
+  cB as ProviderDisconnectedError,
+  cC as ProviderRpcError,
+  cD as RawContractError,
+  cE as ResourceNotFoundRpcError,
+  cF as ResourceUnavailableRpcError,
+  cG as RpcError,
   RpcRequestError,
-  c9 as SizeExceedsPaddingSizeError,
-  ca as SizeOverflowError,
-  cb as SliceOffsetOutOfBoundsError,
+  cH as SizeExceedsPaddingSizeError,
+  cI as SizeOverflowError,
+  cJ as SliceOffsetOutOfBoundsError,
   SocketClosedError,
-  cc as SolidityProtectedKeywordError,
-  cd as StateAssignmentConflictError,
-  ce as SwitchChainError,
+  cK as SolidityProtectedKeywordError,
+  cL as StateAssignmentConflictError,
+  cM as SwitchChainError,
   TimeoutError,
-  cf as TipAboveFeeCapError,
-  cg as TransactionExecutionError,
-  ch as TransactionNotFoundError,
-  ci as TransactionReceiptNotFoundError,
+  cN as TipAboveFeeCapError,
+  cO as TransactionExecutionError,
+  cP as TransactionNotFoundError,
+  a8 as TransactionReceiptNotFoundError,
   TransactionRejectedRpcError,
-  cj as TransactionTypeNotSupportedError,
-  ck as UnauthorizedProviderError,
-  cl as UnknownBundleIdError,
-  cm as UnknownNodeError,
-  cn as UnknownRpcError,
-  co as UnknownSignatureError,
-  cp as UnknownTypeError,
-  cq as UnsupportedChainIdError,
-  cr as UnsupportedNonOptionalCapabilityError,
+  cQ as TransactionTypeNotSupportedError,
+  cR as UnauthorizedProviderError,
+  cS as UnknownBundleIdError,
+  cT as UnknownNodeError,
+  cU as UnknownRpcError,
+  cV as UnknownSignatureError,
+  cW as UnknownTypeError,
+  a9 as UnsupportedChainIdError,
+  ad as UnsupportedNonOptionalCapabilityError,
   UnsupportedPackedAbiType,
-  cs as UnsupportedProviderMethodError,
+  cX as UnsupportedProviderMethodError,
   UrlRequiredError,
   UserRejectedRequestError,
-  ct as WaitForCallsStatusTimeoutError,
-  cu as WaitForTransactionReceiptTimeoutError,
+  cY as WaitForCallsStatusTimeoutError,
+  cZ as WaitForTransactionReceiptTimeoutError,
   WebSocketRequestError,
-  cv as assertCurrentChain,
-  cw as assertRequest,
+  P as assertCurrentChain,
+  r as assertRequest,
   assertTransactionEIP1559,
   assertTransactionEIP2930,
   assertTransactionLegacy,
-  cx as blobsToCommitments,
-  cy as blobsToProofs,
-  cz as boolToBytes,
+  c_ as blobsToCommitments,
+  c$ as blobsToProofs,
+  d0 as boolToBytes,
   boolToHex,
-  cA as bytesToBigInt,
-  cB as bytesToBool,
+  d1 as bytesToBigInt,
+  d2 as bytesToBool,
   bytesToHex,
-  cC as bytesToNumber,
-  cD as bytesToRlp,
-  cE as bytesToString,
+  d3 as bytesToNumber,
+  d4 as bytesToRlp,
+  ae as bytesToString,
   ccipRequest as ccipFetch,
   ccipReadTunnel,
   ccipRequest,
-  cF as checksumAddress,
+  d5 as checksumAddress,
   commitmentToVersionedHash,
-  cG as commitmentsToVersionedHashes,
+  d6 as commitmentsToVersionedHashes,
   serializeCompactSignature as compactSignatureToHex,
   compactSignatureToSignature,
   concat,
-  cH as concatBytes,
+  d7 as concatBytes,
   concatHex,
   createClient,
   createNonceManager,
-  cI as createPublicClient,
+  W as createPublicClient,
   createTestClient,
   createTransport,
   createWalletClient,
-  custom,
+  c as custom,
   decodeAbiParameters,
   decodeDeployData,
   decodeErrorResult,
-  cJ as decodeEventLog,
-  cK as decodeFunctionData,
+  d8 as decodeEventLog,
+  L as decodeFunctionData,
   decodeFunctionResult,
-  cL as defineBlock,
-  cM as defineChain,
+  d9 as defineBlock,
+  da as defineChain,
   defineKzg,
-  cN as defineTransaction,
-  cO as defineTransactionReceipt,
-  cP as defineTransactionRequest,
-  cQ as deploylessCallViaBytecodeBytecode,
-  cR as deploylessCallViaFactoryBytecode,
-  cS as domainSeparator,
-  encodeAbiParameters,
-  cT as encodeDeployData,
-  cU as encodeErrorResult,
-  cV as encodeEventTopics,
+  db as defineTransaction,
+  dc as defineTransactionReceipt,
+  dd as defineTransactionRequest,
+  de as deploylessCallViaBytecodeBytecode,
+  df as deploylessCallViaFactoryBytecode,
+  dg as domainSeparator,
+  j as encodeAbiParameters,
+  dh as encodeDeployData,
+  di as encodeErrorResult,
+  dj as encodeEventTopics,
   encodeFunctionData,
-  cW as encodeFunctionResult,
+  dk as encodeFunctionResult,
   encodePacked,
-  cX as erc1155Abi,
-  cY as erc20Abi,
-  cZ as erc20Abi_bytes32,
-  c_ as erc4626Abi,
-  c$ as erc6492SignatureValidatorAbi,
-  d0 as erc6492SignatureValidatorByteCode,
-  d1 as erc721Abi,
-  d2 as ethAddress,
-  d3 as etherUnits,
-  d4 as extendSchema,
+  dl as erc1155Abi,
+  dm as erc20Abi,
+  dn as erc20Abi_bytes32,
+  dp as erc4626Abi,
+  dq as erc6492SignatureValidatorAbi,
+  dr as erc6492SignatureValidatorByteCode,
+  ds as erc721Abi,
+  dt as ethAddress,
+  du as etherUnits,
+  dv as extendSchema,
   extractChain,
   fallback,
-  d5 as formatBlock,
-  d6 as formatEther,
-  d7 as formatGwei,
-  d8 as formatLog,
-  d9 as formatTransaction,
-  da as formatTransactionReceipt,
+  dw as formatBlock,
+  dx as formatEther,
+  dy as formatGwei,
+  dz as formatLog,
+  dA as formatTransaction,
+  dB as formatTransactionReceipt,
   formatTransactionRequest,
-  db as formatUnits,
+  dC as formatUnits,
   fromBlobs,
-  dc as fromBytes,
-  dd as fromHex,
+  dD as fromBytes,
+  x as fromHex,
   fromRlp,
-  de as getAbiItem,
+  C as getAbiItem,
   getAddress,
-  df as getChainContractAddress,
+  dE as getChainContractAddress,
   getContract,
   getContractAddress,
-  dg as getContractError,
+  U as getContractError,
   getCreate2Address,
   getCreateAddress,
-  dh as getEventSelector,
-  di as getEventSignature,
-  dj as getFunctionSelector,
-  di2 as getFunctionSignature,
+  dF as getEventSelector,
+  dG as getEventSignature,
+  N as getFunctionSelector,
+  dG2 as getFunctionSignature,
   getSerializedTransactionType,
-  dk as getTransactionType,
-  dl as getTypesForEIP712Domain,
+  dH as getTransactionType,
+  dI as getTypesForEIP712Domain,
   gweiUnits,
-  dm as hashDomain,
+  dJ as hashDomain,
   hashMessage,
-  dn as hashStruct,
+  dK as hashStruct,
   hashTypedData,
   hexToBigInt,
-  dp as hexToBool,
+  dL as hexToBool,
   hexToBytes,
   parseCompactSignature as hexToCompactSignature,
   hexToNumber,
-  dq as hexToRlp,
+  dM as hexToRlp,
   parseSignature as hexToSignature,
-  dr as hexToString,
+  dN as hexToString,
   http,
   isAddress,
   isAddressEqual,
@@ -2085,187 +2012,187 @@ export {
   isHash,
   isHex,
   keccak256,
-  ds as labelhash,
-  dt as maxInt104,
-  du as maxInt112,
-  dv as maxInt120,
-  dw as maxInt128,
-  dx as maxInt136,
-  dy as maxInt144,
-  dz as maxInt152,
-  dA as maxInt16,
-  dB as maxInt160,
-  dC as maxInt168,
-  dD as maxInt176,
-  dE as maxInt184,
-  dF as maxInt192,
-  dG as maxInt200,
-  dH as maxInt208,
-  dI as maxInt216,
-  dJ as maxInt224,
-  dK as maxInt232,
-  dL as maxInt24,
-  dM as maxInt240,
-  dN as maxInt248,
-  dO as maxInt256,
-  dP as maxInt32,
-  dQ as maxInt40,
-  dR as maxInt48,
-  dS as maxInt56,
-  dT as maxInt64,
-  dU as maxInt72,
-  dV as maxInt8,
-  dW as maxInt80,
-  dX as maxInt88,
-  dY as maxInt96,
-  dZ as maxUint104,
-  d_ as maxUint112,
-  d$ as maxUint120,
-  e0 as maxUint128,
-  e1 as maxUint136,
-  e2 as maxUint144,
-  e3 as maxUint152,
-  e4 as maxUint16,
-  e5 as maxUint160,
-  e6 as maxUint168,
-  e7 as maxUint176,
-  e8 as maxUint184,
-  e9 as maxUint192,
-  ea as maxUint200,
-  eb as maxUint208,
-  ec as maxUint216,
-  ed as maxUint224,
-  ee as maxUint232,
-  ef as maxUint24,
-  eg as maxUint240,
-  eh as maxUint248,
-  ei as maxUint256,
-  ej as maxUint32,
-  ek as maxUint40,
-  el as maxUint48,
-  em as maxUint56,
-  en as maxUint64,
-  eo as maxUint72,
-  ep as maxUint8,
-  eq as maxUint80,
-  er as maxUint88,
-  es as maxUint96,
-  et as minInt104,
-  eu as minInt112,
-  ev as minInt120,
-  ew as minInt128,
-  ex as minInt136,
-  ey as minInt144,
-  ez as minInt152,
-  eA as minInt16,
-  eB as minInt160,
-  eC as minInt168,
-  eD as minInt176,
-  eE as minInt184,
-  eF as minInt192,
-  eG as minInt200,
-  eH as minInt208,
-  eI as minInt216,
-  eJ as minInt224,
-  eK as minInt232,
-  eL as minInt24,
-  eM as minInt240,
-  eN as minInt248,
-  eO as minInt256,
-  eP as minInt32,
-  eQ as minInt40,
-  eR as minInt48,
-  eS as minInt56,
-  eT as minInt64,
-  eU as minInt72,
-  eV as minInt8,
-  eW as minInt80,
-  eX as minInt88,
-  eY as minInt96,
-  eZ as multicall3Abi,
-  e_ as namehash,
+  dO as labelhash,
+  dP as maxInt104,
+  dQ as maxInt112,
+  dR as maxInt120,
+  dS as maxInt128,
+  dT as maxInt136,
+  dU as maxInt144,
+  dV as maxInt152,
+  dW as maxInt16,
+  dX as maxInt160,
+  dY as maxInt168,
+  dZ as maxInt176,
+  d_ as maxInt184,
+  d$ as maxInt192,
+  e0 as maxInt200,
+  e1 as maxInt208,
+  e2 as maxInt216,
+  e3 as maxInt224,
+  e4 as maxInt232,
+  e5 as maxInt24,
+  e6 as maxInt240,
+  e7 as maxInt248,
+  e8 as maxInt256,
+  e9 as maxInt32,
+  ea as maxInt40,
+  eb as maxInt48,
+  ec as maxInt56,
+  ed as maxInt64,
+  ee as maxInt72,
+  ef as maxInt8,
+  eg as maxInt80,
+  eh as maxInt88,
+  ei as maxInt96,
+  ej as maxUint104,
+  ek as maxUint112,
+  el as maxUint120,
+  em as maxUint128,
+  en as maxUint136,
+  eo as maxUint144,
+  ep as maxUint152,
+  eq as maxUint16,
+  er as maxUint160,
+  es as maxUint168,
+  et as maxUint176,
+  eu as maxUint184,
+  ev as maxUint192,
+  ew as maxUint200,
+  ex as maxUint208,
+  ey as maxUint216,
+  ez as maxUint224,
+  eA as maxUint232,
+  eB as maxUint24,
+  eC as maxUint240,
+  eD as maxUint248,
+  eE as maxUint256,
+  eF as maxUint32,
+  eG as maxUint40,
+  eH as maxUint48,
+  eI as maxUint56,
+  eJ as maxUint64,
+  eK as maxUint72,
+  eL as maxUint8,
+  eM as maxUint80,
+  eN as maxUint88,
+  eO as maxUint96,
+  eP as minInt104,
+  eQ as minInt112,
+  eR as minInt120,
+  eS as minInt128,
+  eT as minInt136,
+  eU as minInt144,
+  eV as minInt152,
+  eW as minInt16,
+  eX as minInt160,
+  eY as minInt168,
+  eZ as minInt176,
+  e_ as minInt184,
+  e$ as minInt192,
+  f0 as minInt200,
+  f1 as minInt208,
+  f2 as minInt216,
+  f3 as minInt224,
+  f4 as minInt232,
+  f5 as minInt24,
+  f6 as minInt240,
+  f7 as minInt248,
+  f8 as minInt256,
+  f9 as minInt32,
+  fa as minInt40,
+  fb as minInt48,
+  fc as minInt56,
+  fd as minInt64,
+  fe as minInt72,
+  ff as minInt8,
+  fg as minInt80,
+  fh as minInt88,
+  fi as minInt96,
+  fj as multicall3Abi,
+  fk as namehash,
   nonceManager,
-  e$ as numberToBytes,
+  fl as numberToBytes,
   numberToHex,
   offchainLookup,
   offchainLookupAbiItem,
   offchainLookupSignature,
   pad,
-  f0 as padBytes,
+  fm as padBytes,
   padHex,
-  f1 as parseAbi,
-  f2 as parseAbiItem,
+  fn as parseAbi,
+  fo as parseAbiItem,
   parseAbiParameter,
-  f3 as parseAbiParameters,
+  R as parseAbiParameters,
   parseCompactSignature,
   parseErc6492Signature,
   parseErc8010Signature,
   parseEther,
-  f4 as parseEventLogs,
+  fp as parseEventLogs,
   parseGwei,
   parseSignature,
   parseTransaction,
   parseUnits,
-  f5 as prepareEncodeFunctionData,
-  f6 as presignMessagePrefix,
-  f7 as publicActions,
+  fq as prepareEncodeFunctionData,
+  fr as presignMessagePrefix,
+  fs as publicActions,
   recoverAddress,
   recoverMessageAddress,
-  f8 as recoverPublicKey,
+  ft as recoverPublicKey,
   recoverTransactionAddress,
   recoverTypedDataAddress,
   ripemd160,
-  f9 as rpcSchema,
-  fa as rpcTransactionType,
-  fb as serializeAccessList,
+  fu as rpcSchema,
+  fv as rpcTransactionType,
+  fw as serializeAccessList,
   serializeCompactSignature,
-  serializeErc6492Signature,
+  s2 as serializeErc6492Signature,
   serializeErc8010Signature,
-  fc as serializeSignature,
+  fx as serializeSignature,
   serializeTransaction,
-  fd as serializeTypedData,
-  fe as setErrorConfig,
+  fy as serializeTypedData,
+  fz as setErrorConfig,
   setupKzg,
-  ff as sha256,
+  fA as sha256,
   shouldThrow,
   sidecarsToVersionedHashes,
   signatureToCompactSignature,
-  fc2 as signatureToHex,
+  fx2 as signatureToHex,
   size,
   slice,
-  fg as sliceBytes,
+  fB as sliceBytes,
   sliceHex,
-  fh as stringToBytes,
+  fC as stringToBytes,
   stringToHex,
-  fi as stringify,
+  s as stringify,
   testActions,
   toBlobSidecars,
-  fj as toBlobs,
+  fD as toBlobs,
   toBytes,
   toCoinType,
-  fk as toEventHash,
-  dh2 as toEventSelector,
-  di3 as toEventSignature,
-  fk2 as toFunctionHash,
-  dj2 as toFunctionSelector,
-  di4 as toFunctionSignature,
+  fE as toEventHash,
+  dF2 as toEventSelector,
+  dG3 as toEventSignature,
+  fE2 as toFunctionHash,
+  N2 as toFunctionSelector,
+  dG4 as toFunctionSignature,
   toHex,
-  fl as toPrefixedMessage,
+  fF as toPrefixedMessage,
   toRlp,
-  fm as transactionType,
+  fG as transactionType,
   trim,
-  c$2 as universalSignatureValidatorAbi,
-  d02 as universalSignatureValidatorByteCode,
-  fn as validateTypedData,
+  dq2 as universalSignatureValidatorAbi,
+  dr2 as universalSignatureValidatorByteCode,
+  fH as validateTypedData,
   verifyHash,
   verifyMessage,
   verifyTypedData,
-  fo as walletActions,
+  fI as walletActions,
   webSocket,
-  fp as weiUnits,
-  fq as withCache,
-  fr as withRetry,
+  fJ as weiUnits,
+  fK as withCache,
+  fL as withRetry,
   withTimeout,
-  fs as zeroAddress,
-  zeroHash
+  S as zeroAddress,
+  z as zeroHash
 };

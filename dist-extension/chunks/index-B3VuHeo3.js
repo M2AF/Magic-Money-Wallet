@@ -1,0 +1,16756 @@
+(function polyfill() {
+  const relList = document.createElement("link").relList;
+  if (relList && relList.supports && relList.supports("modulepreload")) {
+    return;
+  }
+  for (const link of document.querySelectorAll('link[rel="modulepreload"]')) {
+    processPreload(link);
+  }
+  new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type !== "childList") {
+        continue;
+      }
+      for (const node of mutation.addedNodes) {
+        if (node.tagName === "LINK" && node.rel === "modulepreload")
+          processPreload(node);
+      }
+    }
+  }).observe(document, { childList: true, subtree: true });
+  function getFetchOpts(link) {
+    const fetchOpts = {};
+    if (link.integrity) fetchOpts.integrity = link.integrity;
+    if (link.referrerPolicy) fetchOpts.referrerPolicy = link.referrerPolicy;
+    if (link.crossOrigin === "use-credentials")
+      fetchOpts.credentials = "include";
+    else if (link.crossOrigin === "anonymous") fetchOpts.credentials = "omit";
+    else fetchOpts.credentials = "same-origin";
+    return fetchOpts;
+  }
+  function processPreload(link) {
+    if (link.ep)
+      return;
+    link.ep = true;
+    const fetchOpts = getFetchOpts(link);
+    fetch(link.href, fetchOpts);
+  }
+})();
+var jsxRuntime = { exports: {} };
+var reactJsxRuntime_production_min = {};
+var react = { exports: {} };
+var react_production_min = {};
+/**
+ * @license React
+ * react.production.min.js
+ *
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+var l$1 = Symbol.for("react.element"), n$1 = Symbol.for("react.portal"), p$2 = Symbol.for("react.fragment"), q$1 = Symbol.for("react.strict_mode"), r = Symbol.for("react.profiler"), t$1 = Symbol.for("react.provider"), u = Symbol.for("react.context"), v$1 = Symbol.for("react.forward_ref"), w = Symbol.for("react.suspense"), x = Symbol.for("react.memo"), y = Symbol.for("react.lazy"), z$1 = Symbol.iterator;
+function A$1(a) {
+  if (null === a || "object" !== typeof a) return null;
+  a = z$1 && a[z$1] || a["@@iterator"];
+  return "function" === typeof a ? a : null;
+}
+var B$1 = { isMounted: function() {
+  return false;
+}, enqueueForceUpdate: function() {
+}, enqueueReplaceState: function() {
+}, enqueueSetState: function() {
+} }, C$1 = Object.assign, D$1 = {};
+function E$1(a, b, e) {
+  this.props = a;
+  this.context = b;
+  this.refs = D$1;
+  this.updater = e || B$1;
+}
+E$1.prototype.isReactComponent = {};
+E$1.prototype.setState = function(a, b) {
+  if ("object" !== typeof a && "function" !== typeof a && null != a) throw Error("setState(...): takes an object of state variables to update or a function which returns an object of state variables.");
+  this.updater.enqueueSetState(this, a, b, "setState");
+};
+E$1.prototype.forceUpdate = function(a) {
+  this.updater.enqueueForceUpdate(this, a, "forceUpdate");
+};
+function F() {
+}
+F.prototype = E$1.prototype;
+function G$1(a, b, e) {
+  this.props = a;
+  this.context = b;
+  this.refs = D$1;
+  this.updater = e || B$1;
+}
+var H$1 = G$1.prototype = new F();
+H$1.constructor = G$1;
+C$1(H$1, E$1.prototype);
+H$1.isPureReactComponent = true;
+var I$1 = Array.isArray, J = Object.prototype.hasOwnProperty, K$1 = { current: null }, L$1 = { key: true, ref: true, __self: true, __source: true };
+function M$1(a, b, e) {
+  var d, c = {}, k2 = null, h = null;
+  if (null != b) for (d in void 0 !== b.ref && (h = b.ref), void 0 !== b.key && (k2 = "" + b.key), b) J.call(b, d) && !L$1.hasOwnProperty(d) && (c[d] = b[d]);
+  var g = arguments.length - 2;
+  if (1 === g) c.children = e;
+  else if (1 < g) {
+    for (var f2 = Array(g), m2 = 0; m2 < g; m2++) f2[m2] = arguments[m2 + 2];
+    c.children = f2;
+  }
+  if (a && a.defaultProps) for (d in g = a.defaultProps, g) void 0 === c[d] && (c[d] = g[d]);
+  return { $$typeof: l$1, type: a, key: k2, ref: h, props: c, _owner: K$1.current };
+}
+function N$1(a, b) {
+  return { $$typeof: l$1, type: a.type, key: b, ref: a.ref, props: a.props, _owner: a._owner };
+}
+function O$1(a) {
+  return "object" === typeof a && null !== a && a.$$typeof === l$1;
+}
+function escape(a) {
+  var b = { "=": "=0", ":": "=2" };
+  return "$" + a.replace(/[=:]/g, function(a2) {
+    return b[a2];
+  });
+}
+var P$1 = /\/+/g;
+function Q$1(a, b) {
+  return "object" === typeof a && null !== a && null != a.key ? escape("" + a.key) : b.toString(36);
+}
+function R$1(a, b, e, d, c) {
+  var k2 = typeof a;
+  if ("undefined" === k2 || "boolean" === k2) a = null;
+  var h = false;
+  if (null === a) h = true;
+  else switch (k2) {
+    case "string":
+    case "number":
+      h = true;
+      break;
+    case "object":
+      switch (a.$$typeof) {
+        case l$1:
+        case n$1:
+          h = true;
+      }
+  }
+  if (h) return h = a, c = c(h), a = "" === d ? "." + Q$1(h, 0) : d, I$1(c) ? (e = "", null != a && (e = a.replace(P$1, "$&/") + "/"), R$1(c, b, e, "", function(a2) {
+    return a2;
+  })) : null != c && (O$1(c) && (c = N$1(c, e + (!c.key || h && h.key === c.key ? "" : ("" + c.key).replace(P$1, "$&/") + "/") + a)), b.push(c)), 1;
+  h = 0;
+  d = "" === d ? "." : d + ":";
+  if (I$1(a)) for (var g = 0; g < a.length; g++) {
+    k2 = a[g];
+    var f2 = d + Q$1(k2, g);
+    h += R$1(k2, b, e, f2, c);
+  }
+  else if (f2 = A$1(a), "function" === typeof f2) for (a = f2.call(a), g = 0; !(k2 = a.next()).done; ) k2 = k2.value, f2 = d + Q$1(k2, g++), h += R$1(k2, b, e, f2, c);
+  else if ("object" === k2) throw b = String(a), Error("Objects are not valid as a React child (found: " + ("[object Object]" === b ? "object with keys {" + Object.keys(a).join(", ") + "}" : b) + "). If you meant to render a collection of children, use an array instead.");
+  return h;
+}
+function S$1(a, b, e) {
+  if (null == a) return a;
+  var d = [], c = 0;
+  R$1(a, d, "", "", function(a2) {
+    return b.call(e, a2, c++);
+  });
+  return d;
+}
+function T$1(a) {
+  if (-1 === a._status) {
+    var b = a._result;
+    b = b();
+    b.then(function(b2) {
+      if (0 === a._status || -1 === a._status) a._status = 1, a._result = b2;
+    }, function(b2) {
+      if (0 === a._status || -1 === a._status) a._status = 2, a._result = b2;
+    });
+    -1 === a._status && (a._status = 0, a._result = b);
+  }
+  if (1 === a._status) return a._result.default;
+  throw a._result;
+}
+var U$1 = { current: null }, V$1 = { transition: null }, W$1 = { ReactCurrentDispatcher: U$1, ReactCurrentBatchConfig: V$1, ReactCurrentOwner: K$1 };
+function X$1() {
+  throw Error("act(...) is not supported in production builds of React.");
+}
+react_production_min.Children = { map: S$1, forEach: function(a, b, e) {
+  S$1(a, function() {
+    b.apply(this, arguments);
+  }, e);
+}, count: function(a) {
+  var b = 0;
+  S$1(a, function() {
+    b++;
+  });
+  return b;
+}, toArray: function(a) {
+  return S$1(a, function(a2) {
+    return a2;
+  }) || [];
+}, only: function(a) {
+  if (!O$1(a)) throw Error("React.Children.only expected to receive a single React element child.");
+  return a;
+} };
+react_production_min.Component = E$1;
+react_production_min.Fragment = p$2;
+react_production_min.Profiler = r;
+react_production_min.PureComponent = G$1;
+react_production_min.StrictMode = q$1;
+react_production_min.Suspense = w;
+react_production_min.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = W$1;
+react_production_min.act = X$1;
+react_production_min.cloneElement = function(a, b, e) {
+  if (null === a || void 0 === a) throw Error("React.cloneElement(...): The argument must be a React element, but you passed " + a + ".");
+  var d = C$1({}, a.props), c = a.key, k2 = a.ref, h = a._owner;
+  if (null != b) {
+    void 0 !== b.ref && (k2 = b.ref, h = K$1.current);
+    void 0 !== b.key && (c = "" + b.key);
+    if (a.type && a.type.defaultProps) var g = a.type.defaultProps;
+    for (f2 in b) J.call(b, f2) && !L$1.hasOwnProperty(f2) && (d[f2] = void 0 === b[f2] && void 0 !== g ? g[f2] : b[f2]);
+  }
+  var f2 = arguments.length - 2;
+  if (1 === f2) d.children = e;
+  else if (1 < f2) {
+    g = Array(f2);
+    for (var m2 = 0; m2 < f2; m2++) g[m2] = arguments[m2 + 2];
+    d.children = g;
+  }
+  return { $$typeof: l$1, type: a.type, key: c, ref: k2, props: d, _owner: h };
+};
+react_production_min.createContext = function(a) {
+  a = { $$typeof: u, _currentValue: a, _currentValue2: a, _threadCount: 0, Provider: null, Consumer: null, _defaultValue: null, _globalName: null };
+  a.Provider = { $$typeof: t$1, _context: a };
+  return a.Consumer = a;
+};
+react_production_min.createElement = M$1;
+react_production_min.createFactory = function(a) {
+  var b = M$1.bind(null, a);
+  b.type = a;
+  return b;
+};
+react_production_min.createRef = function() {
+  return { current: null };
+};
+react_production_min.forwardRef = function(a) {
+  return { $$typeof: v$1, render: a };
+};
+react_production_min.isValidElement = O$1;
+react_production_min.lazy = function(a) {
+  return { $$typeof: y, _payload: { _status: -1, _result: a }, _init: T$1 };
+};
+react_production_min.memo = function(a, b) {
+  return { $$typeof: x, type: a, compare: void 0 === b ? null : b };
+};
+react_production_min.startTransition = function(a) {
+  var b = V$1.transition;
+  V$1.transition = {};
+  try {
+    a();
+  } finally {
+    V$1.transition = b;
+  }
+};
+react_production_min.unstable_act = X$1;
+react_production_min.useCallback = function(a, b) {
+  return U$1.current.useCallback(a, b);
+};
+react_production_min.useContext = function(a) {
+  return U$1.current.useContext(a);
+};
+react_production_min.useDebugValue = function() {
+};
+react_production_min.useDeferredValue = function(a) {
+  return U$1.current.useDeferredValue(a);
+};
+react_production_min.useEffect = function(a, b) {
+  return U$1.current.useEffect(a, b);
+};
+react_production_min.useId = function() {
+  return U$1.current.useId();
+};
+react_production_min.useImperativeHandle = function(a, b, e) {
+  return U$1.current.useImperativeHandle(a, b, e);
+};
+react_production_min.useInsertionEffect = function(a, b) {
+  return U$1.current.useInsertionEffect(a, b);
+};
+react_production_min.useLayoutEffect = function(a, b) {
+  return U$1.current.useLayoutEffect(a, b);
+};
+react_production_min.useMemo = function(a, b) {
+  return U$1.current.useMemo(a, b);
+};
+react_production_min.useReducer = function(a, b, e) {
+  return U$1.current.useReducer(a, b, e);
+};
+react_production_min.useRef = function(a) {
+  return U$1.current.useRef(a);
+};
+react_production_min.useState = function(a) {
+  return U$1.current.useState(a);
+};
+react_production_min.useSyncExternalStore = function(a, b, e) {
+  return U$1.current.useSyncExternalStore(a, b, e);
+};
+react_production_min.useTransition = function() {
+  return U$1.current.useTransition();
+};
+react_production_min.version = "18.3.1";
+{
+  react.exports = react_production_min;
+}
+var reactExports = react.exports;
+/**
+ * @license React
+ * react-jsx-runtime.production.min.js
+ *
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+var f = reactExports, k = Symbol.for("react.element"), l = Symbol.for("react.fragment"), m$1 = Object.prototype.hasOwnProperty, n = f.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentOwner, p$1 = { key: true, ref: true, __self: true, __source: true };
+function q(c, a, g) {
+  var b, d = {}, e = null, h = null;
+  void 0 !== g && (e = "" + g);
+  void 0 !== a.key && (e = "" + a.key);
+  void 0 !== a.ref && (h = a.ref);
+  for (b in a) m$1.call(a, b) && !p$1.hasOwnProperty(b) && (d[b] = a[b]);
+  if (c && c.defaultProps) for (b in a = c.defaultProps, a) void 0 === d[b] && (d[b] = a[b]);
+  return { $$typeof: k, type: c, key: e, ref: h, props: d, _owner: n.current };
+}
+reactJsxRuntime_production_min.Fragment = l;
+reactJsxRuntime_production_min.jsx = q;
+reactJsxRuntime_production_min.jsxs = q;
+{
+  jsxRuntime.exports = reactJsxRuntime_production_min;
+}
+var jsxRuntimeExports = jsxRuntime.exports;
+var reactDom = { exports: {} };
+var reactDom_production_min = {};
+var scheduler = { exports: {} };
+var scheduler_production_min = {};
+/**
+ * @license React
+ * scheduler.production.min.js
+ *
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+(function(exports) {
+  function f2(a, b) {
+    var c = a.length;
+    a.push(b);
+    a: for (; 0 < c; ) {
+      var d = c - 1 >>> 1, e = a[d];
+      if (0 < g(e, b)) a[d] = b, a[c] = e, c = d;
+      else break a;
+    }
+  }
+  function h(a) {
+    return 0 === a.length ? null : a[0];
+  }
+  function k2(a) {
+    if (0 === a.length) return null;
+    var b = a[0], c = a.pop();
+    if (c !== b) {
+      a[0] = c;
+      a: for (var d = 0, e = a.length, w2 = e >>> 1; d < w2; ) {
+        var m2 = 2 * (d + 1) - 1, C2 = a[m2], n2 = m2 + 1, x2 = a[n2];
+        if (0 > g(C2, c)) n2 < e && 0 > g(x2, C2) ? (a[d] = x2, a[n2] = c, d = n2) : (a[d] = C2, a[m2] = c, d = m2);
+        else if (n2 < e && 0 > g(x2, c)) a[d] = x2, a[n2] = c, d = n2;
+        else break a;
+      }
+    }
+    return b;
+  }
+  function g(a, b) {
+    var c = a.sortIndex - b.sortIndex;
+    return 0 !== c ? c : a.id - b.id;
+  }
+  if ("object" === typeof performance && "function" === typeof performance.now) {
+    var l2 = performance;
+    exports.unstable_now = function() {
+      return l2.now();
+    };
+  } else {
+    var p2 = Date, q2 = p2.now();
+    exports.unstable_now = function() {
+      return p2.now() - q2;
+    };
+  }
+  var r2 = [], t2 = [], u2 = 1, v2 = null, y2 = 3, z2 = false, A2 = false, B2 = false, D2 = "function" === typeof setTimeout ? setTimeout : null, E2 = "function" === typeof clearTimeout ? clearTimeout : null, F2 = "undefined" !== typeof setImmediate ? setImmediate : null;
+  "undefined" !== typeof navigator && void 0 !== navigator.scheduling && void 0 !== navigator.scheduling.isInputPending && navigator.scheduling.isInputPending.bind(navigator.scheduling);
+  function G2(a) {
+    for (var b = h(t2); null !== b; ) {
+      if (null === b.callback) k2(t2);
+      else if (b.startTime <= a) k2(t2), b.sortIndex = b.expirationTime, f2(r2, b);
+      else break;
+      b = h(t2);
+    }
+  }
+  function H2(a) {
+    B2 = false;
+    G2(a);
+    if (!A2) if (null !== h(r2)) A2 = true, I2(J2);
+    else {
+      var b = h(t2);
+      null !== b && K2(H2, b.startTime - a);
+    }
+  }
+  function J2(a, b) {
+    A2 = false;
+    B2 && (B2 = false, E2(L2), L2 = -1);
+    z2 = true;
+    var c = y2;
+    try {
+      G2(b);
+      for (v2 = h(r2); null !== v2 && (!(v2.expirationTime > b) || a && !M2()); ) {
+        var d = v2.callback;
+        if ("function" === typeof d) {
+          v2.callback = null;
+          y2 = v2.priorityLevel;
+          var e = d(v2.expirationTime <= b);
+          b = exports.unstable_now();
+          "function" === typeof e ? v2.callback = e : v2 === h(r2) && k2(r2);
+          G2(b);
+        } else k2(r2);
+        v2 = h(r2);
+      }
+      if (null !== v2) var w2 = true;
+      else {
+        var m2 = h(t2);
+        null !== m2 && K2(H2, m2.startTime - b);
+        w2 = false;
+      }
+      return w2;
+    } finally {
+      v2 = null, y2 = c, z2 = false;
+    }
+  }
+  var N2 = false, O2 = null, L2 = -1, P2 = 5, Q2 = -1;
+  function M2() {
+    return exports.unstable_now() - Q2 < P2 ? false : true;
+  }
+  function R2() {
+    if (null !== O2) {
+      var a = exports.unstable_now();
+      Q2 = a;
+      var b = true;
+      try {
+        b = O2(true, a);
+      } finally {
+        b ? S2() : (N2 = false, O2 = null);
+      }
+    } else N2 = false;
+  }
+  var S2;
+  if ("function" === typeof F2) S2 = function() {
+    F2(R2);
+  };
+  else if ("undefined" !== typeof MessageChannel) {
+    var T2 = new MessageChannel(), U2 = T2.port2;
+    T2.port1.onmessage = R2;
+    S2 = function() {
+      U2.postMessage(null);
+    };
+  } else S2 = function() {
+    D2(R2, 0);
+  };
+  function I2(a) {
+    O2 = a;
+    N2 || (N2 = true, S2());
+  }
+  function K2(a, b) {
+    L2 = D2(function() {
+      a(exports.unstable_now());
+    }, b);
+  }
+  exports.unstable_IdlePriority = 5;
+  exports.unstable_ImmediatePriority = 1;
+  exports.unstable_LowPriority = 4;
+  exports.unstable_NormalPriority = 3;
+  exports.unstable_Profiling = null;
+  exports.unstable_UserBlockingPriority = 2;
+  exports.unstable_cancelCallback = function(a) {
+    a.callback = null;
+  };
+  exports.unstable_continueExecution = function() {
+    A2 || z2 || (A2 = true, I2(J2));
+  };
+  exports.unstable_forceFrameRate = function(a) {
+    0 > a || 125 < a ? console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported") : P2 = 0 < a ? Math.floor(1e3 / a) : 5;
+  };
+  exports.unstable_getCurrentPriorityLevel = function() {
+    return y2;
+  };
+  exports.unstable_getFirstCallbackNode = function() {
+    return h(r2);
+  };
+  exports.unstable_next = function(a) {
+    switch (y2) {
+      case 1:
+      case 2:
+      case 3:
+        var b = 3;
+        break;
+      default:
+        b = y2;
+    }
+    var c = y2;
+    y2 = b;
+    try {
+      return a();
+    } finally {
+      y2 = c;
+    }
+  };
+  exports.unstable_pauseExecution = function() {
+  };
+  exports.unstable_requestPaint = function() {
+  };
+  exports.unstable_runWithPriority = function(a, b) {
+    switch (a) {
+      case 1:
+      case 2:
+      case 3:
+      case 4:
+      case 5:
+        break;
+      default:
+        a = 3;
+    }
+    var c = y2;
+    y2 = a;
+    try {
+      return b();
+    } finally {
+      y2 = c;
+    }
+  };
+  exports.unstable_scheduleCallback = function(a, b, c) {
+    var d = exports.unstable_now();
+    "object" === typeof c && null !== c ? (c = c.delay, c = "number" === typeof c && 0 < c ? d + c : d) : c = d;
+    switch (a) {
+      case 1:
+        var e = -1;
+        break;
+      case 2:
+        e = 250;
+        break;
+      case 5:
+        e = 1073741823;
+        break;
+      case 4:
+        e = 1e4;
+        break;
+      default:
+        e = 5e3;
+    }
+    e = c + e;
+    a = { id: u2++, callback: b, priorityLevel: a, startTime: c, expirationTime: e, sortIndex: -1 };
+    c > d ? (a.sortIndex = c, f2(t2, a), null === h(r2) && a === h(t2) && (B2 ? (E2(L2), L2 = -1) : B2 = true, K2(H2, c - d))) : (a.sortIndex = e, f2(r2, a), A2 || z2 || (A2 = true, I2(J2)));
+    return a;
+  };
+  exports.unstable_shouldYield = M2;
+  exports.unstable_wrapCallback = function(a) {
+    var b = y2;
+    return function() {
+      var c = y2;
+      y2 = b;
+      try {
+        return a.apply(this, arguments);
+      } finally {
+        y2 = c;
+      }
+    };
+  };
+})(scheduler_production_min);
+{
+  scheduler.exports = scheduler_production_min;
+}
+var schedulerExports = scheduler.exports;
+/**
+ * @license React
+ * react-dom.production.min.js
+ *
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+var aa = reactExports, ca = schedulerExports;
+function p(a) {
+  for (var b = "https://reactjs.org/docs/error-decoder.html?invariant=" + a, c = 1; c < arguments.length; c++) b += "&args[]=" + encodeURIComponent(arguments[c]);
+  return "Minified React error #" + a + "; visit " + b + " for the full message or use the non-minified dev environment for full errors and additional helpful warnings.";
+}
+var da = /* @__PURE__ */ new Set(), ea = {};
+function fa(a, b) {
+  ha(a, b);
+  ha(a + "Capture", b);
+}
+function ha(a, b) {
+  ea[a] = b;
+  for (a = 0; a < b.length; a++) da.add(b[a]);
+}
+var ia = !("undefined" === typeof window || "undefined" === typeof window.document || "undefined" === typeof window.document.createElement), ja = Object.prototype.hasOwnProperty, ka = /^[:A-Z_a-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD][:A-Z_a-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\-.0-9\u00B7\u0300-\u036F\u203F-\u2040]*$/, la = {}, ma = {};
+function oa(a) {
+  if (ja.call(ma, a)) return true;
+  if (ja.call(la, a)) return false;
+  if (ka.test(a)) return ma[a] = true;
+  la[a] = true;
+  return false;
+}
+function pa(a, b, c, d) {
+  if (null !== c && 0 === c.type) return false;
+  switch (typeof b) {
+    case "function":
+    case "symbol":
+      return true;
+    case "boolean":
+      if (d) return false;
+      if (null !== c) return !c.acceptsBooleans;
+      a = a.toLowerCase().slice(0, 5);
+      return "data-" !== a && "aria-" !== a;
+    default:
+      return false;
+  }
+}
+function qa(a, b, c, d) {
+  if (null === b || "undefined" === typeof b || pa(a, b, c, d)) return true;
+  if (d) return false;
+  if (null !== c) switch (c.type) {
+    case 3:
+      return !b;
+    case 4:
+      return false === b;
+    case 5:
+      return isNaN(b);
+    case 6:
+      return isNaN(b) || 1 > b;
+  }
+  return false;
+}
+function v(a, b, c, d, e, f2, g) {
+  this.acceptsBooleans = 2 === b || 3 === b || 4 === b;
+  this.attributeName = d;
+  this.attributeNamespace = e;
+  this.mustUseProperty = c;
+  this.propertyName = a;
+  this.type = b;
+  this.sanitizeURL = f2;
+  this.removeEmptyString = g;
+}
+var z = {};
+"children dangerouslySetInnerHTML defaultValue defaultChecked innerHTML suppressContentEditableWarning suppressHydrationWarning style".split(" ").forEach(function(a) {
+  z[a] = new v(a, 0, false, a, null, false, false);
+});
+[["acceptCharset", "accept-charset"], ["className", "class"], ["htmlFor", "for"], ["httpEquiv", "http-equiv"]].forEach(function(a) {
+  var b = a[0];
+  z[b] = new v(b, 1, false, a[1], null, false, false);
+});
+["contentEditable", "draggable", "spellCheck", "value"].forEach(function(a) {
+  z[a] = new v(a, 2, false, a.toLowerCase(), null, false, false);
+});
+["autoReverse", "externalResourcesRequired", "focusable", "preserveAlpha"].forEach(function(a) {
+  z[a] = new v(a, 2, false, a, null, false, false);
+});
+"allowFullScreen async autoFocus autoPlay controls default defer disabled disablePictureInPicture disableRemotePlayback formNoValidate hidden loop noModule noValidate open playsInline readOnly required reversed scoped seamless itemScope".split(" ").forEach(function(a) {
+  z[a] = new v(a, 3, false, a.toLowerCase(), null, false, false);
+});
+["checked", "multiple", "muted", "selected"].forEach(function(a) {
+  z[a] = new v(a, 3, true, a, null, false, false);
+});
+["capture", "download"].forEach(function(a) {
+  z[a] = new v(a, 4, false, a, null, false, false);
+});
+["cols", "rows", "size", "span"].forEach(function(a) {
+  z[a] = new v(a, 6, false, a, null, false, false);
+});
+["rowSpan", "start"].forEach(function(a) {
+  z[a] = new v(a, 5, false, a.toLowerCase(), null, false, false);
+});
+var ra = /[\-:]([a-z])/g;
+function sa(a) {
+  return a[1].toUpperCase();
+}
+"accent-height alignment-baseline arabic-form baseline-shift cap-height clip-path clip-rule color-interpolation color-interpolation-filters color-profile color-rendering dominant-baseline enable-background fill-opacity fill-rule flood-color flood-opacity font-family font-size font-size-adjust font-stretch font-style font-variant font-weight glyph-name glyph-orientation-horizontal glyph-orientation-vertical horiz-adv-x horiz-origin-x image-rendering letter-spacing lighting-color marker-end marker-mid marker-start overline-position overline-thickness paint-order panose-1 pointer-events rendering-intent shape-rendering stop-color stop-opacity strikethrough-position strikethrough-thickness stroke-dasharray stroke-dashoffset stroke-linecap stroke-linejoin stroke-miterlimit stroke-opacity stroke-width text-anchor text-decoration text-rendering underline-position underline-thickness unicode-bidi unicode-range units-per-em v-alphabetic v-hanging v-ideographic v-mathematical vector-effect vert-adv-y vert-origin-x vert-origin-y word-spacing writing-mode xmlns:xlink x-height".split(" ").forEach(function(a) {
+  var b = a.replace(
+    ra,
+    sa
+  );
+  z[b] = new v(b, 1, false, a, null, false, false);
+});
+"xlink:actuate xlink:arcrole xlink:role xlink:show xlink:title xlink:type".split(" ").forEach(function(a) {
+  var b = a.replace(ra, sa);
+  z[b] = new v(b, 1, false, a, "http://www.w3.org/1999/xlink", false, false);
+});
+["xml:base", "xml:lang", "xml:space"].forEach(function(a) {
+  var b = a.replace(ra, sa);
+  z[b] = new v(b, 1, false, a, "http://www.w3.org/XML/1998/namespace", false, false);
+});
+["tabIndex", "crossOrigin"].forEach(function(a) {
+  z[a] = new v(a, 1, false, a.toLowerCase(), null, false, false);
+});
+z.xlinkHref = new v("xlinkHref", 1, false, "xlink:href", "http://www.w3.org/1999/xlink", true, false);
+["src", "href", "action", "formAction"].forEach(function(a) {
+  z[a] = new v(a, 1, false, a.toLowerCase(), null, true, true);
+});
+function ta(a, b, c, d) {
+  var e = z.hasOwnProperty(b) ? z[b] : null;
+  if (null !== e ? 0 !== e.type : d || !(2 < b.length) || "o" !== b[0] && "O" !== b[0] || "n" !== b[1] && "N" !== b[1]) qa(b, c, e, d) && (c = null), d || null === e ? oa(b) && (null === c ? a.removeAttribute(b) : a.setAttribute(b, "" + c)) : e.mustUseProperty ? a[e.propertyName] = null === c ? 3 === e.type ? false : "" : c : (b = e.attributeName, d = e.attributeNamespace, null === c ? a.removeAttribute(b) : (e = e.type, c = 3 === e || 4 === e && true === c ? "" : "" + c, d ? a.setAttributeNS(d, b, c) : a.setAttribute(b, c)));
+}
+var ua = aa.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED, va = Symbol.for("react.element"), wa = Symbol.for("react.portal"), ya = Symbol.for("react.fragment"), za = Symbol.for("react.strict_mode"), Aa = Symbol.for("react.profiler"), Ba = Symbol.for("react.provider"), Ca = Symbol.for("react.context"), Da = Symbol.for("react.forward_ref"), Ea = Symbol.for("react.suspense"), Fa = Symbol.for("react.suspense_list"), Ga = Symbol.for("react.memo"), Ha = Symbol.for("react.lazy");
+var Ia = Symbol.for("react.offscreen");
+var Ja = Symbol.iterator;
+function Ka(a) {
+  if (null === a || "object" !== typeof a) return null;
+  a = Ja && a[Ja] || a["@@iterator"];
+  return "function" === typeof a ? a : null;
+}
+var A = Object.assign, La;
+function Ma(a) {
+  if (void 0 === La) try {
+    throw Error();
+  } catch (c) {
+    var b = c.stack.trim().match(/\n( *(at )?)/);
+    La = b && b[1] || "";
+  }
+  return "\n" + La + a;
+}
+var Na = false;
+function Oa(a, b) {
+  if (!a || Na) return "";
+  Na = true;
+  var c = Error.prepareStackTrace;
+  Error.prepareStackTrace = void 0;
+  try {
+    if (b) if (b = function() {
+      throw Error();
+    }, Object.defineProperty(b.prototype, "props", { set: function() {
+      throw Error();
+    } }), "object" === typeof Reflect && Reflect.construct) {
+      try {
+        Reflect.construct(b, []);
+      } catch (l2) {
+        var d = l2;
+      }
+      Reflect.construct(a, [], b);
+    } else {
+      try {
+        b.call();
+      } catch (l2) {
+        d = l2;
+      }
+      a.call(b.prototype);
+    }
+    else {
+      try {
+        throw Error();
+      } catch (l2) {
+        d = l2;
+      }
+      a();
+    }
+  } catch (l2) {
+    if (l2 && d && "string" === typeof l2.stack) {
+      for (var e = l2.stack.split("\n"), f2 = d.stack.split("\n"), g = e.length - 1, h = f2.length - 1; 1 <= g && 0 <= h && e[g] !== f2[h]; ) h--;
+      for (; 1 <= g && 0 <= h; g--, h--) if (e[g] !== f2[h]) {
+        if (1 !== g || 1 !== h) {
+          do
+            if (g--, h--, 0 > h || e[g] !== f2[h]) {
+              var k2 = "\n" + e[g].replace(" at new ", " at ");
+              a.displayName && k2.includes("<anonymous>") && (k2 = k2.replace("<anonymous>", a.displayName));
+              return k2;
+            }
+          while (1 <= g && 0 <= h);
+        }
+        break;
+      }
+    }
+  } finally {
+    Na = false, Error.prepareStackTrace = c;
+  }
+  return (a = a ? a.displayName || a.name : "") ? Ma(a) : "";
+}
+function Pa(a) {
+  switch (a.tag) {
+    case 5:
+      return Ma(a.type);
+    case 16:
+      return Ma("Lazy");
+    case 13:
+      return Ma("Suspense");
+    case 19:
+      return Ma("SuspenseList");
+    case 0:
+    case 2:
+    case 15:
+      return a = Oa(a.type, false), a;
+    case 11:
+      return a = Oa(a.type.render, false), a;
+    case 1:
+      return a = Oa(a.type, true), a;
+    default:
+      return "";
+  }
+}
+function Qa(a) {
+  if (null == a) return null;
+  if ("function" === typeof a) return a.displayName || a.name || null;
+  if ("string" === typeof a) return a;
+  switch (a) {
+    case ya:
+      return "Fragment";
+    case wa:
+      return "Portal";
+    case Aa:
+      return "Profiler";
+    case za:
+      return "StrictMode";
+    case Ea:
+      return "Suspense";
+    case Fa:
+      return "SuspenseList";
+  }
+  if ("object" === typeof a) switch (a.$$typeof) {
+    case Ca:
+      return (a.displayName || "Context") + ".Consumer";
+    case Ba:
+      return (a._context.displayName || "Context") + ".Provider";
+    case Da:
+      var b = a.render;
+      a = a.displayName;
+      a || (a = b.displayName || b.name || "", a = "" !== a ? "ForwardRef(" + a + ")" : "ForwardRef");
+      return a;
+    case Ga:
+      return b = a.displayName || null, null !== b ? b : Qa(a.type) || "Memo";
+    case Ha:
+      b = a._payload;
+      a = a._init;
+      try {
+        return Qa(a(b));
+      } catch (c) {
+      }
+  }
+  return null;
+}
+function Ra(a) {
+  var b = a.type;
+  switch (a.tag) {
+    case 24:
+      return "Cache";
+    case 9:
+      return (b.displayName || "Context") + ".Consumer";
+    case 10:
+      return (b._context.displayName || "Context") + ".Provider";
+    case 18:
+      return "DehydratedFragment";
+    case 11:
+      return a = b.render, a = a.displayName || a.name || "", b.displayName || ("" !== a ? "ForwardRef(" + a + ")" : "ForwardRef");
+    case 7:
+      return "Fragment";
+    case 5:
+      return b;
+    case 4:
+      return "Portal";
+    case 3:
+      return "Root";
+    case 6:
+      return "Text";
+    case 16:
+      return Qa(b);
+    case 8:
+      return b === za ? "StrictMode" : "Mode";
+    case 22:
+      return "Offscreen";
+    case 12:
+      return "Profiler";
+    case 21:
+      return "Scope";
+    case 13:
+      return "Suspense";
+    case 19:
+      return "SuspenseList";
+    case 25:
+      return "TracingMarker";
+    case 1:
+    case 0:
+    case 17:
+    case 2:
+    case 14:
+    case 15:
+      if ("function" === typeof b) return b.displayName || b.name || null;
+      if ("string" === typeof b) return b;
+  }
+  return null;
+}
+function Sa(a) {
+  switch (typeof a) {
+    case "boolean":
+    case "number":
+    case "string":
+    case "undefined":
+      return a;
+    case "object":
+      return a;
+    default:
+      return "";
+  }
+}
+function Ta(a) {
+  var b = a.type;
+  return (a = a.nodeName) && "input" === a.toLowerCase() && ("checkbox" === b || "radio" === b);
+}
+function Ua(a) {
+  var b = Ta(a) ? "checked" : "value", c = Object.getOwnPropertyDescriptor(a.constructor.prototype, b), d = "" + a[b];
+  if (!a.hasOwnProperty(b) && "undefined" !== typeof c && "function" === typeof c.get && "function" === typeof c.set) {
+    var e = c.get, f2 = c.set;
+    Object.defineProperty(a, b, { configurable: true, get: function() {
+      return e.call(this);
+    }, set: function(a2) {
+      d = "" + a2;
+      f2.call(this, a2);
+    } });
+    Object.defineProperty(a, b, { enumerable: c.enumerable });
+    return { getValue: function() {
+      return d;
+    }, setValue: function(a2) {
+      d = "" + a2;
+    }, stopTracking: function() {
+      a._valueTracker = null;
+      delete a[b];
+    } };
+  }
+}
+function Va(a) {
+  a._valueTracker || (a._valueTracker = Ua(a));
+}
+function Wa(a) {
+  if (!a) return false;
+  var b = a._valueTracker;
+  if (!b) return true;
+  var c = b.getValue();
+  var d = "";
+  a && (d = Ta(a) ? a.checked ? "true" : "false" : a.value);
+  a = d;
+  return a !== c ? (b.setValue(a), true) : false;
+}
+function Xa(a) {
+  a = a || ("undefined" !== typeof document ? document : void 0);
+  if ("undefined" === typeof a) return null;
+  try {
+    return a.activeElement || a.body;
+  } catch (b) {
+    return a.body;
+  }
+}
+function Ya(a, b) {
+  var c = b.checked;
+  return A({}, b, { defaultChecked: void 0, defaultValue: void 0, value: void 0, checked: null != c ? c : a._wrapperState.initialChecked });
+}
+function Za(a, b) {
+  var c = null == b.defaultValue ? "" : b.defaultValue, d = null != b.checked ? b.checked : b.defaultChecked;
+  c = Sa(null != b.value ? b.value : c);
+  a._wrapperState = { initialChecked: d, initialValue: c, controlled: "checkbox" === b.type || "radio" === b.type ? null != b.checked : null != b.value };
+}
+function ab(a, b) {
+  b = b.checked;
+  null != b && ta(a, "checked", b, false);
+}
+function bb(a, b) {
+  ab(a, b);
+  var c = Sa(b.value), d = b.type;
+  if (null != c) if ("number" === d) {
+    if (0 === c && "" === a.value || a.value != c) a.value = "" + c;
+  } else a.value !== "" + c && (a.value = "" + c);
+  else if ("submit" === d || "reset" === d) {
+    a.removeAttribute("value");
+    return;
+  }
+  b.hasOwnProperty("value") ? cb(a, b.type, c) : b.hasOwnProperty("defaultValue") && cb(a, b.type, Sa(b.defaultValue));
+  null == b.checked && null != b.defaultChecked && (a.defaultChecked = !!b.defaultChecked);
+}
+function db(a, b, c) {
+  if (b.hasOwnProperty("value") || b.hasOwnProperty("defaultValue")) {
+    var d = b.type;
+    if (!("submit" !== d && "reset" !== d || void 0 !== b.value && null !== b.value)) return;
+    b = "" + a._wrapperState.initialValue;
+    c || b === a.value || (a.value = b);
+    a.defaultValue = b;
+  }
+  c = a.name;
+  "" !== c && (a.name = "");
+  a.defaultChecked = !!a._wrapperState.initialChecked;
+  "" !== c && (a.name = c);
+}
+function cb(a, b, c) {
+  if ("number" !== b || Xa(a.ownerDocument) !== a) null == c ? a.defaultValue = "" + a._wrapperState.initialValue : a.defaultValue !== "" + c && (a.defaultValue = "" + c);
+}
+var eb = Array.isArray;
+function fb(a, b, c, d) {
+  a = a.options;
+  if (b) {
+    b = {};
+    for (var e = 0; e < c.length; e++) b["$" + c[e]] = true;
+    for (c = 0; c < a.length; c++) e = b.hasOwnProperty("$" + a[c].value), a[c].selected !== e && (a[c].selected = e), e && d && (a[c].defaultSelected = true);
+  } else {
+    c = "" + Sa(c);
+    b = null;
+    for (e = 0; e < a.length; e++) {
+      if (a[e].value === c) {
+        a[e].selected = true;
+        d && (a[e].defaultSelected = true);
+        return;
+      }
+      null !== b || a[e].disabled || (b = a[e]);
+    }
+    null !== b && (b.selected = true);
+  }
+}
+function gb(a, b) {
+  if (null != b.dangerouslySetInnerHTML) throw Error(p(91));
+  return A({}, b, { value: void 0, defaultValue: void 0, children: "" + a._wrapperState.initialValue });
+}
+function hb(a, b) {
+  var c = b.value;
+  if (null == c) {
+    c = b.children;
+    b = b.defaultValue;
+    if (null != c) {
+      if (null != b) throw Error(p(92));
+      if (eb(c)) {
+        if (1 < c.length) throw Error(p(93));
+        c = c[0];
+      }
+      b = c;
+    }
+    null == b && (b = "");
+    c = b;
+  }
+  a._wrapperState = { initialValue: Sa(c) };
+}
+function ib(a, b) {
+  var c = Sa(b.value), d = Sa(b.defaultValue);
+  null != c && (c = "" + c, c !== a.value && (a.value = c), null == b.defaultValue && a.defaultValue !== c && (a.defaultValue = c));
+  null != d && (a.defaultValue = "" + d);
+}
+function jb(a) {
+  var b = a.textContent;
+  b === a._wrapperState.initialValue && "" !== b && null !== b && (a.value = b);
+}
+function kb(a) {
+  switch (a) {
+    case "svg":
+      return "http://www.w3.org/2000/svg";
+    case "math":
+      return "http://www.w3.org/1998/Math/MathML";
+    default:
+      return "http://www.w3.org/1999/xhtml";
+  }
+}
+function lb(a, b) {
+  return null == a || "http://www.w3.org/1999/xhtml" === a ? kb(b) : "http://www.w3.org/2000/svg" === a && "foreignObject" === b ? "http://www.w3.org/1999/xhtml" : a;
+}
+var mb, nb = function(a) {
+  return "undefined" !== typeof MSApp && MSApp.execUnsafeLocalFunction ? function(b, c, d, e) {
+    MSApp.execUnsafeLocalFunction(function() {
+      return a(b, c, d, e);
+    });
+  } : a;
+}(function(a, b) {
+  if ("http://www.w3.org/2000/svg" !== a.namespaceURI || "innerHTML" in a) a.innerHTML = b;
+  else {
+    mb = mb || document.createElement("div");
+    mb.innerHTML = "<svg>" + b.valueOf().toString() + "</svg>";
+    for (b = mb.firstChild; a.firstChild; ) a.removeChild(a.firstChild);
+    for (; b.firstChild; ) a.appendChild(b.firstChild);
+  }
+});
+function ob(a, b) {
+  if (b) {
+    var c = a.firstChild;
+    if (c && c === a.lastChild && 3 === c.nodeType) {
+      c.nodeValue = b;
+      return;
+    }
+  }
+  a.textContent = b;
+}
+var pb = {
+  animationIterationCount: true,
+  aspectRatio: true,
+  borderImageOutset: true,
+  borderImageSlice: true,
+  borderImageWidth: true,
+  boxFlex: true,
+  boxFlexGroup: true,
+  boxOrdinalGroup: true,
+  columnCount: true,
+  columns: true,
+  flex: true,
+  flexGrow: true,
+  flexPositive: true,
+  flexShrink: true,
+  flexNegative: true,
+  flexOrder: true,
+  gridArea: true,
+  gridRow: true,
+  gridRowEnd: true,
+  gridRowSpan: true,
+  gridRowStart: true,
+  gridColumn: true,
+  gridColumnEnd: true,
+  gridColumnSpan: true,
+  gridColumnStart: true,
+  fontWeight: true,
+  lineClamp: true,
+  lineHeight: true,
+  opacity: true,
+  order: true,
+  orphans: true,
+  tabSize: true,
+  widows: true,
+  zIndex: true,
+  zoom: true,
+  fillOpacity: true,
+  floodOpacity: true,
+  stopOpacity: true,
+  strokeDasharray: true,
+  strokeDashoffset: true,
+  strokeMiterlimit: true,
+  strokeOpacity: true,
+  strokeWidth: true
+}, qb = ["Webkit", "ms", "Moz", "O"];
+Object.keys(pb).forEach(function(a) {
+  qb.forEach(function(b) {
+    b = b + a.charAt(0).toUpperCase() + a.substring(1);
+    pb[b] = pb[a];
+  });
+});
+function rb(a, b, c) {
+  return null == b || "boolean" === typeof b || "" === b ? "" : c || "number" !== typeof b || 0 === b || pb.hasOwnProperty(a) && pb[a] ? ("" + b).trim() : b + "px";
+}
+function sb(a, b) {
+  a = a.style;
+  for (var c in b) if (b.hasOwnProperty(c)) {
+    var d = 0 === c.indexOf("--"), e = rb(c, b[c], d);
+    "float" === c && (c = "cssFloat");
+    d ? a.setProperty(c, e) : a[c] = e;
+  }
+}
+var tb = A({ menuitem: true }, { area: true, base: true, br: true, col: true, embed: true, hr: true, img: true, input: true, keygen: true, link: true, meta: true, param: true, source: true, track: true, wbr: true });
+function ub(a, b) {
+  if (b) {
+    if (tb[a] && (null != b.children || null != b.dangerouslySetInnerHTML)) throw Error(p(137, a));
+    if (null != b.dangerouslySetInnerHTML) {
+      if (null != b.children) throw Error(p(60));
+      if ("object" !== typeof b.dangerouslySetInnerHTML || !("__html" in b.dangerouslySetInnerHTML)) throw Error(p(61));
+    }
+    if (null != b.style && "object" !== typeof b.style) throw Error(p(62));
+  }
+}
+function vb(a, b) {
+  if (-1 === a.indexOf("-")) return "string" === typeof b.is;
+  switch (a) {
+    case "annotation-xml":
+    case "color-profile":
+    case "font-face":
+    case "font-face-src":
+    case "font-face-uri":
+    case "font-face-format":
+    case "font-face-name":
+    case "missing-glyph":
+      return false;
+    default:
+      return true;
+  }
+}
+var wb = null;
+function xb(a) {
+  a = a.target || a.srcElement || window;
+  a.correspondingUseElement && (a = a.correspondingUseElement);
+  return 3 === a.nodeType ? a.parentNode : a;
+}
+var yb = null, zb = null, Ab = null;
+function Bb(a) {
+  if (a = Cb(a)) {
+    if ("function" !== typeof yb) throw Error(p(280));
+    var b = a.stateNode;
+    b && (b = Db(b), yb(a.stateNode, a.type, b));
+  }
+}
+function Eb(a) {
+  zb ? Ab ? Ab.push(a) : Ab = [a] : zb = a;
+}
+function Fb() {
+  if (zb) {
+    var a = zb, b = Ab;
+    Ab = zb = null;
+    Bb(a);
+    if (b) for (a = 0; a < b.length; a++) Bb(b[a]);
+  }
+}
+function Gb(a, b) {
+  return a(b);
+}
+function Hb() {
+}
+var Ib = false;
+function Jb(a, b, c) {
+  if (Ib) return a(b, c);
+  Ib = true;
+  try {
+    return Gb(a, b, c);
+  } finally {
+    if (Ib = false, null !== zb || null !== Ab) Hb(), Fb();
+  }
+}
+function Kb(a, b) {
+  var c = a.stateNode;
+  if (null === c) return null;
+  var d = Db(c);
+  if (null === d) return null;
+  c = d[b];
+  a: switch (b) {
+    case "onClick":
+    case "onClickCapture":
+    case "onDoubleClick":
+    case "onDoubleClickCapture":
+    case "onMouseDown":
+    case "onMouseDownCapture":
+    case "onMouseMove":
+    case "onMouseMoveCapture":
+    case "onMouseUp":
+    case "onMouseUpCapture":
+    case "onMouseEnter":
+      (d = !d.disabled) || (a = a.type, d = !("button" === a || "input" === a || "select" === a || "textarea" === a));
+      a = !d;
+      break a;
+    default:
+      a = false;
+  }
+  if (a) return null;
+  if (c && "function" !== typeof c) throw Error(p(231, b, typeof c));
+  return c;
+}
+var Lb = false;
+if (ia) try {
+  var Mb = {};
+  Object.defineProperty(Mb, "passive", { get: function() {
+    Lb = true;
+  } });
+  window.addEventListener("test", Mb, Mb);
+  window.removeEventListener("test", Mb, Mb);
+} catch (a) {
+  Lb = false;
+}
+function Nb(a, b, c, d, e, f2, g, h, k2) {
+  var l2 = Array.prototype.slice.call(arguments, 3);
+  try {
+    b.apply(c, l2);
+  } catch (m2) {
+    this.onError(m2);
+  }
+}
+var Ob = false, Pb = null, Qb = false, Rb = null, Sb = { onError: function(a) {
+  Ob = true;
+  Pb = a;
+} };
+function Tb(a, b, c, d, e, f2, g, h, k2) {
+  Ob = false;
+  Pb = null;
+  Nb.apply(Sb, arguments);
+}
+function Ub(a, b, c, d, e, f2, g, h, k2) {
+  Tb.apply(this, arguments);
+  if (Ob) {
+    if (Ob) {
+      var l2 = Pb;
+      Ob = false;
+      Pb = null;
+    } else throw Error(p(198));
+    Qb || (Qb = true, Rb = l2);
+  }
+}
+function Vb(a) {
+  var b = a, c = a;
+  if (a.alternate) for (; b.return; ) b = b.return;
+  else {
+    a = b;
+    do
+      b = a, 0 !== (b.flags & 4098) && (c = b.return), a = b.return;
+    while (a);
+  }
+  return 3 === b.tag ? c : null;
+}
+function Wb(a) {
+  if (13 === a.tag) {
+    var b = a.memoizedState;
+    null === b && (a = a.alternate, null !== a && (b = a.memoizedState));
+    if (null !== b) return b.dehydrated;
+  }
+  return null;
+}
+function Xb(a) {
+  if (Vb(a) !== a) throw Error(p(188));
+}
+function Yb(a) {
+  var b = a.alternate;
+  if (!b) {
+    b = Vb(a);
+    if (null === b) throw Error(p(188));
+    return b !== a ? null : a;
+  }
+  for (var c = a, d = b; ; ) {
+    var e = c.return;
+    if (null === e) break;
+    var f2 = e.alternate;
+    if (null === f2) {
+      d = e.return;
+      if (null !== d) {
+        c = d;
+        continue;
+      }
+      break;
+    }
+    if (e.child === f2.child) {
+      for (f2 = e.child; f2; ) {
+        if (f2 === c) return Xb(e), a;
+        if (f2 === d) return Xb(e), b;
+        f2 = f2.sibling;
+      }
+      throw Error(p(188));
+    }
+    if (c.return !== d.return) c = e, d = f2;
+    else {
+      for (var g = false, h = e.child; h; ) {
+        if (h === c) {
+          g = true;
+          c = e;
+          d = f2;
+          break;
+        }
+        if (h === d) {
+          g = true;
+          d = e;
+          c = f2;
+          break;
+        }
+        h = h.sibling;
+      }
+      if (!g) {
+        for (h = f2.child; h; ) {
+          if (h === c) {
+            g = true;
+            c = f2;
+            d = e;
+            break;
+          }
+          if (h === d) {
+            g = true;
+            d = f2;
+            c = e;
+            break;
+          }
+          h = h.sibling;
+        }
+        if (!g) throw Error(p(189));
+      }
+    }
+    if (c.alternate !== d) throw Error(p(190));
+  }
+  if (3 !== c.tag) throw Error(p(188));
+  return c.stateNode.current === c ? a : b;
+}
+function Zb(a) {
+  a = Yb(a);
+  return null !== a ? $b(a) : null;
+}
+function $b(a) {
+  if (5 === a.tag || 6 === a.tag) return a;
+  for (a = a.child; null !== a; ) {
+    var b = $b(a);
+    if (null !== b) return b;
+    a = a.sibling;
+  }
+  return null;
+}
+var ac = ca.unstable_scheduleCallback, bc = ca.unstable_cancelCallback, cc = ca.unstable_shouldYield, dc = ca.unstable_requestPaint, B = ca.unstable_now, ec = ca.unstable_getCurrentPriorityLevel, fc = ca.unstable_ImmediatePriority, gc = ca.unstable_UserBlockingPriority, hc = ca.unstable_NormalPriority, ic = ca.unstable_LowPriority, jc = ca.unstable_IdlePriority, kc = null, lc = null;
+function mc(a) {
+  if (lc && "function" === typeof lc.onCommitFiberRoot) try {
+    lc.onCommitFiberRoot(kc, a, void 0, 128 === (a.current.flags & 128));
+  } catch (b) {
+  }
+}
+var oc = Math.clz32 ? Math.clz32 : nc, pc = Math.log, qc = Math.LN2;
+function nc(a) {
+  a >>>= 0;
+  return 0 === a ? 32 : 31 - (pc(a) / qc | 0) | 0;
+}
+var rc = 64, sc = 4194304;
+function tc(a) {
+  switch (a & -a) {
+    case 1:
+      return 1;
+    case 2:
+      return 2;
+    case 4:
+      return 4;
+    case 8:
+      return 8;
+    case 16:
+      return 16;
+    case 32:
+      return 32;
+    case 64:
+    case 128:
+    case 256:
+    case 512:
+    case 1024:
+    case 2048:
+    case 4096:
+    case 8192:
+    case 16384:
+    case 32768:
+    case 65536:
+    case 131072:
+    case 262144:
+    case 524288:
+    case 1048576:
+    case 2097152:
+      return a & 4194240;
+    case 4194304:
+    case 8388608:
+    case 16777216:
+    case 33554432:
+    case 67108864:
+      return a & 130023424;
+    case 134217728:
+      return 134217728;
+    case 268435456:
+      return 268435456;
+    case 536870912:
+      return 536870912;
+    case 1073741824:
+      return 1073741824;
+    default:
+      return a;
+  }
+}
+function uc(a, b) {
+  var c = a.pendingLanes;
+  if (0 === c) return 0;
+  var d = 0, e = a.suspendedLanes, f2 = a.pingedLanes, g = c & 268435455;
+  if (0 !== g) {
+    var h = g & ~e;
+    0 !== h ? d = tc(h) : (f2 &= g, 0 !== f2 && (d = tc(f2)));
+  } else g = c & ~e, 0 !== g ? d = tc(g) : 0 !== f2 && (d = tc(f2));
+  if (0 === d) return 0;
+  if (0 !== b && b !== d && 0 === (b & e) && (e = d & -d, f2 = b & -b, e >= f2 || 16 === e && 0 !== (f2 & 4194240))) return b;
+  0 !== (d & 4) && (d |= c & 16);
+  b = a.entangledLanes;
+  if (0 !== b) for (a = a.entanglements, b &= d; 0 < b; ) c = 31 - oc(b), e = 1 << c, d |= a[c], b &= ~e;
+  return d;
+}
+function vc(a, b) {
+  switch (a) {
+    case 1:
+    case 2:
+    case 4:
+      return b + 250;
+    case 8:
+    case 16:
+    case 32:
+    case 64:
+    case 128:
+    case 256:
+    case 512:
+    case 1024:
+    case 2048:
+    case 4096:
+    case 8192:
+    case 16384:
+    case 32768:
+    case 65536:
+    case 131072:
+    case 262144:
+    case 524288:
+    case 1048576:
+    case 2097152:
+      return b + 5e3;
+    case 4194304:
+    case 8388608:
+    case 16777216:
+    case 33554432:
+    case 67108864:
+      return -1;
+    case 134217728:
+    case 268435456:
+    case 536870912:
+    case 1073741824:
+      return -1;
+    default:
+      return -1;
+  }
+}
+function wc(a, b) {
+  for (var c = a.suspendedLanes, d = a.pingedLanes, e = a.expirationTimes, f2 = a.pendingLanes; 0 < f2; ) {
+    var g = 31 - oc(f2), h = 1 << g, k2 = e[g];
+    if (-1 === k2) {
+      if (0 === (h & c) || 0 !== (h & d)) e[g] = vc(h, b);
+    } else k2 <= b && (a.expiredLanes |= h);
+    f2 &= ~h;
+  }
+}
+function xc(a) {
+  a = a.pendingLanes & -1073741825;
+  return 0 !== a ? a : a & 1073741824 ? 1073741824 : 0;
+}
+function yc() {
+  var a = rc;
+  rc <<= 1;
+  0 === (rc & 4194240) && (rc = 64);
+  return a;
+}
+function zc(a) {
+  for (var b = [], c = 0; 31 > c; c++) b.push(a);
+  return b;
+}
+function Ac(a, b, c) {
+  a.pendingLanes |= b;
+  536870912 !== b && (a.suspendedLanes = 0, a.pingedLanes = 0);
+  a = a.eventTimes;
+  b = 31 - oc(b);
+  a[b] = c;
+}
+function Bc(a, b) {
+  var c = a.pendingLanes & ~b;
+  a.pendingLanes = b;
+  a.suspendedLanes = 0;
+  a.pingedLanes = 0;
+  a.expiredLanes &= b;
+  a.mutableReadLanes &= b;
+  a.entangledLanes &= b;
+  b = a.entanglements;
+  var d = a.eventTimes;
+  for (a = a.expirationTimes; 0 < c; ) {
+    var e = 31 - oc(c), f2 = 1 << e;
+    b[e] = 0;
+    d[e] = -1;
+    a[e] = -1;
+    c &= ~f2;
+  }
+}
+function Cc(a, b) {
+  var c = a.entangledLanes |= b;
+  for (a = a.entanglements; c; ) {
+    var d = 31 - oc(c), e = 1 << d;
+    e & b | a[d] & b && (a[d] |= b);
+    c &= ~e;
+  }
+}
+var C = 0;
+function Dc(a) {
+  a &= -a;
+  return 1 < a ? 4 < a ? 0 !== (a & 268435455) ? 16 : 536870912 : 4 : 1;
+}
+var Ec, Fc, Gc, Hc, Ic, Jc = false, Kc = [], Lc = null, Mc = null, Nc = null, Oc = /* @__PURE__ */ new Map(), Pc = /* @__PURE__ */ new Map(), Qc = [], Rc = "mousedown mouseup touchcancel touchend touchstart auxclick dblclick pointercancel pointerdown pointerup dragend dragstart drop compositionend compositionstart keydown keypress keyup input textInput copy cut paste click change contextmenu reset submit".split(" ");
+function Sc(a, b) {
+  switch (a) {
+    case "focusin":
+    case "focusout":
+      Lc = null;
+      break;
+    case "dragenter":
+    case "dragleave":
+      Mc = null;
+      break;
+    case "mouseover":
+    case "mouseout":
+      Nc = null;
+      break;
+    case "pointerover":
+    case "pointerout":
+      Oc.delete(b.pointerId);
+      break;
+    case "gotpointercapture":
+    case "lostpointercapture":
+      Pc.delete(b.pointerId);
+  }
+}
+function Tc(a, b, c, d, e, f2) {
+  if (null === a || a.nativeEvent !== f2) return a = { blockedOn: b, domEventName: c, eventSystemFlags: d, nativeEvent: f2, targetContainers: [e] }, null !== b && (b = Cb(b), null !== b && Fc(b)), a;
+  a.eventSystemFlags |= d;
+  b = a.targetContainers;
+  null !== e && -1 === b.indexOf(e) && b.push(e);
+  return a;
+}
+function Uc(a, b, c, d, e) {
+  switch (b) {
+    case "focusin":
+      return Lc = Tc(Lc, a, b, c, d, e), true;
+    case "dragenter":
+      return Mc = Tc(Mc, a, b, c, d, e), true;
+    case "mouseover":
+      return Nc = Tc(Nc, a, b, c, d, e), true;
+    case "pointerover":
+      var f2 = e.pointerId;
+      Oc.set(f2, Tc(Oc.get(f2) || null, a, b, c, d, e));
+      return true;
+    case "gotpointercapture":
+      return f2 = e.pointerId, Pc.set(f2, Tc(Pc.get(f2) || null, a, b, c, d, e)), true;
+  }
+  return false;
+}
+function Vc(a) {
+  var b = Wc(a.target);
+  if (null !== b) {
+    var c = Vb(b);
+    if (null !== c) {
+      if (b = c.tag, 13 === b) {
+        if (b = Wb(c), null !== b) {
+          a.blockedOn = b;
+          Ic(a.priority, function() {
+            Gc(c);
+          });
+          return;
+        }
+      } else if (3 === b && c.stateNode.current.memoizedState.isDehydrated) {
+        a.blockedOn = 3 === c.tag ? c.stateNode.containerInfo : null;
+        return;
+      }
+    }
+  }
+  a.blockedOn = null;
+}
+function Xc(a) {
+  if (null !== a.blockedOn) return false;
+  for (var b = a.targetContainers; 0 < b.length; ) {
+    var c = Yc(a.domEventName, a.eventSystemFlags, b[0], a.nativeEvent);
+    if (null === c) {
+      c = a.nativeEvent;
+      var d = new c.constructor(c.type, c);
+      wb = d;
+      c.target.dispatchEvent(d);
+      wb = null;
+    } else return b = Cb(c), null !== b && Fc(b), a.blockedOn = c, false;
+    b.shift();
+  }
+  return true;
+}
+function Zc(a, b, c) {
+  Xc(a) && c.delete(b);
+}
+function $c() {
+  Jc = false;
+  null !== Lc && Xc(Lc) && (Lc = null);
+  null !== Mc && Xc(Mc) && (Mc = null);
+  null !== Nc && Xc(Nc) && (Nc = null);
+  Oc.forEach(Zc);
+  Pc.forEach(Zc);
+}
+function ad(a, b) {
+  a.blockedOn === b && (a.blockedOn = null, Jc || (Jc = true, ca.unstable_scheduleCallback(ca.unstable_NormalPriority, $c)));
+}
+function bd(a) {
+  function b(b2) {
+    return ad(b2, a);
+  }
+  if (0 < Kc.length) {
+    ad(Kc[0], a);
+    for (var c = 1; c < Kc.length; c++) {
+      var d = Kc[c];
+      d.blockedOn === a && (d.blockedOn = null);
+    }
+  }
+  null !== Lc && ad(Lc, a);
+  null !== Mc && ad(Mc, a);
+  null !== Nc && ad(Nc, a);
+  Oc.forEach(b);
+  Pc.forEach(b);
+  for (c = 0; c < Qc.length; c++) d = Qc[c], d.blockedOn === a && (d.blockedOn = null);
+  for (; 0 < Qc.length && (c = Qc[0], null === c.blockedOn); ) Vc(c), null === c.blockedOn && Qc.shift();
+}
+var cd = ua.ReactCurrentBatchConfig, dd = true;
+function ed(a, b, c, d) {
+  var e = C, f2 = cd.transition;
+  cd.transition = null;
+  try {
+    C = 1, fd(a, b, c, d);
+  } finally {
+    C = e, cd.transition = f2;
+  }
+}
+function gd(a, b, c, d) {
+  var e = C, f2 = cd.transition;
+  cd.transition = null;
+  try {
+    C = 4, fd(a, b, c, d);
+  } finally {
+    C = e, cd.transition = f2;
+  }
+}
+function fd(a, b, c, d) {
+  if (dd) {
+    var e = Yc(a, b, c, d);
+    if (null === e) hd(a, b, d, id, c), Sc(a, d);
+    else if (Uc(e, a, b, c, d)) d.stopPropagation();
+    else if (Sc(a, d), b & 4 && -1 < Rc.indexOf(a)) {
+      for (; null !== e; ) {
+        var f2 = Cb(e);
+        null !== f2 && Ec(f2);
+        f2 = Yc(a, b, c, d);
+        null === f2 && hd(a, b, d, id, c);
+        if (f2 === e) break;
+        e = f2;
+      }
+      null !== e && d.stopPropagation();
+    } else hd(a, b, d, null, c);
+  }
+}
+var id = null;
+function Yc(a, b, c, d) {
+  id = null;
+  a = xb(d);
+  a = Wc(a);
+  if (null !== a) if (b = Vb(a), null === b) a = null;
+  else if (c = b.tag, 13 === c) {
+    a = Wb(b);
+    if (null !== a) return a;
+    a = null;
+  } else if (3 === c) {
+    if (b.stateNode.current.memoizedState.isDehydrated) return 3 === b.tag ? b.stateNode.containerInfo : null;
+    a = null;
+  } else b !== a && (a = null);
+  id = a;
+  return null;
+}
+function jd(a) {
+  switch (a) {
+    case "cancel":
+    case "click":
+    case "close":
+    case "contextmenu":
+    case "copy":
+    case "cut":
+    case "auxclick":
+    case "dblclick":
+    case "dragend":
+    case "dragstart":
+    case "drop":
+    case "focusin":
+    case "focusout":
+    case "input":
+    case "invalid":
+    case "keydown":
+    case "keypress":
+    case "keyup":
+    case "mousedown":
+    case "mouseup":
+    case "paste":
+    case "pause":
+    case "play":
+    case "pointercancel":
+    case "pointerdown":
+    case "pointerup":
+    case "ratechange":
+    case "reset":
+    case "resize":
+    case "seeked":
+    case "submit":
+    case "touchcancel":
+    case "touchend":
+    case "touchstart":
+    case "volumechange":
+    case "change":
+    case "selectionchange":
+    case "textInput":
+    case "compositionstart":
+    case "compositionend":
+    case "compositionupdate":
+    case "beforeblur":
+    case "afterblur":
+    case "beforeinput":
+    case "blur":
+    case "fullscreenchange":
+    case "focus":
+    case "hashchange":
+    case "popstate":
+    case "select":
+    case "selectstart":
+      return 1;
+    case "drag":
+    case "dragenter":
+    case "dragexit":
+    case "dragleave":
+    case "dragover":
+    case "mousemove":
+    case "mouseout":
+    case "mouseover":
+    case "pointermove":
+    case "pointerout":
+    case "pointerover":
+    case "scroll":
+    case "toggle":
+    case "touchmove":
+    case "wheel":
+    case "mouseenter":
+    case "mouseleave":
+    case "pointerenter":
+    case "pointerleave":
+      return 4;
+    case "message":
+      switch (ec()) {
+        case fc:
+          return 1;
+        case gc:
+          return 4;
+        case hc:
+        case ic:
+          return 16;
+        case jc:
+          return 536870912;
+        default:
+          return 16;
+      }
+    default:
+      return 16;
+  }
+}
+var kd = null, ld = null, md = null;
+function nd() {
+  if (md) return md;
+  var a, b = ld, c = b.length, d, e = "value" in kd ? kd.value : kd.textContent, f2 = e.length;
+  for (a = 0; a < c && b[a] === e[a]; a++) ;
+  var g = c - a;
+  for (d = 1; d <= g && b[c - d] === e[f2 - d]; d++) ;
+  return md = e.slice(a, 1 < d ? 1 - d : void 0);
+}
+function od(a) {
+  var b = a.keyCode;
+  "charCode" in a ? (a = a.charCode, 0 === a && 13 === b && (a = 13)) : a = b;
+  10 === a && (a = 13);
+  return 32 <= a || 13 === a ? a : 0;
+}
+function pd() {
+  return true;
+}
+function qd() {
+  return false;
+}
+function rd(a) {
+  function b(b2, d, e, f2, g) {
+    this._reactName = b2;
+    this._targetInst = e;
+    this.type = d;
+    this.nativeEvent = f2;
+    this.target = g;
+    this.currentTarget = null;
+    for (var c in a) a.hasOwnProperty(c) && (b2 = a[c], this[c] = b2 ? b2(f2) : f2[c]);
+    this.isDefaultPrevented = (null != f2.defaultPrevented ? f2.defaultPrevented : false === f2.returnValue) ? pd : qd;
+    this.isPropagationStopped = qd;
+    return this;
+  }
+  A(b.prototype, { preventDefault: function() {
+    this.defaultPrevented = true;
+    var a2 = this.nativeEvent;
+    a2 && (a2.preventDefault ? a2.preventDefault() : "unknown" !== typeof a2.returnValue && (a2.returnValue = false), this.isDefaultPrevented = pd);
+  }, stopPropagation: function() {
+    var a2 = this.nativeEvent;
+    a2 && (a2.stopPropagation ? a2.stopPropagation() : "unknown" !== typeof a2.cancelBubble && (a2.cancelBubble = true), this.isPropagationStopped = pd);
+  }, persist: function() {
+  }, isPersistent: pd });
+  return b;
+}
+var sd = { eventPhase: 0, bubbles: 0, cancelable: 0, timeStamp: function(a) {
+  return a.timeStamp || Date.now();
+}, defaultPrevented: 0, isTrusted: 0 }, td = rd(sd), ud = A({}, sd, { view: 0, detail: 0 }), vd = rd(ud), wd, xd, yd, Ad = A({}, ud, { screenX: 0, screenY: 0, clientX: 0, clientY: 0, pageX: 0, pageY: 0, ctrlKey: 0, shiftKey: 0, altKey: 0, metaKey: 0, getModifierState: zd, button: 0, buttons: 0, relatedTarget: function(a) {
+  return void 0 === a.relatedTarget ? a.fromElement === a.srcElement ? a.toElement : a.fromElement : a.relatedTarget;
+}, movementX: function(a) {
+  if ("movementX" in a) return a.movementX;
+  a !== yd && (yd && "mousemove" === a.type ? (wd = a.screenX - yd.screenX, xd = a.screenY - yd.screenY) : xd = wd = 0, yd = a);
+  return wd;
+}, movementY: function(a) {
+  return "movementY" in a ? a.movementY : xd;
+} }), Bd = rd(Ad), Cd = A({}, Ad, { dataTransfer: 0 }), Dd = rd(Cd), Ed = A({}, ud, { relatedTarget: 0 }), Fd = rd(Ed), Gd = A({}, sd, { animationName: 0, elapsedTime: 0, pseudoElement: 0 }), Hd = rd(Gd), Id = A({}, sd, { clipboardData: function(a) {
+  return "clipboardData" in a ? a.clipboardData : window.clipboardData;
+} }), Jd = rd(Id), Kd = A({}, sd, { data: 0 }), Ld = rd(Kd), Md = {
+  Esc: "Escape",
+  Spacebar: " ",
+  Left: "ArrowLeft",
+  Up: "ArrowUp",
+  Right: "ArrowRight",
+  Down: "ArrowDown",
+  Del: "Delete",
+  Win: "OS",
+  Menu: "ContextMenu",
+  Apps: "ContextMenu",
+  Scroll: "ScrollLock",
+  MozPrintableKey: "Unidentified"
+}, Nd = {
+  8: "Backspace",
+  9: "Tab",
+  12: "Clear",
+  13: "Enter",
+  16: "Shift",
+  17: "Control",
+  18: "Alt",
+  19: "Pause",
+  20: "CapsLock",
+  27: "Escape",
+  32: " ",
+  33: "PageUp",
+  34: "PageDown",
+  35: "End",
+  36: "Home",
+  37: "ArrowLeft",
+  38: "ArrowUp",
+  39: "ArrowRight",
+  40: "ArrowDown",
+  45: "Insert",
+  46: "Delete",
+  112: "F1",
+  113: "F2",
+  114: "F3",
+  115: "F4",
+  116: "F5",
+  117: "F6",
+  118: "F7",
+  119: "F8",
+  120: "F9",
+  121: "F10",
+  122: "F11",
+  123: "F12",
+  144: "NumLock",
+  145: "ScrollLock",
+  224: "Meta"
+}, Od = { Alt: "altKey", Control: "ctrlKey", Meta: "metaKey", Shift: "shiftKey" };
+function Pd(a) {
+  var b = this.nativeEvent;
+  return b.getModifierState ? b.getModifierState(a) : (a = Od[a]) ? !!b[a] : false;
+}
+function zd() {
+  return Pd;
+}
+var Qd = A({}, ud, { key: function(a) {
+  if (a.key) {
+    var b = Md[a.key] || a.key;
+    if ("Unidentified" !== b) return b;
+  }
+  return "keypress" === a.type ? (a = od(a), 13 === a ? "Enter" : String.fromCharCode(a)) : "keydown" === a.type || "keyup" === a.type ? Nd[a.keyCode] || "Unidentified" : "";
+}, code: 0, location: 0, ctrlKey: 0, shiftKey: 0, altKey: 0, metaKey: 0, repeat: 0, locale: 0, getModifierState: zd, charCode: function(a) {
+  return "keypress" === a.type ? od(a) : 0;
+}, keyCode: function(a) {
+  return "keydown" === a.type || "keyup" === a.type ? a.keyCode : 0;
+}, which: function(a) {
+  return "keypress" === a.type ? od(a) : "keydown" === a.type || "keyup" === a.type ? a.keyCode : 0;
+} }), Rd = rd(Qd), Sd = A({}, Ad, { pointerId: 0, width: 0, height: 0, pressure: 0, tangentialPressure: 0, tiltX: 0, tiltY: 0, twist: 0, pointerType: 0, isPrimary: 0 }), Td = rd(Sd), Ud = A({}, ud, { touches: 0, targetTouches: 0, changedTouches: 0, altKey: 0, metaKey: 0, ctrlKey: 0, shiftKey: 0, getModifierState: zd }), Vd = rd(Ud), Wd = A({}, sd, { propertyName: 0, elapsedTime: 0, pseudoElement: 0 }), Xd = rd(Wd), Yd = A({}, Ad, {
+  deltaX: function(a) {
+    return "deltaX" in a ? a.deltaX : "wheelDeltaX" in a ? -a.wheelDeltaX : 0;
+  },
+  deltaY: function(a) {
+    return "deltaY" in a ? a.deltaY : "wheelDeltaY" in a ? -a.wheelDeltaY : "wheelDelta" in a ? -a.wheelDelta : 0;
+  },
+  deltaZ: 0,
+  deltaMode: 0
+}), Zd = rd(Yd), $d = [9, 13, 27, 32], ae = ia && "CompositionEvent" in window, be = null;
+ia && "documentMode" in document && (be = document.documentMode);
+var ce = ia && "TextEvent" in window && !be, de = ia && (!ae || be && 8 < be && 11 >= be), ee = String.fromCharCode(32), fe = false;
+function ge(a, b) {
+  switch (a) {
+    case "keyup":
+      return -1 !== $d.indexOf(b.keyCode);
+    case "keydown":
+      return 229 !== b.keyCode;
+    case "keypress":
+    case "mousedown":
+    case "focusout":
+      return true;
+    default:
+      return false;
+  }
+}
+function he(a) {
+  a = a.detail;
+  return "object" === typeof a && "data" in a ? a.data : null;
+}
+var ie = false;
+function je(a, b) {
+  switch (a) {
+    case "compositionend":
+      return he(b);
+    case "keypress":
+      if (32 !== b.which) return null;
+      fe = true;
+      return ee;
+    case "textInput":
+      return a = b.data, a === ee && fe ? null : a;
+    default:
+      return null;
+  }
+}
+function ke(a, b) {
+  if (ie) return "compositionend" === a || !ae && ge(a, b) ? (a = nd(), md = ld = kd = null, ie = false, a) : null;
+  switch (a) {
+    case "paste":
+      return null;
+    case "keypress":
+      if (!(b.ctrlKey || b.altKey || b.metaKey) || b.ctrlKey && b.altKey) {
+        if (b.char && 1 < b.char.length) return b.char;
+        if (b.which) return String.fromCharCode(b.which);
+      }
+      return null;
+    case "compositionend":
+      return de && "ko" !== b.locale ? null : b.data;
+    default:
+      return null;
+  }
+}
+var le = { color: true, date: true, datetime: true, "datetime-local": true, email: true, month: true, number: true, password: true, range: true, search: true, tel: true, text: true, time: true, url: true, week: true };
+function me(a) {
+  var b = a && a.nodeName && a.nodeName.toLowerCase();
+  return "input" === b ? !!le[a.type] : "textarea" === b ? true : false;
+}
+function ne(a, b, c, d) {
+  Eb(d);
+  b = oe(b, "onChange");
+  0 < b.length && (c = new td("onChange", "change", null, c, d), a.push({ event: c, listeners: b }));
+}
+var pe = null, qe = null;
+function re(a) {
+  se(a, 0);
+}
+function te(a) {
+  var b = ue(a);
+  if (Wa(b)) return a;
+}
+function ve(a, b) {
+  if ("change" === a) return b;
+}
+var we = false;
+if (ia) {
+  var xe;
+  if (ia) {
+    var ye = "oninput" in document;
+    if (!ye) {
+      var ze = document.createElement("div");
+      ze.setAttribute("oninput", "return;");
+      ye = "function" === typeof ze.oninput;
+    }
+    xe = ye;
+  } else xe = false;
+  we = xe && (!document.documentMode || 9 < document.documentMode);
+}
+function Ae() {
+  pe && (pe.detachEvent("onpropertychange", Be), qe = pe = null);
+}
+function Be(a) {
+  if ("value" === a.propertyName && te(qe)) {
+    var b = [];
+    ne(b, qe, a, xb(a));
+    Jb(re, b);
+  }
+}
+function Ce(a, b, c) {
+  "focusin" === a ? (Ae(), pe = b, qe = c, pe.attachEvent("onpropertychange", Be)) : "focusout" === a && Ae();
+}
+function De(a) {
+  if ("selectionchange" === a || "keyup" === a || "keydown" === a) return te(qe);
+}
+function Ee(a, b) {
+  if ("click" === a) return te(b);
+}
+function Fe(a, b) {
+  if ("input" === a || "change" === a) return te(b);
+}
+function Ge(a, b) {
+  return a === b && (0 !== a || 1 / a === 1 / b) || a !== a && b !== b;
+}
+var He = "function" === typeof Object.is ? Object.is : Ge;
+function Ie(a, b) {
+  if (He(a, b)) return true;
+  if ("object" !== typeof a || null === a || "object" !== typeof b || null === b) return false;
+  var c = Object.keys(a), d = Object.keys(b);
+  if (c.length !== d.length) return false;
+  for (d = 0; d < c.length; d++) {
+    var e = c[d];
+    if (!ja.call(b, e) || !He(a[e], b[e])) return false;
+  }
+  return true;
+}
+function Je(a) {
+  for (; a && a.firstChild; ) a = a.firstChild;
+  return a;
+}
+function Ke(a, b) {
+  var c = Je(a);
+  a = 0;
+  for (var d; c; ) {
+    if (3 === c.nodeType) {
+      d = a + c.textContent.length;
+      if (a <= b && d >= b) return { node: c, offset: b - a };
+      a = d;
+    }
+    a: {
+      for (; c; ) {
+        if (c.nextSibling) {
+          c = c.nextSibling;
+          break a;
+        }
+        c = c.parentNode;
+      }
+      c = void 0;
+    }
+    c = Je(c);
+  }
+}
+function Le(a, b) {
+  return a && b ? a === b ? true : a && 3 === a.nodeType ? false : b && 3 === b.nodeType ? Le(a, b.parentNode) : "contains" in a ? a.contains(b) : a.compareDocumentPosition ? !!(a.compareDocumentPosition(b) & 16) : false : false;
+}
+function Me() {
+  for (var a = window, b = Xa(); b instanceof a.HTMLIFrameElement; ) {
+    try {
+      var c = "string" === typeof b.contentWindow.location.href;
+    } catch (d) {
+      c = false;
+    }
+    if (c) a = b.contentWindow;
+    else break;
+    b = Xa(a.document);
+  }
+  return b;
+}
+function Ne(a) {
+  var b = a && a.nodeName && a.nodeName.toLowerCase();
+  return b && ("input" === b && ("text" === a.type || "search" === a.type || "tel" === a.type || "url" === a.type || "password" === a.type) || "textarea" === b || "true" === a.contentEditable);
+}
+function Oe(a) {
+  var b = Me(), c = a.focusedElem, d = a.selectionRange;
+  if (b !== c && c && c.ownerDocument && Le(c.ownerDocument.documentElement, c)) {
+    if (null !== d && Ne(c)) {
+      if (b = d.start, a = d.end, void 0 === a && (a = b), "selectionStart" in c) c.selectionStart = b, c.selectionEnd = Math.min(a, c.value.length);
+      else if (a = (b = c.ownerDocument || document) && b.defaultView || window, a.getSelection) {
+        a = a.getSelection();
+        var e = c.textContent.length, f2 = Math.min(d.start, e);
+        d = void 0 === d.end ? f2 : Math.min(d.end, e);
+        !a.extend && f2 > d && (e = d, d = f2, f2 = e);
+        e = Ke(c, f2);
+        var g = Ke(
+          c,
+          d
+        );
+        e && g && (1 !== a.rangeCount || a.anchorNode !== e.node || a.anchorOffset !== e.offset || a.focusNode !== g.node || a.focusOffset !== g.offset) && (b = b.createRange(), b.setStart(e.node, e.offset), a.removeAllRanges(), f2 > d ? (a.addRange(b), a.extend(g.node, g.offset)) : (b.setEnd(g.node, g.offset), a.addRange(b)));
+      }
+    }
+    b = [];
+    for (a = c; a = a.parentNode; ) 1 === a.nodeType && b.push({ element: a, left: a.scrollLeft, top: a.scrollTop });
+    "function" === typeof c.focus && c.focus();
+    for (c = 0; c < b.length; c++) a = b[c], a.element.scrollLeft = a.left, a.element.scrollTop = a.top;
+  }
+}
+var Pe = ia && "documentMode" in document && 11 >= document.documentMode, Qe = null, Re = null, Se = null, Te = false;
+function Ue(a, b, c) {
+  var d = c.window === c ? c.document : 9 === c.nodeType ? c : c.ownerDocument;
+  Te || null == Qe || Qe !== Xa(d) || (d = Qe, "selectionStart" in d && Ne(d) ? d = { start: d.selectionStart, end: d.selectionEnd } : (d = (d.ownerDocument && d.ownerDocument.defaultView || window).getSelection(), d = { anchorNode: d.anchorNode, anchorOffset: d.anchorOffset, focusNode: d.focusNode, focusOffset: d.focusOffset }), Se && Ie(Se, d) || (Se = d, d = oe(Re, "onSelect"), 0 < d.length && (b = new td("onSelect", "select", null, b, c), a.push({ event: b, listeners: d }), b.target = Qe)));
+}
+function Ve(a, b) {
+  var c = {};
+  c[a.toLowerCase()] = b.toLowerCase();
+  c["Webkit" + a] = "webkit" + b;
+  c["Moz" + a] = "moz" + b;
+  return c;
+}
+var We = { animationend: Ve("Animation", "AnimationEnd"), animationiteration: Ve("Animation", "AnimationIteration"), animationstart: Ve("Animation", "AnimationStart"), transitionend: Ve("Transition", "TransitionEnd") }, Xe = {}, Ye = {};
+ia && (Ye = document.createElement("div").style, "AnimationEvent" in window || (delete We.animationend.animation, delete We.animationiteration.animation, delete We.animationstart.animation), "TransitionEvent" in window || delete We.transitionend.transition);
+function Ze(a) {
+  if (Xe[a]) return Xe[a];
+  if (!We[a]) return a;
+  var b = We[a], c;
+  for (c in b) if (b.hasOwnProperty(c) && c in Ye) return Xe[a] = b[c];
+  return a;
+}
+var $e = Ze("animationend"), af = Ze("animationiteration"), bf = Ze("animationstart"), cf = Ze("transitionend"), df = /* @__PURE__ */ new Map(), ef = "abort auxClick cancel canPlay canPlayThrough click close contextMenu copy cut drag dragEnd dragEnter dragExit dragLeave dragOver dragStart drop durationChange emptied encrypted ended error gotPointerCapture input invalid keyDown keyPress keyUp load loadedData loadedMetadata loadStart lostPointerCapture mouseDown mouseMove mouseOut mouseOver mouseUp paste pause play playing pointerCancel pointerDown pointerMove pointerOut pointerOver pointerUp progress rateChange reset resize seeked seeking stalled submit suspend timeUpdate touchCancel touchEnd touchStart volumeChange scroll toggle touchMove waiting wheel".split(" ");
+function ff(a, b) {
+  df.set(a, b);
+  fa(b, [a]);
+}
+for (var gf = 0; gf < ef.length; gf++) {
+  var hf = ef[gf], jf = hf.toLowerCase(), kf = hf[0].toUpperCase() + hf.slice(1);
+  ff(jf, "on" + kf);
+}
+ff($e, "onAnimationEnd");
+ff(af, "onAnimationIteration");
+ff(bf, "onAnimationStart");
+ff("dblclick", "onDoubleClick");
+ff("focusin", "onFocus");
+ff("focusout", "onBlur");
+ff(cf, "onTransitionEnd");
+ha("onMouseEnter", ["mouseout", "mouseover"]);
+ha("onMouseLeave", ["mouseout", "mouseover"]);
+ha("onPointerEnter", ["pointerout", "pointerover"]);
+ha("onPointerLeave", ["pointerout", "pointerover"]);
+fa("onChange", "change click focusin focusout input keydown keyup selectionchange".split(" "));
+fa("onSelect", "focusout contextmenu dragend focusin keydown keyup mousedown mouseup selectionchange".split(" "));
+fa("onBeforeInput", ["compositionend", "keypress", "textInput", "paste"]);
+fa("onCompositionEnd", "compositionend focusout keydown keypress keyup mousedown".split(" "));
+fa("onCompositionStart", "compositionstart focusout keydown keypress keyup mousedown".split(" "));
+fa("onCompositionUpdate", "compositionupdate focusout keydown keypress keyup mousedown".split(" "));
+var lf = "abort canplay canplaythrough durationchange emptied encrypted ended error loadeddata loadedmetadata loadstart pause play playing progress ratechange resize seeked seeking stalled suspend timeupdate volumechange waiting".split(" "), mf = new Set("cancel close invalid load scroll toggle".split(" ").concat(lf));
+function nf(a, b, c) {
+  var d = a.type || "unknown-event";
+  a.currentTarget = c;
+  Ub(d, b, void 0, a);
+  a.currentTarget = null;
+}
+function se(a, b) {
+  b = 0 !== (b & 4);
+  for (var c = 0; c < a.length; c++) {
+    var d = a[c], e = d.event;
+    d = d.listeners;
+    a: {
+      var f2 = void 0;
+      if (b) for (var g = d.length - 1; 0 <= g; g--) {
+        var h = d[g], k2 = h.instance, l2 = h.currentTarget;
+        h = h.listener;
+        if (k2 !== f2 && e.isPropagationStopped()) break a;
+        nf(e, h, l2);
+        f2 = k2;
+      }
+      else for (g = 0; g < d.length; g++) {
+        h = d[g];
+        k2 = h.instance;
+        l2 = h.currentTarget;
+        h = h.listener;
+        if (k2 !== f2 && e.isPropagationStopped()) break a;
+        nf(e, h, l2);
+        f2 = k2;
+      }
+    }
+  }
+  if (Qb) throw a = Rb, Qb = false, Rb = null, a;
+}
+function D(a, b) {
+  var c = b[of];
+  void 0 === c && (c = b[of] = /* @__PURE__ */ new Set());
+  var d = a + "__bubble";
+  c.has(d) || (pf(b, a, 2, false), c.add(d));
+}
+function qf(a, b, c) {
+  var d = 0;
+  b && (d |= 4);
+  pf(c, a, d, b);
+}
+var rf = "_reactListening" + Math.random().toString(36).slice(2);
+function sf(a) {
+  if (!a[rf]) {
+    a[rf] = true;
+    da.forEach(function(b2) {
+      "selectionchange" !== b2 && (mf.has(b2) || qf(b2, false, a), qf(b2, true, a));
+    });
+    var b = 9 === a.nodeType ? a : a.ownerDocument;
+    null === b || b[rf] || (b[rf] = true, qf("selectionchange", false, b));
+  }
+}
+function pf(a, b, c, d) {
+  switch (jd(b)) {
+    case 1:
+      var e = ed;
+      break;
+    case 4:
+      e = gd;
+      break;
+    default:
+      e = fd;
+  }
+  c = e.bind(null, b, c, a);
+  e = void 0;
+  !Lb || "touchstart" !== b && "touchmove" !== b && "wheel" !== b || (e = true);
+  d ? void 0 !== e ? a.addEventListener(b, c, { capture: true, passive: e }) : a.addEventListener(b, c, true) : void 0 !== e ? a.addEventListener(b, c, { passive: e }) : a.addEventListener(b, c, false);
+}
+function hd(a, b, c, d, e) {
+  var f2 = d;
+  if (0 === (b & 1) && 0 === (b & 2) && null !== d) a: for (; ; ) {
+    if (null === d) return;
+    var g = d.tag;
+    if (3 === g || 4 === g) {
+      var h = d.stateNode.containerInfo;
+      if (h === e || 8 === h.nodeType && h.parentNode === e) break;
+      if (4 === g) for (g = d.return; null !== g; ) {
+        var k2 = g.tag;
+        if (3 === k2 || 4 === k2) {
+          if (k2 = g.stateNode.containerInfo, k2 === e || 8 === k2.nodeType && k2.parentNode === e) return;
+        }
+        g = g.return;
+      }
+      for (; null !== h; ) {
+        g = Wc(h);
+        if (null === g) return;
+        k2 = g.tag;
+        if (5 === k2 || 6 === k2) {
+          d = f2 = g;
+          continue a;
+        }
+        h = h.parentNode;
+      }
+    }
+    d = d.return;
+  }
+  Jb(function() {
+    var d2 = f2, e2 = xb(c), g2 = [];
+    a: {
+      var h2 = df.get(a);
+      if (void 0 !== h2) {
+        var k3 = td, n2 = a;
+        switch (a) {
+          case "keypress":
+            if (0 === od(c)) break a;
+          case "keydown":
+          case "keyup":
+            k3 = Rd;
+            break;
+          case "focusin":
+            n2 = "focus";
+            k3 = Fd;
+            break;
+          case "focusout":
+            n2 = "blur";
+            k3 = Fd;
+            break;
+          case "beforeblur":
+          case "afterblur":
+            k3 = Fd;
+            break;
+          case "click":
+            if (2 === c.button) break a;
+          case "auxclick":
+          case "dblclick":
+          case "mousedown":
+          case "mousemove":
+          case "mouseup":
+          case "mouseout":
+          case "mouseover":
+          case "contextmenu":
+            k3 = Bd;
+            break;
+          case "drag":
+          case "dragend":
+          case "dragenter":
+          case "dragexit":
+          case "dragleave":
+          case "dragover":
+          case "dragstart":
+          case "drop":
+            k3 = Dd;
+            break;
+          case "touchcancel":
+          case "touchend":
+          case "touchmove":
+          case "touchstart":
+            k3 = Vd;
+            break;
+          case $e:
+          case af:
+          case bf:
+            k3 = Hd;
+            break;
+          case cf:
+            k3 = Xd;
+            break;
+          case "scroll":
+            k3 = vd;
+            break;
+          case "wheel":
+            k3 = Zd;
+            break;
+          case "copy":
+          case "cut":
+          case "paste":
+            k3 = Jd;
+            break;
+          case "gotpointercapture":
+          case "lostpointercapture":
+          case "pointercancel":
+          case "pointerdown":
+          case "pointermove":
+          case "pointerout":
+          case "pointerover":
+          case "pointerup":
+            k3 = Td;
+        }
+        var t2 = 0 !== (b & 4), J2 = !t2 && "scroll" === a, x2 = t2 ? null !== h2 ? h2 + "Capture" : null : h2;
+        t2 = [];
+        for (var w2 = d2, u2; null !== w2; ) {
+          u2 = w2;
+          var F2 = u2.stateNode;
+          5 === u2.tag && null !== F2 && (u2 = F2, null !== x2 && (F2 = Kb(w2, x2), null != F2 && t2.push(tf(w2, F2, u2))));
+          if (J2) break;
+          w2 = w2.return;
+        }
+        0 < t2.length && (h2 = new k3(h2, n2, null, c, e2), g2.push({ event: h2, listeners: t2 }));
+      }
+    }
+    if (0 === (b & 7)) {
+      a: {
+        h2 = "mouseover" === a || "pointerover" === a;
+        k3 = "mouseout" === a || "pointerout" === a;
+        if (h2 && c !== wb && (n2 = c.relatedTarget || c.fromElement) && (Wc(n2) || n2[uf])) break a;
+        if (k3 || h2) {
+          h2 = e2.window === e2 ? e2 : (h2 = e2.ownerDocument) ? h2.defaultView || h2.parentWindow : window;
+          if (k3) {
+            if (n2 = c.relatedTarget || c.toElement, k3 = d2, n2 = n2 ? Wc(n2) : null, null !== n2 && (J2 = Vb(n2), n2 !== J2 || 5 !== n2.tag && 6 !== n2.tag)) n2 = null;
+          } else k3 = null, n2 = d2;
+          if (k3 !== n2) {
+            t2 = Bd;
+            F2 = "onMouseLeave";
+            x2 = "onMouseEnter";
+            w2 = "mouse";
+            if ("pointerout" === a || "pointerover" === a) t2 = Td, F2 = "onPointerLeave", x2 = "onPointerEnter", w2 = "pointer";
+            J2 = null == k3 ? h2 : ue(k3);
+            u2 = null == n2 ? h2 : ue(n2);
+            h2 = new t2(F2, w2 + "leave", k3, c, e2);
+            h2.target = J2;
+            h2.relatedTarget = u2;
+            F2 = null;
+            Wc(e2) === d2 && (t2 = new t2(x2, w2 + "enter", n2, c, e2), t2.target = u2, t2.relatedTarget = J2, F2 = t2);
+            J2 = F2;
+            if (k3 && n2) b: {
+              t2 = k3;
+              x2 = n2;
+              w2 = 0;
+              for (u2 = t2; u2; u2 = vf(u2)) w2++;
+              u2 = 0;
+              for (F2 = x2; F2; F2 = vf(F2)) u2++;
+              for (; 0 < w2 - u2; ) t2 = vf(t2), w2--;
+              for (; 0 < u2 - w2; ) x2 = vf(x2), u2--;
+              for (; w2--; ) {
+                if (t2 === x2 || null !== x2 && t2 === x2.alternate) break b;
+                t2 = vf(t2);
+                x2 = vf(x2);
+              }
+              t2 = null;
+            }
+            else t2 = null;
+            null !== k3 && wf(g2, h2, k3, t2, false);
+            null !== n2 && null !== J2 && wf(g2, J2, n2, t2, true);
+          }
+        }
+      }
+      a: {
+        h2 = d2 ? ue(d2) : window;
+        k3 = h2.nodeName && h2.nodeName.toLowerCase();
+        if ("select" === k3 || "input" === k3 && "file" === h2.type) var na = ve;
+        else if (me(h2)) if (we) na = Fe;
+        else {
+          na = De;
+          var xa = Ce;
+        }
+        else (k3 = h2.nodeName) && "input" === k3.toLowerCase() && ("checkbox" === h2.type || "radio" === h2.type) && (na = Ee);
+        if (na && (na = na(a, d2))) {
+          ne(g2, na, c, e2);
+          break a;
+        }
+        xa && xa(a, h2, d2);
+        "focusout" === a && (xa = h2._wrapperState) && xa.controlled && "number" === h2.type && cb(h2, "number", h2.value);
+      }
+      xa = d2 ? ue(d2) : window;
+      switch (a) {
+        case "focusin":
+          if (me(xa) || "true" === xa.contentEditable) Qe = xa, Re = d2, Se = null;
+          break;
+        case "focusout":
+          Se = Re = Qe = null;
+          break;
+        case "mousedown":
+          Te = true;
+          break;
+        case "contextmenu":
+        case "mouseup":
+        case "dragend":
+          Te = false;
+          Ue(g2, c, e2);
+          break;
+        case "selectionchange":
+          if (Pe) break;
+        case "keydown":
+        case "keyup":
+          Ue(g2, c, e2);
+      }
+      var $a;
+      if (ae) b: {
+        switch (a) {
+          case "compositionstart":
+            var ba = "onCompositionStart";
+            break b;
+          case "compositionend":
+            ba = "onCompositionEnd";
+            break b;
+          case "compositionupdate":
+            ba = "onCompositionUpdate";
+            break b;
+        }
+        ba = void 0;
+      }
+      else ie ? ge(a, c) && (ba = "onCompositionEnd") : "keydown" === a && 229 === c.keyCode && (ba = "onCompositionStart");
+      ba && (de && "ko" !== c.locale && (ie || "onCompositionStart" !== ba ? "onCompositionEnd" === ba && ie && ($a = nd()) : (kd = e2, ld = "value" in kd ? kd.value : kd.textContent, ie = true)), xa = oe(d2, ba), 0 < xa.length && (ba = new Ld(ba, a, null, c, e2), g2.push({ event: ba, listeners: xa }), $a ? ba.data = $a : ($a = he(c), null !== $a && (ba.data = $a))));
+      if ($a = ce ? je(a, c) : ke(a, c)) d2 = oe(d2, "onBeforeInput"), 0 < d2.length && (e2 = new Ld("onBeforeInput", "beforeinput", null, c, e2), g2.push({ event: e2, listeners: d2 }), e2.data = $a);
+    }
+    se(g2, b);
+  });
+}
+function tf(a, b, c) {
+  return { instance: a, listener: b, currentTarget: c };
+}
+function oe(a, b) {
+  for (var c = b + "Capture", d = []; null !== a; ) {
+    var e = a, f2 = e.stateNode;
+    5 === e.tag && null !== f2 && (e = f2, f2 = Kb(a, c), null != f2 && d.unshift(tf(a, f2, e)), f2 = Kb(a, b), null != f2 && d.push(tf(a, f2, e)));
+    a = a.return;
+  }
+  return d;
+}
+function vf(a) {
+  if (null === a) return null;
+  do
+    a = a.return;
+  while (a && 5 !== a.tag);
+  return a ? a : null;
+}
+function wf(a, b, c, d, e) {
+  for (var f2 = b._reactName, g = []; null !== c && c !== d; ) {
+    var h = c, k2 = h.alternate, l2 = h.stateNode;
+    if (null !== k2 && k2 === d) break;
+    5 === h.tag && null !== l2 && (h = l2, e ? (k2 = Kb(c, f2), null != k2 && g.unshift(tf(c, k2, h))) : e || (k2 = Kb(c, f2), null != k2 && g.push(tf(c, k2, h))));
+    c = c.return;
+  }
+  0 !== g.length && a.push({ event: b, listeners: g });
+}
+var xf = /\r\n?/g, yf = /\u0000|\uFFFD/g;
+function zf(a) {
+  return ("string" === typeof a ? a : "" + a).replace(xf, "\n").replace(yf, "");
+}
+function Af(a, b, c) {
+  b = zf(b);
+  if (zf(a) !== b && c) throw Error(p(425));
+}
+function Bf() {
+}
+var Cf = null, Df = null;
+function Ef(a, b) {
+  return "textarea" === a || "noscript" === a || "string" === typeof b.children || "number" === typeof b.children || "object" === typeof b.dangerouslySetInnerHTML && null !== b.dangerouslySetInnerHTML && null != b.dangerouslySetInnerHTML.__html;
+}
+var Ff = "function" === typeof setTimeout ? setTimeout : void 0, Gf = "function" === typeof clearTimeout ? clearTimeout : void 0, Hf = "function" === typeof Promise ? Promise : void 0, Jf = "function" === typeof queueMicrotask ? queueMicrotask : "undefined" !== typeof Hf ? function(a) {
+  return Hf.resolve(null).then(a).catch(If);
+} : Ff;
+function If(a) {
+  setTimeout(function() {
+    throw a;
+  });
+}
+function Kf(a, b) {
+  var c = b, d = 0;
+  do {
+    var e = c.nextSibling;
+    a.removeChild(c);
+    if (e && 8 === e.nodeType) if (c = e.data, "/$" === c) {
+      if (0 === d) {
+        a.removeChild(e);
+        bd(b);
+        return;
+      }
+      d--;
+    } else "$" !== c && "$?" !== c && "$!" !== c || d++;
+    c = e;
+  } while (c);
+  bd(b);
+}
+function Lf(a) {
+  for (; null != a; a = a.nextSibling) {
+    var b = a.nodeType;
+    if (1 === b || 3 === b) break;
+    if (8 === b) {
+      b = a.data;
+      if ("$" === b || "$!" === b || "$?" === b) break;
+      if ("/$" === b) return null;
+    }
+  }
+  return a;
+}
+function Mf(a) {
+  a = a.previousSibling;
+  for (var b = 0; a; ) {
+    if (8 === a.nodeType) {
+      var c = a.data;
+      if ("$" === c || "$!" === c || "$?" === c) {
+        if (0 === b) return a;
+        b--;
+      } else "/$" === c && b++;
+    }
+    a = a.previousSibling;
+  }
+  return null;
+}
+var Nf = Math.random().toString(36).slice(2), Of = "__reactFiber$" + Nf, Pf = "__reactProps$" + Nf, uf = "__reactContainer$" + Nf, of = "__reactEvents$" + Nf, Qf = "__reactListeners$" + Nf, Rf = "__reactHandles$" + Nf;
+function Wc(a) {
+  var b = a[Of];
+  if (b) return b;
+  for (var c = a.parentNode; c; ) {
+    if (b = c[uf] || c[Of]) {
+      c = b.alternate;
+      if (null !== b.child || null !== c && null !== c.child) for (a = Mf(a); null !== a; ) {
+        if (c = a[Of]) return c;
+        a = Mf(a);
+      }
+      return b;
+    }
+    a = c;
+    c = a.parentNode;
+  }
+  return null;
+}
+function Cb(a) {
+  a = a[Of] || a[uf];
+  return !a || 5 !== a.tag && 6 !== a.tag && 13 !== a.tag && 3 !== a.tag ? null : a;
+}
+function ue(a) {
+  if (5 === a.tag || 6 === a.tag) return a.stateNode;
+  throw Error(p(33));
+}
+function Db(a) {
+  return a[Pf] || null;
+}
+var Sf = [], Tf = -1;
+function Uf(a) {
+  return { current: a };
+}
+function E(a) {
+  0 > Tf || (a.current = Sf[Tf], Sf[Tf] = null, Tf--);
+}
+function G(a, b) {
+  Tf++;
+  Sf[Tf] = a.current;
+  a.current = b;
+}
+var Vf = {}, H = Uf(Vf), Wf = Uf(false), Xf = Vf;
+function Yf(a, b) {
+  var c = a.type.contextTypes;
+  if (!c) return Vf;
+  var d = a.stateNode;
+  if (d && d.__reactInternalMemoizedUnmaskedChildContext === b) return d.__reactInternalMemoizedMaskedChildContext;
+  var e = {}, f2;
+  for (f2 in c) e[f2] = b[f2];
+  d && (a = a.stateNode, a.__reactInternalMemoizedUnmaskedChildContext = b, a.__reactInternalMemoizedMaskedChildContext = e);
+  return e;
+}
+function Zf(a) {
+  a = a.childContextTypes;
+  return null !== a && void 0 !== a;
+}
+function $f() {
+  E(Wf);
+  E(H);
+}
+function ag(a, b, c) {
+  if (H.current !== Vf) throw Error(p(168));
+  G(H, b);
+  G(Wf, c);
+}
+function bg(a, b, c) {
+  var d = a.stateNode;
+  b = b.childContextTypes;
+  if ("function" !== typeof d.getChildContext) return c;
+  d = d.getChildContext();
+  for (var e in d) if (!(e in b)) throw Error(p(108, Ra(a) || "Unknown", e));
+  return A({}, c, d);
+}
+function cg(a) {
+  a = (a = a.stateNode) && a.__reactInternalMemoizedMergedChildContext || Vf;
+  Xf = H.current;
+  G(H, a);
+  G(Wf, Wf.current);
+  return true;
+}
+function dg(a, b, c) {
+  var d = a.stateNode;
+  if (!d) throw Error(p(169));
+  c ? (a = bg(a, b, Xf), d.__reactInternalMemoizedMergedChildContext = a, E(Wf), E(H), G(H, a)) : E(Wf);
+  G(Wf, c);
+}
+var eg = null, fg = false, gg = false;
+function hg(a) {
+  null === eg ? eg = [a] : eg.push(a);
+}
+function ig(a) {
+  fg = true;
+  hg(a);
+}
+function jg() {
+  if (!gg && null !== eg) {
+    gg = true;
+    var a = 0, b = C;
+    try {
+      var c = eg;
+      for (C = 1; a < c.length; a++) {
+        var d = c[a];
+        do
+          d = d(true);
+        while (null !== d);
+      }
+      eg = null;
+      fg = false;
+    } catch (e) {
+      throw null !== eg && (eg = eg.slice(a + 1)), ac(fc, jg), e;
+    } finally {
+      C = b, gg = false;
+    }
+  }
+  return null;
+}
+var kg = [], lg = 0, mg = null, ng = 0, og = [], pg = 0, qg = null, rg = 1, sg = "";
+function tg(a, b) {
+  kg[lg++] = ng;
+  kg[lg++] = mg;
+  mg = a;
+  ng = b;
+}
+function ug(a, b, c) {
+  og[pg++] = rg;
+  og[pg++] = sg;
+  og[pg++] = qg;
+  qg = a;
+  var d = rg;
+  a = sg;
+  var e = 32 - oc(d) - 1;
+  d &= ~(1 << e);
+  c += 1;
+  var f2 = 32 - oc(b) + e;
+  if (30 < f2) {
+    var g = e - e % 5;
+    f2 = (d & (1 << g) - 1).toString(32);
+    d >>= g;
+    e -= g;
+    rg = 1 << 32 - oc(b) + e | c << e | d;
+    sg = f2 + a;
+  } else rg = 1 << f2 | c << e | d, sg = a;
+}
+function vg(a) {
+  null !== a.return && (tg(a, 1), ug(a, 1, 0));
+}
+function wg(a) {
+  for (; a === mg; ) mg = kg[--lg], kg[lg] = null, ng = kg[--lg], kg[lg] = null;
+  for (; a === qg; ) qg = og[--pg], og[pg] = null, sg = og[--pg], og[pg] = null, rg = og[--pg], og[pg] = null;
+}
+var xg = null, yg = null, I = false, zg = null;
+function Ag(a, b) {
+  var c = Bg(5, null, null, 0);
+  c.elementType = "DELETED";
+  c.stateNode = b;
+  c.return = a;
+  b = a.deletions;
+  null === b ? (a.deletions = [c], a.flags |= 16) : b.push(c);
+}
+function Cg(a, b) {
+  switch (a.tag) {
+    case 5:
+      var c = a.type;
+      b = 1 !== b.nodeType || c.toLowerCase() !== b.nodeName.toLowerCase() ? null : b;
+      return null !== b ? (a.stateNode = b, xg = a, yg = Lf(b.firstChild), true) : false;
+    case 6:
+      return b = "" === a.pendingProps || 3 !== b.nodeType ? null : b, null !== b ? (a.stateNode = b, xg = a, yg = null, true) : false;
+    case 13:
+      return b = 8 !== b.nodeType ? null : b, null !== b ? (c = null !== qg ? { id: rg, overflow: sg } : null, a.memoizedState = { dehydrated: b, treeContext: c, retryLane: 1073741824 }, c = Bg(18, null, null, 0), c.stateNode = b, c.return = a, a.child = c, xg = a, yg = null, true) : false;
+    default:
+      return false;
+  }
+}
+function Dg(a) {
+  return 0 !== (a.mode & 1) && 0 === (a.flags & 128);
+}
+function Eg(a) {
+  if (I) {
+    var b = yg;
+    if (b) {
+      var c = b;
+      if (!Cg(a, b)) {
+        if (Dg(a)) throw Error(p(418));
+        b = Lf(c.nextSibling);
+        var d = xg;
+        b && Cg(a, b) ? Ag(d, c) : (a.flags = a.flags & -4097 | 2, I = false, xg = a);
+      }
+    } else {
+      if (Dg(a)) throw Error(p(418));
+      a.flags = a.flags & -4097 | 2;
+      I = false;
+      xg = a;
+    }
+  }
+}
+function Fg(a) {
+  for (a = a.return; null !== a && 5 !== a.tag && 3 !== a.tag && 13 !== a.tag; ) a = a.return;
+  xg = a;
+}
+function Gg(a) {
+  if (a !== xg) return false;
+  if (!I) return Fg(a), I = true, false;
+  var b;
+  (b = 3 !== a.tag) && !(b = 5 !== a.tag) && (b = a.type, b = "head" !== b && "body" !== b && !Ef(a.type, a.memoizedProps));
+  if (b && (b = yg)) {
+    if (Dg(a)) throw Hg(), Error(p(418));
+    for (; b; ) Ag(a, b), b = Lf(b.nextSibling);
+  }
+  Fg(a);
+  if (13 === a.tag) {
+    a = a.memoizedState;
+    a = null !== a ? a.dehydrated : null;
+    if (!a) throw Error(p(317));
+    a: {
+      a = a.nextSibling;
+      for (b = 0; a; ) {
+        if (8 === a.nodeType) {
+          var c = a.data;
+          if ("/$" === c) {
+            if (0 === b) {
+              yg = Lf(a.nextSibling);
+              break a;
+            }
+            b--;
+          } else "$" !== c && "$!" !== c && "$?" !== c || b++;
+        }
+        a = a.nextSibling;
+      }
+      yg = null;
+    }
+  } else yg = xg ? Lf(a.stateNode.nextSibling) : null;
+  return true;
+}
+function Hg() {
+  for (var a = yg; a; ) a = Lf(a.nextSibling);
+}
+function Ig() {
+  yg = xg = null;
+  I = false;
+}
+function Jg(a) {
+  null === zg ? zg = [a] : zg.push(a);
+}
+var Kg = ua.ReactCurrentBatchConfig;
+function Lg(a, b, c) {
+  a = c.ref;
+  if (null !== a && "function" !== typeof a && "object" !== typeof a) {
+    if (c._owner) {
+      c = c._owner;
+      if (c) {
+        if (1 !== c.tag) throw Error(p(309));
+        var d = c.stateNode;
+      }
+      if (!d) throw Error(p(147, a));
+      var e = d, f2 = "" + a;
+      if (null !== b && null !== b.ref && "function" === typeof b.ref && b.ref._stringRef === f2) return b.ref;
+      b = function(a2) {
+        var b2 = e.refs;
+        null === a2 ? delete b2[f2] : b2[f2] = a2;
+      };
+      b._stringRef = f2;
+      return b;
+    }
+    if ("string" !== typeof a) throw Error(p(284));
+    if (!c._owner) throw Error(p(290, a));
+  }
+  return a;
+}
+function Mg(a, b) {
+  a = Object.prototype.toString.call(b);
+  throw Error(p(31, "[object Object]" === a ? "object with keys {" + Object.keys(b).join(", ") + "}" : a));
+}
+function Ng(a) {
+  var b = a._init;
+  return b(a._payload);
+}
+function Og(a) {
+  function b(b2, c2) {
+    if (a) {
+      var d2 = b2.deletions;
+      null === d2 ? (b2.deletions = [c2], b2.flags |= 16) : d2.push(c2);
+    }
+  }
+  function c(c2, d2) {
+    if (!a) return null;
+    for (; null !== d2; ) b(c2, d2), d2 = d2.sibling;
+    return null;
+  }
+  function d(a2, b2) {
+    for (a2 = /* @__PURE__ */ new Map(); null !== b2; ) null !== b2.key ? a2.set(b2.key, b2) : a2.set(b2.index, b2), b2 = b2.sibling;
+    return a2;
+  }
+  function e(a2, b2) {
+    a2 = Pg(a2, b2);
+    a2.index = 0;
+    a2.sibling = null;
+    return a2;
+  }
+  function f2(b2, c2, d2) {
+    b2.index = d2;
+    if (!a) return b2.flags |= 1048576, c2;
+    d2 = b2.alternate;
+    if (null !== d2) return d2 = d2.index, d2 < c2 ? (b2.flags |= 2, c2) : d2;
+    b2.flags |= 2;
+    return c2;
+  }
+  function g(b2) {
+    a && null === b2.alternate && (b2.flags |= 2);
+    return b2;
+  }
+  function h(a2, b2, c2, d2) {
+    if (null === b2 || 6 !== b2.tag) return b2 = Qg(c2, a2.mode, d2), b2.return = a2, b2;
+    b2 = e(b2, c2);
+    b2.return = a2;
+    return b2;
+  }
+  function k2(a2, b2, c2, d2) {
+    var f3 = c2.type;
+    if (f3 === ya) return m2(a2, b2, c2.props.children, d2, c2.key);
+    if (null !== b2 && (b2.elementType === f3 || "object" === typeof f3 && null !== f3 && f3.$$typeof === Ha && Ng(f3) === b2.type)) return d2 = e(b2, c2.props), d2.ref = Lg(a2, b2, c2), d2.return = a2, d2;
+    d2 = Rg(c2.type, c2.key, c2.props, null, a2.mode, d2);
+    d2.ref = Lg(a2, b2, c2);
+    d2.return = a2;
+    return d2;
+  }
+  function l2(a2, b2, c2, d2) {
+    if (null === b2 || 4 !== b2.tag || b2.stateNode.containerInfo !== c2.containerInfo || b2.stateNode.implementation !== c2.implementation) return b2 = Sg(c2, a2.mode, d2), b2.return = a2, b2;
+    b2 = e(b2, c2.children || []);
+    b2.return = a2;
+    return b2;
+  }
+  function m2(a2, b2, c2, d2, f3) {
+    if (null === b2 || 7 !== b2.tag) return b2 = Tg(c2, a2.mode, d2, f3), b2.return = a2, b2;
+    b2 = e(b2, c2);
+    b2.return = a2;
+    return b2;
+  }
+  function q2(a2, b2, c2) {
+    if ("string" === typeof b2 && "" !== b2 || "number" === typeof b2) return b2 = Qg("" + b2, a2.mode, c2), b2.return = a2, b2;
+    if ("object" === typeof b2 && null !== b2) {
+      switch (b2.$$typeof) {
+        case va:
+          return c2 = Rg(b2.type, b2.key, b2.props, null, a2.mode, c2), c2.ref = Lg(a2, null, b2), c2.return = a2, c2;
+        case wa:
+          return b2 = Sg(b2, a2.mode, c2), b2.return = a2, b2;
+        case Ha:
+          var d2 = b2._init;
+          return q2(a2, d2(b2._payload), c2);
+      }
+      if (eb(b2) || Ka(b2)) return b2 = Tg(b2, a2.mode, c2, null), b2.return = a2, b2;
+      Mg(a2, b2);
+    }
+    return null;
+  }
+  function r2(a2, b2, c2, d2) {
+    var e2 = null !== b2 ? b2.key : null;
+    if ("string" === typeof c2 && "" !== c2 || "number" === typeof c2) return null !== e2 ? null : h(a2, b2, "" + c2, d2);
+    if ("object" === typeof c2 && null !== c2) {
+      switch (c2.$$typeof) {
+        case va:
+          return c2.key === e2 ? k2(a2, b2, c2, d2) : null;
+        case wa:
+          return c2.key === e2 ? l2(a2, b2, c2, d2) : null;
+        case Ha:
+          return e2 = c2._init, r2(
+            a2,
+            b2,
+            e2(c2._payload),
+            d2
+          );
+      }
+      if (eb(c2) || Ka(c2)) return null !== e2 ? null : m2(a2, b2, c2, d2, null);
+      Mg(a2, c2);
+    }
+    return null;
+  }
+  function y2(a2, b2, c2, d2, e2) {
+    if ("string" === typeof d2 && "" !== d2 || "number" === typeof d2) return a2 = a2.get(c2) || null, h(b2, a2, "" + d2, e2);
+    if ("object" === typeof d2 && null !== d2) {
+      switch (d2.$$typeof) {
+        case va:
+          return a2 = a2.get(null === d2.key ? c2 : d2.key) || null, k2(b2, a2, d2, e2);
+        case wa:
+          return a2 = a2.get(null === d2.key ? c2 : d2.key) || null, l2(b2, a2, d2, e2);
+        case Ha:
+          var f3 = d2._init;
+          return y2(a2, b2, c2, f3(d2._payload), e2);
+      }
+      if (eb(d2) || Ka(d2)) return a2 = a2.get(c2) || null, m2(b2, a2, d2, e2, null);
+      Mg(b2, d2);
+    }
+    return null;
+  }
+  function n2(e2, g2, h2, k3) {
+    for (var l3 = null, m3 = null, u2 = g2, w2 = g2 = 0, x2 = null; null !== u2 && w2 < h2.length; w2++) {
+      u2.index > w2 ? (x2 = u2, u2 = null) : x2 = u2.sibling;
+      var n3 = r2(e2, u2, h2[w2], k3);
+      if (null === n3) {
+        null === u2 && (u2 = x2);
+        break;
+      }
+      a && u2 && null === n3.alternate && b(e2, u2);
+      g2 = f2(n3, g2, w2);
+      null === m3 ? l3 = n3 : m3.sibling = n3;
+      m3 = n3;
+      u2 = x2;
+    }
+    if (w2 === h2.length) return c(e2, u2), I && tg(e2, w2), l3;
+    if (null === u2) {
+      for (; w2 < h2.length; w2++) u2 = q2(e2, h2[w2], k3), null !== u2 && (g2 = f2(u2, g2, w2), null === m3 ? l3 = u2 : m3.sibling = u2, m3 = u2);
+      I && tg(e2, w2);
+      return l3;
+    }
+    for (u2 = d(e2, u2); w2 < h2.length; w2++) x2 = y2(u2, e2, w2, h2[w2], k3), null !== x2 && (a && null !== x2.alternate && u2.delete(null === x2.key ? w2 : x2.key), g2 = f2(x2, g2, w2), null === m3 ? l3 = x2 : m3.sibling = x2, m3 = x2);
+    a && u2.forEach(function(a2) {
+      return b(e2, a2);
+    });
+    I && tg(e2, w2);
+    return l3;
+  }
+  function t2(e2, g2, h2, k3) {
+    var l3 = Ka(h2);
+    if ("function" !== typeof l3) throw Error(p(150));
+    h2 = l3.call(h2);
+    if (null == h2) throw Error(p(151));
+    for (var u2 = l3 = null, m3 = g2, w2 = g2 = 0, x2 = null, n3 = h2.next(); null !== m3 && !n3.done; w2++, n3 = h2.next()) {
+      m3.index > w2 ? (x2 = m3, m3 = null) : x2 = m3.sibling;
+      var t3 = r2(e2, m3, n3.value, k3);
+      if (null === t3) {
+        null === m3 && (m3 = x2);
+        break;
+      }
+      a && m3 && null === t3.alternate && b(e2, m3);
+      g2 = f2(t3, g2, w2);
+      null === u2 ? l3 = t3 : u2.sibling = t3;
+      u2 = t3;
+      m3 = x2;
+    }
+    if (n3.done) return c(
+      e2,
+      m3
+    ), I && tg(e2, w2), l3;
+    if (null === m3) {
+      for (; !n3.done; w2++, n3 = h2.next()) n3 = q2(e2, n3.value, k3), null !== n3 && (g2 = f2(n3, g2, w2), null === u2 ? l3 = n3 : u2.sibling = n3, u2 = n3);
+      I && tg(e2, w2);
+      return l3;
+    }
+    for (m3 = d(e2, m3); !n3.done; w2++, n3 = h2.next()) n3 = y2(m3, e2, w2, n3.value, k3), null !== n3 && (a && null !== n3.alternate && m3.delete(null === n3.key ? w2 : n3.key), g2 = f2(n3, g2, w2), null === u2 ? l3 = n3 : u2.sibling = n3, u2 = n3);
+    a && m3.forEach(function(a2) {
+      return b(e2, a2);
+    });
+    I && tg(e2, w2);
+    return l3;
+  }
+  function J2(a2, d2, f3, h2) {
+    "object" === typeof f3 && null !== f3 && f3.type === ya && null === f3.key && (f3 = f3.props.children);
+    if ("object" === typeof f3 && null !== f3) {
+      switch (f3.$$typeof) {
+        case va:
+          a: {
+            for (var k3 = f3.key, l3 = d2; null !== l3; ) {
+              if (l3.key === k3) {
+                k3 = f3.type;
+                if (k3 === ya) {
+                  if (7 === l3.tag) {
+                    c(a2, l3.sibling);
+                    d2 = e(l3, f3.props.children);
+                    d2.return = a2;
+                    a2 = d2;
+                    break a;
+                  }
+                } else if (l3.elementType === k3 || "object" === typeof k3 && null !== k3 && k3.$$typeof === Ha && Ng(k3) === l3.type) {
+                  c(a2, l3.sibling);
+                  d2 = e(l3, f3.props);
+                  d2.ref = Lg(a2, l3, f3);
+                  d2.return = a2;
+                  a2 = d2;
+                  break a;
+                }
+                c(a2, l3);
+                break;
+              } else b(a2, l3);
+              l3 = l3.sibling;
+            }
+            f3.type === ya ? (d2 = Tg(f3.props.children, a2.mode, h2, f3.key), d2.return = a2, a2 = d2) : (h2 = Rg(f3.type, f3.key, f3.props, null, a2.mode, h2), h2.ref = Lg(a2, d2, f3), h2.return = a2, a2 = h2);
+          }
+          return g(a2);
+        case wa:
+          a: {
+            for (l3 = f3.key; null !== d2; ) {
+              if (d2.key === l3) if (4 === d2.tag && d2.stateNode.containerInfo === f3.containerInfo && d2.stateNode.implementation === f3.implementation) {
+                c(a2, d2.sibling);
+                d2 = e(d2, f3.children || []);
+                d2.return = a2;
+                a2 = d2;
+                break a;
+              } else {
+                c(a2, d2);
+                break;
+              }
+              else b(a2, d2);
+              d2 = d2.sibling;
+            }
+            d2 = Sg(f3, a2.mode, h2);
+            d2.return = a2;
+            a2 = d2;
+          }
+          return g(a2);
+        case Ha:
+          return l3 = f3._init, J2(a2, d2, l3(f3._payload), h2);
+      }
+      if (eb(f3)) return n2(a2, d2, f3, h2);
+      if (Ka(f3)) return t2(a2, d2, f3, h2);
+      Mg(a2, f3);
+    }
+    return "string" === typeof f3 && "" !== f3 || "number" === typeof f3 ? (f3 = "" + f3, null !== d2 && 6 === d2.tag ? (c(a2, d2.sibling), d2 = e(d2, f3), d2.return = a2, a2 = d2) : (c(a2, d2), d2 = Qg(f3, a2.mode, h2), d2.return = a2, a2 = d2), g(a2)) : c(a2, d2);
+  }
+  return J2;
+}
+var Ug = Og(true), Vg = Og(false), Wg = Uf(null), Xg = null, Yg = null, Zg = null;
+function $g() {
+  Zg = Yg = Xg = null;
+}
+function ah(a) {
+  var b = Wg.current;
+  E(Wg);
+  a._currentValue = b;
+}
+function bh(a, b, c) {
+  for (; null !== a; ) {
+    var d = a.alternate;
+    (a.childLanes & b) !== b ? (a.childLanes |= b, null !== d && (d.childLanes |= b)) : null !== d && (d.childLanes & b) !== b && (d.childLanes |= b);
+    if (a === c) break;
+    a = a.return;
+  }
+}
+function ch(a, b) {
+  Xg = a;
+  Zg = Yg = null;
+  a = a.dependencies;
+  null !== a && null !== a.firstContext && (0 !== (a.lanes & b) && (dh = true), a.firstContext = null);
+}
+function eh(a) {
+  var b = a._currentValue;
+  if (Zg !== a) if (a = { context: a, memoizedValue: b, next: null }, null === Yg) {
+    if (null === Xg) throw Error(p(308));
+    Yg = a;
+    Xg.dependencies = { lanes: 0, firstContext: a };
+  } else Yg = Yg.next = a;
+  return b;
+}
+var fh = null;
+function gh(a) {
+  null === fh ? fh = [a] : fh.push(a);
+}
+function hh(a, b, c, d) {
+  var e = b.interleaved;
+  null === e ? (c.next = c, gh(b)) : (c.next = e.next, e.next = c);
+  b.interleaved = c;
+  return ih(a, d);
+}
+function ih(a, b) {
+  a.lanes |= b;
+  var c = a.alternate;
+  null !== c && (c.lanes |= b);
+  c = a;
+  for (a = a.return; null !== a; ) a.childLanes |= b, c = a.alternate, null !== c && (c.childLanes |= b), c = a, a = a.return;
+  return 3 === c.tag ? c.stateNode : null;
+}
+var jh = false;
+function kh(a) {
+  a.updateQueue = { baseState: a.memoizedState, firstBaseUpdate: null, lastBaseUpdate: null, shared: { pending: null, interleaved: null, lanes: 0 }, effects: null };
+}
+function lh(a, b) {
+  a = a.updateQueue;
+  b.updateQueue === a && (b.updateQueue = { baseState: a.baseState, firstBaseUpdate: a.firstBaseUpdate, lastBaseUpdate: a.lastBaseUpdate, shared: a.shared, effects: a.effects });
+}
+function mh(a, b) {
+  return { eventTime: a, lane: b, tag: 0, payload: null, callback: null, next: null };
+}
+function nh(a, b, c) {
+  var d = a.updateQueue;
+  if (null === d) return null;
+  d = d.shared;
+  if (0 !== (K & 2)) {
+    var e = d.pending;
+    null === e ? b.next = b : (b.next = e.next, e.next = b);
+    d.pending = b;
+    return ih(a, c);
+  }
+  e = d.interleaved;
+  null === e ? (b.next = b, gh(d)) : (b.next = e.next, e.next = b);
+  d.interleaved = b;
+  return ih(a, c);
+}
+function oh(a, b, c) {
+  b = b.updateQueue;
+  if (null !== b && (b = b.shared, 0 !== (c & 4194240))) {
+    var d = b.lanes;
+    d &= a.pendingLanes;
+    c |= d;
+    b.lanes = c;
+    Cc(a, c);
+  }
+}
+function ph(a, b) {
+  var c = a.updateQueue, d = a.alternate;
+  if (null !== d && (d = d.updateQueue, c === d)) {
+    var e = null, f2 = null;
+    c = c.firstBaseUpdate;
+    if (null !== c) {
+      do {
+        var g = { eventTime: c.eventTime, lane: c.lane, tag: c.tag, payload: c.payload, callback: c.callback, next: null };
+        null === f2 ? e = f2 = g : f2 = f2.next = g;
+        c = c.next;
+      } while (null !== c);
+      null === f2 ? e = f2 = b : f2 = f2.next = b;
+    } else e = f2 = b;
+    c = { baseState: d.baseState, firstBaseUpdate: e, lastBaseUpdate: f2, shared: d.shared, effects: d.effects };
+    a.updateQueue = c;
+    return;
+  }
+  a = c.lastBaseUpdate;
+  null === a ? c.firstBaseUpdate = b : a.next = b;
+  c.lastBaseUpdate = b;
+}
+function qh(a, b, c, d) {
+  var e = a.updateQueue;
+  jh = false;
+  var f2 = e.firstBaseUpdate, g = e.lastBaseUpdate, h = e.shared.pending;
+  if (null !== h) {
+    e.shared.pending = null;
+    var k2 = h, l2 = k2.next;
+    k2.next = null;
+    null === g ? f2 = l2 : g.next = l2;
+    g = k2;
+    var m2 = a.alternate;
+    null !== m2 && (m2 = m2.updateQueue, h = m2.lastBaseUpdate, h !== g && (null === h ? m2.firstBaseUpdate = l2 : h.next = l2, m2.lastBaseUpdate = k2));
+  }
+  if (null !== f2) {
+    var q2 = e.baseState;
+    g = 0;
+    m2 = l2 = k2 = null;
+    h = f2;
+    do {
+      var r2 = h.lane, y2 = h.eventTime;
+      if ((d & r2) === r2) {
+        null !== m2 && (m2 = m2.next = {
+          eventTime: y2,
+          lane: 0,
+          tag: h.tag,
+          payload: h.payload,
+          callback: h.callback,
+          next: null
+        });
+        a: {
+          var n2 = a, t2 = h;
+          r2 = b;
+          y2 = c;
+          switch (t2.tag) {
+            case 1:
+              n2 = t2.payload;
+              if ("function" === typeof n2) {
+                q2 = n2.call(y2, q2, r2);
+                break a;
+              }
+              q2 = n2;
+              break a;
+            case 3:
+              n2.flags = n2.flags & -65537 | 128;
+            case 0:
+              n2 = t2.payload;
+              r2 = "function" === typeof n2 ? n2.call(y2, q2, r2) : n2;
+              if (null === r2 || void 0 === r2) break a;
+              q2 = A({}, q2, r2);
+              break a;
+            case 2:
+              jh = true;
+          }
+        }
+        null !== h.callback && 0 !== h.lane && (a.flags |= 64, r2 = e.effects, null === r2 ? e.effects = [h] : r2.push(h));
+      } else y2 = { eventTime: y2, lane: r2, tag: h.tag, payload: h.payload, callback: h.callback, next: null }, null === m2 ? (l2 = m2 = y2, k2 = q2) : m2 = m2.next = y2, g |= r2;
+      h = h.next;
+      if (null === h) if (h = e.shared.pending, null === h) break;
+      else r2 = h, h = r2.next, r2.next = null, e.lastBaseUpdate = r2, e.shared.pending = null;
+    } while (1);
+    null === m2 && (k2 = q2);
+    e.baseState = k2;
+    e.firstBaseUpdate = l2;
+    e.lastBaseUpdate = m2;
+    b = e.shared.interleaved;
+    if (null !== b) {
+      e = b;
+      do
+        g |= e.lane, e = e.next;
+      while (e !== b);
+    } else null === f2 && (e.shared.lanes = 0);
+    rh |= g;
+    a.lanes = g;
+    a.memoizedState = q2;
+  }
+}
+function sh(a, b, c) {
+  a = b.effects;
+  b.effects = null;
+  if (null !== a) for (b = 0; b < a.length; b++) {
+    var d = a[b], e = d.callback;
+    if (null !== e) {
+      d.callback = null;
+      d = c;
+      if ("function" !== typeof e) throw Error(p(191, e));
+      e.call(d);
+    }
+  }
+}
+var th = {}, uh = Uf(th), vh = Uf(th), wh = Uf(th);
+function xh(a) {
+  if (a === th) throw Error(p(174));
+  return a;
+}
+function yh(a, b) {
+  G(wh, b);
+  G(vh, a);
+  G(uh, th);
+  a = b.nodeType;
+  switch (a) {
+    case 9:
+    case 11:
+      b = (b = b.documentElement) ? b.namespaceURI : lb(null, "");
+      break;
+    default:
+      a = 8 === a ? b.parentNode : b, b = a.namespaceURI || null, a = a.tagName, b = lb(b, a);
+  }
+  E(uh);
+  G(uh, b);
+}
+function zh() {
+  E(uh);
+  E(vh);
+  E(wh);
+}
+function Ah(a) {
+  xh(wh.current);
+  var b = xh(uh.current);
+  var c = lb(b, a.type);
+  b !== c && (G(vh, a), G(uh, c));
+}
+function Bh(a) {
+  vh.current === a && (E(uh), E(vh));
+}
+var L = Uf(0);
+function Ch(a) {
+  for (var b = a; null !== b; ) {
+    if (13 === b.tag) {
+      var c = b.memoizedState;
+      if (null !== c && (c = c.dehydrated, null === c || "$?" === c.data || "$!" === c.data)) return b;
+    } else if (19 === b.tag && void 0 !== b.memoizedProps.revealOrder) {
+      if (0 !== (b.flags & 128)) return b;
+    } else if (null !== b.child) {
+      b.child.return = b;
+      b = b.child;
+      continue;
+    }
+    if (b === a) break;
+    for (; null === b.sibling; ) {
+      if (null === b.return || b.return === a) return null;
+      b = b.return;
+    }
+    b.sibling.return = b.return;
+    b = b.sibling;
+  }
+  return null;
+}
+var Dh = [];
+function Eh() {
+  for (var a = 0; a < Dh.length; a++) Dh[a]._workInProgressVersionPrimary = null;
+  Dh.length = 0;
+}
+var Fh = ua.ReactCurrentDispatcher, Gh = ua.ReactCurrentBatchConfig, Hh = 0, M = null, N = null, O = null, Ih = false, Jh = false, Kh = 0, Lh = 0;
+function P() {
+  throw Error(p(321));
+}
+function Mh(a, b) {
+  if (null === b) return false;
+  for (var c = 0; c < b.length && c < a.length; c++) if (!He(a[c], b[c])) return false;
+  return true;
+}
+function Nh(a, b, c, d, e, f2) {
+  Hh = f2;
+  M = b;
+  b.memoizedState = null;
+  b.updateQueue = null;
+  b.lanes = 0;
+  Fh.current = null === a || null === a.memoizedState ? Oh : Ph;
+  a = c(d, e);
+  if (Jh) {
+    f2 = 0;
+    do {
+      Jh = false;
+      Kh = 0;
+      if (25 <= f2) throw Error(p(301));
+      f2 += 1;
+      O = N = null;
+      b.updateQueue = null;
+      Fh.current = Qh;
+      a = c(d, e);
+    } while (Jh);
+  }
+  Fh.current = Rh;
+  b = null !== N && null !== N.next;
+  Hh = 0;
+  O = N = M = null;
+  Ih = false;
+  if (b) throw Error(p(300));
+  return a;
+}
+function Sh() {
+  var a = 0 !== Kh;
+  Kh = 0;
+  return a;
+}
+function Th() {
+  var a = { memoizedState: null, baseState: null, baseQueue: null, queue: null, next: null };
+  null === O ? M.memoizedState = O = a : O = O.next = a;
+  return O;
+}
+function Uh() {
+  if (null === N) {
+    var a = M.alternate;
+    a = null !== a ? a.memoizedState : null;
+  } else a = N.next;
+  var b = null === O ? M.memoizedState : O.next;
+  if (null !== b) O = b, N = a;
+  else {
+    if (null === a) throw Error(p(310));
+    N = a;
+    a = { memoizedState: N.memoizedState, baseState: N.baseState, baseQueue: N.baseQueue, queue: N.queue, next: null };
+    null === O ? M.memoizedState = O = a : O = O.next = a;
+  }
+  return O;
+}
+function Vh(a, b) {
+  return "function" === typeof b ? b(a) : b;
+}
+function Wh(a) {
+  var b = Uh(), c = b.queue;
+  if (null === c) throw Error(p(311));
+  c.lastRenderedReducer = a;
+  var d = N, e = d.baseQueue, f2 = c.pending;
+  if (null !== f2) {
+    if (null !== e) {
+      var g = e.next;
+      e.next = f2.next;
+      f2.next = g;
+    }
+    d.baseQueue = e = f2;
+    c.pending = null;
+  }
+  if (null !== e) {
+    f2 = e.next;
+    d = d.baseState;
+    var h = g = null, k2 = null, l2 = f2;
+    do {
+      var m2 = l2.lane;
+      if ((Hh & m2) === m2) null !== k2 && (k2 = k2.next = { lane: 0, action: l2.action, hasEagerState: l2.hasEagerState, eagerState: l2.eagerState, next: null }), d = l2.hasEagerState ? l2.eagerState : a(d, l2.action);
+      else {
+        var q2 = {
+          lane: m2,
+          action: l2.action,
+          hasEagerState: l2.hasEagerState,
+          eagerState: l2.eagerState,
+          next: null
+        };
+        null === k2 ? (h = k2 = q2, g = d) : k2 = k2.next = q2;
+        M.lanes |= m2;
+        rh |= m2;
+      }
+      l2 = l2.next;
+    } while (null !== l2 && l2 !== f2);
+    null === k2 ? g = d : k2.next = h;
+    He(d, b.memoizedState) || (dh = true);
+    b.memoizedState = d;
+    b.baseState = g;
+    b.baseQueue = k2;
+    c.lastRenderedState = d;
+  }
+  a = c.interleaved;
+  if (null !== a) {
+    e = a;
+    do
+      f2 = e.lane, M.lanes |= f2, rh |= f2, e = e.next;
+    while (e !== a);
+  } else null === e && (c.lanes = 0);
+  return [b.memoizedState, c.dispatch];
+}
+function Xh(a) {
+  var b = Uh(), c = b.queue;
+  if (null === c) throw Error(p(311));
+  c.lastRenderedReducer = a;
+  var d = c.dispatch, e = c.pending, f2 = b.memoizedState;
+  if (null !== e) {
+    c.pending = null;
+    var g = e = e.next;
+    do
+      f2 = a(f2, g.action), g = g.next;
+    while (g !== e);
+    He(f2, b.memoizedState) || (dh = true);
+    b.memoizedState = f2;
+    null === b.baseQueue && (b.baseState = f2);
+    c.lastRenderedState = f2;
+  }
+  return [f2, d];
+}
+function Yh() {
+}
+function Zh(a, b) {
+  var c = M, d = Uh(), e = b(), f2 = !He(d.memoizedState, e);
+  f2 && (d.memoizedState = e, dh = true);
+  d = d.queue;
+  $h(ai.bind(null, c, d, a), [a]);
+  if (d.getSnapshot !== b || f2 || null !== O && O.memoizedState.tag & 1) {
+    c.flags |= 2048;
+    bi(9, ci.bind(null, c, d, e, b), void 0, null);
+    if (null === Q) throw Error(p(349));
+    0 !== (Hh & 30) || di(c, b, e);
+  }
+  return e;
+}
+function di(a, b, c) {
+  a.flags |= 16384;
+  a = { getSnapshot: b, value: c };
+  b = M.updateQueue;
+  null === b ? (b = { lastEffect: null, stores: null }, M.updateQueue = b, b.stores = [a]) : (c = b.stores, null === c ? b.stores = [a] : c.push(a));
+}
+function ci(a, b, c, d) {
+  b.value = c;
+  b.getSnapshot = d;
+  ei(b) && fi(a);
+}
+function ai(a, b, c) {
+  return c(function() {
+    ei(b) && fi(a);
+  });
+}
+function ei(a) {
+  var b = a.getSnapshot;
+  a = a.value;
+  try {
+    var c = b();
+    return !He(a, c);
+  } catch (d) {
+    return true;
+  }
+}
+function fi(a) {
+  var b = ih(a, 1);
+  null !== b && gi(b, a, 1, -1);
+}
+function hi(a) {
+  var b = Th();
+  "function" === typeof a && (a = a());
+  b.memoizedState = b.baseState = a;
+  a = { pending: null, interleaved: null, lanes: 0, dispatch: null, lastRenderedReducer: Vh, lastRenderedState: a };
+  b.queue = a;
+  a = a.dispatch = ii.bind(null, M, a);
+  return [b.memoizedState, a];
+}
+function bi(a, b, c, d) {
+  a = { tag: a, create: b, destroy: c, deps: d, next: null };
+  b = M.updateQueue;
+  null === b ? (b = { lastEffect: null, stores: null }, M.updateQueue = b, b.lastEffect = a.next = a) : (c = b.lastEffect, null === c ? b.lastEffect = a.next = a : (d = c.next, c.next = a, a.next = d, b.lastEffect = a));
+  return a;
+}
+function ji() {
+  return Uh().memoizedState;
+}
+function ki(a, b, c, d) {
+  var e = Th();
+  M.flags |= a;
+  e.memoizedState = bi(1 | b, c, void 0, void 0 === d ? null : d);
+}
+function li(a, b, c, d) {
+  var e = Uh();
+  d = void 0 === d ? null : d;
+  var f2 = void 0;
+  if (null !== N) {
+    var g = N.memoizedState;
+    f2 = g.destroy;
+    if (null !== d && Mh(d, g.deps)) {
+      e.memoizedState = bi(b, c, f2, d);
+      return;
+    }
+  }
+  M.flags |= a;
+  e.memoizedState = bi(1 | b, c, f2, d);
+}
+function mi(a, b) {
+  return ki(8390656, 8, a, b);
+}
+function $h(a, b) {
+  return li(2048, 8, a, b);
+}
+function ni(a, b) {
+  return li(4, 2, a, b);
+}
+function oi(a, b) {
+  return li(4, 4, a, b);
+}
+function pi(a, b) {
+  if ("function" === typeof b) return a = a(), b(a), function() {
+    b(null);
+  };
+  if (null !== b && void 0 !== b) return a = a(), b.current = a, function() {
+    b.current = null;
+  };
+}
+function qi(a, b, c) {
+  c = null !== c && void 0 !== c ? c.concat([a]) : null;
+  return li(4, 4, pi.bind(null, b, a), c);
+}
+function ri() {
+}
+function si(a, b) {
+  var c = Uh();
+  b = void 0 === b ? null : b;
+  var d = c.memoizedState;
+  if (null !== d && null !== b && Mh(b, d[1])) return d[0];
+  c.memoizedState = [a, b];
+  return a;
+}
+function ti(a, b) {
+  var c = Uh();
+  b = void 0 === b ? null : b;
+  var d = c.memoizedState;
+  if (null !== d && null !== b && Mh(b, d[1])) return d[0];
+  a = a();
+  c.memoizedState = [a, b];
+  return a;
+}
+function ui(a, b, c) {
+  if (0 === (Hh & 21)) return a.baseState && (a.baseState = false, dh = true), a.memoizedState = c;
+  He(c, b) || (c = yc(), M.lanes |= c, rh |= c, a.baseState = true);
+  return b;
+}
+function vi(a, b) {
+  var c = C;
+  C = 0 !== c && 4 > c ? c : 4;
+  a(true);
+  var d = Gh.transition;
+  Gh.transition = {};
+  try {
+    a(false), b();
+  } finally {
+    C = c, Gh.transition = d;
+  }
+}
+function wi() {
+  return Uh().memoizedState;
+}
+function xi(a, b, c) {
+  var d = yi(a);
+  c = { lane: d, action: c, hasEagerState: false, eagerState: null, next: null };
+  if (zi(a)) Ai(b, c);
+  else if (c = hh(a, b, c, d), null !== c) {
+    var e = R();
+    gi(c, a, d, e);
+    Bi(c, b, d);
+  }
+}
+function ii(a, b, c) {
+  var d = yi(a), e = { lane: d, action: c, hasEagerState: false, eagerState: null, next: null };
+  if (zi(a)) Ai(b, e);
+  else {
+    var f2 = a.alternate;
+    if (0 === a.lanes && (null === f2 || 0 === f2.lanes) && (f2 = b.lastRenderedReducer, null !== f2)) try {
+      var g = b.lastRenderedState, h = f2(g, c);
+      e.hasEagerState = true;
+      e.eagerState = h;
+      if (He(h, g)) {
+        var k2 = b.interleaved;
+        null === k2 ? (e.next = e, gh(b)) : (e.next = k2.next, k2.next = e);
+        b.interleaved = e;
+        return;
+      }
+    } catch (l2) {
+    } finally {
+    }
+    c = hh(a, b, e, d);
+    null !== c && (e = R(), gi(c, a, d, e), Bi(c, b, d));
+  }
+}
+function zi(a) {
+  var b = a.alternate;
+  return a === M || null !== b && b === M;
+}
+function Ai(a, b) {
+  Jh = Ih = true;
+  var c = a.pending;
+  null === c ? b.next = b : (b.next = c.next, c.next = b);
+  a.pending = b;
+}
+function Bi(a, b, c) {
+  if (0 !== (c & 4194240)) {
+    var d = b.lanes;
+    d &= a.pendingLanes;
+    c |= d;
+    b.lanes = c;
+    Cc(a, c);
+  }
+}
+var Rh = { readContext: eh, useCallback: P, useContext: P, useEffect: P, useImperativeHandle: P, useInsertionEffect: P, useLayoutEffect: P, useMemo: P, useReducer: P, useRef: P, useState: P, useDebugValue: P, useDeferredValue: P, useTransition: P, useMutableSource: P, useSyncExternalStore: P, useId: P, unstable_isNewReconciler: false }, Oh = { readContext: eh, useCallback: function(a, b) {
+  Th().memoizedState = [a, void 0 === b ? null : b];
+  return a;
+}, useContext: eh, useEffect: mi, useImperativeHandle: function(a, b, c) {
+  c = null !== c && void 0 !== c ? c.concat([a]) : null;
+  return ki(
+    4194308,
+    4,
+    pi.bind(null, b, a),
+    c
+  );
+}, useLayoutEffect: function(a, b) {
+  return ki(4194308, 4, a, b);
+}, useInsertionEffect: function(a, b) {
+  return ki(4, 2, a, b);
+}, useMemo: function(a, b) {
+  var c = Th();
+  b = void 0 === b ? null : b;
+  a = a();
+  c.memoizedState = [a, b];
+  return a;
+}, useReducer: function(a, b, c) {
+  var d = Th();
+  b = void 0 !== c ? c(b) : b;
+  d.memoizedState = d.baseState = b;
+  a = { pending: null, interleaved: null, lanes: 0, dispatch: null, lastRenderedReducer: a, lastRenderedState: b };
+  d.queue = a;
+  a = a.dispatch = xi.bind(null, M, a);
+  return [d.memoizedState, a];
+}, useRef: function(a) {
+  var b = Th();
+  a = { current: a };
+  return b.memoizedState = a;
+}, useState: hi, useDebugValue: ri, useDeferredValue: function(a) {
+  return Th().memoizedState = a;
+}, useTransition: function() {
+  var a = hi(false), b = a[0];
+  a = vi.bind(null, a[1]);
+  Th().memoizedState = a;
+  return [b, a];
+}, useMutableSource: function() {
+}, useSyncExternalStore: function(a, b, c) {
+  var d = M, e = Th();
+  if (I) {
+    if (void 0 === c) throw Error(p(407));
+    c = c();
+  } else {
+    c = b();
+    if (null === Q) throw Error(p(349));
+    0 !== (Hh & 30) || di(d, b, c);
+  }
+  e.memoizedState = c;
+  var f2 = { value: c, getSnapshot: b };
+  e.queue = f2;
+  mi(ai.bind(
+    null,
+    d,
+    f2,
+    a
+  ), [a]);
+  d.flags |= 2048;
+  bi(9, ci.bind(null, d, f2, c, b), void 0, null);
+  return c;
+}, useId: function() {
+  var a = Th(), b = Q.identifierPrefix;
+  if (I) {
+    var c = sg;
+    var d = rg;
+    c = (d & ~(1 << 32 - oc(d) - 1)).toString(32) + c;
+    b = ":" + b + "R" + c;
+    c = Kh++;
+    0 < c && (b += "H" + c.toString(32));
+    b += ":";
+  } else c = Lh++, b = ":" + b + "r" + c.toString(32) + ":";
+  return a.memoizedState = b;
+}, unstable_isNewReconciler: false }, Ph = {
+  readContext: eh,
+  useCallback: si,
+  useContext: eh,
+  useEffect: $h,
+  useImperativeHandle: qi,
+  useInsertionEffect: ni,
+  useLayoutEffect: oi,
+  useMemo: ti,
+  useReducer: Wh,
+  useRef: ji,
+  useState: function() {
+    return Wh(Vh);
+  },
+  useDebugValue: ri,
+  useDeferredValue: function(a) {
+    var b = Uh();
+    return ui(b, N.memoizedState, a);
+  },
+  useTransition: function() {
+    var a = Wh(Vh)[0], b = Uh().memoizedState;
+    return [a, b];
+  },
+  useMutableSource: Yh,
+  useSyncExternalStore: Zh,
+  useId: wi,
+  unstable_isNewReconciler: false
+}, Qh = { readContext: eh, useCallback: si, useContext: eh, useEffect: $h, useImperativeHandle: qi, useInsertionEffect: ni, useLayoutEffect: oi, useMemo: ti, useReducer: Xh, useRef: ji, useState: function() {
+  return Xh(Vh);
+}, useDebugValue: ri, useDeferredValue: function(a) {
+  var b = Uh();
+  return null === N ? b.memoizedState = a : ui(b, N.memoizedState, a);
+}, useTransition: function() {
+  var a = Xh(Vh)[0], b = Uh().memoizedState;
+  return [a, b];
+}, useMutableSource: Yh, useSyncExternalStore: Zh, useId: wi, unstable_isNewReconciler: false };
+function Ci(a, b) {
+  if (a && a.defaultProps) {
+    b = A({}, b);
+    a = a.defaultProps;
+    for (var c in a) void 0 === b[c] && (b[c] = a[c]);
+    return b;
+  }
+  return b;
+}
+function Di(a, b, c, d) {
+  b = a.memoizedState;
+  c = c(d, b);
+  c = null === c || void 0 === c ? b : A({}, b, c);
+  a.memoizedState = c;
+  0 === a.lanes && (a.updateQueue.baseState = c);
+}
+var Ei = { isMounted: function(a) {
+  return (a = a._reactInternals) ? Vb(a) === a : false;
+}, enqueueSetState: function(a, b, c) {
+  a = a._reactInternals;
+  var d = R(), e = yi(a), f2 = mh(d, e);
+  f2.payload = b;
+  void 0 !== c && null !== c && (f2.callback = c);
+  b = nh(a, f2, e);
+  null !== b && (gi(b, a, e, d), oh(b, a, e));
+}, enqueueReplaceState: function(a, b, c) {
+  a = a._reactInternals;
+  var d = R(), e = yi(a), f2 = mh(d, e);
+  f2.tag = 1;
+  f2.payload = b;
+  void 0 !== c && null !== c && (f2.callback = c);
+  b = nh(a, f2, e);
+  null !== b && (gi(b, a, e, d), oh(b, a, e));
+}, enqueueForceUpdate: function(a, b) {
+  a = a._reactInternals;
+  var c = R(), d = yi(a), e = mh(c, d);
+  e.tag = 2;
+  void 0 !== b && null !== b && (e.callback = b);
+  b = nh(a, e, d);
+  null !== b && (gi(b, a, d, c), oh(b, a, d));
+} };
+function Fi(a, b, c, d, e, f2, g) {
+  a = a.stateNode;
+  return "function" === typeof a.shouldComponentUpdate ? a.shouldComponentUpdate(d, f2, g) : b.prototype && b.prototype.isPureReactComponent ? !Ie(c, d) || !Ie(e, f2) : true;
+}
+function Gi(a, b, c) {
+  var d = false, e = Vf;
+  var f2 = b.contextType;
+  "object" === typeof f2 && null !== f2 ? f2 = eh(f2) : (e = Zf(b) ? Xf : H.current, d = b.contextTypes, f2 = (d = null !== d && void 0 !== d) ? Yf(a, e) : Vf);
+  b = new b(c, f2);
+  a.memoizedState = null !== b.state && void 0 !== b.state ? b.state : null;
+  b.updater = Ei;
+  a.stateNode = b;
+  b._reactInternals = a;
+  d && (a = a.stateNode, a.__reactInternalMemoizedUnmaskedChildContext = e, a.__reactInternalMemoizedMaskedChildContext = f2);
+  return b;
+}
+function Hi(a, b, c, d) {
+  a = b.state;
+  "function" === typeof b.componentWillReceiveProps && b.componentWillReceiveProps(c, d);
+  "function" === typeof b.UNSAFE_componentWillReceiveProps && b.UNSAFE_componentWillReceiveProps(c, d);
+  b.state !== a && Ei.enqueueReplaceState(b, b.state, null);
+}
+function Ii(a, b, c, d) {
+  var e = a.stateNode;
+  e.props = c;
+  e.state = a.memoizedState;
+  e.refs = {};
+  kh(a);
+  var f2 = b.contextType;
+  "object" === typeof f2 && null !== f2 ? e.context = eh(f2) : (f2 = Zf(b) ? Xf : H.current, e.context = Yf(a, f2));
+  e.state = a.memoizedState;
+  f2 = b.getDerivedStateFromProps;
+  "function" === typeof f2 && (Di(a, b, f2, c), e.state = a.memoizedState);
+  "function" === typeof b.getDerivedStateFromProps || "function" === typeof e.getSnapshotBeforeUpdate || "function" !== typeof e.UNSAFE_componentWillMount && "function" !== typeof e.componentWillMount || (b = e.state, "function" === typeof e.componentWillMount && e.componentWillMount(), "function" === typeof e.UNSAFE_componentWillMount && e.UNSAFE_componentWillMount(), b !== e.state && Ei.enqueueReplaceState(e, e.state, null), qh(a, c, e, d), e.state = a.memoizedState);
+  "function" === typeof e.componentDidMount && (a.flags |= 4194308);
+}
+function Ji(a, b) {
+  try {
+    var c = "", d = b;
+    do
+      c += Pa(d), d = d.return;
+    while (d);
+    var e = c;
+  } catch (f2) {
+    e = "\nError generating stack: " + f2.message + "\n" + f2.stack;
+  }
+  return { value: a, source: b, stack: e, digest: null };
+}
+function Ki(a, b, c) {
+  return { value: a, source: null, stack: null != c ? c : null, digest: null != b ? b : null };
+}
+function Li(a, b) {
+  try {
+    console.error(b.value);
+  } catch (c) {
+    setTimeout(function() {
+      throw c;
+    });
+  }
+}
+var Mi = "function" === typeof WeakMap ? WeakMap : Map;
+function Ni(a, b, c) {
+  c = mh(-1, c);
+  c.tag = 3;
+  c.payload = { element: null };
+  var d = b.value;
+  c.callback = function() {
+    Oi || (Oi = true, Pi = d);
+    Li(a, b);
+  };
+  return c;
+}
+function Qi(a, b, c) {
+  c = mh(-1, c);
+  c.tag = 3;
+  var d = a.type.getDerivedStateFromError;
+  if ("function" === typeof d) {
+    var e = b.value;
+    c.payload = function() {
+      return d(e);
+    };
+    c.callback = function() {
+      Li(a, b);
+    };
+  }
+  var f2 = a.stateNode;
+  null !== f2 && "function" === typeof f2.componentDidCatch && (c.callback = function() {
+    Li(a, b);
+    "function" !== typeof d && (null === Ri ? Ri = /* @__PURE__ */ new Set([this]) : Ri.add(this));
+    var c2 = b.stack;
+    this.componentDidCatch(b.value, { componentStack: null !== c2 ? c2 : "" });
+  });
+  return c;
+}
+function Si(a, b, c) {
+  var d = a.pingCache;
+  if (null === d) {
+    d = a.pingCache = new Mi();
+    var e = /* @__PURE__ */ new Set();
+    d.set(b, e);
+  } else e = d.get(b), void 0 === e && (e = /* @__PURE__ */ new Set(), d.set(b, e));
+  e.has(c) || (e.add(c), a = Ti.bind(null, a, b, c), b.then(a, a));
+}
+function Ui(a) {
+  do {
+    var b;
+    if (b = 13 === a.tag) b = a.memoizedState, b = null !== b ? null !== b.dehydrated ? true : false : true;
+    if (b) return a;
+    a = a.return;
+  } while (null !== a);
+  return null;
+}
+function Vi(a, b, c, d, e) {
+  if (0 === (a.mode & 1)) return a === b ? a.flags |= 65536 : (a.flags |= 128, c.flags |= 131072, c.flags &= -52805, 1 === c.tag && (null === c.alternate ? c.tag = 17 : (b = mh(-1, 1), b.tag = 2, nh(c, b, 1))), c.lanes |= 1), a;
+  a.flags |= 65536;
+  a.lanes = e;
+  return a;
+}
+var Wi = ua.ReactCurrentOwner, dh = false;
+function Xi(a, b, c, d) {
+  b.child = null === a ? Vg(b, null, c, d) : Ug(b, a.child, c, d);
+}
+function Yi(a, b, c, d, e) {
+  c = c.render;
+  var f2 = b.ref;
+  ch(b, e);
+  d = Nh(a, b, c, d, f2, e);
+  c = Sh();
+  if (null !== a && !dh) return b.updateQueue = a.updateQueue, b.flags &= -2053, a.lanes &= ~e, Zi(a, b, e);
+  I && c && vg(b);
+  b.flags |= 1;
+  Xi(a, b, d, e);
+  return b.child;
+}
+function $i(a, b, c, d, e) {
+  if (null === a) {
+    var f2 = c.type;
+    if ("function" === typeof f2 && !aj(f2) && void 0 === f2.defaultProps && null === c.compare && void 0 === c.defaultProps) return b.tag = 15, b.type = f2, bj(a, b, f2, d, e);
+    a = Rg(c.type, null, d, b, b.mode, e);
+    a.ref = b.ref;
+    a.return = b;
+    return b.child = a;
+  }
+  f2 = a.child;
+  if (0 === (a.lanes & e)) {
+    var g = f2.memoizedProps;
+    c = c.compare;
+    c = null !== c ? c : Ie;
+    if (c(g, d) && a.ref === b.ref) return Zi(a, b, e);
+  }
+  b.flags |= 1;
+  a = Pg(f2, d);
+  a.ref = b.ref;
+  a.return = b;
+  return b.child = a;
+}
+function bj(a, b, c, d, e) {
+  if (null !== a) {
+    var f2 = a.memoizedProps;
+    if (Ie(f2, d) && a.ref === b.ref) if (dh = false, b.pendingProps = d = f2, 0 !== (a.lanes & e)) 0 !== (a.flags & 131072) && (dh = true);
+    else return b.lanes = a.lanes, Zi(a, b, e);
+  }
+  return cj(a, b, c, d, e);
+}
+function dj(a, b, c) {
+  var d = b.pendingProps, e = d.children, f2 = null !== a ? a.memoizedState : null;
+  if ("hidden" === d.mode) if (0 === (b.mode & 1)) b.memoizedState = { baseLanes: 0, cachePool: null, transitions: null }, G(ej, fj), fj |= c;
+  else {
+    if (0 === (c & 1073741824)) return a = null !== f2 ? f2.baseLanes | c : c, b.lanes = b.childLanes = 1073741824, b.memoizedState = { baseLanes: a, cachePool: null, transitions: null }, b.updateQueue = null, G(ej, fj), fj |= a, null;
+    b.memoizedState = { baseLanes: 0, cachePool: null, transitions: null };
+    d = null !== f2 ? f2.baseLanes : c;
+    G(ej, fj);
+    fj |= d;
+  }
+  else null !== f2 ? (d = f2.baseLanes | c, b.memoizedState = null) : d = c, G(ej, fj), fj |= d;
+  Xi(a, b, e, c);
+  return b.child;
+}
+function gj(a, b) {
+  var c = b.ref;
+  if (null === a && null !== c || null !== a && a.ref !== c) b.flags |= 512, b.flags |= 2097152;
+}
+function cj(a, b, c, d, e) {
+  var f2 = Zf(c) ? Xf : H.current;
+  f2 = Yf(b, f2);
+  ch(b, e);
+  c = Nh(a, b, c, d, f2, e);
+  d = Sh();
+  if (null !== a && !dh) return b.updateQueue = a.updateQueue, b.flags &= -2053, a.lanes &= ~e, Zi(a, b, e);
+  I && d && vg(b);
+  b.flags |= 1;
+  Xi(a, b, c, e);
+  return b.child;
+}
+function hj(a, b, c, d, e) {
+  if (Zf(c)) {
+    var f2 = true;
+    cg(b);
+  } else f2 = false;
+  ch(b, e);
+  if (null === b.stateNode) ij(a, b), Gi(b, c, d), Ii(b, c, d, e), d = true;
+  else if (null === a) {
+    var g = b.stateNode, h = b.memoizedProps;
+    g.props = h;
+    var k2 = g.context, l2 = c.contextType;
+    "object" === typeof l2 && null !== l2 ? l2 = eh(l2) : (l2 = Zf(c) ? Xf : H.current, l2 = Yf(b, l2));
+    var m2 = c.getDerivedStateFromProps, q2 = "function" === typeof m2 || "function" === typeof g.getSnapshotBeforeUpdate;
+    q2 || "function" !== typeof g.UNSAFE_componentWillReceiveProps && "function" !== typeof g.componentWillReceiveProps || (h !== d || k2 !== l2) && Hi(b, g, d, l2);
+    jh = false;
+    var r2 = b.memoizedState;
+    g.state = r2;
+    qh(b, d, g, e);
+    k2 = b.memoizedState;
+    h !== d || r2 !== k2 || Wf.current || jh ? ("function" === typeof m2 && (Di(b, c, m2, d), k2 = b.memoizedState), (h = jh || Fi(b, c, h, d, r2, k2, l2)) ? (q2 || "function" !== typeof g.UNSAFE_componentWillMount && "function" !== typeof g.componentWillMount || ("function" === typeof g.componentWillMount && g.componentWillMount(), "function" === typeof g.UNSAFE_componentWillMount && g.UNSAFE_componentWillMount()), "function" === typeof g.componentDidMount && (b.flags |= 4194308)) : ("function" === typeof g.componentDidMount && (b.flags |= 4194308), b.memoizedProps = d, b.memoizedState = k2), g.props = d, g.state = k2, g.context = l2, d = h) : ("function" === typeof g.componentDidMount && (b.flags |= 4194308), d = false);
+  } else {
+    g = b.stateNode;
+    lh(a, b);
+    h = b.memoizedProps;
+    l2 = b.type === b.elementType ? h : Ci(b.type, h);
+    g.props = l2;
+    q2 = b.pendingProps;
+    r2 = g.context;
+    k2 = c.contextType;
+    "object" === typeof k2 && null !== k2 ? k2 = eh(k2) : (k2 = Zf(c) ? Xf : H.current, k2 = Yf(b, k2));
+    var y2 = c.getDerivedStateFromProps;
+    (m2 = "function" === typeof y2 || "function" === typeof g.getSnapshotBeforeUpdate) || "function" !== typeof g.UNSAFE_componentWillReceiveProps && "function" !== typeof g.componentWillReceiveProps || (h !== q2 || r2 !== k2) && Hi(b, g, d, k2);
+    jh = false;
+    r2 = b.memoizedState;
+    g.state = r2;
+    qh(b, d, g, e);
+    var n2 = b.memoizedState;
+    h !== q2 || r2 !== n2 || Wf.current || jh ? ("function" === typeof y2 && (Di(b, c, y2, d), n2 = b.memoizedState), (l2 = jh || Fi(b, c, l2, d, r2, n2, k2) || false) ? (m2 || "function" !== typeof g.UNSAFE_componentWillUpdate && "function" !== typeof g.componentWillUpdate || ("function" === typeof g.componentWillUpdate && g.componentWillUpdate(d, n2, k2), "function" === typeof g.UNSAFE_componentWillUpdate && g.UNSAFE_componentWillUpdate(d, n2, k2)), "function" === typeof g.componentDidUpdate && (b.flags |= 4), "function" === typeof g.getSnapshotBeforeUpdate && (b.flags |= 1024)) : ("function" !== typeof g.componentDidUpdate || h === a.memoizedProps && r2 === a.memoizedState || (b.flags |= 4), "function" !== typeof g.getSnapshotBeforeUpdate || h === a.memoizedProps && r2 === a.memoizedState || (b.flags |= 1024), b.memoizedProps = d, b.memoizedState = n2), g.props = d, g.state = n2, g.context = k2, d = l2) : ("function" !== typeof g.componentDidUpdate || h === a.memoizedProps && r2 === a.memoizedState || (b.flags |= 4), "function" !== typeof g.getSnapshotBeforeUpdate || h === a.memoizedProps && r2 === a.memoizedState || (b.flags |= 1024), d = false);
+  }
+  return jj(a, b, c, d, f2, e);
+}
+function jj(a, b, c, d, e, f2) {
+  gj(a, b);
+  var g = 0 !== (b.flags & 128);
+  if (!d && !g) return e && dg(b, c, false), Zi(a, b, f2);
+  d = b.stateNode;
+  Wi.current = b;
+  var h = g && "function" !== typeof c.getDerivedStateFromError ? null : d.render();
+  b.flags |= 1;
+  null !== a && g ? (b.child = Ug(b, a.child, null, f2), b.child = Ug(b, null, h, f2)) : Xi(a, b, h, f2);
+  b.memoizedState = d.state;
+  e && dg(b, c, true);
+  return b.child;
+}
+function kj(a) {
+  var b = a.stateNode;
+  b.pendingContext ? ag(a, b.pendingContext, b.pendingContext !== b.context) : b.context && ag(a, b.context, false);
+  yh(a, b.containerInfo);
+}
+function lj(a, b, c, d, e) {
+  Ig();
+  Jg(e);
+  b.flags |= 256;
+  Xi(a, b, c, d);
+  return b.child;
+}
+var mj = { dehydrated: null, treeContext: null, retryLane: 0 };
+function nj(a) {
+  return { baseLanes: a, cachePool: null, transitions: null };
+}
+function oj(a, b, c) {
+  var d = b.pendingProps, e = L.current, f2 = false, g = 0 !== (b.flags & 128), h;
+  (h = g) || (h = null !== a && null === a.memoizedState ? false : 0 !== (e & 2));
+  if (h) f2 = true, b.flags &= -129;
+  else if (null === a || null !== a.memoizedState) e |= 1;
+  G(L, e & 1);
+  if (null === a) {
+    Eg(b);
+    a = b.memoizedState;
+    if (null !== a && (a = a.dehydrated, null !== a)) return 0 === (b.mode & 1) ? b.lanes = 1 : "$!" === a.data ? b.lanes = 8 : b.lanes = 1073741824, null;
+    g = d.children;
+    a = d.fallback;
+    return f2 ? (d = b.mode, f2 = b.child, g = { mode: "hidden", children: g }, 0 === (d & 1) && null !== f2 ? (f2.childLanes = 0, f2.pendingProps = g) : f2 = pj(g, d, 0, null), a = Tg(a, d, c, null), f2.return = b, a.return = b, f2.sibling = a, b.child = f2, b.child.memoizedState = nj(c), b.memoizedState = mj, a) : qj(b, g);
+  }
+  e = a.memoizedState;
+  if (null !== e && (h = e.dehydrated, null !== h)) return rj(a, b, g, d, h, e, c);
+  if (f2) {
+    f2 = d.fallback;
+    g = b.mode;
+    e = a.child;
+    h = e.sibling;
+    var k2 = { mode: "hidden", children: d.children };
+    0 === (g & 1) && b.child !== e ? (d = b.child, d.childLanes = 0, d.pendingProps = k2, b.deletions = null) : (d = Pg(e, k2), d.subtreeFlags = e.subtreeFlags & 14680064);
+    null !== h ? f2 = Pg(h, f2) : (f2 = Tg(f2, g, c, null), f2.flags |= 2);
+    f2.return = b;
+    d.return = b;
+    d.sibling = f2;
+    b.child = d;
+    d = f2;
+    f2 = b.child;
+    g = a.child.memoizedState;
+    g = null === g ? nj(c) : { baseLanes: g.baseLanes | c, cachePool: null, transitions: g.transitions };
+    f2.memoizedState = g;
+    f2.childLanes = a.childLanes & ~c;
+    b.memoizedState = mj;
+    return d;
+  }
+  f2 = a.child;
+  a = f2.sibling;
+  d = Pg(f2, { mode: "visible", children: d.children });
+  0 === (b.mode & 1) && (d.lanes = c);
+  d.return = b;
+  d.sibling = null;
+  null !== a && (c = b.deletions, null === c ? (b.deletions = [a], b.flags |= 16) : c.push(a));
+  b.child = d;
+  b.memoizedState = null;
+  return d;
+}
+function qj(a, b) {
+  b = pj({ mode: "visible", children: b }, a.mode, 0, null);
+  b.return = a;
+  return a.child = b;
+}
+function sj(a, b, c, d) {
+  null !== d && Jg(d);
+  Ug(b, a.child, null, c);
+  a = qj(b, b.pendingProps.children);
+  a.flags |= 2;
+  b.memoizedState = null;
+  return a;
+}
+function rj(a, b, c, d, e, f2, g) {
+  if (c) {
+    if (b.flags & 256) return b.flags &= -257, d = Ki(Error(p(422))), sj(a, b, g, d);
+    if (null !== b.memoizedState) return b.child = a.child, b.flags |= 128, null;
+    f2 = d.fallback;
+    e = b.mode;
+    d = pj({ mode: "visible", children: d.children }, e, 0, null);
+    f2 = Tg(f2, e, g, null);
+    f2.flags |= 2;
+    d.return = b;
+    f2.return = b;
+    d.sibling = f2;
+    b.child = d;
+    0 !== (b.mode & 1) && Ug(b, a.child, null, g);
+    b.child.memoizedState = nj(g);
+    b.memoizedState = mj;
+    return f2;
+  }
+  if (0 === (b.mode & 1)) return sj(a, b, g, null);
+  if ("$!" === e.data) {
+    d = e.nextSibling && e.nextSibling.dataset;
+    if (d) var h = d.dgst;
+    d = h;
+    f2 = Error(p(419));
+    d = Ki(f2, d, void 0);
+    return sj(a, b, g, d);
+  }
+  h = 0 !== (g & a.childLanes);
+  if (dh || h) {
+    d = Q;
+    if (null !== d) {
+      switch (g & -g) {
+        case 4:
+          e = 2;
+          break;
+        case 16:
+          e = 8;
+          break;
+        case 64:
+        case 128:
+        case 256:
+        case 512:
+        case 1024:
+        case 2048:
+        case 4096:
+        case 8192:
+        case 16384:
+        case 32768:
+        case 65536:
+        case 131072:
+        case 262144:
+        case 524288:
+        case 1048576:
+        case 2097152:
+        case 4194304:
+        case 8388608:
+        case 16777216:
+        case 33554432:
+        case 67108864:
+          e = 32;
+          break;
+        case 536870912:
+          e = 268435456;
+          break;
+        default:
+          e = 0;
+      }
+      e = 0 !== (e & (d.suspendedLanes | g)) ? 0 : e;
+      0 !== e && e !== f2.retryLane && (f2.retryLane = e, ih(a, e), gi(d, a, e, -1));
+    }
+    tj();
+    d = Ki(Error(p(421)));
+    return sj(a, b, g, d);
+  }
+  if ("$?" === e.data) return b.flags |= 128, b.child = a.child, b = uj.bind(null, a), e._reactRetry = b, null;
+  a = f2.treeContext;
+  yg = Lf(e.nextSibling);
+  xg = b;
+  I = true;
+  zg = null;
+  null !== a && (og[pg++] = rg, og[pg++] = sg, og[pg++] = qg, rg = a.id, sg = a.overflow, qg = b);
+  b = qj(b, d.children);
+  b.flags |= 4096;
+  return b;
+}
+function vj(a, b, c) {
+  a.lanes |= b;
+  var d = a.alternate;
+  null !== d && (d.lanes |= b);
+  bh(a.return, b, c);
+}
+function wj(a, b, c, d, e) {
+  var f2 = a.memoizedState;
+  null === f2 ? a.memoizedState = { isBackwards: b, rendering: null, renderingStartTime: 0, last: d, tail: c, tailMode: e } : (f2.isBackwards = b, f2.rendering = null, f2.renderingStartTime = 0, f2.last = d, f2.tail = c, f2.tailMode = e);
+}
+function xj(a, b, c) {
+  var d = b.pendingProps, e = d.revealOrder, f2 = d.tail;
+  Xi(a, b, d.children, c);
+  d = L.current;
+  if (0 !== (d & 2)) d = d & 1 | 2, b.flags |= 128;
+  else {
+    if (null !== a && 0 !== (a.flags & 128)) a: for (a = b.child; null !== a; ) {
+      if (13 === a.tag) null !== a.memoizedState && vj(a, c, b);
+      else if (19 === a.tag) vj(a, c, b);
+      else if (null !== a.child) {
+        a.child.return = a;
+        a = a.child;
+        continue;
+      }
+      if (a === b) break a;
+      for (; null === a.sibling; ) {
+        if (null === a.return || a.return === b) break a;
+        a = a.return;
+      }
+      a.sibling.return = a.return;
+      a = a.sibling;
+    }
+    d &= 1;
+  }
+  G(L, d);
+  if (0 === (b.mode & 1)) b.memoizedState = null;
+  else switch (e) {
+    case "forwards":
+      c = b.child;
+      for (e = null; null !== c; ) a = c.alternate, null !== a && null === Ch(a) && (e = c), c = c.sibling;
+      c = e;
+      null === c ? (e = b.child, b.child = null) : (e = c.sibling, c.sibling = null);
+      wj(b, false, e, c, f2);
+      break;
+    case "backwards":
+      c = null;
+      e = b.child;
+      for (b.child = null; null !== e; ) {
+        a = e.alternate;
+        if (null !== a && null === Ch(a)) {
+          b.child = e;
+          break;
+        }
+        a = e.sibling;
+        e.sibling = c;
+        c = e;
+        e = a;
+      }
+      wj(b, true, c, null, f2);
+      break;
+    case "together":
+      wj(b, false, null, null, void 0);
+      break;
+    default:
+      b.memoizedState = null;
+  }
+  return b.child;
+}
+function ij(a, b) {
+  0 === (b.mode & 1) && null !== a && (a.alternate = null, b.alternate = null, b.flags |= 2);
+}
+function Zi(a, b, c) {
+  null !== a && (b.dependencies = a.dependencies);
+  rh |= b.lanes;
+  if (0 === (c & b.childLanes)) return null;
+  if (null !== a && b.child !== a.child) throw Error(p(153));
+  if (null !== b.child) {
+    a = b.child;
+    c = Pg(a, a.pendingProps);
+    b.child = c;
+    for (c.return = b; null !== a.sibling; ) a = a.sibling, c = c.sibling = Pg(a, a.pendingProps), c.return = b;
+    c.sibling = null;
+  }
+  return b.child;
+}
+function yj(a, b, c) {
+  switch (b.tag) {
+    case 3:
+      kj(b);
+      Ig();
+      break;
+    case 5:
+      Ah(b);
+      break;
+    case 1:
+      Zf(b.type) && cg(b);
+      break;
+    case 4:
+      yh(b, b.stateNode.containerInfo);
+      break;
+    case 10:
+      var d = b.type._context, e = b.memoizedProps.value;
+      G(Wg, d._currentValue);
+      d._currentValue = e;
+      break;
+    case 13:
+      d = b.memoizedState;
+      if (null !== d) {
+        if (null !== d.dehydrated) return G(L, L.current & 1), b.flags |= 128, null;
+        if (0 !== (c & b.child.childLanes)) return oj(a, b, c);
+        G(L, L.current & 1);
+        a = Zi(a, b, c);
+        return null !== a ? a.sibling : null;
+      }
+      G(L, L.current & 1);
+      break;
+    case 19:
+      d = 0 !== (c & b.childLanes);
+      if (0 !== (a.flags & 128)) {
+        if (d) return xj(a, b, c);
+        b.flags |= 128;
+      }
+      e = b.memoizedState;
+      null !== e && (e.rendering = null, e.tail = null, e.lastEffect = null);
+      G(L, L.current);
+      if (d) break;
+      else return null;
+    case 22:
+    case 23:
+      return b.lanes = 0, dj(a, b, c);
+  }
+  return Zi(a, b, c);
+}
+var zj, Aj, Bj, Cj;
+zj = function(a, b) {
+  for (var c = b.child; null !== c; ) {
+    if (5 === c.tag || 6 === c.tag) a.appendChild(c.stateNode);
+    else if (4 !== c.tag && null !== c.child) {
+      c.child.return = c;
+      c = c.child;
+      continue;
+    }
+    if (c === b) break;
+    for (; null === c.sibling; ) {
+      if (null === c.return || c.return === b) return;
+      c = c.return;
+    }
+    c.sibling.return = c.return;
+    c = c.sibling;
+  }
+};
+Aj = function() {
+};
+Bj = function(a, b, c, d) {
+  var e = a.memoizedProps;
+  if (e !== d) {
+    a = b.stateNode;
+    xh(uh.current);
+    var f2 = null;
+    switch (c) {
+      case "input":
+        e = Ya(a, e);
+        d = Ya(a, d);
+        f2 = [];
+        break;
+      case "select":
+        e = A({}, e, { value: void 0 });
+        d = A({}, d, { value: void 0 });
+        f2 = [];
+        break;
+      case "textarea":
+        e = gb(a, e);
+        d = gb(a, d);
+        f2 = [];
+        break;
+      default:
+        "function" !== typeof e.onClick && "function" === typeof d.onClick && (a.onclick = Bf);
+    }
+    ub(c, d);
+    var g;
+    c = null;
+    for (l2 in e) if (!d.hasOwnProperty(l2) && e.hasOwnProperty(l2) && null != e[l2]) if ("style" === l2) {
+      var h = e[l2];
+      for (g in h) h.hasOwnProperty(g) && (c || (c = {}), c[g] = "");
+    } else "dangerouslySetInnerHTML" !== l2 && "children" !== l2 && "suppressContentEditableWarning" !== l2 && "suppressHydrationWarning" !== l2 && "autoFocus" !== l2 && (ea.hasOwnProperty(l2) ? f2 || (f2 = []) : (f2 = f2 || []).push(l2, null));
+    for (l2 in d) {
+      var k2 = d[l2];
+      h = null != e ? e[l2] : void 0;
+      if (d.hasOwnProperty(l2) && k2 !== h && (null != k2 || null != h)) if ("style" === l2) if (h) {
+        for (g in h) !h.hasOwnProperty(g) || k2 && k2.hasOwnProperty(g) || (c || (c = {}), c[g] = "");
+        for (g in k2) k2.hasOwnProperty(g) && h[g] !== k2[g] && (c || (c = {}), c[g] = k2[g]);
+      } else c || (f2 || (f2 = []), f2.push(
+        l2,
+        c
+      )), c = k2;
+      else "dangerouslySetInnerHTML" === l2 ? (k2 = k2 ? k2.__html : void 0, h = h ? h.__html : void 0, null != k2 && h !== k2 && (f2 = f2 || []).push(l2, k2)) : "children" === l2 ? "string" !== typeof k2 && "number" !== typeof k2 || (f2 = f2 || []).push(l2, "" + k2) : "suppressContentEditableWarning" !== l2 && "suppressHydrationWarning" !== l2 && (ea.hasOwnProperty(l2) ? (null != k2 && "onScroll" === l2 && D("scroll", a), f2 || h === k2 || (f2 = [])) : (f2 = f2 || []).push(l2, k2));
+    }
+    c && (f2 = f2 || []).push("style", c);
+    var l2 = f2;
+    if (b.updateQueue = l2) b.flags |= 4;
+  }
+};
+Cj = function(a, b, c, d) {
+  c !== d && (b.flags |= 4);
+};
+function Dj(a, b) {
+  if (!I) switch (a.tailMode) {
+    case "hidden":
+      b = a.tail;
+      for (var c = null; null !== b; ) null !== b.alternate && (c = b), b = b.sibling;
+      null === c ? a.tail = null : c.sibling = null;
+      break;
+    case "collapsed":
+      c = a.tail;
+      for (var d = null; null !== c; ) null !== c.alternate && (d = c), c = c.sibling;
+      null === d ? b || null === a.tail ? a.tail = null : a.tail.sibling = null : d.sibling = null;
+  }
+}
+function S(a) {
+  var b = null !== a.alternate && a.alternate.child === a.child, c = 0, d = 0;
+  if (b) for (var e = a.child; null !== e; ) c |= e.lanes | e.childLanes, d |= e.subtreeFlags & 14680064, d |= e.flags & 14680064, e.return = a, e = e.sibling;
+  else for (e = a.child; null !== e; ) c |= e.lanes | e.childLanes, d |= e.subtreeFlags, d |= e.flags, e.return = a, e = e.sibling;
+  a.subtreeFlags |= d;
+  a.childLanes = c;
+  return b;
+}
+function Ej(a, b, c) {
+  var d = b.pendingProps;
+  wg(b);
+  switch (b.tag) {
+    case 2:
+    case 16:
+    case 15:
+    case 0:
+    case 11:
+    case 7:
+    case 8:
+    case 12:
+    case 9:
+    case 14:
+      return S(b), null;
+    case 1:
+      return Zf(b.type) && $f(), S(b), null;
+    case 3:
+      d = b.stateNode;
+      zh();
+      E(Wf);
+      E(H);
+      Eh();
+      d.pendingContext && (d.context = d.pendingContext, d.pendingContext = null);
+      if (null === a || null === a.child) Gg(b) ? b.flags |= 4 : null === a || a.memoizedState.isDehydrated && 0 === (b.flags & 256) || (b.flags |= 1024, null !== zg && (Fj(zg), zg = null));
+      Aj(a, b);
+      S(b);
+      return null;
+    case 5:
+      Bh(b);
+      var e = xh(wh.current);
+      c = b.type;
+      if (null !== a && null != b.stateNode) Bj(a, b, c, d, e), a.ref !== b.ref && (b.flags |= 512, b.flags |= 2097152);
+      else {
+        if (!d) {
+          if (null === b.stateNode) throw Error(p(166));
+          S(b);
+          return null;
+        }
+        a = xh(uh.current);
+        if (Gg(b)) {
+          d = b.stateNode;
+          c = b.type;
+          var f2 = b.memoizedProps;
+          d[Of] = b;
+          d[Pf] = f2;
+          a = 0 !== (b.mode & 1);
+          switch (c) {
+            case "dialog":
+              D("cancel", d);
+              D("close", d);
+              break;
+            case "iframe":
+            case "object":
+            case "embed":
+              D("load", d);
+              break;
+            case "video":
+            case "audio":
+              for (e = 0; e < lf.length; e++) D(lf[e], d);
+              break;
+            case "source":
+              D("error", d);
+              break;
+            case "img":
+            case "image":
+            case "link":
+              D(
+                "error",
+                d
+              );
+              D("load", d);
+              break;
+            case "details":
+              D("toggle", d);
+              break;
+            case "input":
+              Za(d, f2);
+              D("invalid", d);
+              break;
+            case "select":
+              d._wrapperState = { wasMultiple: !!f2.multiple };
+              D("invalid", d);
+              break;
+            case "textarea":
+              hb(d, f2), D("invalid", d);
+          }
+          ub(c, f2);
+          e = null;
+          for (var g in f2) if (f2.hasOwnProperty(g)) {
+            var h = f2[g];
+            "children" === g ? "string" === typeof h ? d.textContent !== h && (true !== f2.suppressHydrationWarning && Af(d.textContent, h, a), e = ["children", h]) : "number" === typeof h && d.textContent !== "" + h && (true !== f2.suppressHydrationWarning && Af(
+              d.textContent,
+              h,
+              a
+            ), e = ["children", "" + h]) : ea.hasOwnProperty(g) && null != h && "onScroll" === g && D("scroll", d);
+          }
+          switch (c) {
+            case "input":
+              Va(d);
+              db(d, f2, true);
+              break;
+            case "textarea":
+              Va(d);
+              jb(d);
+              break;
+            case "select":
+            case "option":
+              break;
+            default:
+              "function" === typeof f2.onClick && (d.onclick = Bf);
+          }
+          d = e;
+          b.updateQueue = d;
+          null !== d && (b.flags |= 4);
+        } else {
+          g = 9 === e.nodeType ? e : e.ownerDocument;
+          "http://www.w3.org/1999/xhtml" === a && (a = kb(c));
+          "http://www.w3.org/1999/xhtml" === a ? "script" === c ? (a = g.createElement("div"), a.innerHTML = "<script><\/script>", a = a.removeChild(a.firstChild)) : "string" === typeof d.is ? a = g.createElement(c, { is: d.is }) : (a = g.createElement(c), "select" === c && (g = a, d.multiple ? g.multiple = true : d.size && (g.size = d.size))) : a = g.createElementNS(a, c);
+          a[Of] = b;
+          a[Pf] = d;
+          zj(a, b, false, false);
+          b.stateNode = a;
+          a: {
+            g = vb(c, d);
+            switch (c) {
+              case "dialog":
+                D("cancel", a);
+                D("close", a);
+                e = d;
+                break;
+              case "iframe":
+              case "object":
+              case "embed":
+                D("load", a);
+                e = d;
+                break;
+              case "video":
+              case "audio":
+                for (e = 0; e < lf.length; e++) D(lf[e], a);
+                e = d;
+                break;
+              case "source":
+                D("error", a);
+                e = d;
+                break;
+              case "img":
+              case "image":
+              case "link":
+                D(
+                  "error",
+                  a
+                );
+                D("load", a);
+                e = d;
+                break;
+              case "details":
+                D("toggle", a);
+                e = d;
+                break;
+              case "input":
+                Za(a, d);
+                e = Ya(a, d);
+                D("invalid", a);
+                break;
+              case "option":
+                e = d;
+                break;
+              case "select":
+                a._wrapperState = { wasMultiple: !!d.multiple };
+                e = A({}, d, { value: void 0 });
+                D("invalid", a);
+                break;
+              case "textarea":
+                hb(a, d);
+                e = gb(a, d);
+                D("invalid", a);
+                break;
+              default:
+                e = d;
+            }
+            ub(c, e);
+            h = e;
+            for (f2 in h) if (h.hasOwnProperty(f2)) {
+              var k2 = h[f2];
+              "style" === f2 ? sb(a, k2) : "dangerouslySetInnerHTML" === f2 ? (k2 = k2 ? k2.__html : void 0, null != k2 && nb(a, k2)) : "children" === f2 ? "string" === typeof k2 ? ("textarea" !== c || "" !== k2) && ob(a, k2) : "number" === typeof k2 && ob(a, "" + k2) : "suppressContentEditableWarning" !== f2 && "suppressHydrationWarning" !== f2 && "autoFocus" !== f2 && (ea.hasOwnProperty(f2) ? null != k2 && "onScroll" === f2 && D("scroll", a) : null != k2 && ta(a, f2, k2, g));
+            }
+            switch (c) {
+              case "input":
+                Va(a);
+                db(a, d, false);
+                break;
+              case "textarea":
+                Va(a);
+                jb(a);
+                break;
+              case "option":
+                null != d.value && a.setAttribute("value", "" + Sa(d.value));
+                break;
+              case "select":
+                a.multiple = !!d.multiple;
+                f2 = d.value;
+                null != f2 ? fb(a, !!d.multiple, f2, false) : null != d.defaultValue && fb(
+                  a,
+                  !!d.multiple,
+                  d.defaultValue,
+                  true
+                );
+                break;
+              default:
+                "function" === typeof e.onClick && (a.onclick = Bf);
+            }
+            switch (c) {
+              case "button":
+              case "input":
+              case "select":
+              case "textarea":
+                d = !!d.autoFocus;
+                break a;
+              case "img":
+                d = true;
+                break a;
+              default:
+                d = false;
+            }
+          }
+          d && (b.flags |= 4);
+        }
+        null !== b.ref && (b.flags |= 512, b.flags |= 2097152);
+      }
+      S(b);
+      return null;
+    case 6:
+      if (a && null != b.stateNode) Cj(a, b, a.memoizedProps, d);
+      else {
+        if ("string" !== typeof d && null === b.stateNode) throw Error(p(166));
+        c = xh(wh.current);
+        xh(uh.current);
+        if (Gg(b)) {
+          d = b.stateNode;
+          c = b.memoizedProps;
+          d[Of] = b;
+          if (f2 = d.nodeValue !== c) {
+            if (a = xg, null !== a) switch (a.tag) {
+              case 3:
+                Af(d.nodeValue, c, 0 !== (a.mode & 1));
+                break;
+              case 5:
+                true !== a.memoizedProps.suppressHydrationWarning && Af(d.nodeValue, c, 0 !== (a.mode & 1));
+            }
+          }
+          f2 && (b.flags |= 4);
+        } else d = (9 === c.nodeType ? c : c.ownerDocument).createTextNode(d), d[Of] = b, b.stateNode = d;
+      }
+      S(b);
+      return null;
+    case 13:
+      E(L);
+      d = b.memoizedState;
+      if (null === a || null !== a.memoizedState && null !== a.memoizedState.dehydrated) {
+        if (I && null !== yg && 0 !== (b.mode & 1) && 0 === (b.flags & 128)) Hg(), Ig(), b.flags |= 98560, f2 = false;
+        else if (f2 = Gg(b), null !== d && null !== d.dehydrated) {
+          if (null === a) {
+            if (!f2) throw Error(p(318));
+            f2 = b.memoizedState;
+            f2 = null !== f2 ? f2.dehydrated : null;
+            if (!f2) throw Error(p(317));
+            f2[Of] = b;
+          } else Ig(), 0 === (b.flags & 128) && (b.memoizedState = null), b.flags |= 4;
+          S(b);
+          f2 = false;
+        } else null !== zg && (Fj(zg), zg = null), f2 = true;
+        if (!f2) return b.flags & 65536 ? b : null;
+      }
+      if (0 !== (b.flags & 128)) return b.lanes = c, b;
+      d = null !== d;
+      d !== (null !== a && null !== a.memoizedState) && d && (b.child.flags |= 8192, 0 !== (b.mode & 1) && (null === a || 0 !== (L.current & 1) ? 0 === T && (T = 3) : tj()));
+      null !== b.updateQueue && (b.flags |= 4);
+      S(b);
+      return null;
+    case 4:
+      return zh(), Aj(a, b), null === a && sf(b.stateNode.containerInfo), S(b), null;
+    case 10:
+      return ah(b.type._context), S(b), null;
+    case 17:
+      return Zf(b.type) && $f(), S(b), null;
+    case 19:
+      E(L);
+      f2 = b.memoizedState;
+      if (null === f2) return S(b), null;
+      d = 0 !== (b.flags & 128);
+      g = f2.rendering;
+      if (null === g) if (d) Dj(f2, false);
+      else {
+        if (0 !== T || null !== a && 0 !== (a.flags & 128)) for (a = b.child; null !== a; ) {
+          g = Ch(a);
+          if (null !== g) {
+            b.flags |= 128;
+            Dj(f2, false);
+            d = g.updateQueue;
+            null !== d && (b.updateQueue = d, b.flags |= 4);
+            b.subtreeFlags = 0;
+            d = c;
+            for (c = b.child; null !== c; ) f2 = c, a = d, f2.flags &= 14680066, g = f2.alternate, null === g ? (f2.childLanes = 0, f2.lanes = a, f2.child = null, f2.subtreeFlags = 0, f2.memoizedProps = null, f2.memoizedState = null, f2.updateQueue = null, f2.dependencies = null, f2.stateNode = null) : (f2.childLanes = g.childLanes, f2.lanes = g.lanes, f2.child = g.child, f2.subtreeFlags = 0, f2.deletions = null, f2.memoizedProps = g.memoizedProps, f2.memoizedState = g.memoizedState, f2.updateQueue = g.updateQueue, f2.type = g.type, a = g.dependencies, f2.dependencies = null === a ? null : { lanes: a.lanes, firstContext: a.firstContext }), c = c.sibling;
+            G(L, L.current & 1 | 2);
+            return b.child;
+          }
+          a = a.sibling;
+        }
+        null !== f2.tail && B() > Gj && (b.flags |= 128, d = true, Dj(f2, false), b.lanes = 4194304);
+      }
+      else {
+        if (!d) if (a = Ch(g), null !== a) {
+          if (b.flags |= 128, d = true, c = a.updateQueue, null !== c && (b.updateQueue = c, b.flags |= 4), Dj(f2, true), null === f2.tail && "hidden" === f2.tailMode && !g.alternate && !I) return S(b), null;
+        } else 2 * B() - f2.renderingStartTime > Gj && 1073741824 !== c && (b.flags |= 128, d = true, Dj(f2, false), b.lanes = 4194304);
+        f2.isBackwards ? (g.sibling = b.child, b.child = g) : (c = f2.last, null !== c ? c.sibling = g : b.child = g, f2.last = g);
+      }
+      if (null !== f2.tail) return b = f2.tail, f2.rendering = b, f2.tail = b.sibling, f2.renderingStartTime = B(), b.sibling = null, c = L.current, G(L, d ? c & 1 | 2 : c & 1), b;
+      S(b);
+      return null;
+    case 22:
+    case 23:
+      return Hj(), d = null !== b.memoizedState, null !== a && null !== a.memoizedState !== d && (b.flags |= 8192), d && 0 !== (b.mode & 1) ? 0 !== (fj & 1073741824) && (S(b), b.subtreeFlags & 6 && (b.flags |= 8192)) : S(b), null;
+    case 24:
+      return null;
+    case 25:
+      return null;
+  }
+  throw Error(p(156, b.tag));
+}
+function Ij(a, b) {
+  wg(b);
+  switch (b.tag) {
+    case 1:
+      return Zf(b.type) && $f(), a = b.flags, a & 65536 ? (b.flags = a & -65537 | 128, b) : null;
+    case 3:
+      return zh(), E(Wf), E(H), Eh(), a = b.flags, 0 !== (a & 65536) && 0 === (a & 128) ? (b.flags = a & -65537 | 128, b) : null;
+    case 5:
+      return Bh(b), null;
+    case 13:
+      E(L);
+      a = b.memoizedState;
+      if (null !== a && null !== a.dehydrated) {
+        if (null === b.alternate) throw Error(p(340));
+        Ig();
+      }
+      a = b.flags;
+      return a & 65536 ? (b.flags = a & -65537 | 128, b) : null;
+    case 19:
+      return E(L), null;
+    case 4:
+      return zh(), null;
+    case 10:
+      return ah(b.type._context), null;
+    case 22:
+    case 23:
+      return Hj(), null;
+    case 24:
+      return null;
+    default:
+      return null;
+  }
+}
+var Jj = false, U = false, Kj = "function" === typeof WeakSet ? WeakSet : Set, V = null;
+function Lj(a, b) {
+  var c = a.ref;
+  if (null !== c) if ("function" === typeof c) try {
+    c(null);
+  } catch (d) {
+    W(a, b, d);
+  }
+  else c.current = null;
+}
+function Mj(a, b, c) {
+  try {
+    c();
+  } catch (d) {
+    W(a, b, d);
+  }
+}
+var Nj = false;
+function Oj(a, b) {
+  Cf = dd;
+  a = Me();
+  if (Ne(a)) {
+    if ("selectionStart" in a) var c = { start: a.selectionStart, end: a.selectionEnd };
+    else a: {
+      c = (c = a.ownerDocument) && c.defaultView || window;
+      var d = c.getSelection && c.getSelection();
+      if (d && 0 !== d.rangeCount) {
+        c = d.anchorNode;
+        var e = d.anchorOffset, f2 = d.focusNode;
+        d = d.focusOffset;
+        try {
+          c.nodeType, f2.nodeType;
+        } catch (F2) {
+          c = null;
+          break a;
+        }
+        var g = 0, h = -1, k2 = -1, l2 = 0, m2 = 0, q2 = a, r2 = null;
+        b: for (; ; ) {
+          for (var y2; ; ) {
+            q2 !== c || 0 !== e && 3 !== q2.nodeType || (h = g + e);
+            q2 !== f2 || 0 !== d && 3 !== q2.nodeType || (k2 = g + d);
+            3 === q2.nodeType && (g += q2.nodeValue.length);
+            if (null === (y2 = q2.firstChild)) break;
+            r2 = q2;
+            q2 = y2;
+          }
+          for (; ; ) {
+            if (q2 === a) break b;
+            r2 === c && ++l2 === e && (h = g);
+            r2 === f2 && ++m2 === d && (k2 = g);
+            if (null !== (y2 = q2.nextSibling)) break;
+            q2 = r2;
+            r2 = q2.parentNode;
+          }
+          q2 = y2;
+        }
+        c = -1 === h || -1 === k2 ? null : { start: h, end: k2 };
+      } else c = null;
+    }
+    c = c || { start: 0, end: 0 };
+  } else c = null;
+  Df = { focusedElem: a, selectionRange: c };
+  dd = false;
+  for (V = b; null !== V; ) if (b = V, a = b.child, 0 !== (b.subtreeFlags & 1028) && null !== a) a.return = b, V = a;
+  else for (; null !== V; ) {
+    b = V;
+    try {
+      var n2 = b.alternate;
+      if (0 !== (b.flags & 1024)) switch (b.tag) {
+        case 0:
+        case 11:
+        case 15:
+          break;
+        case 1:
+          if (null !== n2) {
+            var t2 = n2.memoizedProps, J2 = n2.memoizedState, x2 = b.stateNode, w2 = x2.getSnapshotBeforeUpdate(b.elementType === b.type ? t2 : Ci(b.type, t2), J2);
+            x2.__reactInternalSnapshotBeforeUpdate = w2;
+          }
+          break;
+        case 3:
+          var u2 = b.stateNode.containerInfo;
+          1 === u2.nodeType ? u2.textContent = "" : 9 === u2.nodeType && u2.documentElement && u2.removeChild(u2.documentElement);
+          break;
+        case 5:
+        case 6:
+        case 4:
+        case 17:
+          break;
+        default:
+          throw Error(p(163));
+      }
+    } catch (F2) {
+      W(b, b.return, F2);
+    }
+    a = b.sibling;
+    if (null !== a) {
+      a.return = b.return;
+      V = a;
+      break;
+    }
+    V = b.return;
+  }
+  n2 = Nj;
+  Nj = false;
+  return n2;
+}
+function Pj(a, b, c) {
+  var d = b.updateQueue;
+  d = null !== d ? d.lastEffect : null;
+  if (null !== d) {
+    var e = d = d.next;
+    do {
+      if ((e.tag & a) === a) {
+        var f2 = e.destroy;
+        e.destroy = void 0;
+        void 0 !== f2 && Mj(b, c, f2);
+      }
+      e = e.next;
+    } while (e !== d);
+  }
+}
+function Qj(a, b) {
+  b = b.updateQueue;
+  b = null !== b ? b.lastEffect : null;
+  if (null !== b) {
+    var c = b = b.next;
+    do {
+      if ((c.tag & a) === a) {
+        var d = c.create;
+        c.destroy = d();
+      }
+      c = c.next;
+    } while (c !== b);
+  }
+}
+function Rj(a) {
+  var b = a.ref;
+  if (null !== b) {
+    var c = a.stateNode;
+    switch (a.tag) {
+      case 5:
+        a = c;
+        break;
+      default:
+        a = c;
+    }
+    "function" === typeof b ? b(a) : b.current = a;
+  }
+}
+function Sj(a) {
+  var b = a.alternate;
+  null !== b && (a.alternate = null, Sj(b));
+  a.child = null;
+  a.deletions = null;
+  a.sibling = null;
+  5 === a.tag && (b = a.stateNode, null !== b && (delete b[Of], delete b[Pf], delete b[of], delete b[Qf], delete b[Rf]));
+  a.stateNode = null;
+  a.return = null;
+  a.dependencies = null;
+  a.memoizedProps = null;
+  a.memoizedState = null;
+  a.pendingProps = null;
+  a.stateNode = null;
+  a.updateQueue = null;
+}
+function Tj(a) {
+  return 5 === a.tag || 3 === a.tag || 4 === a.tag;
+}
+function Uj(a) {
+  a: for (; ; ) {
+    for (; null === a.sibling; ) {
+      if (null === a.return || Tj(a.return)) return null;
+      a = a.return;
+    }
+    a.sibling.return = a.return;
+    for (a = a.sibling; 5 !== a.tag && 6 !== a.tag && 18 !== a.tag; ) {
+      if (a.flags & 2) continue a;
+      if (null === a.child || 4 === a.tag) continue a;
+      else a.child.return = a, a = a.child;
+    }
+    if (!(a.flags & 2)) return a.stateNode;
+  }
+}
+function Vj(a, b, c) {
+  var d = a.tag;
+  if (5 === d || 6 === d) a = a.stateNode, b ? 8 === c.nodeType ? c.parentNode.insertBefore(a, b) : c.insertBefore(a, b) : (8 === c.nodeType ? (b = c.parentNode, b.insertBefore(a, c)) : (b = c, b.appendChild(a)), c = c._reactRootContainer, null !== c && void 0 !== c || null !== b.onclick || (b.onclick = Bf));
+  else if (4 !== d && (a = a.child, null !== a)) for (Vj(a, b, c), a = a.sibling; null !== a; ) Vj(a, b, c), a = a.sibling;
+}
+function Wj(a, b, c) {
+  var d = a.tag;
+  if (5 === d || 6 === d) a = a.stateNode, b ? c.insertBefore(a, b) : c.appendChild(a);
+  else if (4 !== d && (a = a.child, null !== a)) for (Wj(a, b, c), a = a.sibling; null !== a; ) Wj(a, b, c), a = a.sibling;
+}
+var X = null, Xj = false;
+function Yj(a, b, c) {
+  for (c = c.child; null !== c; ) Zj(a, b, c), c = c.sibling;
+}
+function Zj(a, b, c) {
+  if (lc && "function" === typeof lc.onCommitFiberUnmount) try {
+    lc.onCommitFiberUnmount(kc, c);
+  } catch (h) {
+  }
+  switch (c.tag) {
+    case 5:
+      U || Lj(c, b);
+    case 6:
+      var d = X, e = Xj;
+      X = null;
+      Yj(a, b, c);
+      X = d;
+      Xj = e;
+      null !== X && (Xj ? (a = X, c = c.stateNode, 8 === a.nodeType ? a.parentNode.removeChild(c) : a.removeChild(c)) : X.removeChild(c.stateNode));
+      break;
+    case 18:
+      null !== X && (Xj ? (a = X, c = c.stateNode, 8 === a.nodeType ? Kf(a.parentNode, c) : 1 === a.nodeType && Kf(a, c), bd(a)) : Kf(X, c.stateNode));
+      break;
+    case 4:
+      d = X;
+      e = Xj;
+      X = c.stateNode.containerInfo;
+      Xj = true;
+      Yj(a, b, c);
+      X = d;
+      Xj = e;
+      break;
+    case 0:
+    case 11:
+    case 14:
+    case 15:
+      if (!U && (d = c.updateQueue, null !== d && (d = d.lastEffect, null !== d))) {
+        e = d = d.next;
+        do {
+          var f2 = e, g = f2.destroy;
+          f2 = f2.tag;
+          void 0 !== g && (0 !== (f2 & 2) ? Mj(c, b, g) : 0 !== (f2 & 4) && Mj(c, b, g));
+          e = e.next;
+        } while (e !== d);
+      }
+      Yj(a, b, c);
+      break;
+    case 1:
+      if (!U && (Lj(c, b), d = c.stateNode, "function" === typeof d.componentWillUnmount)) try {
+        d.props = c.memoizedProps, d.state = c.memoizedState, d.componentWillUnmount();
+      } catch (h) {
+        W(c, b, h);
+      }
+      Yj(a, b, c);
+      break;
+    case 21:
+      Yj(a, b, c);
+      break;
+    case 22:
+      c.mode & 1 ? (U = (d = U) || null !== c.memoizedState, Yj(a, b, c), U = d) : Yj(a, b, c);
+      break;
+    default:
+      Yj(a, b, c);
+  }
+}
+function ak(a) {
+  var b = a.updateQueue;
+  if (null !== b) {
+    a.updateQueue = null;
+    var c = a.stateNode;
+    null === c && (c = a.stateNode = new Kj());
+    b.forEach(function(b2) {
+      var d = bk.bind(null, a, b2);
+      c.has(b2) || (c.add(b2), b2.then(d, d));
+    });
+  }
+}
+function ck(a, b) {
+  var c = b.deletions;
+  if (null !== c) for (var d = 0; d < c.length; d++) {
+    var e = c[d];
+    try {
+      var f2 = a, g = b, h = g;
+      a: for (; null !== h; ) {
+        switch (h.tag) {
+          case 5:
+            X = h.stateNode;
+            Xj = false;
+            break a;
+          case 3:
+            X = h.stateNode.containerInfo;
+            Xj = true;
+            break a;
+          case 4:
+            X = h.stateNode.containerInfo;
+            Xj = true;
+            break a;
+        }
+        h = h.return;
+      }
+      if (null === X) throw Error(p(160));
+      Zj(f2, g, e);
+      X = null;
+      Xj = false;
+      var k2 = e.alternate;
+      null !== k2 && (k2.return = null);
+      e.return = null;
+    } catch (l2) {
+      W(e, b, l2);
+    }
+  }
+  if (b.subtreeFlags & 12854) for (b = b.child; null !== b; ) dk(b, a), b = b.sibling;
+}
+function dk(a, b) {
+  var c = a.alternate, d = a.flags;
+  switch (a.tag) {
+    case 0:
+    case 11:
+    case 14:
+    case 15:
+      ck(b, a);
+      ek(a);
+      if (d & 4) {
+        try {
+          Pj(3, a, a.return), Qj(3, a);
+        } catch (t2) {
+          W(a, a.return, t2);
+        }
+        try {
+          Pj(5, a, a.return);
+        } catch (t2) {
+          W(a, a.return, t2);
+        }
+      }
+      break;
+    case 1:
+      ck(b, a);
+      ek(a);
+      d & 512 && null !== c && Lj(c, c.return);
+      break;
+    case 5:
+      ck(b, a);
+      ek(a);
+      d & 512 && null !== c && Lj(c, c.return);
+      if (a.flags & 32) {
+        var e = a.stateNode;
+        try {
+          ob(e, "");
+        } catch (t2) {
+          W(a, a.return, t2);
+        }
+      }
+      if (d & 4 && (e = a.stateNode, null != e)) {
+        var f2 = a.memoizedProps, g = null !== c ? c.memoizedProps : f2, h = a.type, k2 = a.updateQueue;
+        a.updateQueue = null;
+        if (null !== k2) try {
+          "input" === h && "radio" === f2.type && null != f2.name && ab(e, f2);
+          vb(h, g);
+          var l2 = vb(h, f2);
+          for (g = 0; g < k2.length; g += 2) {
+            var m2 = k2[g], q2 = k2[g + 1];
+            "style" === m2 ? sb(e, q2) : "dangerouslySetInnerHTML" === m2 ? nb(e, q2) : "children" === m2 ? ob(e, q2) : ta(e, m2, q2, l2);
+          }
+          switch (h) {
+            case "input":
+              bb(e, f2);
+              break;
+            case "textarea":
+              ib(e, f2);
+              break;
+            case "select":
+              var r2 = e._wrapperState.wasMultiple;
+              e._wrapperState.wasMultiple = !!f2.multiple;
+              var y2 = f2.value;
+              null != y2 ? fb(e, !!f2.multiple, y2, false) : r2 !== !!f2.multiple && (null != f2.defaultValue ? fb(
+                e,
+                !!f2.multiple,
+                f2.defaultValue,
+                true
+              ) : fb(e, !!f2.multiple, f2.multiple ? [] : "", false));
+          }
+          e[Pf] = f2;
+        } catch (t2) {
+          W(a, a.return, t2);
+        }
+      }
+      break;
+    case 6:
+      ck(b, a);
+      ek(a);
+      if (d & 4) {
+        if (null === a.stateNode) throw Error(p(162));
+        e = a.stateNode;
+        f2 = a.memoizedProps;
+        try {
+          e.nodeValue = f2;
+        } catch (t2) {
+          W(a, a.return, t2);
+        }
+      }
+      break;
+    case 3:
+      ck(b, a);
+      ek(a);
+      if (d & 4 && null !== c && c.memoizedState.isDehydrated) try {
+        bd(b.containerInfo);
+      } catch (t2) {
+        W(a, a.return, t2);
+      }
+      break;
+    case 4:
+      ck(b, a);
+      ek(a);
+      break;
+    case 13:
+      ck(b, a);
+      ek(a);
+      e = a.child;
+      e.flags & 8192 && (f2 = null !== e.memoizedState, e.stateNode.isHidden = f2, !f2 || null !== e.alternate && null !== e.alternate.memoizedState || (fk = B()));
+      d & 4 && ak(a);
+      break;
+    case 22:
+      m2 = null !== c && null !== c.memoizedState;
+      a.mode & 1 ? (U = (l2 = U) || m2, ck(b, a), U = l2) : ck(b, a);
+      ek(a);
+      if (d & 8192) {
+        l2 = null !== a.memoizedState;
+        if ((a.stateNode.isHidden = l2) && !m2 && 0 !== (a.mode & 1)) for (V = a, m2 = a.child; null !== m2; ) {
+          for (q2 = V = m2; null !== V; ) {
+            r2 = V;
+            y2 = r2.child;
+            switch (r2.tag) {
+              case 0:
+              case 11:
+              case 14:
+              case 15:
+                Pj(4, r2, r2.return);
+                break;
+              case 1:
+                Lj(r2, r2.return);
+                var n2 = r2.stateNode;
+                if ("function" === typeof n2.componentWillUnmount) {
+                  d = r2;
+                  c = r2.return;
+                  try {
+                    b = d, n2.props = b.memoizedProps, n2.state = b.memoizedState, n2.componentWillUnmount();
+                  } catch (t2) {
+                    W(d, c, t2);
+                  }
+                }
+                break;
+              case 5:
+                Lj(r2, r2.return);
+                break;
+              case 22:
+                if (null !== r2.memoizedState) {
+                  gk(q2);
+                  continue;
+                }
+            }
+            null !== y2 ? (y2.return = r2, V = y2) : gk(q2);
+          }
+          m2 = m2.sibling;
+        }
+        a: for (m2 = null, q2 = a; ; ) {
+          if (5 === q2.tag) {
+            if (null === m2) {
+              m2 = q2;
+              try {
+                e = q2.stateNode, l2 ? (f2 = e.style, "function" === typeof f2.setProperty ? f2.setProperty("display", "none", "important") : f2.display = "none") : (h = q2.stateNode, k2 = q2.memoizedProps.style, g = void 0 !== k2 && null !== k2 && k2.hasOwnProperty("display") ? k2.display : null, h.style.display = rb("display", g));
+              } catch (t2) {
+                W(a, a.return, t2);
+              }
+            }
+          } else if (6 === q2.tag) {
+            if (null === m2) try {
+              q2.stateNode.nodeValue = l2 ? "" : q2.memoizedProps;
+            } catch (t2) {
+              W(a, a.return, t2);
+            }
+          } else if ((22 !== q2.tag && 23 !== q2.tag || null === q2.memoizedState || q2 === a) && null !== q2.child) {
+            q2.child.return = q2;
+            q2 = q2.child;
+            continue;
+          }
+          if (q2 === a) break a;
+          for (; null === q2.sibling; ) {
+            if (null === q2.return || q2.return === a) break a;
+            m2 === q2 && (m2 = null);
+            q2 = q2.return;
+          }
+          m2 === q2 && (m2 = null);
+          q2.sibling.return = q2.return;
+          q2 = q2.sibling;
+        }
+      }
+      break;
+    case 19:
+      ck(b, a);
+      ek(a);
+      d & 4 && ak(a);
+      break;
+    case 21:
+      break;
+    default:
+      ck(
+        b,
+        a
+      ), ek(a);
+  }
+}
+function ek(a) {
+  var b = a.flags;
+  if (b & 2) {
+    try {
+      a: {
+        for (var c = a.return; null !== c; ) {
+          if (Tj(c)) {
+            var d = c;
+            break a;
+          }
+          c = c.return;
+        }
+        throw Error(p(160));
+      }
+      switch (d.tag) {
+        case 5:
+          var e = d.stateNode;
+          d.flags & 32 && (ob(e, ""), d.flags &= -33);
+          var f2 = Uj(a);
+          Wj(a, f2, e);
+          break;
+        case 3:
+        case 4:
+          var g = d.stateNode.containerInfo, h = Uj(a);
+          Vj(a, h, g);
+          break;
+        default:
+          throw Error(p(161));
+      }
+    } catch (k2) {
+      W(a, a.return, k2);
+    }
+    a.flags &= -3;
+  }
+  b & 4096 && (a.flags &= -4097);
+}
+function hk(a, b, c) {
+  V = a;
+  ik(a);
+}
+function ik(a, b, c) {
+  for (var d = 0 !== (a.mode & 1); null !== V; ) {
+    var e = V, f2 = e.child;
+    if (22 === e.tag && d) {
+      var g = null !== e.memoizedState || Jj;
+      if (!g) {
+        var h = e.alternate, k2 = null !== h && null !== h.memoizedState || U;
+        h = Jj;
+        var l2 = U;
+        Jj = g;
+        if ((U = k2) && !l2) for (V = e; null !== V; ) g = V, k2 = g.child, 22 === g.tag && null !== g.memoizedState ? jk(e) : null !== k2 ? (k2.return = g, V = k2) : jk(e);
+        for (; null !== f2; ) V = f2, ik(f2), f2 = f2.sibling;
+        V = e;
+        Jj = h;
+        U = l2;
+      }
+      kk(a);
+    } else 0 !== (e.subtreeFlags & 8772) && null !== f2 ? (f2.return = e, V = f2) : kk(a);
+  }
+}
+function kk(a) {
+  for (; null !== V; ) {
+    var b = V;
+    if (0 !== (b.flags & 8772)) {
+      var c = b.alternate;
+      try {
+        if (0 !== (b.flags & 8772)) switch (b.tag) {
+          case 0:
+          case 11:
+          case 15:
+            U || Qj(5, b);
+            break;
+          case 1:
+            var d = b.stateNode;
+            if (b.flags & 4 && !U) if (null === c) d.componentDidMount();
+            else {
+              var e = b.elementType === b.type ? c.memoizedProps : Ci(b.type, c.memoizedProps);
+              d.componentDidUpdate(e, c.memoizedState, d.__reactInternalSnapshotBeforeUpdate);
+            }
+            var f2 = b.updateQueue;
+            null !== f2 && sh(b, f2, d);
+            break;
+          case 3:
+            var g = b.updateQueue;
+            if (null !== g) {
+              c = null;
+              if (null !== b.child) switch (b.child.tag) {
+                case 5:
+                  c = b.child.stateNode;
+                  break;
+                case 1:
+                  c = b.child.stateNode;
+              }
+              sh(b, g, c);
+            }
+            break;
+          case 5:
+            var h = b.stateNode;
+            if (null === c && b.flags & 4) {
+              c = h;
+              var k2 = b.memoizedProps;
+              switch (b.type) {
+                case "button":
+                case "input":
+                case "select":
+                case "textarea":
+                  k2.autoFocus && c.focus();
+                  break;
+                case "img":
+                  k2.src && (c.src = k2.src);
+              }
+            }
+            break;
+          case 6:
+            break;
+          case 4:
+            break;
+          case 12:
+            break;
+          case 13:
+            if (null === b.memoizedState) {
+              var l2 = b.alternate;
+              if (null !== l2) {
+                var m2 = l2.memoizedState;
+                if (null !== m2) {
+                  var q2 = m2.dehydrated;
+                  null !== q2 && bd(q2);
+                }
+              }
+            }
+            break;
+          case 19:
+          case 17:
+          case 21:
+          case 22:
+          case 23:
+          case 25:
+            break;
+          default:
+            throw Error(p(163));
+        }
+        U || b.flags & 512 && Rj(b);
+      } catch (r2) {
+        W(b, b.return, r2);
+      }
+    }
+    if (b === a) {
+      V = null;
+      break;
+    }
+    c = b.sibling;
+    if (null !== c) {
+      c.return = b.return;
+      V = c;
+      break;
+    }
+    V = b.return;
+  }
+}
+function gk(a) {
+  for (; null !== V; ) {
+    var b = V;
+    if (b === a) {
+      V = null;
+      break;
+    }
+    var c = b.sibling;
+    if (null !== c) {
+      c.return = b.return;
+      V = c;
+      break;
+    }
+    V = b.return;
+  }
+}
+function jk(a) {
+  for (; null !== V; ) {
+    var b = V;
+    try {
+      switch (b.tag) {
+        case 0:
+        case 11:
+        case 15:
+          var c = b.return;
+          try {
+            Qj(4, b);
+          } catch (k2) {
+            W(b, c, k2);
+          }
+          break;
+        case 1:
+          var d = b.stateNode;
+          if ("function" === typeof d.componentDidMount) {
+            var e = b.return;
+            try {
+              d.componentDidMount();
+            } catch (k2) {
+              W(b, e, k2);
+            }
+          }
+          var f2 = b.return;
+          try {
+            Rj(b);
+          } catch (k2) {
+            W(b, f2, k2);
+          }
+          break;
+        case 5:
+          var g = b.return;
+          try {
+            Rj(b);
+          } catch (k2) {
+            W(b, g, k2);
+          }
+      }
+    } catch (k2) {
+      W(b, b.return, k2);
+    }
+    if (b === a) {
+      V = null;
+      break;
+    }
+    var h = b.sibling;
+    if (null !== h) {
+      h.return = b.return;
+      V = h;
+      break;
+    }
+    V = b.return;
+  }
+}
+var lk = Math.ceil, mk = ua.ReactCurrentDispatcher, nk = ua.ReactCurrentOwner, ok = ua.ReactCurrentBatchConfig, K = 0, Q = null, Y = null, Z = 0, fj = 0, ej = Uf(0), T = 0, pk = null, rh = 0, qk = 0, rk = 0, sk = null, tk = null, fk = 0, Gj = Infinity, uk = null, Oi = false, Pi = null, Ri = null, vk = false, wk = null, xk = 0, yk = 0, zk = null, Ak = -1, Bk = 0;
+function R() {
+  return 0 !== (K & 6) ? B() : -1 !== Ak ? Ak : Ak = B();
+}
+function yi(a) {
+  if (0 === (a.mode & 1)) return 1;
+  if (0 !== (K & 2) && 0 !== Z) return Z & -Z;
+  if (null !== Kg.transition) return 0 === Bk && (Bk = yc()), Bk;
+  a = C;
+  if (0 !== a) return a;
+  a = window.event;
+  a = void 0 === a ? 16 : jd(a.type);
+  return a;
+}
+function gi(a, b, c, d) {
+  if (50 < yk) throw yk = 0, zk = null, Error(p(185));
+  Ac(a, c, d);
+  if (0 === (K & 2) || a !== Q) a === Q && (0 === (K & 2) && (qk |= c), 4 === T && Ck(a, Z)), Dk(a, d), 1 === c && 0 === K && 0 === (b.mode & 1) && (Gj = B() + 500, fg && jg());
+}
+function Dk(a, b) {
+  var c = a.callbackNode;
+  wc(a, b);
+  var d = uc(a, a === Q ? Z : 0);
+  if (0 === d) null !== c && bc(c), a.callbackNode = null, a.callbackPriority = 0;
+  else if (b = d & -d, a.callbackPriority !== b) {
+    null != c && bc(c);
+    if (1 === b) 0 === a.tag ? ig(Ek.bind(null, a)) : hg(Ek.bind(null, a)), Jf(function() {
+      0 === (K & 6) && jg();
+    }), c = null;
+    else {
+      switch (Dc(d)) {
+        case 1:
+          c = fc;
+          break;
+        case 4:
+          c = gc;
+          break;
+        case 16:
+          c = hc;
+          break;
+        case 536870912:
+          c = jc;
+          break;
+        default:
+          c = hc;
+      }
+      c = Fk(c, Gk.bind(null, a));
+    }
+    a.callbackPriority = b;
+    a.callbackNode = c;
+  }
+}
+function Gk(a, b) {
+  Ak = -1;
+  Bk = 0;
+  if (0 !== (K & 6)) throw Error(p(327));
+  var c = a.callbackNode;
+  if (Hk() && a.callbackNode !== c) return null;
+  var d = uc(a, a === Q ? Z : 0);
+  if (0 === d) return null;
+  if (0 !== (d & 30) || 0 !== (d & a.expiredLanes) || b) b = Ik(a, d);
+  else {
+    b = d;
+    var e = K;
+    K |= 2;
+    var f2 = Jk();
+    if (Q !== a || Z !== b) uk = null, Gj = B() + 500, Kk(a, b);
+    do
+      try {
+        Lk();
+        break;
+      } catch (h) {
+        Mk(a, h);
+      }
+    while (1);
+    $g();
+    mk.current = f2;
+    K = e;
+    null !== Y ? b = 0 : (Q = null, Z = 0, b = T);
+  }
+  if (0 !== b) {
+    2 === b && (e = xc(a), 0 !== e && (d = e, b = Nk(a, e)));
+    if (1 === b) throw c = pk, Kk(a, 0), Ck(a, d), Dk(a, B()), c;
+    if (6 === b) Ck(a, d);
+    else {
+      e = a.current.alternate;
+      if (0 === (d & 30) && !Ok(e) && (b = Ik(a, d), 2 === b && (f2 = xc(a), 0 !== f2 && (d = f2, b = Nk(a, f2))), 1 === b)) throw c = pk, Kk(a, 0), Ck(a, d), Dk(a, B()), c;
+      a.finishedWork = e;
+      a.finishedLanes = d;
+      switch (b) {
+        case 0:
+        case 1:
+          throw Error(p(345));
+        case 2:
+          Pk(a, tk, uk);
+          break;
+        case 3:
+          Ck(a, d);
+          if ((d & 130023424) === d && (b = fk + 500 - B(), 10 < b)) {
+            if (0 !== uc(a, 0)) break;
+            e = a.suspendedLanes;
+            if ((e & d) !== d) {
+              R();
+              a.pingedLanes |= a.suspendedLanes & e;
+              break;
+            }
+            a.timeoutHandle = Ff(Pk.bind(null, a, tk, uk), b);
+            break;
+          }
+          Pk(a, tk, uk);
+          break;
+        case 4:
+          Ck(a, d);
+          if ((d & 4194240) === d) break;
+          b = a.eventTimes;
+          for (e = -1; 0 < d; ) {
+            var g = 31 - oc(d);
+            f2 = 1 << g;
+            g = b[g];
+            g > e && (e = g);
+            d &= ~f2;
+          }
+          d = e;
+          d = B() - d;
+          d = (120 > d ? 120 : 480 > d ? 480 : 1080 > d ? 1080 : 1920 > d ? 1920 : 3e3 > d ? 3e3 : 4320 > d ? 4320 : 1960 * lk(d / 1960)) - d;
+          if (10 < d) {
+            a.timeoutHandle = Ff(Pk.bind(null, a, tk, uk), d);
+            break;
+          }
+          Pk(a, tk, uk);
+          break;
+        case 5:
+          Pk(a, tk, uk);
+          break;
+        default:
+          throw Error(p(329));
+      }
+    }
+  }
+  Dk(a, B());
+  return a.callbackNode === c ? Gk.bind(null, a) : null;
+}
+function Nk(a, b) {
+  var c = sk;
+  a.current.memoizedState.isDehydrated && (Kk(a, b).flags |= 256);
+  a = Ik(a, b);
+  2 !== a && (b = tk, tk = c, null !== b && Fj(b));
+  return a;
+}
+function Fj(a) {
+  null === tk ? tk = a : tk.push.apply(tk, a);
+}
+function Ok(a) {
+  for (var b = a; ; ) {
+    if (b.flags & 16384) {
+      var c = b.updateQueue;
+      if (null !== c && (c = c.stores, null !== c)) for (var d = 0; d < c.length; d++) {
+        var e = c[d], f2 = e.getSnapshot;
+        e = e.value;
+        try {
+          if (!He(f2(), e)) return false;
+        } catch (g) {
+          return false;
+        }
+      }
+    }
+    c = b.child;
+    if (b.subtreeFlags & 16384 && null !== c) c.return = b, b = c;
+    else {
+      if (b === a) break;
+      for (; null === b.sibling; ) {
+        if (null === b.return || b.return === a) return true;
+        b = b.return;
+      }
+      b.sibling.return = b.return;
+      b = b.sibling;
+    }
+  }
+  return true;
+}
+function Ck(a, b) {
+  b &= ~rk;
+  b &= ~qk;
+  a.suspendedLanes |= b;
+  a.pingedLanes &= ~b;
+  for (a = a.expirationTimes; 0 < b; ) {
+    var c = 31 - oc(b), d = 1 << c;
+    a[c] = -1;
+    b &= ~d;
+  }
+}
+function Ek(a) {
+  if (0 !== (K & 6)) throw Error(p(327));
+  Hk();
+  var b = uc(a, 0);
+  if (0 === (b & 1)) return Dk(a, B()), null;
+  var c = Ik(a, b);
+  if (0 !== a.tag && 2 === c) {
+    var d = xc(a);
+    0 !== d && (b = d, c = Nk(a, d));
+  }
+  if (1 === c) throw c = pk, Kk(a, 0), Ck(a, b), Dk(a, B()), c;
+  if (6 === c) throw Error(p(345));
+  a.finishedWork = a.current.alternate;
+  a.finishedLanes = b;
+  Pk(a, tk, uk);
+  Dk(a, B());
+  return null;
+}
+function Qk(a, b) {
+  var c = K;
+  K |= 1;
+  try {
+    return a(b);
+  } finally {
+    K = c, 0 === K && (Gj = B() + 500, fg && jg());
+  }
+}
+function Rk(a) {
+  null !== wk && 0 === wk.tag && 0 === (K & 6) && Hk();
+  var b = K;
+  K |= 1;
+  var c = ok.transition, d = C;
+  try {
+    if (ok.transition = null, C = 1, a) return a();
+  } finally {
+    C = d, ok.transition = c, K = b, 0 === (K & 6) && jg();
+  }
+}
+function Hj() {
+  fj = ej.current;
+  E(ej);
+}
+function Kk(a, b) {
+  a.finishedWork = null;
+  a.finishedLanes = 0;
+  var c = a.timeoutHandle;
+  -1 !== c && (a.timeoutHandle = -1, Gf(c));
+  if (null !== Y) for (c = Y.return; null !== c; ) {
+    var d = c;
+    wg(d);
+    switch (d.tag) {
+      case 1:
+        d = d.type.childContextTypes;
+        null !== d && void 0 !== d && $f();
+        break;
+      case 3:
+        zh();
+        E(Wf);
+        E(H);
+        Eh();
+        break;
+      case 5:
+        Bh(d);
+        break;
+      case 4:
+        zh();
+        break;
+      case 13:
+        E(L);
+        break;
+      case 19:
+        E(L);
+        break;
+      case 10:
+        ah(d.type._context);
+        break;
+      case 22:
+      case 23:
+        Hj();
+    }
+    c = c.return;
+  }
+  Q = a;
+  Y = a = Pg(a.current, null);
+  Z = fj = b;
+  T = 0;
+  pk = null;
+  rk = qk = rh = 0;
+  tk = sk = null;
+  if (null !== fh) {
+    for (b = 0; b < fh.length; b++) if (c = fh[b], d = c.interleaved, null !== d) {
+      c.interleaved = null;
+      var e = d.next, f2 = c.pending;
+      if (null !== f2) {
+        var g = f2.next;
+        f2.next = e;
+        d.next = g;
+      }
+      c.pending = d;
+    }
+    fh = null;
+  }
+  return a;
+}
+function Mk(a, b) {
+  do {
+    var c = Y;
+    try {
+      $g();
+      Fh.current = Rh;
+      if (Ih) {
+        for (var d = M.memoizedState; null !== d; ) {
+          var e = d.queue;
+          null !== e && (e.pending = null);
+          d = d.next;
+        }
+        Ih = false;
+      }
+      Hh = 0;
+      O = N = M = null;
+      Jh = false;
+      Kh = 0;
+      nk.current = null;
+      if (null === c || null === c.return) {
+        T = 1;
+        pk = b;
+        Y = null;
+        break;
+      }
+      a: {
+        var f2 = a, g = c.return, h = c, k2 = b;
+        b = Z;
+        h.flags |= 32768;
+        if (null !== k2 && "object" === typeof k2 && "function" === typeof k2.then) {
+          var l2 = k2, m2 = h, q2 = m2.tag;
+          if (0 === (m2.mode & 1) && (0 === q2 || 11 === q2 || 15 === q2)) {
+            var r2 = m2.alternate;
+            r2 ? (m2.updateQueue = r2.updateQueue, m2.memoizedState = r2.memoizedState, m2.lanes = r2.lanes) : (m2.updateQueue = null, m2.memoizedState = null);
+          }
+          var y2 = Ui(g);
+          if (null !== y2) {
+            y2.flags &= -257;
+            Vi(y2, g, h, f2, b);
+            y2.mode & 1 && Si(f2, l2, b);
+            b = y2;
+            k2 = l2;
+            var n2 = b.updateQueue;
+            if (null === n2) {
+              var t2 = /* @__PURE__ */ new Set();
+              t2.add(k2);
+              b.updateQueue = t2;
+            } else n2.add(k2);
+            break a;
+          } else {
+            if (0 === (b & 1)) {
+              Si(f2, l2, b);
+              tj();
+              break a;
+            }
+            k2 = Error(p(426));
+          }
+        } else if (I && h.mode & 1) {
+          var J2 = Ui(g);
+          if (null !== J2) {
+            0 === (J2.flags & 65536) && (J2.flags |= 256);
+            Vi(J2, g, h, f2, b);
+            Jg(Ji(k2, h));
+            break a;
+          }
+        }
+        f2 = k2 = Ji(k2, h);
+        4 !== T && (T = 2);
+        null === sk ? sk = [f2] : sk.push(f2);
+        f2 = g;
+        do {
+          switch (f2.tag) {
+            case 3:
+              f2.flags |= 65536;
+              b &= -b;
+              f2.lanes |= b;
+              var x2 = Ni(f2, k2, b);
+              ph(f2, x2);
+              break a;
+            case 1:
+              h = k2;
+              var w2 = f2.type, u2 = f2.stateNode;
+              if (0 === (f2.flags & 128) && ("function" === typeof w2.getDerivedStateFromError || null !== u2 && "function" === typeof u2.componentDidCatch && (null === Ri || !Ri.has(u2)))) {
+                f2.flags |= 65536;
+                b &= -b;
+                f2.lanes |= b;
+                var F2 = Qi(f2, h, b);
+                ph(f2, F2);
+                break a;
+              }
+          }
+          f2 = f2.return;
+        } while (null !== f2);
+      }
+      Sk(c);
+    } catch (na) {
+      b = na;
+      Y === c && null !== c && (Y = c = c.return);
+      continue;
+    }
+    break;
+  } while (1);
+}
+function Jk() {
+  var a = mk.current;
+  mk.current = Rh;
+  return null === a ? Rh : a;
+}
+function tj() {
+  if (0 === T || 3 === T || 2 === T) T = 4;
+  null === Q || 0 === (rh & 268435455) && 0 === (qk & 268435455) || Ck(Q, Z);
+}
+function Ik(a, b) {
+  var c = K;
+  K |= 2;
+  var d = Jk();
+  if (Q !== a || Z !== b) uk = null, Kk(a, b);
+  do
+    try {
+      Tk();
+      break;
+    } catch (e) {
+      Mk(a, e);
+    }
+  while (1);
+  $g();
+  K = c;
+  mk.current = d;
+  if (null !== Y) throw Error(p(261));
+  Q = null;
+  Z = 0;
+  return T;
+}
+function Tk() {
+  for (; null !== Y; ) Uk(Y);
+}
+function Lk() {
+  for (; null !== Y && !cc(); ) Uk(Y);
+}
+function Uk(a) {
+  var b = Vk(a.alternate, a, fj);
+  a.memoizedProps = a.pendingProps;
+  null === b ? Sk(a) : Y = b;
+  nk.current = null;
+}
+function Sk(a) {
+  var b = a;
+  do {
+    var c = b.alternate;
+    a = b.return;
+    if (0 === (b.flags & 32768)) {
+      if (c = Ej(c, b, fj), null !== c) {
+        Y = c;
+        return;
+      }
+    } else {
+      c = Ij(c, b);
+      if (null !== c) {
+        c.flags &= 32767;
+        Y = c;
+        return;
+      }
+      if (null !== a) a.flags |= 32768, a.subtreeFlags = 0, a.deletions = null;
+      else {
+        T = 6;
+        Y = null;
+        return;
+      }
+    }
+    b = b.sibling;
+    if (null !== b) {
+      Y = b;
+      return;
+    }
+    Y = b = a;
+  } while (null !== b);
+  0 === T && (T = 5);
+}
+function Pk(a, b, c) {
+  var d = C, e = ok.transition;
+  try {
+    ok.transition = null, C = 1, Wk(a, b, c, d);
+  } finally {
+    ok.transition = e, C = d;
+  }
+  return null;
+}
+function Wk(a, b, c, d) {
+  do
+    Hk();
+  while (null !== wk);
+  if (0 !== (K & 6)) throw Error(p(327));
+  c = a.finishedWork;
+  var e = a.finishedLanes;
+  if (null === c) return null;
+  a.finishedWork = null;
+  a.finishedLanes = 0;
+  if (c === a.current) throw Error(p(177));
+  a.callbackNode = null;
+  a.callbackPriority = 0;
+  var f2 = c.lanes | c.childLanes;
+  Bc(a, f2);
+  a === Q && (Y = Q = null, Z = 0);
+  0 === (c.subtreeFlags & 2064) && 0 === (c.flags & 2064) || vk || (vk = true, Fk(hc, function() {
+    Hk();
+    return null;
+  }));
+  f2 = 0 !== (c.flags & 15990);
+  if (0 !== (c.subtreeFlags & 15990) || f2) {
+    f2 = ok.transition;
+    ok.transition = null;
+    var g = C;
+    C = 1;
+    var h = K;
+    K |= 4;
+    nk.current = null;
+    Oj(a, c);
+    dk(c, a);
+    Oe(Df);
+    dd = !!Cf;
+    Df = Cf = null;
+    a.current = c;
+    hk(c);
+    dc();
+    K = h;
+    C = g;
+    ok.transition = f2;
+  } else a.current = c;
+  vk && (vk = false, wk = a, xk = e);
+  f2 = a.pendingLanes;
+  0 === f2 && (Ri = null);
+  mc(c.stateNode);
+  Dk(a, B());
+  if (null !== b) for (d = a.onRecoverableError, c = 0; c < b.length; c++) e = b[c], d(e.value, { componentStack: e.stack, digest: e.digest });
+  if (Oi) throw Oi = false, a = Pi, Pi = null, a;
+  0 !== (xk & 1) && 0 !== a.tag && Hk();
+  f2 = a.pendingLanes;
+  0 !== (f2 & 1) ? a === zk ? yk++ : (yk = 0, zk = a) : yk = 0;
+  jg();
+  return null;
+}
+function Hk() {
+  if (null !== wk) {
+    var a = Dc(xk), b = ok.transition, c = C;
+    try {
+      ok.transition = null;
+      C = 16 > a ? 16 : a;
+      if (null === wk) var d = false;
+      else {
+        a = wk;
+        wk = null;
+        xk = 0;
+        if (0 !== (K & 6)) throw Error(p(331));
+        var e = K;
+        K |= 4;
+        for (V = a.current; null !== V; ) {
+          var f2 = V, g = f2.child;
+          if (0 !== (V.flags & 16)) {
+            var h = f2.deletions;
+            if (null !== h) {
+              for (var k2 = 0; k2 < h.length; k2++) {
+                var l2 = h[k2];
+                for (V = l2; null !== V; ) {
+                  var m2 = V;
+                  switch (m2.tag) {
+                    case 0:
+                    case 11:
+                    case 15:
+                      Pj(8, m2, f2);
+                  }
+                  var q2 = m2.child;
+                  if (null !== q2) q2.return = m2, V = q2;
+                  else for (; null !== V; ) {
+                    m2 = V;
+                    var r2 = m2.sibling, y2 = m2.return;
+                    Sj(m2);
+                    if (m2 === l2) {
+                      V = null;
+                      break;
+                    }
+                    if (null !== r2) {
+                      r2.return = y2;
+                      V = r2;
+                      break;
+                    }
+                    V = y2;
+                  }
+                }
+              }
+              var n2 = f2.alternate;
+              if (null !== n2) {
+                var t2 = n2.child;
+                if (null !== t2) {
+                  n2.child = null;
+                  do {
+                    var J2 = t2.sibling;
+                    t2.sibling = null;
+                    t2 = J2;
+                  } while (null !== t2);
+                }
+              }
+              V = f2;
+            }
+          }
+          if (0 !== (f2.subtreeFlags & 2064) && null !== g) g.return = f2, V = g;
+          else b: for (; null !== V; ) {
+            f2 = V;
+            if (0 !== (f2.flags & 2048)) switch (f2.tag) {
+              case 0:
+              case 11:
+              case 15:
+                Pj(9, f2, f2.return);
+            }
+            var x2 = f2.sibling;
+            if (null !== x2) {
+              x2.return = f2.return;
+              V = x2;
+              break b;
+            }
+            V = f2.return;
+          }
+        }
+        var w2 = a.current;
+        for (V = w2; null !== V; ) {
+          g = V;
+          var u2 = g.child;
+          if (0 !== (g.subtreeFlags & 2064) && null !== u2) u2.return = g, V = u2;
+          else b: for (g = w2; null !== V; ) {
+            h = V;
+            if (0 !== (h.flags & 2048)) try {
+              switch (h.tag) {
+                case 0:
+                case 11:
+                case 15:
+                  Qj(9, h);
+              }
+            } catch (na) {
+              W(h, h.return, na);
+            }
+            if (h === g) {
+              V = null;
+              break b;
+            }
+            var F2 = h.sibling;
+            if (null !== F2) {
+              F2.return = h.return;
+              V = F2;
+              break b;
+            }
+            V = h.return;
+          }
+        }
+        K = e;
+        jg();
+        if (lc && "function" === typeof lc.onPostCommitFiberRoot) try {
+          lc.onPostCommitFiberRoot(kc, a);
+        } catch (na) {
+        }
+        d = true;
+      }
+      return d;
+    } finally {
+      C = c, ok.transition = b;
+    }
+  }
+  return false;
+}
+function Xk(a, b, c) {
+  b = Ji(c, b);
+  b = Ni(a, b, 1);
+  a = nh(a, b, 1);
+  b = R();
+  null !== a && (Ac(a, 1, b), Dk(a, b));
+}
+function W(a, b, c) {
+  if (3 === a.tag) Xk(a, a, c);
+  else for (; null !== b; ) {
+    if (3 === b.tag) {
+      Xk(b, a, c);
+      break;
+    } else if (1 === b.tag) {
+      var d = b.stateNode;
+      if ("function" === typeof b.type.getDerivedStateFromError || "function" === typeof d.componentDidCatch && (null === Ri || !Ri.has(d))) {
+        a = Ji(c, a);
+        a = Qi(b, a, 1);
+        b = nh(b, a, 1);
+        a = R();
+        null !== b && (Ac(b, 1, a), Dk(b, a));
+        break;
+      }
+    }
+    b = b.return;
+  }
+}
+function Ti(a, b, c) {
+  var d = a.pingCache;
+  null !== d && d.delete(b);
+  b = R();
+  a.pingedLanes |= a.suspendedLanes & c;
+  Q === a && (Z & c) === c && (4 === T || 3 === T && (Z & 130023424) === Z && 500 > B() - fk ? Kk(a, 0) : rk |= c);
+  Dk(a, b);
+}
+function Yk(a, b) {
+  0 === b && (0 === (a.mode & 1) ? b = 1 : (b = sc, sc <<= 1, 0 === (sc & 130023424) && (sc = 4194304)));
+  var c = R();
+  a = ih(a, b);
+  null !== a && (Ac(a, b, c), Dk(a, c));
+}
+function uj(a) {
+  var b = a.memoizedState, c = 0;
+  null !== b && (c = b.retryLane);
+  Yk(a, c);
+}
+function bk(a, b) {
+  var c = 0;
+  switch (a.tag) {
+    case 13:
+      var d = a.stateNode;
+      var e = a.memoizedState;
+      null !== e && (c = e.retryLane);
+      break;
+    case 19:
+      d = a.stateNode;
+      break;
+    default:
+      throw Error(p(314));
+  }
+  null !== d && d.delete(b);
+  Yk(a, c);
+}
+var Vk;
+Vk = function(a, b, c) {
+  if (null !== a) if (a.memoizedProps !== b.pendingProps || Wf.current) dh = true;
+  else {
+    if (0 === (a.lanes & c) && 0 === (b.flags & 128)) return dh = false, yj(a, b, c);
+    dh = 0 !== (a.flags & 131072) ? true : false;
+  }
+  else dh = false, I && 0 !== (b.flags & 1048576) && ug(b, ng, b.index);
+  b.lanes = 0;
+  switch (b.tag) {
+    case 2:
+      var d = b.type;
+      ij(a, b);
+      a = b.pendingProps;
+      var e = Yf(b, H.current);
+      ch(b, c);
+      e = Nh(null, b, d, a, e, c);
+      var f2 = Sh();
+      b.flags |= 1;
+      "object" === typeof e && null !== e && "function" === typeof e.render && void 0 === e.$$typeof ? (b.tag = 1, b.memoizedState = null, b.updateQueue = null, Zf(d) ? (f2 = true, cg(b)) : f2 = false, b.memoizedState = null !== e.state && void 0 !== e.state ? e.state : null, kh(b), e.updater = Ei, b.stateNode = e, e._reactInternals = b, Ii(b, d, a, c), b = jj(null, b, d, true, f2, c)) : (b.tag = 0, I && f2 && vg(b), Xi(null, b, e, c), b = b.child);
+      return b;
+    case 16:
+      d = b.elementType;
+      a: {
+        ij(a, b);
+        a = b.pendingProps;
+        e = d._init;
+        d = e(d._payload);
+        b.type = d;
+        e = b.tag = Zk(d);
+        a = Ci(d, a);
+        switch (e) {
+          case 0:
+            b = cj(null, b, d, a, c);
+            break a;
+          case 1:
+            b = hj(null, b, d, a, c);
+            break a;
+          case 11:
+            b = Yi(null, b, d, a, c);
+            break a;
+          case 14:
+            b = $i(null, b, d, Ci(d.type, a), c);
+            break a;
+        }
+        throw Error(p(
+          306,
+          d,
+          ""
+        ));
+      }
+      return b;
+    case 0:
+      return d = b.type, e = b.pendingProps, e = b.elementType === d ? e : Ci(d, e), cj(a, b, d, e, c);
+    case 1:
+      return d = b.type, e = b.pendingProps, e = b.elementType === d ? e : Ci(d, e), hj(a, b, d, e, c);
+    case 3:
+      a: {
+        kj(b);
+        if (null === a) throw Error(p(387));
+        d = b.pendingProps;
+        f2 = b.memoizedState;
+        e = f2.element;
+        lh(a, b);
+        qh(b, d, null, c);
+        var g = b.memoizedState;
+        d = g.element;
+        if (f2.isDehydrated) if (f2 = { element: d, isDehydrated: false, cache: g.cache, pendingSuspenseBoundaries: g.pendingSuspenseBoundaries, transitions: g.transitions }, b.updateQueue.baseState = f2, b.memoizedState = f2, b.flags & 256) {
+          e = Ji(Error(p(423)), b);
+          b = lj(a, b, d, c, e);
+          break a;
+        } else if (d !== e) {
+          e = Ji(Error(p(424)), b);
+          b = lj(a, b, d, c, e);
+          break a;
+        } else for (yg = Lf(b.stateNode.containerInfo.firstChild), xg = b, I = true, zg = null, c = Vg(b, null, d, c), b.child = c; c; ) c.flags = c.flags & -3 | 4096, c = c.sibling;
+        else {
+          Ig();
+          if (d === e) {
+            b = Zi(a, b, c);
+            break a;
+          }
+          Xi(a, b, d, c);
+        }
+        b = b.child;
+      }
+      return b;
+    case 5:
+      return Ah(b), null === a && Eg(b), d = b.type, e = b.pendingProps, f2 = null !== a ? a.memoizedProps : null, g = e.children, Ef(d, e) ? g = null : null !== f2 && Ef(d, f2) && (b.flags |= 32), gj(a, b), Xi(a, b, g, c), b.child;
+    case 6:
+      return null === a && Eg(b), null;
+    case 13:
+      return oj(a, b, c);
+    case 4:
+      return yh(b, b.stateNode.containerInfo), d = b.pendingProps, null === a ? b.child = Ug(b, null, d, c) : Xi(a, b, d, c), b.child;
+    case 11:
+      return d = b.type, e = b.pendingProps, e = b.elementType === d ? e : Ci(d, e), Yi(a, b, d, e, c);
+    case 7:
+      return Xi(a, b, b.pendingProps, c), b.child;
+    case 8:
+      return Xi(a, b, b.pendingProps.children, c), b.child;
+    case 12:
+      return Xi(a, b, b.pendingProps.children, c), b.child;
+    case 10:
+      a: {
+        d = b.type._context;
+        e = b.pendingProps;
+        f2 = b.memoizedProps;
+        g = e.value;
+        G(Wg, d._currentValue);
+        d._currentValue = g;
+        if (null !== f2) if (He(f2.value, g)) {
+          if (f2.children === e.children && !Wf.current) {
+            b = Zi(a, b, c);
+            break a;
+          }
+        } else for (f2 = b.child, null !== f2 && (f2.return = b); null !== f2; ) {
+          var h = f2.dependencies;
+          if (null !== h) {
+            g = f2.child;
+            for (var k2 = h.firstContext; null !== k2; ) {
+              if (k2.context === d) {
+                if (1 === f2.tag) {
+                  k2 = mh(-1, c & -c);
+                  k2.tag = 2;
+                  var l2 = f2.updateQueue;
+                  if (null !== l2) {
+                    l2 = l2.shared;
+                    var m2 = l2.pending;
+                    null === m2 ? k2.next = k2 : (k2.next = m2.next, m2.next = k2);
+                    l2.pending = k2;
+                  }
+                }
+                f2.lanes |= c;
+                k2 = f2.alternate;
+                null !== k2 && (k2.lanes |= c);
+                bh(
+                  f2.return,
+                  c,
+                  b
+                );
+                h.lanes |= c;
+                break;
+              }
+              k2 = k2.next;
+            }
+          } else if (10 === f2.tag) g = f2.type === b.type ? null : f2.child;
+          else if (18 === f2.tag) {
+            g = f2.return;
+            if (null === g) throw Error(p(341));
+            g.lanes |= c;
+            h = g.alternate;
+            null !== h && (h.lanes |= c);
+            bh(g, c, b);
+            g = f2.sibling;
+          } else g = f2.child;
+          if (null !== g) g.return = f2;
+          else for (g = f2; null !== g; ) {
+            if (g === b) {
+              g = null;
+              break;
+            }
+            f2 = g.sibling;
+            if (null !== f2) {
+              f2.return = g.return;
+              g = f2;
+              break;
+            }
+            g = g.return;
+          }
+          f2 = g;
+        }
+        Xi(a, b, e.children, c);
+        b = b.child;
+      }
+      return b;
+    case 9:
+      return e = b.type, d = b.pendingProps.children, ch(b, c), e = eh(e), d = d(e), b.flags |= 1, Xi(a, b, d, c), b.child;
+    case 14:
+      return d = b.type, e = Ci(d, b.pendingProps), e = Ci(d.type, e), $i(a, b, d, e, c);
+    case 15:
+      return bj(a, b, b.type, b.pendingProps, c);
+    case 17:
+      return d = b.type, e = b.pendingProps, e = b.elementType === d ? e : Ci(d, e), ij(a, b), b.tag = 1, Zf(d) ? (a = true, cg(b)) : a = false, ch(b, c), Gi(b, d, e), Ii(b, d, e, c), jj(null, b, d, true, a, c);
+    case 19:
+      return xj(a, b, c);
+    case 22:
+      return dj(a, b, c);
+  }
+  throw Error(p(156, b.tag));
+};
+function Fk(a, b) {
+  return ac(a, b);
+}
+function $k(a, b, c, d) {
+  this.tag = a;
+  this.key = c;
+  this.sibling = this.child = this.return = this.stateNode = this.type = this.elementType = null;
+  this.index = 0;
+  this.ref = null;
+  this.pendingProps = b;
+  this.dependencies = this.memoizedState = this.updateQueue = this.memoizedProps = null;
+  this.mode = d;
+  this.subtreeFlags = this.flags = 0;
+  this.deletions = null;
+  this.childLanes = this.lanes = 0;
+  this.alternate = null;
+}
+function Bg(a, b, c, d) {
+  return new $k(a, b, c, d);
+}
+function aj(a) {
+  a = a.prototype;
+  return !(!a || !a.isReactComponent);
+}
+function Zk(a) {
+  if ("function" === typeof a) return aj(a) ? 1 : 0;
+  if (void 0 !== a && null !== a) {
+    a = a.$$typeof;
+    if (a === Da) return 11;
+    if (a === Ga) return 14;
+  }
+  return 2;
+}
+function Pg(a, b) {
+  var c = a.alternate;
+  null === c ? (c = Bg(a.tag, b, a.key, a.mode), c.elementType = a.elementType, c.type = a.type, c.stateNode = a.stateNode, c.alternate = a, a.alternate = c) : (c.pendingProps = b, c.type = a.type, c.flags = 0, c.subtreeFlags = 0, c.deletions = null);
+  c.flags = a.flags & 14680064;
+  c.childLanes = a.childLanes;
+  c.lanes = a.lanes;
+  c.child = a.child;
+  c.memoizedProps = a.memoizedProps;
+  c.memoizedState = a.memoizedState;
+  c.updateQueue = a.updateQueue;
+  b = a.dependencies;
+  c.dependencies = null === b ? null : { lanes: b.lanes, firstContext: b.firstContext };
+  c.sibling = a.sibling;
+  c.index = a.index;
+  c.ref = a.ref;
+  return c;
+}
+function Rg(a, b, c, d, e, f2) {
+  var g = 2;
+  d = a;
+  if ("function" === typeof a) aj(a) && (g = 1);
+  else if ("string" === typeof a) g = 5;
+  else a: switch (a) {
+    case ya:
+      return Tg(c.children, e, f2, b);
+    case za:
+      g = 8;
+      e |= 8;
+      break;
+    case Aa:
+      return a = Bg(12, c, b, e | 2), a.elementType = Aa, a.lanes = f2, a;
+    case Ea:
+      return a = Bg(13, c, b, e), a.elementType = Ea, a.lanes = f2, a;
+    case Fa:
+      return a = Bg(19, c, b, e), a.elementType = Fa, a.lanes = f2, a;
+    case Ia:
+      return pj(c, e, f2, b);
+    default:
+      if ("object" === typeof a && null !== a) switch (a.$$typeof) {
+        case Ba:
+          g = 10;
+          break a;
+        case Ca:
+          g = 9;
+          break a;
+        case Da:
+          g = 11;
+          break a;
+        case Ga:
+          g = 14;
+          break a;
+        case Ha:
+          g = 16;
+          d = null;
+          break a;
+      }
+      throw Error(p(130, null == a ? a : typeof a, ""));
+  }
+  b = Bg(g, c, b, e);
+  b.elementType = a;
+  b.type = d;
+  b.lanes = f2;
+  return b;
+}
+function Tg(a, b, c, d) {
+  a = Bg(7, a, d, b);
+  a.lanes = c;
+  return a;
+}
+function pj(a, b, c, d) {
+  a = Bg(22, a, d, b);
+  a.elementType = Ia;
+  a.lanes = c;
+  a.stateNode = { isHidden: false };
+  return a;
+}
+function Qg(a, b, c) {
+  a = Bg(6, a, null, b);
+  a.lanes = c;
+  return a;
+}
+function Sg(a, b, c) {
+  b = Bg(4, null !== a.children ? a.children : [], a.key, b);
+  b.lanes = c;
+  b.stateNode = { containerInfo: a.containerInfo, pendingChildren: null, implementation: a.implementation };
+  return b;
+}
+function al(a, b, c, d, e) {
+  this.tag = b;
+  this.containerInfo = a;
+  this.finishedWork = this.pingCache = this.current = this.pendingChildren = null;
+  this.timeoutHandle = -1;
+  this.callbackNode = this.pendingContext = this.context = null;
+  this.callbackPriority = 0;
+  this.eventTimes = zc(0);
+  this.expirationTimes = zc(-1);
+  this.entangledLanes = this.finishedLanes = this.mutableReadLanes = this.expiredLanes = this.pingedLanes = this.suspendedLanes = this.pendingLanes = 0;
+  this.entanglements = zc(0);
+  this.identifierPrefix = d;
+  this.onRecoverableError = e;
+  this.mutableSourceEagerHydrationData = null;
+}
+function bl(a, b, c, d, e, f2, g, h, k2) {
+  a = new al(a, b, c, h, k2);
+  1 === b ? (b = 1, true === f2 && (b |= 8)) : b = 0;
+  f2 = Bg(3, null, null, b);
+  a.current = f2;
+  f2.stateNode = a;
+  f2.memoizedState = { element: d, isDehydrated: c, cache: null, transitions: null, pendingSuspenseBoundaries: null };
+  kh(f2);
+  return a;
+}
+function cl(a, b, c) {
+  var d = 3 < arguments.length && void 0 !== arguments[3] ? arguments[3] : null;
+  return { $$typeof: wa, key: null == d ? null : "" + d, children: a, containerInfo: b, implementation: c };
+}
+function dl(a) {
+  if (!a) return Vf;
+  a = a._reactInternals;
+  a: {
+    if (Vb(a) !== a || 1 !== a.tag) throw Error(p(170));
+    var b = a;
+    do {
+      switch (b.tag) {
+        case 3:
+          b = b.stateNode.context;
+          break a;
+        case 1:
+          if (Zf(b.type)) {
+            b = b.stateNode.__reactInternalMemoizedMergedChildContext;
+            break a;
+          }
+      }
+      b = b.return;
+    } while (null !== b);
+    throw Error(p(171));
+  }
+  if (1 === a.tag) {
+    var c = a.type;
+    if (Zf(c)) return bg(a, c, b);
+  }
+  return b;
+}
+function el(a, b, c, d, e, f2, g, h, k2) {
+  a = bl(c, d, true, a, e, f2, g, h, k2);
+  a.context = dl(null);
+  c = a.current;
+  d = R();
+  e = yi(c);
+  f2 = mh(d, e);
+  f2.callback = void 0 !== b && null !== b ? b : null;
+  nh(c, f2, e);
+  a.current.lanes = e;
+  Ac(a, e, d);
+  Dk(a, d);
+  return a;
+}
+function fl(a, b, c, d) {
+  var e = b.current, f2 = R(), g = yi(e);
+  c = dl(c);
+  null === b.context ? b.context = c : b.pendingContext = c;
+  b = mh(f2, g);
+  b.payload = { element: a };
+  d = void 0 === d ? null : d;
+  null !== d && (b.callback = d);
+  a = nh(e, b, g);
+  null !== a && (gi(a, e, g, f2), oh(a, e, g));
+  return g;
+}
+function gl(a) {
+  a = a.current;
+  if (!a.child) return null;
+  switch (a.child.tag) {
+    case 5:
+      return a.child.stateNode;
+    default:
+      return a.child.stateNode;
+  }
+}
+function hl(a, b) {
+  a = a.memoizedState;
+  if (null !== a && null !== a.dehydrated) {
+    var c = a.retryLane;
+    a.retryLane = 0 !== c && c < b ? c : b;
+  }
+}
+function il(a, b) {
+  hl(a, b);
+  (a = a.alternate) && hl(a, b);
+}
+function jl() {
+  return null;
+}
+var kl = "function" === typeof reportError ? reportError : function(a) {
+  console.error(a);
+};
+function ll(a) {
+  this._internalRoot = a;
+}
+ml.prototype.render = ll.prototype.render = function(a) {
+  var b = this._internalRoot;
+  if (null === b) throw Error(p(409));
+  fl(a, b, null, null);
+};
+ml.prototype.unmount = ll.prototype.unmount = function() {
+  var a = this._internalRoot;
+  if (null !== a) {
+    this._internalRoot = null;
+    var b = a.containerInfo;
+    Rk(function() {
+      fl(null, a, null, null);
+    });
+    b[uf] = null;
+  }
+};
+function ml(a) {
+  this._internalRoot = a;
+}
+ml.prototype.unstable_scheduleHydration = function(a) {
+  if (a) {
+    var b = Hc();
+    a = { blockedOn: null, target: a, priority: b };
+    for (var c = 0; c < Qc.length && 0 !== b && b < Qc[c].priority; c++) ;
+    Qc.splice(c, 0, a);
+    0 === c && Vc(a);
+  }
+};
+function nl(a) {
+  return !(!a || 1 !== a.nodeType && 9 !== a.nodeType && 11 !== a.nodeType);
+}
+function ol(a) {
+  return !(!a || 1 !== a.nodeType && 9 !== a.nodeType && 11 !== a.nodeType && (8 !== a.nodeType || " react-mount-point-unstable " !== a.nodeValue));
+}
+function pl() {
+}
+function ql(a, b, c, d, e) {
+  if (e) {
+    if ("function" === typeof d) {
+      var f2 = d;
+      d = function() {
+        var a2 = gl(g);
+        f2.call(a2);
+      };
+    }
+    var g = el(b, d, a, 0, null, false, false, "", pl);
+    a._reactRootContainer = g;
+    a[uf] = g.current;
+    sf(8 === a.nodeType ? a.parentNode : a);
+    Rk();
+    return g;
+  }
+  for (; e = a.lastChild; ) a.removeChild(e);
+  if ("function" === typeof d) {
+    var h = d;
+    d = function() {
+      var a2 = gl(k2);
+      h.call(a2);
+    };
+  }
+  var k2 = bl(a, 0, false, null, null, false, false, "", pl);
+  a._reactRootContainer = k2;
+  a[uf] = k2.current;
+  sf(8 === a.nodeType ? a.parentNode : a);
+  Rk(function() {
+    fl(b, k2, c, d);
+  });
+  return k2;
+}
+function rl(a, b, c, d, e) {
+  var f2 = c._reactRootContainer;
+  if (f2) {
+    var g = f2;
+    if ("function" === typeof e) {
+      var h = e;
+      e = function() {
+        var a2 = gl(g);
+        h.call(a2);
+      };
+    }
+    fl(b, g, a, e);
+  } else g = ql(c, b, a, e, d);
+  return gl(g);
+}
+Ec = function(a) {
+  switch (a.tag) {
+    case 3:
+      var b = a.stateNode;
+      if (b.current.memoizedState.isDehydrated) {
+        var c = tc(b.pendingLanes);
+        0 !== c && (Cc(b, c | 1), Dk(b, B()), 0 === (K & 6) && (Gj = B() + 500, jg()));
+      }
+      break;
+    case 13:
+      Rk(function() {
+        var b2 = ih(a, 1);
+        if (null !== b2) {
+          var c2 = R();
+          gi(b2, a, 1, c2);
+        }
+      }), il(a, 1);
+  }
+};
+Fc = function(a) {
+  if (13 === a.tag) {
+    var b = ih(a, 134217728);
+    if (null !== b) {
+      var c = R();
+      gi(b, a, 134217728, c);
+    }
+    il(a, 134217728);
+  }
+};
+Gc = function(a) {
+  if (13 === a.tag) {
+    var b = yi(a), c = ih(a, b);
+    if (null !== c) {
+      var d = R();
+      gi(c, a, b, d);
+    }
+    il(a, b);
+  }
+};
+Hc = function() {
+  return C;
+};
+Ic = function(a, b) {
+  var c = C;
+  try {
+    return C = a, b();
+  } finally {
+    C = c;
+  }
+};
+yb = function(a, b, c) {
+  switch (b) {
+    case "input":
+      bb(a, c);
+      b = c.name;
+      if ("radio" === c.type && null != b) {
+        for (c = a; c.parentNode; ) c = c.parentNode;
+        c = c.querySelectorAll("input[name=" + JSON.stringify("" + b) + '][type="radio"]');
+        for (b = 0; b < c.length; b++) {
+          var d = c[b];
+          if (d !== a && d.form === a.form) {
+            var e = Db(d);
+            if (!e) throw Error(p(90));
+            Wa(d);
+            bb(d, e);
+          }
+        }
+      }
+      break;
+    case "textarea":
+      ib(a, c);
+      break;
+    case "select":
+      b = c.value, null != b && fb(a, !!c.multiple, b, false);
+  }
+};
+Gb = Qk;
+Hb = Rk;
+var sl = { usingClientEntryPoint: false, Events: [Cb, ue, Db, Eb, Fb, Qk] }, tl = { findFiberByHostInstance: Wc, bundleType: 0, version: "18.3.1", rendererPackageName: "react-dom" };
+var ul = { bundleType: tl.bundleType, version: tl.version, rendererPackageName: tl.rendererPackageName, rendererConfig: tl.rendererConfig, overrideHookState: null, overrideHookStateDeletePath: null, overrideHookStateRenamePath: null, overrideProps: null, overridePropsDeletePath: null, overridePropsRenamePath: null, setErrorHandler: null, setSuspenseHandler: null, scheduleUpdate: null, currentDispatcherRef: ua.ReactCurrentDispatcher, findHostInstanceByFiber: function(a) {
+  a = Zb(a);
+  return null === a ? null : a.stateNode;
+}, findFiberByHostInstance: tl.findFiberByHostInstance || jl, findHostInstancesForRefresh: null, scheduleRefresh: null, scheduleRoot: null, setRefreshHandler: null, getCurrentFiber: null, reconcilerVersion: "18.3.1-next-f1338f8080-20240426" };
+if ("undefined" !== typeof __REACT_DEVTOOLS_GLOBAL_HOOK__) {
+  var vl = __REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (!vl.isDisabled && vl.supportsFiber) try {
+    kc = vl.inject(ul), lc = vl;
+  } catch (a) {
+  }
+}
+reactDom_production_min.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = sl;
+reactDom_production_min.createPortal = function(a, b) {
+  var c = 2 < arguments.length && void 0 !== arguments[2] ? arguments[2] : null;
+  if (!nl(b)) throw Error(p(200));
+  return cl(a, b, null, c);
+};
+reactDom_production_min.createRoot = function(a, b) {
+  if (!nl(a)) throw Error(p(299));
+  var c = false, d = "", e = kl;
+  null !== b && void 0 !== b && (true === b.unstable_strictMode && (c = true), void 0 !== b.identifierPrefix && (d = b.identifierPrefix), void 0 !== b.onRecoverableError && (e = b.onRecoverableError));
+  b = bl(a, 1, false, null, null, c, false, d, e);
+  a[uf] = b.current;
+  sf(8 === a.nodeType ? a.parentNode : a);
+  return new ll(b);
+};
+reactDom_production_min.findDOMNode = function(a) {
+  if (null == a) return null;
+  if (1 === a.nodeType) return a;
+  var b = a._reactInternals;
+  if (void 0 === b) {
+    if ("function" === typeof a.render) throw Error(p(188));
+    a = Object.keys(a).join(",");
+    throw Error(p(268, a));
+  }
+  a = Zb(b);
+  a = null === a ? null : a.stateNode;
+  return a;
+};
+reactDom_production_min.flushSync = function(a) {
+  return Rk(a);
+};
+reactDom_production_min.hydrate = function(a, b, c) {
+  if (!ol(b)) throw Error(p(200));
+  return rl(null, a, b, true, c);
+};
+reactDom_production_min.hydrateRoot = function(a, b, c) {
+  if (!nl(a)) throw Error(p(405));
+  var d = null != c && c.hydratedSources || null, e = false, f2 = "", g = kl;
+  null !== c && void 0 !== c && (true === c.unstable_strictMode && (e = true), void 0 !== c.identifierPrefix && (f2 = c.identifierPrefix), void 0 !== c.onRecoverableError && (g = c.onRecoverableError));
+  b = el(b, null, a, 1, null != c ? c : null, e, false, f2, g);
+  a[uf] = b.current;
+  sf(a);
+  if (d) for (a = 0; a < d.length; a++) c = d[a], e = c._getVersion, e = e(c._source), null == b.mutableSourceEagerHydrationData ? b.mutableSourceEagerHydrationData = [c, e] : b.mutableSourceEagerHydrationData.push(
+    c,
+    e
+  );
+  return new ml(b);
+};
+reactDom_production_min.render = function(a, b, c) {
+  if (!ol(b)) throw Error(p(200));
+  return rl(null, a, b, false, c);
+};
+reactDom_production_min.unmountComponentAtNode = function(a) {
+  if (!ol(a)) throw Error(p(40));
+  return a._reactRootContainer ? (Rk(function() {
+    rl(null, null, a, false, function() {
+      a._reactRootContainer = null;
+      a[uf] = null;
+    });
+  }), true) : false;
+};
+reactDom_production_min.unstable_batchedUpdates = Qk;
+reactDom_production_min.unstable_renderSubtreeIntoContainer = function(a, b, c, d) {
+  if (!ol(c)) throw Error(p(200));
+  if (null == a || void 0 === a._reactInternals) throw Error(p(38));
+  return rl(a, b, c, false, d);
+};
+reactDom_production_min.version = "18.3.1-next-f1338f8080-20240426";
+function checkDCE() {
+  if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ === "undefined" || typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE !== "function") {
+    return;
+  }
+  try {
+    __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE(checkDCE);
+  } catch (err) {
+    console.error(err);
+  }
+}
+{
+  checkDCE();
+  reactDom.exports = reactDom_production_min;
+}
+var reactDomExports = reactDom.exports;
+var createRoot;
+var m = reactDomExports;
+{
+  createRoot = m.createRoot;
+  m.hydrateRoot;
+}
+const SLOW_TYPES = /* @__PURE__ */ new Set([
+  "wallet:get-balances",
+  "wallet:get-history",
+  "wallet:get-tokens",
+  "wallet:get-collectibles",
+  // AGW resolution does on-chain RPC roundtrips (ExclusiveDelegateResolver +
+  // ownership check) on first read — too slow for the snappy 8s budget.
+  "wallet:get-addresses",
+  "wallet:set-agw",
+  "wallet:set-account",
+  "swap:getQuote",
+  "swap:getTokenList",
+  "ss:estimate",
+  "ss:create-exchange",
+  "ss:status",
+  "wallet:get-market",
+  "wallet:search-market",
+  "wallet:get-coin-chart",
+  "wallet:get-nft-floor"
+]);
+const VERY_SLOW_TYPES = /* @__PURE__ */ new Set(["swap:execute"]);
+function send(type, ...args) {
+  const timeoutMs = VERY_SLOW_TYPES.has(type) ? 18e4 : SLOW_TYPES.has(type) ? 45e3 : 8e3;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Background not responding — try closing and reopening the extension")), timeoutMs);
+    chrome.runtime.sendMessage({ type, args }, (response) => {
+      clearTimeout(timer);
+      if (chrome.runtime.lastError) {
+        const msg = chrome.runtime.lastError.message ?? "";
+        if (msg.includes("Receiving end") || msg.includes("Could not establish")) {
+          setTimeout(() => {
+            chrome.runtime.sendMessage({ type, args }, (r2) => {
+              var _a;
+              if (chrome.runtime.lastError || !r2) {
+                reject(new Error(((_a = chrome.runtime.lastError) == null ? void 0 : _a.message) ?? "No response"));
+                return;
+              }
+              if (r2.ok) resolve(r2.result);
+              else reject(new Error(r2.error));
+            });
+          }, 300);
+          return;
+        }
+        reject(new Error(msg));
+        return;
+      }
+      if (!response) {
+        reject(new Error("No response from background"));
+        return;
+      }
+      if (response.ok) resolve(response.result);
+      else reject(new Error(response.error));
+    });
+  });
+}
+const _listenerMap = /* @__PURE__ */ new WeakMap();
+function on(channel, cb2) {
+  const wrapped = (msg) => {
+    if ((msg == null ? void 0 : msg.type) === channel) cb2(msg.data);
+  };
+  _listenerMap.set(cb2, wrapped);
+  chrome.runtime.onMessage.addListener(wrapped);
+}
+function off(channel, cb2) {
+  const wrapped = _listenerMap.get(cb2);
+  if (wrapped) {
+    chrome.runtime.onMessage.removeListener(wrapped);
+    _listenerMap.delete(cb2);
+  }
+}
+function createExtensionWallet() {
+  return {
+    // Lifecycle
+    isSetup: () => send("wallet:is-setup"),
+    isUnlocked: () => send("wallet:is-unlocked"),
+    unlock: (password) => send("wallet:unlock", password),
+    lock: () => send("wallet:lock"),
+    generate: () => send("wallet:generate"),
+    validate: (m2) => send("wallet:validate", m2),
+    confirmBackup: () => send("wallet:confirm-backup"),
+    setPassword: (password) => send("wallet:set-password", password),
+    import: (m2) => send("wallet:import", m2),
+    deleteWallet: () => send("wallet:delete"),
+    // Data
+    getAddresses: () => send("wallet:get-addresses"),
+    getBalances: () => send("wallet:get-balances"),
+    revealSeed: () => send("wallet:reveal-seed"),
+    getHistory: () => send("wallet:get-history"),
+    getAccountIndex: () => send("wallet:get-account"),
+    setAccount: (i) => send("wallet:set-account", i),
+    setAgw: (i, address) => send("wallet:set-agw", i, address),
+    // Transactions
+    estimateFee: (c, t2, a) => send("wallet:estimate-fee", c, t2, a),
+    sendEvm: (c, t2, a) => send("wallet:send-evm", c, t2, a),
+    sendAgw: (t2, a, token) => send("wallet:send-agw", t2, a, token),
+    sendSolana: (t2, a) => send("wallet:send-solana", t2, a),
+    sendCardano: (t2, a) => send("wallet:send-cardano", t2, a),
+    // Market
+    getMarket: () => send("wallet:get-market"),
+    searchMarket: (q2) => send("wallet:search-market", q2),
+    getCoinChart: (id2, d) => send("wallet:get-coin-chart", id2, d),
+    getTokens: () => send("wallet:get-tokens"),
+    getCollectibles: (excludeIds) => send("wallet:get-collectibles", excludeIds),
+    getNftFloor: (c, a) => send("wallet:get-nft-floor", c, a),
+    swapGetQuote: (req) => send("swap:getQuote", req),
+    swapExecute: (quote) => send("swap:execute", quote),
+    swapGetTokens: (chain) => send("swap:getTokenList", chain),
+    ssEstimate: (params) => send("ss:estimate", params),
+    ssCreateExchange: (params) => send("ss:create-exchange", params),
+    ssStatus: (id2) => send("ss:status", id2),
+    // Window controls (no-op in extension)
+    minimize: () => {
+    },
+    close: () => {
+    },
+    // Browser tab — in the extension the user's real browser is the browser,
+    // so openBrowser lands on the ChainLens site and browserNavigate opens any
+    // URL the AppHub requests directly in a new tab.
+    openBrowser: () => {
+      chrome.tabs.create({ url: "https://www.chainlensnft.info/" });
+    },
+    closeBrowser: () => {
+    },
+    browserBack: () => {
+    },
+    browserForward: () => {
+    },
+    browserReload: () => {
+    },
+    browserHome: () => {
+    },
+    browserNavigate: (url) => {
+      chrome.tabs.create({ url });
+      return Promise.resolve();
+    },
+    browserGetState: () => Promise.resolve({ url: "", canBack: false, canForward: false, loading: false }),
+    onBrowserUrl: () => {
+    },
+    onBrowserLoading: () => {
+    },
+    onBrowserNavState: () => {
+    },
+    onBrowserTitle: () => {
+    },
+    offBrowserUrl: () => {
+    },
+    offBrowserLoading: () => {
+    },
+    offBrowserNavState: () => {
+    },
+    offBrowserTitle: () => {
+    },
+    onBrowserClosed: () => {
+    },
+    offBrowserClosed: () => {
+    },
+    // ChainLens profile
+    chainlensGetProfile: () => send("chainlens:get-profile"),
+    chainlensSync: () => send("chainlens:sync"),
+    chainlensUpdateProfile: (u2) => send("chainlens:update-profile", u2),
+    chainlensPickAvatar: () => send("chainlens:pick-avatar"),
+    // WalletConnect
+    wcGetSessions: () => send("wc:get-sessions"),
+    wcGetPendingProposals: () => send("wc:get-pending-proposals"),
+    wcGetPendingRequests: () => send("wc:get-pending-requests"),
+    openSidePanel: () => send("sidePanel:open"),
+    closeSidePanel: () => send("sidePanel:close"),
+    web3GetPendingTx: () => send("web3:get-pending-tx"),
+    web3ApproveTx: (id2, chainId) => send("web3:approve-tx", { id: id2, chainId }),
+    web3RejectTx: (id2) => send("web3:reject-tx", id2),
+    web3GetPendingConnections: () => send("web3:get-pending-connections"),
+    web3ApproveConnection: (id2) => send("web3:approve-connection", { id: id2 }),
+    web3RejectConnection: (id2) => send("web3:reject-connection", { id: id2 }),
+    wcPair: (uri) => send("wc:pair", uri),
+    wcApproveSession: (id2) => send("wc:approve-session", id2),
+    wcRejectSession: (id2) => send("wc:reject-session", id2),
+    wcDisconnect: (t2) => send("wc:disconnect", t2),
+    wcApproveRequest: (id2) => send("wc:approve-request", id2),
+    wcRejectRequest: (id2) => send("wc:reject-request", id2),
+    // WC push events (background pushes to all extension pages)
+    onWcProposal: (cb2) => on("wc:proposal", cb2),
+    onWcRequest: (cb2) => on("wc:request", cb2),
+    onWcSessionsChanged: (cb2) => on("wc:sessions-changed", cb2),
+    offWcProposal: (cb2) => off("wc:proposal", cb2),
+    offWcRequest: (cb2) => off("wc:request", cb2),
+    offWcSessionsChanged: (cb2) => off("wc:sessions-changed", cb2)
+  };
+}
+const logoUrl = "" + new URL("../logo.png", import.meta.url).href;
+const bannerUrl = "" + new URL("../title-bar.png", import.meta.url).href;
+function LoadingPage() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "page", style: { alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "spinner", style: { marginBottom: 16 } }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { color: "var(--text-muted)", fontSize: 12 }, children: "Initialising…" })
+  ] }) });
+}
+function WelcomePage({ onNavigate }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { justifyContent: "center", gap: 28 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+        width: 64,
+        height: 64,
+        borderRadius: "50%",
+        background: "var(--accent-dim)",
+        border: "1px solid var(--border-active)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        margin: "0 auto 20px",
+        boxShadow: "0 0 32px var(--accent-glow)"
+      }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "28", height: "28", fill: "none", stroke: "var(--accent)", strokeWidth: "1.5", viewBox: "0 0 24 24", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "16", r: "1", fill: "var(--accent)" })
+      ] }) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", children: "MagicMoney Wallet" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { className: "page-subtitle", style: { marginTop: 8 }, children: [
+        "Self-custody across EVM · Solana · Cardano.",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+        "Your keys. Your coins."
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }, children: [
+      { label: "Ethereum", color: "#627EEA" },
+      { label: "Monad", color: "#627EEA" },
+      { label: "Abstract", color: "#627EEA" },
+      { label: "Solana", color: "#9945FF" },
+      { label: "Cardano", color: "#2A7DEA" }
+    ].map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: {
+      padding: "4px 10px",
+      background: `${c.color}1a`,
+      border: `1px solid ${c.color}33`,
+      borderRadius: 99,
+      fontSize: 11,
+      color: c.color,
+      fontWeight: 500
+    }, children: c.label }, c.label)) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn btn-primary", onClick: () => onNavigate("create"), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 5v14M5 12h14" }) }),
+        "Create New Wallet"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { className: "btn btn-ghost", onClick: () => onNavigate("import"), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 8 12 3 7 8" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "3", x2: "12", y2: "15" })
+        ] }),
+        "Import Existing Wallet"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative", textAlign: "center", margin: "4px 0" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "var(--border)", transform: "translateY(-50%)" } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { position: "relative", background: "var(--bg-dark)", padding: "0 10px", fontSize: 11, color: "var(--text-muted)" }, children: "or" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          className: "btn btn-ghost",
+          onClick: () => onNavigate("import"),
+          style: {
+            background: "linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.12) 100%)",
+            border: "1px solid rgba(99,102,241,0.35)",
+            color: "#a5b4fc"
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "16", height: "16", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "8", r: "4" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20c0-4 3.6-7 8-7s8 3 8 7" })
+            ] }),
+            "Sign in with ChainLens"
+          ]
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { style: { fontSize: 11, color: "var(--text-muted)", textAlign: "center", lineHeight: 1.6 }, children: [
+      "Your seed phrase is encrypted with your OS keychain.",
+      /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+      "No data is transmitted to any server."
+    ] })
+  ] });
+}
+function CreatePage({ onNavigate }) {
+  const [words, setWords] = reactExports.useState([]);
+  const [blurred, setBlurred] = reactExports.useState(true);
+  const [loading, setLoading] = reactExports.useState(true);
+  reactExports.useEffect(() => {
+    window.wallet.generate().then((w2) => {
+      setWords(w2);
+      setLoading(false);
+    });
+  }, []);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 20 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => onNavigate("welcome"),
+          style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6, padding: 0, marginBottom: 16 },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 12H5M12 19l-7-7 7-7" }) }),
+            "Back"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", children: "Your Seed Phrase" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Write these 12 words down in order and store them somewhere safe. This is the only way to recover your wallet." })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "warning-box", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "warning-icon", children: "⚠️" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Never share your seed phrase. Anyone with these words has full access to your funds." })
+    ] }),
+    loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { textAlign: "center", padding: "32px 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "spinner" }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `seed-grid${blurred ? " blurred" : ""}`, children: words.map((word, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "seed-word", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "seed-word-num", children: i + 1 }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "seed-word-text", children: word })
+      ] }, i)) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => setBlurred((b) => !b),
+          style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 11, marginTop: 10, display: "flex", alignItems: "center", gap: 6 },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", children: blurred ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3" })
+            ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "1", y1: "1", x2: "23", y2: "23" })
+            ] }) }),
+            blurred ? "Reveal phrase" : "Hide phrase"
+          ]
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        className: "btn btn-primary",
+        disabled: loading || blurred,
+        onClick: () => onNavigate("confirm"),
+        children: "I've Written It Down — Continue"
+      }
+    ),
+    blurred && !loading && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: 11, color: "var(--text-muted)", textAlign: "center" }, children: "Reveal your phrase first, then confirm you've saved it." })
+  ] });
+}
+function ConfirmPage({ onNavigate, onComplete }) {
+  const [saving, setSaving] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const handleConfirm = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const addresses = await window.wallet.confirmBackup();
+      onComplete(addresses);
+    } catch (err) {
+      setError(String(err));
+      setSaving(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 20 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => onNavigate("create"),
+          style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6, padding: 0, marginBottom: 16 },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 12H5M12 19l-7-7 7-7" }) }),
+            "Back"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", children: "Confirm Backup" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Before we save your wallet, confirm you've stored your seed phrase securely." })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "card", style: { display: "flex", flexDirection: "column", gap: 14 }, children: [
+      "I wrote down all 12 words in the correct order",
+      "I stored my phrase somewhere safe offline",
+      "I understand losing my phrase means losing access forever",
+      "I understand MagicMoney never stores or transmits my phrase"
+    ].map((item, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { style: { display: "flex", gap: 12, alignItems: "flex-start", cursor: "pointer", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("input", { type: "checkbox", style: { marginTop: 2, accentColor: "var(--accent)", flexShrink: 0 } }),
+      item
+    ] }, i)) }),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "var(--radius-md)", fontSize: 12, color: "var(--error)" }, children: error }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        className: "btn btn-primary",
+        onClick: handleConfirm,
+        disabled: saving,
+        children: saving ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 14, height: 14, border: "2px solid rgba(0,0,0,0.3)", borderTop: "2px solid #000", borderRadius: "50%", animation: "spin 0.8s linear infinite" } }),
+          "Deriving addresses…"
+        ] }) : "Save Wallet & Continue"
+      }
+    )
+  ] });
+}
+function ImportPage({ onNavigate, onComplete }) {
+  const [wordCount, setWordCount] = reactExports.useState(12);
+  const [words, setWords] = reactExports.useState(Array(12).fill(""));
+  const [loading, setLoading] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const inputRefs = reactExports.useRef([]);
+  const setWord = (i, val) => {
+    if (val.includes(" ")) {
+      const pasted = val.trim().split(/\s+/);
+      if (pasted.length >= 12) {
+        const count = pasted.length >= 24 ? 24 : 12;
+        setWordCount(count);
+        const filled = [...pasted.slice(0, count), ...Array(count).fill("")].slice(0, count);
+        setWords(filled);
+        setTimeout(() => {
+          var _a;
+          return (_a = inputRefs.current[count - 1]) == null ? void 0 : _a.focus();
+        }, 0);
+        return;
+      }
+    }
+    const updated = [...words];
+    updated[i] = val.toLowerCase().trim();
+    setWords(updated);
+  };
+  const handleWordCountChange = (count) => {
+    setWordCount(count);
+    setWords(
+      (prev) => count === 24 ? [...prev, ...Array(12).fill("")].slice(0, 24) : prev.slice(0, 12)
+    );
+  };
+  const handleKeyDown = (i, e) => {
+    var _a;
+    if (e.key === " " || e.key === "Tab") {
+      e.preventDefault();
+      (_a = inputRefs.current[i + 1]) == null ? void 0 : _a.focus();
+    }
+  };
+  const handleImport = async () => {
+    const phrase = words.slice(0, wordCount).join(" ").trim();
+    if (words.slice(0, wordCount).some((w2) => !w2)) {
+      setError("Please fill in all words.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const addresses = await window.wallet.import(phrase);
+      onComplete(addresses);
+    } catch (err) {
+      setError(String(err).replace("Error: ", ""));
+      setLoading(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 20 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          onClick: () => onNavigate("welcome"),
+          style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", gap: 6, padding: 0, marginBottom: 16 },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19 12H5M12 19l-7-7 7-7" }) }),
+            "Back"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", children: "Import Wallet" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "page-subtitle", children: "Enter your BIP-39 seed phrase. You can also paste the full phrase into word 1." })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 8 }, children: [12, 24].map((n2) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        onClick: () => handleWordCountChange(n2),
+        style: {
+          flex: 1,
+          padding: "8px 0",
+          borderRadius: "var(--radius-sm)",
+          border: `1px solid ${wordCount === n2 ? "var(--border-active)" : "var(--border)"}`,
+          background: wordCount === n2 ? "var(--accent-dim)" : "transparent",
+          color: wordCount === n2 ? "var(--accent-text)" : "var(--text-muted)",
+          fontSize: 12,
+          fontWeight: 500,
+          cursor: "pointer",
+          transition: "all var(--transition)"
+        },
+        children: [
+          n2,
+          " words"
+        ]
+      },
+      n2
+    )) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "import-grid", style: { gridTemplateColumns: "repeat(3, 1fr)" }, children: Array.from({ length: wordCount }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "import-word-wrapper", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "import-word-num", children: i + 1 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          ref: (el2) => {
+            inputRefs.current[i] = el2;
+          },
+          className: "import-word-input",
+          type: "text",
+          autoComplete: "off",
+          autoCorrect: "off",
+          spellCheck: false,
+          value: words[i] ?? "",
+          placeholder: `word ${i + 1}`,
+          onChange: (e) => setWord(i, e.target.value),
+          onKeyDown: (e) => handleKeyDown(i, e)
+        }
+      )
+    ] }, i)) }),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "10px 14px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "var(--radius-md)", fontSize: 12, color: "var(--error)" }, children: error }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        className: "btn btn-primary",
+        onClick: handleImport,
+        disabled: loading,
+        children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 14, height: 14, border: "2px solid rgba(0,0,0,0.3)", borderTop: "2px solid #000", borderRadius: "50%", animation: "spin 0.8s linear infinite" } }),
+          "Importing wallet…"
+        ] }) : "Import Wallet"
+      }
+    )
+  ] });
+}
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  if (diff < 6e4) return "just now";
+  if (diff < 36e5) return `${Math.floor(diff / 6e4)}m ago`;
+  if (diff < 864e5) return `${Math.floor(diff / 36e5)}h ago`;
+  if (diff < 7 * 864e5) return `${Math.floor(diff / 864e5)}d ago`;
+  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+function truncate(s) {
+  return s.length > 16 ? `${s.slice(0, 8)}…${s.slice(-6)}` : s;
+}
+function TxList({ records }) {
+  if (records.length === 0) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", textAlign: "center", padding: "8px 0" }, children: "No transactions yet" });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }, children: records.map((tx) => {
+    const isIn = tx.direction === "in";
+    const isOut = tx.direction === "out";
+    const color = isIn ? "var(--success)" : isOut ? "var(--error)" : "var(--text-muted)";
+    const arrow = isIn ? "↓" : isOut ? "↑" : "↔";
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        style: {
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "5px 10px",
+          background: "rgba(0,0,0,0.2)",
+          borderRadius: "var(--radius-sm)",
+          borderLeft: `2px solid ${color}`,
+          fontSize: 11
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color, fontWeight: 700, fontFamily: "var(--font-mono)", minWidth: 10, flexShrink: 0 }, children: arrow }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-primary)", fontFamily: "var(--font-mono)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: tx.amount ? `${tx.amount} ${tx.symbol}` : tx.symbol }),
+          tx.counterparty && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)", fontFamily: "var(--font-mono)", flexShrink: 0 }, children: truncate(tx.counterparty) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)", flexShrink: 0, whiteSpace: "nowrap" }, children: timeAgo(tx.timestamp) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              title: `View on explorer: ${tx.hash}`,
+              onClick: () => window.open(tx.explorerUrl),
+              style: {
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                color: "var(--accent)",
+                opacity: 0.6,
+                display: "flex",
+                alignItems: "center",
+                flexShrink: 0
+              },
+              children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "10", height: "10", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "15 3 21 3 21 9" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "10", y1: "14", x2: "21", y2: "3" })
+              ] })
+            }
+          )
+        ]
+      },
+      tx.hash
+    );
+  }) });
+}
+function Sparkline({ data, color }) {
+  const W2 = 80, H2 = 28;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v2, i) => `${i / (data.length - 1) * W2},${H2 - (v2 - min) / range * (H2 - 2) - 1}`).join(" ");
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: W2, height: H2, style: { display: "block", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "polyline",
+    {
+      points: pts,
+      fill: "none",
+      stroke: color,
+      strokeWidth: "1.5",
+      strokeLinejoin: "round",
+      strokeLinecap: "round",
+      opacity: 0.8
+    }
+  ) });
+}
+const CHAIN_META = {
+  ethereum: { name: "Ethereum", networks: "Mainnet", color: "#627EEA", colorRgb: "98, 126, 234" },
+  arbitrum: { name: "Arbitrum One", networks: "L2 · Ethereum", color: "#28A0F0", colorRgb: "40, 160, 240" },
+  optimism: { name: "Optimism", networks: "L2 · Ethereum", color: "#FF0420", colorRgb: "255, 4, 32" },
+  base: { name: "Base", networks: "L2 · Ethereum", color: "#0052FF", colorRgb: "0, 82, 255" },
+  polygon: { name: "Polygon", networks: "L2 · Proof of Stake", color: "#8247E5", colorRgb: "130, 71, 229" },
+  avalanche: { name: "Avalanche", networks: "C-Chain", color: "#E84142", colorRgb: "232, 65, 66" },
+  blast: { name: "Blast", networks: "L2 · Ethereum", color: "#FCFC03", colorRgb: "252, 252, 3" },
+  gnosis: { name: "Gnosis", networks: "Mainnet", color: "#04795B", colorRgb: "4, 121, 91" },
+  monad: { name: "Monad", networks: "Mainnet", color: "#836EF9", colorRgb: "131, 110, 249" },
+  abstract: { name: "Abstract", networks: "L2 · Ethereum", color: "#6B7280", colorRgb: "107, 114, 128" },
+  apechain: { name: "ApeChain", networks: "L3 · ApeChain", color: "#0066FF", colorRgb: "0, 102, 255" },
+  ronin: { name: "Ronin", networks: "Mainnet", color: "#1273EA", colorRgb: "18, 115, 234" },
+  soneium: { name: "Soneium", networks: "L2 · Ethereum", color: "#5B5EA6", colorRgb: "91, 94, 166" },
+  worldchain: { name: "WorldChain", networks: "L2 · Ethereum", color: "#5A64C8", colorRgb: "90, 100, 200" },
+  zora: { name: "Zora", networks: "L2 · Ethereum", color: "#2B5DF0", colorRgb: "43, 93, 240" },
+  hyperevm: { name: "HyperEVM", networks: "HyperLiquid L1", color: "#00BF7D", colorRgb: "0, 191, 125" },
+  solana: { name: "Solana", networks: "Mainnet", color: "#9945FF", colorRgb: "153, 69, 255" },
+  cardano: { name: "Cardano", networks: "Mainnet", color: "#2A7DEA", colorRgb: "42, 125, 234" },
+  bitcoin: { name: "Bitcoin", networks: "Mainnet", color: "#F7931A", colorRgb: "247, 147, 26" },
+  polkadot: { name: "Polkadot", networks: "Relay Chain", color: "#E6007A", colorRgb: "230, 0, 122" }
+};
+const FALLBACK_META = { name: "Unknown", networks: "", color: "#6B7280", colorRgb: "107, 114, 128" };
+function ChainCard({ chainId, balance, address, loading, onSend, history }) {
+  const [copied, setCopied] = reactExports.useState(false);
+  const [historyOpen, setHistoryOpen] = reactExports.useState(false);
+  const meta = CHAIN_META[chainId] ?? FALLBACK_META;
+  const truncate2 = (addr) => addr.length > 16 ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : addr;
+  const copyAddress = async () => {
+    if (!address) return;
+    await navigator.clipboard.writeText(address);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "chain-card",
+      style: {
+        ["--chain-color"]: meta.color,
+        ["--chain-color-rgb"]: meta.colorRgb
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-header", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-info", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-dot" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-name", children: meta.name }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-networks", children: meta.networks })
+            ] })
+          ] }),
+          !loading && !(balance == null ? void 0 : balance.error) && (balance == null ? void 0 : balance.sparkline) && balance.sparkline.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 8px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(Sparkline, { data: balance.sparkline, color: meta.color }) }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-balance", children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 60, height: 18, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite" } }) : (balance == null ? void 0 : balance.error) === "coming-soon" ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "rgba(var(--chain-color-rgb), 0.7)", background: "rgba(var(--chain-color-rgb), 0.1)", border: "1px solid rgba(var(--chain-color-rgb), 0.2)", borderRadius: 4, padding: "2px 7px" }, children: "Soon" }) : (balance == null ? void 0 : balance.error) ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-error", children: "Unavailable" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-amount", children: [
+              (balance == null ? void 0 : balance.native) ?? "—",
+              " ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }, children: balance == null ? void 0 : balance.symbol })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-usd", children: (balance == null ? void 0 : balance.usdValue) ?? "$0.00" }),
+              (balance == null ? void 0 : balance.priceChange24h) != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+                fontSize: 10,
+                fontWeight: 600,
+                fontFamily: "var(--font-mono)",
+                color: balance.priceChange24h >= 0 ? "#22c55e" : "#ef4444"
+              }, children: [
+                balance.priceChange24h >= 0 ? "▲" : "▼",
+                " ",
+                Math.abs(balance.priceChange24h).toFixed(2),
+                "%"
+              ] })
+            ] })
+          ] }) })
+        ] }),
+        address ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "address-chip",
+            onClick: copyAddress,
+            title: address,
+            style: { cursor: "pointer" },
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { flexShrink: 0, opacity: 0.5 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { flex: 1 }, children: truncate2(address) }),
+              copied ? /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "11", height: "11", fill: "none", stroke: "#22c55e", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "20 6 9 17 4 12" }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { opacity: 0.4 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
+              ] })
+            ]
+          }
+        ) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: chainId === "cardano" ? "Deriving address…" : "No address" }),
+        onSend && !loading && address && !(balance == null ? void 0 : balance.error) && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "button",
+          {
+            type: "button",
+            onClick: onSend,
+            style: {
+              marginTop: 10,
+              width: "100%",
+              padding: "8px 12px",
+              background: "var(--accent-dim)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--accent)",
+              fontFamily: "var(--font-display)",
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              transition: "all var(--transition)"
+            },
+            onMouseEnter: (e) => e.currentTarget.style.borderColor = "var(--border-active)",
+            onMouseLeave: (e) => e.currentTarget.style.borderColor = "var(--border)",
+            children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "22", y1: "2", x2: "11", y2: "13" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "22 2 15 22 11 13 2 9 22 2" })
+              ] }),
+              "Send ",
+              (balance == null ? void 0 : balance.symbol) ?? ""
+            ]
+          }
+        ),
+        !loading && balance && !balance.error && balance.tokenCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-token-count", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "token-badge", children: [
+            balance.tokenCount,
+            " token",
+            balance.tokenCount !== 1 ? "s" : ""
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "in wallet" })
+        ] }),
+        (balance == null ? void 0 : balance.error) && !loading && address && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 8 }, children: balance.error.startsWith("Blockfrost") || balance.error.startsWith("RPC") ? balance.error : balance.error }),
+        history !== void 0 && !loading && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 10 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 1, background: "var(--border)", marginBottom: 8 } }),
+          history === null ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 6 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 8, height: 8, borderRadius: "50%", border: "1px solid var(--border)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite", flexShrink: 0 } }),
+            "Loading history…"
+          ] }) : history.error ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "History unavailable" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                onClick: () => setHistoryOpen((o) => !o),
+                style: { background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 4, fontFamily: "var(--font-body)" },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "10", height: "10", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { transition: "transform 0.18s", transform: historyOpen ? "rotate(180deg)" : "none", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "6 9 12 15 18 9" }) }),
+                  history.records.length === 0 ? "No recent transactions" : `${history.records.length} recent transaction${history.records.length !== 1 ? "s" : ""}`
+                ]
+              }
+            ),
+            historyOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { maxHeight: 200, overflowY: "auto", marginTop: 2 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(TxList, { records: history.records }) })
+          ] })
+        ] })
+      ]
+    }
+  );
+}
+function getChainType(chainId) {
+  if (chainId === "solana") return "solana";
+  if (chainId === "cardano") return "cardano";
+  return "evm";
+}
+function getAddressPlaceholder(chainId) {
+  if (chainId === "solana") return "Base58 address...";
+  if (chainId === "cardano") return "addr1q...";
+  return "0x...";
+}
+function getChainLabel(chainId, symbol) {
+  const labels = {
+    ethereum: "Ethereum",
+    arbitrum: "Arbitrum One",
+    optimism: "Optimism",
+    base: "Base",
+    polygon: "Polygon",
+    avalanche: "Avalanche",
+    blast: "Blast",
+    gnosis: "Gnosis",
+    monad: "Monad",
+    abstract: "Abstract",
+    apechain: "ApeChain",
+    ronin: "Ronin",
+    soneium: "Soneium",
+    worldchain: "WorldChain",
+    zora: "Zora",
+    hyperevm: "HyperEVM",
+    solana: "Solana",
+    cardano: "Cardano"
+  };
+  return labels[chainId] ?? `${symbol} Network`;
+}
+function SendModal({ chainId, balance, symbol, onClose, source = "eoa" }) {
+  const [step, setStep] = reactExports.useState("form");
+  const [to, setTo] = reactExports.useState("");
+  const [amount, setAmount] = reactExports.useState("");
+  const [fee, setFee] = reactExports.useState(null);
+  const [feeLoading, setFeeLoading] = reactExports.useState(false);
+  const [feeError, setFeeError] = reactExports.useState(null);
+  const [result, setResult] = reactExports.useState(null);
+  const [error, setError] = reactExports.useState(null);
+  const overlayRef = reactExports.useRef(null);
+  const chainType = getChainType(chainId);
+  const handleOverlayClick = (e) => {
+    if (e.target === overlayRef.current) onClose();
+  };
+  reactExports.useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+  const isValidAddress = to.trim().length > 10;
+  const isValidAmount = parseFloat(amount) > 0 && !isNaN(parseFloat(amount));
+  const canEstimate = isValidAddress && isValidAmount;
+  const handleEstimateFee = async () => {
+    if (!canEstimate) return;
+    setFeeLoading(true);
+    setFeeError(null);
+    setFee(null);
+    try {
+      const estimate = await window.wallet.estimateFee(chainId, to.trim(), amount.trim());
+      setFee(estimate);
+    } catch (err) {
+      setFeeError(String(err).replace("Error: ", ""));
+    } finally {
+      setFeeLoading(false);
+    }
+  };
+  const handleSend = async () => {
+    setStep("sending");
+    setError(null);
+    try {
+      let res;
+      if (source === "agw") res = await window.wallet.sendAgw(to.trim(), amount.trim());
+      else if (chainType === "solana") res = await window.wallet.sendSolana(to.trim(), amount.trim());
+      else if (chainType === "cardano") res = await window.wallet.sendCardano(to.trim(), amount.trim());
+      else res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim());
+      setResult(res);
+      setStep("success");
+    } catch (err) {
+      setError(String(err).replace("Error: ", ""));
+      setStep("error");
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      ref: overlayRef,
+      onClick: handleOverlayClick,
+      style: { position: "fixed", inset: 0, zIndex: 200, background: "rgba(6, 11, 24, 0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          className: "fade-in",
+          style: { background: "var(--bg-surface)", border: "1px solid var(--border-active)", borderRadius: "var(--radius-xl)", padding: "24px", width: "100%", maxWidth: "400px", display: "flex", flexDirection: "column", gap: "16px" },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16 }, children: [
+                  "Send ",
+                  symbol
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: source === "agw" ? "Abstract Smart Wallet (AGW)" : getChainLabel(chainId, symbol) })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: onClose,
+                  style: { background: "transparent", border: "none", cursor: "pointer", color: "var(--text-muted)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "var(--radius-sm)" },
+                  children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "18", y1: "6", x2: "6", y2: "18" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "6", x2: "18", y2: "18" })
+                  ] })
+                }
+              )
+            ] }),
+            balance && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+              "Available: ",
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-secondary)" }, children: [
+                balance,
+                " ",
+                symbol
+              ] })
+            ] }),
+            (step === "form" || step === "confirm") && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "label", children: "Recipient Address" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    className: "input",
+                    style: { fontFamily: "var(--font-mono)", fontSize: 12 },
+                    placeholder: getAddressPlaceholder(chainId),
+                    value: to,
+                    onChange: (e) => {
+                      setTo(e.target.value);
+                      setFee(null);
+                    },
+                    spellCheck: false,
+                    disabled: step === "confirm"
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "label", children: [
+                  "Amount (",
+                  symbol,
+                  ")"
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    className: "input",
+                    placeholder: "0.0",
+                    value: amount,
+                    type: "number",
+                    min: "0",
+                    step: "any",
+                    onChange: (e) => {
+                      setAmount(e.target.value);
+                      setFee(null);
+                    },
+                    disabled: step === "confirm"
+                  }
+                )
+              ] }),
+              step === "form" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  className: "btn btn-ghost",
+                  onClick: handleEstimateFee,
+                  disabled: !canEstimate || feeLoading,
+                  style: { fontSize: 13, padding: "10px 16px" },
+                  children: feeLoading ? "Estimating…" : "Estimate Fee"
+                }
+              ),
+              feeError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "var(--error)" }, children: feeError }),
+              fee && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 4 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }, children: "Network Fee" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 15 }, children: [
+                  fee.fee,
+                  " ",
+                  fee.feeSymbol,
+                  fee.feeUsd && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, fontWeight: 400, color: "var(--text-secondary)", marginLeft: 8 }, children: fee.feeUsd })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: [
+                  "Total: ",
+                  amount,
+                  " + ",
+                  fee.fee,
+                  " ",
+                  fee.feeSymbol,
+                  " fee"
+                ] })
+              ] }),
+              source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }, children: "Sending from your Abstract Smart Wallet. Gas is paid in ETH from the smart wallet itself." }),
+              step === "form" && (fee || source === "agw") && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", onClick: () => setStep("confirm"), children: "Review Transaction" }),
+              step === "confirm" && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "warning-box", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "warning-icon", children: "⚠️" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+                    "Sending ",
+                    /* @__PURE__ */ jsxRuntimeExports.jsxs("strong", { children: [
+                      amount,
+                      " ",
+                      symbol
+                    ] }),
+                    " to",
+                    " ",
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontFamily: "var(--font-mono)", fontSize: 11, wordBreak: "break-all" }, children: to }),
+                    ". This cannot be undone."
+                  ] })
+                ] }),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", onClick: () => setStep("form"), style: { flex: 1 }, children: "Back" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", onClick: handleSend, style: { flex: 1 }, children: "Confirm Send" })
+                ] })
+              ] })
+            ] }),
+            step === "sending" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", padding: "24px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "spinner" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, color: "var(--text-secondary)" }, children: "Broadcasting transaction…" })
+            ] }),
+            step === "success" && result && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", padding: "8px 0" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 32, marginBottom: 8 }, children: "✓" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--success)" }, children: "Transaction Sent" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(0,0,0,0.25)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px", display: "flex", flexDirection: "column", gap: 4 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 600 }, children: "Transaction Hash" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "div",
+                  {
+                    style: { fontFamily: "var(--font-mono)", fontSize: 11, wordBreak: "break-all", color: "var(--accent-text)", cursor: "pointer" },
+                    onClick: () => navigator.clipboard.writeText(result.txHash),
+                    title: "Click to copy",
+                    children: result.txHash
+                  }
+                )
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "a",
+                {
+                  href: result.explorerUrl,
+                  target: "_blank",
+                  rel: "noreferrer",
+                  style: { display: "block", textAlign: "center", fontSize: 13, color: "var(--accent)", textDecoration: "none", padding: "10px", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" },
+                  children: "View on Explorer ↗"
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", onClick: onClose, children: "Close" })
+            ] }),
+            step === "error" && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, color: "var(--error)", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: "var(--radius-md)", padding: "12px 14px", lineHeight: 1.5 }, children: error }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", onClick: () => setStep("form"), style: { flex: 1 }, children: "Try Again" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", onClick: onClose, style: { flex: 1 }, children: "Close" })
+              ] })
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
+const AGW_GREEN = "#1FCE92";
+function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
+  const [copied, setCopied] = reactExports.useState(false);
+  const [editing, setEditing] = reactExports.useState(false);
+  const [input, setInput] = reactExports.useState(addresses.agw ?? "");
+  const [busy, setBusy] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const agw = addresses.agw ?? null;
+  const owned = addresses.agwOwned === true;
+  const acctIdx = addresses.accountIndex ?? 0;
+  const truncate2 = (a) => a.length > 16 ? `${a.slice(0, 8)}…${a.slice(-6)}` : a;
+  const copyAddress = async () => {
+    if (!agw) return;
+    await navigator.clipboard.writeText(agw);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  const openPortal = () => {
+    window.wallet.openBrowser();
+    setTimeout(() => {
+      window.wallet.browserNavigate("https://portal.abs.xyz").catch(() => {
+      });
+    }, 500);
+  };
+  const apply = async (address) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await window.wallet.setAgw(acctIdx, address);
+      if (updated) onAgwChanged(updated);
+      setEditing(false);
+    } catch (err) {
+      setError(String(err).replace("Error: ", ""));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      className: "chain-card",
+      style: { ["--chain-color"]: AGW_GREEN, ["--chain-color-rgb"]: "31, 206, 146", borderColor: "rgba(31,206,146,0.35)" },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-header", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-info", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-dot" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-name", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+                "Abstract Smart Wallet",
+                agw && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 6px", borderRadius: 99, fontWeight: 700, background: owned ? "rgba(31,206,146,0.16)" : "rgba(148,163,184,0.16)", color: owned ? AGW_GREEN : "var(--text-muted)" }, children: owned ? "Connected" : "Watch-only" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-networks", children: agw ? "Abstract Global Wallet (AGW)" : "Not linked — add your AGW address" })
+            ] })
+          ] }),
+          balance && !balance.error && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-balance", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-amount", children: [
+              balance.native,
+              " ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }, children: balance.symbol })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-usd", children: balance.usdValue ?? "$0.00" })
+          ] })
+        ] }),
+        agw && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "address-chip", onClick: copyAddress, title: agw, style: { cursor: "pointer" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { flexShrink: 0, opacity: 0.5 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { flex: 1 }, children: truncate2(agw) }),
+          copied ? /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "11", height: "11", fill: "none", stroke: "#22c55e", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "20 6 9 17 4 12" }) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", style: { opacity: 0.4 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "9", y: "9", width: "13", height: "13", rx: "2" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
+          ] })
+        ] }),
+        agw && !owned && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4, marginTop: 8 }, children: "Read-only here — this AGW is controlled by Abstract/Privy, not your wallet key. Open the portal to send or manage it." }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10 }, children: [
+          owned ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
+            "button",
+            {
+              type: "button",
+              onClick: onSend,
+              style: { flex: 1, padding: "8px 12px", background: "var(--accent-dim)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--accent)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 },
+              children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "12", height: "12", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "22", y1: "2", x2: "11", y2: "13" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "22 2 15 22 11 13 2 9 22 2" })
+                ] }),
+                "Send ETH"
+              ]
+            }
+          ) : agw ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: openPortal,
+              style: { flex: 1, padding: "8px 12px", background: "rgba(31,206,146,0.12)", border: "1px solid rgba(31,206,146,0.35)", borderRadius: "var(--radius-sm)", color: AGW_GREEN, fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 },
+              children: "Open Abstract Portal ↗"
+            }
+          ) : null,
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => {
+                setEditing((e) => !e);
+                setInput(addresses.agw ?? "");
+                setError(null);
+              },
+              style: { flex: agw ? "0 0 auto" : 1, padding: "8px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer" },
+              children: editing ? "Cancel" : agw ? "Edit address" : "Add address"
+            }
+          )
+        ] }),
+        editing && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4 }, children: "Auto-derived from your wallet. Paste a different AGW address if yours was created with email/social login (it will be watch-only — display works, but you can’t send from it)." }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              className: "input",
+              style: { fontFamily: "var(--font-mono)", fontSize: 12 },
+              placeholder: "0x… Abstract Global Wallet address",
+              value: input,
+              spellCheck: false,
+              onChange: (e) => setInput(e.target.value)
+            }
+          ),
+          error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "var(--error)" }, children: error }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-primary", disabled: busy || !input.trim(), onClick: () => apply(input.trim()), style: { flex: 1, fontSize: 12 }, children: busy ? "Saving…" : "Save" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "btn btn-ghost", disabled: busy, onClick: () => apply(null), style: { flex: 1, fontSize: 12 }, children: "Use auto-derived" })
+          ] })
+        ] })
+      ]
+    }
+  );
+}
+const iconBtn = {
+  width: 34,
+  height: 34,
+  borderRadius: "var(--radius-sm)",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center"
+};
+function HeaderToolbar({
+  onWcOpen,
+  wcActiveSessions = 0,
+  wcPending = false,
+  onRefresh,
+  refreshing = false,
+  onProfile,
+  onSettings
+}) {
+  const sidebarFn = window.__EXT_SIDEBAR_FN__;
+  const isSidePanel = window.__SIDE_PANEL__;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, flexShrink: 0 }, children: [
+    !!sidebarFn && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => sidebarFn == null ? void 0 : sidebarFn(),
+        title: isSidePanel ? "Back to popup" : "Open in sidebar",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: isSidePanel ? /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "5", y1: "2", x2: "5", y2: "14" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9,6 12,8 9,10" })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 16 16", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "1", y: "2", width: "14", height: "12", rx: "2" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "6", y1: "2", x2: "6", y2: "14" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "10,6 7,8 10,10" })
+        ] })
+      }
+    ),
+    onWcOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: onWcOpen,
+        title: "WalletConnect",
+        style: { ...iconBtn, background: wcActiveSessions > 0 ? "var(--accent-dim)" : "transparent", border: `1px solid ${wcActiveSessions > 0 ? "var(--border-active)" : "var(--border)"}`, color: wcActiveSessions > 0 ? "var(--accent)" : "var(--text-muted)", position: "relative" },
+        children: [
+          wcPending && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { position: "absolute", top: 4, right: 4, width: 6, height: 6, borderRadius: "50%", background: "#f97316", boxShadow: "0 0 5px #f97316" } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "22", height: "15", viewBox: "0 0 480 360", fill: "none", stroke: "currentColor", strokeWidth: "32", strokeLinecap: "round", children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M98.3,120.1 C182.3,37.4 325.7,37.4 409.7,120.1 L419.8,130 C430.1,140.2 430.1,156.5 419.8,166.7 L387.9,198.2 C382.7,203.3 374.1,203.3 369,198.2 L355.1,184.5 C299.1,129.4 180.9,129.4 124.9,184.5 L110,198.2 C104.9,203.3 96.3,203.3 91.1,198.2 L60.2,166.7 C49.9,156.5 49.9,140.2 60.2,130 Z" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M183.5,204.7 C222.6,166 278.5,166 317.6,204.7 L323.9,210.9 C334.2,221.1 334.2,237.4 323.9,247.6 L292.6,278.5 C287.5,283.6 278.9,283.6 273.7,278.5 L263.4,268.4 C247.3,252.5 232.7,252.5 216.6,268.4 L206.3,278.5 C201.1,283.6 192.5,283.6 187.4,278.5 L156.1,247.6 C145.8,237.4 145.8,221.1 156.1,210.9 Z" })
+          ] })
+        ]
+      }
+    ),
+    onRefresh && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onRefresh,
+        disabled: refreshing,
+        title: "Refresh",
+        style: { ...iconBtn, background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", opacity: refreshing ? 0.5 : 1, transition: "opacity var(--transition)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { animation: refreshing ? "spin 0.8s linear infinite" : "none" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "23 4 23 10 17 10" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.49 15a9 9 0 1 1-2.12-9.36L23 10" })
+        ] })
+      }
+    ),
+    onProfile && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onProfile,
+        title: "Profile",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "15", height: "15", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "8", r: "4" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20c0-4 3.6-7 8-7s8 3 8 7" })
+        ] })
+      }
+    ),
+    onSettings && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: onSettings,
+        title: "Settings",
+        style: { ...iconBtn, background: "transparent", border: "1px solid var(--border)", color: "var(--text-muted)" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "1.5", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })
+        ] })
+      }
+    )
+  ] });
+}
+function AgwBadge() {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "span",
+    {
+      title: "Held in your Abstract Global Wallet (smart account)",
+      style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: "rgba(31, 206, 146, 0.14)", color: "#1FCE92", fontWeight: 700, display: "inline-block", letterSpacing: "0.02em" },
+      children: "◆ Smart Wallet"
+    }
+  );
+}
+function tokenKey(t2) {
+  return `${t2.chain}:${t2.contractAddress}`;
+}
+function nftKey(n2) {
+  return n2.id;
+}
+function loadSet(key) {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(key) ?? "[]"));
+  } catch {
+    return /* @__PURE__ */ new Set();
+  }
+}
+function saveSet(key, s) {
+  localStorage.setItem(key, JSON.stringify([...s]));
+}
+function SpamManagerModal({
+  hiddenItems,
+  spamItems,
+  allTokens,
+  allNfts,
+  onRestore,
+  onClose
+}) {
+  const allIds = /* @__PURE__ */ new Set([...hiddenItems, ...spamItems]);
+  const entries = [];
+  for (const id2 of allIds) {
+    const tok = allTokens.find((t2) => tokenKey(t2) === id2);
+    const nft = allNfts.find((n2) => nftKey(n2) === id2);
+    const label = tok ? `${tok.name} (${tok.chainLabel})` : nft ? `${nft.name} (${nft.chainLabel})` : id2;
+    entries.push({ id: id2, label, type: spamItems.has(id2) ? "spam" : "hidden" });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 14, width: 320, maxHeight: 480, display: "flex", flexDirection: "column", overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid var(--border)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }, children: [
+        "Hidden & Spam (",
+        entries.length,
+        ")"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 0 }, children: "×" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { overflowY: "auto", flex: 1, padding: "8px 0" }, children: entries.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "24px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 12 }, children: "Nothing hidden. Use the eye or ban icons on tokens/collectibles to hide them." }) : entries.map((e) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 16px" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: {
+        fontSize: 9,
+        padding: "2px 6px",
+        borderRadius: 99,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        background: e.type === "spam" ? "rgba(239,68,68,0.15)" : "rgba(100,116,139,0.15)",
+        color: e.type === "spam" ? "#ef4444" : "var(--text-muted)"
+      }, children: e.type === "spam" ? "SPAM" : "HIDDEN" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { flex: 1, fontSize: 11, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: e.label }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => onRestore(e.id),
+          style: { fontSize: 10, padding: "3px 8px", borderRadius: 6, background: "var(--accent-dim)", border: "1px solid var(--border-active)", color: "var(--accent)", cursor: "pointer", fontWeight: 600, flexShrink: 0 },
+          children: "Restore"
+        }
+      )
+    ] }, e.id)) })
+  ] }) });
+}
+function HideSpamButtons({ onHide, onSpam }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 3, flexShrink: 0 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: (e) => {
+          e.stopPropagation();
+          onHide();
+        },
+        title: "Hide",
+        style: { width: 22, height: 22, borderRadius: 5, background: "rgba(100,116,139,0.15)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.8", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "1", y1: "1", x2: "23", y2: "23" })
+        ] })
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: (e) => {
+          e.stopPropagation();
+          onSpam();
+        },
+        title: "Mark as spam",
+        style: { width: 22, height: 22, borderRadius: 5, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "11", height: "11", fill: "none", stroke: "currentColor", strokeWidth: "1.8", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "4.93", y1: "4.93", x2: "19.07", y2: "19.07" })
+        ] })
+      }
+    )
+  ] });
+}
+function TokenLogo({ token }) {
+  const [imgFailed, setImgFailed] = reactExports.useState(false);
+  if (token.logoUri && !imgFailed) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src: token.logoUri,
+        alt: token.symbol,
+        width: 34,
+        height: 34,
+        style: { borderRadius: "50%", flexShrink: 0, objectFit: "cover" },
+        onError: () => setImgFailed(true)
+      }
+    );
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 34, height: 34, borderRadius: "50%", background: `${token.chainColor}33`, border: `1px solid ${token.chainColor}55`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, fontWeight: 700, color: token.chainColor }, children: token.symbol.slice(0, 2).toUpperCase() }) });
+}
+function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      style: { display: "flex", alignItems: "center", gap: 0 },
+      onMouseEnter,
+      onMouseLeave,
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--bg-card)", border: `1px solid ${isHovered ? "var(--border-active)" : "var(--border)"}`, borderRadius: 10, transition: "border-color var(--transition)", minWidth: 0 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(TokenLogo, { token }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: token.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginTop: 2 }, children: token.symbol }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: "inline-block" }, children: token.chainLabel }),
+              token.source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx(AgwBadge, {})
+            ] })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "right", flexShrink: 0 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-primary)", whiteSpace: "nowrap" }, children: [
+              token.balance,
+              " ",
+              /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, fontWeight: 500, color: "var(--text-secondary)" }, children: token.symbol })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-muted)", marginTop: 2, minHeight: 14 }, children: token.nativeEquivalent ?? "" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", marginTop: 2, minHeight: 14 }, children: token.usdValue ?? "" })
+          ] })
+        ] }),
+        isHovered && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginLeft: 3 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(HideSpamButtons, { onHide, onSpam }) })
+      ]
+    }
+  );
+}
+function TokensView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager }) {
+  const [hovered, setHovered] = reactExports.useState(null);
+  const hiddenCount = result ? result.tokens.filter((t2) => hiddenItems.has(tokenKey(t2)) || spamItems.has(tokenKey(t2))).length : 0;
+  const visible = result ? result.tokens.filter((t2) => !hiddenItems.has(tokenKey(t2)) && !spamItems.has(tokenKey(t2))) : [];
+  if (loading) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: Array.from({ length: 5 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 28, height: 28, borderRadius: "50%", background: "var(--border)", animation: "pulse 1.4s ease infinite", flexShrink: 0 } }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 80, height: 10, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite", marginBottom: 6 } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 50, height: 8, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite" } })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 60, height: 10, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite" } })
+  ] }, i)) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+    hiddenCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: onShowManager,
+        style: { alignSelf: "flex-end", fontSize: 10, padding: "3px 10px", borderRadius: 99, background: "rgba(100,116,139,0.15)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer", fontWeight: 600 },
+        children: [
+          "Hidden (",
+          hiddenCount,
+          ")"
+        ]
+      }
+    ),
+    visible.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "32px 0", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }, children: (result == null ? void 0 : result.tokens.length) ? "All tokens are hidden." : "No tokens found across all chains." }),
+    visible.map((token) => {
+      const id2 = tokenKey(token);
+      const isHovered = hovered === id2;
+      return /* @__PURE__ */ jsxRuntimeExports.jsx(
+        TokenRow,
+        {
+          token,
+          isHovered,
+          onMouseEnter: () => setHovered(id2),
+          onMouseLeave: () => setHovered(null),
+          onHide: () => onHide(id2),
+          onSpam: () => onSpam(id2)
+        },
+        id2
+      );
+    })
+  ] });
+}
+const IPFS_GATEWAYS = [
+  "https://ipfs.io/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://gateway.pinata.cloud/ipfs/",
+  "https://nftstorage.link/ipfs/",
+  "https://4everland.io/ipfs/",
+  "https://dweb.link/ipfs/"
+];
+const IPFS_PREFIXES = [
+  "https://ipfs.io/ipfs/",
+  "https://dweb.link/ipfs/",
+  "https://cloudflare-ipfs.com/ipfs/",
+  "https://cf-ipfs.com/ipfs/",
+  "https://gateway.pinata.cloud/ipfs/",
+  "https://nftstorage.link/ipfs/",
+  "https://4everland.io/ipfs/",
+  "https://gateway.ipfs.io/ipfs/"
+];
+function ipfsHash(url) {
+  if (url.startsWith("ipfs://")) return url.slice("ipfs://".length);
+  for (const p2 of IPFS_PREFIXES) {
+    if (url.startsWith(p2)) return url.slice(p2.length);
+  }
+  const m2 = url.match(/\/ipfs\/([a-zA-Z0-9].*)/);
+  return m2 ? m2[1] : null;
+}
+function NftImage({ src, alt }) {
+  const [gatewayIdx, setGatewayIdx] = reactExports.useState(0);
+  const [failed, setFailed] = reactExports.useState(false);
+  const hash = ipfsHash(src);
+  const resolved = hash ? `${IPFS_GATEWAYS[gatewayIdx]}${hash}` : src;
+  function handleError() {
+    if (hash && gatewayIdx < IPFS_GATEWAYS.length - 1) {
+      setGatewayIdx((g) => g + 1);
+    } else {
+      setFailed(true);
+    }
+  }
+  if (failed) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 28 }, children: "🖼" });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "img",
+    {
+      src: resolved,
+      alt,
+      style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" },
+      onError: handleError
+    },
+    resolved
+  );
+}
+const NFT_NATIVE_SYMBOL = {
+  ethereum: "ETH",
+  arbitrum: "ETH",
+  optimism: "ETH",
+  base: "ETH",
+  blast: "ETH",
+  abstract: "ETH",
+  soneium: "ETH",
+  worldchain: "ETH",
+  zora: "ETH",
+  polygon: "POL",
+  avalanche: "AVAX",
+  gnosis: "xDAI",
+  apechain: "APE",
+  ronin: "RON",
+  monad: "MON",
+  solana: "SOL",
+  cardano: "ADA"
+};
+const formatFloor = (n2) => Number(n2.toFixed(4)).toLocaleString("en-US");
+function NftDetailModal({ nft, onClose }) {
+  const [floor, setFloor] = reactExports.useState(null);
+  const [copying, setCopying] = reactExports.useState(null);
+  reactExports.useEffect(() => {
+    if (nft.floorPrice == null && nft.contractAddress) {
+      window.wallet.getNftFloor(nft.chain, nft.contractAddress).then(setFloor).catch(() => {
+      });
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [nft]);
+  function copy(text, key) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopying(key);
+      setTimeout(() => setCopying(null), 1200);
+    });
+  }
+  function downloadImage() {
+    if (!nft.image) return;
+    const a = document.createElement("a");
+    a.href = nft.image;
+    a.download = `${nft.name.replace(/[^a-z0-9]/gi, "_")}.jpg`;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
+  }
+  const short = (s, n2 = 10) => s.length <= n2 * 2 + 3 ? s : `${s.slice(0, n2)}…${s.slice(-n2)}`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 1e3,
+        background: "rgba(0,0,0,0.82)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20
+      },
+      onClick: onClose,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            background: "var(--bg-dark)",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            width: "100%",
+            maxWidth: 480,
+            maxHeight: "90vh",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
+            boxShadow: "0 24px 80px rgba(0,0,0,0.7)"
+          },
+          onClick: (e) => e.stopPropagation(),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 0" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }, children: nft.name }),
+                nft.collectionName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 1 }, children: nft.collectionName })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "button",
+                {
+                  type: "button",
+                  onClick: onClose,
+                  style: { background: "none", border: "none", color: "var(--text-muted)", fontSize: 20, cursor: "pointer", lineHeight: 1, padding: 4 },
+                  children: "✕"
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { overflowY: "auto", flex: 1, padding: "12px 16px 16px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "100%", paddingTop: "100%", position: "relative", background: "rgba(0,0,0,0.4)", borderRadius: 12, overflow: "hidden", marginBottom: 14 }, children: nft.image ? /* @__PURE__ */ jsxRuntimeExports.jsx(NftImage, { src: nft.image, alt: nft.name }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 40 }, children: "🖼" }) }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, padding: "2px 8px", borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 700 }, children: nft.chainLabel }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, color: "var(--text-muted)", fontWeight: 600 }, children: nft.contractType }),
+                nft.floorPrice != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)" }, children: [
+                  "Floor: ",
+                  formatFloor(nft.floorPrice),
+                  " ",
+                  NFT_NATIVE_SYMBOL[nft.chain] ?? "",
+                  nft.usdValue ? ` · ${nft.usdValue}` : ""
+                ] }),
+                nft.floorPrice == null && (floor == null ? void 0 : floor.floor) != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-mono)" }, children: [
+                  "Floor: ",
+                  floor.floor,
+                  " ",
+                  floor.currency
+                ] })
+              ] }),
+              nft.description && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { style: { fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: 12 }, children: nft.description }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }, children: [
+                { label: "Token ID", value: nft.tokenId, key: "tokenId" },
+                { label: "Contract", value: nft.contractAddress, key: "contract" }
+              ].map(({ label, value, key }) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, background: "var(--bg-surface)", borderRadius: 8, padding: "6px 10px" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 10, color: "var(--text-muted)", fontWeight: 600, minWidth: 60 }, children: label }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-secondary)", fontFamily: "var(--font-mono)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: short(value, 12) }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => copy(value, key),
+                    style: { background: "none", border: "none", color: copying === key ? "var(--success)" : "var(--text-muted)", cursor: "pointer", fontSize: 12, padding: 2, flexShrink: 0 },
+                    title: "Copy",
+                    children: copying === key ? "✓" : "⎘"
+                  }
+                )
+              ] }, key)) }),
+              nft.traits && nft.traits.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginBottom: 14 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 7 }, children: "Traits" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 6 }, children: nft.traits.map((t2, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 8px" }, children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 9, color: "var(--accent-text)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }, children: t2.trait_type }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-primary)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: t2.value })
+                ] }, i)) })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+                nft.image && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: downloadImage,
+                    style: {
+                      flex: 1,
+                      padding: "8px 0",
+                      borderRadius: 8,
+                      background: "var(--accent-dim)",
+                      border: "1px solid var(--border-active)",
+                      color: "var(--accent-text)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-body)",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 6
+                    },
+                    children: [
+                      /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "13", height: "13", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 10 12 15 17 10" }),
+                        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "12", y1: "15", x2: "12", y2: "3" })
+                      ] }),
+                      "Download Image"
+                    ]
+                  }
+                ),
+                nft.animationUrl && /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => {
+                      window.wallet.openBrowser();
+                      setTimeout(() => window.wallet.browserNavigate(nft.animationUrl), 400);
+                    },
+                    style: {
+                      flex: 1,
+                      padding: "8px 0",
+                      borderRadius: 8,
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border)",
+                      color: "var(--text-secondary)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      fontFamily: "var(--font-body)",
+                      cursor: "pointer"
+                    },
+                    children: "View Animation"
+                  }
+                )
+              ] })
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
+function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager, onSelectNft }) {
+  const [hovered, setHovered] = reactExports.useState(null);
+  const hiddenCount = result ? result.items.filter((n2) => hiddenItems.has(nftKey(n2)) || spamItems.has(nftKey(n2))).length : 0;
+  const visible = result ? result.items.filter((n2) => !hiddenItems.has(nftKey(n2)) && !spamItems.has(nftKey(n2))) : [];
+  if (loading) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }, children: Array.from({ length: 6 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "100%", paddingTop: "100%", background: "var(--border)", animation: "pulse 1.4s ease infinite" } }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "8px 10px" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "70%", height: 9, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite", marginBottom: 5 } }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: "50%", height: 8, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite" } })
+    ] })
+  ] }, i)) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+    hiddenCount > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: onShowManager,
+        style: { alignSelf: "flex-end", fontSize: 10, padding: "3px 10px", borderRadius: 99, background: "rgba(100,116,139,0.15)", border: "1px solid var(--border)", color: "var(--text-muted)", cursor: "pointer", fontWeight: 600 },
+        children: [
+          "Hidden (",
+          hiddenCount,
+          ")"
+        ]
+      }
+    ),
+    visible.length === 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "24px 0", display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { textAlign: "center", color: "var(--text-muted)", fontSize: 13 }, children: (result == null ? void 0 : result.items.length) ? "All collectibles are hidden." : "No collectibles found." }),
+      result && Object.keys(result.chainResults ?? {}).length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { width: "100%", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 4 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }, children: "Chain Diagnostics" }),
+        Object.entries(result.chainResults).map(([chain, info]) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, fontSize: 11 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-secondary)", minWidth: 80 }, children: chain }),
+          info.error ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#ef4444", fontFamily: "var(--font-mono)", fontSize: 10, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: info.error }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: info.count > 0 ? "#22c55e" : "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 10 }, children: [
+            info.count,
+            " NFTs"
+          ] })
+        ] }, chain)),
+        result.error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginTop: 4, fontSize: 10, color: "#ef4444", fontFamily: "var(--font-mono)" }, children: result.error })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }, children: visible.map((nft) => {
+      const id2 = nftKey(nft);
+      const isHovered = hovered === id2;
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: { background: "var(--bg-card)", border: `1px solid ${isHovered ? "var(--border-active)" : "var(--border)"}`, borderRadius: 10, overflow: "hidden", transition: "border-color var(--transition)", position: "relative", cursor: "pointer" },
+          onMouseEnter: () => setHovered(id2),
+          onMouseLeave: () => setHovered(null),
+          onClick: () => onSelectNft(nft),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { width: "100%", paddingTop: "100%", position: "relative", background: "rgba(0,0,0,0.3)" }, children: [
+              nft.image ? /* @__PURE__ */ jsxRuntimeExports.jsx(NftImage, { src: nft.image, alt: nft.name }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 28 }, children: "🖼" }),
+              isHovered && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", top: 6, right: 6 }, onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ jsxRuntimeExports.jsx(HideSpamButtons, { onHide: () => onHide(id2), onSpam: () => onSpam(id2) }) })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "8px 10px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: nft.name }),
+                nft.usdValue && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", flexShrink: 0 }, children: nft.usdValue })
+              ] }),
+              nft.collectionName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }, children: nft.collectionName }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }, children: nft.chainLabel }),
+                nft.source === "agw" && /* @__PURE__ */ jsxRuntimeExports.jsx(AgwBadge, {})
+              ] })
+            ] })
+          ]
+        },
+        id2
+      );
+    }) })
+  ] });
+}
+function PortfolioPnl({ data }) {
+  if (data.length < 2) return null;
+  const isUp = data[data.length - 1] >= data[0];
+  const changePct = data[0] > 0 ? (data[data.length - 1] - data[0]) / data[0] * 100 : 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 13, fontWeight: 600, fontFamily: "var(--font-mono)", color: isUp ? "#22c55e" : "#ef4444", whiteSpace: "nowrap" }, children: [
+    isUp ? "▲" : "▼",
+    " ",
+    Math.abs(changePct).toFixed(2),
+    "%"
+  ] });
+}
+function PortfolioSparkline({ data }) {
+  if (data.length < 2) return null;
+  const W2 = 150, H2 = 36;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v2, i) => `${i / (data.length - 1) * W2},${H2 - (v2 - min) / range * (H2 - 4) - 2}`).join(" ");
+  const isUp = data[data.length - 1] >= data[0];
+  const color = isUp ? "#22c55e" : "#ef4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: W2, height: H2, viewBox: `0 0 ${W2} ${H2}`, preserveAspectRatio: "none", style: { display: "block" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "polyline",
+    {
+      points: pts,
+      fill: "none",
+      stroke: color,
+      strokeWidth: "1.5",
+      strokeLinejoin: "round",
+      strokeLinecap: "round",
+      opacity: 0.9
+    }
+  ) });
+}
+const ALL_CHAINS = [
+  "cardano",
+  "solana",
+  "bitcoin",
+  "polkadot",
+  "ethereum",
+  "arbitrum",
+  "optimism",
+  "base",
+  "polygon",
+  "avalanche",
+  "blast",
+  "gnosis",
+  "monad",
+  "abstract",
+  "apechain",
+  "ronin",
+  "soneium",
+  "worldchain",
+  "zora",
+  "hyperevm"
+];
+function sortedChains(balances) {
+  if (!balances) return ALL_CHAINS;
+  return [...ALL_CHAINS].sort((a, b) => {
+    var _a, _b, _c, _d, _e, _f;
+    const usdA = parseFloat(((_b = (_a = balances.chains[a]) == null ? void 0 : _a.usdValue) == null ? void 0 : _b.replace(/[$,]/g, "")) ?? "0") || 0;
+    const usdB = parseFloat(((_d = (_c = balances.chains[b]) == null ? void 0 : _c.usdValue) == null ? void 0 : _d.replace(/[$,]/g, "")) ?? "0") || 0;
+    if (usdB !== usdA) return usdB - usdA;
+    const natA = parseFloat(((_e = balances.chains[a]) == null ? void 0 : _e.native) ?? "0") || 0;
+    const natB = parseFloat(((_f = balances.chains[b]) == null ? void 0 : _f.native) ?? "0") || 0;
+    return natB - natA;
+  });
+}
+function getAddress(chainId, addresses) {
+  if (chainId === "solana") return addresses.solana || null;
+  if (chainId === "cardano") return addresses.cardano || null;
+  if (chainId === "bitcoin") return addresses.bitcoin || null;
+  if (chainId === "polkadot") return addresses.polkadot || null;
+  return addresses.evm;
+}
+function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }) {
+  var _a, _b;
+  const [localAddresses, setLocalAddresses] = reactExports.useState(addresses);
+  const [balances, setBalances] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [refreshing, setRefreshing] = reactExports.useState(false);
+  const [history, setHistory] = reactExports.useState(null);
+  const [accountSwitching, setAccountSwitching] = reactExports.useState(false);
+  const [portfolioTab, setPortfolioTab] = reactExports.useState("networks");
+  const [sendChain, setSendChain] = reactExports.useState(null);
+  const acctIdx = addresses.accountIndex ?? 0;
+  const hiddenKey = `mmw_hidden_${acctIdx}`;
+  const spamKey = `mmw_spam_${acctIdx}`;
+  const [hiddenItems, setHiddenItems] = reactExports.useState(() => loadSet(hiddenKey));
+  const [spamItems, setSpamItems] = reactExports.useState(() => loadSet(spamKey));
+  const excludeRef = reactExports.useRef([...loadSet(hiddenKey), ...loadSet(spamKey)]);
+  reactExports.useEffect(() => {
+    excludeRef.current = [...hiddenItems, ...spamItems];
+  }, [hiddenItems, spamItems]);
+  const [showManager, setShowManager] = reactExports.useState(false);
+  const [tokensResult, setTokensResult] = reactExports.useState(null);
+  const [tokensLoading, setTokensLoading] = reactExports.useState(true);
+  const [collectibles, setCollectibles] = reactExports.useState(null);
+  const [collectiblesLoading, setCollectiblesLoading] = reactExports.useState(true);
+  const [selectedNft, setSelectedNft] = reactExports.useState(null);
+  const allNfts = (collectibles == null ? void 0 : collectibles.items) ?? [];
+  const hideItem = reactExports.useCallback((id2) => {
+    setHiddenItems((prev) => {
+      const next = new Set(prev).add(id2);
+      saveSet(hiddenKey, next);
+      return next;
+    });
+  }, [hiddenKey]);
+  const markSpam = reactExports.useCallback((id2) => {
+    setSpamItems((prev) => {
+      const next = new Set(prev).add(id2);
+      saveSet(spamKey, next);
+      return next;
+    });
+  }, [spamKey]);
+  const restoreItem = reactExports.useCallback((id2) => {
+    setHiddenItems((prev) => {
+      const next = new Set(prev);
+      next.delete(id2);
+      saveSet(hiddenKey, next);
+      return next;
+    });
+    setSpamItems((prev) => {
+      const next = new Set(prev);
+      next.delete(id2);
+      saveSet(spamKey, next);
+      return next;
+    });
+  }, [hiddenKey, spamKey]);
+  const fetchCollectibles = reactExports.useCallback(async () => {
+    setCollectiblesLoading(true);
+    try {
+      const result = await window.wallet.getCollectibles(excludeRef.current);
+      setCollectibles(result);
+    } catch (err) {
+      console.error("Collectibles fetch failed", err);
+    } finally {
+      setCollectiblesLoading(false);
+    }
+  }, []);
+  const fetchBalances = reactExports.useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const result = await window.wallet.getBalances();
+      setBalances(result);
+    } catch (err) {
+      console.error("Balance fetch failed", err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+  const fetchHistory = reactExports.useCallback(async () => {
+    try {
+      const result = await window.wallet.getHistory();
+      setHistory(result);
+    } catch (err) {
+      console.error("History fetch failed", err);
+    }
+  }, []);
+  const fetchTokens = reactExports.useCallback(async () => {
+    setTokensLoading(true);
+    try {
+      const result = await window.wallet.getTokens();
+      setTokensResult(result);
+    } catch (err) {
+      console.error("Token fetch failed", err);
+    } finally {
+      setTokensLoading(false);
+    }
+  }, []);
+  reactExports.useEffect(() => {
+    fetchBalances();
+    fetchHistory();
+    fetchTokens();
+    fetchCollectibles();
+  }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles]);
+  const switchAccount = async (newIndex) => {
+    if (newIndex < 0 || newIndex > 9 || accountSwitching) return;
+    setAccountSwitching(true);
+    setBalances(null);
+    setHistory(null);
+    setTokensResult(null);
+    setCollectibles(null);
+    try {
+      const newAddresses = await window.wallet.setAccount(newIndex);
+      setLocalAddresses(newAddresses);
+      fetchBalances();
+      fetchHistory();
+      fetchTokens();
+      fetchCollectibles();
+    } catch (err) {
+      console.error("Account switch failed", err);
+    } finally {
+      setAccountSwitching(false);
+    }
+  };
+  const totalUsd = (() => {
+    if (!balances) return null;
+    const chainTotal = Object.values(balances.chains).map((b) => (b == null ? void 0 : b.usdValue) ? parseFloat(b.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const tokenTotal = ((tokensResult == null ? void 0 : tokensResult.tokens) ?? []).filter((t2) => {
+      const k2 = tokenKey(t2);
+      return !hiddenItems.has(k2) && !spamItems.has(k2);
+    }).map((t2) => t2.usdValue ? parseFloat(t2.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const nftTotal = allNfts.filter((n2) => {
+      const k2 = nftKey(n2);
+      return !hiddenItems.has(k2) && !spamItems.has(k2);
+    }).map((n2) => n2.usdValue ? parseFloat(n2.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const total = chainTotal + tokenTotal + nftTotal;
+    return total > 0 ? `$${total.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : null;
+  })();
+  const lastUpdated = balances ? new Date(balances.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : null;
+  const HISTORY_CHAINS = /* @__PURE__ */ new Set([
+    "ethereum",
+    "arbitrum",
+    "optimism",
+    "base",
+    "polygon",
+    "avalanche",
+    "blast",
+    "gnosis",
+    "monad",
+    "abstract",
+    "apechain",
+    "ronin",
+    "soneium",
+    "worldchain",
+    "zora",
+    "hyperevm",
+    "solana",
+    "cardano",
+    "bitcoin",
+    "polkadot"
+  ]);
+  const historyFor = (chainId) => {
+    if (!HISTORY_CHAINS.has(chainId)) return void 0;
+    if (!history) return null;
+    return history[chainId] ?? null;
+  };
+  const activeSendBalance = sendChain ? ((_a = balances == null ? void 0 : balances.chains[sendChain]) == null ? void 0 : _a.native) ?? null : null;
+  const activeSendSymbol = sendChain ? ((_b = balances == null ? void 0 : balances.chains[sendChain]) == null ? void 0 : _b.symbol) ?? sendChain.toUpperCase() : "";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden", position: "relative", display: hidden ? "none" : "flex" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "24px 20px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", style: { fontSize: 18 }, children: "Portfolio" }),
+        totalUsd && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", gap: 8, marginTop: 4 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 28, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text-primary)" }, children: totalUsd }),
+          (balances == null ? void 0 : balances.portfolioSparkline) && balances.portfolioSparkline.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsx(PortfolioPnl, { data: balances.portfolioSparkline })
+        ] }),
+        lastUpdated && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 4 }, children: [
+          "Updated ",
+          lastUpdated
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 4, marginTop: 8 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => switchAccount(localAddresses.accountIndex - 1),
+              disabled: localAddresses.accountIndex === 0 || accountSwitching,
+              style: { background: "none", border: "none", padding: "2px 6px", cursor: "pointer", color: "var(--text-muted)", fontSize: 16, lineHeight: 1, opacity: localAddresses.accountIndex === 0 ? 0.3 : 1 },
+              children: "‹"
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-secondary)", fontFamily: "var(--font-mono)", minWidth: 64, textAlign: "center" }, children: accountSwitching ? "Switching…" : `Account ${localAddresses.accountIndex}` }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: () => switchAccount(localAddresses.accountIndex + 1),
+              disabled: localAddresses.accountIndex >= 9 || accountSwitching,
+              style: { background: "none", border: "none", padding: "2px 6px", cursor: "pointer", color: "var(--text-muted)", fontSize: 16, lineHeight: 1, opacity: localAddresses.accountIndex >= 9 ? 0.3 : 1 },
+              children: "›"
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 10 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          HeaderToolbar,
+          {
+            onWcOpen,
+            wcActiveSessions,
+            wcPending,
+            onRefresh: () => {
+              fetchBalances(true);
+              fetchHistory();
+            },
+            refreshing,
+            onProfile,
+            onSettings
+          }
+        ),
+        (balances == null ? void 0 : balances.portfolioSparkline) && balances.portfolioSparkline.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsx(PortfolioSparkline, { data: balances.portfolioSparkline })
+      ] })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, overflowY: "auto", padding: "14px 20px 16px", display: "flex", flexDirection: "column", gap: 16, position: "relative" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 4, background: "rgba(0,0,0,0.2)", borderRadius: "var(--radius-sm)", padding: 3, flexShrink: 0 }, children: ["networks", "tokens", "collectibles"].map((tab) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => setPortfolioTab(tab),
+          style: {
+            flex: 1,
+            padding: "6px 0",
+            borderRadius: 6,
+            border: `1px solid ${portfolioTab === tab ? "var(--border-active)" : "transparent"}`,
+            background: portfolioTab === tab ? "var(--accent-dim)" : "transparent",
+            color: portfolioTab === tab ? "var(--accent)" : "var(--text-muted)",
+            fontSize: 11,
+            fontWeight: 600,
+            cursor: "pointer",
+            fontFamily: "var(--font-body)",
+            letterSpacing: "0.04em",
+            transition: "all var(--transition)",
+            textTransform: "capitalize"
+          },
+          children: tab
+        },
+        tab
+      )) }),
+      portfolioTab === "networks" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        AgwPanel,
+        {
+          addresses: localAddresses,
+          balance: (balances == null ? void 0 : balances.chains["abstract-agw"]) ?? null,
+          onSend: () => setSendChain("abstract-agw"),
+          onAgwChanged: (updated) => {
+            setLocalAddresses(updated);
+            fetchBalances(true);
+            fetchTokens();
+            fetchCollectibles();
+          }
+        }
+      ),
+      portfolioTab === "networks" && sortedChains(balances).map((chainId) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+        ChainCard,
+        {
+          chainId,
+          balance: (balances == null ? void 0 : balances.chains[chainId]) ?? null,
+          address: getAddress(chainId, localAddresses),
+          loading,
+          onSend: () => setSendChain(chainId),
+          history: historyFor(chainId)
+        },
+        chainId
+      )),
+      portfolioTab === "tokens" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        TokensView,
+        {
+          result: tokensResult,
+          loading: tokensLoading,
+          hiddenItems,
+          spamItems,
+          onHide: hideItem,
+          onSpam: markSpam,
+          onShowManager: () => setShowManager(true)
+        }
+      ),
+      portfolioTab === "collectibles" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+        CollectiblesView,
+        {
+          result: collectibles,
+          loading: collectiblesLoading,
+          hiddenItems,
+          spamItems,
+          onHide: hideItem,
+          onSpam: markSpam,
+          onShowManager: () => setShowManager(true),
+          onSelectNft: setSelectedNft
+        }
+      )
+    ] }),
+    selectedNft && /* @__PURE__ */ jsxRuntimeExports.jsx(NftDetailModal, { nft: selectedNft, onClose: () => setSelectedNft(null) }),
+    sendChain && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SendModal,
+      {
+        chainId: sendChain === "abstract-agw" ? "abstract" : sendChain,
+        source: sendChain === "abstract-agw" ? "agw" : "eoa",
+        balance: activeSendBalance,
+        symbol: activeSendSymbol,
+        onClose: () => setSendChain(null)
+      }
+    ),
+    showManager && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SpamManagerModal,
+      {
+        hiddenItems,
+        spamItems,
+        allTokens: (tokensResult == null ? void 0 : tokensResult.tokens) ?? [],
+        allNfts,
+        onRestore: restoreItem,
+        onClose: () => setShowManager(false)
+      }
+    )
+  ] });
+}
+let _pageCache = null;
+let _pageCacheTime = 0;
+const PAGE_CACHE_SHOW_TTL = 3 * 60 * 1e3;
+const PAGE_CACHE_FRESH_TTL = 60 * 1e3;
+function fmtPrice(p2) {
+  if (p2 >= 1e3) return `$${p2.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  if (p2 >= 1) return `$${p2.toFixed(4)}`;
+  if (p2 >= 0.01) return `$${p2.toFixed(5)}`;
+  return `$${p2.toFixed(6)}`;
+}
+function fmtCap(n2) {
+  if (!n2) return "—";
+  if (n2 >= 1e12) return `$${(n2 / 1e12).toFixed(2)}T`;
+  if (n2 >= 1e9) return `$${(n2 / 1e9).toFixed(1)}B`;
+  if (n2 >= 1e6) return `$${(n2 / 1e6).toFixed(0)}M`;
+  return `$${n2.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+}
+function fmtChange(pct) {
+  if (pct == null) return null;
+  const up = pct >= 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: up ? "#22c55e" : "#ef4444", fontWeight: 600, fontSize: 11, fontFamily: "var(--font-mono)" }, children: [
+    up ? "▲" : "▼",
+    " ",
+    Math.abs(pct).toFixed(2),
+    "%"
+  ] });
+}
+function RowSparkline({ data, change24h }) {
+  if (!data || data.length < 2) return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)", fontSize: 11 }, children: "—" });
+  const W2 = 60, H2 = 22;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v2, i) => `${i / (data.length - 1) * W2},${H2 - (v2 - min) / range * (H2 - 2) - 1}`).join(" ");
+  const color = (change24h ?? 0) >= 0 ? "#22c55e" : "#ef4444";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: W2, height: H2, style: { display: "block" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "polyline",
+    {
+      points: pts,
+      fill: "none",
+      stroke: color,
+      strokeWidth: "1.5",
+      strokeLinejoin: "round",
+      strokeLinecap: "round",
+      opacity: 0.85
+    }
+  ) });
+}
+function FullChart({ data, color }) {
+  if (data.length < 2) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 12 }, children: "No chart data" });
+  const W2 = 380, H2 = 130;
+  const prices = data.map((d) => d[1]);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const pts = prices.map((v2, i) => `${i / (prices.length - 1) * W2},${H2 - (v2 - min) / range * (H2 - 8) - 4}`).join(" ");
+  const first = prices[0];
+  const last = prices[prices.length - 1];
+  const isUp = last >= first;
+  const fillPts = `${pts} ${W2},${H2} 0,${H2}`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "svg",
+    {
+      width: "100%",
+      viewBox: `0 0 ${W2} ${H2}`,
+      preserveAspectRatio: "none",
+      style: { display: "block", height: H2, borderRadius: 6 },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("defs", { children: /* @__PURE__ */ jsxRuntimeExports.jsxs("linearGradient", { id: "chartFill", x1: "0", y1: "0", x2: "0", y2: "1", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("stop", { offset: "0%", stopColor: color, stopOpacity: "0.18" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("stop", { offset: "100%", stopColor: color, stopOpacity: "0" })
+        ] }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: fillPts, fill: "url(#chartFill)" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "polyline",
+          {
+            points: pts,
+            fill: "none",
+            stroke: isUp ? "#22c55e" : "#ef4444",
+            strokeWidth: "1.8",
+            strokeLinejoin: "round",
+            strokeLinecap: "round"
+          }
+        )
+      ]
+    }
+  );
+}
+const TIMEFRAMES = [
+  { key: "1", label: "1D" },
+  { key: "7", label: "7D" },
+  { key: "30", label: "1M" },
+  { key: "365", label: "1Y" },
+  { key: "max", label: "ALL" }
+];
+function ChartModal({ coin, onClose }) {
+  const [tf2, setTf] = reactExports.useState("7");
+  const [chartData, setChartData] = reactExports.useState([]);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [convertAmt, setConvertAmt] = reactExports.useState("1");
+  reactExports.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    window.wallet.getCoinChart(coin.id, tf2).then((data) => {
+      if (!cancelled) {
+        setChartData(data);
+        setLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [coin.id, tf2]);
+  const usdVal = parseFloat(convertAmt || "0") * coin.price;
+  const coinVal = parseFloat(convertAmt || "0") / (coin.price || 1);
+  const prices = chartData.map((d) => d[1]);
+  const first = prices[0] ?? coin.price;
+  const last = prices[prices.length - 1] ?? coin.price;
+  const changePct = first > 0 ? (last - first) / first * 100 : 0;
+  const isUp = changePct >= 0;
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        background: "rgba(6, 11, 24, 0.85)",
+        backdropFilter: "blur(12px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16
+      },
+      onClick: onClose,
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          style: {
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-lg)",
+            padding: 20,
+            width: "100%",
+            maxWidth: 420
+          },
+          onClick: (e) => e.stopPropagation(),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "img",
+                  {
+                    src: coin.image,
+                    alt: coin.symbol,
+                    width: 32,
+                    height: 32,
+                    style: { borderRadius: "50%" },
+                    onError: (e) => {
+                      e.target.style.display = "none";
+                    }
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontFamily: "var(--font-display)", fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }, children: coin.name }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 1 }, children: coin.symbol })
+                ] })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: onClose, style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 2 }, children: "×" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 24, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text-primary)" }, children: fmtPrice(coin.price) }),
+              !loading && chartData.length > 1 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)", color: isUp ? "#22c55e" : "#ef4444" }, children: [
+                isUp ? "▲" : "▼",
+                " ",
+                Math.abs(changePct).toFixed(2),
+                "%"
+              ] })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", gap: 4, marginBottom: 12 }, children: TIMEFRAMES.map(({ key, label }) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+              "button",
+              {
+                onClick: () => setTf(key),
+                style: {
+                  flex: 1,
+                  padding: "5px 0",
+                  border: `1px solid ${tf2 === key ? "var(--border-active)" : "var(--border)"}`,
+                  borderRadius: 6,
+                  background: tf2 === key ? "var(--accent-dim)" : "transparent",
+                  color: tf2 === key ? "var(--accent)" : "var(--text-muted)",
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono)",
+                  transition: "all var(--transition)"
+                },
+                children: label
+              },
+              key
+            )) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginBottom: 16, minHeight: 130 }, children: loading ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 130, display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 20, height: 20, border: "2px solid var(--border)", borderTopColor: "var(--accent)", borderRadius: "50%", animation: "spin 0.8s linear infinite" } }) }) : /* @__PURE__ */ jsxRuntimeExports.jsx(FullChart, { data: chartData, color: isUp ? "#22c55e" : "#ef4444" }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "rgba(0,0,0,0.2)", borderRadius: 8, padding: 12 }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 10 }, children: "Converter" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx(
+                  "input",
+                  {
+                    type: "number",
+                    value: convertAmt,
+                    onChange: (e) => setConvertAmt(e.target.value),
+                    placeholder: "1",
+                    style: {
+                      flex: 1,
+                      background: "rgba(0,0,0,0.3)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      padding: "7px 10px",
+                      color: "var(--text-primary)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 13,
+                      outline: "none",
+                      minWidth: 0
+                    }
+                  }
+                ),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-secondary)", fontWeight: 700, minWidth: 48, textAlign: "right", letterSpacing: "0.04em" }, children: coin.symbol })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+                  flex: 1,
+                  background: "rgba(0,0,0,0.25)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  padding: "7px 10px",
+                  fontFamily: "var(--font-mono)",
+                  fontSize: 13,
+                  color: "var(--text-primary)",
+                  fontWeight: 700,
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }, children: usdVal >= 0.01 ? `$${usdVal.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : `$${usdVal.toFixed(6)}` }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-muted)", fontWeight: 600, minWidth: 48, textAlign: "right" }, children: "USD" })
+              ] }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-mono)", borderTop: "1px solid var(--border)", paddingTop: 8 }, children: [
+                "1 USD = ",
+                coinVal >= 1e-6 ? coinVal.toPrecision(5) : coinVal.toExponential(2),
+                " ",
+                coin.symbol
+              ] })
+            ] })
+          ]
+        }
+      )
+    }
+  );
+}
+function CoinRow({ coin, onClick }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick,
+      style: {
+        display: "grid",
+        gridTemplateColumns: "20px minmax(0,1fr) 66px 44px 54px 64px",
+        gap: 6,
+        alignItems: "center",
+        padding: "8px 12px",
+        borderBottom: "1px solid var(--border)",
+        cursor: "pointer",
+        transition: "background var(--transition)"
+      },
+      onMouseEnter: (e) => e.currentTarget.style.background = "rgba(0,170,255,0.04)",
+      onMouseLeave: (e) => e.currentTarget.style.background = "transparent",
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)", textAlign: "left" }, children: coin.rank }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, minWidth: 0 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "img",
+            {
+              src: coin.image,
+              alt: coin.symbol,
+              width: 20,
+              height: 20,
+              style: { borderRadius: "50%", flexShrink: 0 },
+              onError: (e) => {
+                e.target.style.display = "none";
+              }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { minWidth: 0 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: coin.name }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", fontFamily: "var(--font-mono)" }, children: coin.symbol })
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-primary)", textAlign: "right" }, children: fmtPrice(coin.price) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { textAlign: "right", whiteSpace: "nowrap" }, children: fmtChange(coin.change24h) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-secondary)", fontFamily: "var(--font-mono)", textAlign: "right" }, children: fmtCap(coin.marketCap) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "flex-end" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(RowSparkline, { data: coin.sparkline, change24h: coin.change24h }) })
+      ]
+    }
+  );
+}
+function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
+  const [data, setData] = reactExports.useState(_pageCache);
+  const [loading, setLoading] = reactExports.useState(_pageCache === null);
+  const [refreshing, setRefreshing] = reactExports.useState(false);
+  const [search, setSearch] = reactExports.useState("");
+  const [searchResults, setSearchResults] = reactExports.useState(null);
+  const [searching, setSearching] = reactExports.useState(false);
+  const [selectedCoin, setSelectedCoin] = reactExports.useState(null);
+  const mountedRef = reactExports.useRef(true);
+  reactExports.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+  const loadMarket = reactExports.useCallback(async (forceRefresh = false) => {
+    const now = Date.now();
+    const cacheAge = now - _pageCacheTime;
+    if (!forceRefresh && _pageCache && cacheAge < PAGE_CACHE_SHOW_TTL) {
+      if (cacheAge > PAGE_CACHE_FRESH_TTL) {
+        window.wallet.getMarket().then((result) => {
+          _pageCache = result;
+          _pageCacheTime = Date.now();
+          if (mountedRef.current) setData(result);
+        }).catch(() => {
+        });
+      }
+      return;
+    }
+    if (forceRefresh && _pageCache) setRefreshing(true);
+    else if (!_pageCache) setLoading(true);
+    try {
+      const result = await window.wallet.getMarket();
+      _pageCache = result;
+      _pageCacheTime = Date.now();
+      if (mountedRef.current) setData(result);
+    } finally {
+      if (mountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, []);
+  reactExports.useEffect(() => {
+    loadMarket();
+  }, [loadMarket]);
+  const handleSearch = async () => {
+    const q2 = search.trim();
+    if (!q2) {
+      setSearchResults(null);
+      return;
+    }
+    setSearching(true);
+    try {
+      const results = await window.wallet.searchMarket(q2);
+      setSearchResults(results);
+    } finally {
+      setSearching(false);
+    }
+  };
+  const clearSearch = () => {
+    setSearch("");
+    setSearchResults(null);
+  };
+  const displayCoins = searchResults ?? (data == null ? void 0 : data.coins) ?? [];
+  const lastUpdated = data ? new Date(data.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px 16px 10px", flexShrink: 0 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { style: { fontSize: 16, fontFamily: "var(--font-display)", fontWeight: 700, color: "var(--text-primary)" }, children: "Market Watch" }),
+          lastUpdated && !searchResults && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 10, color: "var(--text-muted)", marginTop: 2 }, children: [
+            "Updated ",
+            lastUpdated,
+            (data == null ? void 0 : data.source) ? ` · ${data.source}` : ""
+          ] }),
+          searchResults && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 10, color: "var(--text-muted)", marginTop: 2 }, children: [
+            searchResults.length,
+            " result",
+            searchResults.length !== 1 ? "s" : "",
+            ' for "',
+            search,
+            '"'
+          ] })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          HeaderToolbar,
+          {
+            onWcOpen,
+            wcActiveSessions,
+            wcPending,
+            onRefresh: () => loadMarket(true),
+            refreshing,
+            onProfile,
+            onSettings
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 6 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            value: search,
+            onChange: (e) => setSearch(e.target.value),
+            onKeyDown: (e) => e.key === "Enter" && handleSearch(),
+            placeholder: "Search coins…",
+            style: {
+              flex: 1,
+              background: "rgba(0,0,0,0.3)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              color: "var(--text-primary)",
+              fontFamily: "var(--font-body)",
+              fontSize: 12,
+              padding: "7px 10px",
+              outline: "none"
+            },
+            onFocus: (e) => e.target.style.borderColor = "var(--border-active)",
+            onBlur: (e) => e.target.style.borderColor = "var(--border)"
+          }
+        ),
+        searchResults ? /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: clearSearch, style: { padding: "6px 12px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: "var(--radius-sm)", color: "#ef4444", fontSize: 11, fontWeight: 600, cursor: "pointer" }, children: "Clear" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: handleSearch, disabled: searching || !search.trim(), style: { padding: "6px 12px", background: "var(--accent-dim)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--accent)", fontSize: 11, fontWeight: 600, cursor: "pointer", opacity: !search.trim() ? 0.5 : 1 }, children: searching ? "…" : "Search" })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      display: "grid",
+      gridTemplateColumns: "20px minmax(0,1fr) 66px 44px 54px 64px",
+      gap: 6,
+      padding: "6px 12px",
+      borderTop: "1px solid var(--border)",
+      borderBottom: "1px solid var(--border)",
+      flexShrink: 0,
+      background: "rgba(0,0,0,0.2)"
+    }, children: ["#", "Asset", "Price", "24h", "Mkt Cap", "7D"].map((h, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 9, fontWeight: 600, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: i > 1 ? "right" : "left" }, children: h }, h)) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", overflowX: "hidden" }, children: loading ? Array.from({ length: 12 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      display: "grid",
+      gridTemplateColumns: "20px minmax(0,1fr) 66px 44px 54px 64px",
+      gap: 6,
+      alignItems: "center",
+      padding: "10px 12px",
+      borderBottom: "1px solid var(--border)"
+    }, children: [16, 100, 60, 40, 50, 50].map((w2, j) => /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 10, width: w2, background: "var(--border)", borderRadius: 4, animation: "pulse 1.4s ease infinite", justifySelf: j > 1 ? "end" : "start" } }, j)) }, i)) : (data == null ? void 0 : data.error) && !searchResults ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }, children: "Failed to load market data. Check your connection and try again." }) : displayCoins.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }, children: searchResults ? "No coins found." : "No data." }) : displayCoins.map((coin) => /* @__PURE__ */ jsxRuntimeExports.jsx(CoinRow, { coin, onClick: () => setSelectedCoin(coin) }, coin.id)) }),
+    selectedCoin && /* @__PURE__ */ jsxRuntimeExports.jsx(ChartModal, { coin: selectedCoin, onClose: () => setSelectedCoin(null) })
+  ] });
+}
+const seg = (active) => ({
+  flex: 1,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+  padding: "10px 12px",
+  fontSize: 13,
+  fontWeight: 700,
+  cursor: "pointer",
+  border: "none",
+  background: active ? "var(--accent)" : "transparent",
+  color: active ? "#0d0d0d" : "var(--text-muted)",
+  transition: "background 0.15s, color 0.15s"
+});
+function SwapModeToggle({ mode, onChange, notice }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
+    notice && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--accent)", textAlign: "center" }, children: notice }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+      display: "flex",
+      borderRadius: "var(--radius-sm)",
+      border: "1px solid var(--border)",
+      overflow: "hidden",
+      background: "var(--bg-card)"
+    }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", style: seg(mode === "dex"), onClick: () => onChange("dex"), "aria-pressed": mode === "dex", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "13 2 3 14 12 14 11 22 21 10 12 10 13 2" }) }),
+        "DEX Swap"
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", style: seg(mode === "crosschain"), onClick: () => onChange("crosschain"), "aria-pressed": mode === "crosschain", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2.5", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 1 21 5 17 9" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 11V9a4 4 0 0 1 4-4h14" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 23 3 19 7 15" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 13v2a4 4 0 0 1-4 4H3" })
+        ] }),
+        "Cross-Chain"
+      ] })
+    ] })
+  ] });
+}
+const NATIVE_EVM_SENTINEL = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+const t = (chain, symbol, name, address, decimals, isNative = false) => ({ chain, symbol, name, address, decimals, logoUri: null, isNative });
+const SWAP_TOKEN_LISTS = {
+  ethereum: [
+    t("ethereum", "ETH", "Ethereum", NATIVE_EVM_SENTINEL, 18, true),
+    t("ethereum", "USDC", "USD Coin", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 6),
+    t("ethereum", "USDT", "Tether USD", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 6),
+    t("ethereum", "DAI", "Dai", "0x6B175474E89094C44Da98b954EedeAC495271d0F", 18),
+    t("ethereum", "WETH", "Wrapped Ether", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", 18)
+  ],
+  arbitrum: [
+    t("arbitrum", "ETH", "Ethereum", NATIVE_EVM_SENTINEL, 18, true),
+    t("arbitrum", "USDC", "USD Coin", "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", 6),
+    t("arbitrum", "USDT", "Tether USD", "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", 6),
+    t("arbitrum", "ARB", "Arbitrum", "0x912CE59144191C1204E64559FE8253a0e49E6548", 18)
+  ],
+  optimism: [
+    t("optimism", "ETH", "Ethereum", NATIVE_EVM_SENTINEL, 18, true),
+    t("optimism", "USDC", "USD Coin", "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", 6),
+    t("optimism", "OP", "Optimism", "0x4200000000000000000000000000000000000042", 18)
+  ],
+  base: [
+    t("base", "ETH", "Ethereum", NATIVE_EVM_SENTINEL, 18, true),
+    t("base", "USDC", "USD Coin", "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", 6)
+  ],
+  polygon: [
+    t("polygon", "POL", "Polygon", NATIVE_EVM_SENTINEL, 18, true),
+    t("polygon", "USDC", "USD Coin", "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", 6),
+    t("polygon", "USDT", "Tether USD", "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", 6),
+    t("polygon", "WETH", "Wrapped Ether", "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", 18)
+  ],
+  avalanche: [
+    t("avalanche", "AVAX", "Avalanche", NATIVE_EVM_SENTINEL, 18, true),
+    t("avalanche", "USDC", "USD Coin", "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", 6),
+    t("avalanche", "USDT", "Tether USD", "0x9702230A8Ea53601f5cD2dc00fDBc13d4dF4A8c7", 6)
+  ],
+  bsc: [
+    t("bsc", "BNB", "BNB", NATIVE_EVM_SENTINEL, 18, true),
+    t("bsc", "USDT", "Tether USD", "0x55d398326f99059fF775485246999027B3197955", 18),
+    t("bsc", "USDC", "USD Coin", "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", 18)
+  ],
+  solana: [
+    t("solana", "SOL", "Solana", "So11111111111111111111111111111111111111112", 9, true),
+    t("solana", "USDC", "USD Coin", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", 6),
+    t("solana", "USDT", "Tether USD", "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", 6)
+  ],
+  cardano: [
+    t("cardano", "ADA", "Cardano", "lovelace", 6, true),
+    t("cardano", "MIN", "Minswap", "29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e", 6)
+  ]
+};
+const DEX_CHAINS = [
+  { id: "ethereum", label: "Ethereum" },
+  { id: "arbitrum", label: "Arbitrum" },
+  { id: "optimism", label: "Optimism" },
+  { id: "base", label: "Base" },
+  { id: "polygon", label: "Polygon" },
+  { id: "avalanche", label: "Avalanche" },
+  { id: "bsc", label: "BNB Chain" },
+  { id: "solana", label: "Solana" }
+];
+function rawToHuman$1(raw, decimals) {
+  if (!raw) return 0;
+  try {
+    return Number(BigInt(raw)) / 10 ** decimals;
+  } catch {
+    return Number(raw) / 10 ** decimals;
+  }
+}
+function fmt(n2) {
+  if (!isFinite(n2) || n2 === 0) return "0";
+  if (n2 >= 1) return n2.toLocaleString("en-US", { maximumFractionDigits: 6 });
+  return n2.toPrecision(4);
+}
+function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDecimals, autoBps, isAuto, refreshIn, priceChanged }) {
+  const sell = rawToHuman$1(quote.sellAmountRaw, fromDecimals);
+  const buy = rawToHuman$1(quote.buyAmountRaw, toDecimals);
+  const rate = sell > 0 ? buy / sell : 0;
+  const impact = quote.priceImpactPct;
+  const border = priceChanged ? "rgba(250,204,21,0.5)" : "var(--border)";
+  const bg2 = priceChanged ? "rgba(250,204,21,0.06)" : "var(--bg-card)";
+  const row = (l2, r2) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)" }, children: l2 }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-primary)", fontWeight: 600 }, children: r2 })
+  ] });
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: bg2, border: `1px solid ${border}`, borderRadius: "var(--radius-sm)", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 7 }, children: [
+    row("Rate", `1 ${fromSymbol} = ${fmt(rate)} ${toSymbol}`),
+    row("Price impact", /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: impact > 3 ? "#fca5a5" : "var(--text-primary)" }, children: [
+      impact.toFixed(2),
+      "%"
+    ] })),
+    row("Via", quote.provider),
+    row("Slippage", `${isAuto ? "Auto · " : ""}${(quote.slippageBps / 100).toFixed(2)}%`),
+    priceChanged ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "#facc15", fontWeight: 600 }, children: "⚠ Price moved — review the new rate" }) : refreshIn != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+      "⏱ Refreshing in ",
+      refreshIn,
+      "s…"
+    ] })
+  ] });
+}
+const PRESETS = [10, 50, 100, 300];
+function SwapSettings({ open, onToggle, slippageBps, autoBps, isAuto, onSet }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        type: "button",
+        onClick: onToggle,
+        style: { display: "flex", alignItems: "center", justifyContent: "space-between", background: "transparent", border: "none", cursor: "pointer", padding: 0, color: "var(--text-muted)", fontSize: 12 },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+            "Slippage: ",
+            isAuto ? `Auto (${(autoBps / 100).toFixed(2)}%)` : `${(slippageBps / 100).toFixed(2)}%`
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontWeight: 600, color: "var(--accent)" }, children: open ? "Hide" : "Advanced" })
+        ]
+      }
+    ),
+    open && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: () => onSet(null),
+          style: chip(isAuto),
+          children: "Auto"
+        }
+      ),
+      PRESETS.map((bps) => /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: () => onSet(bps), style: chip(!isAuto && slippageBps === bps), children: [
+        (bps / 100).toFixed(bps < 100 ? 1 : 0),
+        "%"
+      ] }, bps))
+    ] })
+  ] });
+}
+const chip = (active) => ({
+  padding: "4px 12px",
+  borderRadius: 99,
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: "pointer",
+  border: `1px solid ${active ? "var(--border-active)" : "var(--border)"}`,
+  background: active ? "var(--accent-dim)" : "transparent",
+  color: active ? "var(--accent)" : "var(--text-muted)"
+});
+const STABLES = /* @__PURE__ */ new Set(["USDC", "USDT", "DAI", "BUSD", "USDP"]);
+const BLUE_CHIP = /* @__PURE__ */ new Set(["SOL", "ETH"]);
+const MIN_NATIVE_FEE = {
+  ethereum: 3e-3,
+  arbitrum: 4e-4,
+  optimism: 4e-4,
+  base: 4e-4,
+  polygon: 0.05,
+  avalanche: 0.02,
+  bsc: 2e-3,
+  solana: 1e-3
+};
+function getAutoSlippageBps(fromSymbol, toSymbol) {
+  if (STABLES.has(fromSymbol) && STABLES.has(toSymbol)) return 5;
+  if (BLUE_CHIP.has(fromSymbol)) return 50;
+  return 250;
+}
+function humanToRaw(human, decimals) {
+  if (!human || !(parseFloat(human) > 0)) return "0";
+  const [i, f2 = ""] = human.split(".");
+  const frac = (f2 + "0".repeat(decimals)).slice(0, decimals);
+  const digits = ((i || "0").replace(/^0+/, "") || "0") + frac;
+  try {
+    return BigInt(digits).toString();
+  } catch {
+    return "0";
+  }
+}
+function rawToHuman(raw, decimals) {
+  if (!raw) return 0;
+  try {
+    return Number(BigInt(raw)) / 10 ** decimals;
+  } catch {
+    return Number(raw) / 10 ** decimals;
+  }
+}
+function DexSwapWidget({ addresses, active }) {
+  const [chain, setChain] = reactExports.useState("ethereum");
+  const tokens = SWAP_TOKEN_LISTS[chain];
+  const [fromToken, setFromToken] = reactExports.useState(tokens[0]);
+  const [toToken, setToToken] = reactExports.useState(tokens[1]);
+  const [amount, setAmount] = reactExports.useState("");
+  const [overrideBps, setOverrideBps] = reactExports.useState(null);
+  const [showAdvanced, setShowAdvanced] = reactExports.useState(false);
+  const [quote, setQuote] = reactExports.useState(null);
+  const [quoteError, setQuoteError] = reactExports.useState(null);
+  const [fetching, setFetching] = reactExports.useState(false);
+  const [nativeBal, setNativeBal] = reactExports.useState(0);
+  const [fromBal, setFromBal] = reactExports.useState(null);
+  const [refreshIn, setRefreshIn] = reactExports.useState(null);
+  const [priceChanged, setPriceChanged] = reactExports.useState(false);
+  const acceptedBuyRaw = reactExports.useRef(null);
+  const [execState, setExecState] = reactExports.useState("idle");
+  const [execResult, setExecResult] = reactExports.useState(null);
+  const [execError, setExecError] = reactExports.useState(null);
+  const alive = reactExports.useRef(true);
+  reactExports.useEffect(() => () => {
+    alive.current = false;
+  }, []);
+  const isAuto = overrideBps === null;
+  const autoBps = getAutoSlippageBps(fromToken.symbol, toToken.symbol);
+  const slippageBps = isAuto ? autoBps : overrideBps;
+  reactExports.useEffect(() => {
+    const list = SWAP_TOKEN_LISTS[chain];
+    setFromToken(list[0]);
+    setToToken(list[1]);
+    setAmount("");
+    setQuote(null);
+    setQuoteError(null);
+    acceptedBuyRaw.current = null;
+    setPriceChanged(false);
+  }, [chain]);
+  reactExports.useEffect(() => {
+    if (!active) return;
+    let on2 = true;
+    (async () => {
+      var _a;
+      try {
+        const bals = await window.wallet.getBalances();
+        if (on2) setNativeBal(parseFloat(((_a = bals.chains[chain]) == null ? void 0 : _a.native) ?? "0") || 0);
+      } catch {
+      }
+    })();
+    return () => {
+      on2 = false;
+    };
+  }, [chain, active]);
+  reactExports.useEffect(() => {
+    if (!active) return;
+    let on2 = true;
+    (async () => {
+      if (fromToken.isNative) {
+        setFromBal(nativeBal);
+        return;
+      }
+      try {
+        const res = await window.wallet.getTokens();
+        const match = res.tokens.find((t2) => t2.chain === chain && t2.contractAddress.toLowerCase() === fromToken.address.toLowerCase());
+        if (on2) setFromBal(match ? parseFloat(match.balance) || 0 : 0);
+      } catch {
+        if (on2) setFromBal(null);
+      }
+    })();
+    return () => {
+      on2 = false;
+    };
+  }, [fromToken, chain, nativeBal, active]);
+  const fetchQuote = reactExports.useCallback(async (silent = false) => {
+    if (!(parseFloat(amount) > 0) || fromToken.address === toToken.address) return null;
+    if (!silent) {
+      setFetching(true);
+      setQuoteError(null);
+    }
+    const taker = chain === "solana" ? addresses.solana : addresses.evm;
+    try {
+      const r2 = await window.wallet.swapGetQuote({
+        fromChain: chain,
+        toChain: chain,
+        fromToken: fromToken.address,
+        toToken: toToken.address,
+        fromSymbol: fromToken.symbol,
+        toSymbol: toToken.symbol,
+        sellAmountRaw: humanToRaw(amount, fromToken.decimals),
+        slippageBps,
+        taker
+      });
+      if (!alive.current) return null;
+      if (r2.error || !r2.quote) {
+        if (!silent) setQuoteError(r2.error ?? "No route available.");
+        return null;
+      }
+      return r2.quote;
+    } catch (e) {
+      if (!silent) setQuoteError(e instanceof Error ? e.message : "Quote failed");
+      return null;
+    } finally {
+      if (!silent && alive.current) setFetching(false);
+    }
+  }, [amount, chain, fromToken, toToken, slippageBps, addresses]);
+  const getQuote = async () => {
+    setPriceChanged(false);
+    const q2 = await fetchQuote(false);
+    if (q2) {
+      setQuote(q2);
+      acceptedBuyRaw.current = q2.buyAmountRaw;
+    }
+  };
+  reactExports.useEffect(() => {
+    if (!quote || priceChanged || execState !== "idle" || !active) {
+      setRefreshIn(null);
+      return;
+    }
+    setRefreshIn(12);
+    const countdown = setInterval(() => setRefreshIn((s) => s != null && s > 0 ? s - 1 : s), 1e3);
+    const refresh = setInterval(async () => {
+      const q2 = await fetchQuote(true);
+      if (!q2 || !alive.current) return;
+      const prev = acceptedBuyRaw.current;
+      const dropped = prev ? rawToHuman(q2.buyAmountRaw, toToken.decimals) < rawToHuman(prev, toToken.decimals) * 0.995 : false;
+      if (dropped) {
+        setQuote(q2);
+        setPriceChanged(true);
+      } else {
+        setQuote(q2);
+        acceptedBuyRaw.current = q2.buyAmountRaw;
+        setRefreshIn(12);
+      }
+    }, 12e3);
+    return () => {
+      clearInterval(countdown);
+      clearInterval(refresh);
+    };
+  }, [quote, priceChanged, execState, active, fetchQuote, toToken.decimals]);
+  const acceptNewPrice = () => {
+    if (quote) {
+      acceptedBuyRaw.current = quote.buyAmountRaw;
+      setPriceChanged(false);
+    }
+  };
+  const onMax = () => {
+    if (fromBal == null) return;
+    if (fromToken.isNative) {
+      const buffer = (MIN_NATIVE_FEE[chain] ?? 1e-3) * 1.5;
+      const safe = Math.max(0, fromBal - buffer);
+      setAmount(safe > 0 ? String(safe) : "0");
+    } else {
+      setAmount(String(fromBal));
+    }
+    setQuote(null);
+    acceptedBuyRaw.current = null;
+  };
+  const flip = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+    setAmount("");
+    setQuote(null);
+    acceptedBuyRaw.current = null;
+    setPriceChanged(false);
+  };
+  const feeReserve = MIN_NATIVE_FEE[chain] ?? 1e-3;
+  const sellHuman = parseFloat(amount) || 0;
+  const nativeSpend = fromToken.isNative ? sellHuman : 0;
+  const insufficientGas = !!quote && nativeBal < nativeSpend + feeReserve;
+  const run = async () => {
+    if (!quote) return;
+    setExecState("swapping");
+    setExecError(null);
+    setExecResult(null);
+    try {
+      const r2 = await window.wallet.swapExecute(quote);
+      if (!alive.current) return;
+      setExecResult(r2);
+      setExecState("success");
+    } catch (e) {
+      if (!alive.current) return;
+      setExecError(e instanceof Error ? e.message : "Swap failed");
+      setExecState("error");
+    }
+  };
+  const reset = () => {
+    setExecState("idle");
+    setExecResult(null);
+    setExecError(null);
+    setQuote(null);
+    setAmount("");
+    acceptedBuyRaw.current = null;
+  };
+  const expectedBuy = quote ? rawToHuman(quote.buyAmountRaw, toToken.decimals) : null;
+  const canQuote = parseFloat(amount) > 0 && fromToken.address !== toToken.address && !fetching;
+  function renderButton() {
+    if (execState === "success" && execResult) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 700, color: "#22c55e" }, children: "✓ Swap submitted" }),
+        execResult.approvalTxHash && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Approval mined ✓" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("a", { href: execResult.explorerUrl, target: "_blank", rel: "noreferrer", style: { fontSize: 12, color: "var(--accent)", wordBreak: "break-all" }, children: "View transaction ↗" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: reset, style: btn(true, "transparent"), children: "Done" })
+      ] });
+    }
+    if (execState === "error") {
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, color: "#fca5a5", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-sm)", padding: "8px 10px" }, children: execError }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: run, style: { ...btn(true), flex: 1 }, children: "Retry" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: reset, style: { ...btn(true, "transparent"), flex: 1 }, children: "Close" })
+        ] })
+      ] });
+    }
+    if (execState === "swapping") {
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", disabled: true, style: btn(false), children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(Spinner, {}),
+        " Swapping…",
+        (quote == null ? void 0 : quote.approvalTx) ? " (approving first)" : ""
+      ] });
+    }
+    if (!quote) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: getQuote, disabled: !canQuote, style: btn(canQuote), children: fetching ? "Fetching quote…" : "Get Quote" });
+    }
+    if (priceChanged) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: acceptNewPrice, style: btn(true, "#facc15", "#0d0d0d"), children: "Accept New Price" });
+    }
+    if (insufficientGas) {
+      return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", disabled: true, style: btn(false), children: [
+        "Insufficient ",
+        nativeSymbolFor(chain),
+        " for fee"
+      ] });
+    }
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("button", { type: "button", onClick: run, style: btn(true), children: [
+      "Swap ",
+      fromToken.symbol,
+      " → ",
+      toToken.symbol
+    ] });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "NETWORK" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Network", value: chain, onChange: (e) => setChain(e.target.value), style: selectStyle$1, children: DEX_CHAINS.map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: c.id, children: c.label }, c.id)) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: cardStyle, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: labelStyle, children: "YOU PAY" }),
+        fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onMax, style: maxBtn, children: "MAX" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            type: "number",
+            inputMode: "decimal",
+            min: "0",
+            placeholder: "0.0",
+            value: amount,
+            onChange: (e) => {
+              setAmount(e.target.value);
+              setQuote(null);
+              acceptedBuyRaw.current = null;
+            },
+            style: { ...inputStyle$2, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)" }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Pay token", value: fromToken.symbol, onChange: (e) => {
+          setFromToken(tokens.find((t2) => t2.symbol === e.target.value));
+          setQuote(null);
+        }, style: selectStyle$1, children: tokens.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: t2.symbol, children: t2.symbol }, t2.symbol)) })
+      ] }),
+      fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+        "Balance: ",
+        fromBal.toLocaleString("en-US", { maximumFractionDigits: 6 }),
+        " ",
+        fromToken.symbol
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: flip, title: "Flip", style: { width: 32, height: 32, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 10 12 5 17 10" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 14 12 19 7 14" })
+    ] }) }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: cardStyle, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: labelStyle, children: "YOU RECEIVE" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: expectedBuy != null ? "var(--text-primary)" : "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis" }, children: expectedBuy != null ? expectedBuy.toLocaleString("en-US", { maximumFractionDigits: 6 }) : "—" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Receive token", value: toToken.symbol, onChange: (e) => {
+          setToToken(tokens.find((t2) => t2.symbol === e.target.value));
+          setQuote(null);
+        }, style: selectStyle$1, children: tokens.map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: t2.symbol, children: t2.symbol }, t2.symbol)) })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(SwapSettings, { open: showAdvanced, onToggle: () => setShowAdvanced((v2) => !v2), slippageBps, autoBps, isAuto, onSet: setOverrideBps }),
+    quoteError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: 12, color: "#fca5a5" }, children: quoteError }),
+    quote && /* @__PURE__ */ jsxRuntimeExports.jsx(SwapQuoteCard, { quote, fromSymbol: fromToken.symbol, toSymbol: toToken.symbol, fromDecimals: fromToken.decimals, toDecimals: toToken.decimals, autoBps, isAuto, refreshIn, priceChanged }),
+    renderButton()
+  ] });
+}
+function nativeSymbolFor(chain) {
+  var _a, _b;
+  return ((_b = (_a = SWAP_TOKEN_LISTS[chain]) == null ? void 0 : _a.find((t2) => t2.isNative)) == null ? void 0 : _b.symbol) ?? "gas";
+}
+const Spinner = () => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { width: 14, height: 14, border: "2px solid rgba(0,0,0,0.3)", borderTopColor: "#0d0d0d", borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite", marginRight: 6, verticalAlign: "middle" } });
+const cardStyle = { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 8 };
+const labelStyle = { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" };
+const inputStyle$2 = { background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", color: "var(--text-primary)", fontSize: 14, outline: "none", minWidth: 0 };
+const selectStyle$1 = { background: "var(--bg-card)", color: "var(--text-primary)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "10px 12px", fontSize: 14, cursor: "pointer", outline: "none", flexShrink: 0, width: 104 };
+const maxBtn = { padding: "2px 10px", borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1px solid var(--border)", background: "var(--accent-dim)", color: "var(--accent)" };
+function btn(enabled, bg2 = "var(--accent)", color = "#0d0d0d") {
+  return { padding: "13px", borderRadius: "var(--radius-sm)", border: bg2 === "transparent" ? "1px solid var(--border)" : "none", fontSize: 14, fontWeight: 700, cursor: enabled ? "pointer" : "not-allowed", background: enabled ? bg2 : "var(--border)", color: enabled ? bg2 === "transparent" ? "var(--text-primary)" : color : "var(--text-muted)", width: "100%" };
+}
+const SS_ASSETS = [
+  { ticker: "btc", network: "btc", label: "BTC", name: "Bitcoin", addrKey: "bitcoin" },
+  { ticker: "eth", network: "eth", label: "ETH", name: "Ethereum", addrKey: "evm" },
+  { ticker: "sol", network: "sol", label: "SOL", name: "Solana", addrKey: "solana" },
+  { ticker: "ada", network: "ada", label: "ADA", name: "Cardano", addrKey: "cardano" },
+  { ticker: "usdc", network: "eth", label: "USDC", name: "USD Coin (ERC-20)", addrKey: "evm" },
+  { ticker: "usdt", network: "eth", label: "USDT", name: "Tether (ERC-20)", addrKey: "evm" },
+  { ticker: "bnb", network: "bsc", label: "BNB", name: "BNB Chain", addrKey: "evm" },
+  { ticker: "pol", network: "polygon", label: "POL", name: "Polygon", addrKey: "evm" },
+  { ticker: "avax", network: "avaxc", label: "AVAX", name: "Avalanche", addrKey: "evm" },
+  { ticker: "ltc", network: "ltc", label: "LTC", name: "Litecoin", addrKey: null },
+  { ticker: "doge", network: "doge", label: "DOGE", name: "Dogecoin", addrKey: null },
+  { ticker: "xmr", network: "xmr", label: "XMR", name: "Monero", addrKey: null },
+  { ticker: "trx", network: "trx", label: "TRX", name: "Tron", addrKey: null },
+  { ticker: "xrp", network: "xrp", label: "XRP", name: "XRP", addrKey: null }
+];
+const ssKey = (a) => `${a.ticker}:${a.network}`;
+function findSsAsset(key) {
+  return SS_ASSETS.find((a) => ssKey(a) === key);
+}
+const SS_BALANCE_CHAIN = {
+  "btc:btc": "bitcoin",
+  "eth:eth": "ethereum",
+  "sol:sol": "solana",
+  "ada:ada": "cardano",
+  "bnb:bsc": "bsc",
+  "pol:polygon": "polygon",
+  "avax:avaxc": "avalanche"
+};
+function ssBalanceChain(a) {
+  return SS_BALANCE_CHAIN[ssKey(a)] ?? null;
+}
+const STEPS = [
+  { key: "waiting", label: "Waiting for deposit" },
+  { key: "confirming", label: "Confirming" },
+  { key: "exchanging", label: "Exchanging" },
+  { key: "sending", label: "Sending" },
+  { key: "finished", label: "Complete" }
+];
+const STEP_INDEX = { waiting: 0, confirming: 1, exchanging: 2, sending: 3, finished: 4 };
+const TERMINAL = /* @__PURE__ */ new Set(["finished", "failed", "refunded", "expired"]);
+const DOT_COLOR = {
+  waiting: "#94a3b8",
+  confirming: "#38bdf8",
+  exchanging: "#facc15",
+  sending: "#fb923c",
+  finished: "#22c55e",
+  failed: "#ef4444",
+  refunded: "#ef4444",
+  expired: "#ef4444"
+};
+function shorten(s, head = 10, tail = 6) {
+  if (!s || s.length <= head + tail + 1) return s;
+  return `${s.slice(0, head)}…${s.slice(-tail)}`;
+}
+function ExchangeStatusCard({ exchange: initial, fromLabel, toLabel, fromNetworkName, onNewExchange }) {
+  const [exchange, setExchange] = reactExports.useState(initial);
+  const [copied, setCopied] = reactExports.useState(false);
+  const [remaining, setRemaining] = reactExports.useState(null);
+  const alive = reactExports.useRef(true);
+  const status = String(exchange.status);
+  const isFixed = exchange.rateType === "fixed";
+  const currentIdx = STEP_INDEX[status] ?? 0;
+  const failed = status === "failed" || status === "refunded" || status === "expired";
+  reactExports.useEffect(() => {
+    alive.current = true;
+    if (TERMINAL.has(status)) return;
+    let timer;
+    const poll = async () => {
+      try {
+        const next = await window.wallet.ssStatus(exchange.id);
+        if (!alive.current) return;
+        if (!next.error && next.id) setExchange((prev) => ({ ...prev, ...next }));
+        if (next.error || !TERMINAL.has(String(next.status))) timer = setTimeout(poll, 8e3);
+      } catch {
+        if (alive.current) timer = setTimeout(poll, 8e3);
+      }
+    };
+    timer = setTimeout(poll, 8e3);
+    return () => {
+      alive.current = false;
+      clearTimeout(timer);
+    };
+  }, [exchange.id, status]);
+  reactExports.useEffect(() => {
+    if (!isFixed || !exchange.validUntil) {
+      setRemaining(null);
+      return;
+    }
+    const target = new Date(exchange.validUntil).getTime();
+    const tick = () => setRemaining(Math.max(0, Math.floor((target - Date.now()) / 1e3)));
+    tick();
+    const iv = setInterval(tick, 1e3);
+    return () => clearInterval(iv);
+  }, [isFixed, exchange.validUntil]);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(exchange.addressFrom);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+    }
+  };
+  const mmss = remaining != null ? `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}` : null;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 14 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 15, fontWeight: 700, color: failed ? "#fca5a5" : "#22c55e" }, children: failed ? "⚠ Exchange " + status : "✓ Exchange Created" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }, children: shorten(exchange.id, 8, 6) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 10 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "SEND EXACTLY" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 22, fontWeight: 700, fontFamily: "var(--font-display)", color: "var(--text-primary)" }, children: [
+          exchange.amountFrom,
+          " ",
+          fromLabel
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "TO THIS ADDRESS" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 4 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 13, fontFamily: "monospace", color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }, children: exchange.addressFrom }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: copy, style: { flexShrink: 0, padding: "5px 10px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--accent-dim)", color: "var(--accent)", fontSize: 11, fontWeight: 700, cursor: "pointer" }, children: copied ? "Copied" : "Copy" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 4 }, children: [
+          "Network: ",
+          fromNetworkName
+        ] }),
+        exchange.extraIdFrom && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "#facc15", marginTop: 4 }, children: [
+          "Include memo/tag: ",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontFamily: "monospace" }, children: exchange.extraIdFrom })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: "#facc15", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--border)", paddingTop: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "⚠ Do not close until funds are sent" }),
+        mmss && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontFamily: "monospace" }, children: [
+          "⏱ ",
+          mmss
+        ] })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "STATUS" }),
+      STEPS.map((step, i) => {
+        const done = !failed && currentIdx > i;
+        const active = !failed && currentIdx === i;
+        const color = active ? DOT_COLOR[status] ?? "var(--accent)" : done ? "#22c55e" : "var(--border)";
+        return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0, animation: active ? "pulse 1.2s ease-in-out infinite" : void 0 } }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 13, color: done || active ? "var(--text-primary)" : "var(--text-muted)", fontWeight: active ? 600 : 400 }, children: step.label })
+        ] }, step.key);
+      }),
+      failed && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { width: 10, height: 10, borderRadius: "50%", background: "#ef4444", flexShrink: 0 } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 13, color: "#fca5a5", fontWeight: 600, textTransform: "capitalize" }, children: status })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, color: "var(--text-muted)" }, children: [
+      "You will receive ≈ ",
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { color: "var(--text-primary)", fontWeight: 600 }, children: [
+        exchange.amountTo,
+        " ",
+        toLabel
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 2 }, children: [
+        "Destination: ",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontFamily: "monospace" }, children: shorten(exchange.addressTo) })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onNewExchange, style: { padding: "11px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-primary)", fontSize: 13, fontWeight: 600, cursor: "pointer" }, children: "Start New Exchange" })
+  ] });
+}
+const selectStyle = {
+  background: "var(--bg-card)",
+  color: "var(--text-primary)",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  padding: "10px 12px",
+  fontSize: 14,
+  cursor: "pointer",
+  outline: "none",
+  flexShrink: 0,
+  width: 132,
+  maxWidth: "46%"
+};
+const inputStyle$1 = {
+  width: "100%",
+  minWidth: 0,
+  background: "transparent",
+  border: "1px solid var(--border)",
+  borderRadius: "var(--radius-sm)",
+  padding: "10px 12px",
+  color: "var(--text-primary)",
+  fontSize: 14,
+  outline: "none",
+  fontFamily: "var(--font-body)"
+};
+function addrFor(addresses, key) {
+  if (!key) return "";
+  if (key === "evm") return addresses.evm;
+  if (key === "solana") return addresses.solana;
+  if (key === "cardano") return addresses.cardano;
+  if (key === "bitcoin") return addresses.bitcoin;
+  return "";
+}
+function SimpleSwapWidget({ addresses, active }) {
+  var _a;
+  const [fromKey, setFromKey] = reactExports.useState(ssKey({ ticker: "sol", network: "sol" }));
+  const [toKey, setToKey] = reactExports.useState(ssKey({ ticker: "btc", network: "btc" }));
+  const [amount, setAmount] = reactExports.useState("");
+  const [rateType, setRateType] = reactExports.useState("floating");
+  const [estimate, setEstimate] = reactExports.useState(null);
+  const [range, setRange] = reactExports.useState({ min: null, max: null });
+  const [rateId, setRateId] = reactExports.useState(null);
+  const [estLoading, setEstLoading] = reactExports.useState(false);
+  const [estError, setEstError] = reactExports.useState(null);
+  const [destination, setDestination] = reactExports.useState("");
+  const [refund, setRefund] = reactExports.useState("");
+  const [destTouched, setDestTouched] = reactExports.useState(false);
+  const [refundTouched, setRefundTouched] = reactExports.useState(false);
+  const [creating, setCreating] = reactExports.useState(false);
+  const [createError, setCreateError] = reactExports.useState(null);
+  const [exchange, setExchange] = reactExports.useState(null);
+  const [balances, setBalances] = reactExports.useState(null);
+  const from = findSsAsset(fromKey);
+  const to = findSsAsset(toKey);
+  const fromBalChain = ssBalanceChain(from);
+  const fromBal = fromBalChain && balances ? parseFloat(((_a = balances.chains[fromBalChain]) == null ? void 0 : _a.native) ?? "0") || 0 : null;
+  reactExports.useEffect(() => {
+    if (!active) return;
+    let on2 = true;
+    window.wallet.getBalances().then((b) => {
+      if (on2) setBalances(b);
+    }).catch(() => {
+    });
+    return () => {
+      on2 = false;
+    };
+  }, [active]);
+  reactExports.useEffect(() => {
+    if (!destTouched) setDestination(addrFor(addresses, to.addrKey));
+    if (!refundTouched) setRefund(addrFor(addresses, from.addrKey));
+  }, [fromKey, toKey]);
+  const debounce = reactExports.useRef();
+  reactExports.useEffect(() => {
+    clearTimeout(debounce.current);
+    setEstimate(null);
+    setRateId(null);
+    setEstError(null);
+    const amt2 = parseFloat(amount);
+    if (!(amt2 > 0) || fromKey === toKey) return;
+    setEstLoading(true);
+    debounce.current = setTimeout(async () => {
+      try {
+        const r2 = await window.wallet.ssEstimate({
+          tickerFrom: from.ticker,
+          networkFrom: from.network,
+          tickerTo: to.ticker,
+          networkTo: to.network,
+          amount: amount.trim(),
+          fixed: rateType === "fixed"
+        });
+        setEstimate(r2.estimatedAmount);
+        setRateId(r2.rateId);
+        setEstError(r2.error);
+        setRange({ min: r2.min, max: r2.max });
+      } catch (e) {
+        setEstError(e instanceof Error ? e.message : "Estimate failed");
+      } finally {
+        setEstLoading(false);
+      }
+    }, 600);
+    return () => clearTimeout(debounce.current);
+  }, [amount, fromKey, toKey, rateType]);
+  const flip = () => {
+    setFromKey(toKey);
+    setToKey(fromKey);
+    setAmount("");
+    setEstimate(null);
+    setDestTouched(false);
+    setRefundTouched(false);
+  };
+  const amt = parseFloat(amount);
+  const belowMin = range.min != null && amt > 0 && amt < parseFloat(range.min);
+  const aboveMax = range.max != null && amt > 0 && amt > parseFloat(range.max);
+  const canExchange = amt > 0 && !!destination && !!estimate && !belowMin && !aboveMax && fromKey !== toKey && !creating;
+  const create = async () => {
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const ex = await window.wallet.ssCreateExchange({
+        tickerFrom: from.ticker,
+        networkFrom: from.network,
+        tickerTo: to.ticker,
+        networkTo: to.network,
+        amount: amount.trim(),
+        fixed: rateType === "fixed",
+        addressTo: destination.trim(),
+        userRefundAddress: refund.trim() || void 0,
+        rateId: rateType === "fixed" ? rateId : null
+      });
+      if (ex.error) {
+        setCreateError(ex.error);
+        return;
+      }
+      setExchange(ex);
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "Could not create exchange");
+    } finally {
+      setCreating(false);
+    }
+  };
+  const reset = () => {
+    setExchange(null);
+    setAmount("");
+    setEstimate(null);
+    setRateId(null);
+    setCreateError(null);
+    setDestTouched(false);
+    setRefundTouched(false);
+    setDestination(addrFor(addresses, to.addrKey));
+    setRefund(addrFor(addresses, from.addrKey));
+  };
+  if (exchange) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ExchangeStatusCard,
+      {
+        exchange,
+        fromLabel: from.label,
+        toLabel: to.label,
+        fromNetworkName: from.name,
+        onNewExchange: reset
+      }
+    );
+  }
+  const label = (a) => `${a.label} · ${a.name}`;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 12 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU SEND" }),
+        fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            type: "button",
+            onClick: () => setAmount(String(fromBal)),
+            style: { padding: "2px 10px", borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: "pointer", border: "1px solid var(--border)", background: "var(--accent-dim)", color: "var(--accent)" },
+            children: "MAX"
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "input",
+          {
+            type: "number",
+            inputMode: "decimal",
+            min: "0",
+            placeholder: "0.0",
+            value: amount,
+            onChange: (e) => setAmount(e.target.value),
+            style: { ...inputStyle$1, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)" }
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Send asset", value: fromKey, onChange: (e) => setFromKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
+      ] }),
+      fromBal != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: [
+        "Balance: ",
+        fromBal.toLocaleString("en-US", { maximumFractionDigits: 6 }),
+        " ",
+        from.label
+      ] }),
+      range.min != null && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 11, color: belowMin || aboveMax ? "#fca5a5" : "var(--text-muted)" }, children: [
+        "Min ",
+        range.min,
+        " ",
+        from.label,
+        range.max ? ` · Max ${range.max} ${from.label}` : ""
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: flip,
+        title: "Flip direction",
+        style: { width: 32, height: 32, borderRadius: "50%", background: "var(--accent-dim)", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" },
+        children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 10 12 5 17 10" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 14 12 19 7 14" })
+        ] })
+      }
+    ) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "YOU RECEIVE" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", fontSize: 18, fontWeight: 600, fontFamily: "var(--font-display)", color: estimate ? "var(--text-primary)" : "var(--text-muted)" }, children: estLoading ? "…" : estimate ? `≈ ${estimate}` : "—" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("select", { "aria-label": "Receive asset", value: toKey, onChange: (e) => setToKey(e.target.value), style: selectStyle, children: SS_ASSETS.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx("option", { value: ssKey(a), children: label(a) }, ssKey(a))) })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 6 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "+ DESTINATION ADDRESS (required)" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          value: destination,
+          onChange: (e) => {
+            setDestination(e.target.value);
+            setDestTouched(true);
+          },
+          placeholder: `Paste your ${to.label} address`,
+          style: inputStyle$1
+        }
+      ),
+      !destTouched && destination ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "✓ auto-filled from your wallet" }) : null
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 16, display: "flex", flexDirection: "column", gap: 6 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.04em" }, children: "+ REFUND ADDRESS (recommended)" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          value: refund,
+          onChange: (e) => {
+            setRefund(e.target.value);
+            setRefundTouched(true);
+          },
+          placeholder: `Your ${from.label} address`,
+          style: inputStyle$1
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Used if the exchange fails" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "var(--text-muted)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: "Rate type" }),
+      ["floating", "fixed"].map((rt) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          onClick: () => setRateType(rt),
+          style: { padding: "4px 12px", borderRadius: 99, fontSize: 11, fontWeight: 600, cursor: "pointer", border: `1px solid ${rateType === rt ? "var(--border-active)" : "var(--border)"}`, background: rateType === rt ? "var(--accent-dim)" : "transparent", color: rateType === rt ? "var(--accent)" : "var(--text-muted)", textTransform: "capitalize" },
+          children: [
+            rt,
+            rt === "fixed" ? " (20m)" : ""
+          ]
+        },
+        rt
+      ))
+    ] }),
+    (estError || createError) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "var(--radius-sm)", padding: "10px 14px", fontSize: 12, color: "#fca5a5" }, children: createError || estError }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "button",
+      {
+        type: "button",
+        onClick: create,
+        disabled: !canExchange,
+        style: { padding: "13px", borderRadius: "var(--radius-sm)", border: "none", fontSize: 14, fontWeight: 700, cursor: canExchange ? "pointer" : "not-allowed", background: canExchange ? "var(--accent)" : "var(--border)", color: canExchange ? "#0d0d0d" : "var(--text-muted)" },
+        children: creating ? "Creating exchange…" : belowMin ? `Minimum ${range.min} ${from.label}` : aboveMax ? `Maximum ${range.max} ${from.label}` : !destination ? "Enter destination address" : "Get Exchange"
+      }
+    )
+  ] });
+}
+function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
+  const [mode, setMode] = reactExports.useState("dex");
+  const [epoch, setEpoch] = reactExports.useState(0);
+  const switchMode = (m2) => {
+    if (m2 !== mode) {
+      setMode(m2);
+      setEpoch((e) => e + 1);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "page fade-in", style: { gap: 0, padding: 0, overflow: "hidden", display: hidden ? "none" : "flex" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "16px 16px 12px", flexShrink: 0, borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h1", { className: "page-title", style: { fontSize: 18 }, children: "Swap" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 }, children: mode === "dex" ? "On-chain swaps, best-price aggregated" : "Cross-chain exchange via SimpleSwap" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        HeaderToolbar,
+        {
+          onWcOpen,
+          wcActiveSessions,
+          wcPending,
+          onProfile,
+          onSettings
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", overflowX: "hidden", padding: "14px 16px 18px", display: "flex", justifyContent: "center" }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }, children: [
+      mode === "dex" ? /* @__PURE__ */ jsxRuntimeExports.jsx(DexSwapWidget, { addresses, active: !hidden }, `dex-${epoch}`) : /* @__PURE__ */ jsxRuntimeExports.jsx(SimpleSwapWidget, { addresses, active: !hidden }, `ss-${epoch}`),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(SwapModeToggle, { mode, onChange: switchMode })
+    ] }) })
+  ] });
+}
+const APP_HUB = {
+  "chains": [
+    {
+      "id": "abstract",
+      "label": "Abstract"
+    },
+    {
+      "id": "apechain",
+      "label": "ApeChain"
+    },
+    {
+      "id": "arbitrum",
+      "label": "Arbitrum"
+    },
+    {
+      "id": "avalanche",
+      "label": "Avalanche"
+    },
+    {
+      "id": "base",
+      "label": "Base"
+    },
+    {
+      "id": "blast",
+      "label": "Blast"
+    },
+    {
+      "id": "cardano",
+      "label": "Cardano"
+    },
+    {
+      "id": "ethereum",
+      "label": "Ethereum"
+    },
+    {
+      "id": "gnosis",
+      "label": "Gnosis"
+    },
+    {
+      "id": "hype",
+      "label": "HyperLiquid"
+    },
+    {
+      "id": "monad",
+      "label": "Monad"
+    },
+    {
+      "id": "optimism",
+      "label": "Optimism"
+    },
+    {
+      "id": "polygon",
+      "label": "Polygon"
+    },
+    {
+      "id": "ronin",
+      "label": "Ronin"
+    },
+    {
+      "id": "solana",
+      "label": "Solana"
+    },
+    {
+      "id": "soneium",
+      "label": "Soneium"
+    },
+    {
+      "id": "worldchain",
+      "label": "WorldChain"
+    },
+    {
+      "id": "zora",
+      "label": "Zora"
+    }
+  ],
+  "categories": [
+    {
+      "name": "Bridge / Interoperability",
+      "short": "Bridge",
+      "count": 19
+    },
+    {
+      "name": "DeFi",
+      "short": "DeFi",
+      "count": 38
+    },
+    {
+      "name": "DEX",
+      "short": "DEX",
+      "count": 40
+    },
+    {
+      "name": "Gaming",
+      "short": "Gaming",
+      "count": 53
+    },
+    {
+      "name": "Launchpad",
+      "short": "Launchpad",
+      "count": 7
+    },
+    {
+      "name": "Meme",
+      "short": "Meme",
+      "count": 6
+    },
+    {
+      "name": "NFT Marketplace",
+      "short": "NFT",
+      "count": 25
+    },
+    {
+      "name": "Portfolio & Analytics",
+      "short": "Portfolio",
+      "count": 30
+    },
+    {
+      "name": "Perps & Prediction Markets",
+      "short": "Prediction",
+      "count": 12
+    },
+    {
+      "name": "Wallet",
+      "short": "Wallet",
+      "count": 22
+    }
+  ],
+  "apps": [
+    {
+      "id": "across-protocol",
+      "name": "Across Protocol",
+      "website": "https://across.to",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=across.to&sz=64",
+      "description": "Description here.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "axelar",
+      "name": "Axelar",
+      "website": "https://axelar.network",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=axelar.network&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "bungee",
+      "name": "Bungee",
+      "website": "https://bungee.exchange",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bungee.exchange&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "celer-network",
+      "name": "Celer Network",
+      "website": "https://celer.network",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=celer.network&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "chainport",
+      "name": "Chainport",
+      "website": "https://chainport.io",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "cardano",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=chainport.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "debridge",
+      "name": "deBridge",
+      "website": "https://debridge.finance",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=debridge.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "everclear",
+      "name": "Everclear",
+      "website": "https://everclear.org",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=connext.network&sz=128",
+      "description": "Description here.",
+      "chainCount": 10,
+      "coverage": 56
+    },
+    {
+      "id": "hop-protocol",
+      "name": "Hop Protocol",
+      "website": "https://hop.exchange",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hop.exchange&sz=128",
+      "description": "Description here.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "layerzero",
+      "name": "LayerZero",
+      "website": "https://layerzero.network",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=layerzero.network&sz=64",
+      "description": "Description here.",
+      "chainCount": 17,
+      "coverage": 94
+    },
+    {
+      "id": "lifi",
+      "name": "LiFi",
+      "website": "https://li.fi",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=li.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "orbiter-finance",
+      "name": "Orbiter Finance",
+      "website": "https://orbiter.finance",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "abstract",
+        "arbitrum",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "soneium",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=orbiter.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "owlto-finance",
+      "name": "Owlto Finance",
+      "website": "https://owlto.finance",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "soneium",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=owlto.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "relay",
+      "name": "Relay",
+      "website": "https://relay.link",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=relay.link&sz=64",
+      "description": "Description here.",
+      "chainCount": 18,
+      "coverage": 100
+    },
+    {
+      "id": "stargate-finance",
+      "name": "Stargate Finance",
+      "website": "https://stargate.finance",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=stargate.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "symbiosis-finance",
+      "name": "Symbiosis Finance",
+      "website": "https://symbiosis.finance",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "ronin",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=symbiosis.finance&sz=128",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "synapse",
+      "name": "Synapse",
+      "website": "https://synapseprotocol.com",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=synapseprotocol.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "thorchain",
+      "name": "Thorchain",
+      "website": "https://thorchain.org",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=thorchain.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 18,
+      "coverage": 100
+    },
+    {
+      "id": "wanbridge",
+      "name": "WanBridge",
+      "website": "https://wanchain.org",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wanchain.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "wormhole",
+      "name": "Wormhole",
+      "website": "https://wormhole.com",
+      "category": "Bridge / Interoperability",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wormhole.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 11,
+      "coverage": 61
+    },
+    {
+      "id": "aave",
+      "name": "Aave",
+      "website": "https://aave.com",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aave.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "aerodrome",
+      "name": "Aerodrome",
+      "website": "https://aerodrome.finance/",
+      "category": "DeFi",
+      "chains": [
+        "base"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aerodrome.finance&sz=128",
+      "description": "The central liquidity hub and primary decentralized exchange (DEX) on the Base network, utilizing a ve(3,3) tokenomics model to incentivize deep liquidity for token swaps.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "alchemix",
+      "name": "Alchemix",
+      "website": "https://alchemix.fi",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=alchemix.fi&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "compound",
+      "name": "Compound",
+      "website": "https://compound.finance",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=compound.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "convex-finance",
+      "name": "Convex Finance",
+      "website": "https://convexfinance.com",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=convexfinance.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "curvance",
+      "name": "Curvance",
+      "website": "https://app.curvance.com/",
+      "category": "DeFi",
+      "chains": [
+        "monad",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=curvance.com&sz=128",
+      "description": "An omnichain money market and liquidity management protocol that enables users to collateralize yield-bearing assets, leverage positions, and auto-compound rewards through a simplified, one-click interface.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "dydx",
+      "name": "dYdX",
+      "website": "https://dydx.exchange",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dydx.exchange&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "eigenlayer",
+      "name": "EigenLayer",
+      "website": "https://eigenlayer.xyz",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=eigenlayer.xyz&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ens",
+      "name": "ENS",
+      "website": "https://ens.domains",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ens.domains&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "francium",
+      "name": "Francium",
+      "website": "https://francium.io",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=francium.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "frax-finance",
+      "name": "Frax Finance",
+      "website": "https://frax.finance",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=frax.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 4,
+      "coverage": 22
+    },
+    {
+      "id": "gmx",
+      "name": "GMX",
+      "website": "https://gmx.io",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "avalanche"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gmx.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "hubble-protocol",
+      "name": "Hubble Protocol",
+      "website": "https://hubbleprotocol.io",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hubbleprotocol.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "indigo-protocol",
+      "name": "Indigo Protocol",
+      "website": "https://indigoprotocol.io",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=indigoprotocol.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "instadapp",
+      "name": "InstaDapp",
+      "website": "https://instadapp.io",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=instadapp.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "jito",
+      "name": "Jito",
+      "website": "https://jito.network",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jito.network&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kamino-finance",
+      "name": "Kamino Finance",
+      "website": "https://kamino.finance",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kamino.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lenfi",
+      "name": "Lenfi",
+      "website": "https://lenfi.io",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lenfi.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lido",
+      "name": "Lido",
+      "website": "https://lido.fi",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lido.fi&sz=128",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "liquity",
+      "name": "Liquity",
+      "website": "https://liquity.org",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=liquity.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "liqwid-finance",
+      "name": "Liqwid Finance",
+      "website": "https://liqwid.finance",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=liqwid.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "makerdao",
+      "name": "MakerDAO",
+      "website": "https://makerdao.com",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=makerdao.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "mango-markets",
+      "name": "Mango Markets",
+      "website": "https://mango.markets",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=mango.markets&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "marginfi",
+      "name": "Marginfi",
+      "website": "https://marginfi.com",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=marginfi.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "morpho",
+      "name": "Morpho",
+      "website": "https://morpho.org",
+      "category": "DeFi",
+      "chains": [
+        "base",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=morpho.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "nexus-mutual",
+      "name": "Nexus Mutual",
+      "website": "https://nexusmutual.io",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nexusmutual.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "optim-finance",
+      "name": "Optim Finance",
+      "website": "https://optim.finance",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=optim.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pendle",
+      "name": "Pendle",
+      "website": "https://www.pendle.finance/",
+      "category": "DeFi",
+      "chains": [
+        "ethereum",
+        "monad",
+        "optimism",
+        "hype",
+        "base",
+        "arbitrum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pendle.finance&sz=64",
+      "description": "A yield-trading protocol that allows users to tokenize and trade future yield, enhancing capital efficiency across multiple ecosystems as shown in image_15e6be.png.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "ribbon-finance",
+      "name": "Ribbon Finance",
+      "website": "https://ribbon.finance",
+      "category": "DeFi",
+      "chains": [
+        "avalanche",
+        "ethereum",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ribbon.finance&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "rocket-pool",
+      "name": "Rocket Pool",
+      "website": "https://rocketpool.net",
+      "category": "DeFi",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rocketpool.net&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sanctum",
+      "name": "Sanctum",
+      "website": "https://sanctum.so",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sanctum.so&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "solend",
+      "name": "Solend",
+      "website": "https://solend.fi",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=solend.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "spark-protocol",
+      "name": "Spark Protocol",
+      "website": "https://spark.fi",
+      "category": "DeFi",
+      "chains": [
+        "ethereum",
+        "gnosis"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=spark.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "synthetix",
+      "name": "Synthetix",
+      "website": "https://synthetix.io",
+      "category": "DeFi",
+      "chains": [
+        "base",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=synthetix.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "tulip-protocol",
+      "name": "Tulip Protocol",
+      "website": "https://tulip.garden",
+      "category": "DeFi",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=tulip.garden&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "yearn-finance",
+      "name": "Yearn Finance",
+      "website": "https://yearn.fi",
+      "category": "DeFi",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=yearn.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "fluidtokens",
+      "name": "FluidTokens",
+      "website": "https://fluidtokens.com",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=fluidtokens.com&sz=64",
+      "description": "An NFT-DeFi bridge on Cardano enabling users to borrow liquidity against NFT collateral or earn yield by providing loans backed by digital assets.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "genius-yield",
+      "name": "Genius Yield",
+      "website": "https://www.geniusyield.co",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=geniusyield.co&sz=64",
+      "description": "An all-in-one DeFi platform on Cardano combining a concentrated liquidity DEX with an AI-powered automated yield optimizer.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "1inch-network",
+      "name": "1inch Network",
+      "website": "https://1inch.io",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=1inch.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "aborean-finance",
+      "name": "Aborean Finance",
+      "website": "https://aborean.finance",
+      "category": "DEX",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aborean.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ambient",
+      "name": "Ambient",
+      "website": "https://ambient.finance",
+      "category": "DEX",
+      "chains": [
+        "base",
+        "blast",
+        "ethereum",
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ambient.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 4,
+      "coverage": 22
+    },
+    {
+      "id": "balancer",
+      "name": "Balancer",
+      "website": "https://balancer.fi",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=balancer.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "bancor",
+      "name": "Bancor",
+      "website": "https://bancor.network",
+      "category": "DEX",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bancor.network&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "blue-protocol",
+      "name": "BLUE Protocol",
+      "website": "https://gblue.xyz",
+      "category": "DEX",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gblue.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crema-finance",
+      "name": "Crema Finance",
+      "website": "https://crema.finance",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crema.finance&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "curve-finance",
+      "name": "Curve Finance",
+      "website": "https://curve.fi",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=curve.fi&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "dexhunter",
+      "name": "DexHunter",
+      "website": "https://dexhunter.io",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dexhunter.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "drift-protocol",
+      "name": "Drift Protocol",
+      "website": "https://drift.trade",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=drift.trade&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "jumper-exchange",
+      "name": "Jumper Exchange",
+      "website": "https://jumper.exchange",
+      "category": "DEX",
+      "chains": [
+        "abstract",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jumper.exchange&sz=64",
+      "description": "Description here.",
+      "chainCount": 10,
+      "coverage": 56
+    },
+    {
+      "id": "jupiter",
+      "name": "Jupiter",
+      "website": "https://jup.ag",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jup.ag&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kona",
+      "name": "Kona",
+      "website": "https://app.kona.surf",
+      "category": "DEX",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.kona.surf&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kyberswap",
+      "name": "KyberSwap",
+      "website": "https://kyberswap.com",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "monad",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kyberswap.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "lfj-trader-joe",
+      "name": "LFJ (Trader Joe)",
+      "website": "https://lfj.gg",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lfj.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "lifinity",
+      "name": "Lifinity",
+      "website": "https://lifinity.io",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lifinity.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "loopring",
+      "name": "Loopring",
+      "website": "https://loopring.org",
+      "category": "DEX",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=loopring.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lyra",
+      "name": "Lyra",
+      "website": "https://lyra.finance",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lyra.finance&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "matcha",
+      "name": "Matcha",
+      "website": "https://matcha.xyz",
+      "category": "DEX",
+      "chains": [
+        "abstract",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "monad",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=matcha.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "meteora",
+      "name": "Meteora",
+      "website": "https://meteora.ag",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=meteora.ag&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "minswap",
+      "name": "Minswap",
+      "website": "https://minswap.org",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=minswap.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "odos",
+      "name": "Odos",
+      "website": "https://odos.xyz",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=odos.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "openbook",
+      "name": "OpenBook",
+      "website": "https://openbook-dex.com",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=openbook-dex.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "openocean",
+      "name": "OpenOcean",
+      "website": "https://openocean.finance",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=openocean.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "orca",
+      "name": "Orca",
+      "website": "https://orca.so",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=orca.so&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pancakeswap",
+      "name": "PancakeSwap",
+      "website": "https://pancakeswap.finance",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "monad",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pancakeswap.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "pandora-swap",
+      "name": "Pandora Swap",
+      "website": "https://pandora.fun",
+      "category": "DEX",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://abs.xyz/imagetransform/width=100,format=webp/https%3A%2F%2Fabstract-portal-metadata-prod.s3.amazonaws.com%2F7d15d15e-a70a-4c73-9e3e-1f1288233317.png",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "paraswap",
+      "name": "Paraswap",
+      "website": "https://paraswap.io",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=paraswap.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "phoenix",
+      "name": "Phoenix",
+      "website": "https://phoenix.trade",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "raydium",
+      "name": "Raydium",
+      "website": "https://raydium.io",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=raydium.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sakura-swap",
+      "name": "Sakura Swap",
+      "website": "https://sakuraswap.com",
+      "category": "DEX",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sakuraswap.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sundaeswap",
+      "name": "SundaeSwap",
+      "website": "https://sundaeswap.finance",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sundaeswap.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sushiswap",
+      "name": "SushiSwap",
+      "website": "https://sushi.com",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sushi.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "uniswap",
+      "name": "Uniswap",
+      "website": "https://uniswap.org",
+      "category": "DEX",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "monad",
+        "optimism",
+        "polygon",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=uniswap.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 10,
+      "coverage": 56
+    },
+    {
+      "id": "vyfinance",
+      "name": "VyFinance",
+      "website": "https://vyfi.org",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vyfi.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "wingriders",
+      "name": "WingRiders",
+      "website": "https://wingriders.com",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wingriders.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "zeta-markets",
+      "name": "Zeta Markets",
+      "website": "https://zeta.markets",
+      "category": "DEX",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=zeta.markets&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cswap-dex",
+      "name": "CSWAP DEX",
+      "website": "https://www.cswap.info",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cswap.info&sz=64",
+      "description": "A progressive DEX for the Cardano ecosystem merging next-generation DEX capabilities with NFTfi.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "muesliswap",
+      "name": "MuesliSwap",
+      "website": "https://ada.muesliswap.com",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=muesliswap.com&sz=64",
+      "description": "A live and operating DEX on Cardano based on a research-driven order book protocol tailored for Cardano's UTxO model.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "splash",
+      "name": "Splash",
+      "website": "https://splash.trade",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=splash.trade&sz=64",
+      "description": "A decentralized exchange on Cardano by Spectrum Labs featuring concentrated liquidity and efficient on-chain order matching.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "anichess",
+      "name": "Anichess",
+      "website": "https://anichess.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=anichess.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "aurory",
+      "name": "Aurory",
+      "website": "https://aurory.io",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aurory.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "axie-infinity",
+      "name": "Axie Infinity",
+      "website": "https://axieinfinity.com",
+      "category": "Gaming",
+      "chains": [
+        "ethereum",
+        "ronin"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=axieinfinity.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "bigcoin",
+      "name": "Bigcoin",
+      "website": "https://bigcoin.tech",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bigcoin.tech&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "breath-of-estova",
+      "name": "Breath of Estova",
+      "website": "https://breathofestova.com/",
+      "category": "Gaming",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=breathofestova.com&sz=128",
+      "description": "A 2D top-down MMORPG built on the Monad network featuring play-to-earn mechanics, real-time action combat, and a player-driven economy.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cambria",
+      "name": "Cambria",
+      "website": "https://cambria.gg",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cambria.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "captain-company",
+      "name": "Captain & Company",
+      "website": "https://capnco.gg",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=capnco.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "caves-dig-dash",
+      "name": "Caves: Dig & Dash",
+      "website": "https://caves.wolf.game",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=caves.wolf.game&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "decentraland",
+      "name": "Decentraland",
+      "website": "https://decentraland.org",
+      "category": "Gaming",
+      "chains": [
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=decentraland.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "defi-land",
+      "name": "DeFi Land",
+      "website": "https://defiland.app",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=defiland.app&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "duper",
+      "name": "Duper",
+      "website": "https://duper.gg",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=duper.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ev.io",
+      "name": "Ev.io",
+      "website": "https://ev.io",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ev.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gala-games",
+      "name": "Gala Games",
+      "website": "https://gala.com",
+      "category": "Gaming",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gala.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "genopets",
+      "name": "Genopets",
+      "website": "https://genopets.me",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=genopets.me&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gigachadbat",
+      "name": "GIGACHADBAT",
+      "website": "https://gigachadbat.fun",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gigachadbat.fun&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gigaverse",
+      "name": "Gigaverse",
+      "website": "https://gigaverse.io",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gigaverse.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gods-unchained",
+      "name": "Gods Unchained",
+      "website": "https://godsunchained.com",
+      "category": "Gaming",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=godsunchained.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "illuvium",
+      "name": "Illuvium",
+      "website": "https://illuvium.io",
+      "category": "Gaming",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=illuvium.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "khuga-bash",
+      "name": "Khuga Bash",
+      "website": "https://portal.khuga.io",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=portal.khuga.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kintara",
+      "name": "Kintara",
+      "website": "https://kintara.gg/",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kintara.gg&sz=128",
+      "description": "A browser-based isometric massively multiplayer online (MMO) game where players gather resources, battle monsters, and trade on the Solana blockchain.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lingo",
+      "name": "Lingo",
+      "website": "https://witty.game",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=witty.game&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "maze-of-gains",
+      "name": "Maze of Gains",
+      "website": "https://playmog.xyz",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=playmog.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "moody-madness",
+      "name": "Moody Madness",
+      "website": "https://moodymadness.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=moodymadness.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nifty-island",
+      "name": "Nifty Island",
+      "website": "https://niftyisland.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=niftyisland.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "onchain-heroes",
+      "name": "Onchain Heroes",
+      "website": "https://onchainheroes.xyz",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=onchainheroes.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pangu-clash",
+      "name": "Pangu Clash",
+      "website": "https://panguclash.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=panguclash.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pengu-clash",
+      "name": "Pengu Clash",
+      "website": "https://penguclash.io",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=penguclash.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "penguin-life",
+      "name": "Penguin Life",
+      "website": "https://penguinlife.playember.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=penguinlife.playember.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "plooshy-island",
+      "name": "Plooshy Island",
+      "website": "https://http://island.theplooshies.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=http://island.theplooshies.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "plooshy-pile-up",
+      "name": "Plooshy Pile Up",
+      "website": "https://pileup.theplooshies.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pileup.theplooshies.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "polar-pair-up",
+      "name": "Polar Pair-Up",
+      "website": "https://polarpairup.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=polarpairup.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "promotion-royale",
+      "name": "Promotion Royale",
+      "website": "https://play.promotionroyale.gg",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=play.promotionroyale.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "proof-of-play-arcade",
+      "name": "Proof of Play Arcade",
+      "website": "https://proofofplay.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=proofofplay.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pudgy-world",
+      "name": "Pudgy World",
+      "website": "https://pudgyworld.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pudgyworld.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "rugpull-bakery",
+      "name": "Rugpull Bakery",
+      "website": "https://rugpullbakery.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rugpullbakery.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ruyui-roots-of-embervault",
+      "name": "Ruyui: Roots of Embervault",
+      "website": "https://embervault.ruyui.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=embervault.ruyui.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sappy-seals",
+      "name": "Sappy Seals",
+      "website": "https://sappyseals.io",
+      "category": "Gaming",
+      "chains": [
+        "ethereum",
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sappyseals.io&sz=64",
+      "description": "Iconic Ethereum NFT collection and community hub.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "sorare",
+      "name": "Sorare",
+      "website": "https://sorare.com",
+      "category": "Gaming",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sorare.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "spellborne",
+      "name": "Spellborne",
+      "website": "https://spellborne.gg",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=spellborne.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "star-atlas",
+      "name": "Star Atlas",
+      "website": "https://staratlas.com",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=staratlas.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "stepn",
+      "name": "STEPN",
+      "website": "https://stepn.com",
+      "category": "Gaming",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=stepn.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sugartown",
+      "name": "Sugartown",
+      "website": "https://sugar.town",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sugar.town&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "supertripland",
+      "name": "SuperTripLand",
+      "website": "https://supertripland.com",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=supertripland.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "the-sandbox",
+      "name": "The Sandbox",
+      "website": "https://sandbox.game",
+      "category": "Gaming",
+      "chains": [
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sandbox.game&sz=128",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "tollan-universe",
+      "name": "Tollan Universe",
+      "website": "https://hub.tollan.io",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hub.tollan.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "trivia-rush",
+      "name": "Trivia Rush",
+      "website": "https://triviarush.fun",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=triviarush.fun&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "unchained",
+      "name": "Unchained",
+      "website": "https://unchained.game",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=unchained.game&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vibes-tcg",
+      "name": "Vibes TCG",
+      "website": "https://vibes.game",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vibes.game&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "waifu-sweeper",
+      "name": "Waifu Sweeper",
+      "website": "https://waifusweeper.fun",
+      "category": "Gaming",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=waifusweeper.fun&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "yield-guild-games",
+      "name": "Yield Guild Games",
+      "website": "https://yieldguild.io",
+      "category": "Gaming",
+      "chains": [
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=yieldguild.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "otherside",
+      "name": "Otherside",
+      "website": "https://www.otherside.xyz/",
+      "category": "Gaming",
+      "chains": [
+        "apechain"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=otherside.xyz&sz=128",
+      "description": "A gamified, interoperable metaverse and metaRPG by Yuga Labs, featuring multiplayer social spaces, NFT-linked ownership, and user-created worlds on ApeChain.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "blitz-tcg",
+      "name": "Blitz TCG",
+      "website": "https://blitztcg.com",
+      "category": "Gaming",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=blitztcg.com&sz=64",
+      "description": "A competitive blockchain-based trading card game on Cardano where players own their cards as NFTs and participate in player-governed tournaments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cornucopias",
+      "name": "Cornucopias",
+      "website": "https://cornucopias.io",
+      "category": "Gaming",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cornucopias.io&sz=64",
+      "description": "A massive Play-To-Earn Cardano blockchain-based game set in a vibrant metaverse where players can own land, build, and earn through gameplay.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "build-anything",
+      "name": "Build Anything",
+      "website": "https://buildanything.so/",
+      "category": "Launchpad",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=buildanything.so&sz=128",
+      "description": "An AI-powered development platform and educational curriculum focused on helping creators build, ship, and launch applications on the Monad network.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "chog-fun",
+      "name": "Chog.Fun",
+      "website": "https://www.chog.fun/",
+      "category": "Launchpad",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=chog.fun&sz=128",
+      "description": "A community-focused launchpad and platform for meme tokens and cultural projects within the Monad ecosystem, centered around the Chog mascot.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "moonit",
+      "name": "Moonit",
+      "website": "https://abstract.moon.it",
+      "category": "Launchpad",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=abstract.moon.it&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "snek-fun",
+      "name": "snek.fun",
+      "website": "https://snek.fun/",
+      "category": "Launchpad",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=snek.fun&sz=64",
+      "description": "A fair-launch memecoin launchpad on the Cardano blockchain with built-in liquidity protection and token instant-creation mechanics.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nad-fun",
+      "name": "nad.fun",
+      "website": "https://nad.fun",
+      "category": "Launchpad",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nad.fun&sz=64",
+      "description": "Memecoin launchpad platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pump-fun",
+      "name": "pump.fun",
+      "website": "https://pump.fun",
+      "category": "Launchpad",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pump.fun&sz=64",
+      "description": "Memecoin launchpad platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "coinecta-finance",
+      "name": "Coinecta Finance",
+      "website": "https://coinecta.fi",
+      "category": "Launchpad",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=coinecta.fi&sz=64",
+      "description": "A next-generation token launch platform on Cardano connecting innovative blockchain projects with early supporters through transparent and fair launches.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "bob-monad",
+      "name": "Bob Monad",
+      "website": "https://bobmonad.com",
+      "category": "Meme",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bobmonad.com&sz=128",
+      "description": "Launchpad platform on Monad coming soon.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "emonad",
+      "name": "Emonad",
+      "website": "https://emonad.lol",
+      "category": "Meme",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=emonad.lol&sz=64",
+      "description": "I lost it all on day one.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "snek",
+      "name": "Snek",
+      "website": "https://snek.com",
+      "category": "Meme",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=snek.com&sz=64",
+      "description": "The premier culture and community-driven memecoin asset native to the Cardano blockchain ecosystem.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "chog",
+      "name": "Chog",
+      "website": "https://www.chog.xyz/",
+      "category": "Meme",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=chog.xyz&sz=128",
+      "description": "A community-driven meme project native to the Monad ecosystem.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "iqlabs",
+      "name": "IQLabs",
+      "website": "https://iqlabs.dev",
+      "category": "Meme",
+      "chains": [
+        "ethereum",
+        "monad",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=iqlabs.dev&sz=64",
+      "description": "IQLabs is a inscription platform that seeks build the blockchain internet through inscribing immutable data to blockchains.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "hosky-token",
+      "name": "Hosky Token",
+      "website": "https://hosky.io",
+      "category": "Meme",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hosky.io&sz=64",
+      "description": "The premiere low-quality meme token on the Cardano ecosystem, embracing its own absurdity as a community-driven cultural experiment.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "abstract-global-wallet",
+      "name": "Abstract Global Wallet",
+      "website": "https://portal.abs.xyz/",
+      "category": "Wallet",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=abs.xyz&sz=128",
+      "description": "A cross-application smart contract wallet powering the Abstract ecosystem, utilizing native account abstraction to allow users to sign up via familiar methods like email, social accounts, and passkeys.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "backpack-wallet",
+      "name": "Backpack Wallet",
+      "website": "https://backpack.app",
+      "category": "Wallet",
+      "chains": [
+        "base",
+        "ethereum",
+        "monad",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=backpack.app&sz=64",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "coinbase-wallet",
+      "name": "Coinbase Wallet",
+      "website": "https://coinbase.com/wallet",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=coinbase.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "eternl",
+      "name": "Eternl",
+      "website": "https://eternl.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=eternl.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "exodus",
+      "name": "Exodus",
+      "website": "https://exodus.com",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=exodus.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "flint-wallet",
+      "name": "Flint Wallet",
+      "website": "https://flint-wallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano",
+        "ethereum",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=flint-wallet.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "lace",
+      "name": "Lace",
+      "website": "https://lace.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lace.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "metamask",
+      "name": "MetaMask",
+      "website": "https://metamask.io",
+      "category": "Wallet",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=metamask.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 15,
+      "coverage": 83
+    },
+    {
+      "id": "nami-wallet",
+      "name": "Nami Wallet",
+      "website": "https://namiwallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=namiwallet.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "phantom",
+      "name": "Phantom",
+      "website": "https://phantom.app",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=phantom.app&sz=64",
+      "description": "Description here.",
+      "chainCount": 6,
+      "coverage": 33
+    },
+    {
+      "id": "rabby-wallet",
+      "name": "Rabby Wallet",
+      "website": "https://rabby.io",
+      "category": "Wallet",
+      "chains": [
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rabby.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 12,
+      "coverage": 67
+    },
+    {
+      "id": "rainbow-wallet",
+      "name": "Rainbow Wallet",
+      "website": "https://rainbow.me",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rainbow.me&sz=64",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "safe",
+      "name": "Safe",
+      "website": "https://safe.global",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=safe.global&sz=128",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "trust-wallet",
+      "name": "Trust Wallet",
+      "website": "https://trustwallet.com",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=trustwallet.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 10,
+      "coverage": 56
+    },
+    {
+      "id": "vespr",
+      "name": "Vespr",
+      "website": "https://vespr.xyz",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vespr.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "xdefi-ctrl-wallet",
+      "name": "XDEFI / Ctrl Wallet",
+      "website": "https://ctrl.xyz",
+      "category": "Wallet",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ctrl.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "yoroi-wallet",
+      "name": "Yoroi Wallet",
+      "website": "https://yoroi-wallet.com",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=yoroi-wallet.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "begin-wallet",
+      "name": "Begin Wallet",
+      "website": "https://begin.is",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=begin.is&sz=64",
+      "description": "A next-generation Cardano wallet designed to bring users into the new era of finance with a clean, modern interface and full DeFi integration.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "daedalus-wallet",
+      "name": "Daedalus Wallet",
+      "website": "https://daedaluswallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=daedaluswallet.io&sz=64",
+      "description": "The official open-source full-node desktop wallet for Cardano, built by IOG to grow with the Cardano blockchain.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gamechanger-wallet",
+      "name": "GameChanger Wallet",
+      "website": "https://gamechanger.finance",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gamechanger.finance&sz=64",
+      "description": "A web-based Cardano wallet with native NFT and token features, designed for developers and users exploring on-chain scripting and dApp interactions.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nufi-wallet",
+      "name": "NuFi",
+      "website": "https://nu.fi",
+      "category": "Wallet",
+      "chains": [
+        "cardano",
+        "solana",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nu.fi&sz=64",
+      "description": "A non-custodial multi-chain wallet supporting staking on Cardano and other PoS blockchains with hardware wallet integration.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "typhon-wallet",
+      "name": "Typhon Wallet",
+      "website": "https://typhonwallet.io",
+      "category": "Wallet",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=typhonwallet.io&sz=64",
+      "description": "A blazing fast, feature-rich, and secure Cardano web and browser extension wallet with full dApp support and multi-account management.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "blever",
+      "name": "Blever",
+      "website": "https://blever.xyz",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=blever.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "wayup",
+      "name": "WayUp",
+      "website": "https://www.wayup.io/",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wayup.io&sz=64",
+      "description": "A specialized NFT marketplace and minting platform running natively on the Cardano blockchain infrastructure.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "blur",
+      "name": "Blur",
+      "website": "https://blur.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "base",
+        "blast",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=blur.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "book-io",
+      "name": "Book.io",
+      "website": "https://book.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano",
+        "ethereum",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=book.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 4,
+      "coverage": 22
+    },
+    {
+      "id": "dyli",
+      "name": "DYLI",
+      "website": "https://dyli.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dyli.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "element-market",
+      "name": "Element Market",
+      "website": "https://element.market",
+      "category": "NFT Marketplace",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=element.market&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "exchange.art",
+      "name": "Exchange.art",
+      "website": "https://exchange.art",
+      "category": "NFT Marketplace",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=exchange.art&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "foundation",
+      "name": "Foundation",
+      "website": "https://foundation.app",
+      "category": "NFT Marketplace",
+      "chains": [
+        "base",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=foundation.app&sz=128",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "hyperspace",
+      "name": "Hyperspace",
+      "website": "https://hyperspace.xyz",
+      "category": "NFT Marketplace",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hyperspace.xyz&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "jpg-store",
+      "name": "JPG Store",
+      "website": "https://jpg.store",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jpg.store&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "looksrare",
+      "name": "LooksRare",
+      "website": "https://looksrare.org",
+      "category": "NFT Marketplace",
+      "chains": [
+        "base",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=looksrare.org&sz=64",
+      "description": "Description here.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "magic-eden",
+      "name": "Magic Eden",
+      "website": "https://magiceden.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=magiceden.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "mintify",
+      "name": "Mintify",
+      "website": "https://mintify.xyz",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=mintify.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nmkr",
+      "name": "NMKR",
+      "website": "https://nmkr.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nmkr.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "opensea",
+      "name": "OpenSea",
+      "website": "https://opensea.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=opensea.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 10,
+      "coverage": 56
+    },
+    {
+      "id": "rarible",
+      "name": "Rarible",
+      "website": "https://rarible.com",
+      "category": "NFT Marketplace",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rarible.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 4,
+      "coverage": 22
+    },
+    {
+      "id": "scatter",
+      "name": "Scatter",
+      "website": "https://scatter.art",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=scatter.art&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "segmint",
+      "name": "SegMint",
+      "website": "https://segmint.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=segmint.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "solanart",
+      "name": "Solanart",
+      "website": "https://solanart.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=solanart.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "superrare",
+      "name": "SuperRare",
+      "website": "https://superrare.com",
+      "category": "NFT Marketplace",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=superrare.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "tensor",
+      "name": "Tensor",
+      "website": "https://tensor.trade",
+      "category": "NFT Marketplace",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=tensor.trade&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "x2y2",
+      "name": "X2Y2",
+      "website": "https://x2y2.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=x2y2.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crashr",
+      "name": "Crashr",
+      "website": "https://crashr.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crashr.io&sz=64",
+      "description": "A Cardano marketplace platform that empowers users and communities through NFT trading, raffles, and community voting mechanics.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dropspot",
+      "name": "Dropspot",
+      "website": "https://dropspot.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dropspot.io&sz=64",
+      "description": "A launchpad for creators and a marketplace for collectors on Cardano, welcoming artists globally to mint, list, and trade NFTs.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "jamonbread",
+      "name": "JamOnBread",
+      "website": "https://jamonbread.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=jamonbread.io&sz=64",
+      "description": "A user-friendly, fast, and decentralized Cardano NFT marketplace offering a revolutionary smart contract solution for digital collectibles.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "aragon",
+      "name": "Aragon",
+      "website": "https://aragon.org",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "base",
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aragon.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "bendingai",
+      "name": "BendingAI",
+      "website": "https://bending.ai/market",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bending.ai&sz=64",
+      "description": "A data-driven platform on Cardano providing advanced market analytics and portfolio tracking tools to monitor ecosystem trends.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "coinstats",
+      "name": "CoinStats",
+      "website": "https://coinstats.app",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=coinstats.app&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "dappradar",
+      "name": "DappRadar",
+      "website": "https://dappradar.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dappradar.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 12,
+      "coverage": 67
+    },
+    {
+      "id": "debank",
+      "name": "DeBank",
+      "website": "https://debank.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "ronin",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=debank.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 11,
+      "coverage": 61
+    },
+    {
+      "id": "defillama",
+      "name": "DefiLlama",
+      "website": "https://defillama.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=defillama.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 18,
+      "coverage": 100
+    },
+    {
+      "id": "depth-protocol",
+      "name": "DEPTH Protocol",
+      "website": "https://depthsoul.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=depthsoul.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dexscreener",
+      "name": "Dexscreener",
+      "website": "https://dexscreener.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dexscreener.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 14,
+      "coverage": 78
+    },
+    {
+      "id": "dialect",
+      "name": "Dialect",
+      "website": "https://dialect.to",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dialect.to&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dune-analytics",
+      "name": "Dune Analytics",
+      "website": "https://dune.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dune.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "etherscan",
+      "name": "Etherscan",
+      "website": "https://etherscan.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=etherscan.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ethos-network",
+      "name": "Ethos Network",
+      "website": "https://app.ethos.network/",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "base",
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ethos.network&sz=128",
+      "description": "A decentralized credibility protocol that uses on-chain reputation scores, reviews, and vouching mechanisms to foster trust and accountability within the Web3 ecosystem.",
+      "chainCount": 2,
+      "coverage": 11
+    },
+    {
+      "id": "farcaster",
+      "name": "Farcaster",
+      "website": "https://farcaster.xyz",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "base",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "geckoterminal",
+      "name": "GeckoTerminal",
+      "website": "https://geckoterminal.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=geckoterminal.com&sz=64",
+      "description": "Description here.",
+      "chainCount": 13,
+      "coverage": 72
+    },
+    {
+      "id": "gitcoin",
+      "name": "Gitcoin",
+      "website": "https://gitcoin.co",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "ethereum",
+        "optimism"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gitcoin.co&sz=128",
+      "description": "Description here.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "konnektr",
+      "name": "Konnektr",
+      "website": "https://konnektr.net/",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=konnektr.net&sz=64",
+      "description": "An open-source developer toolset and SDK for PostgreSQL/Apache AGE, providing graph database capabilities and integration libraries for C# and .NET environments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lens-protocol",
+      "name": "Lens Protocol",
+      "website": "https://lens.xyz",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lens.xyz&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lute",
+      "name": "Lute",
+      "website": "https://lute.gg",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "abstract"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lute.gg&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nansen",
+      "name": "Nansen",
+      "website": "https://nansen.ai",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nansen.ai&sz=128",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "pulsar-finance",
+      "name": "Pulsar Finance",
+      "website": "https://pulsar.finance",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pulsar.finance&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "pyth-network",
+      "name": "Pyth Network",
+      "website": "https://pyth.network",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "monad",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pyth.network&sz=128",
+      "description": "Description here.",
+      "chainCount": 8,
+      "coverage": 44
+    },
+    {
+      "id": "realms",
+      "name": "Realms",
+      "website": "https://realms.today",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=realms.today&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "snapshot",
+      "name": "Snapshot",
+      "website": "https://snapshot.org",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=snapshot.org&sz=128",
+      "description": "Description here.",
+      "chainCount": 5,
+      "coverage": 28
+    },
+    {
+      "id": "squads",
+      "name": "Squads",
+      "website": "https://squads.so",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=squads.so&sz=128",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "taptools",
+      "name": "TapTools",
+      "website": "https://taptools.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=taptools.io&sz=64",
+      "description": "Description here.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "token-terminal",
+      "name": "Token Terminal",
+      "website": "https://tokenterminal.com",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=tokenterminal.com&sz=128",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "zapper",
+      "name": "Zapper",
+      "website": "https://zapper.xyz",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "ethereum",
+        "gnosis",
+        "optimism",
+        "polygon",
+        "zora"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=zapper.xyz&sz=64",
+      "description": "Description here.",
+      "chainCount": 9,
+      "coverage": 50
+    },
+    {
+      "id": "zerion",
+      "name": "Zerion",
+      "website": "https://zerion.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "arbitrum",
+        "avalanche",
+        "base",
+        "ethereum",
+        "optimism",
+        "polygon",
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=zerion.io&sz=128",
+      "description": "Description here.",
+      "chainCount": 7,
+      "coverage": 39
+    },
+    {
+      "id": "cardanoscan",
+      "name": "CardanoScan",
+      "website": "https://cardanoscan.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardanoscan.io&sz=64",
+      "description": "A feature-rich blockchain explorer and analytics platform for Cardano, providing transaction tracking, stake pool data, and on-chain analytics.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cexplorer",
+      "name": "cexplorer.io",
+      "website": "https://cexplorer.io",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cexplorer.io&sz=64",
+      "description": "A comprehensive Cardano blockchain explorer offering rich data on transactions, blocks, stake pools, and native assets.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "atlas",
+      "name": "Atlas",
+      "website": "https://www.atlasdefi.org/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=atlasdefi.org&sz=128",
+      "description": "A privacy-focused yield tokenization protocol on Cardano that enables users to split yield-bearing assets into tradable Principal Tokens (PT) and Yield Tokens (YT).",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "bean",
+      "name": "Bean",
+      "website": "https://bean.exchange/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bean.exchange&sz=128",
+      "description": "A high-performance hybrid decentralized exchange on Monad featuring DLMM spot trading and perpetual futures with integrated privacy-preserving order execution.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crsh-market",
+      "name": "CRSH Market",
+      "website": "https://app.crshmarket.com/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crshmarket.com&sz=128",
+      "description": "A decentralized trading platform on Monad focusing on perpetuals and prediction markets, enabling high-efficiency derivative trading.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kizzy",
+      "name": "Kizzy",
+      "website": "https://app.kizzy.io/home",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kizzy.io&sz=128",
+      "description": "A social media betting platform on Monad that allows users to place real-money wagers on influencer content performance, including engagement metrics like views, likes, and follower growth.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "polymarket",
+      "name": "Polymarket",
+      "website": "https://polymarket.com/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "polygon",
+        "ethereum",
+        "solana",
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=polymarket.com&sz=64",
+      "description": "A leading decentralized prediction market platform allowing users to trade on real-world event outcomes using stablecoins.",
+      "chainCount": 4,
+      "coverage": 22
+    },
+    {
+      "id": "kalshi",
+      "name": "Kalshi",
+      "website": "https://kalshi.com/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "ethereum",
+        "solana",
+        "hype"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kalshi.com&sz=64",
+      "description": "A CFTC-regulated prediction market exchange for trading contracts on real-world events and economic indicators.",
+      "chainCount": 3,
+      "coverage": 17
+    },
+    {
+      "id": "ascend",
+      "name": "Ascend",
+      "website": "https://www.ascend.market/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ascend.market&sz=64",
+      "description": "A decentralized prediction and perpetual market protocol built natively on the Cardano blockchain.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "strike",
+      "name": "Strike",
+      "website": "https://www.strikefinance.org/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=strikefinance.org&sz=64",
+      "description": "A comprehensive decentralized platform on Cardano offering perpetual futures and prediction market capabilities.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "hyperfoundation",
+      "name": "Hype",
+      "website": "https://hyperfoundation.org/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "hype"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hyperfoundation.org&sz=64",
+      "description": "The non-profit foundation stewarding the Hyperliquid network, a high-performance L1 blockchain purpose-built for decentralized financial exchange.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "perpl",
+      "name": "Perpl",
+      "website": "https://app.perpl.xyz",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=perpl.xyz&sz=64",
+      "description": "A decentralized perpetual exchange built on Monad, focusing on high-speed trading and efficient capital utilization for various market pairs.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "bodega-market",
+      "name": "Bodega Market",
+      "website": "https://www.bodegacardano.org",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bodegacardano.org&sz=64",
+      "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "foreon-network",
+      "name": "Foreon Network",
+      "website": "https://foreon.network",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=foreon.network&sz=64",
+      "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets.",
+      "chainCount": 1,
+      "coverage": 6
+    }
+  ]
+};
+const ALL = "All";
+function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }) {
+  const [chainFilter, setChainFilter] = reactExports.useState(ALL);
+  const [categoryFilter, setCategoryFilter] = reactExports.useState(ALL);
+  const [search, setSearch] = reactExports.useState("");
+  const [openDropdown, setOpenDropdown] = reactExports.useState(null);
+  const filtered = reactExports.useMemo(() => {
+    const q2 = search.trim().toLowerCase();
+    return APP_HUB.apps.filter((app) => {
+      if (chainFilter !== ALL && !app.chains.includes(chainFilter)) return false;
+      if (categoryFilter !== ALL && app.category !== categoryFilter) return false;
+      if (q2 && !app.name.toLowerCase().includes(q2) && !app.website.toLowerCase().includes(q2)) return false;
+      return true;
+    });
+  }, [chainFilter, categoryFilter, search]);
+  const featured = filtered.filter((a) => a.featured);
+  const rest = filtered.filter((a) => !a.featured);
+  function openApp(url) {
+    var _a, _b;
+    if ((_b = (_a = globalThis.chrome) == null ? void 0 : _a.tabs) == null ? void 0 : _b.create) {
+      globalThis.chrome.tabs.create({ url });
+      return;
+    }
+    window.wallet.openBrowser();
+    setTimeout(() => window.wallet.browserNavigate(url), 400);
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-page", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-header", style: { justifyContent: "space-between", alignItems: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", gap: 8 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("h2", { className: "apphub-title", children: "App Hub" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "apphub-count", children: [
+          APP_HUB.apps.length,
+          " apps"
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        HeaderToolbar,
+        {
+          onWcOpen,
+          wcActiveSessions,
+          wcPending,
+          onProfile,
+          onSettings
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-search-wrap", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { className: "apphub-search-icon", width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "11", cy: "11", r: "8" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "21", y1: "21", x2: "16.65", y2: "16.65" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          className: "apphub-search",
+          type: "text",
+          placeholder: "Search apps…",
+          value: search,
+          onChange: (e) => setSearch(e.target.value),
+          spellCheck: false
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-filters-row", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        FilterDropdown,
+        {
+          label: "Category",
+          value: categoryFilter,
+          options: [
+            { value: ALL, label: "All Categories" },
+            ...APP_HUB.categories.map((c) => ({ value: c.name, label: c.short, count: c.count }))
+          ],
+          onChange: setCategoryFilter,
+          open: openDropdown === "category",
+          onToggle: () => setOpenDropdown((o) => o === "category" ? null : "category"),
+          onClose: () => setOpenDropdown(null)
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        FilterDropdown,
+        {
+          label: "Chain",
+          value: chainFilter,
+          options: [
+            { value: ALL, label: "All Chains" },
+            ...APP_HUB.chains.map((ch2) => ({ value: ch2.id, label: ch2.label }))
+          ],
+          onChange: setChainFilter,
+          open: openDropdown === "chain",
+          onToggle: () => setOpenDropdown((o) => o === "chain" ? null : "chain"),
+          onClose: () => setOpenDropdown(null)
+        }
+      )
+    ] }),
+    filtered.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-empty", children: "No apps match your filters" }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-scroll", children: [
+      featured.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "apphub-section-label", children: "Featured" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-grid", children: featured.map((app) => /* @__PURE__ */ jsxRuntimeExports.jsx(AppCard, { app, onOpen: openApp }, app.id)) })
+      ] }),
+      rest.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        featured.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "apphub-section-label", children: "All apps" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-grid", children: rest.map((app) => /* @__PURE__ */ jsxRuntimeExports.jsx(AppCard, { app, onOpen: openApp }, app.id)) })
+      ] })
+    ] })
+  ] });
+}
+function FilterDropdown({
+  label,
+  value,
+  options,
+  onChange,
+  open,
+  onToggle,
+  onClose
+}) {
+  const ref = reactExports.useRef(null);
+  reactExports.useEffect(() => {
+    if (!open) return;
+    function handle(e) {
+      if (ref.current && !ref.current.contains(e.target)) onClose();
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open, onClose]);
+  const selected = options.find((o) => o.value === value) ?? options[0];
+  const isFiltered = value !== options[0].value;
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-dropdown", ref, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        className: `apphub-dropdown-btn${isFiltered ? " active" : ""}`,
+        onClick: onToggle,
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-prefix", children: label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-value", children: selected.label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "svg",
+            {
+              className: `apphub-dropdown-caret${open ? " open" : ""}`,
+              width: "11",
+              height: "11",
+              fill: "none",
+              stroke: "currentColor",
+              strokeWidth: "2",
+              viewBox: "0 0 24 24",
+              children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "6 9 12 15 18 9" })
+            }
+          )
+        ]
+      }
+    ),
+    open && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-dropdown-menu", children: options.map((o) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        className: `apphub-dropdown-item${o.value === value ? " active" : ""}`,
+        onClick: () => {
+          onChange(o.value);
+          onClose();
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { children: o.label }),
+          o.count != null && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-dropdown-count", children: o.count })
+        ]
+      },
+      o.value
+    )) })
+  ] });
+}
+function AppCard({ app, onOpen }) {
+  const [imgErr, setImgErr] = reactExports.useState(false);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-card", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-card-top", children: [
+      imgErr || !app.favicon ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "apphub-favicon-fallback", children: app.name.charAt(0).toUpperCase() }) : /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "img",
+        {
+          className: "apphub-favicon",
+          src: app.favicon,
+          alt: app.name,
+          onError: () => setImgErr(true),
+          loading: "lazy"
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-card-info", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-card-name", children: app.name }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-card-category", children: app.category })
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "apphub-card-chains", children: [
+      app.chains.slice(0, 5).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "apphub-chain-badge", children: c }, c)),
+      app.chains.length > 5 && /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { className: "apphub-chain-badge muted", children: [
+        "+",
+        app.chains.length - 5
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "button",
+      {
+        className: "apphub-open-btn",
+        onClick: () => onOpen(app.website),
+        title: `Open ${app.website}`,
+        children: [
+          "Open",
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "10", height: "10", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { marginLeft: 4 }, children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "15 3 21 3 21 9" }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "10", y1: "14", x2: "21", y2: "3" })
+          ] })
+        ]
+      }
+    )
+  ] });
+}
+const CHAIN_LABELS = {
+  evm: "Ethereum/EVM",
+  solana: "Solana",
+  cardano: "Cardano",
+  bitcoin: "Bitcoin",
+  polkadot: "Polkadot"
+};
+const PROVIDER_LABELS = {
+  google: "Google",
+  discord: "Discord",
+  twitter: "Twitter",
+  github: "GitHub"
+};
+const PALETTE = ["#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#06b6d4", "#10b981"];
+function avatarColour(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = h * 31 + str.charCodeAt(i) | 0;
+  return PALETTE[Math.abs(h) % PALETTE.length];
+}
+function shortAddr(addr) {
+  return addr.length > 12 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+}
+function CopyBtn({ text }) {
+  const [copied, setCopied] = reactExports.useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(text).catch(() => {
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: copy, style: {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    color: copied ? "var(--accent)" : "var(--text-muted)",
+    padding: "2px 4px",
+    fontSize: 11,
+    borderRadius: 4,
+    flexShrink: 0
+  }, children: copied ? "✓" : "copy" });
+}
+function AvatarModal({
+  onClose,
+  onSave
+}) {
+  const [tab, setTab] = reactExports.useState("nft");
+  const [nfts, setNfts] = reactExports.useState([]);
+  const [loadingNfts, setLoadingNfts] = reactExports.useState(false);
+  const [uploading, setUploading] = reactExports.useState(false);
+  const [selected, setSelected] = reactExports.useState(null);
+  const [saving, setSaving] = reactExports.useState(false);
+  reactExports.useEffect(() => {
+    if (tab === "nft" && nfts.length === 0) {
+      setLoadingNfts(true);
+      window.wallet.getCollectibles().then((r2) => setNfts(r2.items.filter((n2) => !!n2.image))).catch(() => {
+      }).finally(() => setLoadingNfts(false));
+    }
+  }, [tab, nfts.length]);
+  const handleUpload = async () => {
+    setUploading(true);
+    try {
+      const dataUrl = await window.wallet.chainlensPickAvatar();
+      if (dataUrl) setSelected(dataUrl);
+    } finally {
+      setUploading(false);
+    }
+  };
+  const handleSave = async () => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      await window.wallet.chainlensUpdateProfile({ avatar_url: selected });
+      onSave(selected);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    background: "rgba(0,0,0,0.75)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }, onClick: (e) => {
+    if (e.target === e.currentTarget) onClose();
+  }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+    background: "var(--bg-card)",
+    borderRadius: 16,
+    border: "1px solid var(--border)",
+    width: 320,
+    maxHeight: 480,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    boxShadow: "0 16px 48px rgba(0,0,0,0.6)"
+  }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid var(--border)" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 14 }, children: "Change Profile Photo" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 18, lineHeight: 1 }, children: "×" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", borderBottom: "1px solid var(--border)" }, children: ["nft", "upload"].map((t2) => /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setTab(t2), style: {
+      flex: 1,
+      padding: "10px 0",
+      border: "none",
+      background: "none",
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: 700,
+      fontFamily: "var(--font-body)",
+      color: tab === t2 ? "var(--accent)" : "var(--text-muted)",
+      borderBottom: tab === t2 ? "2px solid var(--accent)" : "2px solid transparent"
+    }, children: t2 === "nft" ? "🖼 Use NFT" : "📁 Upload Photo" }, t2)) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflow: "auto", padding: 12 }, children: tab === "nft" ? loadingNfts ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", textAlign: "center", padding: 24, fontSize: 13 }, children: "Loading NFTs…" }) : nfts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", textAlign: "center", padding: 24, fontSize: 13 }, children: "No NFTs with images found" }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6 }, children: nfts.map((nft) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+      "div",
+      {
+        onClick: () => setSelected(nft.image),
+        style: {
+          aspectRatio: "1",
+          borderRadius: 8,
+          overflow: "hidden",
+          cursor: "pointer",
+          border: selected === nft.image ? "2px solid var(--accent)" : "2px solid transparent",
+          position: "relative",
+          background: "var(--bg-dark)"
+        },
+        children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: nft.image, alt: nft.name, style: { width: "100%", height: "100%", objectFit: "cover" } }),
+          selected === nft.image && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+            position: "absolute",
+            inset: 0,
+            background: "rgba(99,102,241,0.3)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20,
+            color: "white"
+          }, children: "✓" })
+        ]
+      },
+      nft.id
+    )) }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 16, padding: "24px 0" }, children: [
+      selected ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: selected, alt: "Preview", style: { width: 96, height: 96, borderRadius: "50%", objectFit: "cover", border: "3px solid var(--accent)" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 96, height: 96, borderRadius: "50%", background: "var(--bg-dark)", border: "2px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 32 }, children: "👤" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleUpload, disabled: uploading, style: {
+        padding: "10px 24px",
+        borderRadius: 10,
+        border: "1px solid var(--border)",
+        background: "var(--bg-dark)",
+        color: "var(--text)",
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: uploading ? "not-allowed" : "pointer",
+        fontFamily: "var(--font-body)"
+      }, children: uploading ? "Opening…" : "Choose File" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", fontSize: 11, textAlign: "center" }, children: "JPG, PNG, GIF, WebP supported" })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "12px 16px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "flex-end" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)", background: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 13, fontFamily: "var(--font-body)" }, children: "Cancel" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSave, disabled: !selected || saving, style: {
+        padding: "8px 16px",
+        borderRadius: 8,
+        border: "none",
+        background: selected ? "var(--accent)" : "var(--bg-dark)",
+        color: selected ? "white" : "var(--text-muted)",
+        cursor: selected && !saving ? "pointer" : "not-allowed",
+        fontSize: 13,
+        fontWeight: 700,
+        fontFamily: "var(--font-body)"
+      }, children: saving ? "Saving…" : "Save" })
+    ] })
+  ] }) });
+}
+function ProfilePage() {
+  var _a, _b;
+  const [profile, setProfile] = reactExports.useState(null);
+  const [loading, setLoading] = reactExports.useState(true);
+  const [syncing, setSyncing] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const [editingName, setEditingName] = reactExports.useState(false);
+  const [nameInput, setNameInput] = reactExports.useState("");
+  const [savingName, setSavingName] = reactExports.useState(false);
+  const [showAvatarModal, setShowAvatarModal] = reactExports.useState(false);
+  const loadProfile = reactExports.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const p2 = await window.wallet.chainlensGetProfile();
+      setProfile(p2);
+    } catch {
+      setError("Could not load profile");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+  reactExports.useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
+  const handleSync = async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      const result = await window.wallet.chainlensSync();
+      if (result.success) setProfile(result.profile);
+      else setError(result.error ?? "Sync failed");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSyncing(false);
+    }
+  };
+  const startEditName = () => {
+    setNameInput((profile == null ? void 0 : profile.display_name) ?? "");
+    setEditingName(true);
+  };
+  const saveName = async () => {
+    if (!nameInput.trim()) return;
+    setSavingName(true);
+    try {
+      const r2 = await window.wallet.chainlensUpdateProfile({ display_name: nameInput.trim() });
+      if (r2.success) {
+        setProfile((p2) => p2 ? { ...p2, display_name: nameInput.trim() } : p2);
+        setEditingName(false);
+      }
+    } finally {
+      setSavingName(false);
+    }
+  };
+  const handleAvatarSaved = (url) => {
+    setProfile((p2) => p2 ? { ...p2, avatar_url: url } : p2);
+    setShowAvatarModal(false);
+  };
+  if (loading) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)" }, children: "Loading profile…" });
+  if (!profile) return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", gap: 16 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      width: 72,
+      height: 72,
+      borderRadius: "50%",
+      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: "0 0 24px rgba(99,102,241,0.4)"
+    }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "38", height: "38", fill: "none", stroke: "white", strokeWidth: "2", viewBox: "0 0 24 24", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "8", r: "4" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M4 20c0-4 3.6-7 8-7s8 3 8 7" })
+    ] }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 18, marginBottom: 6 }, children: "ChainLens Profile" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 13, lineHeight: 1.5 }, children: [
+        "Connect your wallet to the ChainLens network.",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+        "Your addresses will be synced across all ChainLens apps."
+      ] })
+    ] }),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12, textAlign: "center", padding: "8px 12px", background: "rgba(239,68,68,0.08)", borderRadius: 8, width: "100%", boxSizing: "border-box" }, children: error }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: handleSync, disabled: syncing, style: {
+      marginTop: 8,
+      padding: "12px 32px",
+      borderRadius: 12,
+      border: "none",
+      background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+      color: "white",
+      fontWeight: 700,
+      fontSize: 15,
+      cursor: syncing ? "not-allowed" : "pointer",
+      opacity: syncing ? 0.7 : 1,
+      boxShadow: "0 4px 16px rgba(99,102,241,0.4)"
+    }, children: syncing ? "Connecting…" : "Connect to ChainLens" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", fontSize: 11, textAlign: "center" }, children: "No account needed — your wallet address is your identity." })
+  ] });
+  const displayName = profile.display_name ?? shortAddr(profile.provider_id);
+  const avatarBg = avatarColour(profile.id);
+  const initials = displayName.slice(0, 2).toUpperCase();
+  const chainWallets = ((_a = profile.cl_wallets) == null ? void 0 : _a.filter((w2) => !w2.watch_only)) ?? [];
+  const watchWallets = ((_b = profile.cl_wallets) == null ? void 0 : _b.filter((w2) => w2.watch_only)) ?? [];
+  const socialAccounts = (profile.cl_linked_accounts ?? []).filter((a) => !a.provider.endsWith("_wallet"));
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, overflowY: "auto", padding: "16px 16px 8px" }, children: [
+    showAvatarModal && /* @__PURE__ */ jsxRuntimeExports.jsx(AvatarModal, { onClose: () => setShowAvatarModal(false), onSave: handleAvatarSaved }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 14, marginBottom: 20 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { position: "relative", flexShrink: 0 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setShowAvatarModal(true), style: {
+          border: "none",
+          background: "none",
+          padding: 0,
+          cursor: "pointer",
+          display: "block",
+          borderRadius: "50%"
+        }, title: "Change profile photo", children: profile.avatar_url ? /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: profile.avatar_url, alt: "", style: { width: 56, height: 56, borderRadius: "50%", objectFit: "cover", display: "block" } }) : /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+          width: 56,
+          height: 56,
+          borderRadius: "50%",
+          background: `linear-gradient(135deg, ${avatarBg} 0%, ${avatarBg}99 100%)`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontWeight: 800,
+          fontSize: 20,
+          color: "white",
+          boxShadow: `0 0 16px ${avatarBg}66`
+        }, children: initials }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+          position: "absolute",
+          bottom: -2,
+          right: -2,
+          width: 20,
+          height: 20,
+          borderRadius: "50%",
+          background: "var(--accent)",
+          border: "2px solid var(--bg-dark)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          pointerEvents: "none"
+        }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "10", height: "10", fill: "none", stroke: "white", strokeWidth: "1.8", viewBox: "0 0 24 24", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "13", r: "4" })
+        ] }) })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+        editingName ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 6, alignItems: "center" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "input",
+            {
+              value: nameInput,
+              onChange: (e) => setNameInput(e.target.value),
+              onKeyDown: (e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") setEditingName(false);
+              },
+              autoFocus: true,
+              style: { flex: 1, background: "var(--bg-card)", border: "1px solid var(--accent)", color: "var(--text)", borderRadius: 6, padding: "4px 8px", fontSize: 14, fontWeight: 700 }
+            }
+          ),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: saveName, disabled: savingName, style: { background: "var(--accent)", border: "none", borderRadius: 6, color: "white", padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 700 }, children: savingName ? "…" : "Save" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: () => setEditingName(false), style: { background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: 14 }, children: "✕" })
+        ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 16, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, children: displayName }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: startEditName, title: "Edit name", style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 0, fontSize: 13 }, children: "✎" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 11, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { fontFamily: "monospace" }, children: [
+            profile.id.slice(0, 8),
+            "…"
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx(CopyBtn, { text: profile.id })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: handleSync,
+          disabled: syncing,
+          title: "Refresh profile",
+          style: { background: "none", border: "none", cursor: syncing ? "default" : "pointer", color: syncing ? "var(--text-muted)" : "var(--accent)", fontSize: 18, padding: 4 },
+          children: syncing ? "⏳" : "↻"
+        }
+      )
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(Section, { title: "Linked Wallets", count: chainWallets.length, children: [
+      chainWallets.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyRow, { label: "No wallets linked yet" }) : chainWallets.map((w2) => /* @__PURE__ */ jsxRuntimeExports.jsx(WalletRow, { chain: w2.chain, address: w2.address }, w2.id)),
+      watchWallets.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: "0.05em" }, children: "WATCH-ONLY" }),
+        watchWallets.map((w2) => /* @__PURE__ */ jsxRuntimeExports.jsx(WalletRow, { chain: w2.chain, address: w2.address, watchOnly: true }, w2.id))
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(Section, { title: "Social Accounts", count: socialAccounts.length, children: socialAccounts.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx(EmptyRow, { label: "No social accounts linked" }) : socialAccounts.map((a) => /* @__PURE__ */ jsxRuntimeExports.jsx(SocialRow, { provider: a.provider, displayName: a.display_name }, a.id)) }),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12, padding: "8px 12px", background: "rgba(239,68,68,0.08)", borderRadius: 8, marginTop: 8 }, children: error }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { height: 16 } })
+  ] });
+}
+function Section({ title, count, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginBottom: 16 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 11, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }, children: title }),
+      count > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { background: "var(--bg-card)", color: "var(--text-muted)", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 999 }, children: count })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { background: "var(--bg-card)", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }, children })
+  ] });
+}
+function WalletRow({ chain, address, watchOnly }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid var(--border)" }, className: "profile-row", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ChainIcon, { chain }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontSize: 12, fontWeight: 600 }, children: [
+        CHAIN_LABELS[chain] ?? chain,
+        watchOnly && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "var(--text-muted)", fontWeight: 400 }, children: " · watch" })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }, children: shortAddr(address) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(CopyBtn, { text: address })
+  ] });
+}
+function SocialRow({ provider, displayName }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid var(--border)" }, className: "profile-row", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 28, height: 28, borderRadius: "50%", background: "var(--bg-dark)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(SocialIcon, { provider }) }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 12, fontWeight: 600 }, children: PROVIDER_LABELS[provider] ?? provider }),
+      displayName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: displayName })
+    ] })
+  ] });
+}
+function EmptyRow({ label }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "14px 12px", color: "var(--text-muted)", fontSize: 12, textAlign: "center" }, children: label });
+}
+function ChainIcon({ chain }) {
+  const BG = {
+    evm: "#627EEA",
+    solana: "#9945FF",
+    cardano: "#2A7DEA",
+    bitcoin: "#F7931A",
+    polkadot: "#E6007A"
+  };
+  const bg2 = BG[chain] ?? "#6b7280";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+    width: 28,
+    height: 28,
+    borderRadius: "50%",
+    flexShrink: 0,
+    background: bg2,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: `0 0 8px ${bg2}66`
+  }, children: [
+    chain === "evm" && /* @__PURE__ */ jsxRuntimeExports.jsx(EthIcon, {}),
+    chain === "solana" && /* @__PURE__ */ jsxRuntimeExports.jsx(SolIcon, {}),
+    chain === "cardano" && /* @__PURE__ */ jsxRuntimeExports.jsx(AdaIcon, {}),
+    chain === "bitcoin" && /* @__PURE__ */ jsxRuntimeExports.jsx(BtcIcon, {}),
+    chain === "polkadot" && /* @__PURE__ */ jsxRuntimeExports.jsx(DotIcon, {}),
+    !["evm", "solana", "cardano", "bitcoin", "polkadot"].includes(chain) && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, fontWeight: 800, color: "white" }, children: chain[0].toUpperCase() })
+  ] });
+}
+const EthIcon = () => /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "12,2 20.5,12 12,15.5 3.5,12", fill: "white", opacity: "0.9" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "12,15.5 20.5,12 12,22", fill: "white", opacity: "0.6" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("polygon", { points: "12,15.5 3.5,12 12,22", fill: "white", opacity: "0.8" })
+] });
+const SolIcon = () => /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "5", width: "18", height: "3", rx: "1.5", fill: "white", opacity: "0.9" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "10.5", width: "14", height: "3", rx: "1.5", fill: "white", opacity: "0.9" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "16", width: "18", height: "3", rx: "1.5", fill: "white", opacity: "0.9" })
+] });
+const AdaIcon = () => /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3", fill: "white" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "4", r: "1.5", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "20", r: "1.5", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "4", cy: "8", r: "1.5", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "20", cy: "8", r: "1.5", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "4", cy: "16", r: "1.5", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "20", cy: "16", r: "1.5", fill: "white", opacity: "0.7" })
+] });
+const BtcIcon = () => /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "13", height: "13", viewBox: "0 0 24 24", fill: "none", children: /* @__PURE__ */ jsxRuntimeExports.jsx("text", { x: "4", y: "18", fontSize: "18", fontWeight: "900", fill: "white", fontFamily: "Arial", children: "₿" }) });
+const DotIcon = () => /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "none", children: [
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "3.5", fill: "white" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "3", r: "2", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "21", r: "2", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "3", cy: "12", r: "2", fill: "white", opacity: "0.7" }),
+  /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "21", cy: "12", r: "2", fill: "white", opacity: "0.7" })
+] });
+function SocialIcon({ provider }) {
+  if (provider === "google") return /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "currentColor", style: { color: "#ea4335" }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" })
+  ] });
+  if (provider === "discord") return /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", viewBox: "0 0 24 24", fill: "#5865f2", children: /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z" }) });
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 12, color: "var(--text-muted)", fontWeight: 700 }, children: provider[0].toUpperCase() });
+}
+function SettingsModal({ onClose, onDeleteWallet }) {
+  const [confirmDelete, setConfirmDelete] = reactExports.useState(false);
+  const [deleting, setDeleting] = reactExports.useState(false);
+  const [copied, setCopied] = reactExports.useState(false);
+  const handleDelete = async () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setDeleting(true);
+    try {
+      await window.wallet.deleteWallet();
+      onDeleteWallet();
+    } finally {
+      setDeleting(false);
+    }
+  };
+  const copyAddresses = async () => {
+    const addrs = await window.wallet.getAddresses().catch(() => null);
+    if (!addrs) return;
+    const text = [
+      `EVM:      ${addrs.evm}`,
+      `Solana:   ${addrs.solana}`,
+      `Cardano:  ${addrs.cardano}`,
+      `Bitcoin:  ${addrs.bitcoin}`,
+      `Polkadot: ${addrs.polkadot}`
+    ].join("\n");
+    navigator.clipboard.writeText(text).catch(() => {
+    });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      onClick: onClose,
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 9997,
+        background: "rgba(0,0,0,0.65)",
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "center"
+      },
+      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "div",
+        {
+          onClick: (e) => e.stopPropagation(),
+          style: {
+            background: "var(--bg-card)",
+            borderRadius: "16px 16px 0 0",
+            border: "1px solid var(--border)",
+            width: "100%",
+            maxWidth: 480,
+            padding: "0 0 24px",
+            boxShadow: "0 -8px 32px rgba(0,0,0,0.5)"
+          },
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 36, height: 4, borderRadius: 999, background: "var(--border)" } }) }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px 16px" }, children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 800, fontSize: 16 }, children: "Settings" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 22, lineHeight: 1, padding: 0 }, children: "×" })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "Wallet", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SettingsRow,
+                {
+                  icon: "📋",
+                  label: copied ? "Copied!" : "Copy All Addresses",
+                  sublabel: "EVM, Solana, Cardano, Bitcoin, Polkadot",
+                  onClick: copyAddresses
+                }
+              ),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                SettingsRow,
+                {
+                  icon: "🔑",
+                  label: "Reveal Secret Phrase",
+                  sublabel: "Only do this in a private location",
+                  onClick: async () => {
+                    const words = await window.wallet.revealSeed().catch(() => null);
+                    if (words) {
+                      await navigator.clipboard.writeText(words.join(" ")).catch(() => {
+                      });
+                      alert("Seed phrase copied to clipboard — store it safely!");
+                    }
+                  }
+                }
+              )
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "About", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "⚡", label: "MagicMoney Wallet", sublabel: "Phase 10 — WalletConnect", onClick: () => {
+              } }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "🔗", label: "Powered by ChainLens", sublabel: "chainlensnft.info", onClick: () => {
+              } })
+            ] }),
+            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsSection, { label: "Danger Zone", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+              "button",
+              {
+                type: "button",
+                onClick: handleDelete,
+                disabled: deleting,
+                style: {
+                  width: "100%",
+                  padding: "13px 18px",
+                  background: "none",
+                  border: "none",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  cursor: "pointer",
+                  borderBottom: "1px solid var(--border)",
+                  textAlign: "left"
+                },
+                children: [
+                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: "🗑" }),
+                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "#ef4444" }, children: confirmDelete ? "Tap again to confirm — this cannot be undone" : "Delete Wallet" }),
+                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Removes keys from this device permanently" })
+                  ] })
+                ]
+              }
+            ) })
+          ]
+        }
+      )
+    }
+  );
+}
+function SettingsSection({ label, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginBottom: 4 }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "4px 18px 6px", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }, children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }, children })
+  ] });
+}
+function SettingsRow({ icon, label, sublabel, onClick }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "button",
+    {
+      type: "button",
+      onClick,
+      style: {
+        width: "100%",
+        padding: "12px 18px",
+        background: "none",
+        border: "none",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        cursor: "pointer",
+        borderBottom: "1px solid var(--border)",
+        textAlign: "left"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: icon }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text)" }, children: label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: sublabel })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { color: "var(--text-muted)", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9 18 15 12 9 6" }) })
+      ]
+    }
+  );
+}
+function PeerIcon({ icon, name, size = 40 }) {
+  const [imgErr, setImgErr] = reactExports.useState(false);
+  const initial = name.slice(0, 2).toUpperCase();
+  if (icon && !imgErr) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "img",
+      {
+        src: icon,
+        alt: name,
+        style: { width: size, height: size, borderRadius: 10, objectFit: "contain", background: "#fff", flexShrink: 0 },
+        onError: () => setImgErr(true)
+      }
+    );
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+    width: size,
+    height: size,
+    borderRadius: 10,
+    flexShrink: 0,
+    background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 800,
+    fontSize: size * 0.35,
+    color: "white"
+  }, children: initial });
+}
+const METHOD_COLORS = {
+  eth_sendTransaction: "#f97316",
+  personal_sign: "#6366f1",
+  eth_sign: "#6366f1",
+  eth_signTypedData_v4: "#8b5cf6",
+  eth_signTypedData: "#8b5cf6"
+};
+function MethodBadge({ method }) {
+  const short = method.replace("eth_", "").replace("wallet_", "");
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: {
+    padding: "2px 8px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 700,
+    background: `${METHOD_COLORS[method] ?? "#6b7280"}22`,
+    color: METHOD_COLORS[method] ?? "#6b7280",
+    border: `1px solid ${METHOD_COLORS[method] ?? "#6b7280"}44`
+  }, children: short });
+}
+function ProposalModal({
+  proposal,
+  onApprove,
+  onReject
+}) {
+  const [approving, setApproving] = reactExports.useState(false);
+  const [rejecting, setRejecting] = reactExports.useState(false);
+  const approve = async () => {
+    setApproving(true);
+    try {
+      await window.wallet.wcApproveSession(proposal.id);
+      onApprove();
+    } catch (e) {
+      console.error("[WC] approve failed:", e);
+      setApproving(false);
+    }
+  };
+  const reject = async () => {
+    setRejecting(true);
+    try {
+      await window.wallet.wcRejectSession(proposal.id);
+      onReject();
+    } catch (e) {
+      console.error("[WC] reject failed:", e);
+      setRejecting(false);
+    }
+  };
+  const chainNums = [...proposal.requiredChains, ...proposal.optionalChains].map((c) => c.split(":")[1]).filter(Boolean);
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Overlay, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(ModalCard, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ModalHeader, { title: "Connection Request" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 0 12px" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(PeerIcon, { icon: proposal.peerIcon, name: proposal.peerName, size: 56 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 16, textAlign: "center" }, children: proposal.peerName }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", fontSize: 12, wordBreak: "break-all" }, children: proposal.peerUrl })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-dark)", borderRadius: 10, padding: "12px 14px", marginBottom: 12 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.06em", marginBottom: 8 }, children: "REQUESTING ACCESS TO" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 }, children: chainNums.slice(0, 8).map((c) => /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { style: { padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "#6366f122", color: "#818cf8", border: "1px solid #6366f144" }, children: [
+        "Chain ",
+        c
+      ] }, c)) }),
+      proposal.requiredMethods.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }, children: proposal.requiredMethods.slice(0, 6).map((m2) => /* @__PURE__ */ jsxRuntimeExports.jsx(MethodBadge, { method: m2 }, m2)) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: reject, disabled: rejecting, style: secondaryBtnStyle, children: rejecting ? "…" : "Reject" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: approve, disabled: approving, style: primaryBtnStyle, children: approving ? "Connecting…" : "Connect" })
+    ] })
+  ] }) });
+}
+function RequestModal({
+  request,
+  onApprove,
+  onReject
+}) {
+  const [approving, setApproving] = reactExports.useState(false);
+  const [rejecting, setRejecting] = reactExports.useState(false);
+  const approve = async () => {
+    setApproving(true);
+    try {
+      await window.wallet.wcApproveRequest(request.id);
+      onApprove();
+    } catch (e) {
+      console.error("[WC] req approve failed:", e);
+      setApproving(false);
+    }
+  };
+  const reject = async () => {
+    setRejecting(true);
+    try {
+      await window.wallet.wcRejectRequest(request.id);
+      onReject();
+    } catch (e) {
+      console.error("[WC] req reject failed:", e);
+      setRejecting(false);
+    }
+  };
+  const isSend = request.method === "eth_sendTransaction";
+  const chainNum = request.chainId.split(":")[1] ?? "1";
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Overlay, { children: /* @__PURE__ */ jsxRuntimeExports.jsxs(ModalCard, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ModalHeader, { title: isSend ? "Transaction Request" : "Signature Request" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "16px 0 12px" }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(PeerIcon, { icon: request.peerIcon, name: request.peerName, size: 44 }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 14 }, children: request.peerName }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 11 }, children: [
+          "Chain ",
+          chainNum
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { marginLeft: "auto" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx(MethodBadge, { method: request.method }) })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      background: "var(--bg-dark)",
+      borderRadius: 10,
+      padding: "12px 14px",
+      marginBottom: 12,
+      fontSize: 12,
+      lineHeight: 1.6,
+      wordBreak: "break-word",
+      maxHeight: 160,
+      overflowY: "auto",
+      color: "var(--text-muted)",
+      fontFamily: "monospace"
+    }, children: request.humanReadable }),
+    isSend && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#f97316", fontSize: 11, marginBottom: 12, padding: "6px 10px", background: "#f9731611", borderRadius: 8, border: "1px solid #f9731633" }, children: "⚠ This will broadcast a transaction. Verify the details before signing." }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: reject, disabled: rejecting, style: secondaryBtnStyle, children: rejecting ? "…" : "Reject" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "button",
+        {
+          type: "button",
+          onClick: approve,
+          disabled: approving,
+          style: { ...primaryBtnStyle, background: isSend ? "#f97316" : void 0 },
+          children: approving ? "Signing…" : isSend ? "Send" : "Sign"
+        }
+      )
+    ] })
+  ] }) });
+}
+function SessionsPanel({
+  sessions,
+  onClose,
+  onConnect
+}) {
+  const disconnect = async (topic) => {
+    try {
+      await window.wallet.wcDisconnect(topic);
+    } catch (e) {
+      console.error("[WC] disconnect failed:", e);
+    }
+  };
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Overlay, { onClick: onClose, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
+    "div",
+    {
+      onClick: (e) => e.stopPropagation(),
+      style: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "var(--bg-card)",
+        borderRadius: "16px 16px 0 0",
+        border: "1px solid var(--border)",
+        maxHeight: "70vh",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden"
+      },
+      children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 36, height: 4, borderRadius: 999, background: "var(--border)" } }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 8px" }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { fontWeight: 700, fontSize: 15 }, children: [
+            "WalletConnect",
+            sessions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { marginLeft: 8, fontSize: 11, fontWeight: 700, padding: "1px 7px", borderRadius: 999, background: "#6366f122", color: "#818cf8" }, children: sessions.length })
+          ] }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 20, lineHeight: 1 }, children: "×" })
+        ] }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "0 16px 12px" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onConnect, style: {
+          width: "100%",
+          padding: "11px 0",
+          borderRadius: 12,
+          background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+          border: "none",
+          color: "white",
+          fontWeight: 700,
+          fontSize: 13,
+          cursor: "pointer",
+          fontFamily: "var(--font-body)",
+          boxShadow: "0 4px 14px rgba(99,102,241,0.35)"
+        }, children: "+ New Connection" }) }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { flex: 1, overflowY: "auto", padding: "0 16px 24px" }, children: sessions.length === 0 ? /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: 32 }, children: [
+          "No active sessions.",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 11 }, children: "Paste a WalletConnect URI to connect." })
+        ] }) : sessions.map((s) => /* @__PURE__ */ jsxRuntimeExports.jsx(SessionRow, { session: s, onDisconnect: () => disconnect(s.topic) }, s.topic)) })
+      ]
+    }
+  ) });
+}
+function SessionRow({ session, onDisconnect }) {
+  const expiry = new Date(session.expiry * 1e3);
+  const expires = expiry.toLocaleDateString();
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "10px 0",
+    borderBottom: "1px solid var(--border)"
+  }, children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(PeerIcon, { icon: session.peerIcon, name: session.peerName, size: 38 }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1, minWidth: 0 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, children: session.peerName }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 10 }, children: [
+        "Expires ",
+        expires
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onDisconnect, style: {
+      padding: "5px 10px",
+      borderRadius: 8,
+      border: "1px solid var(--border)",
+      background: "none",
+      color: "var(--text-muted)",
+      fontSize: 11,
+      cursor: "pointer",
+      fontFamily: "var(--font-body)",
+      flexShrink: 0
+    }, children: "Disconnect" })
+  ] });
+}
+function ConnectModal({ onClose, onPaired }) {
+  const [uri, setUri] = reactExports.useState("");
+  const [loading, setLoading] = reactExports.useState(false);
+  const [waiting, setWaiting] = reactExports.useState(false);
+  const [error, setError] = reactExports.useState(null);
+  const pair = async () => {
+    if (!uri.trim().startsWith("wc:")) {
+      setError('Invalid WalletConnect URI — it should start with "wc:"');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      await window.wallet.wcPair(uri.trim());
+      setLoading(false);
+      setWaiting(true);
+    } catch (e) {
+      setError(String(e));
+      setLoading(false);
+    }
+  };
+  reactExports.useEffect(() => {
+    if (!waiting) return;
+    const onProposal = () => onPaired();
+    window.wallet.onWcProposal(onProposal);
+    const timeout = setTimeout(() => {
+      setWaiting(false);
+      setError("No response from dApp — the URI may have expired. Try again.");
+    }, 3e4);
+    return () => {
+      window.wallet.offWcProposal(onProposal);
+      clearTimeout(timeout);
+    };
+  }, [waiting, onPaired]);
+  if (waiting) {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx(Overlay, { onClick: onClose, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(ModalCard, { onClick: (e) => e.stopPropagation(), children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center", padding: "24px 0 16px" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 32, marginBottom: 12 }, children: "⏳" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 700, fontSize: 15, marginBottom: 8 }, children: "Waiting for dApp…" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "var(--text-muted)", fontSize: 12, lineHeight: 1.5 }, children: [
+          "The connection request was sent.",
+          /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+          "Approve it in the dApp to continue."
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { ...secondaryBtnStyle, width: "100%" }, children: "Cancel" })
+    ] }) });
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(Overlay, { onClick: onClose, children: /* @__PURE__ */ jsxRuntimeExports.jsxs(ModalCard, { onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ModalHeader, { title: "New Connection" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "var(--text-muted)", fontSize: 12, marginBottom: 14, lineHeight: 1.5 }, children: 'In a dApp, click "WalletConnect" then copy the URI or scan the QR code — paste the full URI below.' }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "textarea",
+      {
+        value: uri,
+        onChange: (e) => setUri(e.target.value),
+        placeholder: "wc:…",
+        rows: 3,
+        style: {
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 12px",
+          borderRadius: 10,
+          border: "1px solid var(--border)",
+          background: "var(--bg-dark)",
+          color: "var(--text)",
+          fontSize: 12,
+          fontFamily: "monospace",
+          resize: "none",
+          outline: "none"
+        }
+      }
+    ),
+    error && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 11, marginTop: 6, padding: "6px 10px", background: "rgba(239,68,68,0.08)", borderRadius: 8 }, children: error }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 12 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: secondaryBtnStyle, children: "Cancel" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: pair, disabled: loading || !uri.trim(), style: primaryBtnStyle, children: loading ? "Sending…" : "Connect" })
+    ] })
+  ] }) });
+}
+function WalletConnectManager({ panelOpen, onPanelClose, onSessionsChange, onPendingChange }) {
+  const [sessions, setSessions] = reactExports.useState([]);
+  const [proposal, setProposal] = reactExports.useState(null);
+  const [request, setRequest] = reactExports.useState(null);
+  const [showConnect, setShowConnect] = reactExports.useState(false);
+  const updateSessions = reactExports.useCallback((s) => {
+    setSessions(s);
+    onSessionsChange(s.length);
+  }, [onSessionsChange]);
+  reactExports.useEffect(() => {
+    var _a, _b, _c, _d;
+    window.wallet.wcGetSessions().then(updateSessions).catch(() => {
+    });
+    (_b = (_a = window.wallet).wcGetPendingProposals) == null ? void 0 : _b.call(_a).then((ps) => {
+      if (ps.length > 0) {
+        setProposal(ps[0]);
+        onPendingChange(true);
+      }
+    }).catch(() => {
+    });
+    (_d = (_c = window.wallet).wcGetPendingRequests) == null ? void 0 : _d.call(_c).then((rs) => {
+      if (rs.length > 0) {
+        setRequest(rs[0]);
+        onPendingChange(true);
+      }
+    }).catch(() => {
+    });
+  }, [updateSessions, onPendingChange]);
+  reactExports.useEffect(() => {
+    const onProposal = (p2) => {
+      setProposal(p2);
+      onPendingChange(true);
+    };
+    const onRequest = (r2) => {
+      setRequest(r2);
+      onPendingChange(true);
+    };
+    const onSessions = (s) => updateSessions(s);
+    window.wallet.onWcProposal(onProposal);
+    window.wallet.onWcRequest(onRequest);
+    window.wallet.onWcSessionsChanged(onSessions);
+    return () => {
+      window.wallet.offWcProposal(onProposal);
+      window.wallet.offWcRequest(onRequest);
+      window.wallet.offWcSessionsChanged(onSessions);
+    };
+  }, [updateSessions, onPendingChange]);
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    proposal && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ProposalModal,
+      {
+        proposal,
+        onApprove: () => {
+          setProposal(null);
+          onPendingChange(false);
+          window.wallet.wcGetSessions().then(updateSessions).catch(() => {
+          });
+        },
+        onReject: () => {
+          setProposal(null);
+          onPendingChange(false);
+        }
+      }
+    ),
+    request && !proposal && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      RequestModal,
+      {
+        request,
+        onApprove: () => {
+          setRequest(null);
+          onPendingChange(false);
+        },
+        onReject: () => {
+          setRequest(null);
+          onPendingChange(false);
+        }
+      }
+    ),
+    panelOpen && !proposal && !request && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SessionsPanel,
+      {
+        sessions,
+        onClose: onPanelClose,
+        onConnect: () => {
+          onPanelClose();
+          setShowConnect(true);
+        }
+      }
+    ),
+    showConnect && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ConnectModal,
+      {
+        onClose: () => setShowConnect(false),
+        onPaired: () => setShowConnect(false)
+      }
+    )
+  ] });
+}
+function Overlay({ children, onClick }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      onClick,
+      style: {
+        position: "fixed",
+        inset: 0,
+        zIndex: 9998,
+        background: "rgba(0,0,0,0.65)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      },
+      children
+    }
+  );
+}
+function ModalCard({ children, onClick }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx(
+    "div",
+    {
+      onClick,
+      style: {
+        background: "var(--bg-card)",
+        borderRadius: 16,
+        border: "1px solid var(--border)",
+        width: 320,
+        padding: "16px 18px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.7)"
+      },
+      children
+    }
+  );
+}
+function ModalHeader({ title }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 800, fontSize: 15, marginBottom: 4, textAlign: "center" }, children: title });
+}
+const primaryBtnStyle = {
+  flex: 1,
+  padding: "10px 0",
+  borderRadius: 10,
+  border: "none",
+  background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+  color: "white",
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: "pointer",
+  fontFamily: "var(--font-body)",
+  boxShadow: "0 4px 12px rgba(99,102,241,0.3)"
+};
+const secondaryBtnStyle = {
+  flex: 1,
+  padding: "10px 0",
+  borderRadius: 10,
+  border: "1px solid var(--border)",
+  background: "none",
+  color: "var(--text-muted)",
+  fontWeight: 600,
+  fontSize: 13,
+  cursor: "pointer",
+  fontFamily: "var(--font-body)"
+};
+function App() {
+  var _a, _b;
+  const [page, setPage] = reactExports.useState("loading");
+  const [addresses, setAddresses] = reactExports.useState(null);
+  const [activeTab, setActiveTab] = reactExports.useState("portfolio");
+  const [browserOpen, setBrowserOpen] = reactExports.useState(false);
+  const [wcPanelOpen, setWcPanelOpen] = reactExports.useState(false);
+  const [wcActiveSessions, setWcActiveSessions] = reactExports.useState(0);
+  const [wcPending, setWcPending] = reactExports.useState(false);
+  const [showSettings, setShowSettings] = reactExports.useState(false);
+  const toolbarProps = {
+    onWcOpen: () => setWcPanelOpen(true),
+    onProfile: () => setActiveTab("profile"),
+    onSettings: () => setShowSettings(true),
+    wcActiveSessions,
+    wcPending
+  };
+  reactExports.useEffect(() => {
+    window.wallet.isSetup().then((exists) => {
+      if (exists) {
+        window.wallet.getAddresses().then((addrs) => {
+          setAddresses(addrs);
+          setPage("dashboard");
+        });
+      } else {
+        setPage("welcome");
+      }
+    }).catch(() => setPage("welcome"));
+  }, []);
+  reactExports.useEffect(() => {
+    const onClosed = () => setBrowserOpen(false);
+    window.wallet.onBrowserClosed(onClosed);
+    return () => window.wallet.offBrowserClosed(onClosed);
+  }, []);
+  const handleWalletReady = (addrs) => {
+    setAddresses(addrs);
+    setPage("dashboard");
+  };
+  const handleBrowserBtn = () => {
+    window.wallet.openBrowser();
+    setBrowserOpen(true);
+  };
+  const inDashboard = page === "dashboard";
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "app-shell", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "titlebar", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: logoUrl, alt: "MagicMoney", className: "titlebar-logo", draggable: false }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "titlebar-controls", children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "titlebar-btn min", onClick: () => window.wallet.minimize(), title: "Minimize" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "titlebar-btn close", onClick: () => window.wallet.close(), title: "Close" })
+      ] })
+    ] }),
+    inDashboard && ["portfolio", "market", "swap", "apphub"].includes(activeTab) && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "tab-banner", children: /* @__PURE__ */ jsxRuntimeExports.jsx("img", { src: bannerUrl, alt: "Magic Money", draggable: false }) }),
+    page === "loading" && /* @__PURE__ */ jsxRuntimeExports.jsx(LoadingPage, {}),
+    page === "welcome" && /* @__PURE__ */ jsxRuntimeExports.jsx(WelcomePage, { onNavigate: setPage }),
+    page === "create" && /* @__PURE__ */ jsxRuntimeExports.jsx(CreatePage, { onNavigate: setPage, onComplete: handleWalletReady }),
+    page === "confirm" && /* @__PURE__ */ jsxRuntimeExports.jsx(ConfirmPage, { onNavigate: setPage, onComplete: handleWalletReady }),
+    page === "import" && /* @__PURE__ */ jsxRuntimeExports.jsx(ImportPage, { onNavigate: setPage, onComplete: handleWalletReady }),
+    inDashboard && addresses && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      DashboardPage,
+      {
+        addresses,
+        hidden: activeTab !== "portfolio",
+        onNavigate: setPage,
+        onWalletDeleted: () => {
+          setAddresses(null);
+          setPage("welcome");
+        },
+        ...toolbarProps
+      }
+    ),
+    inDashboard && addresses && activeTab === "market" && /* @__PURE__ */ jsxRuntimeExports.jsx(MarketPage, { ...toolbarProps }),
+    inDashboard && addresses && /* @__PURE__ */ jsxRuntimeExports.jsx(SwapPage, { addresses, hidden: activeTab !== "swap", ...toolbarProps }),
+    inDashboard && activeTab === "apphub" && /* @__PURE__ */ jsxRuntimeExports.jsx(AppHubPage, { ...toolbarProps }),
+    inDashboard && showSettings && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SettingsModal,
+      {
+        onClose: () => setShowSettings(false),
+        onDeleteWallet: () => {
+          setShowSettings(false);
+          setAddresses(null);
+          setPage("welcome");
+        }
+      }
+    ),
+    inDashboard && activeTab === "profile" && /* @__PURE__ */ jsxRuntimeExports.jsx(ProfilePage, {}),
+    inDashboard && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      WalletConnectManager,
+      {
+        panelOpen: wcPanelOpen,
+        onPanelClose: () => setWcPanelOpen(false),
+        onSessionsChange: (count) => setWcActiveSessions(count),
+        onPendingChange: (pending) => setWcPending(pending)
+      }
+    ),
+    inDashboard && /* @__PURE__ */ jsxRuntimeExports.jsxs("nav", { className: "bottom-nav", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: `bottom-nav-btn${activeTab === "portfolio" ? " active" : ""}`,
+          onClick: () => setActiveTab("portfolio"),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "2", y: "3", width: "6", height: "10", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "10", y: "3", width: "12", height: "6", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "10", y: "11", width: "12", height: "10", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "2", y: "15", width: "6", height: "6", rx: "1.5" })
+            ] }),
+            "Portfolio"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: `bottom-nav-btn${activeTab === "market" ? " active" : ""}`,
+          onClick: () => setActiveTab("market"),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "22 12 18 12 15 21 9 3 6 12 2 12" }) }),
+            "Market"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: `bottom-nav-btn${activeTab === "swap" ? " active" : ""}`,
+          onClick: () => setActiveTab("swap"),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "17 1 21 5 17 9" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M3 11V9a4 4 0 0 1 4-4h14" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "7 23 3 19 7 15" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M21 13v2a4 4 0 0 1-4 4H3" })
+            ] }),
+            "Swap"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: `bottom-nav-btn${activeTab === "apphub" ? " active" : ""}`,
+          onClick: () => setActiveTab("apphub"),
+          children: [
+            /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "3", width: "7", height: "7", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "14", y: "3", width: "7", height: "7", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "3", y: "14", width: "7", height: "7", rx: "1.5" }),
+              /* @__PURE__ */ jsxRuntimeExports.jsx("rect", { x: "14", y: "14", width: "7", height: "7", rx: "1.5" })
+            ] }),
+            "Apps"
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(
+        "button",
+        {
+          type: "button",
+          className: `bottom-nav-btn${browserOpen ? " active" : ""}`,
+          onClick: handleBrowserBtn,
+          style: { position: "relative" },
+          children: [
+            browserOpen && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: {
+              position: "absolute",
+              top: 6,
+              right: 14,
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#22c55e",
+              boxShadow: "0 0 4px #22c55e"
+            } }),
+            ((_a = globalThis.chrome) == null ? void 0 : _a.tabs) ? (
+              // Extension: chain-link icon + ChainLens label
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" })
+              ] })
+            ) : (
+              // Electron: globe icon
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("svg", { width: "18", height: "18", fill: "none", stroke: "currentColor", strokeWidth: "1.6", viewBox: "0 0 24 24", children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("circle", { cx: "12", cy: "12", r: "10" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("line", { x1: "2", y1: "12", x2: "22", y2: "12" }),
+                /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" })
+              ] })
+            ),
+            ((_b = globalThis.chrome) == null ? void 0 : _b.tabs) ? "ChainLens" : "Browser"
+          ]
+        }
+      )
+    ] })
+  ] });
+}
+function ExtApp() {
+  const [page, setPage] = reactExports.useState("checking");
+  const [pwError, setPwError] = reactExports.useState("");
+  const [password, setPassword] = reactExports.useState("");
+  const [confirmPw, setConfirmPw] = reactExports.useState("");
+  const [loading, setLoading] = reactExports.useState(false);
+  const [connRequest, setConnRequest] = reactExports.useState(null);
+  const [connAddress, setConnAddress] = reactExports.useState("");
+  reactExports.useEffect(() => {
+    async function check() {
+      var _a, _b, _c, _d;
+      const exists = await ((_b = (_a = window.wallet).isSetup) == null ? void 0 : _b.call(_a)) ?? false;
+      if (!exists) {
+        setPage("app");
+        return;
+      }
+      const unlocked = await ((_d = (_c = window.wallet).isUnlocked) == null ? void 0 : _d.call(_c)) ?? false;
+      setPage(unlocked ? "app" : "locked");
+    }
+    check().catch(() => setPage("app"));
+  }, []);
+  reactExports.useEffect(() => {
+    var _a, _b;
+    (_b = (_a = window.wallet).getAddresses) == null ? void 0 : _b.call(_a).then((a) => {
+      if (a == null ? void 0 : a.evm) setConnAddress(a.evm);
+    }).catch(() => {
+    });
+  }, []);
+  reactExports.useEffect(() => {
+    var _a, _b;
+    function handleMsg(msg) {
+      if ((msg == null ? void 0 : msg.type) === "web3:connection-request") {
+        setConnRequest(msg.data);
+      }
+    }
+    chrome.runtime.onMessage.addListener(handleMsg);
+    (_b = (_a = window.wallet).web3GetPendingConnections) == null ? void 0 : _b.call(_a).then((reqs) => {
+      if (reqs.length > 0) setConnRequest(reqs[0]);
+    }).catch(() => {
+    });
+    return () => chrome.runtime.onMessage.removeListener(handleMsg);
+  }, []);
+  reactExports.useEffect(() => {
+    const origConfirm = window.wallet.confirmBackup;
+    const origImport = window.wallet.import;
+    window.wallet.confirmBackup = async () => {
+      const result = await origConfirm.call(window.wallet);
+      setPage("setpassword");
+      return result;
+    };
+    window.wallet.import = async (m2) => {
+      const result = await origImport.call(window.wallet, m2);
+      setPage("setpassword");
+      return result;
+    };
+    return () => {
+      window.wallet.confirmBackup = origConfirm;
+      window.wallet.import = origImport;
+    };
+  }, []);
+  const isSidePanel = !!window.__SIDE_PANEL__;
+  reactExports.useEffect(() => {
+    const fn = isSidePanel ? () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        var _a;
+        const tabId = (_a = tabs[0]) == null ? void 0 : _a.id;
+        if (tabId == null) return;
+        chrome.sidePanel.setOptions({ tabId, enabled: false });
+        setTimeout(() => chrome.sidePanel.setOptions({ tabId, enabled: true }), 700);
+      });
+    } : () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        var _a;
+        const windowId = (_a = tabs[0]) == null ? void 0 : _a.windowId;
+        if (windowId == null) return;
+        chrome.sidePanel.open({ windowId }).then(() => window.close()).catch((e) => console.error("[SidePanel] open failed:", e));
+      });
+    };
+    window.__EXT_SIDEBAR_FN__ = fn;
+    return () => {
+      delete window.__EXT_SIDEBAR_FN__;
+    };
+  }, [isSidePanel]);
+  if (page === "checking") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0d0d0d", color: "#888", fontSize: 13 }, children: "Loading…" });
+  }
+  if (page === "locked") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0d0d0d", padding: 32, gap: 16 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 40, marginBottom: 8 }, children: "🔒" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#fff", fontWeight: 700, fontSize: 18 }, children: "MagicMoney Wallet" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#888", fontSize: 13, textAlign: "center", marginBottom: 8 }, children: "Enter your password to unlock" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          type: "password",
+          value: password,
+          onChange: (e) => {
+            setPassword(e.target.value);
+            setPwError("");
+          },
+          onKeyDown: (e) => e.key === "Enter" && doUnlock(),
+          placeholder: "Password",
+          autoFocus: true,
+          style: inputStyle
+        }
+      ),
+      pwError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12 }, children: pwError }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doUnlock, disabled: !password || loading, style: btnStyle, type: "button", children: loading ? "Unlocking…" : "Unlock" })
+    ] });
+  }
+  if (page === "setpassword") {
+    return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0d0d0d", padding: 32, gap: 14 }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 32, marginBottom: 4 }, children: "🔐" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#fff", fontWeight: 700, fontSize: 18 }, children: "Set a Password" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#888", fontSize: 12, textAlign: "center", lineHeight: 1.5, marginBottom: 4 }, children: [
+        "Your wallet is encrypted with this password.",
+        /* @__PURE__ */ jsxRuntimeExports.jsx("br", {}),
+        "You'll need it every time you open a new browser session."
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          type: "password",
+          value: password,
+          onChange: (e) => {
+            setPassword(e.target.value);
+            setPwError("");
+          },
+          placeholder: "Password (min 8 characters)",
+          style: inputStyle
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        "input",
+        {
+          type: "password",
+          value: confirmPw,
+          onChange: (e) => {
+            setConfirmPw(e.target.value);
+            setPwError("");
+          },
+          onKeyDown: (e) => e.key === "Enter" && doSetPassword(),
+          placeholder: "Confirm password",
+          style: inputStyle
+        }
+      ),
+      pwError && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#ef4444", fontSize: 12 }, children: pwError }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { onClick: doSetPassword, disabled: !password || loading, style: btnStyle, type: "button", children: loading ? "Encrypting…" : "Encrypt & Continue" })
+    ] });
+  }
+  let hostname = "";
+  try {
+    hostname = connRequest ? new URL(connRequest.origin).hostname : "";
+  } catch {
+    hostname = (connRequest == null ? void 0 : connRequest.origin) ?? "";
+  }
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(App, {}),
+    connRequest && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 99999,
+      background: "rgba(0,0,0,0.75)",
+      backdropFilter: "blur(4px)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: 20
+    }, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+      background: "#111",
+      borderRadius: 20,
+      padding: "28px 24px",
+      width: "100%",
+      maxWidth: 340,
+      border: "1px solid #2a2a2a",
+      display: "flex",
+      flexDirection: "column",
+      gap: 16
+    }, children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { textAlign: "center" }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 36, marginBottom: 8 }, children: "🌐" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#fff", fontWeight: 700, fontSize: 17, marginBottom: 4 }, children: "Connect Wallet" }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#888", fontSize: 12, lineHeight: 1.5 }, children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { color: "#a78bfa", fontWeight: 600 }, children: hostname }),
+          " ",
+          "wants to see your wallet address"
+        ] })
+      ] }),
+      connAddress && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: {
+        background: "#1a1a1a",
+        borderRadius: 12,
+        padding: "10px 14px",
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        border: "1px solid #2a2a2a"
+      }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#22c55e", flexShrink: 0 } }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#666", fontSize: 10, marginBottom: 2 }, children: "YOUR ADDRESS" }),
+          /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { color: "#fff", fontSize: 12, fontFamily: "monospace" }, children: [
+            connAddress.slice(0, 8),
+            "…",
+            connAddress.slice(-6)
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { color: "#555", fontSize: 11, lineHeight: 1.6, padding: "0 2px" }, children: "This will allow the site to see your address. It cannot move funds without your approval on each transaction." }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 10, marginTop: 4 }, children: [
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: doRejectConnection,
+            style: { ...rejectBtnStyle, flex: 1 },
+            type: "button",
+            children: "Reject"
+          }
+        ),
+        /* @__PURE__ */ jsxRuntimeExports.jsx(
+          "button",
+          {
+            onClick: doApproveConnection,
+            style: { ...btnStyle, flex: 2, marginTop: 0 },
+            type: "button",
+            children: "Connect"
+          }
+        )
+      ] })
+    ] }) })
+  ] });
+  async function doUnlock() {
+    if (!password) return;
+    setLoading(true);
+    try {
+      await window.wallet.unlock(password);
+      setPage("app");
+    } catch (e) {
+      setPwError(String(e).replace("Error: ", ""));
+    } finally {
+      setLoading(false);
+      setPassword("");
+    }
+  }
+  async function doSetPassword() {
+    if (!password) return;
+    if (password.length < 8) {
+      setPwError("Password must be at least 8 characters");
+      return;
+    }
+    if (password !== confirmPw) {
+      setPwError("Passwords do not match");
+      return;
+    }
+    setLoading(true);
+    try {
+      await window.wallet.setPassword(password);
+      setPage("app");
+    } catch (e) {
+      setPwError(String(e).replace("Error: ", ""));
+    } finally {
+      setLoading(false);
+      setPassword("");
+      setConfirmPw("");
+    }
+  }
+  async function doApproveConnection() {
+    if (!connRequest) return;
+    try {
+      await window.wallet.web3ApproveConnection(connRequest.id);
+    } catch {
+    }
+    setConnRequest(null);
+  }
+  async function doRejectConnection() {
+    if (!connRequest) return;
+    try {
+      await window.wallet.web3RejectConnection(connRequest.id);
+    } catch {
+    }
+    setConnRequest(null);
+  }
+}
+const inputStyle = {
+  width: "100%",
+  padding: "10px 14px",
+  borderRadius: 10,
+  border: "1px solid #2a2a2a",
+  background: "#1a1a1a",
+  color: "#fff",
+  fontSize: 14,
+  outline: "none"
+};
+const btnStyle = {
+  width: "100%",
+  padding: "12px",
+  borderRadius: 12,
+  background: "linear-gradient(135deg, #7c3aed, #4f46e5)",
+  color: "#fff",
+  fontWeight: 700,
+  fontSize: 15,
+  border: "none",
+  cursor: "pointer",
+  marginTop: 4
+};
+const rejectBtnStyle = {
+  padding: "12px",
+  borderRadius: 12,
+  background: "transparent",
+  color: "#888",
+  fontWeight: 600,
+  fontSize: 14,
+  border: "1px solid #2a2a2a",
+  cursor: "pointer"
+};
+export {
+  ExtApp as E,
+  createRoot as a,
+  createExtensionWallet as c,
+  jsxRuntimeExports as j,
+  reactExports as r
+};

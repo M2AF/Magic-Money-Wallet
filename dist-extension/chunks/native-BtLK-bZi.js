@@ -1,4 +1,4 @@
-import { fy as global } from "../background.js";
+import { k as global } from "../background.js";
 function getNativeWebSocket() {
   if (typeof WebSocket !== "undefined")
     return WebSocket;

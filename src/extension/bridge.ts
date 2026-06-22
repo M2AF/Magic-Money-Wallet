@@ -19,6 +19,11 @@ const SLOW_TYPES = new Set([
   'wallet:get-history',
   'wallet:get-tokens',
   'wallet:get-collectibles',
+  // AGW resolution does on-chain RPC roundtrips (ExclusiveDelegateResolver +
+  // ownership check) on first read — too slow for the snappy 8s budget.
+  'wallet:get-addresses',
+  'wallet:set-agw',
+  'wallet:set-account',
   'swap:getQuote',
   'swap:getTokenList',
   'ss:estimate',
@@ -109,10 +114,12 @@ export function createExtensionWallet() {
     getHistory:     ()                      => send('wallet:get-history'),
     getAccountIndex:()                      => send<number>('wallet:get-account'),
     setAccount:     (i: number)             => send('wallet:set-account', i),
+    setAgw:         (i: number, address: string | null) => send('wallet:set-agw', i, address),
 
     // Transactions
     estimateFee:    (c: string, t: string, a: string) => send('wallet:estimate-fee', c, t, a),
     sendEvm:        (c: string, t: string, a: string) => send('wallet:send-evm', c, t, a),
+    sendAgw:        (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-agw', t, a, token),
     sendSolana:     (t: string, a: string)            => send('wallet:send-solana', t, a),
     sendCardano:    (t: string, a: string)            => send('wallet:send-cardano', t, a),
 
@@ -121,7 +128,7 @@ export function createExtensionWallet() {
     searchMarket:   (q: string)             => send('wallet:search-market', q),
     getCoinChart:   (id: string, d: string) => send('wallet:get-coin-chart', id, d),
     getTokens:      ()                      => send('wallet:get-tokens'),
-    getCollectibles:()                      => send('wallet:get-collectibles'),
+    getCollectibles:(excludeIds?: string[]) => send('wallet:get-collectibles', excludeIds),
     getNftFloor:    (c: string, a: string)  => send('wallet:get-nft-floor', c, a),
     swapGetQuote:   (req: unknown)          => send('swap:getQuote', req),
     swapExecute:    (quote: unknown)        => send('swap:execute', quote),
