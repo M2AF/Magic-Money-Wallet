@@ -15641,135 +15641,78 @@ function SettingsModal({ onClose, onDeleteWallet }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
-  return /* @__PURE__ */ jsxRuntimeExports.jsx(
-    "div",
-    {
-      onClick: onClose,
-      style: {
-        position: "fixed",
-        inset: 0,
-        zIndex: 9997,
-        background: "rgba(0,0,0,0.65)",
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "center"
-      },
-      children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-        "div",
+  return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-overlay", onClick: onClose, children: /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "settings-sheet fade-in", onClick: (e) => e.stopPropagation(), children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-grip" }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "settings-header", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-title", children: "Settings" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", className: "settings-close", onClick: onClose, "aria-label": "Close", children: "×" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "Wallet", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        SettingsRow,
         {
-          onClick: (e) => e.stopPropagation(),
-          style: {
-            background: "var(--bg-card)",
-            borderRadius: "16px 16px 0 0",
-            border: "1px solid var(--border)",
-            width: "100%",
-            maxWidth: 480,
-            padding: "0 0 24px",
-            boxShadow: "0 -8px 32px rgba(0,0,0,0.5)"
-          },
-          children: [
-            /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "flex", justifyContent: "center", padding: "10px 0 0" }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { width: 36, height: 4, borderRadius: 999, background: "var(--border)" } }) }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px 16px" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontWeight: 800, fontSize: 16 }, children: "Settings" }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("button", { type: "button", onClick: onClose, style: { background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 22, lineHeight: 1, padding: 0 }, children: "×" })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "Wallet", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                SettingsRow,
-                {
-                  icon: "📋",
-                  label: copied ? "Copied!" : "Copy All Addresses",
-                  sublabel: "EVM, Solana, Cardano, Bitcoin, Polkadot",
-                  onClick: copyAddresses
-                }
-              ),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(
-                SettingsRow,
-                {
-                  icon: "🔑",
-                  label: "Reveal Secret Phrase",
-                  sublabel: "Only do this in a private location",
-                  onClick: async () => {
-                    const words = await window.wallet.revealSeed().catch(() => null);
-                    if (words) {
-                      await navigator.clipboard.writeText(words.join(" ")).catch(() => {
-                      });
-                      alert("Seed phrase copied to clipboard — store it safely!");
-                    }
-                  }
-                }
-              )
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "About", children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "⚡", label: "MagicMoney Wallet", sublabel: "Phase 10 — WalletConnect", onClick: () => {
-              } }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "🔗", label: "Powered by ChainLens", sublabel: "chainlensnft.info", onClick: () => {
-              } })
-            ] }),
-            /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsSection, { label: "Danger Zone", children: /* @__PURE__ */ jsxRuntimeExports.jsxs(
-              "button",
-              {
-                type: "button",
-                onClick: handleDelete,
-                disabled: deleting,
-                style: {
-                  width: "100%",
-                  padding: "13px 18px",
-                  background: "none",
-                  border: "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  cursor: "pointer",
-                  borderBottom: "1px solid var(--border)",
-                  textAlign: "left"
-                },
-                children: [
-                  /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: "🗑" }),
-                  /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "#ef4444" }, children: confirmDelete ? "Tap again to confirm — this cannot be undone" : "Delete Wallet" }),
-                    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: "Removes keys from this device permanently" })
-                  ] })
-                ]
-              }
-            ) })
-          ]
+          icon: "📋",
+          label: copied ? "Copied!" : "Copy All Addresses",
+          sublabel: "EVM, Solana, Cardano, Bitcoin, Polkadot",
+          onClick: copyAddresses
+        }
+      ),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        SettingsRow,
+        {
+          icon: "🔑",
+          label: "Reveal Secret Phrase",
+          sublabel: "Only do this in a private location",
+          onClick: async () => {
+            const words = await window.wallet.revealSeed().catch(() => null);
+            if (words) {
+              await navigator.clipboard.writeText(words.join(" ")).catch(() => {
+              });
+              alert("Seed phrase copied to clipboard — store it safely!");
+            }
+          }
         }
       )
-    }
-  );
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(SettingsSection, { label: "About", children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "⚡", label: "MagicMoney Wallet", sublabel: "Phase 10 — WalletConnect", noChevron: true }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsRow, { icon: "🔗", label: "Powered by ChainLens", sublabel: "chainlensnft.info", noChevron: true })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(SettingsSection, { label: "Danger Zone", danger: true, children: /* @__PURE__ */ jsxRuntimeExports.jsx(
+      SettingsRow,
+      {
+        danger: true,
+        icon: "🗑",
+        label: confirmDelete ? "Tap again to confirm — cannot be undone" : "Delete Wallet",
+        sublabel: "Removes keys from this device permanently",
+        onClick: handleDelete,
+        disabled: deleting,
+        noChevron: true
+      }
+    ) })
+  ] }) });
 }
-function SettingsSection({ label, children }) {
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginBottom: 4 }, children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { padding: "4px 18px 6px", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", letterSpacing: "0.08em", textTransform: "uppercase" }, children: label }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }, children })
+function SettingsSection({ label, danger, children }) {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "settings-section", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-section-label", children: label }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: `settings-group${danger ? " danger" : ""}`, children })
   ] });
 }
-function SettingsRow({ icon, label, sublabel, onClick }) {
+function SettingsRow({ icon, label, sublabel, onClick, danger, disabled, noChevron }) {
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(
     "button",
     {
       type: "button",
+      className: `settings-row${danger ? " danger" : ""}`,
       onClick,
-      style: {
-        width: "100%",
-        padding: "12px 18px",
-        background: "none",
-        border: "none",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        cursor: "pointer",
-        borderBottom: "1px solid var(--border)",
-        textAlign: "left"
-      },
+      disabled,
       children: [
-        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 18, flexShrink: 0 }, children: icon }),
-        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { flex: 1 }, children: [
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 13, fontWeight: 600, color: "var(--text)" }, children: label }),
-          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)" }, children: sublabel })
+        /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "settings-icon", children: icon }),
+        /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "settings-row-text", children: [
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-row-label", children: label }),
+          /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "settings-row-sub", children: sublabel })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", style: { color: "var(--text-muted)", flexShrink: 0 }, children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9 18 15 12 9 6" }) })
+        !noChevron && /* @__PURE__ */ jsxRuntimeExports.jsx("svg", { className: "settings-chevron", width: "14", height: "14", fill: "none", stroke: "currentColor", strokeWidth: "2", viewBox: "0 0 24 24", children: /* @__PURE__ */ jsxRuntimeExports.jsx("polyline", { points: "9 18 15 12 9 6" }) })
       ]
     }
   );
