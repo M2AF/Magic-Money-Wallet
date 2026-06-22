@@ -37,33 +37,15 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   }
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 9997,
-        background: 'rgba(0,0,0,0.65)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center'
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: 'var(--bg-card)', borderRadius: '16px 16px 0 0',
-          border: '1px solid var(--border)', width: '100%', maxWidth: 480,
-          padding: '0 0 24px', boxShadow: '0 -8px 32px rgba(0,0,0,0.5)'
-        }}
-      >
-        {/* Handle */}
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
-          <div style={{ width: 36, height: 4, borderRadius: 999, background: 'var(--border)' }} />
+    <div className="settings-overlay" onClick={onClose}>
+      <div className="settings-sheet fade-in" onClick={e => e.stopPropagation()}>
+        <div className="settings-grip" />
+
+        <div className="settings-header">
+          <div className="settings-title">Settings</div>
+          <button type="button" className="settings-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px 16px' }}>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>Settings</div>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 22, lineHeight: 1, padding: 0 }}>×</button>
-        </div>
-
-        {/* Rows */}
         <SettingsSection label="Wallet">
           <SettingsRow
             icon="📋"
@@ -86,69 +68,63 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
         </SettingsSection>
 
         <SettingsSection label="About">
-          <SettingsRow icon="⚡" label="MagicMoney Wallet" sublabel="Phase 10 — WalletConnect" onClick={() => {}} />
-          <SettingsRow icon="🔗" label="Powered by ChainLens" sublabel="chainlensnft.info" onClick={() => {}} />
+          <SettingsRow icon="⚡" label="MagicMoney Wallet" sublabel="Phase 10 — WalletConnect" noChevron />
+          <SettingsRow icon="🔗" label="Powered by ChainLens" sublabel="chainlensnft.info" noChevron />
         </SettingsSection>
 
-        <SettingsSection label="Danger Zone">
-          <button
-            type="button"
+        <SettingsSection label="Danger Zone" danger>
+          <SettingsRow
+            danger
+            icon="🗑"
+            label={confirmDelete ? 'Tap again to confirm — cannot be undone' : 'Delete Wallet'}
+            sublabel="Removes keys from this device permanently"
             onClick={handleDelete}
             disabled={deleting}
-            style={{
-              width: '100%', padding: '13px 18px', background: 'none', border: 'none',
-              display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-              borderBottom: '1px solid var(--border)', textAlign: 'left'
-            }}
-          >
-            <span style={{ fontSize: 18, flexShrink: 0 }}>🗑</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: '#ef4444' }}>
-                {confirmDelete ? 'Tap again to confirm — this cannot be undone' : 'Delete Wallet'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                Removes keys from this device permanently
-              </div>
-            </div>
-          </button>
+            noChevron
+          />
         </SettingsSection>
       </div>
     </div>
   )
 }
 
-function SettingsSection({ label, children }: { label: string; children: React.ReactNode }) {
+function SettingsSection({ label, danger, children }: { label: string; danger?: boolean; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 4 }}>
-      <div style={{ padding: '4px 18px 6px', fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-        {label}
-      </div>
-      <div style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+    <div className="settings-section">
+      <div className="settings-section-label">{label}</div>
+      <div className={`settings-group${danger ? ' danger' : ''}`}>
         {children}
       </div>
     </div>
   )
 }
 
-function SettingsRow({ icon, label, sublabel, onClick }: { icon: string; label: string; sublabel: string; onClick: () => void }) {
+function SettingsRow({ icon, label, sublabel, onClick, danger, disabled, noChevron }: {
+  icon: string
+  label: string
+  sublabel: string
+  onClick?: () => void
+  danger?: boolean
+  disabled?: boolean
+  noChevron?: boolean
+}) {
   return (
     <button
       type="button"
+      className={`settings-row${danger ? ' danger' : ''}`}
       onClick={onClick}
-      style={{
-        width: '100%', padding: '12px 18px', background: 'none', border: 'none',
-        display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
-        borderBottom: '1px solid var(--border)', textAlign: 'left'
-      }}
+      disabled={disabled}
     >
-      <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{label}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{sublabel}</div>
+      <span className="settings-icon">{icon}</span>
+      <div className="settings-row-text">
+        <div className="settings-row-label">{label}</div>
+        <div className="settings-row-sub">{sublabel}</div>
       </div>
-      <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
+      {!noChevron && (
+        <svg className="settings-chevron" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      )}
     </button>
   )
 }
