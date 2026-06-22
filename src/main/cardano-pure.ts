@@ -229,6 +229,24 @@ export function getCardanoSpendingKey(entropy: Uint8Array, accountIndex = 0): Ca
   }
 }
 
+/**
+ * Derive the stake key at m/1852'/1815'/account'/2/0 (same path the base
+ * address's stake credential uses). Marketplace cancel/accept/sell transactions
+ * put this key in `required_signers`, so CIP-30 signTx must add its witness too.
+ */
+export function getCardanoStakeKey(entropy: Uint8Array, accountIndex = 0): CardanoSpendingKey {
+  const root    = rootKeyFromEntropy(entropy)
+  const account = [deriveHardened, deriveHardened, deriveHardened]
+    .reduce((key, fn, i) => fn(key, [1852, 1815, accountIndex][i]), root)
+
+  const stakeNode = deriveSoft(deriveSoft(account, 2), 0)
+  return {
+    kL:  stakeNode.kL,
+    kR:  stakeNode.kR,
+    pub: pubFromKL(stakeNode.kL)
+  }
+}
+
 // ─── BIP32-Ed25519 signing ────────────────────────────────────────────────────
 
 /**

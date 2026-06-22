@@ -36,33 +36,57 @@ interface MarketData {
   sparkline: number[] | null
 }
 
+// Last-good market data, kept so a transient CoinGecko 429 (the keyless
+// coins/markets endpoint rate-limits under the concurrency we hit on dashboard
+// mount — balances racing the token/NFT-floor simple/price calls) serves the
+// previous prices instead of zeroing every USD value. Mirrors native-prices.ts.
+const marketCache = new Map<string, MarketData>()
+
 async function fetchMarketData(ids: string[]): Promise<Record<string, MarketData>> {
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return {}
-  try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${unique.join(',')}&sparkline=true&price_change_percentage=24h&order=id_asc&per_page=250`,
-      { signal: AbortSignal.timeout(12_000) }
-    )
-    if (!res.ok) return {}
-    const json = await res.json() as Array<{
-      id: string
-      current_price: number
-      price_change_percentage_24h: number | null
-      sparkline_in_7d?: { price: number[] }
-    }>
-    const out: Record<string, MarketData> = {}
-    for (const coin of json) {
-      out[coin.id] = {
-        price: coin.current_price ?? 0,
-        change24h: coin.price_change_percentage_24h ?? null,
-        sparkline: coin.sparkline_in_7d?.price ?? null
+
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${unique.join(',')}&sparkline=true&price_change_percentage=24h&order=id_asc&per_page=250`
+
+  const fresh: Record<string, MarketData> = {}
+  // One retry on 429 — almost always transient burst contention that clears.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(12_000) })
+      if (res.status === 429 && attempt === 0) {
+        await new Promise(r => setTimeout(r, 1200))
+        continue
       }
+      if (!res.ok) break
+      const json = await res.json() as Array<{
+        id: string
+        current_price: number
+        price_change_percentage_24h: number | null
+        sparkline_in_7d?: { price: number[] }
+      }>
+      for (const coin of json) {
+        const md: MarketData = {
+          price: coin.current_price ?? 0,
+          change24h: coin.price_change_percentage_24h ?? null,
+          sparkline: coin.sparkline_in_7d?.price ?? null
+        }
+        fresh[coin.id] = md
+        if (md.price > 0) marketCache.set(coin.id, md)  // remember last good
+      }
+      break
+    } catch {
+      break
     }
-    return out
-  } catch {
-    return {}
   }
+
+  // Prefer fresh values; fall back to the last-known price per id so a failed or
+  // partial fetch never nulls USD across the whole portfolio.
+  const out: Record<string, MarketData> = {}
+  for (const id of unique) {
+    const md = fresh[id] ?? marketCache.get(id)
+    if (md) out[id] = md
+  }
+  return out
 }
 
 function usd(amount: number, price: number): string {

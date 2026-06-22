@@ -10,6 +10,7 @@ import { mnemonicToEntropy }  from '@scure/bip39'
 import { wordlist }           from '@scure/bip39/wordlists/english'
 import {
   getCardanoSpendingKey,
+  getCardanoStakeKey,
   cardanoSign,
   decodeCardanoAddress,
   deriveCardanoStakeAddress,
@@ -100,8 +101,69 @@ export function hexToBytes(hex: string): Uint8Array {
   return bytes
 }
 
+/**
+ * Encode a Cardano Value (CBOR). With no native assets it's a bare coin uint;
+ * with assets it's `[coin, multiasset]` where multiasset is
+ * `{ policy_id(28B) => { asset_name => quantity } }`. Blockfrost reports each
+ * asset `unit` as policyIdHex(56 chars) + assetNameHex. CIP-30 dApps re-serialize
+ * via their own CSL, so canonical key ordering is not required here.
+ */
+export function cborValue(lovelace: bigint, amount: Array<{ unit: string; quantity: string }>): Uint8Array {
+  const nonAda = amount.filter(a => a.unit !== 'lovelace')
+  if (nonAda.length === 0) return cborUint(lovelace)
+
+  const byPolicy = new Map<string, Array<{ name: string; qty: bigint }>>()
+  for (const a of nonAda) {
+    const policy = a.unit.slice(0, 56)
+    const name   = a.unit.slice(56)
+    if (!byPolicy.has(policy)) byPolicy.set(policy, [])
+    byPolicy.get(policy)!.push({ name, qty: BigInt(a.quantity) })
+  }
+
+  const policyEntries: Array<[Uint8Array, Uint8Array]> = []
+  for (const [policy, tokens] of byPolicy) {
+    const assetEntries = tokens.map(
+      t => [cborBytes(hexToBytes(t.name)), cborUint(t.qty)] as [Uint8Array, Uint8Array]
+    )
+    policyEntries.push([cborBytes(hexToBytes(policy)), cborMap(assetEntries)])
+  }
+  return cborArray([cborUint(lovelace), cborMap(policyEntries)])
+}
+
+/** Decode a CBOR-encoded unsigned coin (major type 0). Falls back on bad input. */
+function decodeCborUint(b: Uint8Array, fallback: bigint): bigint {
+  if (!b.length || (b[0] >> 5) !== 0) return fallback
+  const ai = b[0] & 0x1f
+  if (ai < 24)    return BigInt(ai)
+  if (ai === 24)  return BigInt(b[1])
+  if (ai === 25)  return (BigInt(b[1]) << 8n) | BigInt(b[2])
+  if (ai === 26)  return (BigInt(b[1]) << 24n) | (BigInt(b[2]) << 16n) | (BigInt(b[3]) << 8n) | BigInt(b[4])
+  if (ai === 27)  { let v = 0n; for (let i = 1; i <= 8; i++) v = (v << 8n) | BigInt(b[i]); return v }
+  return fallback
+}
+
 export function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Address → raw bytes, tolerant of input form. CIP-30 dApps hand us hex
+ * addresses (the form we now return); our own UI/storage uses bech32
+ * (addr1.../stake1...). Detect even-length pure-hex → hex; otherwise bech32.
+ */
+export function addrToBytes(addr: string): Uint8Array {
+  if (addr.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(addr)) return hexToBytes(addr)
+  return decodeCardanoAddress(addr)
+}
+
+/**
+ * Encode an address as the hex string CIP-30 requires (`cbor<address>` — the
+ * raw address bytes, hex-encoded — NOT bech32). dApps compare these against
+ * indexer-reported owner addresses (hex) to detect ownership, and build datums
+ * from them; returning bech32 breaks both (only buyer actions stay available).
+ */
+export function addressToHex(addr: string): string {
+  return bytesToHex(addrToBytes(addr))
 }
 
 // ── CBOR length calculator (for tx body extraction) ───────────────────────────
@@ -144,6 +206,46 @@ export function extractTxBody(txBytes: Uint8Array): Uint8Array {
   return txBytes.slice(bodyStart, bodyStart + bodyLen)
 }
 
+/**
+ * Extract the raw CBOR bytes of one field (by integer key) from a transaction
+ * body map. Used to inspect `required_signers` (14), `certificates` (4) and
+ * `withdrawals` (5) without pulling in a full CBOR decoder. Returns null if the
+ * field is absent or the body isn't a definite-length map.
+ */
+function bodyFieldBytes(body: Uint8Array, fieldKey: number): Uint8Array | null {
+  if ((body[0] >> 5) !== 5) return null   // major type 5 = map
+  const ai = body[0] & 0x1f
+  let n: number, off: number
+  if (ai < 24)        { n = ai;                          off = 1 }
+  else if (ai === 24) { n = body[1];                     off = 2 }
+  else if (ai === 25) { n = (body[1] << 8) | body[2];    off = 3 }
+  else return null
+
+  for (let i = 0; i < n; i++) {
+    const keyLen = cborItemLen(body, off)
+    if (keyLen < 0) return null
+    // Body keys are small unsigned ints (major type 0) — read the value.
+    const key = (body[off] & 0x1f) < 24 ? (body[off] & 0x1f)
+              : (body[off] & 0x1f) === 24 ? body[off + 1] : -1
+    const valOff = off + keyLen
+    const valLen = cborItemLen(body, valOff)
+    if (valLen < 0) return null
+    if (key === fieldKey) return body.slice(valOff, valOff + valLen)
+    off = valOff + valLen
+  }
+  return null
+}
+
+/** True if `needle` occurs as a contiguous subsequence of `haystack`. */
+function bytesContain(haystack: Uint8Array, needle: Uint8Array): boolean {
+  if (needle.length === 0 || haystack.length < needle.length) return false
+  outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
+    for (let j = 0; j < needle.length; j++) if (haystack[i + j] !== needle[j]) continue outer
+    return true
+  }
+  return false
+}
+
 // ── CIP-30 API implementations ────────────────────────────────────────────────
 
 const BF = 'https://cardano-mainnet.blockfrost.io/api/v0'
@@ -155,8 +257,11 @@ export async function cip30GetBalance(address: string, blockfrostKey: string): P
   })
   if (!res.ok) throw new Error(`Blockfrost ${res.status}`)
   const data = await res.json() as { amount?: Array<{ unit: string; quantity: string }> }
-  const lovelace = BigInt((data.amount ?? []).find(a => a.unit === 'lovelace')?.quantity ?? '0')
-  return bytesToHex(cborUint(lovelace))
+  const amount = data.amount ?? []
+  const lovelace = BigInt(amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
+  // Full Value (ADA + native assets), not lovelace-only — dApps need the asset
+  // balance to build transactions that move tokens/NFTs.
+  return bytesToHex(cborValue(lovelace, amount))
 }
 
 export async function cip30GetUtxos(address: string, blockfrostKey: string): Promise<string[]> {
@@ -166,12 +271,65 @@ export async function cip30GetUtxos(address: string, blockfrostKey: string): Pro
   })
   if (!res.ok) return []
   const utxos = await res.json() as Array<{
-    tx_hash: string; output_index: number
+    tx_hash: string; output_index: number; data_hash?: string | null
     amount: Array<{ unit: string; quantity: string }>
   }>
   const addrBytes = decodeCardanoAddress(address)
   return utxos.map(u => {
     const lovelace = BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
+    const txIn  = cborArray([cborBytes(hexToBytes(u.tx_hash)), cborUint(u.output_index)])
+    // Legacy array output: [address, value, ?datum_hash]. Value carries native
+    // assets so the dApp can see tokens/NFTs held at this UTxO.
+    const outItems = [cborBytes(addrBytes), cborValue(lovelace, u.amount)]
+    if (u.data_hash) outItems.push(cborBytes(hexToBytes(u.data_hash)))
+    const txOut = cborArray(outItems)
+    return bytesToHex(cborArray([txIn, txOut]))
+  })
+}
+
+/**
+ * CIP-30 getCollateral — pure-ADA UTxOs (no native assets) covering `amountHex`
+ * (CBOR coin) or 5 ADA by default. Plutus-script dApps (DEXes, NFT marketplaces)
+ * require collateral to build script transactions. Prefers a single sufficient
+ * UTxO; otherwise accumulates smallest-first up to the 3-input protocol cap.
+ * Returns [] if no pure-ADA UTxOs can meet the target.
+ */
+export async function cip30GetCollateral(
+  address: string, blockfrostKey: string, amountHex?: string
+): Promise<string[]> {
+  const res = await fetch(`${BF}/addresses/${address}/utxos?count=100`, {
+    headers: { project_id: blockfrostKey },
+    signal: AbortSignal.timeout(12_000)
+  })
+  if (!res.ok) return []
+  const utxos = await res.json() as Array<{
+    tx_hash: string; output_index: number
+    amount: Array<{ unit: string; quantity: string }>
+  }>
+
+  const target = amountHex ? decodeCborUint(hexToBytes(amountHex), 5_000_000n) : 5_000_000n
+  const addrBytes = decodeCardanoAddress(address)
+
+  const pureAda = utxos
+    .filter(u => u.amount.every(a => a.unit === 'lovelace'))
+    .map(u => ({ u, lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0') }))
+    .sort((a, b) => (a.lovelace < b.lovelace ? -1 : a.lovelace > b.lovelace ? 1 : 0))
+
+  let chosen: typeof pureAda
+  const single = pureAda.find(x => x.lovelace >= target)
+  if (single) {
+    chosen = [single]
+  } else {
+    chosen = []
+    let sum = 0n
+    for (const x of pureAda) {
+      chosen.push(x); sum += x.lovelace
+      if (sum >= target || chosen.length >= 3) break
+    }
+    if (sum < target) return []
+  }
+
+  return chosen.map(({ u, lovelace }) => {
     const txIn  = cborArray([cborBytes(hexToBytes(u.tx_hash)), cborUint(u.output_index)])
     const txOut = cborArray([cborBytes(addrBytes), cborUint(lovelace)])
     return bytesToHex(cborArray([txIn, txOut]))
@@ -181,7 +339,8 @@ export async function cip30GetUtxos(address: string, blockfrostKey: string): Pro
 export async function cip30GetRewardAddresses(mnemonic: string, accountIndex: number): Promise<string[]> {
   const entropy   = mnemonicToEntropy(mnemonic, wordlist)
   const stakeAddr = deriveCardanoStakeAddress(entropy, accountIndex)
-  return [stakeAddr]
+  // CIP-30 requires hex-encoded reward-address bytes, not bech32 (stake1...).
+  return [addressToHex(stakeAddr)]
 }
 
 export async function cip30SignTx(txHex: string, mnemonic: string, accountIndex: number): Promise<string> {
@@ -190,10 +349,28 @@ export async function cip30SignTx(txHex: string, mnemonic: string, accountIndex:
   const txBodyHash  = blake2b(txBodyBytes, { dkLen: 32 })
   const entropy  = mnemonicToEntropy(mnemonic, wordlist)
   const spendKey = getCardanoSpendingKey(entropy, accountIndex)
-  const sig      = cardanoSign(txBodyHash, spendKey.kL, spendKey.kR)
-  const witnessSet = cborMap([
-    [cborUint(0), cborArray([cborArray([cborBytes(spendKey.pub), cborBytes(sig)])])]
-  ])
+
+  const vkeys: Uint8Array[] = [
+    cborArray([cborBytes(spendKey.pub), cborBytes(cardanoSign(txBodyHash, spendKey.kL, spendKey.kR))])
+  ]
+
+  // Marketplace cancel/accept/sell txs require the seller's STAKE key signature
+  // (its key-hash is listed in required_signers / certs / withdrawals). Add that
+  // witness only when the body actually references the stake key — adding it to
+  // an ordinary buy/offer tx would inflate the size past the dApp's fee budget.
+  // Outputs (field 1) are intentionally NOT scanned: change back to our own base
+  // address embeds the stake hash and would false-positive on every tx.
+  const stakeKey  = getCardanoStakeKey(entropy, accountIndex)
+  const stakeHash = blake2b(stakeKey.pub, { dkLen: 28 })
+  const needsStake = [14, 4, 5].some(field => {
+    const v = bodyFieldBytes(txBodyBytes, field)
+    return v != null && bytesContain(v, stakeHash)
+  })
+  if (needsStake) {
+    vkeys.push(cborArray([cborBytes(stakeKey.pub), cborBytes(cardanoSign(txBodyHash, stakeKey.kL, stakeKey.kR))]))
+  }
+
+  const witnessSet = cborMap([[cborUint(0), cborArray(vkeys)]])
   return bytesToHex(witnessSet)
 }
 
@@ -203,7 +380,9 @@ export async function cip30SignData(
   const payload   = hexToBytes(payloadHex)
   const entropy   = mnemonicToEntropy(mnemonic, wordlist)
   const spendKey  = getCardanoSpendingKey(entropy, accountIndex)
-  const addrBytes = decodeCardanoAddress(address)
+  // dApps pass the hex address we handed them (getUsedAddresses/getRewardAddresses);
+  // tolerate bech32 too for internal callers.
+  const addrBytes = addrToBytes(address)
 
   const protectedHdrMap = cborMap([
     [cborInt(1),      cborInt(-8)],

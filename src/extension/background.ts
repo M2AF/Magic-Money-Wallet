@@ -27,8 +27,8 @@ import {
   wcDisconnect, wcApproveRequest, wcRejectRequest
 } from './wc-ext'
 import {
-  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses,
-  cip30SignTx, cip30SignData, cip30SubmitTx,
+  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
+  cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
 
 // ── Global error logging (service workers crash silently without this) ────────
@@ -262,16 +262,18 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const config = await store.loadConfig()
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
-      if (chain === 'solana') return estimateSolanaFee(addresses.solana, to, amount, config)
-      if (chain === 'cardano') return estimateCardanoFee(addresses.cardano, to, amount, config)
-      return estimateEvmFee(chain, addresses.evm, to, amount, config)
+      // Match the shared tx-sender signatures (Electron calls these the same way).
+      if (chain === 'solana') return estimateSolanaFee(config)
+      if (chain === 'cardano') return estimateCardanoFee(addresses.cardano ?? '', config)
+      return estimateEvmFee(addresses.evm, to, amount, config, chain)
     }
 
     case 'wallet:send-evm': {
       const [chainId, to, amount] = [String(a0), String(a1), String(a2)]
-      const pk = await deriveEvmKey()
+      const mnemonic = await store.loadMnemonic()
       const config = await store.loadConfig()
-      return sendEvmTransaction(chainId, pk, to, amount, config)
+      const addresses = await store.loadAddresses()
+      return sendEvmTransaction(mnemonic, to, amount, config, chainId, addresses?.accountIndex ?? 0)
     }
 
     case 'wallet:send-solana': {
@@ -850,9 +852,17 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
     }
 
+    case 'cardano:get-collateral': {
+      const addresses = await store.loadAddresses()
+      if (!addresses?.cardano) throw new Error('No Cardano wallet')
+      const config = await store.loadConfig()
+      return cip30GetCollateral(addresses.cardano, config.blockfrostKey ?? '', a0 ? String(a0) : undefined)
+    }
+
     case 'cardano:get-used-addresses': {
       const addresses = await store.loadAddresses()
-      return addresses?.cardano ? [addresses.cardano] : []
+      // CIP-30 requires hex-encoded address bytes, not bech32.
+      return addresses?.cardano ? [addressToHex(addresses.cardano)] : []
     }
 
     case 'cardano:get-unused-addresses':
@@ -861,7 +871,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'cardano:get-change-address': {
       const addresses = await store.loadAddresses()
       if (!addresses?.cardano) throw new Error('No Cardano wallet')
-      return addresses.cardano
+      return addressToHex(addresses.cardano)
     }
 
     case 'cardano:get-reward-addresses': {

@@ -73,8 +73,8 @@ import {
   sendCardanoTransaction
 } from './tx-sender'
 import {
-  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses,
-  cip30SignTx, cip30SignData, cip30SubmitTx,
+  cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
+  cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
 
 // ── Key derivation helpers (used by web3 IPC) ──────────────────────────────
@@ -823,9 +823,18 @@ export function registerIpcHandlers(): void {
     return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
   })
 
+  ipcMain.handle('cardano:get-collateral', async (_event, amountHex?: string) => {
+    const addresses = loadAddresses()
+    if (!addresses?.cardano) throw new Error('No Cardano wallet')
+    const config = loadConfig()
+    return cip30GetCollateral(addresses.cardano, config.blockfrostKey ?? '', amountHex)
+  })
+
   ipcMain.handle('cardano:get-used-addresses', () => {
     const addresses = loadAddresses()
-    return addresses?.cardano ? [addresses.cardano] : []
+    // CIP-30 requires hex-encoded address bytes, not bech32 — dApps match these
+    // against indexer-reported owner addresses to detect ownership.
+    return addresses?.cardano ? [addressToHex(addresses.cardano)] : []
   })
 
   ipcMain.handle('cardano:get-unused-addresses', () => [])
@@ -833,7 +842,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('cardano:get-change-address', () => {
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano wallet')
-    return addresses.cardano
+    return addressToHex(addresses.cardano)
   })
 
   ipcMain.handle('cardano:get-reward-addresses', async () => {

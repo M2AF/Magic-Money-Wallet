@@ -230,9 +230,13 @@ webFrame.executeJavaScript(`(function () {
       getUnusedAddresses: ()                   => call('cardano:get-unused-addresses'),
       getChangeAddress:   ()                   => call('cardano:get-change-address'),
       getRewardAddresses: ()                   => call('cardano:get-reward-addresses'),
+      getCollateral:      (p)                  => call('cardano:get-collateral', p && p.amount),
       signTx:   (tx, partial)                  => call('cardano:sign-tx', tx, !!partial),
       signData: (addr, payload)                => call('cardano:sign-data', addr, payload),
       submitTx: (tx)                           => call('cardano:submit-tx', tx),
+      experimental: {
+        getCollateral:    (p)                  => call('cardano:get-collateral', p && p.amount),
+      },
     });
     const mmWallet = {
       apiVersion: '0.1.0',

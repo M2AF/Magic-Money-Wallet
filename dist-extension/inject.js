@@ -118,9 +118,13 @@ function makeCardanoFullApi() {
     getUnusedAddresses: () => send("cardano:get-unused-addresses", []),
     getChangeAddress: () => send("cardano:get-change-address", []),
     getRewardAddresses: () => send("cardano:get-reward-addresses", []),
+    getCollateral: (p) => send("cardano:get-collateral", [p == null ? void 0 : p.amount]),
     signTx: (tx, partial = false) => send("cardano:sign-tx", [tx, partial]),
     signData: (addr, payload) => send("cardano:sign-data", [addr, payload]),
-    submitTx: (tx) => send("cardano:submit-tx", [tx])
+    submitTx: (tx) => send("cardano:submit-tx", [tx]),
+    experimental: {
+      getCollateral: (p) => send("cardano:get-collateral", [p == null ? void 0 : p.amount])
+    }
   };
 }
 try {
