@@ -10766,7 +10766,7 @@ const APP_HUB = {
     {
       "name": "DeFi",
       "short": "DeFi",
-      "count": 38
+      "count": 39
     },
     {
       "name": "DEX",
@@ -11975,6 +11975,23 @@ const APP_HUB = {
       "description": "Description here.",
       "chainCount": 1,
       "coverage": 6
+    },
+    {
+      "id": "fomo",
+      "name": "fomo",
+      "website": "https://fomo.family/",
+      "category": "DeFi",
+      "chains": [
+        "solana",
+        "base",
+        "monad",
+        "bnb-chain"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=fomo.family&sz=64",
+      "description": "A social-first crypto trading app that enables cross-chain trading, real-time social signals, and unified balance management across multiple blockchains.",
+      "chainCount": 4,
+      "coverage": 22
     },
     {
       "id": "jumper-exchange",

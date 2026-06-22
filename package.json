@@ -14,6 +14,7 @@
     "preview": "electron-vite preview",
     "package": "npm run build && electron-builder",
     "package:publish": "npm run build && electron-builder --publish always",
+    "prebuild:extension": "node scripts/convert-apphub.js",
     "build:extension": "vite build --config vite.extension.config.ts",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
