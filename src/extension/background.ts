@@ -472,11 +472,14 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           return acct.signMessage({ message: { raw: String(params[1]) as `0x${string}` } })
         }
 
-        case 'eth_signTypedData_v4':
-        case 'eth_signTypedData': {
+        case 'eth_signTypedData':
+        case 'eth_signTypedData_v3':
+        case 'eth_signTypedData_v4': {
           const key = await deriveEvmKey()
           const acct = privateKeyToAccount(key)
-          const td = JSON.parse(String(params[1]))
+          // v3/v4: params = [address, typedData]; legacy v1: params = [typedData, address]
+          const rawPayload = method === 'eth_signTypedData' ? params[0] : params[1]
+          const td = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload
           const { EIP712Domain: _dom, ...types } = td.types ?? {}
           return acct.signTypedData({ domain: td.domain ?? {}, types, primaryType: td.primaryType, message: td.message })
         }
@@ -873,7 +876,11 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()
       const accountIdx = addresses?.accountIndex ?? 0
-      return cip30SignTx(txHex, mnemonic, accountIdx)
+      try {
+        return await cip30SignTx(txHex, mnemonic, accountIdx)
+      } catch (err) {
+        throw new Error(`Could not sign this Cardano transaction — the dApp may have sent it in an unexpected format. (${err instanceof Error ? err.message : String(err)})`)
+      }
     }
 
     case 'cardano:sign-data': {
@@ -882,7 +889,11 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await store.loadAddresses()
       const accountIdx = addresses?.accountIndex ?? 0
       const signingAddr = addrArg || addresses?.cardano || ''
-      return cip30SignData(signingAddr, payloadHex, mnemonic, accountIdx)
+      try {
+        return await cip30SignData(signingAddr, payloadHex, mnemonic, accountIdx)
+      } catch (err) {
+        throw new Error(`Could not sign this Cardano data payload. (${err instanceof Error ? err.message : String(err)})`)
+      }
     }
 
     case 'cardano:submit-tx': {

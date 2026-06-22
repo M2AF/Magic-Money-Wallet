@@ -298,6 +298,18 @@ export function browserForward(): void { dappView?.webContents.goForward() }
 export function browserReload(): void  { dappView?.webContents.reload() }
 export function browserHome(): void    { dappView?.webContents.loadURL(BROWSER_HOME) }
 
+/**
+ * Push a provider event (e.g. EIP-1193 `chainChanged` / `accountsChanged`) into
+ * the currently-loaded dApp page. The web3-inject preload listens on the
+ * `web3:event` IPC channel and re-posts it into the page's main world as a
+ * `__mm:'main→page:event'` window message, where the injected providers pick it
+ * up. No-op when no dApp view is open.
+ */
+export function emitDappEvent(chain: 'eth' | 'solana' | 'cardano', event: string, data: unknown): void {
+  if (!dappView || dappView.webContents.isDestroyed()) return
+  dappView.webContents.send('web3:event', { chain, event, data })
+}
+
 export function getBrowserState() {
   return {
     url: dappView?.webContents.getURL() ?? BROWSER_HOME,

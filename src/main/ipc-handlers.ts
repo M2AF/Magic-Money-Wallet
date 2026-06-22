@@ -45,8 +45,10 @@ import {
   browserHome,
   getBrowserState,
   getMainWin,
-  showApprovalWindow
+  showApprovalWindow,
+  emitDappEvent
 } from './browser-manager'
+import { EVM_CHAINS } from './chain-config'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
@@ -65,6 +67,7 @@ import {
   estimateSolanaFee,
   estimateCardanoFee,
   sendEvmTransaction,
+  sendRawEvmTransaction,
   sendAgwTransaction,
   sendSolanaTransaction,
   sendCardanoTransaction
@@ -84,50 +87,36 @@ function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
   return `0x${Buffer.from(child.privateKey).toString('hex')}` as `0x${string}`
 }
 
+// ── dApp EVM chain state ─────────────────────────────────────────────────────
+// The injected provider is multi-chain: the connected dApp selects the active
+// network via wallet_switchEthereumChain. We honor that for eth_chainId, read
+// RPC forwarding, and eth_sendTransaction routing. Defaults to Ethereum (1).
+let _currentChainId = 1
+
+/** Look up a supported EVM network by numeric chainId (shared chain-config). */
+function evmChainById(chainId: number) {
+  return EVM_CHAINS.find(c => c.chainId === chainId)
+}
+
+/**
+ * Sign + broadcast a dApp's eth_sendTransaction on the currently-selected chain.
+ * Delegates to the shared multi-chain sender (viem fills nonce/fees, EIP-1559,
+ * per-chain RPC) instead of the old hand-rolled mainnet-only path.
+ */
 async function sendEvmFromDapp(
   mnemonic: string,
   accountIndex: number,
-  tx: { to?: string; value?: string; data?: string; gas?: string },
-  config: { alchemyKey: string }
+  tx: { to?: string; value?: string; data?: string; gas?: string; chainId?: string },
+  config: WalletConfig
 ): Promise<string> {
-  const pk = deriveEvmKey(mnemonic, accountIndex)
-  const account = privateKeyToAccount(pk)
-  const alchemyUrl = `https://eth-mainnet.g.alchemy.com/v2/${config.alchemyKey}`
-
-  // Get nonce
-  const nonceRes = await fetch(alchemyUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getTransactionCount', params: [account.address, 'pending'] })
-  })
-  const nonceData = await nonceRes.json() as { result: string }
-  const nonce = parseInt(nonceData.result, 16)
-
-  // Get gas price
-  const gpRes = await fetch(alchemyUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'eth_gasPrice', params: [] })
-  })
-  const gpData = await gpRes.json() as { result: string }
-  const gasPrice = BigInt(gpData.result)
-
-  const gas = tx.gas ? BigInt(tx.gas) : 21000n
-  const value = tx.value ? BigInt(tx.value) : 0n
-
-  // Use viem to sign the transaction
-  const { createWalletClient, http } = await import('viem')
-  const { mainnet } = await import('viem/chains')
-  const client = createWalletClient({ account, chain: mainnet, transport: http(alchemyUrl) })
-  const hash = await client.sendTransaction({
-    to: tx.to as `0x${string}` | undefined,
-    value,
-    data: tx.data as `0x${string}` | undefined,
-    gas,
-    gasPrice,
-    nonce
-  })
-  return hash
+  const chainId = tx.chainId ? (parseInt(tx.chainId, 16) || _currentChainId) : _currentChainId
+  const { txHash } = await sendRawEvmTransaction(
+    mnemonic,
+    { to: tx.to ?? '', data: tx.data, value: tx.value, gas: tx.gas, chainId },
+    config,
+    accountIndex
+  )
+  return txHash
 }
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
@@ -185,8 +174,11 @@ const RPC_TTL_METHODS = new Set(['eth_blockNumber', 'eth_gasPrice'])
 const rpcInflight = new Map<string, Promise<unknown>>()
 const rpcTtlCache = new Map<string, { value: unknown; expires: number }>()
 
-async function forwardEvmRpc(method: string, params: unknown[], alchemyKey: string): Promise<unknown> {
-  const key = `${method}|${JSON.stringify(params ?? [])}`
+async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig): Promise<unknown> {
+  // Route reads to the dApp's currently-selected chain (falls back to Ethereum).
+  const chain = evmChainById(_currentChainId) ?? EVM_CHAINS[0]
+  const rpcUrl = chain.rpcUrl(config)
+  const key = `${_currentChainId}|${method}|${JSON.stringify(params ?? [])}`
 
   if (RPC_TTL_METHODS.has(method)) {
     const hit = rpcTtlCache.get(key)
@@ -197,7 +189,7 @@ async function forwardEvmRpc(method: string, params: unknown[], alchemyKey: stri
   if (existing) return existing
 
   const p = (async () => {
-    const res = await fetch(`https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`, {
+    const res = await fetch(rpcUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
@@ -500,6 +492,7 @@ export function registerIpcHandlers(): void {
     const config = loadConfig()
     const origin = getSenderOrigin(event.sender.getURL())
 
+    try {
     switch (method) {
       // ── Connection ──────────────────────────────────────────────────────
       case 'eth_requestAccounts': {
@@ -523,10 +516,42 @@ export function registerIpcHandlers(): void {
         return getApprovedOrigins().includes(origin) && addresses?.evm ? [addresses.evm] : []
 
       case 'eth_chainId':
-        return '0x1'
+        return `0x${_currentChainId.toString(16)}`
 
       case 'net_version':
-        return '1'
+        return String(_currentChainId)
+
+      // ── Network switching ───────────────────────────────────────────────
+      case 'wallet_switchEthereumChain': {
+        const requested = (params[0] as { chainId?: string })?.chainId
+        const target = requested ? parseInt(requested, 16) : NaN
+        if (!Number.isFinite(target) || !evmChainById(target)) {
+          // EIP-3326: 4902 = chain not added/recognized by the wallet.
+          throw Object.assign(
+            new Error(`This wallet doesn't support network 0x${(target || 0).toString(16)}.`),
+            { code: 4902 }
+          )
+        }
+        _currentChainId = target
+        emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
+        return null
+      }
+
+      case 'wallet_addEthereumChain': {
+        // We only sign for networks we already have RPC for. If the requested
+        // chain is one of those, treat it as a switch; otherwise reject clearly.
+        const requested = (params[0] as { chainId?: string })?.chainId
+        const target = requested ? parseInt(requested, 16) : NaN
+        if (!Number.isFinite(target) || !evmChainById(target)) {
+          throw Object.assign(
+            new Error('This network is not supported by MagicMoney Wallet yet.'),
+            { code: 4902 }
+          )
+        }
+        _currentChainId = target
+        emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
+        return null
+      }
 
       case 'wallet_requestPermissions': {
         if (!getApprovedOrigins().includes(origin)) {
@@ -666,9 +691,18 @@ export function registerIpcHandlers(): void {
         )
       }
 
-      // ── Read-only: proxy to Alchemy ETH mainnet (de-duped + briefly cached) ──
+      // ── Read-only: proxy to the active chain's RPC (de-duped + briefly cached) ──
       default:
-        return forwardEvmRpc(method, params, config.alchemyKey)
+        return forwardEvmRpc(method, params, config)
+    }
+    } catch (err) {
+      // Normalize so dApps get a clean, readable error message, never a raw stack.
+      // Coded errors (4001 user-reject, 4902 unknown chain) keep their message;
+      // Electron IPC strips the custom `code` property, so the preload re-derives
+      // the EIP-1193 code from the message text (see web3-inject `request` catch).
+      if (err && typeof err === 'object' && 'code' in err) throw err
+      const message = err instanceof Error ? err.message : String(err)
+      throw new Error(message || 'The wallet could not complete this request.')
     }
   })
 
@@ -709,21 +743,67 @@ export function registerIpcHandlers(): void {
     return Array.from(signature)
   })
 
+  // Sign (only) a serialized Solana transaction and return the signed bytes.
+  // The dApp broadcasts it itself (Wallet Standard signTransaction).
+  ipcMain.handle('web3:solana-sign-tx', async (_event, txBytes: number[]) => {
+    const approved = await showApprovalWindow({
+      title: 'Sign Solana Transaction',
+      heading: 'A dApp wants you to sign a Solana transaction',
+      detail: `Transaction (${txBytes.length} bytes)\nReview carefully — only sign if you trust this site.`,
+      confirmLabel: 'Sign'
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
+    const { VersionedTransaction } = await import('@solana/web3.js')
+    const tx = VersionedTransaction.deserialize(Uint8Array.from(txBytes))
+    tx.sign([keypair])
+    return Array.from(tx.serialize())
+  })
+
+  // Sign AND broadcast a serialized Solana transaction via Helius
+  // (Wallet Standard signAndSendTransaction). Returns the tx signature string.
+  ipcMain.handle('web3:solana-sign-and-send', async (_event, input: { transaction?: number[] }) => {
+    if (!input?.transaction) throw new Error('No transaction data provided')
+    const approved = await showApprovalWindow({
+      title: 'Send Solana Transaction',
+      heading: 'A dApp wants to send a Solana transaction',
+      detail: `Transaction (${input.transaction.length} bytes)\nReview carefully — only proceed if you trust this site.`,
+      confirmLabel: 'Send'
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const config = loadConfig()
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
+    const { VersionedTransaction, Connection } = await import('@solana/web3.js')
+    const tx = VersionedTransaction.deserialize(Uint8Array.from(input.transaction))
+    tx.sign([keypair])
+    const conn = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, 'confirmed')
+    const signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
+    return { signature }
+  })
+
   // ── CIP-30 Cardano dApp requests ─────────────────────────────────────────
-  let _cardanoConnected = false
+  // Connection state is tracked per-origin (shared with the EVM allowlist), so
+  // approval survives reloads and is scoped to the site that asked — matching
+  // the extension. A previously denied/closed approval leaves the origin out.
+  ipcMain.handle('cardano:is-enabled', (event) =>
+    getApprovedOrigins().includes(getSenderOrigin(event.sender.getURL()))
+  )
 
-  ipcMain.handle('cardano:is-enabled', () => _cardanoConnected)
-
-  ipcMain.handle('cardano:enable', async () => {
+  ipcMain.handle('cardano:enable', async (event) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (getApprovedOrigins().includes(origin)) return true
     const addresses = loadAddresses()
     const approved = await showApprovalWindow({
       title: 'Connect Cardano Wallet',
-      heading: 'A dApp wants to connect to your Cardano wallet',
+      heading: `${origin} wants to connect to your Cardano wallet`,
       detail: `Address:\n${addresses?.cardano ?? 'Not available'}`,
-      confirmLabel: 'Connect'
+      confirmLabel: 'Connect',
+      origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-    _cardanoConnected = true
+    addApprovedOrigin(origin)
     return true
   })
 
@@ -762,31 +842,49 @@ export function registerIpcHandlers(): void {
     return cip30GetRewardAddresses(mnemonic, addresses?.accountIndex ?? 0)
   })
 
-  ipcMain.handle('cardano:sign-tx', async (_event, txHex: string, _partial: boolean) => {
+  ipcMain.handle('cardano:sign-tx', async (event, txHex: string, _partial: boolean) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!getApprovedOrigins().includes(origin)) {
+      throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    }
     const approved = await showApprovalWindow({
       title: 'Sign Transaction',
       heading: 'A dApp wants you to sign a Cardano transaction',
       detail: `Transaction:\n${txHex.slice(0, 200)}${txHex.length > 200 ? '…' : ''}`,
-      confirmLabel: 'Sign'
+      confirmLabel: 'Sign',
+      origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const mnemonic = loadMnemonic()
     const addresses = loadAddresses()
-    return cip30SignTx(txHex, mnemonic, addresses?.accountIndex ?? 0)
+    try {
+      return await cip30SignTx(txHex, mnemonic, addresses?.accountIndex ?? 0)
+    } catch (err) {
+      throw new Error(`Could not sign this Cardano transaction — the dApp may have sent it in an unexpected format. (${err instanceof Error ? err.message : String(err)})`)
+    }
   })
 
-  ipcMain.handle('cardano:sign-data', async (_event, address: string, payloadHex: string) => {
+  ipcMain.handle('cardano:sign-data', async (event, address: string, payloadHex: string) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!getApprovedOrigins().includes(origin)) {
+      throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    }
     const approved = await showApprovalWindow({
       title: 'Sign Data',
       heading: 'A dApp wants you to sign data with your Cardano wallet',
       detail: `Data:\n${payloadHex.slice(0, 200)}${payloadHex.length > 200 ? '…' : ''}`,
-      confirmLabel: 'Sign'
+      confirmLabel: 'Sign',
+      origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const mnemonic = loadMnemonic()
     const addresses = loadAddresses()
     const signingAddr = address || addresses?.cardano || ''
-    return cip30SignData(signingAddr, payloadHex, mnemonic, addresses?.accountIndex ?? 0)
+    try {
+      return await cip30SignData(signingAddr, payloadHex, mnemonic, addresses?.accountIndex ?? 0)
+    } catch (err) {
+      throw new Error(`Could not sign this Cardano data payload. (${err instanceof Error ? err.message : String(err)})`)
+    }
   })
 
   ipcMain.handle('cardano:submit-tx', async (_event, txHex: string) => {

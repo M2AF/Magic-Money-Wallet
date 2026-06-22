@@ -28,6 +28,17 @@ contextBridge.exposeInMainWorld('__mmBridge__', {
   call: (channel: string, args: unknown[]) => ipcRenderer.invoke(channel, ...args)
 })
 
+// ── Main → page event bridge ─────────────────────────────────────────────────
+// The injected providers live in the page's main world and listen for
+// `__mm:'main→page:event'` window messages (e.g. EIP-1193 chainChanged). The
+// main process emits these over the `web3:event` IPC channel; re-post them into
+// the main world via postMessage (delivered to all worlds of this frame).
+ipcRenderer.on('web3:event', (_e, payload: { chain: string; event: string; data: unknown }) => {
+  webFrame.executeJavaScript(
+    `window.postMessage(${JSON.stringify({ __mm: 'main→page:event', chain: payload.chain, event: payload.event, data: payload.data })}, '*')`
+  ).catch(() => { /* page may be navigating */ })
+})
+
 // ── Icon constant (used in both webFrame template strings below) ─────────────
 
 const _ICON = _ICON_IMPORT
@@ -87,6 +98,19 @@ webFrame.executeJavaScript(`(function () {
             mmEthereum.networkVersion = String(parseInt(result, 16));
           }
           return result;
+        }).catch(rawErr => {
+          // Electron IPC strips custom error props, so reconstruct an EIP-1193
+          // error with the right .code from the (clean) message. dApps switch on
+          // error.code (4001 = user rejected) to show the right UX.
+          const raw = (rawErr && rawErr.message) || String(rawErr);
+          const msg = raw.replace(/^Error invoking remote method '[^']+':\\s*/, '').replace(/^Error:\\s*/, '');
+          let code = (rawErr && typeof rawErr.code === 'number') ? rawErr.code : -32603;
+          if (/user rejected/i.test(msg)) code = 4001;
+          else if (/support(s)? (this )?network|unrecognized chain|not supported/i.test(msg)) code = 4902;
+          else if (/connect the wallet before/i.test(msg)) code = 4100;
+          const e = new Error(msg);
+          e.code = code;
+          throw e;
         });
       },
 
@@ -121,6 +145,10 @@ webFrame.executeJavaScript(`(function () {
     announceMagicMoneyProvider();
     window.addEventListener('eip6963:requestProvider', announceMagicMoneyProvider);
     window.dispatchEvent(new Event('ethereum#initialized'));
+
+    // Sync the real active chain (the wallet is multi-chain) so a freshly-loaded
+    // dApp reads the correct chainId instead of the static default.
+    mmEthereum.request({ method: 'eth_chainId', params: [] }).catch(function () {});
 
     window.addEventListener('message', event => {
       if (event.source !== window) return;
@@ -160,6 +188,31 @@ webFrame.executeJavaScript(`(function () {
         signMessage(message) {
           return call('web3:solana-sign-message', Array.from(message))
             .then(sig => ({ signature: new Uint8Array(sig) }));
+        },
+        signTransaction(transaction) {
+          let bytes;
+          if (transaction && typeof transaction.serialize === 'function') {
+            bytes = Array.from(transaction.serialize({ requireAllSignatures: false }));
+          } else if (transaction instanceof Uint8Array) {
+            bytes = Array.from(transaction);
+          } else {
+            return Promise.reject(new Error('Cannot serialize transaction'));
+          }
+          return call('web3:solana-sign-tx', bytes).then(signed => new Uint8Array(signed));
+        },
+        signAllTransactions(transactions) {
+          return Promise.all((transactions || []).map(tx => this.signTransaction(tx)));
+        },
+        signAndSendTransaction(transaction) {
+          let bytes;
+          if (transaction && typeof transaction.serialize === 'function') {
+            bytes = Array.from(transaction.serialize({ requireAllSignatures: false }));
+          } else if (transaction instanceof Uint8Array) {
+            bytes = Array.from(transaction);
+          } else {
+            return Promise.reject(new Error('Cannot serialize transaction'));
+          }
+          return call('web3:solana-sign-and-send', { transaction: bytes });
         },
         on() {},
         removeListener() {}
@@ -228,7 +281,7 @@ webFrame.executeJavaScript(`(function () {
     return { address: _wsAddr, publicKey: _wsPubKey,
              chains: ['solana:mainnet', 'solana:devnet'],
              features: ['standard:connect','standard:disconnect','standard:events',
-                        'solana:signAndSendTransaction','solana:signMessage'] };
+                        'solana:signAndSendTransaction','solana:signTransaction','solana:signMessage'] };
   }
 
   const _wsMM = {
@@ -267,7 +320,24 @@ webFrame.executeJavaScript(`(function () {
       },
       'solana:signAndSendTransaction': {
         version: '1.0.0', supportedTransactionVersions: ['legacy', 0],
-        signAndSendTransaction() { return Promise.reject(new Error('Transaction signing not yet supported in Electron browser')); }
+        // Wallet Standard: accept N inputs, return N outputs as an ARRAY of
+        // { signature: Uint8Array }. The dApp reads result[0].signature.
+        signAndSendTransaction(...inputs) {
+          return Promise.all(inputs.map(input =>
+            call('web3:solana-sign-and-send', { transaction: Array.from(input.transaction) })
+              .then(res => ({ signature: b58Decode(res.signature) }))
+          ));
+        }
+      },
+      'solana:signTransaction': {
+        version: '1.0.0', supportedTransactionVersions: ['legacy', 0],
+        // Sign only — return N outputs as an ARRAY of { signedTransaction: Uint8Array }.
+        signTransaction(...inputs) {
+          return Promise.all(inputs.map(input =>
+            call('web3:solana-sign-tx', Array.from(input.transaction))
+              .then(signed => ({ signedTransaction: new Uint8Array(signed) }))
+          ));
+        }
       },
       'solana:signMessage': {
         version: '1.0.0',
