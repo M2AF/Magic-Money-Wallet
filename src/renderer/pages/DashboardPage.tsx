@@ -324,14 +324,24 @@ function NftImage({ src, alt }: { src: string; alt: string }) {
 
 // ─── NFT Detail Modal ─────────────────────────────────────────────────────────
 
+// Native unit per chain, for showing a collection floor (e.g. "14500 MON").
+const NFT_NATIVE_SYMBOL: Record<string, string> = {
+  ethereum: 'ETH', arbitrum: 'ETH', optimism: 'ETH', base: 'ETH', blast: 'ETH',
+  abstract: 'ETH', soneium: 'ETH', worldchain: 'ETH', zora: 'ETH',
+  polygon: 'POL', avalanche: 'AVAX', gnosis: 'xDAI', apechain: 'APE', ronin: 'RON',
+  monad: 'MON', solana: 'SOL', cardano: 'ADA',
+}
+const formatFloor = (n: number) => Number(n.toFixed(4)).toLocaleString('en-US')
+
 function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () => void }) {
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load floor price async — only for EVM chains where OpenSea has coverage
-    const evmChains = ['ethereum','arbitrum','optimism','base','polygon','avalanche','blast','zora','abstract']
-    if (evmChains.includes(nft.chain) && nft.contractAddress) {
+    // The collectible already carries a precomputed floor (nft.floorPrice / nft.usdValue)
+    // from the eager floor valuation, which covers every chain (incl. Monad/Solana). Only
+    // hit the per-NFT IPC as a fallback when the object has no floor at all.
+    if (nft.floorPrice == null && nft.contractAddress) {
       window.wallet.getNftFloor(nft.chain, nft.contractAddress).then(setFloor).catch(() => {})
     }
     // Prevent body scroll
@@ -408,13 +418,17 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 700 }}>{nft.chainLabel}</span>
             <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>{nft.contractType}</span>
-            {floor?.floor != null && (
+            {/* Precomputed floor on the object — covers every chain incl. Monad/Solana. */}
+            {nft.floorPrice != null && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
+                Floor: {formatFloor(nft.floorPrice)} {NFT_NATIVE_SYMBOL[nft.chain] ?? ''}{nft.usdValue ? ` · ${nft.usdValue}` : ''}
+              </span>
+            )}
+            {/* Fallback: per-NFT IPC lookup, only when the object had no floor. */}
+            {nft.floorPrice == null && floor?.floor != null && (
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
                 Floor: {floor.floor} {floor.currency}
               </span>
-            )}
-            {floor === null && ['ethereum','arbitrum','optimism','base','polygon','avalanche','blast','zora','abstract'].includes(nft.chain) && (
-              <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)' }}>Loading floor…</span>
             )}
           </div>
 
@@ -616,9 +630,22 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onS
   )
 }
 
-function PortfolioChart({ data }: { data: number[] }) {
+// 7d PnL chip — sits beside the portfolio total (e.g. "▼ 6.20%").
+function PortfolioPnl({ data }: { data: number[] }) {
   if (data.length < 2) return null
-  const W = 300, H = 56
+  const isUp = data[data.length - 1] >= data[0]
+  const changePct = data[0] > 0 ? ((data[data.length - 1] - data[0]) / data[0]) * 100 : 0
+  return (
+    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isUp ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
+      {isUp ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}%
+    </span>
+  )
+}
+
+// Compact 7d sparkline — sits top-right, under the toolbar buttons.
+function PortfolioSparkline({ data }: { data: number[] }) {
+  if (data.length < 2) return null
+  const W = 150, H = 36
   const min = Math.min(...data)
   const max = Math.max(...data)
   const range = max - min || 1
@@ -627,20 +654,11 @@ function PortfolioChart({ data }: { data: number[] }) {
     .join(' ')
   const isUp = data[data.length - 1] >= data[0]
   const color = isUp ? '#22c55e' : '#ef4444'
-  const changePct = data[0] > 0 ? ((data[data.length - 1] - data[0]) / data[0]) * 100 : 0
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>7d portfolio</div>
-        <div style={{ fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-mono)', color }}>
-          {isUp ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}%
-        </div>
-      </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: H }}>
-        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
-          strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
-      </svg>
-    </div>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
+        strokeLinejoin="round" strokeLinecap="round" opacity={0.9} />
+    </svg>
   )
 }
 
@@ -698,6 +716,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const spamKey   = `mmw_spam_${acctIdx}`
   const [hiddenItems, setHiddenItems] = useState<Set<string>>(() => loadSet(hiddenKey))
   const [spamItems,   setSpamItems]   = useState<Set<string>>(() => loadSet(spamKey))
+  // Ids the floor-valuation should skip (hidden/spam) — kept fresh for fetches.
+  const excludeRef = useRef<string[]>([...loadSet(hiddenKey), ...loadSet(spamKey)])
+  useEffect(() => { excludeRef.current = [...hiddenItems, ...spamItems] }, [hiddenItems, spamItems])
   const [showManager, setShowManager] = useState(false)
   const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
   const [tokensLoading, setTokensLoading] = useState(true)
@@ -722,7 +743,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const fetchCollectibles = useCallback(async () => {
     setCollectiblesLoading(true)
     try {
-      const result = await window.wallet.getCollectibles()
+      const result = await window.wallet.getCollectibles(excludeRef.current)
       setCollectibles(result)
     } catch (err) {
       console.error('Collectibles fetch failed', err)
@@ -849,12 +870,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
         <div>
           <h1 className="page-title" style={{ fontSize: 18 }}>Portfolio</h1>
           {totalUsd && (
-            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', marginTop: 4 }}>
-              {totalUsd}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
+                {totalUsd}
+              </div>
+              {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
+                <PortfolioPnl data={balances.portfolioSparkline} />
+              )}
             </div>
-          )}
-          {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
-            <PortfolioChart data={balances.portfolioSparkline} />
           )}
           {lastUpdated && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
@@ -882,15 +905,20 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
           </div>
         </div>
 
-        <HeaderToolbar
-          onWcOpen={onWcOpen}
-          wcActiveSessions={wcActiveSessions}
-          wcPending={wcPending}
-          onRefresh={() => { fetchBalances(true); fetchHistory() }}
-          refreshing={refreshing}
-          onProfile={onProfile}
-          onSettings={onSettings}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+          <HeaderToolbar
+            onWcOpen={onWcOpen}
+            wcActiveSessions={wcActiveSessions}
+            wcPending={wcPending}
+            onRefresh={() => { fetchBalances(true); fetchHistory() }}
+            refreshing={refreshing}
+            onProfile={onProfile}
+            onSettings={onSettings}
+          />
+          {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
+            <PortfolioSparkline data={balances.portfolioSparkline} />
+          )}
+        </div>
       </div>
       </div>{/* end fixed header */}
 

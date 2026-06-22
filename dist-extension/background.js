@@ -1987,7 +1987,7 @@ function hexToBytes$5(hex) {
   }
   return array2;
 }
-const nextTick$1 = async () => {
+const nextTick = async () => {
 };
 async function asyncLoop(iters, tick, cb) {
   let ts = Date.now();
@@ -1996,7 +1996,7 @@ async function asyncLoop(iters, tick, cb) {
     const diff = Date.now() - ts;
     if (diff >= 0 && diff < tick)
       continue;
-    await nextTick$1();
+    await nextTick();
     ts += diff;
   }
 }
@@ -2788,12 +2788,12 @@ const sha512_256 = /* @__PURE__ */ createHasher(() => new SHA512_256());
 function isBytes$4(a2) {
   return a2 instanceof Uint8Array || ArrayBuffer.isView(a2) && a2.constructor.name === "Uint8Array";
 }
-function isArrayOf(isString2, arr) {
+function isArrayOf(isString, arr) {
   if (!Array.isArray(arr))
     return false;
   if (arr.length === 0)
     return true;
-  if (isString2) {
+  if (isString) {
     return arr.every((item) => typeof item === "string");
   } else {
     return arr.every((item) => Number.isSafeInteger(item));
@@ -9640,7 +9640,7 @@ var isBufferBrowser = function isBuffer(arg) {
   };
   var formatRegExp = /%[sdj%]/g;
   exports2.format = function(f2) {
-    if (!isString2(f2)) {
+    if (!isString(f2)) {
       var objects = [];
       for (var i2 = 0; i2 < arguments.length; i2++) {
         objects.push(inspect(arguments[i2]));
@@ -9669,7 +9669,7 @@ var isBufferBrowser = function isBuffer(arg) {
       }
     });
     for (var x3 = args[i2]; i2 < len2; x3 = args[++i2]) {
-      if (isNull2(x3) || !isObject2(x3)) {
+      if (isNull(x3) || !isObject2(x3)) {
         str += " " + x3;
       } else {
         str += " " + inspect(x3);
@@ -9732,15 +9732,15 @@ var isBufferBrowser = function isBuffer(arg) {
     };
     if (arguments.length >= 3) ctx.depth = arguments[2];
     if (arguments.length >= 4) ctx.colors = arguments[3];
-    if (isBoolean2(opts)) {
+    if (isBoolean(opts)) {
       ctx.showHidden = opts;
     } else if (opts) {
       exports2._extend(ctx, opts);
     }
-    if (isUndefined2(ctx.showHidden)) ctx.showHidden = false;
-    if (isUndefined2(ctx.depth)) ctx.depth = 2;
-    if (isUndefined2(ctx.colors)) ctx.colors = false;
-    if (isUndefined2(ctx.customInspect)) ctx.customInspect = true;
+    if (isUndefined(ctx.showHidden)) ctx.showHidden = false;
+    if (isUndefined(ctx.depth)) ctx.depth = 2;
+    if (isUndefined(ctx.colors)) ctx.colors = false;
+    if (isUndefined(ctx.customInspect)) ctx.customInspect = true;
     if (ctx.colors) ctx.stylize = stylizeWithColor;
     return formatValue(ctx, obj, ctx.depth);
   }
@@ -9790,11 +9790,11 @@ var isBufferBrowser = function isBuffer(arg) {
     return hash2;
   }
   function formatValue(ctx, value, recurseTimes) {
-    if (ctx.customInspect && value && isFunction2(value.inspect) && // Filter out the util module, it's inspect function is special
+    if (ctx.customInspect && value && isFunction(value.inspect) && // Filter out the util module, it's inspect function is special
     value.inspect !== exports2.inspect && // Also filter out any prototype objects using the circular check.
     !(value.constructor && value.constructor.prototype === value)) {
       var ret = value.inspect(recurseTimes, ctx);
-      if (!isString2(ret)) {
+      if (!isString(ret)) {
         ret = formatValue(ctx, ret, recurseTimes);
       }
       return ret;
@@ -9808,21 +9808,21 @@ var isBufferBrowser = function isBuffer(arg) {
     if (ctx.showHidden) {
       keys2 = Object.getOwnPropertyNames(value);
     }
-    if (isError2(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
+    if (isError(value) && (keys2.indexOf("message") >= 0 || keys2.indexOf("description") >= 0)) {
       return formatError(value);
     }
     if (keys2.length === 0) {
-      if (isFunction2(value)) {
+      if (isFunction(value)) {
         var name = value.name ? ": " + value.name : "";
         return ctx.stylize("[Function" + name + "]", "special");
       }
-      if (isRegExp2(value)) {
+      if (isRegExp(value)) {
         return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
       }
-      if (isDate2(value)) {
+      if (isDate(value)) {
         return ctx.stylize(Date.prototype.toString.call(value), "date");
       }
-      if (isError2(value)) {
+      if (isError(value)) {
         return formatError(value);
       }
     }
@@ -9831,24 +9831,24 @@ var isBufferBrowser = function isBuffer(arg) {
       array2 = true;
       braces = ["[", "]"];
     }
-    if (isFunction2(value)) {
+    if (isFunction(value)) {
       var n4 = value.name ? ": " + value.name : "";
       base3 = " [Function" + n4 + "]";
     }
-    if (isRegExp2(value)) {
+    if (isRegExp(value)) {
       base3 = " " + RegExp.prototype.toString.call(value);
     }
-    if (isDate2(value)) {
+    if (isDate(value)) {
       base3 = " " + Date.prototype.toUTCString.call(value);
     }
-    if (isError2(value)) {
+    if (isError(value)) {
       base3 = " " + formatError(value);
     }
     if (keys2.length === 0 && (!array2 || value.length == 0)) {
       return braces[0] + base3 + braces[1];
     }
     if (recurseTimes < 0) {
-      if (isRegExp2(value)) {
+      if (isRegExp(value)) {
         return ctx.stylize(RegExp.prototype.toString.call(value), "regexp");
       } else {
         return ctx.stylize("[Object]", "special");
@@ -9867,17 +9867,17 @@ var isBufferBrowser = function isBuffer(arg) {
     return reduceToSingleString(output, base3, braces);
   }
   function formatPrimitive(ctx, value) {
-    if (isUndefined2(value))
+    if (isUndefined(value))
       return ctx.stylize("undefined", "undefined");
-    if (isString2(value)) {
+    if (isString(value)) {
       var simple = "'" + JSON.stringify(value).replace(/^"|"$/g, "").replace(/'/g, "\\'").replace(/\\"/g, '"') + "'";
       return ctx.stylize(simple, "string");
     }
-    if (isNumber2(value))
+    if (isNumber(value))
       return ctx.stylize("" + value, "number");
-    if (isBoolean2(value))
+    if (isBoolean(value))
       return ctx.stylize("" + value, "boolean");
-    if (isNull2(value))
+    if (isNull(value))
       return ctx.stylize("null", "null");
   }
   function formatError(value) {
@@ -9932,7 +9932,7 @@ var isBufferBrowser = function isBuffer(arg) {
     }
     if (!str) {
       if (ctx.seen.indexOf(desc.value) < 0) {
-        if (isNull2(recurseTimes)) {
+        if (isNull(recurseTimes)) {
           str = formatValue(ctx, desc.value, null);
         } else {
           str = formatValue(ctx, desc.value, recurseTimes - 1);
@@ -9952,7 +9952,7 @@ var isBufferBrowser = function isBuffer(arg) {
         str = ctx.stylize("[Circular]", "special");
       }
     }
-    if (isUndefined2(name)) {
+    if (isUndefined(name)) {
       if (array2 && key2.match(/^\d+$/)) {
         return str;
       }
@@ -9982,64 +9982,64 @@ var isBufferBrowser = function isBuffer(arg) {
     return Array.isArray(ar2);
   }
   exports2.isArray = isArray2;
-  function isBoolean2(arg) {
+  function isBoolean(arg) {
     return typeof arg === "boolean";
   }
-  exports2.isBoolean = isBoolean2;
-  function isNull2(arg) {
+  exports2.isBoolean = isBoolean;
+  function isNull(arg) {
     return arg === null;
   }
-  exports2.isNull = isNull2;
-  function isNullOrUndefined2(arg) {
+  exports2.isNull = isNull;
+  function isNullOrUndefined(arg) {
     return arg == null;
   }
-  exports2.isNullOrUndefined = isNullOrUndefined2;
-  function isNumber2(arg) {
+  exports2.isNullOrUndefined = isNullOrUndefined;
+  function isNumber(arg) {
     return typeof arg === "number";
   }
-  exports2.isNumber = isNumber2;
-  function isString2(arg) {
+  exports2.isNumber = isNumber;
+  function isString(arg) {
     return typeof arg === "string";
   }
-  exports2.isString = isString2;
-  function isSymbol2(arg) {
+  exports2.isString = isString;
+  function isSymbol(arg) {
     return typeof arg === "symbol";
   }
-  exports2.isSymbol = isSymbol2;
-  function isUndefined2(arg) {
+  exports2.isSymbol = isSymbol;
+  function isUndefined(arg) {
     return arg === void 0;
   }
-  exports2.isUndefined = isUndefined2;
-  function isRegExp2(re2) {
-    return isObject2(re2) && objectToString2(re2) === "[object RegExp]";
+  exports2.isUndefined = isUndefined;
+  function isRegExp(re2) {
+    return isObject2(re2) && objectToString(re2) === "[object RegExp]";
   }
-  exports2.isRegExp = isRegExp2;
-  exports2.types.isRegExp = isRegExp2;
+  exports2.isRegExp = isRegExp;
+  exports2.types.isRegExp = isRegExp;
   function isObject2(arg) {
     return typeof arg === "object" && arg !== null;
   }
   exports2.isObject = isObject2;
-  function isDate2(d3) {
-    return isObject2(d3) && objectToString2(d3) === "[object Date]";
+  function isDate(d3) {
+    return isObject2(d3) && objectToString(d3) === "[object Date]";
   }
-  exports2.isDate = isDate2;
-  exports2.types.isDate = isDate2;
-  function isError2(e2) {
-    return isObject2(e2) && (objectToString2(e2) === "[object Error]" || e2 instanceof Error);
+  exports2.isDate = isDate;
+  exports2.types.isDate = isDate;
+  function isError(e2) {
+    return isObject2(e2) && (objectToString(e2) === "[object Error]" || e2 instanceof Error);
   }
-  exports2.isError = isError2;
-  exports2.types.isNativeError = isError2;
-  function isFunction2(arg) {
+  exports2.isError = isError;
+  exports2.types.isNativeError = isError;
+  function isFunction(arg) {
     return typeof arg === "function";
   }
-  exports2.isFunction = isFunction2;
+  exports2.isFunction = isFunction;
   function isPrimitive2(arg) {
     return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
     typeof arg === "undefined";
   }
   exports2.isPrimitive = isPrimitive2;
   exports2.isBuffer = isBufferBrowser;
-  function objectToString2(o2) {
+  function objectToString(o2) {
     return Object.prototype.toString.call(o2);
   }
   function pad2(n4) {
@@ -12758,7 +12758,7 @@ var typedArrayBuffer$1 = $typedArrayBuffer || function typedArrayBuffer2(x3) {
   return x3.buffer;
 };
 var Buffer$e = safeBufferExports$1.Buffer;
-var isArray$1 = isarray$2;
+var isArray = isarray$2;
 var typedArrayBuffer = typedArrayBuffer$1;
 var isView$1 = ArrayBuffer.isView || function isView2(obj) {
   try {
@@ -12800,7 +12800,7 @@ var toBuffer$5 = function toBuffer2(data, encoding2) {
   if (useUint8Array$1 && data instanceof Uint8Array) {
     return Buffer$e.from(data);
   }
-  var isArr = isArray$1(data);
+  var isArr = isArray(data);
   if (isArr) {
     for (var i2 = 0; i2 < data.length; i2 += 1) {
       var x3 = data[i2];
@@ -12949,45 +12949,50 @@ var toBuffer_1$1 = function(thing, encoding2) {
 };
 var readableBrowser$1 = { exports: {} };
 var processNextickArgs = { exports: {} };
-if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
-  processNextickArgs.exports = { nextTick };
-} else {
-  processNextickArgs.exports = process$1;
-}
-function nextTick(fn6, arg1, arg2, arg3) {
-  if (typeof fn6 !== "function") {
-    throw new TypeError('"callback" argument must be a function');
+var hasRequiredProcessNextickArgs;
+function requireProcessNextickArgs() {
+  if (hasRequiredProcessNextickArgs) return processNextickArgs.exports;
+  hasRequiredProcessNextickArgs = 1;
+  if (typeof process$1 === "undefined" || !process$1.version || process$1.version.indexOf("v0.") === 0 || process$1.version.indexOf("v1.") === 0 && process$1.version.indexOf("v1.8.") !== 0) {
+    processNextickArgs.exports = { nextTick: nextTick2 };
+  } else {
+    processNextickArgs.exports = process$1;
   }
-  var len2 = arguments.length;
-  var args, i2;
-  switch (len2) {
-    case 0:
-    case 1:
-      return process$1.nextTick(fn6);
-    case 2:
-      return process$1.nextTick(function afterTickOne() {
-        fn6.call(null, arg1);
-      });
-    case 3:
-      return process$1.nextTick(function afterTickTwo() {
-        fn6.call(null, arg1, arg2);
-      });
-    case 4:
-      return process$1.nextTick(function afterTickThree() {
-        fn6.call(null, arg1, arg2, arg3);
-      });
-    default:
-      args = new Array(len2 - 1);
-      i2 = 0;
-      while (i2 < args.length) {
-        args[i2++] = arguments[i2];
-      }
-      return process$1.nextTick(function afterTick() {
-        fn6.apply(null, args);
-      });
+  function nextTick2(fn6, arg1, arg2, arg3) {
+    if (typeof fn6 !== "function") {
+      throw new TypeError('"callback" argument must be a function');
+    }
+    var len2 = arguments.length;
+    var args, i2;
+    switch (len2) {
+      case 0:
+      case 1:
+        return process$1.nextTick(fn6);
+      case 2:
+        return process$1.nextTick(function afterTickOne() {
+          fn6.call(null, arg1);
+        });
+      case 3:
+        return process$1.nextTick(function afterTickTwo() {
+          fn6.call(null, arg1, arg2);
+        });
+      case 4:
+        return process$1.nextTick(function afterTickThree() {
+          fn6.call(null, arg1, arg2, arg3);
+        });
+      default:
+        args = new Array(len2 - 1);
+        i2 = 0;
+        while (i2 < args.length) {
+          args[i2++] = arguments[i2];
+        }
+        return process$1.nextTick(function afterTick() {
+          fn6.apply(null, args);
+        });
+    }
   }
+  return processNextickArgs.exports;
 }
-var processNextickArgsExports = processNextickArgs.exports;
 var toString$3 = {}.toString;
 var isarray$1 = Array.isArray || function(arr) {
   return toString$3.call(arr) == "[object Array]";
@@ -13049,69 +13054,75 @@ var safeBuffer$1 = { exports: {} };
 })(safeBuffer$1, safeBuffer$1.exports);
 var safeBufferExports = safeBuffer$1.exports;
 var util$5 = {};
-function isArray(arg) {
-  if (Array.isArray) {
-    return Array.isArray(arg);
+var hasRequiredUtil;
+function requireUtil() {
+  if (hasRequiredUtil) return util$5;
+  hasRequiredUtil = 1;
+  function isArray2(arg) {
+    if (Array.isArray) {
+      return Array.isArray(arg);
+    }
+    return objectToString(arg) === "[object Array]";
   }
-  return objectToString(arg) === "[object Array]";
-}
-util$5.isArray = isArray;
-function isBoolean(arg) {
-  return typeof arg === "boolean";
-}
-util$5.isBoolean = isBoolean;
-function isNull(arg) {
-  return arg === null;
-}
-util$5.isNull = isNull;
-function isNullOrUndefined(arg) {
-  return arg == null;
-}
-util$5.isNullOrUndefined = isNullOrUndefined;
-function isNumber(arg) {
-  return typeof arg === "number";
-}
-util$5.isNumber = isNumber;
-function isString(arg) {
-  return typeof arg === "string";
-}
-util$5.isString = isString;
-function isSymbol(arg) {
-  return typeof arg === "symbol";
-}
-util$5.isSymbol = isSymbol;
-function isUndefined(arg) {
-  return arg === void 0;
-}
-util$5.isUndefined = isUndefined;
-function isRegExp(re2) {
-  return objectToString(re2) === "[object RegExp]";
-}
-util$5.isRegExp = isRegExp;
-function isObject$1(arg) {
-  return typeof arg === "object" && arg !== null;
-}
-util$5.isObject = isObject$1;
-function isDate(d3) {
-  return objectToString(d3) === "[object Date]";
-}
-util$5.isDate = isDate;
-function isError(e2) {
-  return objectToString(e2) === "[object Error]" || e2 instanceof Error;
-}
-util$5.isError = isError;
-function isFunction(arg) {
-  return typeof arg === "function";
-}
-util$5.isFunction = isFunction;
-function isPrimitive$1(arg) {
-  return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
-  typeof arg === "undefined";
-}
-util$5.isPrimitive = isPrimitive$1;
-util$5.isBuffer = Buffer$g.isBuffer;
-function objectToString(o2) {
-  return Object.prototype.toString.call(o2);
+  util$5.isArray = isArray2;
+  function isBoolean(arg) {
+    return typeof arg === "boolean";
+  }
+  util$5.isBoolean = isBoolean;
+  function isNull(arg) {
+    return arg === null;
+  }
+  util$5.isNull = isNull;
+  function isNullOrUndefined(arg) {
+    return arg == null;
+  }
+  util$5.isNullOrUndefined = isNullOrUndefined;
+  function isNumber(arg) {
+    return typeof arg === "number";
+  }
+  util$5.isNumber = isNumber;
+  function isString(arg) {
+    return typeof arg === "string";
+  }
+  util$5.isString = isString;
+  function isSymbol(arg) {
+    return typeof arg === "symbol";
+  }
+  util$5.isSymbol = isSymbol;
+  function isUndefined(arg) {
+    return arg === void 0;
+  }
+  util$5.isUndefined = isUndefined;
+  function isRegExp(re2) {
+    return objectToString(re2) === "[object RegExp]";
+  }
+  util$5.isRegExp = isRegExp;
+  function isObject2(arg) {
+    return typeof arg === "object" && arg !== null;
+  }
+  util$5.isObject = isObject2;
+  function isDate(d3) {
+    return objectToString(d3) === "[object Date]";
+  }
+  util$5.isDate = isDate;
+  function isError(e2) {
+    return objectToString(e2) === "[object Error]" || e2 instanceof Error;
+  }
+  util$5.isError = isError;
+  function isFunction(arg) {
+    return typeof arg === "function";
+  }
+  util$5.isFunction = isFunction;
+  function isPrimitive2(arg) {
+    return arg === null || typeof arg === "boolean" || typeof arg === "number" || typeof arg === "string" || typeof arg === "symbol" || // ES6 symbol
+    typeof arg === "undefined";
+  }
+  util$5.isPrimitive = isPrimitive2;
+  util$5.isBuffer = Buffer$g.isBuffer;
+  function objectToString(o2) {
+    return Object.prototype.toString.call(o2);
+  }
+  return util$5;
 }
 var BufferList$1 = { exports: {} };
 var hasRequiredBufferList$1;
@@ -13193,7 +13204,7 @@ function requireBufferList$1() {
   })(BufferList$1);
   return BufferList$1.exports;
 }
-var pna = processNextickArgsExports;
+var pna = requireProcessNextickArgs();
 function destroy(err, cb) {
   var _this = this;
   var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -13260,7 +13271,7 @@ var hasRequired_stream_writable$1;
 function require_stream_writable$1() {
   if (hasRequired_stream_writable$1) return _stream_writable$1;
   hasRequired_stream_writable$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_writable$1 = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -13273,7 +13284,7 @@ function require_stream_writable$1() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -13700,7 +13711,7 @@ var hasRequired_stream_duplex$1;
 function require_stream_duplex$1() {
   if (hasRequired_stream_duplex$1) return _stream_duplex$1;
   hasRequired_stream_duplex$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -13709,7 +13720,7 @@ function require_stream_duplex$1() {
     return keys3;
   };
   _stream_duplex$1 = Duplex2;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable$1();
   var Writable = require_stream_writable$1();
@@ -13774,7 +13785,7 @@ var hasRequired_stream_readable$1;
 function require_stream_readable$1() {
   if (hasRequired_stream_readable$1) return _stream_readable$1;
   hasRequired_stream_readable$1 = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_readable$1 = Readable;
   var isArray2 = isarray$1;
   var Duplex2;
@@ -13793,7 +13804,7 @@ function require_stream_readable$1() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var debugUtil = util$6;
   var debug = void 0;
@@ -14457,7 +14468,7 @@ function require_stream_readable$1() {
 }
 var _stream_transform$1 = Transform$2;
 var Duplex = require_stream_duplex$1();
-var util$4 = Object.create(util$5);
+var util$4 = Object.create(requireUtil());
 util$4.inherits = inherits_browserExports;
 util$4.inherits(Transform$2, Duplex);
 function afterTransform(er2, data) {
@@ -14550,7 +14561,7 @@ function done(stream, er2, data) {
 }
 var _stream_passthrough$1 = PassThrough;
 var Transform$1 = _stream_transform$1;
-var util$3 = Object.create(util$5);
+var util$3 = Object.create(requireUtil());
 util$3.inherits = inherits_browserExports;
 util$3.inherits(PassThrough, Transform$1);
 function PassThrough(options) {
@@ -25256,7 +25267,7 @@ var hasRequiredDestroy;
 function requireDestroy() {
   if (hasRequiredDestroy) return destroy_1;
   hasRequiredDestroy = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   function destroy2(err, cb) {
     var _this = this;
     var readableDestroyed = this._readableState && this._readableState.destroyed;
@@ -25325,7 +25336,7 @@ var hasRequired_stream_writable;
 function require_stream_writable() {
   if (hasRequired_stream_writable) return _stream_writable;
   hasRequired_stream_writable = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_writable = Writable;
   function CorkedRequest(state2) {
     var _this = this;
@@ -25338,7 +25349,7 @@ function require_stream_writable() {
   var asyncWrite = !process$1.browser && ["v0.10", "v0.9."].indexOf(process$1.version.slice(0, 5)) > -1 ? setImmediate : pna2.nextTick;
   var Duplex2;
   Writable.WritableState = WritableState;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var internalUtil = {
     deprecate: requireBrowser$a()
@@ -25765,7 +25776,7 @@ var hasRequired_stream_duplex;
 function require_stream_duplex() {
   if (hasRequired_stream_duplex) return _stream_duplex;
   hasRequired_stream_duplex = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   var objectKeys = Object.keys || function(obj) {
     var keys3 = [];
     for (var key2 in obj) {
@@ -25774,7 +25785,7 @@ function require_stream_duplex() {
     return keys3;
   };
   _stream_duplex = Duplex2;
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var Readable = require_stream_readable();
   var Writable = require_stream_writable();
@@ -25839,7 +25850,7 @@ var hasRequired_stream_readable;
 function require_stream_readable() {
   if (hasRequired_stream_readable) return _stream_readable;
   hasRequired_stream_readable = 1;
-  var pna2 = processNextickArgsExports;
+  var pna2 = requireProcessNextickArgs();
   _stream_readable = Readable;
   var isArray2 = requireIsarray();
   var Duplex2;
@@ -25858,7 +25869,7 @@ function require_stream_readable() {
   function _isUint8Array(obj) {
     return Buffer2.isBuffer(obj) || obj instanceof OurUint8Array;
   }
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   var debugUtil = util$6;
   var debug = void 0;
@@ -26527,7 +26538,7 @@ function require_stream_transform() {
   hasRequired_stream_transform = 1;
   _stream_transform = Transform2;
   var Duplex2 = require_stream_duplex();
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   util2.inherits(Transform2, Duplex2);
   function afterTransform2(er2, data) {
@@ -26627,7 +26638,7 @@ function require_stream_passthrough() {
   hasRequired_stream_passthrough = 1;
   _stream_passthrough = PassThrough2;
   var Transform2 = require_stream_transform();
-  var util2 = Object.create(util$5);
+  var util2 = Object.create(requireUtil());
   util2.inherits = inherits_browserExports;
   util2.inherits(PassThrough2, Transform2);
   function PassThrough2(options) {
@@ -40310,7 +40321,7 @@ function requireReporter() {
     };
   }
   reporter.Reporter = Reporter;
-  Reporter.prototype.isError = function isError2(obj) {
+  Reporter.prototype.isError = function isError(obj) {
     return obj instanceof ReporterError;
   };
   Reporter.prototype.save = function save() {
@@ -54959,13 +54970,13 @@ ClientBrowser.prototype._parseResponse = function(err, responseText, callback) {
   }
   if (callback.length === 3) {
     if (Array.isArray(response)) {
-      const isError2 = function(res) {
+      const isError = function(res) {
         return typeof res.error !== "undefined";
       };
       const isNotError = function(res) {
-        return !isError2(res);
+        return !isError(res);
       };
-      callback(null, response.filter(isError2), response.filter(isNotError));
+      callback(null, response.filter(isError), response.filter(isNotError));
       return;
     } else {
       callback(null, response.error, response.result);
@@ -68249,6 +68260,1018 @@ async function fetchCoinChart(coinId, days) {
   } catch {
   }
   return fetchCoinChartBinance(coinId, days);
+}
+const TOKEN_CHAINS = [
+  { id: "ethereum", label: "Ethereum", network: "eth-mainnet", color: "#627EEA" },
+  { id: "arbitrum", label: "Arbitrum", network: "arb-mainnet", color: "#28A0F0" },
+  { id: "base", label: "Base", network: "base-mainnet", color: "#0052FF" },
+  { id: "polygon", label: "Polygon", network: "polygon-mainnet", color: "#8247E5" },
+  { id: "optimism", label: "Optimism", network: "opt-mainnet", color: "#FF0420" },
+  { id: "avalanche", label: "Avalanche", network: "avax-mainnet", color: "#E84142" },
+  { id: "blast", label: "Blast", network: "blast-mainnet", color: "#FCFC03" },
+  { id: "gnosis", label: "Gnosis", network: "gnosis-mainnet", color: "#04795B" },
+  { id: "abstract", label: "Abstract", network: "abstract-mainnet", color: "#6B7280" },
+  { id: "apechain", label: "ApeChain", network: "apechain-mainnet", color: "#0066FF" },
+  { id: "ronin", label: "Ronin", network: "ronin-mainnet", color: "#1273EA" },
+  { id: "soneium", label: "Soneium", network: "soneium-mainnet", color: "#5B5EA6" },
+  { id: "worldchain", label: "WorldChain", network: "worldchain-mainnet", color: "#5A64C8" },
+  { id: "zora", label: "Zora", network: "zora-mainnet", color: "#2B5DF0" }
+];
+const NFT_CHAINS = [
+  ...TOKEN_CHAINS.slice(0, 5),
+  TOKEN_CHAINS.find((c2) => c2.id === "abstract")
+].filter(Boolean);
+const NATIVE_CG = {
+  ethereum: "ethereum",
+  arbitrum: "ethereum",
+  optimism: "ethereum",
+  base: "ethereum",
+  blast: "ethereum",
+  abstract: "ethereum",
+  soneium: "ethereum",
+  worldchain: "ethereum",
+  zora: "ethereum",
+  polygon: "matic-network",
+  avalanche: "avalanche-2",
+  gnosis: "xdai",
+  apechain: "apecoin",
+  ronin: "ronin",
+  monad: "monad",
+  solana: "solana",
+  cardano: "cardano"
+};
+const NATIVE_SYMBOL = {
+  ethereum: "ETH",
+  arbitrum: "ETH",
+  optimism: "ETH",
+  base: "ETH",
+  blast: "ETH",
+  abstract: "ETH",
+  soneium: "ETH",
+  worldchain: "ETH",
+  zora: "ETH",
+  polygon: "POL",
+  avalanche: "AVAX",
+  gnosis: "xDAI",
+  apechain: "APE",
+  ronin: "RON",
+  monad: "MON",
+  solana: "SOL",
+  cardano: "ADA"
+};
+const DS_CHAIN = {
+  ethereum: "ethereum",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
+  base: "base",
+  polygon: "polygon",
+  avalanche: "avalanche",
+  blast: "blast",
+  gnosis: "gnosis",
+  abstract: "abstract",
+  apechain: "apechain",
+  ronin: "ronin",
+  soneium: "soneium",
+  worldchain: "worldchain",
+  zora: "zora",
+  monad: "monad",
+  solana: "solana"
+};
+const LLAMA_CHAIN = {
+  monad: "monad"
+};
+const NATIVE_ADDR = "0x0000000000000000000000000000000000000000";
+const TW_CHAIN = {
+  ethereum: "ethereum",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
+  base: "base",
+  polygon: "polygon",
+  avalanche: "avalanche",
+  gnosis: "xdai",
+  ronin: "ronin",
+  apechain: "apechain"
+};
+const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000";
+function rpcUrl(network, key2) {
+  return `https://${network}.g.alchemy.com/v2/${key2}`;
+}
+function nftUrl(network, key2) {
+  return `https://${network}.g.alchemy.com/nft/v3/${key2}`;
+}
+function normalizeImageUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${url.slice(7)}`;
+  if (url.startsWith("ar://")) return `https://arweave.net/${url.slice(5)}`;
+  return url;
+}
+function trustWalletUrl(chain2, address) {
+  const tw = TW_CHAIN[chain2];
+  if (!tw) return null;
+  return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${tw}/assets/${address}/logo.png`;
+}
+function humanBalance(hexBalance, decimals) {
+  const raw = BigInt(hexBalance);
+  if (raw === 0n) return "0";
+  const d3 = Math.min(decimals, 18);
+  const divisor = 10n ** BigInt(d3);
+  const intPart = raw / divisor;
+  const fracPart = raw % divisor;
+  const frac = Number(fracPart) / 10 ** d3;
+  const total = Number(intPart) + frac;
+  return formatNum(total);
+}
+function humanBalanceDecimal(raw, decimals) {
+  return formatNum(raw / 10 ** decimals);
+}
+function formatNum(total) {
+  if (total === 0) return "0";
+  if (total >= 1e3) return total.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (total >= 1) return total.toFixed(4).replace(/\.?0+$/, "");
+  if (total >= 1e-4) return total.toPrecision(4);
+  return total.toExponential(2);
+}
+function parseBalance(s2) {
+  return parseFloat(s2.replace(/,/g, "")) || 0;
+}
+async function fetchDexScreenerChain(chainId, addresses) {
+  var _a, _b;
+  const dsChain = DS_CHAIN[chainId];
+  const out = /* @__PURE__ */ new Map();
+  if (!dsChain || addresses.length === 0) return out;
+  for (let i2 = 0; i2 < addresses.length; i2 += 30) {
+    const chunk = addresses.slice(i2, i2 + 30).join(",");
+    try {
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${chunk}`, {
+        signal: AbortSignal.timeout(1e4)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      for (const pair of json.pairs ?? []) {
+        if (pair.chainId !== dsChain) continue;
+        const addr = pair.baseToken.address.toLowerCase();
+        const price = parseFloat(pair.priceUsd ?? "0") || 0;
+        const liq = ((_a = pair.liquidity) == null ? void 0 : _a.usd) ?? 0;
+        const existing = out.get(addr);
+        if (!existing || liq > existing.liq) {
+          out.set(addr, { priceUsd: price, imageUrl: normalizeImageUrl(((_b = pair.info) == null ? void 0 : _b.imageUrl) ?? null) });
+        }
+      }
+    } catch {
+    }
+  }
+  return out;
+}
+async function fetchLlamaPrices(chainId, addresses) {
+  var _a;
+  const out = /* @__PURE__ */ new Map();
+  const slug = LLAMA_CHAIN[chainId];
+  if (!slug || addresses.length === 0) return out;
+  for (let i2 = 0; i2 < addresses.length; i2 += 50) {
+    const ids = addresses.slice(i2, i2 + 50).map((a2) => `${slug}:${a2}`).join(",");
+    try {
+      const res = await fetch(`https://coins.llama.fi/prices/current/${ids}`, {
+        signal: AbortSignal.timeout(8e3)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      for (const [k2, v6] of Object.entries(json.coins ?? {})) {
+        const addr = (_a = k2.split(":")[1]) == null ? void 0 : _a.toLowerCase();
+        if (addr && (v6 == null ? void 0 : v6.price)) out.set(addr, v6.price);
+      }
+    } catch {
+    }
+  }
+  return out;
+}
+async function fetchNativePrices(chainIds) {
+  const cgIds = [...new Set(chainIds.map((c2) => NATIVE_CG[c2]).filter(Boolean))];
+  if (cgIds.length === 0) return {};
+  try {
+    const res = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(",")}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(8e3) }
+    );
+    if (!res.ok) return {};
+    const json = await res.json();
+    return Object.fromEntries(Object.entries(json).map(([k2, v6]) => [k2, v6.usd ?? 0]));
+  } catch {
+    return {};
+  }
+}
+async function fetchTokensForChain(address, chain2, key2) {
+  var _a;
+  const url = rpcUrl(chain2.network, key2);
+  try {
+    const balRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "alchemy_getTokenBalances", params: [address, "erc20"] }),
+      signal: AbortSignal.timeout(12e3)
+    });
+    if (!balRes.ok) return [];
+    const balJson = await balRes.json();
+    const nonZero = (((_a = balJson.result) == null ? void 0 : _a.tokenBalances) ?? []).filter((t) => t.tokenBalance !== ZERO && BigInt(t.tokenBalance) > 0n).slice(0, 100);
+    if (nonZero.length === 0) return [];
+    const metaPayload = nonZero.map((t, i2) => ({
+      jsonrpc: "2.0",
+      id: i2 + 1,
+      method: "alchemy_getTokenMetadata",
+      params: [t.contractAddress]
+    }));
+    const metaRes = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(metaPayload),
+      signal: AbortSignal.timeout(15e3)
+    });
+    const metaJson = metaRes.ok ? await metaRes.json() : [];
+    return nonZero.map((t, i2) => {
+      var _a2;
+      const meta = (Array.isArray(metaJson) ? (_a2 = metaJson[i2]) == null ? void 0 : _a2.result : null) ?? {};
+      const decimals = meta.decimals ?? 18;
+      const balance = humanBalance(t.tokenBalance, decimals);
+      const alchemyLogo = normalizeImageUrl(meta.logo ?? null);
+      const twLogo = trustWalletUrl(chain2.id, t.contractAddress);
+      return {
+        contractAddress: t.contractAddress,
+        name: meta.name ?? "Unknown Token",
+        symbol: meta.symbol ?? "???",
+        decimals,
+        balance,
+        usdValue: null,
+        nativeEquivalent: null,
+        nativeSymbol: NATIVE_SYMBOL[chain2.id] ?? "ETH",
+        logoUri: alchemyLogo ?? twLogo,
+        chain: chain2.id,
+        chainLabel: chain2.label,
+        chainColor: chain2.color
+      };
+    }).filter((t) => t.symbol !== "???");
+  } catch {
+    return [];
+  }
+}
+async function fetchSolanaTokens(address, heliusKey) {
+  var _a;
+  try {
+    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: "spl-tokens",
+        method: "getAssetsByOwner",
+        params: { ownerAddress: address, page: 1, limit: 200, displayOptions: { showFungible: true, showNativeBalance: false } }
+      }),
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (((_a = json.result) == null ? void 0 : _a.items) ?? []).filter((item) => {
+      var _a2;
+      return (item.interface === "FungibleToken" || item.interface === "FungibleAsset") && (((_a2 = item.token_info) == null ? void 0 : _a2.balance) ?? 0) > 0;
+    }).map((item) => {
+      var _a2, _b, _c, _d, _e3, _f, _g, _h, _i;
+      const decimals = ((_a2 = item.token_info) == null ? void 0 : _a2.decimals) ?? 0;
+      const balance = ((_b = item.token_info) == null ? void 0 : _b.balance) ?? 0;
+      const symbol = ((_c = item.token_info) == null ? void 0 : _c.symbol) ?? ((_e3 = (_d = item.content) == null ? void 0 : _d.metadata) == null ? void 0 : _e3.symbol) ?? "???";
+      const name = ((_g = (_f = item.content) == null ? void 0 : _f.metadata) == null ? void 0 : _g.name) ?? symbol;
+      return {
+        contractAddress: item.id,
+        name,
+        symbol,
+        decimals,
+        balance: humanBalanceDecimal(balance, decimals),
+        usdValue: null,
+        nativeEquivalent: null,
+        nativeSymbol: "SOL",
+        logoUri: normalizeImageUrl(((_i = (_h = item.content) == null ? void 0 : _h.links) == null ? void 0 : _i.image) ?? null),
+        chain: "solana",
+        chainLabel: "Solana",
+        chainColor: "#9945FF"
+      };
+    }).filter((t) => t.symbol !== "???");
+  } catch {
+    return [];
+  }
+}
+async function fetchSolanaNFTs(address, heliusKey) {
+  return [];
+}
+async function fetchCardanoTokens(address, blockfrostKey) {
+  if (!address) return [];
+  try {
+    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
+      headers: { project_id: blockfrostKey },
+      signal: AbortSignal.timeout(12e3)
+    });
+    if (!addrRes.ok) return [];
+    const addrJson = await addrRes.json();
+    const nativeAssets = (addrJson.amount ?? []).filter((a2) => a2.unit !== "lovelace" && parseInt(a2.quantity) !== 1).slice(0, 30);
+    if (nativeAssets.length === 0) return [];
+    const assets = await Promise.all(
+      nativeAssets.slice(0, 20).map(async (a2) => {
+        var _a, _b, _c, _d;
+        try {
+          const meta = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
+            headers: { project_id: blockfrostKey },
+            signal: AbortSignal.timeout(8e3)
+          });
+          const mj = meta.ok ? await meta.json() : {};
+          const rawName = ((_a = mj.onchain_metadata) == null ? void 0 : _a.name) ?? ((_b = mj.metadata) == null ? void 0 : _b.name) ?? mj.asset_name ?? null;
+          const name = rawName ? decodeAssetName(rawName) : a2.unit.slice(0, 8) + "…";
+          const logo = ((_c = mj.onchain_metadata) == null ? void 0 : _c.image) ? normalizeImageUrl(mj.onchain_metadata.image) : ((_d = mj.metadata) == null ? void 0 : _d.logo) ? `data:image/png;base64,${mj.metadata.logo}` : null;
+          return {
+            contractAddress: a2.unit,
+            name,
+            symbol: name.length <= 10 ? name : name.slice(0, 8) + "…",
+            decimals: 0,
+            balance: parseInt(a2.quantity).toLocaleString("en-US"),
+            usdValue: null,
+            nativeEquivalent: null,
+            nativeSymbol: "ADA",
+            logoUri: logo,
+            chain: "cardano",
+            chainLabel: "Cardano",
+            chainColor: "#2A7DEA"
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+    return assets.filter((a2) => a2 !== null);
+  } catch {
+    return [];
+  }
+}
+function decodeAssetName(raw) {
+  if (/^[0-9a-f]+$/i.test(raw) && raw.length % 2 === 0) {
+    try {
+      const decoded = Buffer$g.from(raw, "hex").toString("utf8");
+      if (/^[\x20-\x7E]+$/.test(decoded)) return decoded;
+    } catch {
+    }
+  }
+  return raw;
+}
+async function enrichWithPrices(tokens) {
+  if (tokens.length === 0) return tokens;
+  const chains = [...new Set(tokens.map((t) => t.chain))];
+  const cgIds = [...new Set(chains.map((c2) => NATIVE_CG[c2]).filter(Boolean))];
+  let cgPrices = {};
+  try {
+    const r2 = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(",")}&vs_currencies=usd`,
+      { signal: AbortSignal.timeout(8e3) }
+    );
+    if (r2.ok) {
+      const j2 = await r2.json();
+      cgPrices = Object.fromEntries(Object.entries(j2).map(([k2, v6]) => [k2, v6.usd ?? 0]));
+    }
+  } catch {
+  }
+  const getNativePrice = (chainId) => {
+    const cgId = NATIVE_CG[chainId];
+    return cgId ? cgPrices[cgId] ?? 0 : 0;
+  };
+  const dsPrices = /* @__PURE__ */ new Map();
+  await Promise.all(
+    chains.map(async (chainId) => {
+      const chainTokens = tokens.filter((t) => t.chain === chainId);
+      const addrs = chainTokens.map((t) => t.contractAddress);
+      const results = await fetchDexScreenerChain(chainId, addrs);
+      for (const [addr, res] of results) {
+        dsPrices.set(`${chainId}:${addr}`, res);
+      }
+    })
+  );
+  await Promise.all(
+    chains.filter((c2) => LLAMA_CHAIN[c2]).map(async (chainId) => {
+      const missing = tokens.filter((t) => {
+        var _a;
+        return t.chain === chainId && t.contractAddress.toLowerCase() !== NATIVE_ADDR && !((_a = dsPrices.get(`${chainId}:${t.contractAddress.toLowerCase()}`)) == null ? void 0 : _a.priceUsd);
+      }).map((t) => t.contractAddress);
+      const llama = await fetchLlamaPrices(chainId, missing);
+      for (const [addr, price] of llama) {
+        const k2 = `${chainId}:${addr}`;
+        const existing = dsPrices.get(k2);
+        dsPrices.set(k2, { priceUsd: price, imageUrl: (existing == null ? void 0 : existing.imageUrl) ?? null });
+      }
+    })
+  );
+  return tokens.map((t) => {
+    const key2 = `${t.chain}:${t.contractAddress.toLowerCase()}`;
+    const ds = dsPrices.get(key2);
+    const nativePriceUsd = getNativePrice(t.chain);
+    const isNative = t.contractAddress.toLowerCase() === NATIVE_ADDR;
+    const tokenPriceUsd = isNative ? nativePriceUsd : (ds == null ? void 0 : ds.priceUsd) ?? 0;
+    const balNum = parseBalance(t.balance);
+    const totalUsd = balNum * tokenPriceUsd;
+    const nativeEq = nativePriceUsd > 0 ? totalUsd / nativePriceUsd : 0;
+    const sym = NATIVE_SYMBOL[t.chain] ?? "";
+    return {
+      ...t,
+      usdValue: `$${totalUsd.toFixed(2)}`,
+      nativeEquivalent: `${nativeEq.toFixed(4)} ${sym}`,
+      // Prefer existing Alchemy logo, fall back to DexScreener image
+      logoUri: t.logoUri ?? normalizeImageUrl((ds == null ? void 0 : ds.imageUrl) ?? null)
+    };
+  });
+}
+const MONAD_RPC = "https://rpc.monad.xyz";
+const KNOWN_MONAD_TOKENS = [
+  { address: "0x3bd359c1119da7da1d913d1c4d2b7c461115433a", name: "Wrapped MON", symbol: "WMON", decimals: 18 },
+  { address: "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242", name: "Wrapped ETH", symbol: "WETH", decimals: 18 },
+  { address: "0xe7cd86e13ac4309349f30b3435a9d337750fc82d", name: "USDT0", symbol: "USDT0", decimals: 6 },
+  { address: "0x81a224f8a62f52bde942dbf23a56df77a10b7777", name: "emonad", symbol: "EMO", decimals: 18 },
+  { address: "0xcf5a6076cfa32686c0df13abada2b40dec133f1d", name: "shMON", symbol: "shMON", decimals: 18 },
+  { address: "0x6131b5fae19ea4f9d964eac0408e4408b66337b5", name: "Staked MON", symbol: "sMON", decimals: 18 },
+  { address: "0x01bff41798a0bcf287b996046ca68b395dbc1071", name: "Tether Gold", symbol: "XAUt0", decimals: 6 }
+];
+async function monadRpcCall(method, params) {
+  const res = await fetch(MONAD_RPC, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal: AbortSignal.timeout(1e4)
+  });
+  const json = await res.json();
+  return json.result;
+}
+async function fetchMonadTokens(address) {
+  const tokens = [];
+  try {
+    const balHex = await monadRpcCall("eth_getBalance", [address, "latest"]);
+    if (balHex && balHex !== "0x0") {
+      const mon = Number(BigInt(balHex)) / 1e18;
+      if (mon > 0) {
+        tokens.push({
+          contractAddress: "0x0000000000000000000000000000000000000000",
+          name: "Monad",
+          symbol: "MON",
+          decimals: 18,
+          balance: mon.toFixed(4),
+          usdValue: null,
+          nativeEquivalent: null,
+          nativeSymbol: "MON",
+          logoUri: "https://assets.coingecko.com/coins/images/54540/small/monad.png",
+          chain: "monad",
+          chainLabel: "Monad",
+          chainColor: "#836EF9"
+        });
+      }
+    }
+    const paddedAddr = address.toLowerCase().replace("0x", "").padStart(64, "0");
+    const balOfData = `0x70a08231${paddedAddr}`;
+    const results = await Promise.all(
+      KNOWN_MONAD_TOKENS.map(
+        (t) => monadRpcCall("eth_call", [{ to: t.address, data: balOfData }, "latest"]).then((hex) => ({ t, hex })).catch(() => ({ t, hex: null }))
+      )
+    );
+    for (const { t, hex } of results) {
+      if (!hex || hex === "0x" || hex === "0x" + "0".repeat(64)) continue;
+      const raw = BigInt(hex);
+      if (raw === 0n) continue;
+      const bal = Number(raw) / Math.pow(10, t.decimals);
+      if (bal < 1e-6) continue;
+      tokens.push({
+        contractAddress: t.address,
+        name: t.name,
+        symbol: t.symbol,
+        decimals: t.decimals,
+        balance: bal.toLocaleString("en-US", { maximumFractionDigits: 6 }),
+        usdValue: null,
+        nativeEquivalent: null,
+        nativeSymbol: "MON",
+        // Leave null — TrustWallet has no Monad assets. enrichWithPrices fills
+        // this from the token's DexScreener image (same source ChainLens uses).
+        logoUri: null,
+        chain: "monad",
+        chainLabel: "Monad",
+        chainColor: "#836EF9"
+      });
+    }
+  } catch (e2) {
+    console.error("[Monad] token fetch error:", e2);
+  }
+  return tokens;
+}
+async function fetchAllTokens(addresses, config) {
+  try {
+    const agwAddress = addresses.agw ?? null;
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens] = await Promise.all([
+      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config.alchemyKey))),
+      addresses.solana ? fetchSolanaTokens(addresses.solana, config.heliusKey) : Promise.resolve([]),
+      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey) : Promise.resolve([]),
+      fetchMonadTokens(addresses.evm)
+    ]);
+    const abstractChainCfg = TOKEN_CHAINS.find((c2) => c2.id === "abstract");
+    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)).map((t) => ({ ...t, source: "agw" })) : [];
+    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens];
+    const tokens = await enrichWithPrices(raw);
+    tokens.sort((a2, b2) => {
+      var _a, _b;
+      const ua = parseFloat(((_a = a2.usdValue) == null ? void 0 : _a.replace("$", "")) ?? "0") || 0;
+      const ub = parseFloat(((_b = b2.usdValue) == null ? void 0 : _b.replace("$", "")) ?? "0") || 0;
+      return ub - ua || a2.symbol.localeCompare(b2.symbol);
+    });
+    return { tokens, fetchedAt: Date.now(), error: null };
+  } catch (e2) {
+    return { tokens: [], fetchedAt: Date.now(), error: String(e2) };
+  }
+}
+function resolveCardanoImage(meta) {
+  const onchain = meta.onchain_metadata ?? {};
+  const registry = meta.metadata ?? {};
+  const candidates = [
+    onchain.image,
+    onchain.logo,
+    onchain.icon,
+    registry.logo,
+    registry.url
+  ];
+  for (let img of candidates) {
+    if (!img) continue;
+    if (Array.isArray(img)) img = img.join("");
+    if (typeof img !== "string") continue;
+    img = img.trim();
+    if (!img) continue;
+    if (img.startsWith("data:")) return img;
+    if (img.startsWith("ipfs://")) return `https://dweb.link/ipfs/${img.slice(7)}`;
+    if (img.startsWith("http")) return img;
+    if (img.length >= 46) return `https://dweb.link/ipfs/${img}`;
+  }
+  return null;
+}
+async function fetchCardanoNFTs(address, blockfrostKey) {
+  if (!address) return [];
+  const headers = { project_id: blockfrostKey };
+  try {
+    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
+      headers,
+      signal: AbortSignal.timeout(12e3)
+    });
+    if (!addrRes.ok) return [];
+    const addrData = await addrRes.json();
+    let assets = [];
+    if (addrData.stake_address) {
+      try {
+        const stakeRes = await fetch(
+          `https://cardano-mainnet.blockfrost.io/api/v0/accounts/${addrData.stake_address}/addresses/assets?count=100`,
+          { headers, signal: AbortSignal.timeout(12e3) }
+        );
+        if (stakeRes.ok) {
+          assets = await stakeRes.json();
+        }
+      } catch {
+      }
+    }
+    const stakeUnits = new Set(assets.map((a2) => a2.unit));
+    for (const a2 of addrData.amount ?? []) {
+      if (a2.unit !== "lovelace" && !stakeUnits.has(a2.unit)) {
+        assets.push(a2);
+      }
+    }
+    const nftAssets = assets.filter((a2) => parseInt(a2.quantity) === 1);
+    if (nftAssets.length === 0) return [];
+    console.log(`[NFT] Cardano: found ${nftAssets.length} potential NFT assets`);
+    const results = await Promise.all(
+      nftAssets.slice(0, 50).map(async (a2) => {
+        try {
+          const metaRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
+            headers,
+            signal: AbortSignal.timeout(8e3)
+          });
+          if (!metaRes.ok) return null;
+          const meta = await metaRes.json();
+          const onchain = meta.onchain_metadata ?? {};
+          const registry = meta.metadata ?? {};
+          let name = onchain.name ?? registry.name ?? null;
+          if (Array.isArray(name)) name = name.join("");
+          if (typeof name !== "string" || !name) {
+            const hexName = meta.asset_name ?? "";
+            try {
+              const decoded = Buffer$g.from(hexName, "hex").toString("utf8");
+              name = /^[\x20-\x7E]+$/.test(decoded) ? decoded : hexName.slice(0, 16);
+            } catch {
+              name = hexName.slice(0, 16) || a2.unit.slice(56, 72);
+            }
+          }
+          const collection = onchain.collection ?? onchain.project ?? registry.name ?? null;
+          const image = resolveCardanoImage(meta);
+          const rawAttrs = onchain.attributes ?? onchain.traits ?? null;
+          const traits = [];
+          if (rawAttrs && typeof rawAttrs === "object" && !Array.isArray(rawAttrs)) {
+            for (const [k2, v6] of Object.entries(rawAttrs)) {
+              if (v6 != null) traits.push({ trait_type: k2, value: String(v6) });
+            }
+          } else if (Array.isArray(rawAttrs)) {
+            for (const a22 of rawAttrs) {
+              if (a22 && typeof a22 === "object" && "trait_type" in a22 && "value" in a22) {
+                traits.push({ trait_type: String(a22.trait_type), value: String(a22.value) });
+              }
+            }
+          }
+          return {
+            id: `cardano:${a2.unit}`,
+            name: String(name),
+            description: onchain.description ?? null,
+            image,
+            animationUrl: null,
+            collectionName: collection ? String(collection) : null,
+            chain: "cardano",
+            chainLabel: "Cardano",
+            chainColor: "#2A7DEA",
+            tokenId: a2.unit.slice(56),
+            contractAddress: a2.unit.slice(0, 56),
+            contractType: "CIP25",
+            traits
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+    const nfts = results.filter((n4) => n4 !== null);
+    console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`);
+    return nfts;
+  } catch {
+    return [];
+  }
+}
+async function fetchNftsForChain(address, chain2, key2) {
+  const base3 = nftUrl(chain2.network, key2);
+  const url = `${base3}/getNFTsForOwner?owner=${address}&withMetadata=true`;
+  console.log(`[NFT] Fetching ${chain2.label}: ${url.replace(key2, "***")}`);
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15e3) });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      const msg2 = `HTTP ${res.status}: ${body.slice(0, 200)}`;
+      console.error(`[NFT] ${chain2.label} error: ${msg2}`);
+      return { chain: chain2, items: [], error: msg2 };
+    }
+    const json = await res.json();
+    if (json.error) {
+      console.error(`[NFT] ${chain2.label} API error: ${json.error}`);
+      return { chain: chain2, items: [], error: json.error };
+    }
+    const items = (json.ownedNfts ?? []).map((nft) => {
+      var _a, _b, _c, _d, _e3, _f, _g, _h, _i, _j;
+      return {
+        id: `${chain2.id}:${nft.contract.address}:${nft.tokenId}`,
+        name: nft.name ?? `#${nft.tokenId}`,
+        description: nft.description ?? null,
+        image: normalizeImageUrl(((_a = nft.image) == null ? void 0 : _a.cachedUrl) ?? ((_b = nft.image) == null ? void 0 : _b.pngUrl) ?? ((_c = nft.image) == null ? void 0 : _c.thumbnailUrl) ?? ((_d = nft.image) == null ? void 0 : _d.originalUrl) ?? null),
+        animationUrl: ((_f = (_e3 = nft.raw) == null ? void 0 : _e3.metadata) == null ? void 0 : _f.animation_url) ? normalizeImageUrl(nft.raw.metadata.animation_url) : null,
+        collectionName: ((_g = nft.collection) == null ? void 0 : _g.name) ?? nft.contract.name ?? null,
+        chain: chain2.id,
+        chainLabel: chain2.label,
+        chainColor: chain2.color,
+        tokenId: nft.tokenId,
+        contractAddress: nft.contract.address,
+        contractType: nft.contract.tokenType,
+        // Spam/malformed NFTs sometimes return `attributes` as an object or string
+        // instead of an array. Guard with Array.isArray — without it, .filter throws
+        // and the whole chain's .map aborts, dropping every NFT on that chain.
+        traits: (Array.isArray((_i = (_h = nft.raw) == null ? void 0 : _h.metadata) == null ? void 0 : _i.attributes) ? nft.raw.metadata.attributes : []).filter((a2) => a2.trait_type != null && a2.value != null).map((a2) => ({ trait_type: String(a2.trait_type), value: String(a2.value) })),
+        // Alchemy returns collection floor (native unit) inline — free, no extra call.
+        floorPrice: ((_j = nft.contract.openSeaMetadata) == null ? void 0 : _j.floorPrice) ?? null
+      };
+    });
+    console.log(`[NFT] ${chain2.label}: found ${items.length} NFTs`);
+    return { chain: chain2, items, error: null };
+  } catch (e2) {
+    const msg2 = String(e2);
+    console.error(`[NFT] ${chain2.label} exception: ${msg2}`);
+    return { chain: chain2, items: [], error: msg2 };
+  }
+}
+async function fetchMonadNFTs(address, moralisKey) {
+  const url = `https://deep-index.moralis.io/api/v2.2/${address}/nft?chain=0x8f&format=decimal&media_items=true`;
+  console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`);
+  try {
+    const res = await fetch(url, {
+      headers: { "X-API-Key": moralisKey },
+      signal: AbortSignal.timeout(15e3)
+    });
+    console.log(`[NFT] Monad Moralis HTTP ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(`[NFT] Monad Moralis error: ${body.slice(0, 200)}`);
+      return [];
+    }
+    const data = await res.json();
+    const items = data.result ?? [];
+    console.log(`[NFT] Monad: found ${items.length} NFTs via Moralis`);
+    return items.map((nft) => {
+      var _a, _b, _c, _d;
+      const meta = nft.normalized_metadata ?? {};
+      const rawImage = ((_c = (_b = (_a = nft.media) == null ? void 0 : _a.media_collection) == null ? void 0 : _b.medium) == null ? void 0 : _c.url) ?? ((_d = nft.media) == null ? void 0 : _d.original_media_url) ?? meta.image ?? null;
+      const attrs = Array.isArray(meta.attributes) ? meta.attributes : [];
+      return {
+        id: `monad:${nft.token_address}:${nft.token_id}`,
+        name: meta.name ?? nft.name ?? `#${nft.token_id}`,
+        description: meta.description ?? null,
+        image: normalizeImageUrl(rawImage ?? null),
+        animationUrl: null,
+        collectionName: nft.name ?? null,
+        chain: "monad",
+        chainLabel: "Monad",
+        chainColor: "#836EF9",
+        tokenId: nft.token_id,
+        contractAddress: nft.token_address,
+        contractType: "ERC-721",
+        traits: attrs.filter((a2) => a2 != null && typeof a2 === "object").filter((a2) => a2["trait_type"] != null && a2["value"] != null).map((a2) => ({ trait_type: String(a2["trait_type"]), value: String(a2["value"]) }))
+      };
+    });
+  } catch (e2) {
+    console.error("[NFT] Monad Moralis fetch failed:", e2);
+    return [];
+  }
+}
+const OPENSEA_NFT_CHAIN = {
+  ethereum: "ethereum",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
+  base: "base",
+  polygon: "matic",
+  abstract: "abstract",
+  blast: "blast",
+  avalanche: "avalanche",
+  zora: "zora",
+  apechain: "ape_chain",
+  ronin: "ronin",
+  soneium: "soneium",
+  gnosis: "gnosis",
+  monad: "monad",
+  solana: "solana"
+};
+const FLOOR_SYMBOL_CG = {
+  ETH: "ethereum",
+  WETH: "ethereum",
+  POL: "matic-network",
+  MATIC: "matic-network",
+  APE: "apecoin",
+  RON: "ronin",
+  AVAX: "avalanche-2",
+  SOL: "solana",
+  XDAI: "xdai",
+  MON: "monad"
+};
+const floorCache = /* @__PURE__ */ new Map();
+const FLOOR_TTL = 10 * 6e4;
+async function osGet(path, key2) {
+  try {
+    const res = await fetch(
+      `https://api.opensea.io/api/v2/${path}`,
+      { headers: { "x-api-key": key2, accept: "application/json" }, signal: AbortSignal.timeout(8e3) }
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+async function osCollectionFloor(slug, key2) {
+  const cacheKey2 = `slug:${slug}`;
+  const hit = floorCache.get(cacheKey2);
+  if (hit && hit.exp > Date.now()) return hit.value;
+  const json = await osGet(`collections/${slug}/stats`, key2);
+  const total = json == null ? void 0 : json.total;
+  const value = (total == null ? void 0 : total.floor_price) != null && total.floor_price > 0 ? { floor: total.floor_price, symbol: total.floor_price_symbol ?? "ETH" } : null;
+  floorCache.set(cacheKey2, { value, exp: Date.now() + FLOOR_TTL });
+  return value;
+}
+async function osEvmContractFloor(osChain, contract, key2) {
+  const cacheKey2 = `${osChain}:${contract.toLowerCase()}`;
+  const hit = floorCache.get(cacheKey2);
+  if (hit && hit.exp > Date.now()) return hit.value;
+  const json = await osGet(`chain/${osChain}/contract/${contract}`, key2);
+  const value = (json == null ? void 0 : json.collection) ? await osCollectionFloor(json.collection, key2) : null;
+  floorCache.set(cacheKey2, { value, exp: Date.now() + FLOOR_TTL });
+  return value;
+}
+async function osSolanaMintSlugs(address, key2) {
+  var _a;
+  const out = /* @__PURE__ */ new Map();
+  let next;
+  for (let page = 0; page < 5; page++) {
+    const json = await osGet(
+      `chain/solana/account/${address}/nfts?limit=50${next ? `&next=${next}` : ""}`,
+      key2
+    );
+    if (!((_a = json == null ? void 0 : json.nfts) == null ? void 0 : _a.length)) break;
+    for (const n4 of json.nfts) if (n4.identifier && n4.collection) out.set(n4.identifier, n4.collection);
+    if (!json.next) break;
+    next = json.next;
+  }
+  return out;
+}
+async function osAccountSlugs(osChain, owner, key2) {
+  var _a;
+  const out = /* @__PURE__ */ new Map();
+  let next;
+  for (let page = 0; page < 4; page++) {
+    const json = await osGet(
+      `chain/${osChain}/account/${owner}/nfts?limit=50${next ? `&next=${next}` : ""}`,
+      key2
+    );
+    if (!((_a = json == null ? void 0 : json.nfts) == null ? void 0 : _a.length)) break;
+    for (const n4 of json.nfts) if (n4.contract && n4.collection) out.set(n4.contract.toLowerCase(), n4.collection);
+    if (!json.next) break;
+    next = json.next;
+  }
+  return out;
+}
+const ME_BASE = "https://api-mainnet.magiceden.dev/v2";
+async function meGet(path) {
+  try {
+    const res = await fetch(`${ME_BASE}/${path}`, { headers: { accept: "application/json" }, signal: AbortSignal.timeout(9e3) });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+async function meWalletSymbols(address) {
+  const out = /* @__PURE__ */ new Map();
+  for (let page = 0; page < 6; page++) {
+    const tokens = await meGet(`wallets/${address}/tokens?offset=${page * 100}&limit=100`);
+    if (!(tokens == null ? void 0 : tokens.length)) break;
+    for (const t of tokens) if (t.mintAddress && t.collection) out.set(t.mintAddress, t.collection);
+    if (tokens.length < 100) break;
+  }
+  return out;
+}
+async function meCollectionFloor(symbol) {
+  const cacheKey2 = `me:${symbol}`;
+  const hit = floorCache.get(cacheKey2);
+  if (hit && hit.exp > Date.now()) return hit.value;
+  const stats = await meGet(`collections/${symbol}/stats`);
+  const value = (stats == null ? void 0 : stats.floorPrice) && stats.floorPrice > 0 ? { floor: stats.floorPrice / 1e9, symbol: "SOL" } : null;
+  floorCache.set(cacheKey2, { value, exp: Date.now() + FLOOR_TTL });
+  return value;
+}
+async function enrichNftFloors(items, config, opts = {}) {
+  const key2 = config.openseaKey;
+  const { solanaAddress, evmAddress, agw, exclude } = opts;
+  const priced = exclude && exclude.size ? items.filter((i2) => !exclude.has(i2.id)) : items;
+  const prices = await fetchNativePrices([...priced.map((i2) => i2.chain), "solana"]);
+  const hasSolana = priced.some((i2) => i2.chain === "solana");
+  const evmChains = new Set(priced.filter((i2) => i2.chain !== "solana" && OPENSEA_NFT_CHAIN[i2.chain]).map((i2) => OPENSEA_NFT_CHAIN[i2.chain]));
+  const sweeps = [];
+  if (key2) for (const osc of evmChains) {
+    if (evmAddress) sweeps.push([osc, evmAddress]);
+    if (agw && osc === "abstract") sweeps.push([osc, agw]);
+  }
+  const meSymbolsP = hasSolana && solanaAddress ? meWalletSymbols(solanaAddress) : Promise.resolve(/* @__PURE__ */ new Map());
+  const solSlugsP = hasSolana && solanaAddress && key2 ? osSolanaMintSlugs(solanaAddress, key2) : Promise.resolve(/* @__PURE__ */ new Map());
+  const evmMapsP = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, key2)]));
+  const [meSymbols, solSlugs, evmMaps] = await Promise.all([meSymbolsP, solSlugsP, evmMapsP]);
+  const evmSlug = /* @__PURE__ */ new Map();
+  for (const [osc, m2] of evmMaps) for (const [c2, s2] of m2) evmSlug.set(`${osc}:${c2}`, s2);
+  const taskKeyOf = /* @__PURE__ */ new Map();
+  const tasks = /* @__PURE__ */ new Map();
+  for (const i2 of priced) {
+    if (i2.floorPrice != null) {
+      taskKeyOf.set(i2, null);
+      continue;
+    }
+    const osChain = OPENSEA_NFT_CHAIN[i2.chain];
+    if (!osChain || !key2) {
+      taskKeyOf.set(i2, null);
+      continue;
+    }
+    let tk = null;
+    if (i2.chain === "solana") {
+      const meSym = meSymbols.get(i2.tokenId);
+      const osSlug = solSlugs.get(i2.tokenId);
+      if (meSym) {
+        tk = `me:${meSym}`;
+        if (!tasks.has(tk)) tasks.set(tk, () => meCollectionFloor(meSym));
+      } else if (osSlug) {
+        tk = `slug:${osSlug}`;
+        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, key2));
+      }
+    } else {
+      const contract = i2.contractAddress.toLowerCase();
+      const slug = evmSlug.get(`${osChain}:${contract}`);
+      if (slug) {
+        tk = `slug:${slug}`;
+        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, key2));
+      } else {
+        tk = `${osChain}:${contract}`;
+        if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i2.contractAddress, key2));
+      }
+    }
+    taskKeyOf.set(i2, tk);
+  }
+  const resolved = /* @__PURE__ */ new Map();
+  const entries = [...tasks.entries()].slice(0, 500);
+  const CONCURRENCY = 4;
+  for (let s2 = 0; s2 < entries.length; s2 += CONCURRENCY) {
+    const batch = await Promise.all(entries.slice(s2, s2 + CONCURRENCY).map(async ([k2, run2]) => [k2, await run2()]));
+    for (const [k2, r2] of batch) resolved.set(k2, r2);
+    if (s2 + CONCURRENCY < entries.length) await new Promise((r2) => setTimeout(r2, 250));
+  }
+  for (const i2 of items) {
+    const tk = taskKeyOf.get(i2);
+    const f2 = i2.floorPrice != null ? { floor: i2.floorPrice, symbol: NATIVE_SYMBOL[i2.chain] ?? "ETH" } : tk ? resolved.get(tk) ?? null : null;
+    const cg = f2 ? FLOOR_SYMBOL_CG[f2.symbol.toUpperCase()] ?? NATIVE_CG[i2.chain] : NATIVE_CG[i2.chain];
+    const price = prices[cg] ?? 0;
+    i2.floorPrice = (f2 == null ? void 0 : f2.floor) ?? null;
+    i2.usdValue = f2 && f2.floor > 0 && price > 0 ? `$${(f2.floor * price).toFixed(2)}` : null;
+  }
+  const usd2 = (i2) => {
+    var _a;
+    return parseFloat(((_a = i2.usdValue) == null ? void 0 : _a.replace(/[$,]/g, "")) ?? "0") || 0;
+  };
+  items.sort((a2, b2) => usd2(b2) - usd2(a2));
+  return items;
+}
+async function fetchAllCollectibles(evmAddress, cardanoAddress, config, solanaAddress, agw, excludeIds) {
+  console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${"none"}, Cardano: ${cardanoAddress ?? "none"}`);
+  try {
+    const agwAddress = agw ?? null;
+    const abstractChainCfg = NFT_CHAINS.find((c2) => c2.id === "abstract");
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
+      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config.alchemyKey))),
+      solanaAddress ? fetchSolanaNFTs(solanaAddress, config.heliusKey) : Promise.resolve([]),
+      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([]),
+      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then((r2) => r2.items.map((n4) => ({ ...n4, source: "agw" }))) : Promise.resolve([]),
+      fetchMonadNFTs(evmAddress, config.moralisKey)
+    ]);
+    const items = [...evmResults.flatMap((r2) => r2.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts];
+    const chainResults = {};
+    for (const r2 of evmResults) {
+      chainResults[r2.chain.id] = { count: r2.items.length, error: r2.error };
+    }
+    chainResults["monad"] = { count: monadNfts.length, error: null };
+    if (solanaAddress) ;
+    if (cardanoAddress) {
+      chainResults["cardano"] = { count: cardanoNfts.length, error: null };
+    }
+    await enrichNftFloors(items, config, {
+      solanaAddress,
+      evmAddress,
+      agw: agwAddress ?? void 0,
+      exclude: excludeIds ? new Set(excludeIds) : void 0
+    });
+    console.log(`[NFT] Total NFTs found: ${items.length}`);
+    return { items, fetchedAt: Date.now(), error: null, chainResults };
+  } catch (e2) {
+    return { items: [], fetchedAt: Date.now(), error: String(e2), chainResults: {} };
+  }
+}
+function proxyBase(config) {
+  const base3 = (config.swapProxyUrl || "").trim().replace(/\/+$/, "");
+  return base3 || null;
+}
+const NOT_CONFIGURED = "DEX swap proxy is not configured yet. Deploy the Cloudflare Worker and set swapProxyUrl to enable on-chain swaps.";
+const msg$1 = (e2) => e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
+async function getSwapQuote(req, config) {
+  const base3 = proxyBase(config);
+  if (!base3) return { quote: null, error: NOT_CONFIGURED };
+  const params = new URLSearchParams({
+    chain: req.fromChain,
+    sell: req.fromToken,
+    buy: req.toToken,
+    sellSymbol: req.fromSymbol,
+    buySymbol: req.toSymbol,
+    amount: req.sellAmountRaw,
+    slippageBps: String(req.slippageBps),
+    taker: req.taker
+  });
+  try {
+    const res = await fetch(`${base3}/quote?${params}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(2e4)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return { quote: null, error: data && data.error || `Proxy ${res.status}` };
+    if (!data) return { quote: null, error: "Malformed proxy response." };
+    return { quote: data.quote ?? null, error: data.error ?? (data.quote ? null : "No route available.") };
+  } catch (e2) {
+    return { quote: null, error: msg$1(e2) };
+  }
+}
+async function getSwapTokenList(chain2, config) {
+  const base3 = proxyBase(config);
+  if (!base3) return { tokens: [], error: null };
+  try {
+    const res = await fetch(`${base3}/tokens?chain=${encodeURIComponent(chain2)}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(15e3)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return { tokens: [], error: null };
+    return { tokens: data.tokens ?? [], error: data.error ?? null };
+  } catch {
+    return { tokens: [], error: null };
+  }
 }
 const version$2 = "1.2.3";
 let BaseError$2 = class BaseError3 extends Error {
@@ -82483,819 +83506,6 @@ function http(url, config = {}) {
       url: url_
     });
   };
-}
-const AGW_FACTORY = "0xe86Bf72715dF28a0b7c3C8F596E7fE05a22A139c";
-const ABSTRACT_RPC = "https://api.mainnet.abs.xyz";
-const AGW_FACTORY_ABI = parseAbi(["function getAddressForSalt(bytes32 salt) view returns (address)"]);
-async function deriveAgwAddress(eoa) {
-  try {
-    const salt = keccak256$2(toBytes$1(eoa));
-    const callData = encodeFunctionData({ abi: AGW_FACTORY_ABI, functionName: "getAddressForSalt", args: [salt] });
-    const res = await fetch(ABSTRACT_RPC, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_call", params: [{ to: AGW_FACTORY, data: callData }, "latest"] }),
-      signal: AbortSignal.timeout(8e3)
-    });
-    const json = await res.json();
-    const hex = json.result;
-    if (!hex || hex === "0x" || hex.length < 40) return null;
-    const agw = "0x" + hex.slice(-40);
-    console.log(`[Abstract] AGW address: ${eoa.slice(0, 10)}… → ${agw}`);
-    return agw;
-  } catch {
-    return null;
-  }
-}
-const TOKEN_CHAINS = [
-  { id: "ethereum", label: "Ethereum", network: "eth-mainnet", color: "#627EEA" },
-  { id: "arbitrum", label: "Arbitrum", network: "arb-mainnet", color: "#28A0F0" },
-  { id: "base", label: "Base", network: "base-mainnet", color: "#0052FF" },
-  { id: "polygon", label: "Polygon", network: "polygon-mainnet", color: "#8247E5" },
-  { id: "optimism", label: "Optimism", network: "opt-mainnet", color: "#FF0420" },
-  { id: "avalanche", label: "Avalanche", network: "avax-mainnet", color: "#E84142" },
-  { id: "blast", label: "Blast", network: "blast-mainnet", color: "#FCFC03" },
-  { id: "gnosis", label: "Gnosis", network: "gnosis-mainnet", color: "#04795B" },
-  { id: "abstract", label: "Abstract", network: "abstract-mainnet", color: "#6B7280" },
-  { id: "apechain", label: "ApeChain", network: "apechain-mainnet", color: "#0066FF" },
-  { id: "ronin", label: "Ronin", network: "ronin-mainnet", color: "#1273EA" },
-  { id: "soneium", label: "Soneium", network: "soneium-mainnet", color: "#5B5EA6" },
-  { id: "worldchain", label: "WorldChain", network: "worldchain-mainnet", color: "#5A64C8" },
-  { id: "zora", label: "Zora", network: "zora-mainnet", color: "#2B5DF0" }
-];
-const NFT_CHAINS = [
-  ...TOKEN_CHAINS.slice(0, 5),
-  TOKEN_CHAINS.find((c2) => c2.id === "abstract")
-].filter(Boolean);
-const NATIVE_CG = {
-  ethereum: "ethereum",
-  arbitrum: "ethereum",
-  optimism: "ethereum",
-  base: "ethereum",
-  blast: "ethereum",
-  abstract: "ethereum",
-  soneium: "ethereum",
-  worldchain: "ethereum",
-  zora: "ethereum",
-  polygon: "matic-network",
-  avalanche: "avalanche-2",
-  gnosis: "xdai",
-  apechain: "apecoin",
-  ronin: "ronin",
-  monad: "monad",
-  solana: "solana",
-  cardano: "cardano"
-};
-const NATIVE_SYMBOL = {
-  ethereum: "ETH",
-  arbitrum: "ETH",
-  optimism: "ETH",
-  base: "ETH",
-  blast: "ETH",
-  abstract: "ETH",
-  soneium: "ETH",
-  worldchain: "ETH",
-  zora: "ETH",
-  polygon: "POL",
-  avalanche: "AVAX",
-  gnosis: "xDAI",
-  apechain: "APE",
-  ronin: "RON",
-  monad: "MON",
-  solana: "SOL",
-  cardano: "ADA"
-};
-const DS_CHAIN = {
-  ethereum: "ethereum",
-  arbitrum: "arbitrum",
-  optimism: "optimism",
-  base: "base",
-  polygon: "polygon",
-  avalanche: "avalanche",
-  blast: "blast",
-  gnosis: "gnosis",
-  abstract: "abstract",
-  apechain: "apechain",
-  ronin: "ronin",
-  soneium: "soneium",
-  worldchain: "worldchain",
-  zora: "zora",
-  monad: "monad",
-  solana: "solana"
-};
-const LLAMA_CHAIN = {
-  monad: "monad"
-};
-const NATIVE_ADDR = "0x0000000000000000000000000000000000000000";
-const TW_CHAIN = {
-  ethereum: "ethereum",
-  arbitrum: "arbitrum",
-  optimism: "optimism",
-  base: "base",
-  polygon: "polygon",
-  avalanche: "avalanche",
-  gnosis: "xdai",
-  ronin: "ronin",
-  apechain: "apechain"
-};
-const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000";
-function rpcUrl(network, key2) {
-  return `https://${network}.g.alchemy.com/v2/${key2}`;
-}
-function nftUrl(network, key2) {
-  return `https://${network}.g.alchemy.com/nft/v3/${key2}`;
-}
-function normalizeImageUrl(url) {
-  if (!url) return null;
-  if (url.startsWith("ipfs://")) return `https://ipfs.io/ipfs/${url.slice(7)}`;
-  if (url.startsWith("ar://")) return `https://arweave.net/${url.slice(5)}`;
-  return url;
-}
-function trustWalletUrl(chain2, address) {
-  const tw = TW_CHAIN[chain2];
-  if (!tw) return null;
-  return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${tw}/assets/${address}/logo.png`;
-}
-function humanBalance(hexBalance, decimals) {
-  const raw = BigInt(hexBalance);
-  if (raw === 0n) return "0";
-  const d3 = Math.min(decimals, 18);
-  const divisor = 10n ** BigInt(d3);
-  const intPart = raw / divisor;
-  const fracPart = raw % divisor;
-  const frac = Number(fracPart) / 10 ** d3;
-  const total = Number(intPart) + frac;
-  return formatNum(total);
-}
-function humanBalanceDecimal(raw, decimals) {
-  return formatNum(raw / 10 ** decimals);
-}
-function formatNum(total) {
-  if (total === 0) return "0";
-  if (total >= 1e3) return total.toLocaleString("en-US", { maximumFractionDigits: 2 });
-  if (total >= 1) return total.toFixed(4).replace(/\.?0+$/, "");
-  if (total >= 1e-4) return total.toPrecision(4);
-  return total.toExponential(2);
-}
-function parseBalance(s2) {
-  return parseFloat(s2.replace(/,/g, "")) || 0;
-}
-async function fetchDexScreenerChain(chainId, addresses) {
-  var _a, _b;
-  const dsChain = DS_CHAIN[chainId];
-  const out = /* @__PURE__ */ new Map();
-  if (!dsChain || addresses.length === 0) return out;
-  for (let i2 = 0; i2 < addresses.length; i2 += 30) {
-    const chunk = addresses.slice(i2, i2 + 30).join(",");
-    try {
-      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${chunk}`, {
-        signal: AbortSignal.timeout(1e4)
-      });
-      if (!res.ok) continue;
-      const json = await res.json();
-      for (const pair of json.pairs ?? []) {
-        if (pair.chainId !== dsChain) continue;
-        const addr = pair.baseToken.address.toLowerCase();
-        const price = parseFloat(pair.priceUsd ?? "0") || 0;
-        const liq = ((_a = pair.liquidity) == null ? void 0 : _a.usd) ?? 0;
-        const existing = out.get(addr);
-        if (!existing || liq > existing.liq) {
-          out.set(addr, { priceUsd: price, imageUrl: normalizeImageUrl(((_b = pair.info) == null ? void 0 : _b.imageUrl) ?? null) });
-        }
-      }
-    } catch {
-    }
-  }
-  return out;
-}
-async function fetchLlamaPrices(chainId, addresses) {
-  var _a;
-  const out = /* @__PURE__ */ new Map();
-  const slug = LLAMA_CHAIN[chainId];
-  if (!slug || addresses.length === 0) return out;
-  for (let i2 = 0; i2 < addresses.length; i2 += 50) {
-    const ids = addresses.slice(i2, i2 + 50).map((a2) => `${slug}:${a2}`).join(",");
-    try {
-      const res = await fetch(`https://coins.llama.fi/prices/current/${ids}`, {
-        signal: AbortSignal.timeout(8e3)
-      });
-      if (!res.ok) continue;
-      const json = await res.json();
-      for (const [k2, v6] of Object.entries(json.coins ?? {})) {
-        const addr = (_a = k2.split(":")[1]) == null ? void 0 : _a.toLowerCase();
-        if (addr && (v6 == null ? void 0 : v6.price)) out.set(addr, v6.price);
-      }
-    } catch {
-    }
-  }
-  return out;
-}
-async function fetchTokensForChain(address, chain2, key2) {
-  var _a;
-  const url = rpcUrl(chain2.network, key2);
-  try {
-    const balRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "alchemy_getTokenBalances", params: [address, "erc20"] }),
-      signal: AbortSignal.timeout(12e3)
-    });
-    if (!balRes.ok) return [];
-    const balJson = await balRes.json();
-    const nonZero = (((_a = balJson.result) == null ? void 0 : _a.tokenBalances) ?? []).filter((t) => t.tokenBalance !== ZERO && BigInt(t.tokenBalance) > 0n).slice(0, 100);
-    if (nonZero.length === 0) return [];
-    const metaPayload = nonZero.map((t, i2) => ({
-      jsonrpc: "2.0",
-      id: i2 + 1,
-      method: "alchemy_getTokenMetadata",
-      params: [t.contractAddress]
-    }));
-    const metaRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(metaPayload),
-      signal: AbortSignal.timeout(15e3)
-    });
-    const metaJson = metaRes.ok ? await metaRes.json() : [];
-    return nonZero.map((t, i2) => {
-      var _a2;
-      const meta = (Array.isArray(metaJson) ? (_a2 = metaJson[i2]) == null ? void 0 : _a2.result : null) ?? {};
-      const decimals = meta.decimals ?? 18;
-      const balance = humanBalance(t.tokenBalance, decimals);
-      const alchemyLogo = normalizeImageUrl(meta.logo ?? null);
-      const twLogo = trustWalletUrl(chain2.id, t.contractAddress);
-      return {
-        contractAddress: t.contractAddress,
-        name: meta.name ?? "Unknown Token",
-        symbol: meta.symbol ?? "???",
-        decimals,
-        balance,
-        usdValue: null,
-        nativeEquivalent: null,
-        nativeSymbol: NATIVE_SYMBOL[chain2.id] ?? "ETH",
-        logoUri: alchemyLogo ?? twLogo,
-        chain: chain2.id,
-        chainLabel: chain2.label,
-        chainColor: chain2.color
-      };
-    }).filter((t) => t.symbol !== "???");
-  } catch {
-    return [];
-  }
-}
-async function fetchSolanaTokens(address, heliusKey) {
-  var _a;
-  try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: "spl-tokens",
-        method: "getAssetsByOwner",
-        params: { ownerAddress: address, page: 1, limit: 200, displayOptions: { showFungible: true, showNativeBalance: false } }
-      }),
-      signal: AbortSignal.timeout(15e3)
-    });
-    if (!res.ok) return [];
-    const json = await res.json();
-    return (((_a = json.result) == null ? void 0 : _a.items) ?? []).filter((item) => {
-      var _a2;
-      return (item.interface === "FungibleToken" || item.interface === "FungibleAsset") && (((_a2 = item.token_info) == null ? void 0 : _a2.balance) ?? 0) > 0;
-    }).map((item) => {
-      var _a2, _b, _c, _d, _e3, _f, _g, _h, _i;
-      const decimals = ((_a2 = item.token_info) == null ? void 0 : _a2.decimals) ?? 0;
-      const balance = ((_b = item.token_info) == null ? void 0 : _b.balance) ?? 0;
-      const symbol = ((_c = item.token_info) == null ? void 0 : _c.symbol) ?? ((_e3 = (_d = item.content) == null ? void 0 : _d.metadata) == null ? void 0 : _e3.symbol) ?? "???";
-      const name = ((_g = (_f = item.content) == null ? void 0 : _f.metadata) == null ? void 0 : _g.name) ?? symbol;
-      return {
-        contractAddress: item.id,
-        name,
-        symbol,
-        decimals,
-        balance: humanBalanceDecimal(balance, decimals),
-        usdValue: null,
-        nativeEquivalent: null,
-        nativeSymbol: "SOL",
-        logoUri: normalizeImageUrl(((_i = (_h = item.content) == null ? void 0 : _h.links) == null ? void 0 : _i.image) ?? null),
-        chain: "solana",
-        chainLabel: "Solana",
-        chainColor: "#9945FF"
-      };
-    }).filter((t) => t.symbol !== "???");
-  } catch {
-    return [];
-  }
-}
-async function fetchSolanaNFTs(address, heliusKey) {
-  return [];
-}
-async function fetchCardanoTokens(address, blockfrostKey) {
-  if (!address) return [];
-  try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers: { project_id: blockfrostKey },
-      signal: AbortSignal.timeout(12e3)
-    });
-    if (!addrRes.ok) return [];
-    const addrJson = await addrRes.json();
-    const nativeAssets = (addrJson.amount ?? []).filter((a2) => a2.unit !== "lovelace" && parseInt(a2.quantity) !== 1).slice(0, 30);
-    if (nativeAssets.length === 0) return [];
-    const assets = await Promise.all(
-      nativeAssets.slice(0, 20).map(async (a2) => {
-        var _a, _b, _c, _d;
-        try {
-          const meta = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
-            headers: { project_id: blockfrostKey },
-            signal: AbortSignal.timeout(8e3)
-          });
-          const mj = meta.ok ? await meta.json() : {};
-          const rawName = ((_a = mj.onchain_metadata) == null ? void 0 : _a.name) ?? ((_b = mj.metadata) == null ? void 0 : _b.name) ?? mj.asset_name ?? null;
-          const name = rawName ? decodeAssetName(rawName) : a2.unit.slice(0, 8) + "…";
-          const logo = ((_c = mj.onchain_metadata) == null ? void 0 : _c.image) ? normalizeImageUrl(mj.onchain_metadata.image) : ((_d = mj.metadata) == null ? void 0 : _d.logo) ? `data:image/png;base64,${mj.metadata.logo}` : null;
-          return {
-            contractAddress: a2.unit,
-            name,
-            symbol: name.length <= 10 ? name : name.slice(0, 8) + "…",
-            decimals: 0,
-            balance: parseInt(a2.quantity).toLocaleString("en-US"),
-            usdValue: null,
-            nativeEquivalent: null,
-            nativeSymbol: "ADA",
-            logoUri: logo,
-            chain: "cardano",
-            chainLabel: "Cardano",
-            chainColor: "#2A7DEA"
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    return assets.filter((a2) => a2 !== null);
-  } catch {
-    return [];
-  }
-}
-function decodeAssetName(raw) {
-  if (/^[0-9a-f]+$/i.test(raw) && raw.length % 2 === 0) {
-    try {
-      const decoded = Buffer$g.from(raw, "hex").toString("utf8");
-      if (/^[\x20-\x7E]+$/.test(decoded)) return decoded;
-    } catch {
-    }
-  }
-  return raw;
-}
-async function enrichWithPrices(tokens) {
-  if (tokens.length === 0) return tokens;
-  const chains = [...new Set(tokens.map((t) => t.chain))];
-  const cgIds = [...new Set(chains.map((c2) => NATIVE_CG[c2]).filter(Boolean))];
-  let cgPrices = {};
-  try {
-    const r2 = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(",")}&vs_currencies=usd`,
-      { signal: AbortSignal.timeout(8e3) }
-    );
-    if (r2.ok) {
-      const j2 = await r2.json();
-      cgPrices = Object.fromEntries(Object.entries(j2).map(([k2, v6]) => [k2, v6.usd ?? 0]));
-    }
-  } catch {
-  }
-  const getNativePrice = (chainId) => {
-    const cgId = NATIVE_CG[chainId];
-    return cgId ? cgPrices[cgId] ?? 0 : 0;
-  };
-  const dsPrices = /* @__PURE__ */ new Map();
-  await Promise.all(
-    chains.map(async (chainId) => {
-      const chainTokens = tokens.filter((t) => t.chain === chainId);
-      const addrs = chainTokens.map((t) => t.contractAddress);
-      const results = await fetchDexScreenerChain(chainId, addrs);
-      for (const [addr, res] of results) {
-        dsPrices.set(`${chainId}:${addr}`, res);
-      }
-    })
-  );
-  await Promise.all(
-    chains.filter((c2) => LLAMA_CHAIN[c2]).map(async (chainId) => {
-      const missing = tokens.filter((t) => {
-        var _a;
-        return t.chain === chainId && t.contractAddress.toLowerCase() !== NATIVE_ADDR && !((_a = dsPrices.get(`${chainId}:${t.contractAddress.toLowerCase()}`)) == null ? void 0 : _a.priceUsd);
-      }).map((t) => t.contractAddress);
-      const llama = await fetchLlamaPrices(chainId, missing);
-      for (const [addr, price] of llama) {
-        const k2 = `${chainId}:${addr}`;
-        const existing = dsPrices.get(k2);
-        dsPrices.set(k2, { priceUsd: price, imageUrl: (existing == null ? void 0 : existing.imageUrl) ?? null });
-      }
-    })
-  );
-  return tokens.map((t) => {
-    const key2 = `${t.chain}:${t.contractAddress.toLowerCase()}`;
-    const ds = dsPrices.get(key2);
-    const nativePriceUsd = getNativePrice(t.chain);
-    const isNative = t.contractAddress.toLowerCase() === NATIVE_ADDR;
-    const tokenPriceUsd = isNative ? nativePriceUsd : (ds == null ? void 0 : ds.priceUsd) ?? 0;
-    const balNum = parseBalance(t.balance);
-    const totalUsd = balNum * tokenPriceUsd;
-    const nativeEq = nativePriceUsd > 0 ? totalUsd / nativePriceUsd : 0;
-    const sym = NATIVE_SYMBOL[t.chain] ?? "";
-    return {
-      ...t,
-      usdValue: `$${totalUsd.toFixed(2)}`,
-      nativeEquivalent: `${nativeEq.toFixed(4)} ${sym}`,
-      // Prefer existing Alchemy logo, fall back to DexScreener image
-      logoUri: t.logoUri ?? normalizeImageUrl((ds == null ? void 0 : ds.imageUrl) ?? null)
-    };
-  });
-}
-const MONAD_RPC = "https://rpc.monad.xyz";
-const KNOWN_MONAD_TOKENS = [
-  { address: "0x3bd359c1119da7da1d913d1c4d2b7c461115433a", name: "Wrapped MON", symbol: "WMON", decimals: 18 },
-  { address: "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242", name: "Wrapped ETH", symbol: "WETH", decimals: 18 },
-  { address: "0xe7cd86e13ac4309349f30b3435a9d337750fc82d", name: "USDT0", symbol: "USDT0", decimals: 6 },
-  { address: "0x81a224f8a62f52bde942dbf23a56df77a10b7777", name: "emonad", symbol: "EMO", decimals: 18 },
-  { address: "0xcf5a6076cfa32686c0df13abada2b40dec133f1d", name: "shMON", symbol: "shMON", decimals: 18 },
-  { address: "0x6131b5fae19ea4f9d964eac0408e4408b66337b5", name: "Staked MON", symbol: "sMON", decimals: 18 },
-  { address: "0x01bff41798a0bcf287b996046ca68b395dbc1071", name: "Tether Gold", symbol: "XAUt0", decimals: 6 }
-];
-async function monadRpcCall(method, params) {
-  const res = await fetch(MONAD_RPC, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    signal: AbortSignal.timeout(1e4)
-  });
-  const json = await res.json();
-  return json.result;
-}
-async function fetchMonadTokens(address) {
-  const tokens = [];
-  try {
-    const balHex = await monadRpcCall("eth_getBalance", [address, "latest"]);
-    if (balHex && balHex !== "0x0") {
-      const mon = Number(BigInt(balHex)) / 1e18;
-      if (mon > 0) {
-        tokens.push({
-          contractAddress: "0x0000000000000000000000000000000000000000",
-          name: "Monad",
-          symbol: "MON",
-          decimals: 18,
-          balance: mon.toFixed(4),
-          usdValue: null,
-          nativeEquivalent: null,
-          nativeSymbol: "MON",
-          logoUri: "https://assets.coingecko.com/coins/images/54540/small/monad.png",
-          chain: "monad",
-          chainLabel: "Monad",
-          chainColor: "#836EF9"
-        });
-      }
-    }
-    const paddedAddr = address.toLowerCase().replace("0x", "").padStart(64, "0");
-    const balOfData = `0x70a08231${paddedAddr}`;
-    const results = await Promise.all(
-      KNOWN_MONAD_TOKENS.map(
-        (t) => monadRpcCall("eth_call", [{ to: t.address, data: balOfData }, "latest"]).then((hex) => ({ t, hex })).catch(() => ({ t, hex: null }))
-      )
-    );
-    for (const { t, hex } of results) {
-      if (!hex || hex === "0x" || hex === "0x" + "0".repeat(64)) continue;
-      const raw = BigInt(hex);
-      if (raw === 0n) continue;
-      const bal = Number(raw) / Math.pow(10, t.decimals);
-      if (bal < 1e-6) continue;
-      tokens.push({
-        contractAddress: t.address,
-        name: t.name,
-        symbol: t.symbol,
-        decimals: t.decimals,
-        balance: bal.toLocaleString("en-US", { maximumFractionDigits: 6 }),
-        usdValue: null,
-        nativeEquivalent: null,
-        nativeSymbol: "MON",
-        // Leave null — TrustWallet has no Monad assets. enrichWithPrices fills
-        // this from the token's DexScreener image (same source ChainLens uses).
-        logoUri: null,
-        chain: "monad",
-        chainLabel: "Monad",
-        chainColor: "#836EF9"
-      });
-    }
-  } catch (e2) {
-    console.error("[Monad] token fetch error:", e2);
-  }
-  return tokens;
-}
-async function fetchAllTokens(addresses, config) {
-  try {
-    const agwAddressPromise = addresses.agw ? Promise.resolve(addresses.agw) : deriveAgwAddress(addresses.evm);
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, agwAddress] = await Promise.all([
-      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config.alchemyKey))),
-      addresses.solana ? fetchSolanaTokens(addresses.solana, config.heliusKey) : Promise.resolve([]),
-      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey) : Promise.resolve([]),
-      fetchMonadTokens(addresses.evm),
-      agwAddressPromise
-    ]);
-    const abstractChainCfg = TOKEN_CHAINS.find((c2) => c2.id === "abstract");
-    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)).map((t) => ({ ...t, source: "agw" })) : [];
-    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens];
-    const tokens = await enrichWithPrices(raw);
-    tokens.sort((a2, b2) => {
-      var _a, _b;
-      const ua = parseFloat(((_a = a2.usdValue) == null ? void 0 : _a.replace("$", "")) ?? "0") || 0;
-      const ub = parseFloat(((_b = b2.usdValue) == null ? void 0 : _b.replace("$", "")) ?? "0") || 0;
-      return ub - ua || a2.symbol.localeCompare(b2.symbol);
-    });
-    return { tokens, fetchedAt: Date.now(), error: null };
-  } catch (e2) {
-    return { tokens: [], fetchedAt: Date.now(), error: String(e2) };
-  }
-}
-function resolveCardanoImage(meta) {
-  const onchain = meta.onchain_metadata ?? {};
-  const registry = meta.metadata ?? {};
-  const candidates = [
-    onchain.image,
-    onchain.logo,
-    onchain.icon,
-    registry.logo,
-    registry.url
-  ];
-  for (let img of candidates) {
-    if (!img) continue;
-    if (Array.isArray(img)) img = img.join("");
-    if (typeof img !== "string") continue;
-    img = img.trim();
-    if (!img) continue;
-    if (img.startsWith("data:")) return img;
-    if (img.startsWith("ipfs://")) return `https://dweb.link/ipfs/${img.slice(7)}`;
-    if (img.startsWith("http")) return img;
-    if (img.length >= 46) return `https://dweb.link/ipfs/${img}`;
-  }
-  return null;
-}
-async function fetchCardanoNFTs(address, blockfrostKey) {
-  if (!address) return [];
-  const headers = { project_id: blockfrostKey };
-  try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers,
-      signal: AbortSignal.timeout(12e3)
-    });
-    if (!addrRes.ok) return [];
-    const addrData = await addrRes.json();
-    let assets = [];
-    if (addrData.stake_address) {
-      try {
-        const stakeRes = await fetch(
-          `https://cardano-mainnet.blockfrost.io/api/v0/accounts/${addrData.stake_address}/addresses/assets?count=100`,
-          { headers, signal: AbortSignal.timeout(12e3) }
-        );
-        if (stakeRes.ok) {
-          assets = await stakeRes.json();
-        }
-      } catch {
-      }
-    }
-    const stakeUnits = new Set(assets.map((a2) => a2.unit));
-    for (const a2 of addrData.amount ?? []) {
-      if (a2.unit !== "lovelace" && !stakeUnits.has(a2.unit)) {
-        assets.push(a2);
-      }
-    }
-    const nftAssets = assets.filter((a2) => parseInt(a2.quantity) === 1);
-    if (nftAssets.length === 0) return [];
-    console.log(`[NFT] Cardano: found ${nftAssets.length} potential NFT assets`);
-    const results = await Promise.all(
-      nftAssets.slice(0, 50).map(async (a2) => {
-        try {
-          const metaRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
-            headers,
-            signal: AbortSignal.timeout(8e3)
-          });
-          if (!metaRes.ok) return null;
-          const meta = await metaRes.json();
-          const onchain = meta.onchain_metadata ?? {};
-          const registry = meta.metadata ?? {};
-          let name = onchain.name ?? registry.name ?? null;
-          if (Array.isArray(name)) name = name.join("");
-          if (typeof name !== "string" || !name) {
-            const hexName = meta.asset_name ?? "";
-            try {
-              const decoded = Buffer$g.from(hexName, "hex").toString("utf8");
-              name = /^[\x20-\x7E]+$/.test(decoded) ? decoded : hexName.slice(0, 16);
-            } catch {
-              name = hexName.slice(0, 16) || a2.unit.slice(56, 72);
-            }
-          }
-          const collection = onchain.collection ?? onchain.project ?? registry.name ?? null;
-          const image = resolveCardanoImage(meta);
-          const rawAttrs = onchain.attributes ?? onchain.traits ?? null;
-          const traits = [];
-          if (rawAttrs && typeof rawAttrs === "object" && !Array.isArray(rawAttrs)) {
-            for (const [k2, v6] of Object.entries(rawAttrs)) {
-              if (v6 != null) traits.push({ trait_type: k2, value: String(v6) });
-            }
-          } else if (Array.isArray(rawAttrs)) {
-            for (const a22 of rawAttrs) {
-              if (a22 && typeof a22 === "object" && "trait_type" in a22 && "value" in a22) {
-                traits.push({ trait_type: String(a22.trait_type), value: String(a22.value) });
-              }
-            }
-          }
-          return {
-            id: `cardano:${a2.unit}`,
-            name: String(name),
-            description: onchain.description ?? null,
-            image,
-            animationUrl: null,
-            collectionName: collection ? String(collection) : null,
-            chain: "cardano",
-            chainLabel: "Cardano",
-            chainColor: "#2A7DEA",
-            tokenId: a2.unit.slice(56),
-            contractAddress: a2.unit.slice(0, 56),
-            contractType: "CIP25",
-            traits
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-    const nfts = results.filter((n4) => n4 !== null);
-    console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`);
-    return nfts;
-  } catch {
-    return [];
-  }
-}
-async function fetchNftsForChain(address, chain2, key2) {
-  const base3 = nftUrl(chain2.network, key2);
-  const url = `${base3}/getNFTsForOwner?owner=${address}&withMetadata=true`;
-  console.log(`[NFT] Fetching ${chain2.label}: ${url.replace(key2, "***")}`);
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15e3) });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      const msg2 = `HTTP ${res.status}: ${body.slice(0, 200)}`;
-      console.error(`[NFT] ${chain2.label} error: ${msg2}`);
-      return { chain: chain2, items: [], error: msg2 };
-    }
-    const json = await res.json();
-    if (json.error) {
-      console.error(`[NFT] ${chain2.label} API error: ${json.error}`);
-      return { chain: chain2, items: [], error: json.error };
-    }
-    const items = (json.ownedNfts ?? []).map((nft) => {
-      var _a, _b, _c, _d, _e3, _f, _g, _h, _i;
-      return {
-        id: `${chain2.id}:${nft.contract.address}:${nft.tokenId}`,
-        name: nft.name ?? `#${nft.tokenId}`,
-        description: nft.description ?? null,
-        image: normalizeImageUrl(((_a = nft.image) == null ? void 0 : _a.cachedUrl) ?? ((_b = nft.image) == null ? void 0 : _b.pngUrl) ?? ((_c = nft.image) == null ? void 0 : _c.thumbnailUrl) ?? ((_d = nft.image) == null ? void 0 : _d.originalUrl) ?? null),
-        animationUrl: ((_f = (_e3 = nft.raw) == null ? void 0 : _e3.metadata) == null ? void 0 : _f.animation_url) ? normalizeImageUrl(nft.raw.metadata.animation_url) : null,
-        collectionName: ((_g = nft.collection) == null ? void 0 : _g.name) ?? nft.contract.name ?? null,
-        chain: chain2.id,
-        chainLabel: chain2.label,
-        chainColor: chain2.color,
-        tokenId: nft.tokenId,
-        contractAddress: nft.contract.address,
-        contractType: nft.contract.tokenType,
-        // Spam/malformed NFTs sometimes return `attributes` as an object or string
-        // instead of an array. Guard with Array.isArray — without it, .filter throws
-        // and the whole chain's .map aborts, dropping every NFT on that chain.
-        traits: (Array.isArray((_i = (_h = nft.raw) == null ? void 0 : _h.metadata) == null ? void 0 : _i.attributes) ? nft.raw.metadata.attributes : []).filter((a2) => a2.trait_type != null && a2.value != null).map((a2) => ({ trait_type: String(a2.trait_type), value: String(a2.value) }))
-      };
-    });
-    console.log(`[NFT] ${chain2.label}: found ${items.length} NFTs`);
-    return { chain: chain2, items, error: null };
-  } catch (e2) {
-    const msg2 = String(e2);
-    console.error(`[NFT] ${chain2.label} exception: ${msg2}`);
-    return { chain: chain2, items: [], error: msg2 };
-  }
-}
-async function fetchMonadNFTs(address, moralisKey) {
-  const url = `https://deep-index.moralis.io/api/v2.2/${address}/nft?chain=0x8f&format=decimal&media_items=true`;
-  console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`);
-  try {
-    const res = await fetch(url, {
-      headers: { "X-API-Key": moralisKey },
-      signal: AbortSignal.timeout(15e3)
-    });
-    console.log(`[NFT] Monad Moralis HTTP ${res.status}`);
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      console.error(`[NFT] Monad Moralis error: ${body.slice(0, 200)}`);
-      return [];
-    }
-    const data = await res.json();
-    const items = data.result ?? [];
-    console.log(`[NFT] Monad: found ${items.length} NFTs via Moralis`);
-    return items.map((nft) => {
-      var _a, _b, _c, _d;
-      const meta = nft.normalized_metadata ?? {};
-      const rawImage = ((_c = (_b = (_a = nft.media) == null ? void 0 : _a.media_collection) == null ? void 0 : _b.medium) == null ? void 0 : _c.url) ?? ((_d = nft.media) == null ? void 0 : _d.original_media_url) ?? meta.image ?? null;
-      const attrs = Array.isArray(meta.attributes) ? meta.attributes : [];
-      return {
-        id: `monad:${nft.token_address}:${nft.token_id}`,
-        name: meta.name ?? nft.name ?? `#${nft.token_id}`,
-        description: meta.description ?? null,
-        image: normalizeImageUrl(rawImage ?? null),
-        animationUrl: null,
-        collectionName: nft.name ?? null,
-        chain: "monad",
-        chainLabel: "Monad",
-        chainColor: "#836EF9",
-        tokenId: nft.token_id,
-        contractAddress: nft.token_address,
-        contractType: "ERC-721",
-        traits: attrs.filter((a2) => a2 != null && typeof a2 === "object").filter((a2) => a2["trait_type"] != null && a2["value"] != null).map((a2) => ({ trait_type: String(a2["trait_type"]), value: String(a2["value"]) }))
-      };
-    });
-  } catch (e2) {
-    console.error("[NFT] Monad Moralis fetch failed:", e2);
-    return [];
-  }
-}
-async function fetchAllCollectibles(evmAddress, cardanoAddress, config, solanaAddress, agw) {
-  console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${"none"}, Cardano: ${cardanoAddress ?? "none"}`);
-  try {
-    const agwAddress = agw ?? await deriveAgwAddress(evmAddress);
-    const abstractChainCfg = NFT_CHAINS.find((c2) => c2.id === "abstract");
-    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
-      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config.alchemyKey))),
-      solanaAddress ? fetchSolanaNFTs(solanaAddress, config.heliusKey) : Promise.resolve([]),
-      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([]),
-      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then((r2) => r2.items.map((n4) => ({ ...n4, source: "agw" }))) : Promise.resolve([]),
-      fetchMonadNFTs(evmAddress, config.moralisKey)
-    ]);
-    const items = [...evmResults.flatMap((r2) => r2.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts];
-    const chainResults = {};
-    for (const r2 of evmResults) {
-      chainResults[r2.chain.id] = { count: r2.items.length, error: r2.error };
-    }
-    chainResults["monad"] = { count: monadNfts.length, error: null };
-    if (solanaAddress) ;
-    if (cardanoAddress) {
-      chainResults["cardano"] = { count: cardanoNfts.length, error: null };
-    }
-    console.log(`[NFT] Total NFTs found: ${items.length}`);
-    return { items, fetchedAt: Date.now(), error: null, chainResults };
-  } catch (e2) {
-    return { items: [], fetchedAt: Date.now(), error: String(e2), chainResults: {} };
-  }
-}
-function proxyBase(config) {
-  const base3 = (config.swapProxyUrl || "").trim().replace(/\/+$/, "");
-  return base3 || null;
-}
-const NOT_CONFIGURED = "DEX swap proxy is not configured yet. Deploy the Cloudflare Worker and set swapProxyUrl to enable on-chain swaps.";
-const msg$1 = (e2) => e2 instanceof Error && e2.name === "TimeoutError" ? "Quote request timed out — try again." : e2 instanceof Error ? e2.message : "Network error";
-async function getSwapQuote(req, config) {
-  const base3 = proxyBase(config);
-  if (!base3) return { quote: null, error: NOT_CONFIGURED };
-  const params = new URLSearchParams({
-    chain: req.fromChain,
-    sell: req.fromToken,
-    buy: req.toToken,
-    sellSymbol: req.fromSymbol,
-    buySymbol: req.toSymbol,
-    amount: req.sellAmountRaw,
-    slippageBps: String(req.slippageBps),
-    taker: req.taker
-  });
-  try {
-    const res = await fetch(`${base3}/quote?${params}`, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(2e4)
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok) return { quote: null, error: data && data.error || `Proxy ${res.status}` };
-    if (!data) return { quote: null, error: "Malformed proxy response." };
-    return { quote: data.quote ?? null, error: data.error ?? (data.quote ? null : "No route available.") };
-  } catch (e2) {
-    return { quote: null, error: msg$1(e2) };
-  }
-}
-async function getSwapTokenList(chain2, config) {
-  const base3 = proxyBase(config);
-  if (!base3) return { tokens: [], error: null };
-  try {
-    const res = await fetch(`${base3}/tokens?chain=${encodeURIComponent(chain2)}`, {
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(15e3)
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data) return { tokens: [], error: null };
-    return { tokens: data.tokens ?? [], error: data.error ?? null };
-  } catch {
-    return { tokens: [], error: null };
-  }
 }
 const contracts = {
   gasPriceOracle: { address: "0x420000000000000000000000000000000000000F" },

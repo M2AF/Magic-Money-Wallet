@@ -10,6 +10,7 @@ import { base58 } from '@scure/base'
 import { blake2b } from '@noble/hashes/blake2b'
 import type { WalletConfig } from './secure-store'
 import { EVM_CHAINS, CHAIN_MAP, type ChainDef } from './chain-config'
+import { seedNativeUsd } from './native-prices'
 
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
@@ -341,6 +342,9 @@ export async function fetchAllBalances(
   ])
 
   const marketMap  = prices as Record<string, MarketData>
+  // Share these native prices with the token + NFT-floor valuation paths so they
+  // reuse them instead of each firing their own (keyless, 429-prone) CoinGecko call.
+  seedNativeUsd(Object.fromEntries(Object.entries(marketMap).map(([id, m]) => [id, m.price] as [string, number])))
   const evmRaw    = rawResults.slice(0, EVM_CHAINS.length) as Array<{ native: number; tokenCount: number; error: string | null }>
   const solanaRaw = rawResults[EVM_CHAINS.length]     as { native: number; tokenCount: number; error: string | null }
   const cardanoRaw= rawResults[EVM_CHAINS.length + 1] as { native: number; tokenCount: number; error: string | null }

@@ -256,7 +256,7 @@ declare global {
       searchMarket(query: string): Promise<MarketCoin[]>
       getCoinChart(coinId: string, days: string): Promise<Array<[number, number]>>
       getTokens(): Promise<TokensResult>
-      getCollectibles(): Promise<CollectiblesResult>
+      getCollectibles(excludeIds?: string[]): Promise<CollectiblesResult>
       getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
       swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>

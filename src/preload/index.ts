@@ -45,7 +45,7 @@ contextBridge.exposeInMainWorld('wallet', {
   searchMarket:    (query: string)     => ipcRenderer.invoke('wallet:search-market', query),
   getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),
   getTokens:       ()                  => ipcRenderer.invoke('wallet:get-tokens'),
-  getCollectibles: ()                  => ipcRenderer.invoke('wallet:get-collectibles'),
+  getCollectibles: (excludeIds?: string[]) => ipcRenderer.invoke('wallet:get-collectibles', excludeIds),
   getNftFloor:     (chain: string, contractAddress: string) =>
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
   swapGetQuote:    (req: unknown)      => ipcRenderer.invoke('swap:getQuote', req),

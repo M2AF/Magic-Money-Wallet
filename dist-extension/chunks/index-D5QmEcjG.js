@@ -8058,6 +8058,13 @@ function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };
+  const openPortal = () => {
+    window.wallet.openBrowser();
+    setTimeout(() => {
+      window.wallet.browserNavigate("https://portal.abs.xyz").catch(() => {
+      });
+    }, 500);
+  };
   const apply = async (address) => {
     setBusy(true);
     setError(null);
@@ -8083,9 +8090,9 @@ function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { children: [
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-name", style: { display: "flex", alignItems: "center", gap: 6 }, children: [
                 "Abstract Smart Wallet",
-                /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 6px", borderRadius: 99, fontWeight: 700, background: owned ? "rgba(31,206,146,0.16)" : "rgba(148,163,184,0.16)", color: owned ? AGW_GREEN : "var(--text-muted)" }, children: owned ? "Connected" : "Watch-only" })
+                agw && /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 6px", borderRadius: 99, fontWeight: 700, background: owned ? "rgba(31,206,146,0.16)" : "rgba(148,163,184,0.16)", color: owned ? AGW_GREEN : "var(--text-muted)" }, children: owned ? "Connected" : "Watch-only" })
               ] }),
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-networks", children: "Abstract Global Wallet (AGW)" })
+              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "chain-networks", children: agw ? "Abstract Global Wallet (AGW)" : "Not linked — add your AGW address" })
             ] })
           ] }),
           balance && !balance.error && /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { className: "chain-balance", children: [
@@ -8108,8 +8115,9 @@ function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
             /* @__PURE__ */ jsxRuntimeExports.jsx("path", { d: "M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" })
           ] })
         ] }),
+        agw && !owned && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.4, marginTop: 8 }, children: "Read-only here — this AGW is controlled by Abstract/Privy, not your wallet key. Open the portal to send or manage it." }),
         /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", gap: 8, marginTop: 10 }, children: [
-          owned && /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          owned ? /* @__PURE__ */ jsxRuntimeExports.jsxs(
             "button",
             {
               type: "button",
@@ -8123,7 +8131,15 @@ function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
                 "Send ETH"
               ]
             }
-          ),
+          ) : agw ? /* @__PURE__ */ jsxRuntimeExports.jsx(
+            "button",
+            {
+              type: "button",
+              onClick: openPortal,
+              style: { flex: 1, padding: "8px 12px", background: "rgba(31,206,146,0.12)", border: "1px solid rgba(31,206,146,0.35)", borderRadius: "var(--radius-sm)", color: AGW_GREEN, fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 },
+              children: "Open Abstract Portal ↗"
+            }
+          ) : null,
           /* @__PURE__ */ jsxRuntimeExports.jsx(
             "button",
             {
@@ -8133,8 +8149,8 @@ function AgwPanel({ addresses, balance, onSend, onAgwChanged }) {
                 setInput(addresses.agw ?? "");
                 setError(null);
               },
-              style: { flex: owned ? "0 0 auto" : 1, padding: "8px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer" },
-              children: editing ? "Cancel" : "Edit address"
+              style: { flex: agw ? "0 0 auto" : 1, padding: "8px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", color: "var(--text-secondary)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: 12, cursor: "pointer" },
+              children: editing ? "Cancel" : agw ? "Edit address" : "Add address"
             }
           )
         ] }),
@@ -8692,21 +8708,8 @@ function NftDetailModal({ nft, onClose }) {
     }
   );
 }
-function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManager, onNftsLoaded, onSelectNft }) {
-  const [result, setResult] = reactExports.useState(null);
-  const [loading, setLoading] = reactExports.useState(true);
+function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager, onSelectNft }) {
   const [hovered, setHovered] = reactExports.useState(null);
-  const notifiedRef = reactExports.useRef(false);
-  reactExports.useEffect(() => {
-    window.wallet.getCollectibles().then((r2) => {
-      setResult(r2);
-      setLoading(false);
-      if (!notifiedRef.current) {
-        notifiedRef.current = true;
-        onNftsLoaded(r2.items);
-      }
-    });
-  }, [onNftsLoaded]);
   const hiddenCount = result ? result.items.filter((n2) => hiddenItems.has(nftKey(n2)) || spamItems.has(nftKey(n2))).length : 0;
   const visible = result ? result.items.filter((n2) => !hiddenItems.has(nftKey(n2)) && !spamItems.has(nftKey(n2))) : [];
   if (loading) return /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }, children: Array.from({ length: 6 }).map((_, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
@@ -8760,7 +8763,10 @@ function CollectiblesView({ hiddenItems, spamItems, onHide, onSpam, onShowManage
               isHovered && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { position: "absolute", top: 6, right: 6 }, onClick: (e) => e.stopPropagation(), children: /* @__PURE__ */ jsxRuntimeExports.jsx(HideSpamButtons, { onHide: () => onHide(id2), onSpam: () => onSpam(id2) }) })
             ] }),
             /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { padding: "8px 10px" }, children: [
-              /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: nft.name }),
+              /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 6 }, children: [
+                /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 11, fontWeight: 600, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: nft.name }),
+                nft.usdValue && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, fontWeight: 700, fontFamily: "var(--font-mono)", color: "var(--text-secondary)", flexShrink: 0 }, children: nft.usdValue })
+              ] }),
               nft.collectionName && /* @__PURE__ */ jsxRuntimeExports.jsx("div", { style: { fontSize: 10, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }, children: nft.collectionName }),
               /* @__PURE__ */ jsxRuntimeExports.jsxs("div", { style: { marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }, children: [
                 /* @__PURE__ */ jsxRuntimeExports.jsx("span", { style: { fontSize: 9, padding: "1px 5px", borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }, children: nft.chainLabel }),
@@ -8864,11 +8870,17 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
   const spamKey = `mmw_spam_${acctIdx}`;
   const [hiddenItems, setHiddenItems] = reactExports.useState(() => loadSet(hiddenKey));
   const [spamItems, setSpamItems] = reactExports.useState(() => loadSet(spamKey));
+  const excludeRef = reactExports.useRef([...loadSet(hiddenKey), ...loadSet(spamKey)]);
+  reactExports.useEffect(() => {
+    excludeRef.current = [...hiddenItems, ...spamItems];
+  }, [hiddenItems, spamItems]);
   const [showManager, setShowManager] = reactExports.useState(false);
   const [tokensResult, setTokensResult] = reactExports.useState(null);
   const [tokensLoading, setTokensLoading] = reactExports.useState(true);
-  const [allNfts, setAllNfts] = reactExports.useState([]);
+  const [collectibles, setCollectibles] = reactExports.useState(null);
+  const [collectiblesLoading, setCollectiblesLoading] = reactExports.useState(true);
   const [selectedNft, setSelectedNft] = reactExports.useState(null);
+  const allNfts = (collectibles == null ? void 0 : collectibles.items) ?? [];
   const hideItem = reactExports.useCallback((id2) => {
     setHiddenItems((prev) => {
       const next = new Set(prev).add(id2);
@@ -8897,7 +8909,17 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
       return next;
     });
   }, [hiddenKey, spamKey]);
-  const onNftsLoaded = reactExports.useCallback((nfts) => setAllNfts(nfts), []);
+  const fetchCollectibles = reactExports.useCallback(async () => {
+    setCollectiblesLoading(true);
+    try {
+      const result = await window.wallet.getCollectibles(excludeRef.current);
+      setCollectibles(result);
+    } catch (err) {
+      console.error("Collectibles fetch failed", err);
+    } finally {
+      setCollectiblesLoading(false);
+    }
+  }, []);
   const fetchBalances = reactExports.useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true);
     else setRefreshing(true);
@@ -8934,19 +8956,22 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
     fetchBalances();
     fetchHistory();
     fetchTokens();
-  }, [fetchBalances, fetchHistory, fetchTokens]);
+    fetchCollectibles();
+  }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles]);
   const switchAccount = async (newIndex) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return;
     setAccountSwitching(true);
     setBalances(null);
     setHistory(null);
     setTokensResult(null);
+    setCollectibles(null);
     try {
       const newAddresses = await window.wallet.setAccount(newIndex);
       setLocalAddresses(newAddresses);
       fetchBalances();
       fetchHistory();
       fetchTokens();
+      fetchCollectibles();
     } catch (err) {
       console.error("Account switch failed", err);
     } finally {
@@ -8960,7 +8985,11 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
       const k2 = tokenKey(t2);
       return !hiddenItems.has(k2) && !spamItems.has(k2);
     }).map((t2) => t2.usdValue ? parseFloat(t2.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
-    const total = chainTotal + tokenTotal;
+    const nftTotal = allNfts.filter((n2) => {
+      const k2 = nftKey(n2);
+      return !hiddenItems.has(k2) && !spamItems.has(k2);
+    }).map((n2) => n2.usdValue ? parseFloat(n2.usdValue.replace(/[$,]/g, "")) : 0).reduce((a, b) => a + b, 0);
+    const total = chainTotal + tokenTotal + nftTotal;
     return total > 0 ? `$${total.toLocaleString("en-US", { maximumFractionDigits: 2 })}` : null;
   })();
   const lastUpdated = balances ? new Date(balances.fetchedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) : null;
@@ -9068,7 +9097,7 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
         },
         tab
       )) }),
-      portfolioTab === "networks" && localAddresses.agw && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      portfolioTab === "networks" && /* @__PURE__ */ jsxRuntimeExports.jsx(
         AgwPanel,
         {
           addresses: localAddresses,
@@ -9078,6 +9107,7 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
             setLocalAddresses(updated);
             fetchBalances(true);
             fetchTokens();
+            fetchCollectibles();
           }
         }
       ),
@@ -9108,12 +9138,13 @@ function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onPro
       portfolioTab === "collectibles" && /* @__PURE__ */ jsxRuntimeExports.jsx(
         CollectiblesView,
         {
+          result: collectibles,
+          loading: collectiblesLoading,
           hiddenItems,
           spamItems,
           onHide: hideItem,
           onSpam: markSpam,
           onShowManager: () => setShowManager(true),
-          onNftsLoaded,
           onSelectNft: setSelectedNft
         }
       )

@@ -1,4 +1,5 @@
 import type { WalletConfig } from './secure-store'
+import { getNativeUsd } from './native-prices'
 
 export interface WalletToken {
   contractAddress: string
@@ -82,7 +83,7 @@ const NATIVE_CG: Record<string, string> = {
   ethereum: 'ethereum',    arbitrum: 'ethereum',    optimism: 'ethereum',
   base: 'ethereum',        blast: 'ethereum',       abstract: 'ethereum',
   soneium: 'ethereum',     worldchain: 'ethereum',  zora: 'ethereum',
-  polygon: 'matic-network', avalanche: 'avalanche-2',
+  polygon: 'polygon-ecosystem-token', avalanche: 'avalanche-2',
   gnosis: 'xdai',          apechain: 'apecoin',     ronin: 'ronin',
   monad: 'monad',
   solana: 'solana',        cardano: 'cardano',
@@ -245,15 +246,9 @@ async function fetchLlamaPrices(chainId: string, addresses: string[]): Promise<M
 async function fetchNativePrices(chainIds: string[]): Promise<Record<string, number>> {
   const cgIds = [...new Set(chainIds.map(c => NATIVE_CG[c]).filter(Boolean))]
   if (cgIds.length === 0) return {}
-  try {
-    const res = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(',')}&vs_currencies=usd`,
-      { signal: AbortSignal.timeout(8_000) }
-    )
-    if (!res.ok) return {}
-    const json = await res.json() as Record<string, { usd: number }>
-    return Object.fromEntries(Object.entries(json).map(([k, v]) => [k, v.usd ?? 0]))
-  } catch { return {} }
+  // Shared, coalesced, cached source — avoids racing the balance/token CoinGecko
+  // calls (keyless 429s) which used to null out every NFT's USD value.
+  return getNativeUsd(cgIds)
 }
 
 // ─── EVM token fetch ──────────────────────────────────────────────────────────
@@ -509,19 +504,10 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
 
   const chains = [...new Set(tokens.map(t => t.chain))]
 
-  // CoinGecko native prices (one call)
+  // CoinGecko native prices via the shared cache (coalesced with the NFT-floor and
+  // balance calls so the keyless endpoint isn't hit several times concurrently).
   const cgIds = [...new Set(chains.map(c => NATIVE_CG[c]).filter(Boolean))]
-  let cgPrices: Record<string, number> = {}
-  try {
-    const r = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${cgIds.join(',')}&vs_currencies=usd`,
-      { signal: AbortSignal.timeout(8_000) }
-    )
-    if (r.ok) {
-      const j = await r.json() as Record<string, { usd: number }>
-      cgPrices = Object.fromEntries(Object.entries(j).map(([k, v]) => [k, v.usd ?? 0]))
-    }
-  } catch { /* use 0 */ }
+  const cgPrices = await getNativeUsd(cgIds)
 
   const getNativePrice = (chainId: string) => {
     const cgId = NATIVE_CG[chainId]
@@ -997,7 +983,7 @@ const OPENSEA_NFT_CHAIN: Record<string, string> = {
 
 // Floor-price currency symbol → CoinGecko id, for converting a floor to USD.
 const FLOOR_SYMBOL_CG: Record<string, string> = {
-  ETH: 'ethereum', WETH: 'ethereum', POL: 'matic-network', MATIC: 'matic-network',
+  ETH: 'ethereum', WETH: 'ethereum', POL: 'polygon-ecosystem-token', MATIC: 'polygon-ecosystem-token',
   APE: 'apecoin', RON: 'ronin', AVAX: 'avalanche-2', SOL: 'solana', XDAI: 'xdai',
   MON: 'monad',
 }
@@ -1055,6 +1041,26 @@ async function osSolanaMintSlugs(address: string, key: string): Promise<Map<stri
   return out
 }
 
+/**
+ * EVM: bulk contract → OpenSea collection slug for one owner on one chain, via a
+ * single paginated account/nfts sweep. This replaces a per-collection contract→slug
+ * call with one call per chain — far fewer requests, so big wallets don't trip
+ * OpenSea's rate limit and lose floors on later-listed chains (Monad especially).
+ */
+async function osAccountSlugs(osChain: string, owner: string, key: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  let next: string | undefined
+  for (let page = 0; page < 4; page++) {  // up to 200 NFTs/owner/chain
+    const json = await osGet<{ nfts?: Array<{ contract?: string; collection?: string }>; next?: string }>(
+      `chain/${osChain}/account/${owner}/nfts?limit=50${next ? `&next=${next}` : ''}`, key)
+    if (!json?.nfts?.length) break
+    for (const n of json.nfts) if (n.contract && n.collection) out.set(n.contract.toLowerCase(), n.collection)
+    if (!json.next) break
+    next = json.next
+  }
+  return out
+}
+
 // ─── Magic Eden (primary Solana floor source — far better coverage than OpenSea) ─
 
 const ME_BASE = 'https://api-mainnet.magiceden.dev/v2'
@@ -1091,31 +1097,49 @@ async function meCollectionFloor(symbol: string): Promise<FloorEntry | null> {
   return value
 }
 
+interface FloorOpts { solanaAddress?: string; evmAddress?: string; agw?: string; exclude?: Set<string> }
+
 /**
  * Attach a USD value to each NFT from its collection floor, then sort the list by
- * USD value (highest first) — matching how tokens/networks are ordered. EVM/Monad
- * use OpenSea contract→slug→floor; Solana uses Magic Eden (mint→symbol→floor) with
- * OpenSea as a fallback. Mutates+returns.
+ * USD value (highest first) — matching how tokens/networks are ordered.
+ *
+ * Slugs are resolved in BULK up front: one OpenSea account/nfts sweep per chain
+ * builds a stable on-chain `contractAddress → collection slug` map (contracts
+ * persist and are identical across data sources). Floors are then one call per
+ * unique collection, throttled to respect OpenSea's rate limit — so big wallets
+ * no longer lose floors on later-listed chains (Monad especially). Solana uses
+ * Magic Eden (mint→symbol→floor) with OpenSea as a fallback.
  */
-async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig, solanaAddress?: string): Promise<WalletCollectible[]> {
+async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig, opts: FloorOpts = {}): Promise<WalletCollectible[]> {
   const key = config.openseaKey
-  const prices = await fetchNativePrices([...items.map(i => i.chain), 'solana'])
+  const { solanaAddress, evmAddress, agw, exclude } = opts
+  // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
+  // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
+  const priced = exclude && exclude.size ? items.filter(i => !exclude.has(i.id)) : items
+  const prices = await fetchNativePrices([...priced.map(i => i.chain), 'solana'])
 
-  // Solana floors: Magic Eden first (dominant Solana marketplace), OpenSea as a
-  // fallback for collections ME doesn't list. Both are owned-mint → collection sweeps.
-  const hasSolana = items.some(i => i.chain === 'solana')
-  const [meSymbols, solSlugs] = await Promise.all([
-    (hasSolana && solanaAddress) ? meWalletSymbols(solanaAddress) : Promise.resolve(new Map<string, string>()),
-    (hasSolana && solanaAddress && key) ? osSolanaMintSlugs(solanaAddress, key) : Promise.resolve(new Map<string, string>()),
-  ])
+  const hasSolana = priced.some(i => i.chain === 'solana')
+  const evmChains = new Set(priced.filter(i => i.chain !== 'solana' && OPENSEA_NFT_CHAIN[i.chain]).map(i => OPENSEA_NFT_CHAIN[i.chain]))
+  // One bulk slug sweep per EVM chain/owner (the EOA everywhere; the AGW on Abstract).
+  const sweeps: Array<[string, string]> = []
+  if (key) for (const osc of evmChains) {
+    if (evmAddress) sweeps.push([osc, evmAddress])
+    if (agw && osc === 'abstract') sweeps.push([osc, agw])
+  }
 
-  // Collapse items to ONE floor task per collection. Without this, every NFT in a
-  // collection fires its own OpenSea lookup in parallel — a big wallet then makes
-  // hundreds of simultaneous calls, gets rate-limited, and later chains (Monad,
-  // Solana) silently come back empty. Deduped tasks run in small concurrent batches.
+  const meSymbolsP = (hasSolana && solanaAddress) ? meWalletSymbols(solanaAddress) : Promise.resolve(new Map<string, string>())
+  const solSlugsP  = (hasSolana && solanaAddress && key) ? osSolanaMintSlugs(solanaAddress, key) : Promise.resolve(new Map<string, string>())
+  const evmMapsP   = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, key)] as const))
+  const [meSymbols, solSlugs, evmMaps] = await Promise.all([meSymbolsP, solSlugsP, evmMapsP])
+
+  // `${osChain}:${contractLower}` → OpenSea collection slug
+  const evmSlug = new Map<string, string>()
+  for (const [osc, m] of evmMaps) for (const [c, s] of m) evmSlug.set(`${osc}:${c}`, s)
+
+  // Collapse items to ONE floor task per collection (deduped).
   const taskKeyOf = new Map<WalletCollectible, string | null>()
   const tasks = new Map<string, () => Promise<FloorEntry | null>>()
-  for (const i of items) {
+  for (const i of priced) {
     if (i.floorPrice != null) { taskKeyOf.set(i, null); continue }  // already has an inline floor
     const osChain = OPENSEA_NFT_CHAIN[i.chain]
     if (!osChain || !key) { taskKeyOf.set(i, null); continue }
@@ -1126,18 +1150,23 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
       if (meSym) { tk = `me:${meSym}`; if (!tasks.has(tk)) tasks.set(tk, () => meCollectionFloor(meSym)) }
       else if (osSlug) { tk = `slug:${osSlug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, key)) }
     } else {
-      tk = `${osChain}:${i.contractAddress.toLowerCase()}`
-      if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i.contractAddress, key))
+      const contract = i.contractAddress.toLowerCase()
+      const slug = evmSlug.get(`${osChain}:${contract}`)
+      if (slug) { tk = `slug:${slug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, key)) }
+      else { tk = `${osChain}:${contract}`; if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i.contractAddress, key)) }
     }
     taskKeyOf.set(i, tk)
   }
 
+  // Resolve unique collection floors, throttled (small batches + gap) to stay under
+  // OpenSea's ~4 req/s limit so later chains aren't starved.
   const resolved = new Map<string, FloorEntry | null>()
-  const entries = [...tasks.entries()].slice(0, 200)  // hard cap on distinct collections per pass
-  const CONCURRENCY = 6
+  const entries = [...tasks.entries()].slice(0, 500)
+  const CONCURRENCY = 4
   for (let s = 0; s < entries.length; s += CONCURRENCY) {
     const batch = await Promise.all(entries.slice(s, s + CONCURRENCY).map(async ([k, run]) => [k, await run()] as const))
     for (const [k, r] of batch) resolved.set(k, r)
+    if (s + CONCURRENCY < entries.length) await new Promise(r => setTimeout(r, 250))
   }
 
   for (const i of items) {
@@ -1161,7 +1190,8 @@ export async function fetchAllCollectibles(
   cardanoAddress: string | undefined,
   config: WalletConfig,
   solanaAddress?: string,
-  agw?: string
+  agw?: string,
+  excludeIds?: string[]
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
@@ -1193,7 +1223,10 @@ export async function fetchAllCollectibles(
     }
 
     // Value each NFT by collection floor and sort by USD (highest first).
-    await enrichNftFloors(items, config, solanaAddress)
+    await enrichNftFloors(items, config, {
+      solanaAddress, evmAddress, agw: agwAddress ?? undefined,
+      exclude: excludeIds ? new Set(excludeIds) : undefined,
+    })
 
     console.log(`[NFT] Total NFTs found: ${items.length}`)
     return { items, fetchedAt: Date.now(), error: null, chainResults }

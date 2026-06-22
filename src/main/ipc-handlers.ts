@@ -405,10 +405,10 @@ export function registerIpcHandlers(): void {
     )
   })
 
-  ipcMain.handle('wallet:get-collectibles', async () => {
+  ipcMain.handle('wallet:get-collectibles', async (_event, excludeIds?: string[]) => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, excludeIds)
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────

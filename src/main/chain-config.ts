@@ -85,7 +85,7 @@ export const EVM_CHAINS: ChainDef[] = [
     type: 'evm',
     chainId: 137,
     nativeSymbol: 'POL',
-    coingeckoId: 'matic-network',
+    coingeckoId: 'polygon-ecosystem-token',
     rpcUrl: (cfg) => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
     explorerTx: 'https://polygonscan.com/tx',
     color: '#8247E5',
