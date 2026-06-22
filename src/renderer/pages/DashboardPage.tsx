@@ -666,6 +666,7 @@ interface Props {
   addresses: WalletAddresses
   onNavigate: (page: AppPage) => void
   onWalletDeleted: () => void
+  hidden?: boolean
   onWcOpen?: () => void
   onProfile?: () => void
   onSettings?: () => void
@@ -700,7 +701,7 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   return addresses.evm
 }
 
-export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }: Props) {
+export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }: Props) {
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -862,7 +863,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, onWcOpen
   const activeSendSymbol  = sendChain ? balances?.chains[sendChain]?.symbol ?? sendChain.toUpperCase() : ''
 
   return (
-    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', position: 'relative' }}>
+    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', position: 'relative', display: hidden ? 'none' : 'flex' }}>
       {/* Fixed header + divider — keeps the titlebar logo clear of scrolling content */}
       <div style={{ padding: '24px 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
       {/* Header */}

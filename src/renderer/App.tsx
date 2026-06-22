@@ -91,9 +91,13 @@ export function App() {
       {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} />}
       {page === 'confirm'  && <ConfirmPage onNavigate={setPage} onComplete={handleWalletReady} />}
       {page === 'import'   && <ImportPage onNavigate={setPage} onComplete={handleWalletReady} />}
-      {inDashboard && addresses && activeTab === 'portfolio' && (
+      {/* Dashboard stays mounted while in the dashboard so balances/tokens/NFTs,
+          the portfolio total, scroll position and the active sub-tab survive
+          switching tabs and back — no reload on return. */}
+      {inDashboard && addresses && (
         <DashboardPage
           addresses={addresses}
+          hidden={activeTab !== 'portfolio'}
           onNavigate={setPage}
           onWalletDeleted={() => { setAddresses(null); setPage('welcome') }}
           {...toolbarProps}
