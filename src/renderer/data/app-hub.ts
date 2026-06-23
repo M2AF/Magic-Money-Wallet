@@ -194,27 +194,27 @@ const APP_HUB: AppHubData = {
   "chainStats": [
     {
       "id": "abstract",
-      "count": 56
+      "count": 57
     },
     {
       "id": "apechain",
-      "count": 10
+      "count": 11
     },
     {
       "id": "arbitrum",
-      "count": 70
+      "count": 71
     },
     {
       "id": "avalanche",
-      "count": 53
+      "count": 54
     },
     {
       "id": "base",
-      "count": 75
+      "count": 76
     },
     {
       "id": "blast",
-      "count": 36
+      "count": 37
     },
     {
       "id": "cardano",
@@ -222,47 +222,47 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "ethereum",
-      "count": 109
+      "count": 110
     },
     {
       "id": "gnosis",
-      "count": 34
+      "count": 35
     },
     {
       "id": "hype",
-      "count": 7
+      "count": 8
     },
     {
       "id": "monad",
-      "count": 34
+      "count": 35
     },
     {
       "id": "optimism",
-      "count": 66
+      "count": 67
     },
     {
       "id": "polygon",
-      "count": 70
+      "count": 71
     },
     {
       "id": "ronin",
-      "count": 12
+      "count": 13
     },
     {
       "id": "solana",
-      "count": 73
+      "count": 74
     },
     {
       "id": "soneium",
-      "count": 10
+      "count": 11
     },
     {
       "id": "worldchain",
-      "count": 9
+      "count": 10
     },
     {
       "id": "zora",
-      "count": 19
+      "count": 20
     }
   ],
   "apps": [
@@ -281,7 +281,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=across.to&sz=64",
-      "description": "Description here.",
+      "description": "An intents-based cross-chain bridge for fast, low-cost transfers between Ethereum and its layer-2s.",
       "chainCount": 6,
       "coverage": 33
     },
@@ -303,7 +303,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=axelar.network&sz=64",
-      "description": "Description here.",
+      "description": "A cross-chain communication network connecting blockchains for asset transfers and interoperable dApps.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -323,7 +323,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=bungee.exchange&sz=64",
-      "description": "Description here.",
+      "description": "A bridge aggregator that finds the best route to move assets across chains.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -344,7 +344,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=celer.network&sz=64",
-      "description": "Description here.",
+      "description": "A cross-chain interoperability protocol for bridging tokens and messages between blockchains.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -364,7 +364,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=chainport.io&sz=64",
-      "description": "Description here.",
+      "description": "A secure cross-chain bridge for porting tokens between major blockchains.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -385,7 +385,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=debridge.finance&sz=64",
-      "description": "Description here.",
+      "description": "A high-speed cross-chain bridge and messaging protocol for transferring assets and data.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -408,7 +408,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=connext.network&sz=128",
-      "description": "Description here.",
+      "description": "A clearing layer that nets and settles cross-chain liquidity for bridges and solvers.",
       "chainCount": 10,
       "coverage": 56
     },
@@ -427,7 +427,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hop.exchange&sz=128",
-      "description": "Description here.",
+      "description": "A bridge for moving tokens quickly across Ethereum and its rollup networks.",
       "chainCount": 6,
       "coverage": 33
     },
@@ -457,7 +457,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=layerzero.network&sz=64",
-      "description": "Description here.",
+      "description": "An omnichain interoperability protocol enabling messaging and apps across many blockchains.",
       "chainCount": 17,
       "coverage": 94
     },
@@ -479,7 +479,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=li.fi&sz=64",
-      "description": "Description here.",
+      "description": "A cross-chain bridge and DEX aggregator that routes swaps and transfers across chains.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -501,7 +501,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=orbiter.finance&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized cross-rollup bridge for low-cost transfers between Ethereum layer-2s.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -522,7 +522,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=owlto.finance&sz=64",
-      "description": "Description here.",
+      "description": "A cross-chain bridge for fast, low-fee transfers across layer-2 networks.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -553,7 +553,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=relay.link&sz=64",
-      "description": "Description here.",
+      "description": "An instant, low-cost bridging and cross-chain execution protocol.",
       "chainCount": 18,
       "coverage": 100
     },
@@ -573,7 +573,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=stargate.finance&sz=64",
-      "description": "Description here.",
+      "description": "A LayerZero-based bridge for transferring native assets across chains with unified liquidity.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -595,7 +595,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=symbiosis.finance&sz=128",
-      "description": "Description here.",
+      "description": "A cross-chain DEX and bridge for swapping tokens across any supported network.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -615,7 +615,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=synapseprotocol.com&sz=128",
-      "description": "Description here.",
+      "description": "A cross-chain bridge and AMM for transferring assets and stablecoins between blockchains.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -646,7 +646,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=thorchain.org&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized cross-chain liquidity network for swapping native assets without wrapping.",
       "chainCount": 18,
       "coverage": 100
     },
@@ -666,7 +666,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=wanchain.org&sz=64",
-      "description": "Description here.",
+      "description": "Wanchain's cross-chain bridge connecting Ethereum, Cardano, and other blockchains.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -690,7 +690,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=wormhole.com&sz=64",
-      "description": "Description here.",
+      "description": "A cross-chain messaging protocol connecting Solana, Ethereum, and many other networks.",
       "chainCount": 11,
       "coverage": 61
     },
@@ -710,7 +710,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=aave.com&sz=64",
-      "description": "Description here.",
+      "description": "A leading decentralized lending protocol for borrowing and earning yield on crypto assets.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -740,7 +740,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=alchemix.fi&sz=128",
-      "description": "Description here.",
+      "description": "A self-repaying loan protocol where deposited collateral pays off debt through yield.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -758,7 +758,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=compound.finance&sz=64",
-      "description": "Description here.",
+      "description": "An algorithmic money market protocol for lending and borrowing crypto assets.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -774,7 +774,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=convexfinance.com&sz=128",
-      "description": "Description here.",
+      "description": "A yield platform that boosts rewards for Curve liquidity providers and stakers.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -803,7 +803,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dydx.exchange&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized exchange for perpetual futures trading.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -817,7 +817,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=eigenlayer.xyz&sz=128",
-      "description": "Description here.",
+      "description": "An Ethereum restaking protocol that secures new services with staked ETH.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -831,7 +831,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=ens.domains&sz=128",
-      "description": "Description here.",
+      "description": "The Ethereum Name Service for human-readable .eth wallet and website names.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -845,7 +845,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=francium.io&sz=128",
-      "description": "Description here.",
+      "description": "A leveraged yield-farming protocol on Solana.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -862,7 +862,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=frax.finance&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized stablecoin and DeFi protocol ecosystem.",
       "chainCount": 4,
       "coverage": 22
     },
@@ -877,7 +877,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gmx.io&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized perpetual and spot exchange with low-slippage leveraged trading.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -891,7 +891,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hubbleprotocol.io&sz=128",
-      "description": "Description here.",
+      "description": "A Solana protocol for borrowing against crypto collateral and minting stablecoins.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -905,7 +905,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=indigoprotocol.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano protocol for minting synthetic assets that track real-world prices.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -924,7 +924,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=instadapp.io&sz=128",
-      "description": "Description here.",
+      "description": "A DeFi management platform for handling positions across lending protocols.",
       "chainCount": 6,
       "coverage": 33
     },
@@ -938,7 +938,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=jito.network&sz=128",
-      "description": "Description here.",
+      "description": "A Solana liquid-staking protocol and MEV infrastructure provider.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -952,7 +952,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=kamino.finance&sz=64",
-      "description": "Description here.",
+      "description": "A Solana protocol for automated liquidity, lending, and leveraged yield strategies.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -966,7 +966,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lenfi.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano protocol for permissionless lending and borrowing.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -984,7 +984,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lido.fi&sz=128",
-      "description": "Description here.",
+      "description": "A liquid-staking protocol that issues tradable tokens for staked assets.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -998,7 +998,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=liquity.org&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized borrowing protocol issuing an interest-free stablecoin against ETH.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1012,7 +1012,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=liqwid.finance&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano lending and borrowing market for earning interest and taking loans.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1026,7 +1026,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=makerdao.com&sz=128",
-      "description": "Description here.",
+      "description": "The protocol behind the DAI stablecoin, backed by on-chain collateral.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1040,7 +1040,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=mango.markets&sz=128",
-      "description": "Description here.",
+      "description": "A Solana decentralized exchange for margin trading and lending.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1054,7 +1054,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=marginfi.com&sz=64",
-      "description": "Description here.",
+      "description": "A Solana lending protocol for borrowing and earning on deposits.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1069,7 +1069,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=morpho.org&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized lending protocol optimizing rates with peer-to-peer matching and isolated markets.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -1083,7 +1083,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=nexusmutual.io&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized insurance alternative covering smart-contract and protocol risks.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1097,7 +1097,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=optim.finance&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano yield-optimization and structured-products protocol.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1132,7 +1132,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=ribbon.finance&sz=128",
-      "description": "Description here.",
+      "description": "A protocol for automated options-based structured products and yield vaults.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -1146,7 +1146,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=rocketpool.net&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized Ethereum staking protocol with the rETH liquid-staking token.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1160,7 +1160,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sanctum.so&sz=128",
-      "description": "Description here.",
+      "description": "A Solana liquidity layer and infrastructure for liquid-staking tokens.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1174,7 +1174,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=solend.fi&sz=64",
-      "description": "Description here.",
+      "description": "A Solana lending and borrowing protocol.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1189,7 +1189,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=spark.fi&sz=64",
-      "description": "Description here.",
+      "description": "A MakerDAO-aligned lending market for borrowing and saving with DAI.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -1205,7 +1205,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=synthetix.io&sz=128",
-      "description": "Description here.",
+      "description": "A derivatives liquidity protocol for trading synthetic assets and perpetuals.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -1219,7 +1219,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=tulip.garden&sz=128",
-      "description": "Description here.",
+      "description": "A Solana yield-aggregation and leveraged-farming protocol.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1237,7 +1237,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=yearn.fi&sz=64",
-      "description": "Description here.",
+      "description": "A yield-aggregation protocol that automates DeFi strategies across vaults.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -1286,7 +1286,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=1inch.io&sz=64",
-      "description": "Description here.",
+      "description": "A DEX aggregator that finds the best swap rates across decentralized exchanges.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -1300,7 +1300,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=aborean.finance&sz=64",
-      "description": "Description here.",
+      "description": "A ve(3,3) decentralized exchange and liquidity hub on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1317,7 +1317,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=ambient.finance&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized exchange running its entire AMM in a single smart contract.",
       "chainCount": 4,
       "coverage": 22
     },
@@ -1337,7 +1337,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=balancer.fi&sz=64",
-      "description": "Description here.",
+      "description": "An automated market maker with customizable multi-token liquidity pools.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -1351,7 +1351,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=bancor.network&sz=128",
-      "description": "Description here.",
+      "description": "An on-chain liquidity protocol with single-sided staking.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1365,7 +1365,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gblue.xyz&sz=64",
-      "description": "Description here.",
+      "description": "An OlympusDAO-style reserve-currency DeFi protocol using bonding and staking, on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1379,7 +1379,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=crema.finance&sz=128",
-      "description": "Description here.",
+      "description": "A Solana concentrated-liquidity decentralized exchange.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1400,7 +1400,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=curve.fi&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized exchange optimized for low-slippage stablecoin and pegged-asset swaps.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -1414,7 +1414,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dexhunter.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano DEX aggregator routing trades for the best token prices.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1428,7 +1428,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=drift.trade&sz=128",
-      "description": "Description here.",
+      "description": "A Solana decentralized exchange for perpetual futures and spot trading.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1467,7 +1467,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=jumper.exchange&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain swap and bridge aggregator powered by LiFi.",
       "chainCount": 10,
       "coverage": 56
     },
@@ -1481,7 +1481,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=jup.ag&sz=64",
-      "description": "Description here.",
+      "description": "Solana's leading swap aggregator for the best token prices across DEXs.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1495,7 +1495,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=app.kona.surf&sz=64",
-      "description": "Description here.",
+      "description": "A DeFi platform on Abstract offering DEX swaps, lending, and yield as a liquidity hub.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1517,7 +1517,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=kyberswap.com&sz=64",
-      "description": "Description here.",
+      "description": "A DEX aggregator and liquidity protocol for optimized multi-chain swaps.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -1535,7 +1535,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lfj.gg&sz=64",
-      "description": "Description here.",
+      "description": "A decentralized exchange on Avalanche and beyond, formerly Trader Joe.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -1549,7 +1549,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lifinity.io&sz=128",
-      "description": "Description here.",
+      "description": "A Solana proactive market-maker DEX using oracle-based pricing.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1563,7 +1563,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=loopring.org&sz=128",
-      "description": "Description here.",
+      "description": "An Ethereum layer-2 zkRollup for low-cost token trading and payments.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1579,7 +1579,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lyra.finance&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized options trading protocol.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -1601,7 +1601,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=matcha.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A user-friendly DEX aggregator powered by 0x for best-price swaps.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -1615,7 +1615,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=meteora.ag&sz=128",
-      "description": "Description here.",
+      "description": "A Solana liquidity protocol with dynamic and concentrated-liquidity pools.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1629,7 +1629,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=minswap.org&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano multi-pool decentralized exchange with yield farming.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1650,7 +1650,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=odos.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A DEX aggregator that optimizes complex multi-token swap routes.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -1664,7 +1664,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=openbook-dex.com&sz=128",
-      "description": "Description here.",
+      "description": "A Solana on-chain central limit order book DEX.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1686,7 +1686,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=openocean.finance&sz=64",
-      "description": "Description here.",
+      "description": "A DEX and CEX aggregator for best-price swaps across many chains.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -1700,7 +1700,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=orca.so&sz=64",
-      "description": "Description here.",
+      "description": "A user-friendly Solana decentralized exchange with concentrated liquidity.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1718,7 +1718,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pancakeswap.finance&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain decentralized exchange with swaps, farms, and yield.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -1732,7 +1732,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://abs.xyz/imagetransform/width=100,format=webp/https%3A%2F%2Fabstract-portal-metadata-prod.s3.amazonaws.com%2F7d15d15e-a70a-4c73-9e3e-1f1288233317.png",
-      "description": "Description here.",
+      "description": "The first ERC-404 project, blending ERC-20 liquidity with NFT fractionalization, on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1751,7 +1751,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=paraswap.io&sz=64",
-      "description": "Description here.",
+      "description": "A DEX aggregator delivering optimized swap prices across chains.",
       "chainCount": 6,
       "coverage": 33
     },
@@ -1765,7 +1765,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
-      "description": "Description here.",
+      "description": "A Solana on-chain limit order book decentralized exchange.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1779,7 +1779,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=raydium.io&sz=64",
-      "description": "Description here.",
+      "description": "A Solana automated market maker and liquidity provider.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1793,7 +1793,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sakuraswap.com&sz=64",
-      "description": "Description here.",
+      "description": "A Uniswap V3-based decentralized exchange on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1807,7 +1807,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sundaeswap.finance&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano automated market maker decentralized exchange.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1828,7 +1828,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sushi.com&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain decentralized exchange for swaps, farming, and lending.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -1851,7 +1851,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=uniswap.org&sz=64",
-      "description": "Description here.",
+      "description": "The leading decentralized exchange protocol for swapping ERC-20 tokens.",
       "chainCount": 10,
       "coverage": 56
     },
@@ -1865,7 +1865,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=vyfi.org&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano DeFi hub with a DEX and auto-harvesting yield vaults.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1879,7 +1879,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=wingriders.com&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano automated market maker DEX with staking rewards.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1893,7 +1893,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=zeta.markets&sz=128",
-      "description": "Description here.",
+      "description": "A Solana decentralized exchange for perpetual futures and options.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1949,7 +1949,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=anichess.com&sz=64",
-      "description": "Description here.",
+      "description": "A chess game that blends traditional chess with magical spell-based mechanics.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1963,7 +1963,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=aurory.io&sz=128",
-      "description": "Description here.",
+      "description": "A Solana free-to-play tactical RPG with NFT creatures called Nefties.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -1978,7 +1978,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=axieinfinity.com&sz=128",
-      "description": "Description here.",
+      "description": "A monster-battling and breeding game where players collect and battle Axies.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -1992,7 +1992,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=bigcoin.tech&sz=64",
-      "description": "Description here.",
+      "description": "An on-chain mining game on Abstract inspired by Bitcoin, where NFT miners earn $BIG.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2020,7 +2020,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=cambria.gg&sz=64",
-      "description": "Description here.",
+      "description": "An experimental on-chain MMO with PvP, PvE, skilling, and trading in a medieval world.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2034,7 +2034,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=capnco.gg&sz=64",
-      "description": "Description here.",
+      "description": "A pirate MMORPG with multiplayer naval ship combat, looting, and a player-crafted economy.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2048,7 +2048,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=caves.wolf.game&sz=64",
-      "description": "Description here.",
+      "description": "A fast-paced Wolf Game arcade title on Abstract where players dig caves for treasure and rewards.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2063,7 +2063,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=decentraland.org&sz=128",
-      "description": "Description here.",
+      "description": "A virtual world where users own land, build experiences, and trade NFTs.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -2077,7 +2077,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=defiland.app&sz=128",
-      "description": "Description here.",
+      "description": "A gamified, farming-themed interface for DeFi activities on Solana.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2091,7 +2091,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=duper.gg&sz=64",
-      "description": "Description here.",
+      "description": "A browser strategy game blending poker, trading, and diplomacy in 20-minute matches on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2105,7 +2105,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=ev.io&sz=128",
-      "description": "Description here.",
+      "description": "A browser-based first-person shooter with Solana-based rewards and NFTs.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2119,7 +2119,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gala.com&sz=128",
-      "description": "Description here.",
+      "description": "A Web3 gaming platform and publisher of blockchain games.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2133,7 +2133,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=genopets.me&sz=128",
-      "description": "Description here.",
+      "description": "A Solana move-to-earn game where players evolve digital pets through activity.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2147,7 +2147,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gigachadbat.fun&sz=64",
-      "description": "Description here.",
+      "description": "A fast, reflex-based Web3 baseball game on Abstract by YGG Play and Delabs.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2161,7 +2161,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gigaverse.io&sz=64",
-      "description": "Description here.",
+      "description": "A browser RPG on Abstract with dungeon runs, pet racing, and a player-driven marketplace.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2175,7 +2175,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=godsunchained.com&sz=128",
-      "description": "Description here.",
+      "description": "A free-to-play trading card game with player-owned NFT cards.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2189,7 +2189,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=illuvium.io&sz=128",
-      "description": "Description here.",
+      "description": "An open-world RPG and auto-battler with collectible creatures called Illuvials.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2203,7 +2203,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=portal.khuga.io&sz=64",
-      "description": "Description here.",
+      "description": "A multiplayer action brawler where players battle as warrior cats from the Khuga universe.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2231,7 +2231,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=witty.game&sz=64",
-      "description": "Description here.",
+      "description": "A first-person word-puzzle exploration game, an early title on the Witty platform.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2245,7 +2245,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=playmog.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A roguelite dungeon-crawler game from the Onchain Heroes universe.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2259,7 +2259,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=moodymadness.com&sz=64",
-      "description": "Description here.",
+      "description": "A chaotic Web3 multiplayer kart-racing game on Abstract with NFT kart parts.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2273,7 +2273,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=niftyisland.com&sz=64",
-      "description": "Description here.",
+      "description": "A build-and-play gaming metaverse where creators make and monetize games.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2287,7 +2287,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=onchainheroes.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A connected on-chain game universe whose flagship title is the roguelite Maze of Gains.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2301,7 +2301,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=panguclash.com&sz=128",
-      "description": "Description here.",
+      "description": "A competitive on-chain multiplayer game on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2315,7 +2315,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=penguclash.io&sz=64",
-      "description": "Description here.",
+      "description": "A skill-based 1v1 minigame battler from Pudgy Penguins.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2329,7 +2329,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=penguinlife.playember.com&sz=64",
-      "description": "Description here.",
+      "description": "A cozy mobile simulation game by PlayEmber where players grow a penguin island.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2343,7 +2343,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=http://island.theplooshies.com&sz=64",
-      "description": "Description here.",
+      "description": "A multiplayer world in The Plooshies universe for exploring, decorating, and mining resources.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2357,7 +2357,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pileup.theplooshies.com&sz=64",
-      "description": "Description here.",
+      "description": "A casual stacking game and the first title in The Plooshies universe on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2371,7 +2371,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=polarpairup.com&sz=64",
-      "description": "Description here.",
+      "description": "A casual memory card-matching game on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2385,7 +2385,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=play.promotionroyale.gg&sz=64",
-      "description": "Description here.",
+      "description": "An office-themed social-deduction bluffing game with on-chain ETH prize pools on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2399,7 +2399,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=proofofplay.com&sz=64",
-      "description": "Description here.",
+      "description": "An arcade of fully on-chain games from the studio behind Pirate Nation.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2413,7 +2413,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pudgyworld.com&sz=64",
-      "description": "Description here.",
+      "description": "A browser social game set in the Pudgy Penguins universe on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2427,7 +2427,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=rugpullbakery.com&sz=64",
-      "description": "Description here.",
+      "description": "A satirical strategy game on Abstract where players bake cookies and 'rug' rivals for ETH.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2441,7 +2441,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=embervault.ruyui.com&sz=64",
-      "description": "Description here.",
+      "description": "A top-down pixel-art RPG on Abstract with real-time combat, crafting, and a player economy.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2470,7 +2470,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sorare.com&sz=128",
-      "description": "Description here.",
+      "description": "A global fantasy sports game with officially licensed NFT player cards.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2484,7 +2484,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=spellborne.gg&sz=64",
-      "description": "Description here.",
+      "description": "A retro-style monster-collecting MMORPG where players catch, raise, and battle creatures.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2498,7 +2498,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=staratlas.com&sz=128",
-      "description": "Description here.",
+      "description": "A Solana space-exploration grand-strategy game and metaverse.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2512,7 +2512,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=stepn.com&sz=128",
-      "description": "Description here.",
+      "description": "A move-to-earn lifestyle app rewarding users for walking and running.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2526,7 +2526,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sugar.town&sz=64",
-      "description": "Description here.",
+      "description": "Zynga's Web3 gaming world built around the Oddie NFT characters.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2540,7 +2540,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=supertripland.com&sz=64",
-      "description": "Description here.",
+      "description": "A free-to-play browser multiplayer FPS shooter, launching on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2555,7 +2555,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=sandbox.game&sz=128",
-      "description": "Description here.",
+      "description": "A virtual world where players build, own, and monetize gaming experiences.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -2569,7 +2569,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hub.tollan.io&sz=64",
-      "description": "Description here.",
+      "description": "A survivors-style action game on Abstract where players fight enemy waves and upgrade abilities.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2583,7 +2583,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=triviarush.fun&sz=64",
-      "description": "Description here.",
+      "description": "A live trivia game where players answer questions to compete for prizes.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2597,7 +2597,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=unchained.game&sz=64",
-      "description": "Description here.",
+      "description": "An 80s-style dungeon-crawler battle royale on Abstract with fast matches and instant payouts.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2611,7 +2611,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=vibes.game&sz=64",
-      "description": "Description here.",
+      "description": "The official Pudgy Penguins trading card game, digital and physical, built on Abstract.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2625,7 +2625,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=waifusweeper.fun&sz=64",
-      "description": "Description here.",
+      "description": "A Minesweeper-inspired skill-based puzzle game on Abstract with collectible anime characters.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2640,7 +2640,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=yieldguild.io&sz=128",
-      "description": "Description here.",
+      "description": "A gaming guild and DAO that invests in and scholarships NFT game assets.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -2724,7 +2724,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=abstract.moon.it&sz=64",
-      "description": "Description here.",
+      "description": "A token-launch and meme-trading platform where creators launch tokens and earn fees.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2898,7 +2898,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=backpack.app&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain crypto wallet for Solana and Ethereum with xNFT support.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -2918,7 +2918,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=coinbase.com&sz=64",
-      "description": "Description here.",
+      "description": "A self-custodial wallet for crypto and NFTs across multiple chains.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -2932,7 +2932,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=eternl.io&sz=64",
-      "description": "Description here.",
+      "description": "A feature-rich Cardano wallet for staking, dApps, and asset management.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -2954,7 +2954,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=exodus.com&sz=64",
-      "description": "Description here.",
+      "description": "A multi-asset desktop and mobile wallet with a built-in exchange.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -2970,7 +2970,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=flint-wallet.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano and multi-chain wallet for DeFi and dApp access.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -2984,7 +2984,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lace.io&sz=64",
-      "description": "Description here.",
+      "description": "IOG's light wallet for Cardano with staking and dApp connectivity.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3012,7 +3012,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=metamask.io&sz=64",
-      "description": "Description here.",
+      "description": "The widely-used self-custodial wallet for Ethereum and EVM networks.",
       "chainCount": 15,
       "coverage": 83
     },
@@ -3026,7 +3026,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=namiwallet.io&sz=64",
-      "description": "Description here.",
+      "description": "A browser-based Cardano wallet for dApps and staking.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3045,7 +3045,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=phantom.app&sz=64",
-      "description": "Description here.",
+      "description": "A popular multi-chain wallet for Solana, Ethereum, and more.",
       "chainCount": 6,
       "coverage": 33
     },
@@ -3070,7 +3070,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=rabby.io&sz=64",
-      "description": "Description here.",
+      "description": "A security-focused EVM wallet with clear transaction previews.",
       "chainCount": 12,
       "coverage": 67
     },
@@ -3090,7 +3090,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=rainbow.me&sz=64",
-      "description": "Description here.",
+      "description": "A friendly Ethereum wallet for tokens, NFTs, and DeFi.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -3110,7 +3110,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=safe.global&sz=128",
-      "description": "Description here.",
+      "description": "A smart-contract multisig wallet for securing digital assets, formerly Gnosis Safe.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -3133,7 +3133,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=trustwallet.com&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain mobile wallet for crypto and NFTs.",
       "chainCount": 10,
       "coverage": 56
     },
@@ -3147,7 +3147,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=vespr.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A mobile-first Cardano wallet for staking and dApps.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3168,7 +3168,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=ctrl.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain wallet for crypto, NFTs, and cross-chain swaps, formerly XDEFI.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -3182,7 +3182,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=yoroi-wallet.com&sz=64",
-      "description": "Description here.",
+      "description": "A light Cardano wallet by Emurgo for staking and transactions.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3268,7 +3268,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=blever.xyz&sz=64",
-      "description": "Description here.",
+      "description": "An NFT launchpad on Abstract for creating and minting NFT collections.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3298,7 +3298,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=blur.io&sz=64",
-      "description": "Description here.",
+      "description": "A pro-focused NFT marketplace and aggregator for active traders.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -3315,7 +3315,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=book.io&sz=64",
-      "description": "Description here.",
+      "description": "A Web3 marketplace for buying and owning ebooks and audiobooks as NFTs.",
       "chainCount": 4,
       "coverage": 22
     },
@@ -3329,7 +3329,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dyli.io&sz=64",
-      "description": "Description here.",
+      "description": "A collectible-commerce marketplace on Abstract for digital collectibles redeemable for physical goods.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3351,7 +3351,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=element.market&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain NFT marketplace and aggregator.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -3365,7 +3365,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=exchange.art&sz=128",
-      "description": "Description here.",
+      "description": "A Solana marketplace for fine and generative digital art.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3380,7 +3380,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=foundation.app&sz=128",
-      "description": "Description here.",
+      "description": "A curated marketplace for digital art and NFTs.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -3394,7 +3394,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hyperspace.xyz&sz=128",
-      "description": "Description here.",
+      "description": "A Solana NFT marketplace and aggregator.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3408,7 +3408,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=jpg.store&sz=64",
-      "description": "Description here.",
+      "description": "The leading Cardano NFT marketplace.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3423,7 +3423,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=looksrare.org&sz=64",
-      "description": "Description here.",
+      "description": "A community-first NFT marketplace that rewards traders.",
       "chainCount": 2,
       "coverage": 11
     },
@@ -3437,7 +3437,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=magiceden.io&sz=64",
-      "description": "Description here.",
+      "description": "A leading multi-chain NFT marketplace spanning Solana, Ethereum, and Bitcoin.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3451,7 +3451,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=mintify.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A multichain NFT trading terminal and analytics platform for professional traders.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3465,7 +3465,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=nmkr.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano NFT minting platform and infrastructure provider.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3488,7 +3488,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=opensea.io&sz=64",
-      "description": "Description here.",
+      "description": "The largest general NFT marketplace across many blockchains.",
       "chainCount": 10,
       "coverage": 56
     },
@@ -3505,7 +3505,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=rarible.com&sz=128",
-      "description": "Description here.",
+      "description": "A multi-chain NFT marketplace and creator platform.",
       "chainCount": 4,
       "coverage": 22
     },
@@ -3519,7 +3519,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=scatter.art&sz=64",
-      "description": "Description here.",
+      "description": "An artist-first NFT launchpad and marketplace where creators self-deploy collections.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3533,7 +3533,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=segmint.io&sz=64",
-      "description": "Description here.",
+      "description": "VanEck's NFT platform with a 'Lock & Key' shared-custody vault model.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3547,7 +3547,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=solanart.io&sz=128",
-      "description": "Description here.",
+      "description": "A Solana NFT marketplace.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3561,7 +3561,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=superrare.com&sz=128",
-      "description": "Description here.",
+      "description": "A curated marketplace for single-edition digital artworks.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3575,7 +3575,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=tensor.trade&sz=64",
-      "description": "Description here.",
+      "description": "A Solana NFT marketplace and aggregator built for pro traders.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3589,7 +3589,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=x2y2.io&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized Ethereum NFT marketplace.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3647,7 +3647,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=aragon.org&sz=128",
-      "description": "Description here.",
+      "description": "A platform for creating and managing on-chain DAOs.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -3683,7 +3683,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=coinstats.app&sz=64",
-      "description": "Description here.",
+      "description": "A portfolio tracker for crypto and DeFi across wallets and exchanges.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -3708,7 +3708,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dappradar.com&sz=64",
-      "description": "Description here.",
+      "description": "A directory and analytics platform for dApps across blockchains.",
       "chainCount": 12,
       "coverage": 67
     },
@@ -3732,7 +3732,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=debank.com&sz=64",
-      "description": "Description here.",
+      "description": "A DeFi portfolio tracker and Web3 dashboard for EVM chains.",
       "chainCount": 11,
       "coverage": 61
     },
@@ -3763,7 +3763,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=defillama.com&sz=64",
-      "description": "Description here.",
+      "description": "The leading open analytics dashboard for DeFi TVL and metrics.",
       "chainCount": 18,
       "coverage": 100
     },
@@ -3777,7 +3777,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=depthsoul.com&sz=64",
-      "description": "Description here.",
+      "description": "A soulbound vault yield protocol on Abstract with capped emissions and token burns.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3804,7 +3804,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dexscreener.com&sz=64",
-      "description": "Description here.",
+      "description": "A real-time charting and analytics tool for on-chain token trading.",
       "chainCount": 14,
       "coverage": 78
     },
@@ -3818,7 +3818,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dialect.to&sz=128",
-      "description": "Description here.",
+      "description": "A messaging and notifications protocol for Solana wallets and apps.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3838,7 +3838,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=dune.com&sz=128",
-      "description": "Description here.",
+      "description": "A platform for querying and visualizing on-chain blockchain data.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -3852,7 +3852,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=etherscan.io&sz=128",
-      "description": "Description here.",
+      "description": "The primary block explorer and analytics platform for Ethereum.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3883,7 +3883,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=farcaster.xyz&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized social network protocol.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -3909,7 +3909,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=geckoterminal.com&sz=64",
-      "description": "Description here.",
+      "description": "A real-time DEX and token analytics platform by CoinGecko.",
       "chainCount": 13,
       "coverage": 72
     },
@@ -3925,7 +3925,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=gitcoin.co&sz=128",
-      "description": "Description here.",
+      "description": "A platform for funding open-source and public-goods projects via grants.",
       "chainCount": 3,
       "coverage": 17
     },
@@ -3953,7 +3953,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lens.xyz&sz=128",
-      "description": "Description here.",
+      "description": "A decentralized social graph for building Web3 social apps.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3967,7 +3967,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=lute.gg&sz=64",
-      "description": "Description here.",
+      "description": "A non-custodial Solana trading terminal and wallet with momentum scans and social trading.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -3988,7 +3988,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=nansen.ai&sz=128",
-      "description": "Description here.",
+      "description": "An on-chain analytics platform with wallet labels and smart-money insights.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -4010,7 +4010,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pulsar.finance&sz=64",
-      "description": "Description here.",
+      "description": "A multi-chain portfolio tracker and management dashboard.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -4031,7 +4031,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=pyth.network&sz=128",
-      "description": "Description here.",
+      "description": "An oracle network delivering real-time market price data on-chain.",
       "chainCount": 8,
       "coverage": 44
     },
@@ -4045,7 +4045,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=realms.today&sz=128",
-      "description": "Description here.",
+      "description": "A DAO governance platform for creating and managing organizations on Solana.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -4063,7 +4063,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=snapshot.org&sz=128",
-      "description": "Description here.",
+      "description": "A gasless off-chain voting platform for DAO governance.",
       "chainCount": 5,
       "coverage": 28
     },
@@ -4077,7 +4077,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=squads.so&sz=128",
-      "description": "Description here.",
+      "description": "A Solana multisig and smart-account platform for teams and treasuries.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -4091,7 +4091,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=taptools.io&sz=64",
-      "description": "Description here.",
+      "description": "A Cardano market-data and portfolio analytics platform.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -4111,7 +4111,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=tokenterminal.com&sz=128",
-      "description": "Description here.",
+      "description": "A platform for fundamental financial metrics on crypto protocols.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -4133,7 +4133,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=zapper.xyz&sz=64",
-      "description": "Description here.",
+      "description": "A DeFi portfolio dashboard for tracking and managing positions across chains.",
       "chainCount": 9,
       "coverage": 50
     },
@@ -4153,7 +4153,7 @@ const APP_HUB: AppHubData = {
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=zerion.io&sz=128",
-      "description": "Description here.",
+      "description": "A Web3 wallet and portfolio manager for DeFi and NFTs.",
       "chainCount": 7,
       "coverage": 39
     },
@@ -4527,18 +4527,35 @@ const APP_HUB: AppHubData = {
       "coverage": 6
     },
     {
-      "id": "usdcx",
-      "name": "USDCx",
+      "id": "usdc",
+      "name": "USDC",
       "website": "https://www.circle.com/xreserve",
       "category": "Stablecoins",
       "chains": [
-        "cardano"
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=circle.com&sz=64",
       "description": "Interoperable dollar-backed stablecoin.",
-      "chainCount": 1,
-      "coverage": 6
+      "chainCount": 18,
+      "coverage": 100
     },
     {
       "id": "usdm",

@@ -15127,18 +15127,35 @@ const APP_HUB = {
       "coverage": 6
     },
     {
-      "id": "usdcx",
-      "name": "USDCx",
+      "id": "usdc",
+      "name": "USDC",
       "website": "https://www.circle.com/xreserve",
       "category": "Stablecoins",
       "chains": [
-        "cardano"
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=circle.com&sz=64",
       "description": "Interoperable dollar-backed stablecoin.",
-      "chainCount": 1,
-      "coverage": 6
+      "chainCount": 18,
+      "coverage": 100
     },
     {
       "id": "usdm",
