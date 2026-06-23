@@ -1,5 +1,10 @@
 import type { WalletConfig } from './secure-store'
 import { getNativeUsd } from './native-prices'
+import { getTokenBalances } from './alchemy-cache'
+import {
+  alchemyRpcUrl, alchemyNftBase, heliusRpcUrl,
+  blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
+} from './api-proxy'
 
 export interface WalletToken {
   contractAddress: string
@@ -121,13 +126,11 @@ const TW_CHAIN: Record<string, string> = {
   apechain: 'apechain',
 }
 
-const ZERO = '0x0000000000000000000000000000000000000000000000000000000000000000'
-
-function rpcUrl(network: string, key: string) {
-  return `https://${network}.g.alchemy.com/v2/${key}`
+function rpcUrl(network: string, config: WalletConfig) {
+  return alchemyRpcUrl(network, config)
 }
-function nftUrl(network: string, key: string) {
-  return `https://${network}.g.alchemy.com/nft/v3/${key}`
+function nftUrl(network: string, config: WalletConfig) {
+  return alchemyNftBase(network, config)
 }
 
 function normalizeImageUrl(url: string | null | undefined): string | null {
@@ -256,24 +259,13 @@ async function fetchNativePrices(chainIds: string[]): Promise<Record<string, num
 async function fetchTokensForChain(
   address: string,
   chain: typeof TOKEN_CHAINS[0],
-  key: string
+  config: WalletConfig
 ): Promise<WalletToken[]> {
-  const url = rpcUrl(chain.network, key)
+  const url = rpcUrl(chain.network, config)
   try {
-    const balRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'alchemy_getTokenBalances', params: [address, 'erc20'] }),
-      signal: AbortSignal.timeout(12_000)
-    })
-    if (!balRes.ok) return []
-
-    const balJson = await balRes.json() as {
-      result?: { tokenBalances?: Array<{ contractAddress: string; tokenBalance: string }> }
-    }
-    const nonZero = (balJson.result?.tokenBalances ?? [])
-      .filter(t => t.tokenBalance !== ZERO && BigInt(t.tokenBalance) > 0n)
-      .slice(0, 100)
+    // Shared, coalesced alchemy_getTokenBalances (alchemy-cache.ts) — reuses the
+    // same call the balance fetcher makes for its token count on mount.
+    const nonZero = (await getTokenBalances(chain.network, address, config)).slice(0, 100)
     if (nonZero.length === 0) return []
 
     const metaPayload = nonZero.map((t, i) => ({
@@ -325,9 +317,9 @@ interface HeliusFungibleItem {
   token_info?: { balance?: number; decimals?: number; symbol?: string }
 }
 
-async function fetchSolanaTokens(address: string, heliusKey: string): Promise<WalletToken[]> {
+async function fetchSolanaTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
   try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+    const res = await fetch(heliusRpcUrl(config), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -375,10 +367,10 @@ interface HeliusNftItem {
   compression?: { compressed?: boolean }
 }
 
-async function fetchSolanaNFTs(address: string, heliusKey: string): Promise<WalletCollectible[]> {
+async function fetchSolanaNFTs(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
   if (!address) return []
   try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+    const res = await fetch(heliusRpcUrl(config), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -436,13 +428,10 @@ async function fetchSolanaNFTs(address: string, heliusKey: string): Promise<Wall
 
 // ─── Cardano native assets via Blockfrost ────────────────────────────────────
 
-async function fetchCardanoTokens(address: string, blockfrostKey: string): Promise<WalletToken[]> {
+async function fetchCardanoTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
   if (!address) return []
   try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers: { project_id: blockfrostKey },
-      signal: AbortSignal.timeout(12_000)
-    })
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 12_000)
     if (!addrRes.ok) return []
 
     const addrJson = await addrRes.json() as { amount?: Array<{ unit: string; quantity: string }> }
@@ -453,10 +442,7 @@ async function fetchCardanoTokens(address: string, blockfrostKey: string): Promi
     const assets = await Promise.all(
       nativeAssets.slice(0, 20).map(async (a): Promise<WalletToken | null> => {
         try {
-          const meta = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a.unit}`, {
-            headers: { project_id: blockfrostKey },
-            signal: AbortSignal.timeout(8_000)
-          })
+          const meta = await blockfrostFetch(`assets/${a.unit}`, config, 8_000)
           const mj = meta.ok ? await meta.json() as {
             asset_name: string | null
             onchain_metadata?: { name?: string; image?: string } | null
@@ -668,9 +654,9 @@ export async function fetchAllTokens(
     const agwAddress = addresses.agw ?? null
 
     const [evmResults, solanaTokens, cardanoTokens, monadTokens] = await Promise.all([
-      Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config.alchemyKey))),
-      addresses.solana  ? fetchSolanaTokens(addresses.solana,   config.heliusKey)      : Promise.resolve([] as WalletToken[]),
-      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey)  : Promise.resolve([] as WalletToken[]),
+      Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
+      addresses.solana  ? fetchSolanaTokens(addresses.solana,   config)      : Promise.resolve([] as WalletToken[]),
+      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config)  : Promise.resolve([] as WalletToken[]),
       fetchMonadTokens(addresses.evm),
     ])
 
@@ -678,7 +664,7 @@ export async function fetchAllTokens(
     // tagging each so the UI can badge it as living in the smart wallet.
     const abstractChainCfg = TOKEN_CHAINS.find(c => c.id === 'abstract')!
     const agwTokens = (agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg)
-      ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)).map(t => ({ ...t, source: 'agw' as const }))
+      ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
     const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens]
@@ -719,15 +705,11 @@ function resolveCardanoImage(meta: Record<string, unknown>): string | null {
 
 async function fetchCardanoNFTs(
   address: string,
-  blockfrostKey: string
+  config: WalletConfig
 ): Promise<WalletCollectible[]> {
   if (!address) return []
-  const headers = { project_id: blockfrostKey }
   try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers,
-      signal: AbortSignal.timeout(12_000)
-    })
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 12_000)
     if (!addrRes.ok) return []
 
     const addrData = await addrRes.json() as {
@@ -740,9 +722,9 @@ async function fetchCardanoNFTs(
 
     if (addrData.stake_address) {
       try {
-        const stakeRes = await fetch(
-          `https://cardano-mainnet.blockfrost.io/api/v0/accounts/${addrData.stake_address}/addresses/assets?count=100`,
-          { headers, signal: AbortSignal.timeout(12_000) }
+        const stakeRes = await blockfrostFetch(
+          `accounts/${addrData.stake_address}/addresses/assets?count=100`,
+          config, 12_000
         )
         if (stakeRes.ok) {
           assets = await stakeRes.json() as Array<{ unit: string; quantity: string }>
@@ -767,10 +749,7 @@ async function fetchCardanoNFTs(
     const results = await Promise.all(
       nftAssets.slice(0, 50).map(async (a): Promise<WalletCollectible | null> => {
         try {
-          const metaRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a.unit}`, {
-            headers,
-            signal: AbortSignal.timeout(8_000)
-          })
+          const metaRes = await blockfrostFetch(`assets/${a.unit}`, config, 8_000)
           if (!metaRes.ok) return null
           const meta = await metaRes.json() as Record<string, unknown>
 
@@ -844,11 +823,11 @@ interface ChainNftResult {
 async function fetchNftsForChain(
   address: string,
   chain: typeof NFT_CHAINS[0],
-  key: string
+  config: WalletConfig
 ): Promise<ChainNftResult> {
-  const base = nftUrl(chain.network, key)
+  const base = nftUrl(chain.network, config)
   const url = `${base}/getNFTsForOwner?owner=${address}&withMetadata=true`
-  console.log(`[NFT] Fetching ${chain.label}: ${url.replace(key, '***')}`)
+  console.log(`[NFT] Fetching ${chain.label} for ${address.slice(0, 10)}…`)
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
     if (!res.ok) {
@@ -908,15 +887,11 @@ async function fetchNftsForChain(
 
 // ─── Monad NFTs via Blockscout v2 ────────────────────────────────────────────
 
-async function fetchMonadNFTs(address: string, moralisKey: string): Promise<WalletCollectible[]> {
+async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
   // chain=0x8f is Monad mainnet (chainId 143)
-  const url = `https://deep-index.moralis.io/api/v2.2/${address}/nft?chain=0x8f&format=decimal&media_items=true`
   console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`)
   try {
-    const res = await fetch(url, {
-      headers: { 'X-API-Key': moralisKey },
-      signal: AbortSignal.timeout(15_000)
-    })
+    const res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
     console.log(`[NFT] Monad Moralis HTTP ${res.status}`)
     if (!res.ok) {
       const body = await res.text().catch(() => '')
@@ -994,20 +969,19 @@ interface FloorEntry { floor: number; symbol: string }
 const floorCache = new Map<string, { value: FloorEntry | null; exp: number }>()
 const FLOOR_TTL = 10 * 60_000
 
-async function osGet<T>(path: string, key: string): Promise<T | null> {
+async function osGet<T>(path: string, config: WalletConfig): Promise<T | null> {
   try {
-    const res = await fetch(`https://api.opensea.io/api/v2/${path}`,
-      { headers: { 'x-api-key': key, accept: 'application/json' }, signal: AbortSignal.timeout(8_000) })
+    const res = await openseaFetch(path, config, 8_000)
     if (!res.ok) return null
     return await res.json() as T
   } catch { return null }
 }
 
-async function osCollectionFloor(slug: string, key: string): Promise<FloorEntry | null> {
+async function osCollectionFloor(slug: string, config: WalletConfig): Promise<FloorEntry | null> {
   const cacheKey = `slug:${slug}`
   const hit = floorCache.get(cacheKey)
   if (hit && hit.exp > Date.now()) return hit.value
-  const json = await osGet<{ total?: { floor_price?: number; floor_price_symbol?: string } }>(`collections/${slug}/stats`, key)
+  const json = await osGet<{ total?: { floor_price?: number; floor_price_symbol?: string } }>(`collections/${slug}/stats`, config)
   const total = json?.total
   const value: FloorEntry | null = (total?.floor_price != null && total.floor_price > 0)
     ? { floor: total.floor_price, symbol: total.floor_price_symbol ?? 'ETH' } : null
@@ -1016,23 +990,23 @@ async function osCollectionFloor(slug: string, key: string): Promise<FloorEntry 
 }
 
 /** EVM: contract address → OpenSea collection slug (reliable for EVM chains). */
-async function osEvmContractFloor(osChain: string, contract: string, key: string): Promise<FloorEntry | null> {
+async function osEvmContractFloor(osChain: string, contract: string, config: WalletConfig): Promise<FloorEntry | null> {
   const cacheKey = `${osChain}:${contract.toLowerCase()}`
   const hit = floorCache.get(cacheKey)
   if (hit && hit.exp > Date.now()) return hit.value
-  const json = await osGet<{ collection?: string }>(`chain/${osChain}/contract/${contract}`, key)
-  const value = json?.collection ? await osCollectionFloor(json.collection, key) : null
+  const json = await osGet<{ collection?: string }>(`chain/${osChain}/contract/${contract}`, config)
+  const value = json?.collection ? await osCollectionFloor(json.collection, config) : null
   floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
   return value
 }
 
 /** Solana: contract→slug is unreliable, so map each owned NFT's mint → slug via account/nfts. */
-async function osSolanaMintSlugs(address: string, key: string): Promise<Map<string, string>> {
+async function osSolanaMintSlugs(address: string, config: WalletConfig): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   let next: string | undefined
   for (let page = 0; page < 5; page++) {  // cap pagination
     const json = await osGet<{ nfts?: Array<{ identifier?: string; collection?: string }>; next?: string }>(
-      `chain/solana/account/${address}/nfts?limit=50${next ? `&next=${next}` : ''}`, key)
+      `chain/solana/account/${address}/nfts?limit=50${next ? `&next=${next}` : ''}`, config)
     if (!json?.nfts?.length) break
     for (const n of json.nfts) if (n.identifier && n.collection) out.set(n.identifier, n.collection)
     if (!json.next) break
@@ -1047,12 +1021,12 @@ async function osSolanaMintSlugs(address: string, key: string): Promise<Map<stri
  * call with one call per chain — far fewer requests, so big wallets don't trip
  * OpenSea's rate limit and lose floors on later-listed chains (Monad especially).
  */
-async function osAccountSlugs(osChain: string, owner: string, key: string): Promise<Map<string, string>> {
+async function osAccountSlugs(osChain: string, owner: string, config: WalletConfig): Promise<Map<string, string>> {
   const out = new Map<string, string>()
   let next: string | undefined
   for (let page = 0; page < 4; page++) {  // up to 200 NFTs/owner/chain
     const json = await osGet<{ nfts?: Array<{ contract?: string; collection?: string }>; next?: string }>(
-      `chain/${osChain}/account/${owner}/nfts?limit=50${next ? `&next=${next}` : ''}`, key)
+      `chain/${osChain}/account/${owner}/nfts?limit=50${next ? `&next=${next}` : ''}`, config)
     if (!json?.nfts?.length) break
     for (const n of json.nfts) if (n.contract && n.collection) out.set(n.contract.toLowerCase(), n.collection)
     if (!json.next) break
@@ -1111,7 +1085,8 @@ interface FloorOpts { solanaAddress?: string; evmAddress?: string; agw?: string;
  * Magic Eden (mint→symbol→floor) with OpenSea as a fallback.
  */
 async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig, opts: FloorOpts = {}): Promise<WalletCollectible[]> {
-  const key = config.openseaKey
+  // OpenSea is available via the proxy even when no client key is set.
+  const osOk = canOpensea(config)
   const { solanaAddress, evmAddress, agw, exclude } = opts
   // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
   // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
@@ -1122,14 +1097,14 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const evmChains = new Set(priced.filter(i => i.chain !== 'solana' && OPENSEA_NFT_CHAIN[i.chain]).map(i => OPENSEA_NFT_CHAIN[i.chain]))
   // One bulk slug sweep per EVM chain/owner (the EOA everywhere; the AGW on Abstract).
   const sweeps: Array<[string, string]> = []
-  if (key) for (const osc of evmChains) {
+  if (osOk) for (const osc of evmChains) {
     if (evmAddress) sweeps.push([osc, evmAddress])
     if (agw && osc === 'abstract') sweeps.push([osc, agw])
   }
 
   const meSymbolsP = (hasSolana && solanaAddress) ? meWalletSymbols(solanaAddress) : Promise.resolve(new Map<string, string>())
-  const solSlugsP  = (hasSolana && solanaAddress && key) ? osSolanaMintSlugs(solanaAddress, key) : Promise.resolve(new Map<string, string>())
-  const evmMapsP   = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, key)] as const))
+  const solSlugsP  = (hasSolana && solanaAddress && osOk) ? osSolanaMintSlugs(solanaAddress, config) : Promise.resolve(new Map<string, string>())
+  const evmMapsP   = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, config)] as const))
   const [meSymbols, solSlugs, evmMaps] = await Promise.all([meSymbolsP, solSlugsP, evmMapsP])
 
   // `${osChain}:${contractLower}` → OpenSea collection slug
@@ -1142,18 +1117,18 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   for (const i of priced) {
     if (i.floorPrice != null) { taskKeyOf.set(i, null); continue }  // already has an inline floor
     const osChain = OPENSEA_NFT_CHAIN[i.chain]
-    if (!osChain || !key) { taskKeyOf.set(i, null); continue }
+    if (!osChain || !osOk) { taskKeyOf.set(i, null); continue }
     let tk: string | null = null
     if (i.chain === 'solana') {
       const meSym = meSymbols.get(i.tokenId)
       const osSlug = solSlugs.get(i.tokenId)
       if (meSym) { tk = `me:${meSym}`; if (!tasks.has(tk)) tasks.set(tk, () => meCollectionFloor(meSym)) }
-      else if (osSlug) { tk = `slug:${osSlug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, key)) }
+      else if (osSlug) { tk = `slug:${osSlug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, config)) }
     } else {
       const contract = i.contractAddress.toLowerCase()
       const slug = evmSlug.get(`${osChain}:${contract}`)
-      if (slug) { tk = `slug:${slug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, key)) }
-      else { tk = `${osChain}:${contract}`; if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i.contractAddress, key)) }
+      if (slug) { tk = `slug:${slug}`; if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, config)) }
+      else { tk = `${osChain}:${contract}`; if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i.contractAddress, config)) }
     }
     taskKeyOf.set(i, tk)
   }
@@ -1200,13 +1175,13 @@ export async function fetchAllCollectibles(
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
-      Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config.alchemyKey))),
-      solanaAddress  ? fetchSolanaNFTs(solanaAddress, config.heliusKey)       : Promise.resolve([] as WalletCollectible[]),
-      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([] as WalletCollectible[]),
+      Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config))),
+      solanaAddress  ? fetchSolanaNFTs(solanaAddress, config)       : Promise.resolve([] as WalletCollectible[]),
+      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
-        ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
+        ? fetchNftsForChain(agwAddress, abstractChainCfg, config).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
-      fetchMonadNFTs(evmAddress, config.moralisKey),
+      fetchMonadNFTs(evmAddress, config),
     ])
 
     const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts]

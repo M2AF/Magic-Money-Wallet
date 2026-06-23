@@ -10,6 +10,7 @@
 
 import type { WalletConfig } from './secure-store'
 import { EVM_CHAINS } from './chain-config'
+import { alchemyRpcUrl, heliusApiFetch, blockfrostFetch, moralisFetch, canMoralis } from './api-proxy'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -259,11 +260,9 @@ async function fetchTatumHistory(
 
 // ─── Solana via Helius ────────────────────────────────────────────────────────
 
-async function fetchSolanaHistory(address: string, heliusKey: string): Promise<ChainHistory> {
+async function fetchSolanaHistory(address: string, config: WalletConfig): Promise<ChainHistory> {
   try {
-    const res = await fetch(
-      `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${heliusKey}&limit=10`
-    )
+    const res = await heliusApiFetch(`v0/addresses/${address}/transactions?limit=10`, config)
     if (!res.ok) {
       const body = await res.json().catch(() => ({})) as { error?: string }
       throw new Error(`Helius ${res.status}: ${body.error ?? res.statusText}`)
@@ -300,12 +299,9 @@ async function fetchSolanaHistory(address: string, heliusKey: string): Promise<C
 
 // ─── Cardano via Blockfrost ───────────────────────────────────────────────────
 
-async function fetchCardanoHistory(address: string, blockfrostKey: string): Promise<ChainHistory> {
-  const BASE = 'https://cardano-mainnet.blockfrost.io/api/v0'
-  const headers = { project_id: blockfrostKey }
-
+async function fetchCardanoHistory(address: string, config: WalletConfig): Promise<ChainHistory> {
   try {
-    const listRes = await fetch(`${BASE}/addresses/${address}/transactions?order=desc&count=10`, { headers })
+    const listRes = await blockfrostFetch(`addresses/${address}/transactions?order=desc&count=10`, config)
     if (listRes.status === 404) return { records: [], error: null }
     if (!listRes.ok) {
       const body = await listRes.json().catch(() => ({})) as { message?: string }
@@ -318,7 +314,7 @@ async function fetchCardanoHistory(address: string, blockfrostKey: string): Prom
       txList.slice(0, 10).map(async ({ tx_hash, block_time }): Promise<TxRecord> => {
         const fallback: TxRecord = { hash: tx_hash, direction: 'self', amount: null, symbol: 'ADA', timestamp: block_time * 1000, counterparty: null, explorerUrl: `https://cardanoscan.io/transaction/${tx_hash}` }
         try {
-          const utxoRes = await fetch(`${BASE}/txs/${tx_hash}/utxos`, { headers })
+          const utxoRes = await blockfrostFetch(`txs/${tx_hash}/utxos`, config)
           if (!utxoRes.ok) return fallback
 
           const utxos = await utxoRes.json() as {
@@ -466,17 +462,14 @@ type MoralisTx = {
 
 async function fetchMoralisMonadHistory(
   address: string,
-  moralisKey: string,
+  config: WalletConfig,
   explorerBase: string,
   fallback?: () => Promise<ChainHistory>
 ): Promise<ChainHistory> {
-  if (!moralisKey) return fallback ? fallback() : { records: [], error: 'No Moralis key' }
+  if (!canMoralis(config)) return fallback ? fallback() : { records: [], error: 'No Moralis key' }
 
   try {
-    const res = await fetch(
-      `https://deep-index.moralis.io/api/v2.2/${address}/history?chain=0x8f&order=DESC&limit=10`,
-      { headers: { accept: 'application/json', 'X-API-Key': moralisKey }, signal: AbortSignal.timeout(10_000) }
-    )
+    const res = await moralisFetch(`${address}/history?chain=0x8f&order=DESC&limit=10`, config, 10_000)
     if (!res.ok) {
       return fallback ? fallback() : { records: [], error: `Moralis ${res.status}` }
     }
@@ -529,19 +522,19 @@ export async function fetchAllHistory(
   const results = await Promise.all([
     ...alchemyChains.map(c => fetchAlchemyHistory(
       addresses.evm,
-      `https://${c.alchemyNetwork!}.g.alchemy.com/v2/${config.alchemyKey}`,
+      alchemyRpcUrl(c.alchemyNetwork!, config),
       c.explorerTx
     )),
     ...blockscoutChains.map(c => fetchBlockscoutHistory(addresses.evm, c.blockscoutUrl!, c.nativeSymbol)),
     ...etherscanChains.map(c  => fetchEtherscanHistory(addresses.evm, c.etherscanApiUrl!, c.nativeSymbol, c.explorerTx)),
     // Monad: Moralis (proven via NFTs) → Blockscout fallback
     fetchMoralisMonadHistory(
-      addresses.evm, config.moralisKey, 'https://monadexplorer.com/tx',
+      addresses.evm, config, 'https://monadexplorer.com/tx',
       () => fetchBlockscoutHistory(addresses.evm, 'https://monadexplorer.com', 'MON')
     ),
-    fetchSolanaHistory(addresses.solana, config.heliusKey),
+    fetchSolanaHistory(addresses.solana, config),
     addresses.cardano
-      ? fetchCardanoHistory(addresses.cardano, config.blockfrostKey)
+      ? fetchCardanoHistory(addresses.cardano, config)
       : Promise.resolve<ChainHistory>({ records: [], error: null }),
     fetchBitcoinHistory(addresses.bitcoin ?? ''),
     fetchPolkadotHistory(addresses.polkadot ?? '')

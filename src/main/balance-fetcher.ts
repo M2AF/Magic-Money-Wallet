@@ -9,8 +9,10 @@
 import { base58 } from '@scure/base'
 import { blake2b } from '@noble/hashes/blake2b'
 import type { WalletConfig } from './secure-store'
-import { EVM_CHAINS, CHAIN_MAP, type ChainDef } from './chain-config'
+import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, type ChainDef } from './chain-config'
 import { seedNativeUsd } from './native-prices'
+import { getTokenBalances } from './alchemy-cache'
+import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback } from './api-proxy'
 
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
@@ -100,40 +102,26 @@ async function fetchEvmNative(
   address: string,
   config: WalletConfig
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
-  const url = chain.rpcUrl(config)
-  const abort = AbortSignal.timeout(10_000)
-
   try {
-    const balRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }),
-      signal: abort
-    })
+    // Native balance: proxy/Alchemy first, then public fallbacks so a throttled
+    // key shows a balance instead of "—". Token count below stays Alchemy-only.
+    const urls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
+    const balJson = await rpcReadWithFallback(
+      urls, { jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }, 10_000
+    ) as { result?: string; error?: { message: string } } | null
 
-    if (!balRes.ok) return { native: 0, tokenCount: 0, error: `RPC ${balRes.status}` }
-
-    const balJson = await balRes.json() as { result?: string; error?: { message: string } }
+    if (!balJson) return { native: 0, tokenCount: 0, error: 'RPC error' }
     if (balJson.error) return { native: 0, tokenCount: 0, error: balJson.error.message }
 
     const native = Number(BigInt(balJson.result ?? '0x0')) / 1e18
 
-    // Token count: Alchemy method for Alchemy chains, Blockscout v2 for others
+    // Token count: Alchemy method for Alchemy chains, Blockscout v2 for others.
+    // The Alchemy branch shares one coalesced alchemy_getTokenBalances call with
+    // the token fetcher (alchemy-cache.ts) so the concurrent mount burst doesn't
+    // hit this expensive method twice per chain.
     let tokenCount = 0
     if (chain.alchemyNetwork) {
-      try {
-        const ZERO = '0x0000000000000000000000000000000000000000000000000000000000000000'
-        const tokRes = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'alchemy_getTokenBalances', params: [address, 'erc20'] }),
-          signal: AbortSignal.timeout(8_000)
-        })
-        if (tokRes.ok) {
-          const tokJson = await tokRes.json() as { result?: { tokenBalances?: Array<{ tokenBalance: string }> } }
-          tokenCount = (tokJson.result?.tokenBalances ?? []).filter(t => t.tokenBalance !== ZERO).length
-        }
-      } catch { /* optional */ }
+      tokenCount = (await getTokenBalances(chain.alchemyNetwork, address, config)).length
     } else if (chain.blockscoutUrl) {
       try {
         const tokRes = await fetch(
@@ -198,9 +186,10 @@ const DOT_SYSTEM_ACCOUNT_PREFIX = '26aa394eea5630e07c48ae0c9558cef7b99d880ec6817
 
 async function fetchPolkadotNative(
   address: string,
-  tatumKey: string
+  config: WalletConfig
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
-  if (!address || !tatumKey) return { native: 0, tokenCount: 0, error: 'No address or key' }
+  if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
+  if (!canTatum(config)) return { native: 0, tokenCount: 0, error: 'No Tatum key or proxy' }
   try {
     // SS58 decode: [networkPrefix(1), pubkey(32), checksum(2)] = 35 bytes
     const raw = base58.decode(address)
@@ -213,12 +202,9 @@ async function fetchPolkadotNative(
       Buffer.from(hash128).toString('hex') +
       Buffer.from(pubkey).toString('hex')
 
-    const res = await fetch('https://polkadot-mainnet.gateway.tatum.io', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': tatumKey },
-      body:    JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'state_getStorage', params: [storageKey] }),
-      signal:  AbortSignal.timeout(10_000)
-    })
+    const res = await tatumFetch('polkadot',
+      { jsonrpc: '2.0', id: 1, method: 'state_getStorage', params: [storageKey] },
+      config, 10_000)
     if (!res.ok) return { native: 0, tokenCount: 0, error: `RPC ${res.status}` }
 
     const json = await res.json() as { result?: string | null }
@@ -291,15 +277,12 @@ async function fetchCardanaNative(
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   if (!address) return { native: 0, tokenCount: 0, error: 'No Cardano address — re-import your wallet' }
 
-  const base = 'https://cardano-mainnet.blockfrost.io/api/v0'
-  const headers = { project_id: config.blockfrostKey }
-
   try {
     let lovelace = 0
     let tokenCount = 0
     let resolvedStake = stakeAddress
 
-    const addrRes = await fetch(`${base}/addresses/${address}`, { headers, signal: AbortSignal.timeout(10_000) })
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 10_000)
 
     if (addrRes.ok) {
       const addrJson = await addrRes.json() as {
@@ -316,7 +299,7 @@ async function fetchCardanaNative(
 
     if (resolvedStake) {
       try {
-        const acctRes = await fetch(`${base}/accounts/${resolvedStake}`, { headers, signal: AbortSignal.timeout(8_000) })
+        const acctRes = await blockfrostFetch(`accounts/${resolvedStake}`, config, 8_000)
         if (acctRes.ok) {
           const acctJson = await acctRes.json() as { controlled_amount?: string }
           if (acctJson.controlled_amount) lovelace = Number(acctJson.controlled_amount)
@@ -358,7 +341,7 @@ export async function fetchAllBalances(
       ? fetchBitcoinNative(addresses.bitcoin)
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     addresses.polkadot
-      ? fetchPolkadotNative(addresses.polkadot, config.tatumKey)
+      ? fetchPolkadotNative(addresses.polkadot, config)
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     (hasAgw && abstractDef)
       ? fetchEvmNative(abstractDef, addresses.agw!, config)

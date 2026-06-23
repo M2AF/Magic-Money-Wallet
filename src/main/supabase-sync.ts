@@ -1,31 +1,42 @@
 /**
  * supabase-sync.ts — MagicMoney Wallet
  *
- * Syncs wallet addresses to the shared ChainLens Supabase database.
- * Uses the service key in the main process (never exposed to renderer).
+ * Syncs wallet addresses to the shared ChainLens Supabase database VIA THE WORKER.
  *
- * Tables used:
- *   cl_users          — identity record (provider + provider_id unique)
- *   cl_wallets        — wallet addresses linked to a user
- *   cl_linked_accounts — OAuth social accounts linked to a user
+ * SECURITY: the Supabase service-role key is no longer in the client — it lives
+ * only as a Worker secret. This module calls the Worker's /profile, /sync and
+ * /profile/update routes (which inject the key server-side). Sync is proxy-only:
+ * without a configured proxy it degrades to a no-op rather than shipping a key.
+ *
+ * Tables (server-side, via the Worker): cl_users, cl_wallets, cl_linked_accounts.
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import type { WalletConfig } from './secure-store'
+import { proxyBase } from './api-proxy'
+import { loadMnemonic, loadAddresses } from './secure-store'
+import { getEvmPrivateKey } from './wallet-core'
+import { privateKeyToAccount } from 'viem/accounts'
 
-// Stub transport — satisfies RealtimeClient's constructor check so it doesn't
-// throw "Node.js 20 detected without native WebSocket support".
-// We only use Supabase REST (PostgREST), never realtime subscriptions,
-// so this stub is never actually instantiated.
-class _NoopWS {
-  static CONNECTING = 0
-  static OPEN = 1
-  static CLOSING = 2
-  static CLOSED = 3
-  close() {}
-  send() {}
-  addEventListener() {}
-  removeEventListener() {}
+// Canonical ownership message — MUST byte-match the Worker (cloudflare-worker/auth.js).
+function ownershipMessage(action: 'sync' | 'profile-update', addressLower: string, ts: number): string {
+  return `MagicMoney Wallet ownership\naction:${action}\naddress:${addressLower}\nts:${ts}`
+}
+
+// Sign an EIP-191 ownership proof with the current account's EVM key. The Worker
+// recovers the signer and checks it matches the claimed address, so only the key
+// owner can write to a profile. Returns null if the wallet can't be read.
+async function signOwnership(
+  action: 'sync' | 'profile-update', evmAddress: string
+): Promise<{ ts: number; signature: string } | null> {
+  try {
+    const idx = loadAddresses()?.accountIndex ?? 0
+    const account = privateKeyToAccount(await getEvmPrivateKey(loadMnemonic(), idx))
+    const ts = Date.now()
+    const signature = await account.signMessage({ message: ownershipMessage(action, evmAddress.toLowerCase(), ts) })
+    return { ts, signature }
+  } catch {
+    return null
+  }
 }
 
 // ── Types matching the ChainLens schema ───────────────────────────────────────
@@ -69,52 +80,28 @@ export interface SyncResult {
   error: string | null
 }
 
-// ── Client singleton ──────────────────────────────────────────────────────────
+// ── Core operations (all routed through the Worker) ───────────────────────────
 
-let _client: SupabaseClient | null = null
-
-function getClient(config: WalletConfig): SupabaseClient {
-  if (!_client) {
-    _client = createClient(config.supabaseUrl, config.supabaseKey, {
-      auth: { persistSession: false },
-      realtime: { transport: _NoopWS as unknown as typeof WebSocket }
-    })
-  }
-  return _client
-}
-
-// ── Core operations ───────────────────────────────────────────────────────────
-
-/** Find a ChainLens profile by EVM wallet address */
+/** Find a ChainLens profile by EVM wallet address. Returns null when sync is off. */
 export async function getProfileByAddress(
   evmAddress: string,
   config: WalletConfig
 ): Promise<ClUser | null> {
+  const base = proxyBase(config)
+  if (!base) return null
   try {
-    const db = getClient(config)
-    // Look up the cl_wallets entry for this EVM address
-    const { data: walletRow } = await db
-      .from('cl_wallets')
-      .select('user_id')
-      .eq('address', evmAddress.toLowerCase())
-      .eq('chain', 'evm')
-      .single()
-
-    if (!walletRow?.user_id) return null
-
-    const { data: user } = await db
-      .from('cl_users')
-      .select('*, cl_wallets(*), cl_linked_accounts(*)')
-      .eq('id', walletRow.user_id)
-      .single()
-
-    return user as ClUser | null
+    const res = await fetch(`${base}/profile?address=${encodeURIComponent(evmAddress.toLowerCase())}`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return null
+    return await res.json() as ClUser | null
   } catch {
     return null
   }
 }
 
-/** Upsert a user record keyed by EVM address, then link all wallet addresses */
+/** Upsert a user record keyed by EVM address, then link all wallet addresses. */
 export async function syncWallets(
   addresses: {
     evm: string
@@ -125,74 +112,47 @@ export async function syncWallets(
   },
   config: WalletConfig
 ): Promise<SyncResult> {
+  const base = proxyBase(config)
+  if (!base) return { success: false, profile: null, error: 'Profile sync not configured.' }
+  const sig = await signOwnership('sync', addresses.evm)
+  if (!sig) return { success: false, profile: null, error: 'Could not sign ownership proof.' }
   try {
-    const db = getClient(config)
-    const evmLower = addresses.evm.toLowerCase()
-    const shortAddr = `${evmLower.slice(0, 6)}…${evmLower.slice(-4)}`
-
-    // 1. Upsert the identity record (EVM address as provider_id)
-    const { data: user, error: upsertErr } = await db
-      .from('cl_users')
-      .upsert(
-        {
-          provider:      'evm_wallet',
-          provider_id:   evmLower,
-          display_name:  shortAddr,
-          avatar_url:    null,
-          email:         null
-        },
-        { onConflict: 'provider,provider_id' }
-      )
-      .select()
-      .single()
-
-    if (upsertErr || !user) {
-      return { success: false, profile: null, error: upsertErr?.message ?? 'upsert failed' }
-    }
-
-    // 2. Link all wallet addresses
-    const walletRows = [
-      { chain: 'evm',      address: evmLower,                             watch_only: false },
-      addresses.solana   ? { chain: 'solana',   address: addresses.solana,   watch_only: false } : null,
-      addresses.cardano  ? { chain: 'cardano',  address: addresses.cardano,  watch_only: false } : null,
-      addresses.bitcoin  ? { chain: 'bitcoin',  address: addresses.bitcoin,  watch_only: false } : null,
-      addresses.polkadot ? { chain: 'polkadot', address: addresses.polkadot, watch_only: false } : null,
-    ].filter(Boolean).map(w => ({
-      ...w!,
-      user_id:     user.id,
-      verified_at: new Date().toISOString()
-    }))
-
-    await db
-      .from('cl_wallets')
-      .upsert(walletRows, { onConflict: 'user_id,address' })
-
-    // 3. Re-fetch full profile with joined tables
-    const { data: profile } = await db
-      .from('cl_users')
-      .select('*, cl_wallets(*), cl_linked_accounts(*)')
-      .eq('id', user.id)
-      .single()
-
-    return { success: true, profile: profile as ClUser, error: null }
+    const res = await fetch(`${base}/sync`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...addresses, ts: sig.ts, signature: sig.signature }),
+      signal: AbortSignal.timeout(12_000),
+    })
+    const data = await res.json().catch(() => null) as SyncResult | null
+    if (!res.ok || !data) return { success: false, profile: null, error: (data && data.error) || `Sync ${res.status}` }
+    return data
   } catch (e) {
     return { success: false, profile: null, error: String(e) }
   }
 }
 
-/** Update display name or avatar for the current user */
+/** Update display name or avatar for the current user. */
 export async function updateProfile(
   userId: string,
   updates: { display_name?: string; avatar_url?: string },
   config: WalletConfig
 ): Promise<{ success: boolean; error: string | null }> {
+  const base = proxyBase(config)
+  if (!base) return { success: false, error: 'Profile sync not configured.' }
+  const evm = loadAddresses()?.evm
+  if (!evm) return { success: false, error: 'No wallet address.' }
+  const sig = await signOwnership('profile-update', evm)
+  if (!sig) return { success: false, error: 'Could not sign ownership proof.' }
   try {
-    const db = getClient(config)
-    const { error } = await db
-      .from('cl_users')
-      .update(updates)
-      .eq('id', userId)
-    return { success: !error, error: error?.message ?? null }
+    const res = await fetch(`${base}/profile/update`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ userId, address: evm.toLowerCase(), ts: sig.ts, signature: sig.signature, ...updates }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const data = await res.json().catch(() => null) as { success?: boolean; error?: string | null } | null
+    if (!res.ok || !data) return { success: false, error: (data && data.error) || `Update ${res.status}` }
+    return { success: !!data.success, error: data.error ?? null }
   } catch (e) {
     return { success: false, error: String(e) }
   }

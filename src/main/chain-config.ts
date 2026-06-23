@@ -6,6 +6,7 @@
  */
 
 import type { WalletConfig } from './secure-store'
+import { alchemyRpcUrl, heliusRpcUrl } from './api-proxy'
 
 export interface ChainDef {
   id: string
@@ -34,7 +35,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 1,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://eth-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('eth-mainnet', cfg),
     explorerTx: 'https://etherscan.io/tx',
     color: '#627EEA',
     colorRgb: '98, 126, 234',
@@ -47,7 +48,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 42161,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://arb-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('arb-mainnet', cfg),
     explorerTx: 'https://arbiscan.io/tx',
     color: '#28A0F0',
     colorRgb: '40, 160, 240',
@@ -60,7 +61,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 10,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://opt-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('opt-mainnet', cfg),
     explorerTx: 'https://optimistic.etherscan.io/tx',
     color: '#FF0420',
     colorRgb: '255, 4, 32',
@@ -73,7 +74,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 8453,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://base-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('base-mainnet', cfg),
     explorerTx: 'https://basescan.org/tx',
     color: '#0052FF',
     colorRgb: '0, 82, 255',
@@ -86,7 +87,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 137,
     nativeSymbol: 'POL',
     coingeckoId: 'polygon-ecosystem-token',
-    rpcUrl: (cfg) => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('polygon-mainnet', cfg),
     explorerTx: 'https://polygonscan.com/tx',
     color: '#8247E5',
     colorRgb: '130, 71, 229',
@@ -99,7 +100,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 43114,
     nativeSymbol: 'AVAX',
     coingeckoId: 'avalanche-2',
-    rpcUrl: (cfg) => `https://avax-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('avax-mainnet', cfg),
     explorerTx: 'https://snowtrace.io/tx',
     color: '#E84142',
     colorRgb: '232, 65, 66',
@@ -112,7 +113,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 81457,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://blast-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('blast-mainnet', cfg),
     explorerTx: 'https://blastscan.io/tx',
     color: '#FCFC03',
     colorRgb: '252, 252, 3',
@@ -125,7 +126,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 100,
     nativeSymbol: 'XDAI',
     coingeckoId: 'xdai',
-    rpcUrl: (cfg) => `https://gnosis-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('gnosis-mainnet', cfg),
     explorerTx: 'https://gnosis.blockscout.com/tx',
     color: '#04795B',
     colorRgb: '4, 121, 91',
@@ -151,7 +152,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 2741,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://abstract-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('abstract-mainnet', cfg),
     explorerTx: 'https://explorer.mainnet.abs.xyz/tx',
     color: '#6B7280',
     colorRgb: '107, 114, 128',
@@ -164,7 +165,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 33139,
     nativeSymbol: 'APE',
     coingeckoId: 'apecoin',
-    rpcUrl: (cfg) => `https://apechain-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('apechain-mainnet', cfg),
     explorerTx: 'https://apescan.io/tx',
     color: '#0066FF',
     colorRgb: '0, 102, 255',
@@ -177,7 +178,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 2020,
     nativeSymbol: 'RON',
     coingeckoId: 'ronin',
-    rpcUrl: (cfg) => `https://ronin-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('ronin-mainnet', cfg),
     explorerTx: 'https://explorer.roninchain.com/tx',
     color: '#1273EA',
     colorRgb: '18, 115, 234',
@@ -190,7 +191,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 1868,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://soneium-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('soneium-mainnet', cfg),
     explorerTx: 'https://soneium.blockscout.com/tx',
     color: '#5B5EA6',
     colorRgb: '91, 94, 166',
@@ -203,7 +204,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 480,
     nativeSymbol: 'WLD',
     coingeckoId: 'worldcoin-wld',
-    rpcUrl: (cfg) => `https://worldchain-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('worldchain-mainnet', cfg),
     explorerTx: 'https://worldchain-mainnet.explorer.alchemy.com/tx',
     color: '#1A1B1F',
     colorRgb: '90, 100, 200',
@@ -216,7 +217,7 @@ export const EVM_CHAINS: ChainDef[] = [
     chainId: 7777777,
     nativeSymbol: 'ETH',
     coingeckoId: 'ethereum',
-    rpcUrl: (cfg) => `https://zora-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl('zora-mainnet', cfg),
     explorerTx: 'https://explorer.zora.energy/tx',
     color: '#2B5DF0',
     colorRgb: '43, 93, 240',
@@ -246,7 +247,7 @@ export const NON_EVM_CHAINS: ChainDef[] = [
     type: 'solana',
     nativeSymbol: 'SOL',
     coingeckoId: 'solana',
-    rpcUrl: (cfg) => `https://mainnet.helius-rpc.com/?api-key=${cfg.heliusKey}`,
+    rpcUrl: (cfg) => heliusRpcUrl(cfg),
     explorerTx: 'https://solscan.io/tx',
     color: '#9945FF',
     colorRgb: '153, 69, 255'
@@ -295,3 +296,24 @@ export const CHAIN_MAP: Record<string, ChainDef> = Object.fromEntries(
 )
 
 export const CHAIN_ORDER: string[] = ALL_CHAINS.map(c => c.id)
+
+// Public, keyless community RPCs — fallback for READ-ONLY native-balance calls
+// when the proxy/Alchemy key is throttled or exhausted, so a balance degrades to
+// a public node instead of showing "—". Never used for sends (broadcast stays on
+// the proxy). Keyed by chain id; only chains whose primary RPC needs a key are listed.
+export const PUBLIC_RPCS: Record<string, string[]> = {
+  ethereum:   ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
+  arbitrum:   ['https://arb1.arbitrum.io/rpc'],
+  optimism:   ['https://mainnet.optimism.io'],
+  base:       ['https://mainnet.base.org'],
+  polygon:    ['https://polygon-rpc.com'],
+  avalanche:  ['https://api.avax.network/ext/bc/C/rpc'],
+  blast:      ['https://rpc.blast.io'],
+  gnosis:     ['https://rpc.gnosischain.com'],
+  abstract:   ['https://api.mainnet.abs.xyz'],
+  apechain:   ['https://rpc.apechain.com/http'],
+  ronin:      ['https://api.roninchain.com/rpc'],
+  soneium:    ['https://rpc.soneium.org'],
+  worldchain: ['https://worldchain-mainnet.g.alchemy.com/public'],
+  zora:       ['https://rpc.zora.energy'],
+}

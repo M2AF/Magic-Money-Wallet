@@ -5,13 +5,43 @@ compatibility_date = "2024-11-01"
 # Bind a custom domain in the Cloudflare dashboard, e.g. api.magicmoneywallet.com
 # routes = [{ pattern = "api.magicmoneywallet.com/*", custom_domain = true }]
 
-# Secrets are NOT stored here. Set them with wrangler so keys never enter source:
+# ── Cross-user cache (KV) ─────────────────────────────────────────────────────
+# Create once, then paste the id below:
+#   wrangler kv namespace create CACHE
+[[kv_namespaces]]
+binding = "CACHE"
+id = "91f84d4789c14f998fb0e3c1efdf5f75"
+
+# ── Non-secret vars ───────────────────────────────────────────────────────────
+# NOTE: SUPABASE_URL is set as a dashboard secret on this Worker, so it is NOT
+# declared here (a [vars] entry of the same name would collide on deploy).
+[vars]
+# ALLOWED_ORIGIN = "*"
+# Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60.
+# READ_RPM = "600"
+# DB_RPM = "60"
+
+# ── Secrets (NEVER stored here) ───────────────────────────────────────────────
+# Set with wrangler so keys never enter source. Use ROTATED keys — the old ones
+# shipped in the client bundle and are considered burned.
+#
+# Swap (existing):
 #   wrangler secret put ZEROX_API_KEY
 #   wrangler secret put ONEINCH_API_KEY
-#   wrangler secret put JUPITER_API_KEY      # optional
-#   wrangler secret put LIFI_API_KEY         # optional
+#   wrangler secret put JUPITER_API_KEY        # optional
+#   wrangler secret put LIFI_API_KEY           # optional
 #   wrangler secret put SIMPLESWAP_API_KEY
 #
-# Non-secret vars (optional):
-# [vars]
-# ALLOWED_ORIGIN = "*"
+# Read-path (new):
+#   wrangler secret put ALCHEMY_KEY
+#   wrangler secret put HELIUS_KEY
+#   wrangler secret put TATUM_KEY
+#   wrangler secret put BLOCKFROST_KEY
+#   wrangler secret put MORALIS_KEY
+#   wrangler secret put OPENSEA_KEY
+#
+# Supabase (new — service-role key, server-side only):
+#   wrangler secret put SUPABASE_SERVICE_KEY
+#
+# Optional client gate (filters drive-by abuse; the client sends it as x-mm-client):
+#   wrangler secret put CLIENT_TOKEN

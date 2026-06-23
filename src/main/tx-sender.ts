@@ -46,6 +46,7 @@ import {
   type CardanoUtxo
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
+import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch } from './api-proxy'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -78,13 +79,13 @@ interface EvmChainEntry {
 }
 
 const EVM_CHAINS: Record<string, EvmChainEntry> = {
-  ethereum:   { chain: mainnet,       rpcUrl: cfg => `https://eth-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://etherscan.io/tx',                               nativeSymbol: 'ETH'  },
-  arbitrum:   { chain: arbitrum,      rpcUrl: cfg => `https://arb-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://arbiscan.io/tx',                                nativeSymbol: 'ETH'  },
-  optimism:   { chain: optimism,      rpcUrl: cfg => `https://opt-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,      explorer: 'https://optimistic.etherscan.io/tx',                    nativeSymbol: 'ETH'  },
-  base:       { chain: base,          rpcUrl: cfg => `https://base-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,     explorer: 'https://basescan.org/tx',                               nativeSymbol: 'ETH'  },
-  polygon:    { chain: polygon,       rpcUrl: cfg => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,  explorer: 'https://polygonscan.com/tx',                            nativeSymbol: 'POL'  },
-  avalanche:  { chain: avalanche,     rpcUrl: cfg => `https://avax-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,     explorer: 'https://snowtrace.io/tx',                               nativeSymbol: 'AVAX' },
-  blast:      { chain: blast,         rpcUrl: cfg => `https://blast-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,    explorer: 'https://blastscan.io/tx',                               nativeSymbol: 'ETH'  },
+  ethereum:   { chain: mainnet,       rpcUrl: cfg => alchemyRpcUrl('eth-mainnet', cfg),     explorer: 'https://etherscan.io/tx',                               nativeSymbol: 'ETH'  },
+  arbitrum:   { chain: arbitrum,      rpcUrl: cfg => alchemyRpcUrl('arb-mainnet', cfg),     explorer: 'https://arbiscan.io/tx',                                nativeSymbol: 'ETH'  },
+  optimism:   { chain: optimism,      rpcUrl: cfg => alchemyRpcUrl('opt-mainnet', cfg),     explorer: 'https://optimistic.etherscan.io/tx',                    nativeSymbol: 'ETH'  },
+  base:       { chain: base,          rpcUrl: cfg => alchemyRpcUrl('base-mainnet', cfg),    explorer: 'https://basescan.org/tx',                               nativeSymbol: 'ETH'  },
+  polygon:    { chain: polygon,       rpcUrl: cfg => alchemyRpcUrl('polygon-mainnet', cfg), explorer: 'https://polygonscan.com/tx',                            nativeSymbol: 'POL'  },
+  avalanche:  { chain: avalanche,     rpcUrl: cfg => alchemyRpcUrl('avax-mainnet', cfg),    explorer: 'https://snowtrace.io/tx',                               nativeSymbol: 'AVAX' },
+  blast:      { chain: blast,         rpcUrl: cfg => alchemyRpcUrl('blast-mainnet', cfg),   explorer: 'https://blastscan.io/tx',                               nativeSymbol: 'ETH'  },
   gnosis:     { chain: gnosis,        rpcUrl: () => 'https://rpc.gnosischain.com',                                  explorer: 'https://gnosisscan.io/tx',                              nativeSymbol: 'XDAI' },
   monad:      { chain: monad,         rpcUrl: () => 'https://rpc.monad.xyz',                                        explorer: 'https://monadexplorer.com/tx',                          nativeSymbol: 'MON'  },
   abstract:   { chain: abstractChain, rpcUrl: () => 'https://api.mainnet.abs.xyz',                                  explorer: 'https://abscan.org/tx',                                 nativeSymbol: 'ETH'  },
@@ -303,10 +304,7 @@ export async function sendSolanaTransaction(
   accountIndex = 0
 ): Promise<SendResult> {
   const keypair = await getSolanaKeypair(mnemonic, accountIndex)
-  const connection = new Connection(
-    `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`,
-    'confirmed'
-  )
+  const connection = new Connection(heliusRpcUrl(config), 'confirmed')
 
   const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL)
   if (lamports <= 0) throw new Error('Amount must be greater than 0')
@@ -336,12 +334,8 @@ export async function sendSolanaTransaction(
 
 // ─── Cardano ──────────────────────────────────────────────────────────────────
 
-const BLOCKFROST_BASE = 'https://cardano-mainnet.blockfrost.io/api/v0'
-
-async function fetchUtxos(address: string, blockfrostKey: string): Promise<CardanoUtxo[]> {
-  const res = await fetch(`${BLOCKFROST_BASE}/addresses/${address}/utxos`, {
-    headers: { project_id: blockfrostKey }
-  })
+async function fetchUtxos(address: string, config: WalletConfig): Promise<CardanoUtxo[]> {
+  const res = await blockfrostFetch(`addresses/${address}/utxos`, config)
   if (res.status === 404) return []
   if (!res.ok) {
     const body = await res.json().catch(() => ({})) as { message?: string }
@@ -398,7 +392,7 @@ export async function sendCardanoTransaction(
   if (amountLovelace <= 0n) throw new Error('Amount must be greater than 0')
 
   // Fetch UTXOs and select enough to cover amount + fee
-  const allUtxos = await fetchUtxos(fromAddress, config.blockfrostKey)
+  const allUtxos = await fetchUtxos(fromAddress, config)
   if (allUtxos.length === 0) throw new Error('No UTXOs found — address has no funds on-chain')
 
   // Sort descending by value, pick until we have enough
@@ -430,13 +424,10 @@ export async function sendCardanoTransaction(
     spendKey
   )
 
-  // Submit via Blockfrost
-  const submitRes = await fetch(`${BLOCKFROST_BASE}/tx/submit`, {
+  // Submit via Blockfrost (proxy injects project_id; CBOR body passed through)
+  const submitRes = await blockfrostFetch('tx/submit', config, 20_000, {
     method: 'POST',
-    headers: {
-      project_id: config.blockfrostKey,
-      'Content-Type': 'application/cbor'
-    },
+    headers: { 'Content-Type': 'application/cbor' },
     body: txCbor
   })
 

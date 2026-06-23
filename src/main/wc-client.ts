@@ -39,6 +39,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import nacl from 'tweetnacl'
 import { loadConfig, loadMnemonic, loadAddresses } from './secure-store'
 import { getSolanaKeypair } from './wallet-core'
+import { alchemyRpcUrl } from './api-proxy'
 
 // ── EVM chains we advertise support for ──────────────────────────────────────
 
@@ -99,20 +100,22 @@ function decodeFlexible(s: string): Uint8Array {
 // ── Alchemhy RPC map — falls back to public RPC for other chains ─────────────
 
 function getRpc(chainId: number): string {
-  const key = loadConfig().alchemyKey
-  const alchemyMap: Record<number, string> = {
-    1:     `https://eth-mainnet.g.alchemy.com/v2/${key}`,
-    137:   `https://polygon-mainnet.g.alchemy.com/v2/${key}`,
-    42161: `https://arb-mainnet.g.alchemy.com/v2/${key}`,
-    10:    `https://opt-mainnet.g.alchemy.com/v2/${key}`,
-    8453:  `https://base-mainnet.g.alchemy.com/v2/${key}`
+  const config = loadConfig()
+  const alchemyNet: Record<number, string> = {
+    1:     'eth-mainnet',
+    137:   'polygon-mainnet',
+    42161: 'arb-mainnet',
+    10:    'opt-mainnet',
+    8453:  'base-mainnet'
   }
   const publicMap: Record<number, string> = {
     56:    'https://bsc-dataseed.binance.org',
     43114: 'https://api.avax.network/ext/bc/C/rpc',
     250:   'https://rpc.ftm.tools'
   }
-  return alchemyMap[chainId] ?? publicMap[chainId] ?? 'https://eth-mainnet.g.alchemy.com/v2/' + key
+  const net = alchemyNet[chainId]
+  if (net) return alchemyRpcUrl(net, config)
+  return publicMap[chainId] ?? alchemyRpcUrl('eth-mainnet', config)
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────

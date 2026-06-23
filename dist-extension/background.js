@@ -48285,11 +48285,11 @@ function requirePublicEncrypt() {
     if (reverse) {
       ps = Buffer2.alloc(k2 - mLen - 3, 255);
     } else {
-      ps = nonZero(k2 - mLen - 3);
+      ps = nonZero2(k2 - mLen - 3);
     }
     return new BN2(Buffer2.concat([Buffer2.from([0, reverse ? 1 : 2]), ps, Buffer2.alloc(1), msg2], k2));
   }
-  function nonZero(len2) {
+  function nonZero2(len2) {
     var out = Buffer2.allocUnsafe(len2);
     var i2 = 0;
     var cache2 = randomBytes2(len2 * 2);
@@ -67125,6 +67125,80 @@ async function getPolkadotKey(mnemonic, accountIndex = 0) {
   const pubKey = ed25519.getPublicKey(privKey);
   return { privateKey: privKey, publicKey: pubKey };
 }
+function proxyBase$1(config) {
+  const b2 = (config.swapProxyUrl || "").trim().replace(/\/+$/, "");
+  return b2 || null;
+}
+const hasProxy = (c2) => !!proxyBase$1(c2);
+const canTatum = (c2) => hasProxy(c2) || !!c2.tatumKey;
+const canMoralis = (c2) => hasProxy(c2) || !!c2.moralisKey;
+const canOpensea = (c2) => hasProxy(c2) || !!c2.openseaKey;
+function alchemyRpcUrl(network, config) {
+  const base3 = proxyBase$1(config);
+  return base3 ? `${base3}/rpc/alchemy/${network}` : `https://${network}.g.alchemy.com/v2/${config.alchemyKey}`;
+}
+function alchemyNftBase(network, config) {
+  const base3 = proxyBase$1(config);
+  return base3 ? `${base3}/alchemy-nft/${network}` : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}`;
+}
+function heliusRpcUrl(config) {
+  const base3 = proxyBase$1(config);
+  return base3 ? `${base3}/rpc/helius` : `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`;
+}
+function heliusApiFetch(path, config, timeoutMs = 12e3) {
+  const base3 = proxyBase$1(config);
+  if (base3) return fetch(`${base3}/helius-api/${path}`, { signal: AbortSignal.timeout(timeoutMs) });
+  const sep = path.includes("?") ? "&" : "?";
+  return fetch(`https://api.helius.xyz/${path}${sep}api-key=${config.heliusKey}`, { signal: AbortSignal.timeout(timeoutMs) });
+}
+async function rpcReadWithFallback(urls, body, timeoutMs = 1e4) {
+  for (const url of urls) {
+    if (!url) continue;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs)
+      });
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json && json.error) continue;
+      return json;
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+function tatumFetch(gateway, body, config, timeoutMs = 1e4) {
+  const base3 = proxyBase$1(config);
+  const url = base3 ? `${base3}/rpc/tatum/${gateway}` : `https://${gateway}-mainnet.gateway.tatum.io`;
+  const headers = { "Content-Type": "application/json" };
+  if (!base3) headers["x-api-key"] = config.tatumKey;
+  return fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
+}
+function blockfrostFetch(path, config, timeoutMs = 1e4, init) {
+  const base3 = proxyBase$1(config);
+  const url = base3 ? `${base3}/blockfrost/${path}` : `https://cardano-mainnet.blockfrost.io/api/v0/${path}`;
+  const headers = { ...init == null ? void 0 : init.headers };
+  if (!base3) headers["project_id"] = config.blockfrostKey;
+  return fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) });
+}
+function moralisFetch(path, config, timeoutMs = 15e3) {
+  const base3 = proxyBase$1(config);
+  const url = base3 ? `${base3}/moralis/${path}` : `https://deep-index.moralis.io/api/v2.2/${path}`;
+  const headers = { accept: "application/json" };
+  if (!base3) headers["X-API-Key"] = config.moralisKey;
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+}
+function openseaFetch(path, config, timeoutMs = 8e3) {
+  const base3 = proxyBase$1(config);
+  const url = base3 ? `${base3}/opensea/${path}` : `https://api.opensea.io/api/v2/${path}`;
+  const headers = { accept: "application/json" };
+  if (!base3) headers["x-api-key"] = config.openseaKey;
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+}
 const EVM_CHAINS$1 = [
   {
     id: "ethereum",
@@ -67133,7 +67207,7 @@ const EVM_CHAINS$1 = [
     chainId: 1,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://eth-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("eth-mainnet", cfg),
     explorerTx: "https://etherscan.io/tx",
     color: "#627EEA",
     colorRgb: "98, 126, 234",
@@ -67146,7 +67220,7 @@ const EVM_CHAINS$1 = [
     chainId: 42161,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://arb-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("arb-mainnet", cfg),
     explorerTx: "https://arbiscan.io/tx",
     color: "#28A0F0",
     colorRgb: "40, 160, 240",
@@ -67159,7 +67233,7 @@ const EVM_CHAINS$1 = [
     chainId: 10,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://opt-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("opt-mainnet", cfg),
     explorerTx: "https://optimistic.etherscan.io/tx",
     color: "#FF0420",
     colorRgb: "255, 4, 32",
@@ -67172,7 +67246,7 @@ const EVM_CHAINS$1 = [
     chainId: 8453,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://base-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("base-mainnet", cfg),
     explorerTx: "https://basescan.org/tx",
     color: "#0052FF",
     colorRgb: "0, 82, 255",
@@ -67185,7 +67259,7 @@ const EVM_CHAINS$1 = [
     chainId: 137,
     nativeSymbol: "POL",
     coingeckoId: "polygon-ecosystem-token",
-    rpcUrl: (cfg) => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("polygon-mainnet", cfg),
     explorerTx: "https://polygonscan.com/tx",
     color: "#8247E5",
     colorRgb: "130, 71, 229",
@@ -67198,7 +67272,7 @@ const EVM_CHAINS$1 = [
     chainId: 43114,
     nativeSymbol: "AVAX",
     coingeckoId: "avalanche-2",
-    rpcUrl: (cfg) => `https://avax-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("avax-mainnet", cfg),
     explorerTx: "https://snowtrace.io/tx",
     color: "#E84142",
     colorRgb: "232, 65, 66",
@@ -67211,7 +67285,7 @@ const EVM_CHAINS$1 = [
     chainId: 81457,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://blast-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("blast-mainnet", cfg),
     explorerTx: "https://blastscan.io/tx",
     color: "#FCFC03",
     colorRgb: "252, 252, 3",
@@ -67224,7 +67298,7 @@ const EVM_CHAINS$1 = [
     chainId: 100,
     nativeSymbol: "XDAI",
     coingeckoId: "xdai",
-    rpcUrl: (cfg) => `https://gnosis-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("gnosis-mainnet", cfg),
     explorerTx: "https://gnosis.blockscout.com/tx",
     color: "#04795B",
     colorRgb: "4, 121, 91",
@@ -67250,7 +67324,7 @@ const EVM_CHAINS$1 = [
     chainId: 2741,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://abstract-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("abstract-mainnet", cfg),
     explorerTx: "https://explorer.mainnet.abs.xyz/tx",
     color: "#6B7280",
     colorRgb: "107, 114, 128",
@@ -67263,7 +67337,7 @@ const EVM_CHAINS$1 = [
     chainId: 33139,
     nativeSymbol: "APE",
     coingeckoId: "apecoin",
-    rpcUrl: (cfg) => `https://apechain-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("apechain-mainnet", cfg),
     explorerTx: "https://apescan.io/tx",
     color: "#0066FF",
     colorRgb: "0, 102, 255",
@@ -67276,7 +67350,7 @@ const EVM_CHAINS$1 = [
     chainId: 2020,
     nativeSymbol: "RON",
     coingeckoId: "ronin",
-    rpcUrl: (cfg) => `https://ronin-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("ronin-mainnet", cfg),
     explorerTx: "https://explorer.roninchain.com/tx",
     color: "#1273EA",
     colorRgb: "18, 115, 234",
@@ -67289,7 +67363,7 @@ const EVM_CHAINS$1 = [
     chainId: 1868,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://soneium-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("soneium-mainnet", cfg),
     explorerTx: "https://soneium.blockscout.com/tx",
     color: "#5B5EA6",
     colorRgb: "91, 94, 166",
@@ -67302,7 +67376,7 @@ const EVM_CHAINS$1 = [
     chainId: 480,
     nativeSymbol: "WLD",
     coingeckoId: "worldcoin-wld",
-    rpcUrl: (cfg) => `https://worldchain-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("worldchain-mainnet", cfg),
     explorerTx: "https://worldchain-mainnet.explorer.alchemy.com/tx",
     color: "#1A1B1F",
     colorRgb: "90, 100, 200",
@@ -67315,7 +67389,7 @@ const EVM_CHAINS$1 = [
     chainId: 7777777,
     nativeSymbol: "ETH",
     coingeckoId: "ethereum",
-    rpcUrl: (cfg) => `https://zora-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`,
+    rpcUrl: (cfg) => alchemyRpcUrl("zora-mainnet", cfg),
     explorerTx: "https://explorer.zora.energy/tx",
     color: "#2B5DF0",
     colorRgb: "43, 93, 240",
@@ -67342,7 +67416,7 @@ const NON_EVM_CHAINS = [
     type: "solana",
     nativeSymbol: "SOL",
     coingeckoId: "solana",
-    rpcUrl: (cfg) => `https://mainnet.helius-rpc.com/?api-key=${cfg.heliusKey}`,
+    rpcUrl: (cfg) => heliusRpcUrl(cfg),
     explorerTx: "https://solscan.io/tx",
     color: "#9945FF",
     colorRgb: "153, 69, 255"
@@ -67386,20 +67460,37 @@ const CHAIN_MAP = Object.fromEntries(
   ALL_CHAINS.map((c2) => [c2.id, c2])
 );
 ALL_CHAINS.map((c2) => c2.id);
+const PUBLIC_RPCS = {
+  ethereum: ["https://eth.llamarpc.com", "https://rpc.ankr.com/eth"],
+  arbitrum: ["https://arb1.arbitrum.io/rpc"],
+  optimism: ["https://mainnet.optimism.io"],
+  base: ["https://mainnet.base.org"],
+  polygon: ["https://polygon-rpc.com"],
+  avalanche: ["https://api.avax.network/ext/bc/C/rpc"],
+  blast: ["https://rpc.blast.io"],
+  gnosis: ["https://rpc.gnosischain.com"],
+  abstract: ["https://api.mainnet.abs.xyz"],
+  apechain: ["https://rpc.apechain.com/http"],
+  ronin: ["https://api.roninchain.com/rpc"],
+  soneium: ["https://rpc.soneium.org"],
+  worldchain: ["https://worldchain-mainnet.g.alchemy.com/public"],
+  zora: ["https://rpc.zora.energy"]
+};
 const chainConfig$1 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
   __proto__: null,
   ALL_CHAINS,
   CHAIN_MAP,
   EVM_CHAINS: EVM_CHAINS$1,
-  NON_EVM_CHAINS
+  NON_EVM_CHAINS,
+  PUBLIC_RPCS
 }, Symbol.toStringTag, { value: "Module" }));
-const cache = /* @__PURE__ */ new Map();
-const inflight = /* @__PURE__ */ new Map();
-const TTL = 12e4;
+const cache$1 = /* @__PURE__ */ new Map();
+const inflight$1 = /* @__PURE__ */ new Map();
+const TTL$1 = 12e4;
 function seedNativeUsd(prices) {
-  const exp = Date.now() + TTL;
+  const exp = Date.now() + TTL$1;
   for (const [id, usd2] of Object.entries(prices)) {
-    if (typeof usd2 === "number" && usd2 > 0) cache.set(id, { usd: usd2, exp });
+    if (typeof usd2 === "number" && usd2 > 0) cache$1.set(id, { usd: usd2, exp });
   }
 }
 async function getNativeUsd(cgIds) {
@@ -67407,13 +67498,13 @@ async function getNativeUsd(cgIds) {
   if (ids.length === 0) return {};
   const now = Date.now();
   const stale = ids.filter((id) => {
-    const e2 = cache.get(id);
+    const e2 = cache$1.get(id);
     return !e2 || e2.exp <= now;
   });
   if (stale.length) await refresh(stale);
   const out = {};
   for (const id of ids) {
-    const e2 = cache.get(id);
+    const e2 = cache$1.get(id);
     if (e2) out[id] = e2.usd;
   }
   return out;
@@ -67422,15 +67513,15 @@ async function refresh(ids) {
   const waits = [];
   const need = [];
   for (const id of ids) {
-    const f2 = inflight.get(id);
+    const f2 = inflight$1.get(id);
     if (f2) waits.push(f2);
     else need.push(id);
   }
   if (need.length) {
     const p3 = fetchPrices(need);
-    for (const id of need) inflight.set(id, p3);
+    for (const id of need) inflight$1.set(id, p3);
     p3.finally(() => {
-      for (const id of need) if (inflight.get(id) === p3) inflight.delete(id);
+      for (const id of need) if (inflight$1.get(id) === p3) inflight$1.delete(id);
     });
     waits.push(p3);
   }
@@ -67447,14 +67538,58 @@ async function fetchPrices(ids) {
       }
       if (!res.ok) return;
       const json = await res.json();
-      const exp = Date.now() + TTL;
+      const exp = Date.now() + TTL$1;
       for (const [id, v6] of Object.entries(json)) {
-        if (v6 && typeof v6.usd === "number" && v6.usd > 0) cache.set(id, { usd: v6.usd, exp });
+        if (v6 && typeof v6.usd === "number" && v6.usd > 0) cache$1.set(id, { usd: v6.usd, exp });
       }
       return;
     } catch {
       return;
     }
+  }
+}
+const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000";
+const cache = /* @__PURE__ */ new Map();
+const inflight = /* @__PURE__ */ new Map();
+const TTL = 1e4;
+function nonZero(hex) {
+  if (hex === ZERO) return false;
+  try {
+    return BigInt(hex) > 0n;
+  } catch {
+    return false;
+  }
+}
+async function getTokenBalances(network, address, config) {
+  const k2 = `${network}:${address.toLowerCase()}`;
+  const now = Date.now();
+  const hit = cache.get(k2);
+  if (hit && hit.exp > now) return hit.balances;
+  const existing = inflight.get(k2);
+  if (existing) return existing;
+  const p3 = fetchTokenBalances(network, address, config).then((balances) => {
+    cache.set(k2, { balances, exp: Date.now() + TTL });
+    return balances;
+  }).finally(() => {
+    if (inflight.get(k2) === p3) inflight.delete(k2);
+  });
+  inflight.set(k2, p3);
+  return p3;
+}
+async function fetchTokenBalances(network, address, config) {
+  var _a;
+  try {
+    const res = await fetch(alchemyRpcUrl(network, config), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "alchemy_getTokenBalances", params: [address, "erc20"] }),
+      signal: AbortSignal.timeout(12e3)
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return (((_a = json.result) == null ? void 0 : _a.tokenBalances) ?? []).filter((t) => nonZero(t.tokenBalance));
+  } catch {
+    return [];
   }
 }
 const marketCache = /* @__PURE__ */ new Map();
@@ -67498,36 +67633,19 @@ function usd(amount, price) {
   return `$${(amount * price).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 async function fetchEvmNative(chain2, address, config) {
-  var _a;
-  const url = chain2.rpcUrl(config);
-  const abort = AbortSignal.timeout(1e4);
   try {
-    const balRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [address, "latest"] }),
-      signal: abort
-    });
-    if (!balRes.ok) return { native: 0, tokenCount: 0, error: `RPC ${balRes.status}` };
-    const balJson = await balRes.json();
+    const urls = [chain2.rpcUrl(config), ...PUBLIC_RPCS[chain2.id] ?? []];
+    const balJson = await rpcReadWithFallback(
+      urls,
+      { jsonrpc: "2.0", id: 1, method: "eth_getBalance", params: [address, "latest"] },
+      1e4
+    );
+    if (!balJson) return { native: 0, tokenCount: 0, error: "RPC error" };
     if (balJson.error) return { native: 0, tokenCount: 0, error: balJson.error.message };
     const native = Number(BigInt(balJson.result ?? "0x0")) / 1e18;
     let tokenCount = 0;
     if (chain2.alchemyNetwork) {
-      try {
-        const ZERO2 = "0x0000000000000000000000000000000000000000000000000000000000000000";
-        const tokRes = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "alchemy_getTokenBalances", params: [address, "erc20"] }),
-          signal: AbortSignal.timeout(8e3)
-        });
-        if (tokRes.ok) {
-          const tokJson = await tokRes.json();
-          tokenCount = (((_a = tokJson.result) == null ? void 0 : _a.tokenBalances) ?? []).filter((t) => t.tokenBalance !== ZERO2).length;
-        }
-      } catch {
-      }
+      tokenCount = (await getTokenBalances(chain2.alchemyNetwork, address, config)).length;
     } else if (chain2.blockscoutUrl) {
       try {
         const tokRes = await fetch(
@@ -67578,20 +67696,21 @@ async function fetchBitcoinNative(address) {
   }
 }
 const DOT_SYSTEM_ACCOUNT_PREFIX = "26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9";
-async function fetchPolkadotNative(address, tatumKey) {
-  if (!address || !tatumKey) return { native: 0, tokenCount: 0, error: "No address or key" };
+async function fetchPolkadotNative(address, config) {
+  if (!address) return { native: 0, tokenCount: 0, error: "No address" };
+  if (!canTatum(config)) return { native: 0, tokenCount: 0, error: "No Tatum key or proxy" };
   try {
     const raw = base58$1.decode(address);
     if (raw.length !== 35) return { native: 0, tokenCount: 0, error: "Invalid address" };
     const pubkey = raw.slice(1, 33);
     const hash128 = blake2b$1(pubkey, { dkLen: 16 });
     const storageKey = "0x" + DOT_SYSTEM_ACCOUNT_PREFIX + Buffer$g.from(hash128).toString("hex") + Buffer$g.from(pubkey).toString("hex");
-    const res = await fetch("https://polkadot-mainnet.gateway.tatum.io", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": tatumKey },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "state_getStorage", params: [storageKey] }),
-      signal: AbortSignal.timeout(1e4)
-    });
+    const res = await tatumFetch(
+      "polkadot",
+      { jsonrpc: "2.0", id: 1, method: "state_getStorage", params: [storageKey] },
+      config,
+      1e4
+    );
     if (!res.ok) return { native: 0, tokenCount: 0, error: `RPC ${res.status}` };
     const json = await res.json();
     const hex = json.result;
@@ -67646,13 +67765,11 @@ async function fetchSolanaNative(address, config) {
 async function fetchCardanaNative(address, stakeAddress, config) {
   var _a, _b, _c;
   if (!address) return { native: 0, tokenCount: 0, error: "No Cardano address — re-import your wallet" };
-  const base3 = "https://cardano-mainnet.blockfrost.io/api/v0";
-  const headers = { project_id: config.blockfrostKey };
   try {
     let lovelace = 0;
     let tokenCount = 0;
     let resolvedStake = stakeAddress;
-    const addrRes = await fetch(`${base3}/addresses/${address}`, { headers, signal: AbortSignal.timeout(1e4) });
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 1e4);
     if (addrRes.ok) {
       const addrJson = await addrRes.json();
       tokenCount = Math.max(0, (((_a = addrJson.amount) == null ? void 0 : _a.length) ?? 1) - 1);
@@ -67664,7 +67781,7 @@ async function fetchCardanaNative(address, stakeAddress, config) {
     }
     if (resolvedStake) {
       try {
-        const acctRes = await fetch(`${base3}/accounts/${resolvedStake}`, { headers, signal: AbortSignal.timeout(8e3) });
+        const acctRes = await blockfrostFetch(`accounts/${resolvedStake}`, config, 8e3);
         if (acctRes.ok) {
           const acctJson = await acctRes.json();
           if (acctJson.controlled_amount) lovelace = Number(acctJson.controlled_amount);
@@ -67691,7 +67808,7 @@ async function fetchAllBalances(addresses, config) {
     fetchSolanaNative(addresses.solana, config),
     fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config),
     addresses.bitcoin ? fetchBitcoinNative(addresses.bitcoin) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" }),
-    addresses.polkadot ? fetchPolkadotNative(addresses.polkadot, config.tatumKey) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" }),
+    addresses.polkadot ? fetchPolkadotNative(addresses.polkadot, config) : Promise.resolve({ native: 0, tokenCount: 0, error: "No address" }),
     hasAgw && abstractDef ? fetchEvmNative(abstractDef, addresses.agw, config) : Promise.resolve(NO_AGW)
   ]);
   const marketMap = prices;
@@ -67862,11 +67979,9 @@ async function fetchEtherscanHistory(address, apiUrl, symbol, explorerBase) {
     return { records: [], error: String(err) };
   }
 }
-async function fetchSolanaHistory(address, heliusKey) {
+async function fetchSolanaHistory(address, config) {
   try {
-    const res = await fetch(
-      `https://api.helius.xyz/v0/addresses/${address}/transactions?api-key=${heliusKey}&limit=10`
-    );
+    const res = await heliusApiFetch(`v0/addresses/${address}/transactions?limit=10`, config);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       throw new Error(`Helius ${res.status}: ${body.error ?? res.statusText}`);
@@ -67896,11 +68011,9 @@ async function fetchSolanaHistory(address, heliusKey) {
     return { records: [], error: String(err) };
   }
 }
-async function fetchCardanoHistory(address, blockfrostKey) {
-  const BASE = "https://cardano-mainnet.blockfrost.io/api/v0";
-  const headers = { project_id: blockfrostKey };
+async function fetchCardanoHistory(address, config) {
   try {
-    const listRes = await fetch(`${BASE}/addresses/${address}/transactions?order=desc&count=10`, { headers });
+    const listRes = await blockfrostFetch(`addresses/${address}/transactions?order=desc&count=10`, config);
     if (listRes.status === 404) return { records: [], error: null };
     if (!listRes.ok) {
       const body = await listRes.json().catch(() => ({}));
@@ -67912,7 +68025,7 @@ async function fetchCardanoHistory(address, blockfrostKey) {
         var _a, _b;
         const fallback = { hash: tx_hash, direction: "self", amount: null, symbol: "ADA", timestamp: block_time * 1e3, counterparty: null, explorerUrl: `https://cardanoscan.io/transaction/${tx_hash}` };
         try {
-          const utxoRes = await fetch(`${BASE}/txs/${tx_hash}/utxos`, { headers });
+          const utxoRes = await blockfrostFetch(`txs/${tx_hash}/utxos`, config);
           if (!utxoRes.ok) return fallback;
           const utxos = await utxoRes.json();
           const isSpender = utxos.inputs.some((i2) => i2.address === address);
@@ -68008,13 +68121,10 @@ async function fetchPolkadotHistory(address) {
     return { records: [], error: String(err) };
   }
 }
-async function fetchMoralisMonadHistory(address, moralisKey, explorerBase, fallback) {
-  if (!moralisKey) return fallback ? fallback() : { records: [], error: "No Moralis key" };
+async function fetchMoralisMonadHistory(address, config, explorerBase, fallback) {
+  if (!canMoralis(config)) return fallback ? fallback() : { records: [], error: "No Moralis key" };
   try {
-    const res = await fetch(
-      `https://deep-index.moralis.io/api/v2.2/${address}/history?chain=0x8f&order=DESC&limit=10`,
-      { headers: { accept: "application/json", "X-API-Key": moralisKey }, signal: AbortSignal.timeout(1e4) }
-    );
+    const res = await moralisFetch(`${address}/history?chain=0x8f&order=DESC&limit=10`, config, 1e4);
     if (!res.ok) {
       return fallback ? fallback() : { records: [], error: `Moralis ${res.status}` };
     }
@@ -68052,7 +68162,7 @@ async function fetchAllHistory(addresses, config) {
   const results = await Promise.all([
     ...alchemyChains.map((c2) => fetchAlchemyHistory(
       addresses.evm,
-      `https://${c2.alchemyNetwork}.g.alchemy.com/v2/${config.alchemyKey}`,
+      alchemyRpcUrl(c2.alchemyNetwork, config),
       c2.explorerTx
     )),
     ...blockscoutChains.map((c2) => fetchBlockscoutHistory(addresses.evm, c2.blockscoutUrl, c2.nativeSymbol)),
@@ -68060,12 +68170,12 @@ async function fetchAllHistory(addresses, config) {
     // Monad: Moralis (proven via NFTs) → Blockscout fallback
     fetchMoralisMonadHistory(
       addresses.evm,
-      config.moralisKey,
+      config,
       "https://monadexplorer.com/tx",
       () => fetchBlockscoutHistory(addresses.evm, "https://monadexplorer.com", "MON")
     ),
-    fetchSolanaHistory(addresses.solana, config.heliusKey),
-    addresses.cardano ? fetchCardanoHistory(addresses.cardano, config.blockfrostKey) : Promise.resolve({ records: [], error: null }),
+    fetchSolanaHistory(addresses.solana, config),
+    addresses.cardano ? fetchCardanoHistory(addresses.cardano, config) : Promise.resolve({ records: [], error: null }),
     fetchBitcoinHistory(addresses.bitcoin ?? ""),
     fetchPolkadotHistory(addresses.polkadot ?? "")
   ]);
@@ -68440,12 +68550,11 @@ const TW_CHAIN = {
   ronin: "ronin",
   apechain: "apechain"
 };
-const ZERO = "0x0000000000000000000000000000000000000000000000000000000000000000";
-function rpcUrl(network, key2) {
-  return `https://${network}.g.alchemy.com/v2/${key2}`;
+function rpcUrl(network, config) {
+  return alchemyRpcUrl(network, config);
 }
-function nftUrl(network, key2) {
-  return `https://${network}.g.alchemy.com/nft/v3/${key2}`;
+function nftUrl(network, config) {
+  return alchemyNftBase(network, config);
 }
 function normalizeImageUrl(url) {
   if (!url) return null;
@@ -68537,21 +68646,12 @@ async function fetchNativePrices(chainIds) {
   if (cgIds.length === 0) return {};
   return getNativeUsd(cgIds);
 }
-async function fetchTokensForChain(address, chain2, key2) {
-  var _a;
-  const url = rpcUrl(chain2.network, key2);
+async function fetchTokensForChain(address, chain2, config) {
+  const url = rpcUrl(chain2.network, config);
   try {
-    const balRes = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "alchemy_getTokenBalances", params: [address, "erc20"] }),
-      signal: AbortSignal.timeout(12e3)
-    });
-    if (!balRes.ok) return [];
-    const balJson = await balRes.json();
-    const nonZero = (((_a = balJson.result) == null ? void 0 : _a.tokenBalances) ?? []).filter((t) => t.tokenBalance !== ZERO && BigInt(t.tokenBalance) > 0n).slice(0, 100);
-    if (nonZero.length === 0) return [];
-    const metaPayload = nonZero.map((t, i2) => ({
+    const nonZero2 = (await getTokenBalances(chain2.network, address, config)).slice(0, 100);
+    if (nonZero2.length === 0) return [];
+    const metaPayload = nonZero2.map((t, i2) => ({
       jsonrpc: "2.0",
       id: i2 + 1,
       method: "alchemy_getTokenMetadata",
@@ -68564,9 +68664,9 @@ async function fetchTokensForChain(address, chain2, key2) {
       signal: AbortSignal.timeout(15e3)
     });
     const metaJson = metaRes.ok ? await metaRes.json() : [];
-    return nonZero.map((t, i2) => {
-      var _a2;
-      const meta = (Array.isArray(metaJson) ? (_a2 = metaJson[i2]) == null ? void 0 : _a2.result : null) ?? {};
+    return nonZero2.map((t, i2) => {
+      var _a;
+      const meta = (Array.isArray(metaJson) ? (_a = metaJson[i2]) == null ? void 0 : _a.result : null) ?? {};
       const decimals = meta.decimals ?? 18;
       const balance = humanBalance(t.tokenBalance, decimals);
       const alchemyLogo = normalizeImageUrl(meta.logo ?? null);
@@ -68590,10 +68690,10 @@ async function fetchTokensForChain(address, chain2, key2) {
     return [];
   }
 }
-async function fetchSolanaTokens(address, heliusKey) {
+async function fetchSolanaTokens(address, config) {
   var _a;
   try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+    const res = await fetch(heliusRpcUrl(config), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -68634,11 +68734,11 @@ async function fetchSolanaTokens(address, heliusKey) {
     return [];
   }
 }
-async function fetchSolanaNFTs(address, heliusKey) {
+async function fetchSolanaNFTs(address, config) {
   var _a;
   if (!address) return [];
   try {
-    const res = await fetch(`https://mainnet.helius-rpc.com/?api-key=${heliusKey}`, {
+    const res = await fetch(heliusRpcUrl(config), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -68700,13 +68800,10 @@ async function fetchSolanaNFTs(address, heliusKey) {
     return [];
   }
 }
-async function fetchCardanoTokens(address, blockfrostKey) {
+async function fetchCardanoTokens(address, config) {
   if (!address) return [];
   try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers: { project_id: blockfrostKey },
-      signal: AbortSignal.timeout(12e3)
-    });
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 12e3);
     if (!addrRes.ok) return [];
     const addrJson = await addrRes.json();
     const nativeAssets = (addrJson.amount ?? []).filter((a2) => a2.unit !== "lovelace" && parseInt(a2.quantity) !== 1).slice(0, 30);
@@ -68715,10 +68812,7 @@ async function fetchCardanoTokens(address, blockfrostKey) {
       nativeAssets.slice(0, 20).map(async (a2) => {
         var _a, _b, _c, _d;
         try {
-          const meta = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
-            headers: { project_id: blockfrostKey },
-            signal: AbortSignal.timeout(8e3)
-          });
+          const meta = await blockfrostFetch(`assets/${a2.unit}`, config, 8e3);
           const mj = meta.ok ? await meta.json() : {};
           const rawName = ((_a = mj.onchain_metadata) == null ? void 0 : _a.name) ?? ((_b = mj.metadata) == null ? void 0 : _b.name) ?? mj.asset_name ?? null;
           const name = rawName ? decodeAssetName(rawName) : a2.unit.slice(0, 8) + "…";
@@ -68892,13 +68986,13 @@ async function fetchAllTokens(addresses, config) {
   try {
     const agwAddress = addresses.agw ?? null;
     const [evmResults, solanaTokens, cardanoTokens, monadTokens] = await Promise.all([
-      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config.alchemyKey))),
-      addresses.solana ? fetchSolanaTokens(addresses.solana, config.heliusKey) : Promise.resolve([]),
-      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config.blockfrostKey) : Promise.resolve([]),
+      Promise.all(TOKEN_CHAINS.map((chain2) => fetchTokensForChain(addresses.evm, chain2, config))),
+      addresses.solana ? fetchSolanaTokens(addresses.solana, config) : Promise.resolve([]),
+      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config) : Promise.resolve([]),
       fetchMonadTokens(addresses.evm)
     ]);
     const abstractChainCfg = TOKEN_CHAINS.find((c2) => c2.id === "abstract");
-    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config.alchemyKey)).map((t) => ({ ...t, source: "agw" })) : [];
+    const agwTokens = agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map((t) => ({ ...t, source: "agw" })) : [];
     const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens];
     const tokens = await enrichWithPrices(raw);
     tokens.sort((a2, b2) => {
@@ -68935,22 +69029,19 @@ function resolveCardanoImage(meta) {
   }
   return null;
 }
-async function fetchCardanoNFTs(address, blockfrostKey) {
+async function fetchCardanoNFTs(address, config) {
   if (!address) return [];
-  const headers = { project_id: blockfrostKey };
   try {
-    const addrRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/addresses/${address}`, {
-      headers,
-      signal: AbortSignal.timeout(12e3)
-    });
+    const addrRes = await blockfrostFetch(`addresses/${address}`, config, 12e3);
     if (!addrRes.ok) return [];
     const addrData = await addrRes.json();
     let assets = [];
     if (addrData.stake_address) {
       try {
-        const stakeRes = await fetch(
-          `https://cardano-mainnet.blockfrost.io/api/v0/accounts/${addrData.stake_address}/addresses/assets?count=100`,
-          { headers, signal: AbortSignal.timeout(12e3) }
+        const stakeRes = await blockfrostFetch(
+          `accounts/${addrData.stake_address}/addresses/assets?count=100`,
+          config,
+          12e3
         );
         if (stakeRes.ok) {
           assets = await stakeRes.json();
@@ -68970,10 +69061,7 @@ async function fetchCardanoNFTs(address, blockfrostKey) {
     const results = await Promise.all(
       nftAssets.slice(0, 50).map(async (a2) => {
         try {
-          const metaRes = await fetch(`https://cardano-mainnet.blockfrost.io/api/v0/assets/${a2.unit}`, {
-            headers,
-            signal: AbortSignal.timeout(8e3)
-          });
+          const metaRes = await blockfrostFetch(`assets/${a2.unit}`, config, 8e3);
           if (!metaRes.ok) return null;
           const meta = await metaRes.json();
           const onchain = meta.onchain_metadata ?? {};
@@ -69031,10 +69119,10 @@ async function fetchCardanoNFTs(address, blockfrostKey) {
     return [];
   }
 }
-async function fetchNftsForChain(address, chain2, key2) {
-  const base3 = nftUrl(chain2.network, key2);
+async function fetchNftsForChain(address, chain2, config) {
+  const base3 = nftUrl(chain2.network, config);
   const url = `${base3}/getNFTsForOwner?owner=${address}&withMetadata=true`;
-  console.log(`[NFT] Fetching ${chain2.label}: ${url.replace(key2, "***")}`);
+  console.log(`[NFT] Fetching ${chain2.label} for ${address.slice(0, 10)}…`);
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15e3) });
     if (!res.ok) {
@@ -69079,14 +69167,10 @@ async function fetchNftsForChain(address, chain2, key2) {
     return { chain: chain2, items: [], error: msg2 };
   }
 }
-async function fetchMonadNFTs(address, moralisKey) {
-  const url = `https://deep-index.moralis.io/api/v2.2/${address}/nft?chain=0x8f&format=decimal&media_items=true`;
+async function fetchMonadNFTs(address, config) {
   console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`);
   try {
-    const res = await fetch(url, {
-      headers: { "X-API-Key": moralisKey },
-      signal: AbortSignal.timeout(15e3)
-    });
+    const res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15e3);
     console.log(`[NFT] Monad Moralis HTTP ${res.status}`);
     if (!res.ok) {
       const body = await res.text().catch(() => "");
@@ -69153,45 +69237,42 @@ const FLOOR_SYMBOL_CG = {
 };
 const floorCache = /* @__PURE__ */ new Map();
 const FLOOR_TTL = 10 * 6e4;
-async function osGet(path, key2) {
+async function osGet(path, config) {
   try {
-    const res = await fetch(
-      `https://api.opensea.io/api/v2/${path}`,
-      { headers: { "x-api-key": key2, accept: "application/json" }, signal: AbortSignal.timeout(8e3) }
-    );
+    const res = await openseaFetch(path, config, 8e3);
     if (!res.ok) return null;
     return await res.json();
   } catch {
     return null;
   }
 }
-async function osCollectionFloor(slug, key2) {
+async function osCollectionFloor(slug, config) {
   const cacheKey2 = `slug:${slug}`;
   const hit = floorCache.get(cacheKey2);
   if (hit && hit.exp > Date.now()) return hit.value;
-  const json = await osGet(`collections/${slug}/stats`, key2);
+  const json = await osGet(`collections/${slug}/stats`, config);
   const total = json == null ? void 0 : json.total;
   const value = (total == null ? void 0 : total.floor_price) != null && total.floor_price > 0 ? { floor: total.floor_price, symbol: total.floor_price_symbol ?? "ETH" } : null;
   floorCache.set(cacheKey2, { value, exp: Date.now() + FLOOR_TTL });
   return value;
 }
-async function osEvmContractFloor(osChain, contract, key2) {
+async function osEvmContractFloor(osChain, contract, config) {
   const cacheKey2 = `${osChain}:${contract.toLowerCase()}`;
   const hit = floorCache.get(cacheKey2);
   if (hit && hit.exp > Date.now()) return hit.value;
-  const json = await osGet(`chain/${osChain}/contract/${contract}`, key2);
-  const value = (json == null ? void 0 : json.collection) ? await osCollectionFloor(json.collection, key2) : null;
+  const json = await osGet(`chain/${osChain}/contract/${contract}`, config);
+  const value = (json == null ? void 0 : json.collection) ? await osCollectionFloor(json.collection, config) : null;
   floorCache.set(cacheKey2, { value, exp: Date.now() + FLOOR_TTL });
   return value;
 }
-async function osSolanaMintSlugs(address, key2) {
+async function osSolanaMintSlugs(address, config) {
   var _a;
   const out = /* @__PURE__ */ new Map();
   let next;
   for (let page = 0; page < 5; page++) {
     const json = await osGet(
       `chain/solana/account/${address}/nfts?limit=50${next ? `&next=${next}` : ""}`,
-      key2
+      config
     );
     if (!((_a = json == null ? void 0 : json.nfts) == null ? void 0 : _a.length)) break;
     for (const n4 of json.nfts) if (n4.identifier && n4.collection) out.set(n4.identifier, n4.collection);
@@ -69200,14 +69281,14 @@ async function osSolanaMintSlugs(address, key2) {
   }
   return out;
 }
-async function osAccountSlugs(osChain, owner, key2) {
+async function osAccountSlugs(osChain, owner, config) {
   var _a;
   const out = /* @__PURE__ */ new Map();
   let next;
   for (let page = 0; page < 4; page++) {
     const json = await osGet(
       `chain/${osChain}/account/${owner}/nfts?limit=50${next ? `&next=${next}` : ""}`,
-      key2
+      config
     );
     if (!((_a = json == null ? void 0 : json.nfts) == null ? void 0 : _a.length)) break;
     for (const n4 of json.nfts) if (n4.contract && n4.collection) out.set(n4.contract.toLowerCase(), n4.collection);
@@ -69246,20 +69327,20 @@ async function meCollectionFloor(symbol) {
   return value;
 }
 async function enrichNftFloors(items, config, opts = {}) {
-  const key2 = config.openseaKey;
+  const osOk = canOpensea(config);
   const { solanaAddress, evmAddress, agw, exclude } = opts;
   const priced = exclude && exclude.size ? items.filter((i2) => !exclude.has(i2.id)) : items;
   const prices = await fetchNativePrices([...priced.map((i2) => i2.chain), "solana"]);
   const hasSolana = priced.some((i2) => i2.chain === "solana");
   const evmChains = new Set(priced.filter((i2) => i2.chain !== "solana" && OPENSEA_NFT_CHAIN[i2.chain]).map((i2) => OPENSEA_NFT_CHAIN[i2.chain]));
   const sweeps = [];
-  if (key2) for (const osc of evmChains) {
+  if (osOk) for (const osc of evmChains) {
     if (evmAddress) sweeps.push([osc, evmAddress]);
     if (agw && osc === "abstract") sweeps.push([osc, agw]);
   }
   const meSymbolsP = hasSolana && solanaAddress ? meWalletSymbols(solanaAddress) : Promise.resolve(/* @__PURE__ */ new Map());
-  const solSlugsP = hasSolana && solanaAddress && key2 ? osSolanaMintSlugs(solanaAddress, key2) : Promise.resolve(/* @__PURE__ */ new Map());
-  const evmMapsP = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, key2)]));
+  const solSlugsP = hasSolana && solanaAddress && osOk ? osSolanaMintSlugs(solanaAddress, config) : Promise.resolve(/* @__PURE__ */ new Map());
+  const evmMapsP = Promise.all(sweeps.map(async ([osc, ow]) => [osc, await osAccountSlugs(osc, ow, config)]));
   const [meSymbols, solSlugs, evmMaps] = await Promise.all([meSymbolsP, solSlugsP, evmMapsP]);
   const evmSlug = /* @__PURE__ */ new Map();
   for (const [osc, m2] of evmMaps) for (const [c2, s2] of m2) evmSlug.set(`${osc}:${c2}`, s2);
@@ -69271,7 +69352,7 @@ async function enrichNftFloors(items, config, opts = {}) {
       continue;
     }
     const osChain = OPENSEA_NFT_CHAIN[i2.chain];
-    if (!osChain || !key2) {
+    if (!osChain || !osOk) {
       taskKeyOf.set(i2, null);
       continue;
     }
@@ -69284,17 +69365,17 @@ async function enrichNftFloors(items, config, opts = {}) {
         if (!tasks.has(tk)) tasks.set(tk, () => meCollectionFloor(meSym));
       } else if (osSlug) {
         tk = `slug:${osSlug}`;
-        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, key2));
+        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(osSlug, config));
       }
     } else {
       const contract = i2.contractAddress.toLowerCase();
       const slug = evmSlug.get(`${osChain}:${contract}`);
       if (slug) {
         tk = `slug:${slug}`;
-        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, key2));
+        if (!tasks.has(tk)) tasks.set(tk, () => osCollectionFloor(slug, config));
       } else {
         tk = `${osChain}:${contract}`;
-        if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i2.contractAddress, key2));
+        if (!tasks.has(tk)) tasks.set(tk, () => osEvmContractFloor(osChain, i2.contractAddress, config));
       }
     }
     taskKeyOf.set(i2, tk);
@@ -69328,11 +69409,11 @@ async function fetchAllCollectibles(evmAddress, cardanoAddress, config, solanaAd
     const agwAddress = agw ?? null;
     const abstractChainCfg = NFT_CHAINS.find((c2) => c2.id === "abstract");
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
-      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config.alchemyKey))),
-      solanaAddress ? fetchSolanaNFTs(solanaAddress, config.heliusKey) : Promise.resolve([]),
-      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config.blockfrostKey) : Promise.resolve([]),
-      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config.alchemyKey).then((r2) => r2.items.map((n4) => ({ ...n4, source: "agw" }))) : Promise.resolve([]),
-      fetchMonadNFTs(evmAddress, config.moralisKey)
+      Promise.all(NFT_CHAINS.map((chain2) => fetchNftsForChain(evmAddress, chain2, config))),
+      solanaAddress ? fetchSolanaNFTs(solanaAddress, config) : Promise.resolve([]),
+      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([]),
+      agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg ? fetchNftsForChain(agwAddress, abstractChainCfg, config).then((r2) => r2.items.map((n4) => ({ ...n4, source: "agw" }))) : Promise.resolve([]),
+      fetchMonadNFTs(evmAddress, config)
     ]);
     const items = [...evmResults.flatMap((r2) => r2.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts];
     const chainResults = {};
@@ -84106,13 +84187,13 @@ const soneium = defineChain({ id: 1868, name: "Soneium", nativeCurrency: { name:
 const worldchain = defineChain({ id: 480, name: "WorldChain", nativeCurrency: { name: "Worldcoin", symbol: "WLD", decimals: 18 }, rpcUrls: { default: { http: ["https://worldchain-mainnet.g.alchemy.com/public"] } } });
 const hyperEvm = defineChain({ id: 998, name: "HyperEVM", nativeCurrency: { name: "Hyperliquid", symbol: "HYPE", decimals: 18 }, rpcUrls: { default: { http: ["https://rpc.hyperliquid.xyz/evm"] } } });
 const EVM_CHAINS = {
-  ethereum: { chain: mainnet, rpcUrl: (cfg) => `https://eth-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://etherscan.io/tx", nativeSymbol: "ETH" },
-  arbitrum: { chain: arbitrum, rpcUrl: (cfg) => `https://arb-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://arbiscan.io/tx", nativeSymbol: "ETH" },
-  optimism: { chain: optimism, rpcUrl: (cfg) => `https://opt-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://optimistic.etherscan.io/tx", nativeSymbol: "ETH" },
-  base: { chain: base$1, rpcUrl: (cfg) => `https://base-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://basescan.org/tx", nativeSymbol: "ETH" },
-  polygon: { chain: polygon, rpcUrl: (cfg) => `https://polygon-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://polygonscan.com/tx", nativeSymbol: "POL" },
-  avalanche: { chain: avalanche, rpcUrl: (cfg) => `https://avax-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://snowtrace.io/tx", nativeSymbol: "AVAX" },
-  blast: { chain: blast, rpcUrl: (cfg) => `https://blast-mainnet.g.alchemy.com/v2/${cfg.alchemyKey}`, explorer: "https://blastscan.io/tx", nativeSymbol: "ETH" },
+  ethereum: { chain: mainnet, rpcUrl: (cfg) => alchemyRpcUrl("eth-mainnet", cfg), explorer: "https://etherscan.io/tx", nativeSymbol: "ETH" },
+  arbitrum: { chain: arbitrum, rpcUrl: (cfg) => alchemyRpcUrl("arb-mainnet", cfg), explorer: "https://arbiscan.io/tx", nativeSymbol: "ETH" },
+  optimism: { chain: optimism, rpcUrl: (cfg) => alchemyRpcUrl("opt-mainnet", cfg), explorer: "https://optimistic.etherscan.io/tx", nativeSymbol: "ETH" },
+  base: { chain: base$1, rpcUrl: (cfg) => alchemyRpcUrl("base-mainnet", cfg), explorer: "https://basescan.org/tx", nativeSymbol: "ETH" },
+  polygon: { chain: polygon, rpcUrl: (cfg) => alchemyRpcUrl("polygon-mainnet", cfg), explorer: "https://polygonscan.com/tx", nativeSymbol: "POL" },
+  avalanche: { chain: avalanche, rpcUrl: (cfg) => alchemyRpcUrl("avax-mainnet", cfg), explorer: "https://snowtrace.io/tx", nativeSymbol: "AVAX" },
+  blast: { chain: blast, rpcUrl: (cfg) => alchemyRpcUrl("blast-mainnet", cfg), explorer: "https://blastscan.io/tx", nativeSymbol: "ETH" },
   gnosis: { chain: gnosis, rpcUrl: () => "https://rpc.gnosischain.com", explorer: "https://gnosisscan.io/tx", nativeSymbol: "XDAI" },
   monad: { chain: monad, rpcUrl: () => "https://rpc.monad.xyz", explorer: "https://monadexplorer.com/tx", nativeSymbol: "MON" },
   abstract: { chain: abstractChain, rpcUrl: () => "https://api.mainnet.abs.xyz", explorer: "https://abscan.org/tx", nativeSymbol: "ETH" },
@@ -84263,10 +84344,7 @@ async function estimateSolanaFee(config) {
 }
 async function sendSolanaTransaction(mnemonic, to2, amountSol, config, accountIndex = 0) {
   const keypair = await getSolanaKeypair(mnemonic, accountIndex);
-  const connection = new Connection(
-    `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`,
-    "confirmed"
-  );
+  const connection = new Connection(heliusRpcUrl(config), "confirmed");
   const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL);
   if (lamports <= 0) throw new Error("Amount must be greater than 0");
   const tx = new Transaction().add(
@@ -84287,11 +84365,8 @@ async function sendSolanaTransaction(mnemonic, to2, amountSol, config, accountIn
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight });
   return { txHash: sig, explorerUrl: `https://solscan.io/tx/${sig}` };
 }
-const BLOCKFROST_BASE = "https://cardano-mainnet.blockfrost.io/api/v0";
-async function fetchUtxos(address, blockfrostKey) {
-  const res = await fetch(`${BLOCKFROST_BASE}/addresses/${address}/utxos`, {
-    headers: { project_id: blockfrostKey }
-  });
+async function fetchUtxos(address, config) {
+  const res = await blockfrostFetch(`addresses/${address}/utxos`, config);
   if (res.status === 404) return [];
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -84329,7 +84404,7 @@ async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAd
   const spendKey = getCardanoSpendingKey(entropy, accountIndex);
   const amountLovelace = BigInt(Math.round(parseFloat(amountAda) * 1e6));
   if (amountLovelace <= 0n) throw new Error("Amount must be greater than 0");
-  const allUtxos = await fetchUtxos(fromAddress, config.blockfrostKey);
+  const allUtxos = await fetchUtxos(fromAddress, config);
   if (allUtxos.length === 0) throw new Error("No UTXOs found — address has no funds on-chain");
   allUtxos.sort((a2, b2) => b2.lovelace > a2.lovelace ? 1 : -1);
   const FEE = 170000n;
@@ -84355,12 +84430,9 @@ async function sendCardanoTransaction(mnemonic, fromAddress, toAddress, amountAd
     amountLovelace,
     spendKey
   );
-  const submitRes = await fetch(`${BLOCKFROST_BASE}/tx/submit`, {
+  const submitRes = await blockfrostFetch("tx/submit", config, 2e4, {
     method: "POST",
-    headers: {
-      project_id: config.blockfrostKey,
-      "Content-Type": "application/cbor"
-    },
+    headers: { "Content-Type": "application/cbor" },
     body: txCbor
   });
   if (!submitRes.ok) {
@@ -84423,7 +84495,7 @@ async function executeSolanaSwap(quote, mnemonic, config, accountIndex) {
     throw new Error("Quote did not include a Solana transaction to sign.");
   }
   const keypair = await getSolanaKeypair(mnemonic, accountIndex);
-  const connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, "confirmed");
+  const connection = new Connection(heliusRpcUrl(config), "confirmed");
   const buf = Buffer$g.from(quote.txData.swapTransaction, "base64");
   const tx = VersionedTransaction.deserialize(buf);
   tx.sign([keypair]);
@@ -84490,13 +84562,18 @@ function errorExchange(error) {
 }
 async function ssEstimate(params, config) {
   var _a, _b, _c, _d, _e3;
+  const proxy = proxyBase$1(config);
   const key2 = config.simpleSwapApiKey;
-  if (!key2) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: "SimpleSwap key missing." };
-  const base3 = `tickerFrom=${params.tickerFrom}&networkFrom=${params.networkFrom}&tickerTo=${params.tickerTo}&networkTo=${params.networkTo}`;
+  if (!proxy && !key2) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: "SimpleSwap not configured." };
+  const pq = `from=${params.tickerFrom}&fromNet=${params.networkFrom}&to=${params.tickerTo}&toNet=${params.networkTo}`;
+  const dq = `tickerFrom=${params.tickerFrom}&networkFrom=${params.networkFrom}&tickerTo=${params.tickerTo}&networkTo=${params.networkTo}`;
+  const estUrl = proxy ? `${proxy}/ss/estimate?${pq}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}` : `${SS_API}/estimates?${dq}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}&reverse=false`;
+  const rangeUrl = proxy ? `${proxy}/ss/ranges?${pq}&fixed=${params.fixed}` : `${SS_API}/ranges?${dq}&fixed=${params.fixed}`;
+  const headers = proxy ? { accept: "application/json" } : ssHeaders(key2);
   try {
     const [estRes, rangeRes] = await Promise.all([
-      fetch(`${SS_API}/estimates?${base3}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}&reverse=false`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) }),
-      fetch(`${SS_API}/ranges?${base3}&fixed=${params.fixed}`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) })
+      fetch(estUrl, { headers, signal: AbortSignal.timeout(15e3) }),
+      fetch(rangeUrl, { headers, signal: AbortSignal.timeout(15e3) })
     ]);
     let estimatedAmount = null, rateId = null, validUntil = null, error = null;
     if (estRes.ok) {
@@ -84519,13 +84596,14 @@ async function ssEstimate(params, config) {
   }
 }
 async function ssCreateExchange(params, config) {
+  const proxy = proxyBase$1(config);
   const key2 = config.simpleSwapApiKey;
-  if (!key2) return errorExchange("SimpleSwap key missing.");
+  if (!proxy && !key2) return errorExchange("SimpleSwap not configured.");
   if (!params.addressTo) return errorExchange("Destination address is required.");
   try {
-    const res = await fetch(`${SS_API}/exchanges`, {
+    const res = await fetch(proxy ? `${proxy}/ss/exchange` : `${SS_API}/exchanges`, {
       method: "POST",
-      headers: { ...ssHeaders(key2), "content-type": "application/json" },
+      headers: proxy ? { "content-type": "application/json" } : { ...ssHeaders(key2), "content-type": "application/json" },
       body: JSON.stringify({
         fixed: params.fixed,
         tickerFrom: params.tickerFrom,
@@ -84550,11 +84628,13 @@ async function ssCreateExchange(params, config) {
   }
 }
 async function ssGetStatus(id, config) {
+  const proxy = proxyBase$1(config);
   const key2 = config.simpleSwapApiKey;
-  if (!key2) return errorExchange("SimpleSwap key missing.");
+  if (!proxy && !key2) return errorExchange("SimpleSwap not configured.");
   if (!id) return errorExchange("Missing exchange id.");
   try {
-    const res = await fetch(`${SS_API}/exchanges/${encodeURIComponent(id)}`, { headers: ssHeaders(key2), signal: AbortSignal.timeout(15e3) });
+    const url = proxy ? `${proxy}/ss/status/${encodeURIComponent(id)}` : `${SS_API}/exchanges/${encodeURIComponent(id)}`;
+    const res = await fetch(url, { headers: proxy ? { accept: "application/json" } : ssHeaders(key2), signal: AbortSignal.timeout(15e3) });
     if (!res.ok) return errorExchange(await ssError(res));
     const j2 = await res.json();
     return normalizeExchange(j2.result ?? j2);
@@ -84616,17 +84696,17 @@ async function updateProfile() {
   return { success: false, error: "ChainLens sync not available in extension" };
 }
 const DEFAULT_CONFIG = {
-  alchemyKey: "REDACTED_ALCHEMY_KEY",
-  heliusKey: "REDACTED_HELIUS_KEY",
-  blockfrostKey: "REDACTED_BLOCKFROST_KEY",
-  tatumKey: "REDACTED_TATUM_KEY",
-  moralisKey: "REDACTED_JWT",
-  openseaKey: "REDACTED_OPENSEA_KEY",
-  supabaseUrl: "https://REDACTED_SUPABASE_PROJECT.supabase.co",
-  supabaseKey: "REDACTED_SUPABASE_SECRET",
+  alchemyKey: "",
+  heliusKey: "",
+  blockfrostKey: "",
+  tatumKey: "",
+  moralisKey: "",
+  openseaKey: "",
+  supabaseUrl: "",
+  supabaseKey: "",
   walletConnectProjectId: "1db049748ab5fecc3a39e64fbc11a41c",
   swapProxyUrl: "https://magicmoney-swap-proxy.guildfordking.workers.dev",
-  simpleSwapApiKey: "e7f2026e-5e26-41ba-a6ed-dc688d2fcae8"
+  simpleSwapApiKey: ""
 };
 async function deriveKey(password, salt) {
   const raw = await crypto.subtle.importKey(
@@ -98971,20 +99051,22 @@ const SUPPORTED_METHODS = [
 ];
 const SOLANA_METHODS = ["solana_signMessage", "solana_signTransaction", "solana_signAndSendTransaction"];
 async function getRpc(chainId) {
-  const { alchemyKey } = await loadConfig();
-  const alchemyMap = {
-    1: `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    137: `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    42161: `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    10: `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    8453: `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`
+  const config = await loadConfig();
+  const alchemyNet = {
+    1: "eth-mainnet",
+    137: "polygon-mainnet",
+    42161: "arb-mainnet",
+    10: "opt-mainnet",
+    8453: "base-mainnet"
   };
   const publicMap = {
     56: "https://bsc-dataseed.binance.org",
     43114: "https://api.avax.network/ext/bc/C/rpc",
     250: "https://rpc.ftm.tools"
   };
-  return alchemyMap[chainId] ?? publicMap[chainId] ?? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`;
+  const net = alchemyNet[chainId];
+  if (net) return alchemyRpcUrl(net, config);
+  return publicMap[chainId] ?? alchemyRpcUrl("eth-mainnet", config);
 }
 let _client = null;
 let _initPromise = null;
@@ -99523,24 +99605,17 @@ function bytesContain(haystack, needle) {
   }
   return false;
 }
-const BF = "https://cardano-mainnet.blockfrost.io/api/v0";
-async function cip30GetBalance(address, blockfrostKey) {
+async function cip30GetBalance(address, config) {
   var _a;
-  const res = await fetch(`${BF}/addresses/${address}`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(1e4)
-  });
+  const res = await blockfrostFetch(`addresses/${address}`, config, 1e4);
   if (!res.ok) throw new Error(`Blockfrost ${res.status}`);
   const data = await res.json();
   const amount = data.amount ?? [];
   const lovelace = BigInt(((_a = amount.find((a2) => a2.unit === "lovelace")) == null ? void 0 : _a.quantity) ?? "0");
   return bytesToHex(cborValue(lovelace, amount));
 }
-async function cip30GetUtxos(address, blockfrostKey) {
-  const res = await fetch(`${BF}/addresses/${address}/utxos?count=100`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(12e3)
-  });
+async function cip30GetUtxos(address, config) {
+  const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12e3);
   if (!res.ok) return [];
   const utxos = await res.json();
   const addrBytes = decodeCardanoAddress(address);
@@ -99554,11 +99629,8 @@ async function cip30GetUtxos(address, blockfrostKey) {
     return bytesToHex(cborArray([txIn, txOut]));
   });
 }
-async function cip30GetCollateral(address, blockfrostKey, amountHex) {
-  const res = await fetch(`${BF}/addresses/${address}/utxos?count=100`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(12e3)
-  });
+async function cip30GetCollateral(address, config, amountHex) {
+  const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12e3);
   if (!res.ok) return [];
   const utxos = await res.json();
   const target = amountHex ? decodeCborUint(hexToBytes(amountHex), 5000000n) : 5000000n;
@@ -99640,12 +99712,11 @@ async function cip30SignData(address, payloadHex, mnemonic, accountIndex) {
   ]);
   return { signature: bytesToHex(coseSign1), key: bytesToHex(coseKey) };
 }
-async function cip30SubmitTx(txHex, blockfrostKey) {
-  const res = await fetch(`${BF}/tx/submit`, {
+async function cip30SubmitTx(txHex, config) {
+  const res = await blockfrostFetch("tx/submit", config, 2e4, {
     method: "POST",
-    headers: { project_id: blockfrostKey, "Content-Type": "application/cbor" },
-    body: hexToBytes(txHex),
-    signal: AbortSignal.timeout(2e4)
+    headers: { "Content-Type": "application/cbor" },
+    body: hexToBytes(txHex)
   });
   if (!res.ok) {
     const msg2 = await res.text().catch(() => String(res.status));
@@ -100040,7 +100111,7 @@ async function handle(msg2, sender) {
           }, true ? void 0 : void 0, import.meta.url);
           const rpcCfg = await loadConfig();
           const chainDef = evmCfg.find((c2) => c2.chainId === chainNum);
-          const rpcUrl2 = (chainDef == null ? void 0 : chainDef.rpcUrl(rpcCfg)) ?? `https://eth-mainnet.g.alchemy.com/v2/${rpcCfg.alchemyKey ?? ""}`;
+          const rpcUrl2 = (chainDef == null ? void 0 : chainDef.rpcUrl(rpcCfg)) ?? alchemyRpcUrl("eth-mainnet", rpcCfg);
           const rpcRes = await fetch(rpcUrl2, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -100289,7 +100360,7 @@ async function handle(msg2, sender) {
       const solKeypair = await getSolanaKeypair(solMnemonic, (solAddresses == null ? void 0 : solAddresses.accountIndex) ?? 0);
       const solTx = VersionedTransaction2.deserialize(txBytes);
       solTx.sign([solKeypair]);
-      const solConn = new SolConnection(`https://mainnet.helius-rpc.com/?api-key=${solConfig.heliusKey}`, "confirmed");
+      const solConn = new SolConnection(heliusRpcUrl(solConfig), "confirmed");
       const solSig = await solConn.sendRawTransaction(solTx.serialize(), { skipPreflight: false, preflightCommitment: "confirmed" });
       return { signature: solSig };
     }
@@ -100332,19 +100403,19 @@ async function handle(msg2, sender) {
       const addresses = await loadAddresses();
       if (!(addresses == null ? void 0 : addresses.cardano)) throw new Error("No Cardano wallet");
       const config = await loadConfig();
-      return cip30GetBalance(addresses.cardano, config.blockfrostKey ?? "");
+      return cip30GetBalance(addresses.cardano, config);
     }
     case "cardano:get-utxos": {
       const addresses = await loadAddresses();
       if (!(addresses == null ? void 0 : addresses.cardano)) throw new Error("No Cardano wallet");
       const config = await loadConfig();
-      return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? "");
+      return cip30GetUtxos(addresses.cardano, config);
     }
     case "cardano:get-collateral": {
       const addresses = await loadAddresses();
       if (!(addresses == null ? void 0 : addresses.cardano)) throw new Error("No Cardano wallet");
       const config = await loadConfig();
-      return cip30GetCollateral(addresses.cardano, config.blockfrostKey ?? "", a0 ? String(a0) : void 0);
+      return cip30GetCollateral(addresses.cardano, config, a0 ? String(a0) : void 0);
     }
     case "cardano:get-used-addresses": {
       const addresses = await loadAddresses();
@@ -100388,7 +100459,7 @@ async function handle(msg2, sender) {
     }
     case "cardano:submit-tx": {
       const config = await loadConfig();
-      return cip30SubmitTx(String(a0), config.blockfrostKey ?? "");
+      return cip30SubmitTx(String(a0), config);
     }
     case "sidePanel:open": {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });

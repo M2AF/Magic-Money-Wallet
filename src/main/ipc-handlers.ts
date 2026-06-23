@@ -49,6 +49,7 @@ import {
   emitDappEvent
 } from './browser-manager'
 import { EVM_CHAINS } from './chain-config'
+import { openseaFetch, heliusRpcUrl, canOpensea } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
@@ -441,25 +442,19 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-nft-floor', async (_e, chain: string, contractAddress: string) => {
     const config = loadConfig()
     const osChain = OPENSEA_CHAIN[chain]
-    if (!osChain || !config.openseaKey || !contractAddress) {
+    if (!osChain || !canOpensea(config) || !contractAddress) {
       return { floor: null, currency: 'ETH', floorUsd: null }
     }
     try {
       // Step 1: get collection slug from contract
-      const contractRes = await fetch(
-        `https://api.opensea.io/api/v2/chain/${osChain}/contract/${contractAddress}`,
-        { headers: { 'x-api-key': config.openseaKey }, signal: AbortSignal.timeout(8_000) }
-      )
+      const contractRes = await openseaFetch(`chain/${osChain}/contract/${contractAddress}`, config, 8_000)
       if (!contractRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
       const contractJson = await contractRes.json() as { collection?: string }
       const slug = contractJson.collection
       if (!slug) return { floor: null, currency: 'ETH', floorUsd: null }
 
       // Step 2: get floor price from collection stats
-      const statsRes = await fetch(
-        `https://api.opensea.io/api/v2/collections/${slug}/stats`,
-        { headers: { 'x-api-key': config.openseaKey }, signal: AbortSignal.timeout(8_000) }
-      )
+      const statsRes = await openseaFetch(`collections/${slug}/stats`, config, 8_000)
       if (!statsRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
       const statsJson = await statsRes.json() as {
         total?: { floor_price?: number; floor_price_symbol?: string }
@@ -778,7 +773,7 @@ export function registerIpcHandlers(): void {
     const { VersionedTransaction, Connection } = await import('@solana/web3.js')
     const tx = VersionedTransaction.deserialize(Uint8Array.from(input.transaction))
     tx.sign([keypair])
-    const conn = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, 'confirmed')
+    const conn = new Connection(heliusRpcUrl(config), 'confirmed')
     const signature = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
     return { signature }
   })
@@ -813,21 +808,21 @@ export function registerIpcHandlers(): void {
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano wallet')
     const config = loadConfig()
-    return cip30GetBalance(addresses.cardano, config.blockfrostKey ?? '')
+    return cip30GetBalance(addresses.cardano, config)
   })
 
   ipcMain.handle('cardano:get-utxos', async () => {
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano wallet')
     const config = loadConfig()
-    return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
+    return cip30GetUtxos(addresses.cardano, config)
   })
 
   ipcMain.handle('cardano:get-collateral', async (_event, amountHex?: string) => {
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano wallet')
     const config = loadConfig()
-    return cip30GetCollateral(addresses.cardano, config.blockfrostKey ?? '', amountHex)
+    return cip30GetCollateral(addresses.cardano, config, amountHex)
   })
 
   ipcMain.handle('cardano:get-used-addresses', () => {
@@ -898,7 +893,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('cardano:submit-tx', async (_event, txHex: string) => {
     const config = loadConfig()
-    return cip30SubmitTx(txHex, config.blockfrostKey ?? '')
+    return cip30SubmitTx(txHex, config)
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

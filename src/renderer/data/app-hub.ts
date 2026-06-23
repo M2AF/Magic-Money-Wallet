@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 253,
+  "totalApps": 419,
   "totalChains": 18,
   "chains": [
     {
@@ -113,12 +113,12 @@ const APP_HUB: AppHubData = {
     {
       "name": "DeFi",
       "short": "DeFi",
-      "count": 39
+      "count": 55
     },
     {
       "name": "DEX",
       "short": "DEX",
-      "count": 40
+      "count": 47
     },
     {
       "name": "Gaming",
@@ -138,7 +138,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "NFT Marketplace",
       "short": "NFT",
-      "count": 25
+      "count": 30
     },
     {
       "name": "Portfolio & Analytics",
@@ -148,12 +148,47 @@ const APP_HUB: AppHubData = {
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 12
+      "count": 21
     },
     {
       "name": "Wallet",
       "short": "Wallet",
       "count": 22
+    },
+    {
+      "name": "AI",
+      "short": "AI",
+      "count": 10
+    },
+    {
+      "name": "Stablecoins",
+      "short": "Stable",
+      "count": 4
+    },
+    {
+      "name": "Identity",
+      "short": "Identity",
+      "count": 19
+    },
+    {
+      "name": "Minting Services",
+      "short": "Minting",
+      "count": 9
+    },
+    {
+      "name": "Social",
+      "short": "Social",
+      "count": 25
+    },
+    {
+      "name": "Payments",
+      "short": "Payments",
+      "count": 27
+    },
+    {
+      "name": "Real World Assets",
+      "short": "RWA",
+      "count": 35
     }
   ],
   "chainStats": [
@@ -183,7 +218,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "cardano",
-      "count": 60
+      "count": 226
     },
     {
       "id": "ethereum",
@@ -4320,6 +4355,2330 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=foreon.network&sz=64",
       "description": "A decentralized prediction protocol on Cardano allowing users to create and participate in binary outcome markets.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "astarter",
+      "name": "Astarter",
+      "website": "https://astarter.io",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=astarter.io&sz=64",
+      "description": "Decentralized AI compute node network.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "bitte",
+      "name": "Bitte",
+      "website": "https://www.bitte.ai/",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bitte.ai&sz=64",
+      "description": "No-code AI agent builder.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "chakra-agents",
+      "name": "Chakra Agents",
+      "website": "https://chakra-ai.io",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=chakra-ai.io&sz=64",
+      "description": "Launchpad for autonomous AI agents.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "farmroll",
+      "name": "Farmroll",
+      "website": "https://farmroll.io/",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=farmroll.io&sz=64",
+      "description": "Quest rewards platform with AI agents.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nucast-ai",
+      "name": "Nucast AI",
+      "website": "https://ai.nucast.io",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ai.nucast.io&sz=64",
+      "description": "Wallet-aware AI chat layer.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "quorina",
+      "name": "Quorina",
+      "website": "https://quorina.com",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=quorina.com&sz=64",
+      "description": "Wallet-gated generative AI tools.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sokosumi",
+      "name": "Sokosumi",
+      "website": "https://sokosumi.com/",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sokosumi.com&sz=64",
+      "description": "Professional AI marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "spidex-ai",
+      "name": "Spidex AI",
+      "website": "https://app.spidex.ag",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.spidex.ag&sz=64",
+      "description": "Chat-based crypto trading assistant.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "artificial-superintelligence-alliance",
+      "name": "Superintelligence Alliance",
+      "website": "https://superintelligence.io/",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=superintelligence.io&sz=64",
+      "description": "AI alliance under one token.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sync-ai",
+      "name": "Sync AI",
+      "website": "https://www.syncai.network/",
+      "category": "AI",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=syncai.network&sz=64",
+      "description": "Chat-based on-chain control panel.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "djed",
+      "name": "Djed",
+      "website": "https://djed.xyz/",
+      "category": "Stablecoins",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=djed.xyz&sz=64",
+      "description": "Overcollateralized stablecoin pegged to dollars.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "usda",
+      "name": "USDA",
+      "website": "https://www.anzens.com",
+      "category": "Stablecoins",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=anzens.com&sz=64",
+      "description": "Fully reserved fiat-backed stablecoin.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "usdcx",
+      "name": "USDCx",
+      "website": "https://www.circle.com/xreserve",
+      "category": "Stablecoins",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=circle.com&sz=64",
+      "description": "Interoperable dollar-backed stablecoin.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "usdm",
+      "name": "USDM",
+      "website": "https://moneta.global/",
+      "category": "Stablecoins",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=moneta.global&sz=64",
+      "description": "Regulated fiat-backed stablecoin.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "adahandle",
+      "name": "ADA Handle",
+      "website": "https://handle.me/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=handle.me&sz=64",
+      "description": "NFT-backed human-readable wallet handles.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "bikeid",
+      "name": "BikeID",
+      "website": "https://bikeid.org/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=bikeid.org&sz=64",
+      "description": "Digital identity tags for bicycles.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "blocktrust",
+      "name": "Blocktrust",
+      "website": "https://www.blocktrust.dev",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=blocktrust.dev&sz=64",
+      "description": "Decentralized identity solutions.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "commitproof",
+      "name": "CommitProof",
+      "website": "https://commitproof.com",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=commitproof.com&sz=64",
+      "description": "Timestamp text or files on-chain.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "commonlands",
+      "name": "Commonlands",
+      "website": "https://www.commonlands.org/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=commonlands.org&sz=64",
+      "description": "Land titling and credit for the unbanked.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "echocert",
+      "name": "EchoCert",
+      "website": "https://echocert.echoforgellc.tech",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=echocert.echoforgellc.tech&sz=64",
+      "description": "Issue verifiable digital certificates.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "echodash",
+      "name": "EchoDash",
+      "website": "https://echodash.echoforgellc.tech",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=echodash.echoforgellc.tech&sz=64",
+      "description": "Wallet-connected ecosystem profile dashboard.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "echouploader",
+      "name": "EchoUploader",
+      "website": "https://uploader.echoforgellc.tech/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=uploader.echoforgellc.tech&sz=64",
+      "description": "On-chain proof of file authorship.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "encoins",
+      "name": "Encoins",
+      "website": "https://www.encoins.io/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=encoins.io&sz=64",
+      "description": "Private value transfer tokens.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "entry",
+      "name": "ENTRY",
+      "website": "https://www.entry.network/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=entry.network&sz=64",
+      "description": "Compliance-native blockchain layer.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "hyperledger-identus",
+      "name": "Hyperledger Identus",
+      "website": "https://hyperledger-identus.github.io/docs",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hyperledger-identus.github.io&sz=64",
+      "description": "Self-sovereign identity platform with credentials.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nabu-vpn",
+      "name": "NABU VPN",
+      "website": "https://nabuvpn.com",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nabuvpn.com&sz=64",
+      "description": "Wallet-based VPN with no signup.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nmkr-identity",
+      "name": "NMKR Identity",
+      "website": "https://identity.nmkr.io/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=identity.nmkr.io&sz=64",
+      "description": "Verifiable project identity for tokens.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nuauth",
+      "name": "NuAuth",
+      "website": "https://nuauth.nucast.io/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nuauth.nucast.io&sz=64",
+      "description": "Content authentication protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "proofspace-no-code-ssi-platform",
+      "name": "ProofSpace",
+      "website": "https://www.proofspace.id/",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=proofspace.id&sz=64",
+      "description": "No-code verifiable credentials platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "shinid-no-code-identity-verification",
+      "name": "Shin ID",
+      "website": "https://shinid.com",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=shinid.com&sz=64",
+      "description": "No-code verifiable credential builder.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "uverify",
+      "name": "UVerify",
+      "website": "https://uverify.io",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=uverify.io&sz=64",
+      "description": "Blockchain document verification platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vault3",
+      "name": "VAULT3",
+      "website": "https://vault3.io",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vault3.io&sz=64",
+      "description": "Token-gated file sharing platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "veridian-identity",
+      "name": "Veridian Identity",
+      "website": "https://www.veridian.id",
+      "category": "Identity",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=veridian.id&sz=64",
+      "description": "KERI-based self-sovereign identity wallet.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "anvil-minting",
+      "name": "Anvil Minting",
+      "website": "https://ada-anvil.io/",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ada-anvil.io&sz=64",
+      "description": "Hosted minting platform for brands.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardahub-minting",
+      "name": "Cardahub Minting",
+      "website": "https://cardahub.io/minting",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardahub.io&sz=64",
+      "description": "In-browser NFT minting tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-studio-app",
+      "name": "Cardano Studio",
+      "website": "https://www.cardano-studio.app/",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardano-studio.app&sz=64",
+      "description": "Self-custody NFT minting in browser.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-tools-io-mint",
+      "name": "Cardano-Tools.io",
+      "website": "https://cardano-tools.io",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardano-tools.io&sz=64",
+      "description": "Free open-source NFT minting tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cnftlab-party",
+      "name": "CNFTlab Party",
+      "website": "https://www.cnftlab.party/",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cnftlab.party&sz=64",
+      "description": "Anonymous NFT minting DApp.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nft-forge",
+      "name": "NFT Forge",
+      "website": "https://nft-forge.wingriders.com/",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nft-forge.wingriders.com&sz=64",
+      "description": "Free bulk NFT minting tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "rewrx",
+      "name": "rewrx",
+      "website": "https://rewrx.org/",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rewrx.org&sz=64",
+      "description": "No-code token and NFT minting suite.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "wild-tangz",
+      "name": "Wild Tangz",
+      "website": "https://www.wildtangz.com",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wildtangz.com&sz=64",
+      "description": "Open-source NFT minting toolkit.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "xforge",
+      "name": "XFORGE",
+      "website": "https://www.xforge.studio",
+      "category": "Minting Services",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=xforge.studio&sz=64",
+      "description": "No-code NFT minting platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "adalink",
+      "name": "AdaLink",
+      "website": "https://www.adalink.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=adalink.io&sz=64",
+      "description": "Affiliate marketing platform paying creators.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "andamio",
+      "name": "Andamio",
+      "website": "https://www.andamio.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=andamio.io&sz=64",
+      "description": "Education and collaboration DApp.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "arp-radio",
+      "name": "Arp Radio",
+      "website": "https://arpradio.media/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=arpradio.media&sz=64",
+      "description": "Music token player and minter.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "atrium",
+      "name": "Atrium",
+      "website": "https://atrium.io/education",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=atrium.io&sz=64",
+      "description": "Beginner crypto and staking lessons.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "booksocial",
+      "name": "BookSocial",
+      "website": "https://www.booksocialapp.com/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=booksocialapp.com&sz=64",
+      "description": "AI book podcast generator.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-xp",
+      "name": "Cardano XP",
+      "website": "https://www.cardano-xp.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardano-xp.io&sz=64",
+      "description": "On-chain contribution reputation.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cryptonaut-id",
+      "name": "Cryptonaut",
+      "website": "https://cryptonaut.id",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cryptonaut.id&sz=64",
+      "description": "Cryptocurrency community social platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "doba-protocol",
+      "name": "Doba Protocol",
+      "website": "https://www.doba.world/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=doba.world&sz=64",
+      "description": "Music NFT royalty protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dred",
+      "name": "DRED",
+      "website": "https://cardano-after-dark.github.io/dred/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardano-after-dark.github.io&sz=64",
+      "description": "Real-time messaging network for DApps.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "finbyte-network",
+      "name": "Finbyte Network",
+      "website": "https://www.finbyte.network",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=finbyte.network&sz=64",
+      "description": "Cardano-native social forum.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "joiz",
+      "name": "JOIZ",
+      "website": "https://joiz.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=joiz.io&sz=64",
+      "description": "Private messenger, no phone needed.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "matotam",
+      "name": "Matotam",
+      "website": "https://www.matotam.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=matotam.io&sz=64",
+      "description": "On-chain NFT messaging app.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "mindplex",
+      "name": "Mindplex",
+      "website": "https://mindplex.ai",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=mindplex.ai&sz=64",
+      "description": "Member-driven futurist media platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nucast",
+      "name": "Nucast",
+      "website": "https://www.nucast.io/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nucast.io&sz=64",
+      "description": "NFT-based video streaming service.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "olympus-insights",
+      "name": "Olympus Insights",
+      "website": "https://oli4education.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=oli4education.io&sz=64",
+      "description": "AI-driven blockchain academy.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "psyence-lab",
+      "name": "Psyence Lab",
+      "website": "https://www.psyencelab.media/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=psyencelab.media&sz=64",
+      "description": "Record, master, and tokenize music.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "raiders-guild",
+      "name": "Raiders Guild",
+      "website": "https://app.raidersguild.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.raidersguild.io&sz=64",
+      "description": "Reward-based social engagement platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "reach-your-people",
+      "name": "Reach your People",
+      "website": "https://www.ryp.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ryp.io&sz=64",
+      "description": "Project updates routed to your inbox.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sick-city",
+      "name": "Sick City",
+      "website": "https://sickcityxyz.wordpress.com/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sickcityxyz.wordpress.com&sz=64",
+      "description": "Music NFT minting for independent artists.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "smartplaces",
+      "name": "SmartPlaces",
+      "website": "https://www.smart-places.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=smart-places.io&sz=64",
+      "description": "Geolocation social rewards.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "songmarketcap",
+      "name": "Song Market Cap",
+      "website": "https://www.songmarketcap.com/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=songmarketcap.com&sz=64",
+      "description": "Creates limited edition NFT songs.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "stuff-io",
+      "name": "Stuff.io",
+      "website": "https://stuff.io/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=stuff.io&sz=64",
+      "description": "Buy and own digital media.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sync-land",
+      "name": "Sync Land",
+      "website": "https://www.sync.land/",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sync.land&sz=64",
+      "description": "P2P music licensing.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vyra-io",
+      "name": "VYRA",
+      "website": "https://vyra.io",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vyra.io&sz=64",
+      "description": "Privacy-focused social network.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "wisdom-courses",
+      "name": "Wisdom Courses",
+      "website": "https://wisdom.courses",
+      "category": "Social",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=wisdom.courses&sz=64",
+      "description": "Learn-to-earn educational portal.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "adadrops-tool",
+      "name": "Adadrop",
+      "website": "https://adadrop.app",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=adadrop.app&sz=64",
+      "description": "Open-source airdrop tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "adamatic",
+      "name": "AdaMatic",
+      "website": "https://adamatic.xyz",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=adamatic.xyz&sz=64",
+      "description": "Automated recurring on-chain payments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "adaseal-vending-machine",
+      "name": "AdaSeal Vending Machine",
+      "website": "https://vm.adaseal.eu",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vm.adaseal.eu&sz=64",
+      "description": "Cardano token vending machine.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "aquarium",
+      "name": "Aquarium",
+      "website": "https://aquarium.fluidtokens.com",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aquarium.fluidtokens.com&sz=64",
+      "description": "Pay network fees with any token.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-card",
+      "name": "Cardano Card",
+      "website": "https://cardanocard.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardanocard.io&sz=64",
+      "description": "Crypto debit card for everyday spending.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-foundation-reeve",
+      "name": "Cardano Foundation Reeve",
+      "website": "https://cardanofoundation.org/reeve",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardanofoundation.org&sz=64",
+      "description": "Verifiable accounting for organizations.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano402",
+      "name": "cardano402",
+      "website": "https://cardano402.com/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardano402.com&sz=64",
+      "description": "Pay-per-request payment gateway.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "claimpaign",
+      "name": "Claimpaign",
+      "website": "https://claimpaign.com",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=claimpaign.com&sz=64",
+      "description": "Event QR claim tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "clanity-rewards",
+      "name": "Clanity Rewards",
+      "website": "https://clanity.com",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=clanity.com&sz=64",
+      "description": "Shared rewards token for local shops.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dotare",
+      "name": "Dotare",
+      "website": "https://www.dotare.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dotare.io&sz=64",
+      "description": "Endowment-funded basic income.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dripdropz",
+      "name": "DripDropz",
+      "website": "https://dripdropz.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dripdropz.io&sz=64",
+      "description": "Per-epoch token claims for delegators.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ekival",
+      "name": "Ekival",
+      "website": "https://ekival.com/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ekival.com&sz=64",
+      "description": "Beta peer-to-peer crypto-cash transfers.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "feesaswap",
+      "name": "FeesaSwap",
+      "website": "https://www.feesaswap.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=feesaswap.io&sz=64",
+      "description": "Pay network fees with any token.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gero-card",
+      "name": "Gero Card",
+      "website": "https://gerowallet.io/gero-card/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gerowallet.io&sz=64",
+      "description": "Spend ADA in euros anywhere.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "iagon-ledgerflow",
+      "name": "Iagon LedgerFlow",
+      "website": "https://docs.iagon.com/products/ledgerflow",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=docs.iagon.com&sz=64",
+      "description": "Group approvals for crypto payments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "linkberry",
+      "name": "Linkberry",
+      "website": "https://linkberry.info/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=linkberry.info&sz=64",
+      "description": "Token rewards for ADA stakers.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nmkr-pay",
+      "name": "NMKR Pay",
+      "website": "https://docs.nmkr.io/nmkr-studio/set-up-sales/nmkr-pay",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=docs.nmkr.io&sz=64",
+      "description": "Checkout for token sales.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nucast-subscriptions",
+      "name": "Nucast Subscriptions",
+      "website": "https://subscription.nucast.io/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=subscription.nucast.io&sz=64",
+      "description": "Recurring crypto subscriptions for creators.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nula",
+      "name": "Nula",
+      "website": "https://nula.stream",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nula.stream&sz=64",
+      "description": "In-development token streaming protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "onboard-ninja",
+      "name": "Onboard Ninja",
+      "website": "https://www.onboard.ninja",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=onboard.ninja&sz=64",
+      "description": "Event airdrop platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "payada",
+      "name": "PayADA",
+      "website": "https://payada.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=payada.io&sz=64",
+      "description": "Checkout links for accepting crypto payments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "poolperks",
+      "name": "PoolPerks",
+      "website": "https://poolperks.io",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=poolperks.io&sz=64",
+      "description": "Staking NFT rewards.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "revuto",
+      "name": "Revuto",
+      "website": "https://revuto.com/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=revuto.com&sz=64",
+      "description": "Control subscriptions, earn cashback.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "stablepay",
+      "name": "StablePay",
+      "website": "https://stablepay.stability.nexus/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=stablepay.stability.nexus&sz=64",
+      "description": "Open-source crypto payment widget.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "tosidrop",
+      "name": "TosiDrop",
+      "website": "https://tosidrop.me",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=tosidrop.me&sz=64",
+      "description": "Comprehensive token distribution platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vendano",
+      "name": "Vendano",
+      "website": "https://vendano.net",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vendano.net&sz=64",
+      "description": "Send ADA by phone or email.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "veralidity",
+      "name": "Veralidity",
+      "website": "https://veralidity.com/",
+      "category": "Payments",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=veralidity.com&sz=64",
+      "description": "Crypto checkout for Magento stores.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "5am-earth",
+      "name": "5am.earth",
+      "website": "https://5am.earth",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=5am.earth&sz=64",
+      "description": "Farmer-owned agricultural data infrastructure.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ango-real-estate-nft",
+      "name": "ANGO Real Estate NFT",
+      "website": "https://ango.jp",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ango.jp&sz=64",
+      "description": "Membership NFTs for Japanese stays.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "archax",
+      "name": "Archax",
+      "website": "https://archax.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=archax.com&sz=64",
+      "description": "Regulated real-world asset platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "asset-dao",
+      "name": "Asset DAO",
+      "website": "https://re-assetdao.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=re-assetdao.com&sz=64",
+      "description": "Japanese property tokenization DAO.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "atomico3",
+      "name": "Atomico3",
+      "website": "https://www.atomico3.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=atomico3.io&sz=64",
+      "description": "Tokenized lithium reserves.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crop-connect",
+      "name": "CropConnect",
+      "website": "https://www.cropconnect.xyz",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cropconnect.xyz&sz=64",
+      "description": "Agricultural supply tracking.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "digift-platform",
+      "name": "DigiFT Platform",
+      "website": "https://digift.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=digift.io&sz=64",
+      "description": "MAS-licensed RWA exchange.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "empowa",
+      "name": "Empowa",
+      "website": "https://empowa.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=empowa.io&sz=64",
+      "description": "Cardano housing development marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "filecoin",
+      "name": "Filecoin",
+      "website": "https://filecoin.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=filecoin.io&sz=64",
+      "description": "Verifiable data storage.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "finest-investments",
+      "name": "Finest Investments",
+      "website": "https://www.finest.investments",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=finest.investments&sz=64",
+      "description": "BaFin-compliant real-world asset platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "haus-protocol",
+      "name": "Haus",
+      "website": "https://www.haus.com/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=haus.com&sz=64",
+      "description": "Real-world asset management protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "iagon",
+      "name": "Iagon",
+      "website": "https://iagon.com/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=iagon.com&sz=64",
+      "description": "Decentralized storage and computing.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "kinka-gold",
+      "name": "Kinka Gold",
+      "website": "https://kinka-gold.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=kinka-gold.com&sz=64",
+      "description": "Physical gold backed digital tokens.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "l4va",
+      "name": "L4VA",
+      "website": "https://www.l4va.com/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=l4va.com&sz=64",
+      "description": "Asset fractionalization vault protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "landano",
+      "name": "Landano",
+      "website": "https://landano.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=landano.io&sz=64",
+      "description": "Blockchain land registry.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "landhive",
+      "name": "Landhive",
+      "website": "https://landhive.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=landhive.io&sz=64",
+      "description": "Fractional real estate investing.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "libertum",
+      "name": "Libertum",
+      "website": "https://www.libertum.io/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=libertum.io&sz=64",
+      "description": "Tokenization platform for real-world assets.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "lw3",
+      "name": "LW3",
+      "website": "https://lw3.world",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=lw3.world&sz=64",
+      "description": "Enterprise blockchain traceability.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nunet",
+      "name": "NuNet",
+      "website": "https://www.nunet.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nunet.io&sz=64",
+      "description": "Rent or share spare computing power.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "open-food-chain",
+      "name": "Open Food Chain",
+      "website": "https://www.openfoodchain.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=openfoodchain.com&sz=64",
+      "description": "Food supply traceability.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "open-litter-map",
+      "name": "Open Litter Map",
+      "website": "https://openlittermap.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=openlittermap.com&sz=64",
+      "description": "Crowdsourced map of global litter pollution.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "originate-supply-chain-platform",
+      "name": "OriginateNavio",
+      "website": "https://github.com/cardano-foundation/originatenavio",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=github.com&sz=64",
+      "description": "Open-source supply chain solution.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "palmyra",
+      "name": "Palmyra",
+      "website": "https://palmyra.app",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=palmyra.app&sz=64",
+      "description": "Supply chain transparency.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pbg",
+      "name": "PBG",
+      "website": "https://www.pbg.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pbg.io&sz=64",
+      "description": "Tokenized fund management.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "plastiks",
+      "name": "Plastiks",
+      "website": "https://www.plastiks.io",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=plastiks.io&sz=64",
+      "description": "Verified plastic traceability.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "re-twin",
+      "name": "Re Twin",
+      "website": "https://re-twin.com/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=re-twin.com&sz=64",
+      "description": "Real estate documentation NFTs.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "realtoro",
+      "name": "RealToro",
+      "website": "https://realtoro.org",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=realtoro.org&sz=64",
+      "description": "Blockchain property registry.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "reit-circles",
+      "name": "Reit Circles",
+      "website": "https://reitcircles.com",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=reitcircles.com&sz=64",
+      "description": "Property tokenization platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "rejuve",
+      "name": "Rejuve",
+      "website": "https://www.rejuve.ai/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=rejuve.ai&sz=64",
+      "description": "Earn tokens for sharing health data.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "stablemans",
+      "name": "Stablemans",
+      "website": "https://www.stablemans.com/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=stablemans.com&sz=64",
+      "description": "Fractional racehorse ownership platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "terralima",
+      "name": "TerraLima",
+      "website": "https://terralima.co",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=terralima.co&sz=64",
+      "description": "Agricultural supply platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "toto-finance",
+      "name": "Toto Finance",
+      "website": "https://totofinance.co/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=totofinance.co&sz=64",
+      "description": "Tokenized commodity marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vola-network",
+      "name": "Vola Network",
+      "website": "https://vola.network/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vola.network&sz=64",
+      "description": "Decentralized cloud storage and computing.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "walkers",
+      "name": "Walkers",
+      "website": "https://walkerscardano.xyz/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=walkerscardano.xyz&sz=64",
+      "description": "Turn steps into cryptocurrency rewards.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "zengate-global",
+      "name": "ZenGate Global",
+      "website": "https://www.zengate.global/",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=zengate.global&sz=64",
+      "description": "Global commodity trading platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "danogo-swap",
+      "name": "Danogo Swap",
+      "website": "https://dano.finance/swap",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dano.finance&sz=64",
+      "description": "Token swaps inside a DeFi app.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "delta-defi",
+      "name": "Delta DeFi",
+      "website": "https://deltadefi.io",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=deltadefi.io&sz=64",
+      "description": "High-frequency DEX platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "fetch-dex",
+      "name": "FetchSwap",
+      "website": "https://fetchswap.io",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=fetchswap.io&sz=64",
+      "description": "Transparent swap price finder.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "muesliswap-aggregator",
+      "name": "MuesliSwap Aggregator",
+      "website": "https://v2.muesliswap.com",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=v2.muesliswap.com&sz=64",
+      "description": "Cardano swap route finder.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "steelswap",
+      "name": "Steelswap",
+      "website": "https://steelswap.io",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=steelswap.io&sz=64",
+      "description": "Multi-DEX swap price finder.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "viper-swap",
+      "name": "ViperSwap Aggregator",
+      "website": "https://vipercoin.io/swap",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vipercoin.io&sz=64",
+      "description": "Best-route swap aggregator.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vyfi",
+      "name": "VyFi",
+      "website": "https://vyfi.io",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=vyfi.io&sz=64",
+      "description": "DeFi hub with auto-harvesting vaults.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis",
+      "website": "https://aegis.fluxpointstudios.com",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aegis.fluxpointstudios.com&sz=64",
+      "description": "Automatic on-chain insurance payouts.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "akyba",
+      "name": "Akyba",
+      "website": "https://aikenakyba.web.app",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=aikenakyba.web.app&sz=64",
+      "description": "On-chain community savings circles.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "butane",
+      "name": "Butane",
+      "website": "https://butane.dev/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=butane.dev&sz=64",
+      "description": "Multi-collateral synthetic platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-visualisation-insights",
+      "name": "Cardano Visualisation Insights",
+      "website": "https://insights.cardano-visualisation.com/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=insights.cardano-visualisation.com&sz=64",
+      "description": "AI token trade analysis dashboard.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crci-review",
+      "name": "CRCI",
+      "website": "https://www.crci.review/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crci.review&sz=64",
+      "description": "DeFi analysis platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "crowscore",
+      "name": "CrowScore",
+      "website": "https://crowscore.com/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=crowscore.com&sz=64",
+      "description": "Composite token scoring tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "dano-finance",
+      "name": "Danogo",
+      "website": "https://dano.finance",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=dano.finance&sz=64",
+      "description": "Lending, borrowing, leverage, bonds.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "fida-finance",
+      "name": "Fida Finance",
+      "website": "https://fida.finance",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=fida.finance&sz=64",
+      "description": "On-chain insurance risk marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "levvy-fi",
+      "name": "Levvy Fi",
+      "website": "https://levvy.fi/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=levvy.fi&sz=64",
+      "description": "Peer-to-peer lending suite.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "mayz-index",
+      "name": "MAYZ Protocol",
+      "website": "https://mayz.io",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=mayz.io&sz=64",
+      "description": "Decentralized index-fund investment platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "metera-index",
+      "name": "Metera Index",
+      "website": "https://www.meteraprotocol.io/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=meteraprotocol.io&sz=64",
+      "description": "Tokenized index funds.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "pondora",
+      "name": "Pondora",
+      "website": "https://pondora.org/",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=pondora.org&sz=64",
+      "description": "Self-custody trading and lending hub.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "realfi",
+      "name": "RealFi",
+      "website": "https://realfi.co",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=realfi.co&sz=64",
+      "description": "Yield-bearing stablecoin backed by real-world assets.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "smart-contract-audit-dao",
+      "name": "Smart Contract Audit DAO",
+      "website": "https://www.scatdao.com",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=scatdao.com&sz=64",
+      "description": "Community-governed audit collective.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "surf-lending",
+      "name": "Surf Lending",
+      "website": "https://surflending.org",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=surflending.org&sz=64",
+      "description": "Pooled lending with one-click leverage.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "xerberus",
+      "name": "Xerberus",
+      "website": "https://xerberus.io",
+      "category": "DeFi",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=xerberus.io&sz=64",
+      "description": "DeFi protocol risk assessments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "arkhouse-gallery",
+      "name": "Arkhouse Gallery",
+      "website": "https://www.arkhouse.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=arkhouse.io&sz=64",
+      "description": "Curated Web3 art gallery.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "atomic-swap",
+      "name": "Atomic Swap",
+      "website": "https://atomic-swap.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=atomic-swap.io&sz=64",
+      "description": "Peer-to-peer asset swap tool.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cswap-nft-marketplace",
+      "name": "CSwap NFT Marketplace",
+      "website": "https://app.cswap.fi",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.cswap.fi&sz=64",
+      "description": "NFT marketplace with liquidity pools.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "flipswap",
+      "name": "FlipSwap",
+      "website": "https://flipswap.io",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=flipswap.io&sz=64",
+      "description": "Non-custodial NFT swap marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "nftio-io",
+      "name": "NFT.io",
+      "website": "https://nftio.io/",
+      "category": "NFT Marketplace",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=nftio.io&sz=64",
+      "description": "Peer-to-peer NFT swap marketplace.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "ascend-perpetuals",
+      "name": "Ascend Perpetuals",
+      "website": "https://testnet.ascend.market/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=testnet.ascend.market&sz=64",
+      "description": "Leveraged longs and shorts on outcomes.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cardano-casino",
+      "name": "Cardano Casino",
+      "website": "https://cardanocasino.com/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=cardanocasino.com&sz=64",
+      "description": "NFT-based casino platform for ADA.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "danzo-casino",
+      "name": "Danzo Casino",
+      "website": "https://www.danzo.gg/#/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=danzo.gg&sz=64",
+      "description": "Cardano meme casino.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "gaming-snek-raffle",
+      "name": "Gaming-Snek Raffle",
+      "website": "https://gaming-snek.com/raffle",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gaming-snek.com&sz=64",
+      "description": "Community raffle platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "hydrodrip",
+      "name": "HydroDrip",
+      "website": "https://hydrodrip.io/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=hydrodrip.io&sz=64",
+      "description": "Token-reward and coin-flip platform.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "minute-markets",
+      "name": "Minute Markets",
+      "website": "https://www.minutemarkets.io/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=minutemarkets.io&sz=64",
+      "description": "Short-cycle price prediction protocol.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "one-ada-fortune",
+      "name": "One ADA Fortune",
+      "website": "https://oneadatarot.com/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=oneadatarot.com&sz=64",
+      "description": "Pay-per-reading fortune app.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "vyfi-lottery",
+      "name": "VyFi Lottery",
+      "website": "https://app.vyfi.io/lottery",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.vyfi.io&sz=64",
+      "description": "Blockchain lottery system.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "cpoker",
+      "name": "ZKPoker",
+      "website": "https://zkpoker.io/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=zkpoker.io&sz=64",
+      "description": "Real-time decentralized poker gaming platform.",
       "chainCount": 1,
       "coverage": 6
     }

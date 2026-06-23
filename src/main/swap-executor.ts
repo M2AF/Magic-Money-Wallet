@@ -18,6 +18,7 @@ import { sendRawEvmTransaction, waitForEvmReceipt } from './tx-sender'
 import { getSolanaKeypair } from './wallet-core'
 import type { NormalizedSwapQuote } from './swap-proxy'
 import type { WalletConfig } from './secure-store'
+import { heliusRpcUrl } from './api-proxy'
 
 // Wallet chain id → numeric EVM chainId (matches tx-sender's supported set).
 const EVM_CHAIN_ID: Record<string, number> = {
@@ -96,7 +97,7 @@ async function executeSolanaSwap(
     throw new Error('Quote did not include a Solana transaction to sign.')
   }
   const keypair = await getSolanaKeypair(mnemonic, accountIndex)
-  const connection = new Connection(`https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`, 'confirmed')
+  const connection = new Connection(heliusRpcUrl(config), 'confirmed')
 
   const buf = Buffer.from(quote.txData.swapTransaction, 'base64')
   const tx = VersionedTransaction.deserialize(buf)

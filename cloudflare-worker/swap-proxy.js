@@ -23,6 +23,10 @@
  *   ALLOWED_ORIGIN       — optional CORS allowlist (defaults to '*')
  */
 
+import { cors, json, err } from './lib.js'
+import { handleRead } from './read.js'
+import { handleDb } from './db.js'
+
 const EVM_CHAIN_IDS = {
   ethereum: 1, arbitrum: 42161, optimism: 10, base: 8453,
   polygon: 137, avalanche: 43114, bsc: 56,
@@ -30,28 +34,27 @@ const EVM_CHAIN_IDS = {
 const NATIVE_EVM = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 const NATIVE_SET = new Set([NATIVE_EVM.toLowerCase(), '0x0000000000000000000000000000000000000000'])
 
-function cors(env) {
-  return {
-    'Access-Control-Allow-Origin': env.ALLOWED_ORIGIN || '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
-}
-const json = (env, obj, status = 200) =>
-  new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-const err = (env, message, status = 400) => json(env, { error: message }, status)
+// cors / json / err live in lib.js (shared with the read + db route modules).
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     const { pathname } = url
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors(env) })
 
     try {
+      // Read-path + Supabase routes — each returns null when its namespace
+      // doesn't match, so the swap routes below still run unchanged.
+      const read = await handleRead(request, url, env, ctx)
+      if (read) return read
+      const db = await handleDb(request, url, env, ctx)
+      if (db) return db
+
       if (pathname === '/quote') return await handleQuote(url, env)
       if (pathname === '/tokens') return await handleTokens(url, env)
       if (pathname === '/ss/estimate') return await ssEstimate(url, env)
+      if (pathname === '/ss/ranges') return await ssRanges(url, env)
       if (pathname === '/ss/exchange' && request.method === 'POST') return await ssExchange(request, env)
       if (pathname.startsWith('/ss/status/')) return await ssStatus(pathname.split('/').pop(), env)
       if (pathname === '/ss/pairs') return await ssPassthrough('pairs', url, env)
@@ -249,6 +252,17 @@ async function ssEstimate(url, env) {
     amount: p.get('amount') || '', fixed: p.get('fixed') || 'false', reverse: 'false',
   })
   const res = await fetch(`${SS}/estimates?${params}`, { headers: { 'x-api-key': ssKey(env) } })
+  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
+}
+
+async function ssRanges(url, env) {
+  const p = url.searchParams
+  const params = new URLSearchParams({
+    tickerFrom: p.get('from') || '', networkFrom: p.get('fromNet') || '',
+    tickerTo: p.get('to') || '', networkTo: p.get('toNet') || '',
+    fixed: p.get('fixed') || 'false',
+  })
+  const res = await fetch(`${SS}/ranges?${params}`, { headers: { 'x-api-key': ssKey(env) } })
   return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
 }
 

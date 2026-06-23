@@ -15,6 +15,8 @@ import {
   decodeCardanoAddress,
   deriveCardanoStakeAddress,
 } from './cardano-pure'
+import type { WalletConfig } from './secure-store'
+import { blockfrostFetch } from './api-proxy'
 
 // ── CBOR primitives ───────────────────────────────────────────────────────────
 
@@ -248,13 +250,8 @@ function bytesContain(haystack: Uint8Array, needle: Uint8Array): boolean {
 
 // ── CIP-30 API implementations ────────────────────────────────────────────────
 
-const BF = 'https://cardano-mainnet.blockfrost.io/api/v0'
-
-export async function cip30GetBalance(address: string, blockfrostKey: string): Promise<string> {
-  const res = await fetch(`${BF}/addresses/${address}`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(10_000)
-  })
+export async function cip30GetBalance(address: string, config: WalletConfig): Promise<string> {
+  const res = await blockfrostFetch(`addresses/${address}`, config, 10_000)
   if (!res.ok) throw new Error(`Blockfrost ${res.status}`)
   const data = await res.json() as { amount?: Array<{ unit: string; quantity: string }> }
   const amount = data.amount ?? []
@@ -264,11 +261,8 @@ export async function cip30GetBalance(address: string, blockfrostKey: string): P
   return bytesToHex(cborValue(lovelace, amount))
 }
 
-export async function cip30GetUtxos(address: string, blockfrostKey: string): Promise<string[]> {
-  const res = await fetch(`${BF}/addresses/${address}/utxos?count=100`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(12_000)
-  })
+export async function cip30GetUtxos(address: string, config: WalletConfig): Promise<string[]> {
+  const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12_000)
   if (!res.ok) return []
   const utxos = await res.json() as Array<{
     tx_hash: string; output_index: number; data_hash?: string | null
@@ -295,12 +289,9 @@ export async function cip30GetUtxos(address: string, blockfrostKey: string): Pro
  * Returns [] if no pure-ADA UTxOs can meet the target.
  */
 export async function cip30GetCollateral(
-  address: string, blockfrostKey: string, amountHex?: string
+  address: string, config: WalletConfig, amountHex?: string
 ): Promise<string[]> {
-  const res = await fetch(`${BF}/addresses/${address}/utxos?count=100`, {
-    headers: { project_id: blockfrostKey },
-    signal: AbortSignal.timeout(12_000)
-  })
+  const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12_000)
   if (!res.ok) return []
   const utxos = await res.json() as Array<{
     tx_hash: string; output_index: number
@@ -410,12 +401,11 @@ export async function cip30SignData(
   return { signature: bytesToHex(coseSign1), key: bytesToHex(coseKey) }
 }
 
-export async function cip30SubmitTx(txHex: string, blockfrostKey: string): Promise<string> {
-  const res = await fetch(`${BF}/tx/submit`, {
+export async function cip30SubmitTx(txHex: string, config: WalletConfig): Promise<string> {
+  const res = await blockfrostFetch('tx/submit', config, 20_000, {
     method: 'POST',
-    headers: { project_id: blockfrostKey, 'Content-Type': 'application/cbor' },
+    headers: { 'Content-Type': 'application/cbor' },
     body: hexToBytes(txHex),
-    signal: AbortSignal.timeout(20_000)
   })
   if (!res.ok) {
     const msg = await res.text().catch(() => String(res.status))

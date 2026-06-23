@@ -27,18 +27,23 @@ export interface WalletConfig {
   simpleSwapApiKey: string
 }
 
+// Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
+// injected server-side (see cloudflare-worker/, api-proxy.ts). A Chrome Web Store
+// package is publicly unzippable, so shipping keys here was the worst exposure;
+// this closes it. `walletConnectProjectId` stays client-side by design (WC connects
+// to its relay directly, not through our Worker).
 const DEFAULT_CONFIG: WalletConfig = {
-  alchemyKey:             'REDACTED_ALCHEMY_KEY',
-  heliusKey:              'REDACTED_HELIUS_KEY',
-  blockfrostKey:          'REDACTED_BLOCKFROST_KEY',
-  tatumKey:               'REDACTED_TATUM_KEY',
-  moralisKey:             'REDACTED_JWT',
-  openseaKey:             'REDACTED_OPENSEA_KEY',
-  supabaseUrl:            'https://REDACTED_SUPABASE_PROJECT.supabase.co',
-  supabaseKey:            'REDACTED_SUPABASE_SECRET',
+  alchemyKey:             '',
+  heliusKey:              '',
+  blockfrostKey:          '',
+  tatumKey:               '',
+  moralisKey:             '',
+  openseaKey:             '',
+  supabaseUrl:            '',
+  supabaseKey:            '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
   swapProxyUrl:           'https://magicmoney-swap-proxy.guildfordking.workers.dev',
-  simpleSwapApiKey:       'e7f2026e-5e26-41ba-a6ed-dc688d2fcae8'
+  simpleSwapApiKey:       ''
 }
 
 // ── WebCrypto helpers ─────────────────────────────────────────────────────────

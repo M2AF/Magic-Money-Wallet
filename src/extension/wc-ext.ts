@@ -18,6 +18,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import nacl from 'tweetnacl'
 import { loadConfig, loadAddresses, loadMnemonic } from './chrome-store'
 import { getSolanaKeypair } from '../main/wallet-core'
+import { alchemyRpcUrl } from '../main/api-proxy'
 
 // ── Base58 encode/decode (inline — avoids bundler issues with bs58 in service workers) ────
 
@@ -73,20 +74,22 @@ const SOLANA_CHAINS = [
 const SOLANA_METHODS = ['solana_signMessage', 'solana_signTransaction', 'solana_signAndSendTransaction']
 
 async function getRpc(chainId: number): Promise<string> {
-  const { alchemyKey } = await loadConfig()
-  const alchemyMap: Record<number, string> = {
-    1:     `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    137:   `https://polygon-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    42161: `https://arb-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    10:    `https://opt-mainnet.g.alchemy.com/v2/${alchemyKey}`,
-    8453:  `https://base-mainnet.g.alchemy.com/v2/${alchemyKey}`
+  const config = await loadConfig()
+  const alchemyNet: Record<number, string> = {
+    1:     'eth-mainnet',
+    137:   'polygon-mainnet',
+    42161: 'arb-mainnet',
+    10:    'opt-mainnet',
+    8453:  'base-mainnet'
   }
   const publicMap: Record<number, string> = {
     56:    'https://bsc-dataseed.binance.org',
     43114: 'https://api.avax.network/ext/bc/C/rpc',
     250:   'https://rpc.ftm.tools'
   }
-  return alchemyMap[chainId] ?? publicMap[chainId] ?? `https://eth-mainnet.g.alchemy.com/v2/${alchemyKey}`
+  const net = alchemyNet[chainId]
+  if (net) return alchemyRpcUrl(net, config)
+  return publicMap[chainId] ?? alchemyRpcUrl('eth-mainnet', config)
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────

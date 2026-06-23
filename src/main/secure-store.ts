@@ -145,20 +145,26 @@ export interface WalletConfig {
   simpleSwapApiKey: string
 }
 
+// All provider keys are EMPTY by default — they live only as Cloudflare Worker
+// secrets and are injected server-side (see cloudflare-worker/, api-proxy.ts).
+// Shipping keys in the bundle was the security hole this closes. A self-hoster can
+// still paste their own keys in Settings; with a key present the client falls back
+// to a direct call when no proxy is configured. `swapProxyUrl` (the Worker origin)
+// is the one populated default. `walletConnectProjectId` stays client-side by
+// design — WalletConnect connects to its relay directly, not through our Worker.
 const DEFAULT_CONFIG: WalletConfig = {
-  alchemyKey: 'REDACTED_ALCHEMY_KEY',
-  heliusKey: 'REDACTED_HELIUS_KEY',
-  blockfrostKey: 'REDACTED_BLOCKFROST_KEY',
-  tatumKey: 'REDACTED_TATUM_KEY',
-  moralisKey: 'REDACTED_JWT',
-  openseaKey: 'REDACTED_OPENSEA_KEY',
-  supabaseUrl: 'https://REDACTED_SUPABASE_PROJECT.supabase.co',
-  supabaseKey: 'REDACTED_SUPABASE_SECRET',
+  alchemyKey: '',
+  heliusKey: '',
+  blockfrostKey: '',
+  tatumKey: '',
+  moralisKey: '',
+  openseaKey: '',
+  supabaseUrl: '',
+  supabaseKey: '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
-  // DEX swaps route through this proxy (keys injected server-side).
+  // All keyed providers (RPC, NFT, prices, DEX, Supabase) route through this proxy.
   swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
-  // SimpleSwap DeFi (crypto) key — direct calls for now; moves behind swapProxyUrl /ss/* when deployed.
-  simpleSwapApiKey: 'e7f2026e-5e26-41ba-a6ed-dc688d2fcae8'
+  simpleSwapApiKey: ''
 }
 
 let configCache: WalletConfig | null = null

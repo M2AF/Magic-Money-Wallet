@@ -30,6 +30,7 @@ import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
+import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
 
 // ── Global error logging (service workers crash silently without this) ────────
 
@@ -543,7 +544,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           const { EVM_CHAINS: evmCfg } = await import('../main/chain-config')
           const rpcCfg = await store.loadConfig()
           const chainDef = evmCfg.find(c => c.chainId === chainNum)
-          const rpcUrl = chainDef?.rpcUrl(rpcCfg) ?? `https://eth-mainnet.g.alchemy.com/v2/${rpcCfg.alchemyKey ?? ''}`
+          const rpcUrl = chainDef?.rpcUrl(rpcCfg) ?? alchemyRpcUrl('eth-mainnet', rpcCfg)
           const rpcRes = await fetch(rpcUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -795,7 +796,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const solKeypair = await getSolanaKeypair(solMnemonic, solAddresses?.accountIndex ?? 0)
       const solTx = VersionedTransaction.deserialize(txBytes)
       solTx.sign([solKeypair])
-      const solConn = new SolConnection(`https://mainnet.helius-rpc.com/?api-key=${solConfig.heliusKey}`, 'confirmed')
+      const solConn = new SolConnection(heliusRpcUrl(solConfig), 'confirmed')
       const solSig = await solConn.sendRawTransaction(solTx.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
       return { signature: solSig }
     }
@@ -842,21 +843,21 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await store.loadAddresses()
       if (!addresses?.cardano) throw new Error('No Cardano wallet')
       const config = await store.loadConfig()
-      return cip30GetBalance(addresses.cardano, config.blockfrostKey ?? '')
+      return cip30GetBalance(addresses.cardano, config)
     }
 
     case 'cardano:get-utxos': {
       const addresses = await store.loadAddresses()
       if (!addresses?.cardano) throw new Error('No Cardano wallet')
       const config = await store.loadConfig()
-      return cip30GetUtxos(addresses.cardano, config.blockfrostKey ?? '')
+      return cip30GetUtxos(addresses.cardano, config)
     }
 
     case 'cardano:get-collateral': {
       const addresses = await store.loadAddresses()
       if (!addresses?.cardano) throw new Error('No Cardano wallet')
       const config = await store.loadConfig()
-      return cip30GetCollateral(addresses.cardano, config.blockfrostKey ?? '', a0 ? String(a0) : undefined)
+      return cip30GetCollateral(addresses.cardano, config, a0 ? String(a0) : undefined)
     }
 
     case 'cardano:get-used-addresses': {
@@ -908,7 +909,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'cardano:submit-tx': {
       const config = await store.loadConfig()
-      return cip30SubmitTx(String(a0), config.blockfrostKey ?? '')
+      return cip30SubmitTx(String(a0), config)
     }
 
     // ── Side panel ────────────────────────────────────────────────────────

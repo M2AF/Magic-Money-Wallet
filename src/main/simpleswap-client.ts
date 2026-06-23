@@ -15,6 +15,7 @@
  */
 
 import type { WalletConfig } from './secure-store'
+import { proxyBase } from './api-proxy'
 
 const SS_API = 'https://api.simpleswap.io/v3'
 
@@ -117,14 +118,25 @@ function errorExchange(error: string): SsExchangeResult {
 
 /** Estimate receive amount + min/max range (two v3 calls, run in parallel). */
 export async function ssEstimate(params: SsEstimateParams, config: WalletConfig): Promise<SsEstimateResult> {
+  const proxy = proxyBase(config)
   const key = config.simpleSwapApiKey
-  if (!key) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: 'SimpleSwap key missing.' }
+  if (!proxy && !key) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: 'SimpleSwap not configured.' }
 
-  const base = `tickerFrom=${params.tickerFrom}&networkFrom=${params.networkFrom}&tickerTo=${params.tickerTo}&networkTo=${params.networkTo}`
+  // Proxy routes use short param names (from/fromNet/…) and inject the key;
+  // direct calls use SimpleSwap's tickerFrom/networkFrom names + x-api-key.
+  const pq = `from=${params.tickerFrom}&fromNet=${params.networkFrom}&to=${params.tickerTo}&toNet=${params.networkTo}`
+  const dq = `tickerFrom=${params.tickerFrom}&networkFrom=${params.networkFrom}&tickerTo=${params.tickerTo}&networkTo=${params.networkTo}`
+  const estUrl = proxy
+    ? `${proxy}/ss/estimate?${pq}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}`
+    : `${SS_API}/estimates?${dq}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}&reverse=false`
+  const rangeUrl = proxy
+    ? `${proxy}/ss/ranges?${pq}&fixed=${params.fixed}`
+    : `${SS_API}/ranges?${dq}&fixed=${params.fixed}`
+  const headers = proxy ? { accept: 'application/json' } : ssHeaders(key)
   try {
     const [estRes, rangeRes] = await Promise.all([
-      fetch(`${SS_API}/estimates?${base}&amount=${encodeURIComponent(params.amount)}&fixed=${params.fixed}&reverse=false`, { headers: ssHeaders(key), signal: AbortSignal.timeout(15_000) }),
-      fetch(`${SS_API}/ranges?${base}&fixed=${params.fixed}`, { headers: ssHeaders(key), signal: AbortSignal.timeout(15_000) }),
+      fetch(estUrl, { headers, signal: AbortSignal.timeout(15_000) }),
+      fetch(rangeUrl, { headers, signal: AbortSignal.timeout(15_000) }),
     ])
 
     let estimatedAmount: string | null = null, rateId: string | null = null, validUntil: string | null = null, error: string | null = null
@@ -152,14 +164,15 @@ export async function ssEstimate(params: SsEstimateParams, config: WalletConfig)
 
 /** Create the exchange — returns the deposit address (addressFrom) the user funds. */
 export async function ssCreateExchange(params: SsCreateParams, config: WalletConfig): Promise<SsExchangeResult> {
+  const proxy = proxyBase(config)
   const key = config.simpleSwapApiKey
-  if (!key) return errorExchange('SimpleSwap key missing.')
+  if (!proxy && !key) return errorExchange('SimpleSwap not configured.')
   if (!params.addressTo) return errorExchange('Destination address is required.')
 
   try {
-    const res = await fetch(`${SS_API}/exchanges`, {
+    const res = await fetch(proxy ? `${proxy}/ss/exchange` : `${SS_API}/exchanges`, {
       method: 'POST',
-      headers: { ...ssHeaders(key), 'content-type': 'application/json' },
+      headers: proxy ? { 'content-type': 'application/json' } : { ...ssHeaders(key), 'content-type': 'application/json' },
       body: JSON.stringify({
         fixed: params.fixed,
         tickerFrom: params.tickerFrom,
@@ -186,12 +199,14 @@ export async function ssCreateExchange(params: SsCreateParams, config: WalletCon
 
 /** Poll exchange status. */
 export async function ssGetStatus(id: string, config: WalletConfig): Promise<SsExchangeResult> {
+  const proxy = proxyBase(config)
   const key = config.simpleSwapApiKey
-  if (!key) return errorExchange('SimpleSwap key missing.')
+  if (!proxy && !key) return errorExchange('SimpleSwap not configured.')
   if (!id) return errorExchange('Missing exchange id.')
 
   try {
-    const res = await fetch(`${SS_API}/exchanges/${encodeURIComponent(id)}`, { headers: ssHeaders(key), signal: AbortSignal.timeout(15_000) })
+    const url = proxy ? `${proxy}/ss/status/${encodeURIComponent(id)}` : `${SS_API}/exchanges/${encodeURIComponent(id)}`
+    const res = await fetch(url, { headers: proxy ? { accept: 'application/json' } : ssHeaders(key), signal: AbortSignal.timeout(15_000) })
     if (!res.ok) return errorExchange(await ssError(res))
     const j = await res.json() as { result?: unknown }
     return normalizeExchange(j.result ?? j)
