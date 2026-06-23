@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 419,
+  "totalApps": 421,
   "totalChains": 18,
   "chains": [
     {
@@ -113,7 +113,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "DeFi",
       "short": "DeFi",
-      "count": 55
+      "count": 54
     },
     {
       "name": "DEX",
@@ -168,7 +168,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Identity",
       "short": "Identity",
-      "count": 19
+      "count": 22
     },
     {
       "name": "Minting Services",
@@ -222,7 +222,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "ethereum",
-      "count": 110
+      "count": 111
     },
     {
       "id": "gnosis",
@@ -242,7 +242,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "polygon",
-      "count": 71
+      "count": 72
     },
     {
       "id": "ronin",
@@ -250,7 +250,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "solana",
-      "count": 74
+      "count": 75
     },
     {
       "id": "soneium",
@@ -818,20 +818,6 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=eigenlayer.xyz&sz=128",
       "description": "An Ethereum restaking protocol that secures new services with staked ETH.",
-      "chainCount": 1,
-      "coverage": 6
-    },
-    {
-      "id": "ens",
-      "name": "ENS",
-      "website": "https://ens.domains",
-      "category": "DeFi",
-      "chains": [
-        "ethereum"
-      ],
-      "featured": false,
-      "favicon": "https://www.google.com/s2/favicons?domain=ens.domains&sz=128",
-      "description": "The Ethereum Name Service for human-readable .eth wallet and website names.",
       "chainCount": 1,
       "coverage": 6
     },
@@ -4570,6 +4556,49 @@ const APP_HUB: AppHubData = {
       "description": "Regulated fiat-backed stablecoin.",
       "chainCount": 1,
       "coverage": 6
+    },
+    {
+      "id": "ens",
+      "name": "ENS",
+      "website": "https://ens.domains",
+      "category": "Identity",
+      "chains": [
+        "ethereum"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=ens.domains&sz=128",
+      "description": "The Ethereum Name Service for human-readable .eth wallet and website names.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "sns",
+      "name": "Solana Name Service",
+      "website": "https://www.sns.id/",
+      "category": "Identity",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=sns.id&sz=64",
+      "description": "Solana's domain name service for human-readable .sol wallet addresses.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "unstoppable-domains",
+      "name": "Unstoppable Domains",
+      "website": "https://unstoppabledomains.com",
+      "category": "Identity",
+      "chains": [
+        "ethereum",
+        "polygon"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=unstoppabledomains.com&sz=64",
+      "description": "NFT-based Web3 domains for crypto payments and decentralized login, like .crypto and .nft.",
+      "chainCount": 2,
+      "coverage": 11
     },
     {
       "id": "adahandle",
