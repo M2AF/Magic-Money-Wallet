@@ -1,12 +1,15 @@
 {
   "name": "magicmoney-wallet",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Self-custody multi-chain wallet — EVM · Solana · Cardano",
   "main": "./out/main/index.js",
   "private": true,
   "scripts": {
     "build:inject": "npx esbuild src/preload/web3-inject.ts src/preload/popup-chrome.ts src/preload/popup-connect.ts src/preload/approval-preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=out/inject",
     "apphub": "node scripts/convert-apphub.js",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "predev": "node scripts/convert-apphub.js",
     "dev": "npm run build:inject && electron-vite dev",
     "prebuild": "node scripts/convert-apphub.js",
@@ -43,6 +46,7 @@
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
+    "@vitest/ui": "^4.1.9",
     "electron": "^32.0.0",
     "electron-builder": "^25.0.0",
     "electron-vite": "^2.3.0",
@@ -51,7 +55,8 @@
     "sharp": "^0.35.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.0",
-    "vite-plugin-node-polyfills": "^0.28.0"
+    "vite-plugin-node-polyfills": "^0.28.0",
+    "vitest": "^4.1.9"
   },
   "build": {
     "appId": "com.magicmoney.wallet",
