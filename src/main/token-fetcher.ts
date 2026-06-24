@@ -283,15 +283,15 @@ async function fetchTokensForChain(
       metaRes.ok ? await metaRes.json() : []
 
     return nonZero.map((t, i) => {
-      const meta = (Array.isArray(metaJson) ? metaJson[i]?.result : null) ?? {}
-      const decimals = meta.decimals ?? 18
+      const meta = (Array.isArray(metaJson) ? metaJson[i]?.result : null) ?? null
+      const decimals = meta?.decimals ?? 18
       const balance  = humanBalance(t.tokenBalance, decimals)
-      const alchemyLogo = normalizeImageUrl((meta as { logo?: string | null }).logo ?? null)
+      const alchemyLogo = normalizeImageUrl(meta?.logo ?? null)
       const twLogo = trustWalletUrl(chain.id, t.contractAddress)
       return {
         contractAddress: t.contractAddress,
-        name:     meta.name   ?? 'Unknown Token',
-        symbol:   meta.symbol ?? '???',
+        name:     meta?.name   ?? 'Unknown Token',
+        symbol:   meta?.symbol ?? '???',
         decimals,
         balance,
         usdValue: null,
@@ -447,13 +447,13 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
             asset_name: string | null
             onchain_metadata?: { name?: string; image?: string } | null
             metadata?: { name?: string; logo?: string } | null
-          } : {}
+          } : null
 
-          const rawName = mj.onchain_metadata?.name ?? mj.metadata?.name ?? mj.asset_name ?? null
+          const rawName = mj?.onchain_metadata?.name ?? mj?.metadata?.name ?? mj?.asset_name ?? null
           const name    = rawName ? decodeAssetName(rawName) : a.unit.slice(0, 8) + '…'
-          const logo    = mj.onchain_metadata?.image
+          const logo    = mj?.onchain_metadata?.image
             ? normalizeImageUrl(mj.onchain_metadata.image as string)
-            : mj.metadata?.logo
+            : mj?.metadata?.logo
               ? `data:image/png;base64,${mj.metadata.logo}`
               : null
 
@@ -689,16 +689,17 @@ function resolveCardanoImage(meta: Record<string, unknown>): string | null {
     onchain.image, onchain.logo, onchain.icon,
     registry.logo, registry.url,
   ]
-  for (let img of candidates) {
+  for (const candidate of candidates) {
+    let img: unknown = candidate
     if (!img) continue
     if (Array.isArray(img)) img = img.join('')
     if (typeof img !== 'string') continue
-    img = img.trim()
-    if (!img) continue
-    if (img.startsWith('data:'))  return img
-    if (img.startsWith('ipfs://')) return `https://dweb.link/ipfs/${img.slice(7)}`
-    if (img.startsWith('http'))   return img
-    if (img.length >= 46)         return `https://dweb.link/ipfs/${img}` // raw IPFS hash
+    const s = img.trim()
+    if (!s) continue
+    if (s.startsWith('data:'))   return s
+    if (s.startsWith('ipfs://')) return `https://dweb.link/ipfs/${s.slice(7)}`
+    if (s.startsWith('http'))    return s
+    if (s.length >= 46)          return `https://dweb.link/ipfs/${s}` // raw IPFS hash
   }
   return null
 }

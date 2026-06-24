@@ -415,6 +415,8 @@ export function buildCardanoTx(
  * Decode a bech32 Cardano address (addr1q... or addr...) to raw bytes.
  */
 export function decodeCardanoAddress(addr: string): Uint8Array {
-  const decoded = bech32.decode(addr, 1000)
+  // @scure/base types the arg as a `${string}1${string}` template literal; a
+  // runtime bech32 string satisfies it but TS can't prove the shape — cast.
+  const decoded = bech32.decode(addr as `${string}1${string}`, 1000)
   return bech32.fromWords(decoded.words)
 }

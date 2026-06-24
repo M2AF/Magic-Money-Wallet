@@ -16,10 +16,19 @@ contextBridge.exposeInMainWorld('wallet', {
   confirmBackup: ()                  => ipcRenderer.invoke('wallet:confirm-backup'),
   import:        (mnemonic: string)  => ipcRenderer.invoke('wallet:import', mnemonic),
 
+  // ── Password / lock lifecycle ─────────────────────────────────────────
+  setPassword:    (password: string) => ipcRenderer.invoke('wallet:set-password', password),
+  unlock:         (password: string) => ipcRenderer.invoke('wallet:unlock', password),
+  lock:           ()                 => ipcRenderer.invoke('wallet:lock'),
+  isUnlocked:     ()                 => ipcRenderer.invoke('wallet:is-unlocked'),
+  needsMigration: ()                 => ipcRenderer.invoke('wallet:needs-migration'),
+  onLocked:       (cb: () => void)   => ipcRenderer.on('wallet:locked', () => cb()),
+  offLocked:      (cb: () => void)   => ipcRenderer.removeListener('wallet:locked', cb as never),
+
   // ── Data reads ────────────────────────────────────────────────────────
   getAddresses:  ()                  => ipcRenderer.invoke('wallet:get-addresses'),
   getBalances:   ()                  => ipcRenderer.invoke('wallet:get-balances'),
-  revealSeed:    ()                  => ipcRenderer.invoke('wallet:reveal-seed'),
+  revealSeed:    (password: string)  => ipcRenderer.invoke('wallet:reveal-seed', password),
 
   // ── Phase 2: Send transactions ────────────────────────────────────────
   estimateFee:   (chain: string, to: string, amount: string) =>

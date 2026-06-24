@@ -7,6 +7,8 @@ import { WelcomePage } from './pages/WelcomePage'
 import { CreatePage } from './pages/CreatePage'
 import { ConfirmPage } from './pages/ConfirmPage'
 import { ImportPage } from './pages/ImportPage'
+import { SetPasswordPage } from './pages/SetPasswordPage'
+import { UnlockPage } from './pages/UnlockPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { MarketPage } from './pages/MarketPage'
 import { SwapPage } from './pages/SwapPage'
@@ -24,6 +26,7 @@ export function App() {
   const [wcActiveSessions, setWcActiveSessions] = useState(0)
   const [wcPending, setWcPending] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [pwMode, setPwMode] = useState<'create' | 'migrate'>('create')
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {
@@ -35,16 +38,25 @@ export function App() {
   }
 
   useEffect(() => {
-    window.wallet.isSetup().then(exists => {
-      if (exists) {
-        window.wallet.getAddresses().then(addrs => {
-          setAddresses(addrs)
+    // Bridge guard (B-1): without the preload bridge there's nothing to route.
+    if (!window.wallet) { setPage('welcome'); return }
+    ;(async () => {
+      try {
+        if (!(await window.wallet.isSetup())) { setPage('welcome'); return }
+        if (await window.wallet.isUnlocked()) {
+          setAddresses(await window.wallet.getAddresses())
           setPage('dashboard')
-        })
-      } else {
+          return
+        }
+        // Wallet exists but session is locked: migrate legacy wallets, else unlock.
+        // Optional-chained: the browser-extension bridge (which has its own lock
+        // flow in ExtApp) doesn't implement these and only mounts App when unlocked.
+        if (await window.wallet.needsMigration?.()) { setPwMode('migrate'); setPage('setpassword') }
+        else setPage('unlock')
+      } catch {
         setPage('welcome')
       }
-    }).catch(() => setPage('welcome'))
+    })()
   }, [])
 
   // Track when the popup browser window is closed
@@ -54,7 +66,25 @@ export function App() {
     return () => window.wallet.offBrowserClosed(onClosed)
   }, [])
 
+  // Idle auto-lock: main broadcasts 'wallet:locked' → return to the unlock screen.
+  // Optional-chained so the browser-extension bridge (no onLocked) is unaffected.
+  useEffect(() => {
+    const onLocked = () => setPage('unlock')
+    window.wallet.onLocked?.(onLocked)
+    return () => window.wallet.offLocked?.(onLocked)
+  }, [])
+
+  // New / imported wallet is derived; now require a password before going live.
   const handleWalletReady = (addrs: WalletAddresses) => {
+    setAddresses(addrs)
+    setPwMode('create')
+    setPage('setpassword')
+  }
+
+  // Password set (create) or verified (unlock/migrate) → enter the dashboard.
+  const handleUnlockedOrSet = async () => {
+    let addrs = addresses
+    if (!addrs) { try { addrs = await window.wallet.getAddresses() } catch { addrs = null } }
     setAddresses(addrs)
     setPage('dashboard')
   }
@@ -65,6 +95,22 @@ export function App() {
   }
 
   const inDashboard = page === 'dashboard'
+
+  // B-1: if the preload bridge never loaded, there is no wallet to drive. Show a
+  // clear message instead of a blank screen or a half-working welcome flow.
+  if (typeof window.wallet === 'undefined') {
+    return (
+      <div className="app-shell">
+        <div className="page" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', gap: 14 }}>
+          <div style={{ fontSize: 38 }}>🔌</div>
+          <h1 className="page-title">Wallet bridge unavailable</h1>
+          <p className="page-subtitle" style={{ maxWidth: 320 }}>
+            The secure wallet layer didn’t load. Please restart MagicMoney Wallet.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="app-shell">
@@ -91,6 +137,8 @@ export function App() {
       {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} />}
       {page === 'confirm'  && <ConfirmPage onNavigate={setPage} onComplete={handleWalletReady} />}
       {page === 'import'   && <ImportPage onNavigate={setPage} onComplete={handleWalletReady} />}
+      {page === 'setpassword' && <SetPasswordPage mode={pwMode} onComplete={handleUnlockedOrSet} />}
+      {page === 'unlock'      && <UnlockPage onUnlocked={handleUnlockedOrSet} />}
       {/* Dashboard stays mounted while in the dashboard so balances/tokens/NFTs,
           the portfolio total, scroll position and the active sub-tab survive
           switching tabs and back — no reload on return. */}

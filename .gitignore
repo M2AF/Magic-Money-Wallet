@@ -1,8 +1,35 @@
+# ── Dependencies & build output ──────────────────────────────
 node_modules/
 out/
 dist/
+dist-extension/
+coverage/
+*.tsbuildinfo
+
+# ── Secrets / local env ──────────────────────────────────────
 .env
+.env.*
 *.enc
+
+# ── Claude Code (keep shared settings.json; ignore personal) ──
+.claude/settings.local.json
+
+# ── Generated audit report (review artifact — safe to delete) ─
+audit-report/
+
+# ── OS / editor cruft ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# ── Logs ─────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
 Gemini_Advice.md
 /.ChainLens_Files/
 ChainLens_Files/app-hub-data.js

@@ -24,6 +24,7 @@ import {
   polygon,
   avalanche,
   blast,
+  bsc,
   gnosis,
   ronin,
   zora
@@ -86,6 +87,10 @@ const EVM_CHAINS: Record<string, EvmChainEntry> = {
   polygon:    { chain: polygon,       rpcUrl: cfg => alchemyRpcUrl('polygon-mainnet', cfg), explorer: 'https://polygonscan.com/tx',                            nativeSymbol: 'POL'  },
   avalanche:  { chain: avalanche,     rpcUrl: cfg => alchemyRpcUrl('avax-mainnet', cfg),    explorer: 'https://snowtrace.io/tx',                               nativeSymbol: 'AVAX' },
   blast:      { chain: blast,         rpcUrl: cfg => alchemyRpcUrl('blast-mainnet', cfg),   explorer: 'https://blastscan.io/tx',                               nativeSymbol: 'ETH'  },
+  // BSC: advertised by the swap layer (swap-proxy/executor + UI token lists) but
+  // had no sender entry, so BSC swaps quoted then threw (M-1). Public RPC for
+  // broadcast, matching the other non-Alchemy chains here.
+  bsc:        { chain: bsc,           rpcUrl: () => 'https://bsc-dataseed.binance.org',                            explorer: 'https://bscscan.com/tx',                                nativeSymbol: 'BNB'  },
   gnosis:     { chain: gnosis,        rpcUrl: () => 'https://rpc.gnosischain.com',                                  explorer: 'https://gnosisscan.io/tx',                              nativeSymbol: 'XDAI' },
   monad:      { chain: monad,         rpcUrl: () => 'https://rpc.monad.xyz',                                        explorer: 'https://monadexplorer.com/tx',                          nativeSymbol: 'MON'  },
   abstract:   { chain: abstractChain, rpcUrl: () => 'https://api.mainnet.abs.xyz',                                  explorer: 'https://abscan.org/tx',                                 nativeSymbol: 'ETH'  },
@@ -428,7 +433,7 @@ export async function sendCardanoTransaction(
   const submitRes = await blockfrostFetch('tx/submit', config, 20_000, {
     method: 'POST',
     headers: { 'Content-Type': 'application/cbor' },
-    body: txCbor
+    body: new Uint8Array(txCbor)   // fresh ArrayBuffer-backed copy → valid BodyInit
   })
 
   if (!submitRes.ok) {

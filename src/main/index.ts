@@ -1,4 +1,4 @@
-import { app, BrowserWindow, shell, dialog } from 'electron'
+import { app, BrowserWindow, shell, dialog, session } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setMainWindow } from './browser-manager'
@@ -8,6 +8,39 @@ import { autoUpdater } from 'electron-updater'
 // Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
 // when loading IPFS gateway images in Electron's Chromium engine
 app.commandLine.appendSwitch('disable-quic')
+
+// Strict CSP for the packaged wallet renderer (closes C-2: no inline scripts, no
+// arbitrary connect targets). Enforced as a response header — stronger than the
+// <meta> tag and, unlike the meta, it can be scoped so it does NOT apply to the
+// dApp browser's https pages (which need their own CSP). Dev keeps the looser meta
+// in index.html so Vite's HMR websocket + react-refresh inline script still work.
+const WALLET_CSP =
+  "default-src 'self'; " +
+  "script-src 'self'; " +
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+  "font-src 'self' https://fonts.gstatic.com; " +
+  "connect-src 'self' https://magicmoney-swap-proxy.guildfordking.workers.dev; " +
+  "img-src 'self' data: https: ipfs: ar:; " +
+  "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+
+function installRendererCsp(): void {
+  // Only the wallet's own document (loaded from file:// in the packaged app) gets
+  // the strict policy. dApp pages (https) and the data: approval windows are left
+  // untouched. mainFrame-only so we set it on the document, not every sub-resource.
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    if (details.resourceType === 'mainFrame' && details.url.startsWith('file://')) {
+      const headers = { ...details.responseHeaders }
+      // Drop any existing CSP header variants before setting ours.
+      for (const k of Object.keys(headers)) {
+        if (k.toLowerCase() === 'content-security-policy') delete headers[k]
+      }
+      headers['Content-Security-Policy'] = [WALLET_CSP]
+      callback({ responseHeaders: headers })
+    } else {
+      callback({ responseHeaders: details.responseHeaders })
+    }
+  })
+}
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock()
@@ -66,10 +99,10 @@ function createWindow(): void {
   // Window controls via IPC — target the sender window so the popup
   // browser closes itself rather than closing the main wallet window
   const { ipcMain } = require('electron')
-  ipcMain.on('window:minimize', (event) => {
+  ipcMain.on('window:minimize', (event: Electron.IpcMainEvent) => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()
   })
-  ipcMain.on('window:close', (event) => {
+  ipcMain.on('window:close', (event: Electron.IpcMainEvent) => {
     BrowserWindow.fromWebContents(event.sender)?.close()
   })
 }
@@ -93,6 +126,8 @@ app.on('web-contents-created', (_event, contents) => {
 })
 
 app.whenReady().then(() => {
+  // Harden the renderer with a strict CSP in packaged builds (see WALLET_CSP).
+  if (app.isPackaged) installRendererCsp()
   registerIpcHandlers()
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))

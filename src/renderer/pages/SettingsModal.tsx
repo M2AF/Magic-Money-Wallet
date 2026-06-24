@@ -9,6 +9,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [revealOpen, setRevealOpen] = useState(false)
 
   const handleDelete = async () => {
     if (!confirmDelete) { setConfirmDelete(true); return }
@@ -56,14 +57,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           <SettingsRow
             icon="🔑"
             label="Reveal Secret Phrase"
-            sublabel="Only do this in a private location"
-            onClick={async () => {
-              const words = await window.wallet.revealSeed().catch(() => null)
-              if (words) {
-                await navigator.clipboard.writeText(words.join(' ')).catch(() => {})
-                alert('Seed phrase copied to clipboard — store it safely!')
-              }
-            }}
+            sublabel="Requires your password — only in a private location"
+            onClick={() => setRevealOpen(true)}
           />
         </SettingsSection>
 
@@ -83,6 +78,83 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             noChevron
           />
         </SettingsSection>
+      </div>
+
+      {revealOpen && <RevealSeedModal onClose={() => setRevealOpen(false)} />}
+    </div>
+  )
+}
+
+// ── Password-gated seed reveal ─────────────────────────────────────────────────
+// Re-verifies the password in the main process before the phrase is returned, and
+// shows the words in-app instead of auto-copying them to a shared clipboard.
+
+function RevealSeedModal({ onClose }: { onClose: () => void }) {
+  const [password, setPassword] = useState('')
+  const [words, setWords] = useState<string[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const reveal = async () => {
+    if (!password) return
+    setBusy(true); setError(null)
+    try {
+      setWords(await window.wallet.revealSeed(password))
+      setPassword('')
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setError(/incorrect/i.test(msg) ? 'Incorrect password' : msg.replace(/^Error:\s*/, ''))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="settings-overlay" onClick={onClose} style={{ zIndex: 300 }}>
+      <div className="settings-sheet fade-in" onClick={e => e.stopPropagation()} style={{ maxHeight: 'none' }}>
+        <div className="settings-grip" />
+        <div className="settings-header">
+          <div className="settings-title">Reveal Secret Phrase</div>
+          <button type="button" className="settings-close" onClick={onClose} aria-label="Close">×</button>
+        </div>
+
+        {!words ? (
+          <div style={{ padding: '4px 4px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+              Anyone with this phrase controls your funds. Make sure no one can see your screen.
+            </div>
+            <input
+              className="input" type="password" autoFocus placeholder="Enter your password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') reveal() }}
+            />
+            {error && <div style={{ color: 'var(--error)', fontSize: 12 }}>{error}</div>}
+            <button type="button" className="btn btn-primary" onClick={reveal} disabled={busy || !password}>
+              {busy ? 'Verifying…' : 'Reveal'}
+            </button>
+          </div>
+        ) : (
+          <div style={{ padding: '4px 4px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {words.map((w, i) => (
+                <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'baseline', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 8px' }}>
+                  <span style={{ fontSize: 9, color: 'var(--text-muted)', minWidth: 14 }}>{i + 1}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{w}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={async () => { await navigator.clipboard.writeText(words.join(' ')).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800) }}
+            >
+              {copied ? 'Copied!' : 'Copy to clipboard'}
+            </button>
+            <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
+          </div>
+        )}
       </div>
     </div>
   )

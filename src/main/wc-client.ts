@@ -40,6 +40,8 @@ import nacl from 'tweetnacl'
 import { loadConfig, loadMnemonic, loadAddresses } from './secure-store'
 import { getSolanaKeypair } from './wallet-core'
 import { alchemyRpcUrl } from './api-proxy'
+import { EVM_CHAINS } from './chain-config'
+import { describeTypedData, summarizeEvmSend } from './tx-describe'
 
 // ── EVM chains we advertise support for ──────────────────────────────────────
 
@@ -115,7 +117,10 @@ function getRpc(chainId: number): string {
   }
   const net = alchemyNet[chainId]
   if (net) return alchemyRpcUrl(net, config)
-  return publicMap[chainId] ?? alchemyRpcUrl('eth-mainnet', config)
+  if (publicMap[chainId]) return publicMap[chainId]
+  // M-3: never silently fall back to Ethereum mainnet for an unknown chainId —
+  // that would broadcast a transaction on the wrong network. Refuse instead.
+  throw new Error(`Unsupported network (chainId ${chainId}). MagicMoney won't broadcast on the wrong chain.`)
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -192,7 +197,13 @@ function serProposal(p: SignClientTypes.EventArguments['session_proposal']): WcP
   }
 }
 
-function humanReadable(method: string, params: unknown[]): string {
+/** CAIP-2 chainId ("eip155:137") → native symbol via the shared chain registry. */
+function nativeSymbolForCaip(chainId: string): string {
+  const n = parseInt(chainId.split(':')[1] ?? '', 10)
+  return EVM_CHAINS.find(c => c.chainId === n)?.nativeSymbol ?? 'ETH'
+}
+
+function humanReadable(method: string, params: unknown[], chainId = 'eip155:1'): string {
   try {
     if (method === 'personal_sign') {
       const hex = String(params[0])
@@ -207,15 +218,13 @@ function humanReadable(method: string, params: unknown[]): string {
         : hex.slice(0, 400)
     }
     if (method === 'eth_signTypedData_v4' || method === 'eth_signTypedData') {
-      const td = JSON.parse(String(params[1]))
-      return `Sign typed data — ${td.primaryType ?? 'unknown'}`
+      // H-2: full message disclosure (spender/amount + UNLIMITED warning).
+      return describeTypedData(JSON.parse(String(params[1])))
     }
     if (method === 'eth_sendTransaction') {
+      // H-1: correct decimals + the chain's real native symbol.
       const tx = params[0] as { to?: string; value?: string; data?: string }
-      const wei = tx.value ? parseInt(tx.value, 16) : 0
-      const eth = (wei / 1e18).toFixed(6)
-      const hasData = tx.data && tx.data !== '0x'
-      return `Send ${eth} ETH to ${tx.to ? tx.to.slice(0, 10) + '…' : 'contract'}${hasData ? ' (contract call)' : ''}`
+      return summarizeEvmSend(tx, nativeSymbolForCaip(chainId))
     }
     return method
   } catch {
@@ -234,7 +243,7 @@ function serRequest(r: SignClientTypes.EventArguments['session_request']): WcReq
     chainId: r.params.chainId,
     method: r.params.request.method,
     params: r.params.request.params,
-    humanReadable: humanReadable(r.params.request.method, r.params.request.params)
+    humanReadable: humanReadable(r.params.request.method, r.params.request.params, r.params.chainId)
   }
 }
 

@@ -212,6 +212,8 @@ export type AppPage =
   | 'create'
   | 'confirm'
   | 'import'
+  | 'setpassword'
+  | 'unlock'
   | 'dashboard'
 
 // chainId string from chain-config — e.g. 'ethereum', 'arbitrum', 'solana', 'cardano'
@@ -236,9 +238,17 @@ declare global {
       validate(mnemonic: string): Promise<boolean>
       confirmBackup(): Promise<WalletAddresses>
       import(mnemonic: string): Promise<WalletAddresses>
+      // Password / lock lifecycle
+      setPassword(password: string): Promise<boolean>
+      unlock(password: string): Promise<boolean>
+      lock(): Promise<boolean>
+      isUnlocked(): Promise<boolean>
+      needsMigration(): Promise<boolean>
+      onLocked(cb: () => void): void
+      offLocked(cb: () => void): void
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
-      revealSeed(): Promise<string[]>
+      revealSeed(password: string): Promise<string[]>
       // Phase 2
       estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
       sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>

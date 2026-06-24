@@ -405,7 +405,7 @@ export async function cip30SubmitTx(txHex: string, config: WalletConfig): Promis
   const res = await blockfrostFetch('tx/submit', config, 20_000, {
     method: 'POST',
     headers: { 'Content-Type': 'application/cbor' },
-    body: hexToBytes(txHex),
+    body: new Uint8Array(hexToBytes(txHex)),
   })
   if (!res.ok) {
     const msg = await res.text().catch(() => String(res.status))

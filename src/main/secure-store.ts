@@ -13,6 +13,7 @@ import { safeStorage, app } from 'electron'
 import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import type { WalletAddresses } from './wallet-core'
+import { encryptSecret, decryptSecret, isEncryptedBlob } from './crypto-vault'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -21,28 +22,102 @@ const configPath = () => join(userData(), 'config.json')
 const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
 const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
 
-// ─── Mnemonic (encrypted) ────────────────────────────────────────────────────
+// ─── Mnemonic (password-encrypted, layered over OS safeStorage) ──────────────
+//
+// At rest, wallet.enc holds   safeStorage.encrypt( JSON(EncryptedBlob) )
+//   — an AES-256-GCM blob (PBKDF2 password key) wrapped again by the OS keychain.
+// The decrypted phrase is held ONLY in this in-memory variable after unlock and
+// is the single source every signing path reads (loadMnemonic). It is cleared on
+// lock(), wallet delete, and the idle auto-lock timer (driven from ipc-handlers).
+//
+// Legacy wallets (created before passwords) stored safeStorage.encrypt(rawPhrase)
+// directly; needsMigration()/migrateLegacy() upgrade them in place on first run.
 
-export function saveMnemonic(mnemonic: string): void {
+let _unlockedMnemonic: string | null = null
+
+function requireSafeStorage(): void {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error(
-      'OS secure storage is not available. Cannot save wallet safely on this platform.'
-    )
+    throw new Error('OS secure storage is not available. Cannot store the wallet safely on this platform.')
   }
-  mkdirSync(userData(), { recursive: true })
-  const encrypted = safeStorage.encryptString(mnemonic)
-  writeFileSync(walletEncPath(), encrypted)
 }
 
+/** Decrypt the outer safeStorage layer to the stored string (blob-JSON or legacy phrase). */
+function readOuter(): string | null {
+  if (!existsSync(walletEncPath())) return null
+  requireSafeStorage()
+  return safeStorage.decryptString(readFileSync(walletEncPath()))
+}
+
+/** Encrypt `mnemonic` under `password` and persist it; leaves the wallet unlocked. */
+export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
+  requireSafeStorage()
+  const blob = await encryptSecret(mnemonic, password)
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(walletEncPath(), safeStorage.encryptString(JSON.stringify(blob)))
+  _unlockedMnemonic = mnemonic
+}
+
+/** True when wallet.enc holds the new password-encrypted blob (vs. a legacy phrase). */
+export function isPasswordEncrypted(): boolean {
+  try {
+    const outer = readOuter()
+    if (outer == null) return false
+    return isEncryptedBlob(JSON.parse(outer))
+  } catch {
+    return false
+  }
+}
+
+/** A wallet exists but predates password encryption — must be migrated before use. */
+export function needsMigration(): boolean {
+  return walletExists() && !isPasswordEncrypted()
+}
+
+/** Decrypt with `password` and cache the phrase in memory. Throws on wrong password. */
+export async function unlock(password: string): Promise<void> {
+  const outer = readOuter()
+  if (outer == null) throw new Error('No wallet found — please create or import one')
+  const parsed = (() => { try { return JSON.parse(outer) } catch { return null } })()
+  if (!isEncryptedBlob(parsed)) throw new Error('NEEDS_MIGRATION')
+  _unlockedMnemonic = await decryptSecret(parsed, password)
+}
+
+/** Upgrade a legacy (safeStorage-only) wallet to password encryption, then unlock. */
+export async function migrateLegacy(password: string): Promise<void> {
+  const outer = readOuter()
+  if (outer == null) throw new Error('No wallet found')
+  if (isEncryptedBlob((() => { try { return JSON.parse(outer) } catch { return null } })())) {
+    throw new Error('Wallet is already password-protected')
+  }
+  await saveMnemonic(outer, password)   // `outer` is the raw legacy phrase
+}
+
+/** Verify `password` against the stored blob without changing lock state. */
+export async function verifyPassword(password: string): Promise<boolean> {
+  try {
+    const outer = readOuter()
+    if (outer == null) return false
+    const parsed = JSON.parse(outer)
+    if (!isEncryptedBlob(parsed)) return false
+    await decryptSecret(parsed, password)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function lock(): void {
+  _unlockedMnemonic = null
+}
+
+export function isUnlocked(): boolean {
+  return _unlockedMnemonic !== null
+}
+
+/** The decrypted phrase. Every signing path goes through here — throws when locked. */
 export function loadMnemonic(): string {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('OS secure storage not available')
-  }
-  if (!existsSync(walletEncPath())) {
-    throw new Error('No wallet found — please create or import one')
-  }
-  const encrypted = readFileSync(walletEncPath())
-  return safeStorage.decryptString(encrypted)
+  if (_unlockedMnemonic == null) throw new Error('Wallet is locked — please unlock first')
+  return _unlockedMnemonic
 }
 
 export function walletExists(): boolean {
@@ -52,6 +127,7 @@ export function walletExists(): boolean {
 export function deleteWallet(): void {
   if (existsSync(walletEncPath())) unlinkSync(walletEncPath())
   if (existsSync(addressesPath())) unlinkSync(addressesPath())
+  _unlockedMnemonic = null
   addressesCache = null
   addressesCached = false
 }
@@ -169,6 +245,32 @@ const DEFAULT_CONFIG: WalletConfig = {
 
 let configCache: WalletConfig | null = null
 
+// H-3: the swap proxy is part of the signing trust base — its responses become
+// swap calldata the wallet signs. config.json is plaintext + user-writable, so a
+// hostile value could redirect that calldata. Pin the proxy host to this
+// code-defined allowlist (which a local file edit cannot change). An empty value
+// is allowed (= no proxy, direct keyed calls). Self-hosters add their host here.
+const ALLOWED_PROXY_HOSTS = new Set<string>([
+  'magicmoney-swap-proxy.guildfordking.workers.dev',
+])
+
+/** Coerce swapProxyUrl to a trusted https origin on the allowlist, or '' / default. */
+function sanitizeProxyUrl(url: string | undefined): string {
+  if (!url || !url.trim()) return ''   // explicit "no proxy" — safe (no redirection)
+  try {
+    const u = new URL(url.trim())
+    if (u.protocol !== 'https:') return DEFAULT_CONFIG.swapProxyUrl
+    if (!ALLOWED_PROXY_HOSTS.has(u.hostname)) return DEFAULT_CONFIG.swapProxyUrl
+    return `${u.origin}${u.pathname}`.replace(/\/+$/, '')
+  } catch {
+    return DEFAULT_CONFIG.swapProxyUrl
+  }
+}
+
+function sanitizeConfig(cfg: WalletConfig): WalletConfig {
+  return { ...cfg, swapProxyUrl: sanitizeProxyUrl(cfg.swapProxyUrl) }
+}
+
 export function loadConfig(): WalletConfig {
   if (configCache) return configCache
   if (!existsSync(configPath())) {
@@ -179,7 +281,7 @@ export function loadConfig(): WalletConfig {
     return configCache
   }
   try {
-    configCache = { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(configPath(), 'utf-8')) }
+    configCache = sanitizeConfig({ ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(configPath(), 'utf-8')) })
   } catch {
     configCache = DEFAULT_CONFIG
   }
@@ -188,7 +290,7 @@ export function loadConfig(): WalletConfig {
 
 export function saveConfig(config: Partial<WalletConfig>): void {
   const current = loadConfig()
-  const merged = { ...current, ...config }
+  const merged = sanitizeConfig({ ...current, ...config })
   mkdirSync(userData(), { recursive: true })
   writeFileSync(configPath(), JSON.stringify(merged, null, 2))
   configCache = merged

@@ -31,6 +31,12 @@ import {
   removeApprovedOrigin,
   loadAgwOverride,
   saveAgwOverride,
+  unlock,
+  lock,
+  isUnlocked,
+  needsMigration,
+  migrateLegacy,
+  verifyPassword,
   type WalletConfig
 } from './secure-store'
 import { resolveAccountAgw } from './agw'
@@ -77,6 +83,7 @@ import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
+import { describeEvmSend, describeTypedData } from './tx-describe'
 
 // ── Key derivation helpers (used by web3 IPC) ──────────────────────────────
 
@@ -88,11 +95,15 @@ function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
   return `0x${Buffer.from(child.privateKey).toString('hex')}` as `0x${string}`
 }
 
-// ── dApp EVM chain state ─────────────────────────────────────────────────────
-// The injected provider is multi-chain: the connected dApp selects the active
-// network via wallet_switchEthereumChain. We honor that for eth_chainId, read
-// RPC forwarding, and eth_sendTransaction routing. Defaults to Ethereum (1).
-let _currentChainId = 1
+// ── dApp EVM chain state (per origin) ────────────────────────────────────────
+// The injected provider is multi-chain: a connected dApp selects its active
+// network via wallet_switchEthereumChain. M-2: this is scoped PER ORIGIN (not a
+// single global) so the dApp view and any child auth popup — which inject their
+// own providers under different origins — can't clobber each other's selected
+// chain and route a transaction onto the wrong network. Defaults to Ethereum (1).
+const _chainByOrigin = new Map<string, number>()
+const getDappChainId = (origin: string): number => _chainByOrigin.get(origin) ?? 1
+const setDappChainId = (origin: string, id: number): void => { _chainByOrigin.set(origin, id) }
 
 /** Look up a supported EVM network by numeric chainId (shared chain-config). */
 function evmChainById(chainId: number) {
@@ -108,9 +119,10 @@ async function sendEvmFromDapp(
   mnemonic: string,
   accountIndex: number,
   tx: { to?: string; value?: string; data?: string; gas?: string; chainId?: string },
-  config: WalletConfig
+  config: WalletConfig,
+  defaultChainId: number
 ): Promise<string> {
-  const chainId = tx.chainId ? (parseInt(tx.chainId, 16) || _currentChainId) : _currentChainId
+  const chainId = tx.chainId ? (parseInt(tx.chainId, 16) || defaultChainId) : defaultChainId
   const { txHash } = await sendRawEvmTransaction(
     mnemonic,
     { to: tx.to ?? '', data: tx.data, value: tx.value, gas: tx.gas, chainId },
@@ -121,8 +133,29 @@ async function sendEvmFromDapp(
 }
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
-// This holds the phrase after generation but BEFORE the user confirms backup.
+// This holds the phrase after generation/import but BEFORE the user sets a
+// password (wallet:set-password), which is when it's actually persisted.
 let _pendingMnemonic: string | null = null
+
+// ── Idle auto-lock ────────────────────────────────────────────────────────────
+// The decrypted mnemonic lives only in secure-store's memory after unlock. We
+// clear it after a period with no sensitive activity and tell every window to
+// show the unlock screen. touchActivity() is called from unlock + signing paths;
+// polled reads deliberately do NOT reset it, so the wallet still locks while idle.
+const AUTO_LOCK_MS = 15 * 60_000
+let _lockTimer: NodeJS.Timeout | null = null
+
+function broadcastLocked(): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    try { win.webContents.send('wallet:locked') } catch { /* window torn down */ }
+  }
+}
+
+function touchActivity(): void {
+  if (_lockTimer) { clearTimeout(_lockTimer); _lockTimer = null }
+  if (!isUnlocked()) return
+  _lockTimer = setTimeout(() => { lock(); broadcastLocked() }, AUTO_LOCK_MS)
+}
 
 /**
  * Resolve the Abstract Global Wallet for an account:
@@ -175,11 +208,11 @@ const RPC_TTL_METHODS = new Set(['eth_blockNumber', 'eth_gasPrice'])
 const rpcInflight = new Map<string, Promise<unknown>>()
 const rpcTtlCache = new Map<string, { value: unknown; expires: number }>()
 
-async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig): Promise<unknown> {
+async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig, chainId: number): Promise<unknown> {
   // Route reads to the dApp's currently-selected chain (falls back to Ethereum).
-  const chain = evmChainById(_currentChainId) ?? EVM_CHAINS[0]
+  const chain = evmChainById(chainId) ?? EVM_CHAINS[0]
   const rpcUrl = chain.rpcUrl(config)
-  const key = `${_currentChainId}|${method}|${JSON.stringify(params ?? [])}`
+  const key = `${chainId}|${method}|${JSON.stringify(params ?? [])}`
 
   if (RPC_TTL_METHODS.has(method)) {
     const hit = rpcTtlCache.get(key)
@@ -229,31 +262,65 @@ export function registerIpcHandlers(): void {
     validateMnemonic(mnemonic)
   )
 
-  // ── Confirm backup: save pending mnemonic and derive addresses ─────────
-  // Called after user confirms they've written down their seed phrase.
+  // ── Confirm backup: derive addresses; defer mnemonic save until password ─
+  // Called after user confirms they've written down their seed phrase. The
+  // phrase stays in _pendingMnemonic and is encrypted only at wallet:set-password.
   ipcMain.handle('wallet:confirm-backup', async () => {
     if (!_pendingMnemonic) throw new Error('No pending mnemonic — restart setup')
     const addresses = await deriveAddresses(_pendingMnemonic)
-    saveMnemonic(_pendingMnemonic)
     saveAddresses(addresses)
-    _pendingMnemonic = null   // clear from memory immediately
-    // fire-and-forget: sync to ChainLens profile
-    syncWallets(addresses, loadConfig()).catch(() => {})
     return addresses
   })
 
   // ── Import existing mnemonic ───────────────────────────────────────────
+  // Derives + stashes the phrase; persistence happens at wallet:set-password.
   ipcMain.handle('wallet:import', async (_event, mnemonic: string) => {
     if (!validateMnemonic(mnemonic)) {
       throw new Error('Invalid mnemonic phrase — check your words and try again')
     }
-    const addresses = await deriveAddresses(mnemonic)
-    saveMnemonic(mnemonic)
+    const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
+    const addresses = await deriveAddresses(cleaned)
     saveAddresses(addresses)
-    // fire-and-forget: sync to ChainLens profile
-    syncWallets(addresses, loadConfig()).catch(() => {})
+    _pendingMnemonic = cleaned
     return addresses
   })
+
+  // ── Set password: encrypt + persist the pending wallet (or migrate legacy) ─
+  // The single point where the mnemonic is written to disk. Leaves it unlocked.
+  ipcMain.handle('wallet:set-password', async (_event, password: string) => {
+    if (typeof password !== 'string' || password.length < 8) {
+      throw new Error('Password must be at least 8 characters')
+    }
+    if (_pendingMnemonic) {
+      await saveMnemonic(_pendingMnemonic, password)
+      _pendingMnemonic = null
+      touchActivity()
+      // fire-and-forget: sync to ChainLens profile now that we're unlocked
+      const addresses = loadAddresses()
+      if (addresses) syncWallets(addresses, loadConfig()).catch(() => {})
+      return true
+    }
+    if (needsMigration()) {
+      await migrateLegacy(password)
+      touchActivity()
+      return true
+    }
+    throw new Error('No wallet pending — restart setup')
+  })
+
+  // ── Unlock / lock / state ──────────────────────────────────────────────
+  ipcMain.handle('wallet:unlock', async (_event, password: string) => {
+    await unlock(password)   // throws 'Incorrect password' or 'NEEDS_MIGRATION'
+    touchActivity()
+    return true
+  })
+  ipcMain.handle('wallet:lock', () => {
+    lock()
+    if (_lockTimer) { clearTimeout(_lockTimer); _lockTimer = null }
+    return true
+  })
+  ipcMain.handle('wallet:is-unlocked', () => isUnlocked())
+  ipcMain.handle('wallet:needs-migration', () => needsMigration())
 
   // ── Get stored public addresses ────────────────────────────────────────
   ipcMain.handle('wallet:get-addresses', () => getFullAddresses())
@@ -265,12 +332,16 @@ export function registerIpcHandlers(): void {
     return fetchAllBalances(addresses, config)
   })
 
-  // ── Export encrypted mnemonic backup display (for settings screen) ─────
-  // Returns the words for display ONLY — user must authenticate first.
-  // (Phase 2: add PIN confirmation before this handler executes)
-  ipcMain.handle('wallet:reveal-seed', () => {
-    const mnemonic = loadMnemonic()
-    return mnemonic.split(' ')
+  // ── Reveal seed phrase (settings screen) — password re-auth required ──────
+  // The highest-sensitivity action: re-verify the password against the stored
+  // blob even when the wallet is already unlocked, so a compromised renderer
+  // can't silently call this and exfiltrate the phrase.
+  ipcMain.handle('wallet:reveal-seed', async (_event, password: string) => {
+    if (!(await verifyPassword(password))) {
+      throw new Error('Incorrect password')
+    }
+    touchActivity()
+    return loadMnemonic().split(' ')
   })
 
   // ── Delete wallet (wipe all local data) ───────────────────────────────
@@ -486,6 +557,7 @@ export function registerIpcHandlers(): void {
     const addresses = loadAddresses()
     const config = loadConfig()
     const origin = getSenderOrigin(event.sender.getURL())
+    touchActivity()
 
     try {
     switch (method) {
@@ -511,10 +583,10 @@ export function registerIpcHandlers(): void {
         return getApprovedOrigins().includes(origin) && addresses?.evm ? [addresses.evm] : []
 
       case 'eth_chainId':
-        return `0x${_currentChainId.toString(16)}`
+        return `0x${getDappChainId(origin).toString(16)}`
 
       case 'net_version':
-        return String(_currentChainId)
+        return String(getDappChainId(origin))
 
       // ── Network switching ───────────────────────────────────────────────
       case 'wallet_switchEthereumChain': {
@@ -527,7 +599,7 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
-        _currentChainId = target
+        setDappChainId(origin, target)
         emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
         return null
       }
@@ -543,7 +615,7 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
-        _currentChainId = target
+        setDappChainId(origin, target)
         emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
         return null
       }
@@ -623,17 +695,18 @@ export function registerIpcHandlers(): void {
         const tx = (params[0] ?? {}) as {
           to?: string; value?: string; data?: string; gas?: string
         }
-        const valueEth = tx.value
-          ? (BigInt(tx.value) / BigInt(1e18)).toString() + ' ETH'
-          : '0 ETH'
+        // H-1: format the amount with the ACTIVE chain's native symbol + full
+        // decimals (viem formatEther), not integer-divided "0 ETH".
+        const activeChainId = getDappChainId(origin)
+        const activeChain = evmChainById(activeChainId)
         const approved = await showApprovalWindow({
           title: 'Send Transaction',
           heading: 'A dApp wants to send a transaction',
-          detail: [
-            `To: ${tx.to ?? '(contract)'}`,
-            `Value: ${valueEth}`,
-            tx.data ? `Data: ${tx.data.slice(0, 200)}…` : 'No data'
-          ].join('\n'),
+          detail: describeEvmSend(
+            tx,
+            activeChain?.nativeSymbol ?? 'ETH',
+            activeChain?.name ?? `chain ${activeChainId}`
+          ),
           confirmLabel: 'Send',
           origin
         })
@@ -642,7 +715,7 @@ export function registerIpcHandlers(): void {
         }
         const mnemonic = loadMnemonic()
         const accountIndex = addresses?.accountIndex ?? 0
-        return sendEvmFromDapp(mnemonic, accountIndex, tx, config)
+        return sendEvmFromDapp(mnemonic, accountIndex, tx, config, activeChainId)
       }
 
       // ── Typed-data signing (EIP-712) — used by OpenSea / Seaport ────────
@@ -662,15 +735,16 @@ export function registerIpcHandlers(): void {
         } catch {
           throw Object.assign(new Error('Invalid typed data payload'), { code: -32602 })
         }
-        const domainName = typeof typed?.domain?.name === 'string' ? typed.domain.name : ''
+        // H-2: render the FULL message (spender/amount for approvals, with an
+        // UNLIMITED warning) instead of just the primaryType.
+        const detail = describeTypedData(typed)
+        const looksLikeApproval = /permit/i.test(typed?.primaryType ?? '') || detail.includes('Token approval')
         const approved = await showApprovalWindow({
           title: 'Sign Typed Data',
           heading: 'A dApp wants you to sign structured data (EIP-712)',
-          detail: [
-            `Type: ${typed?.primaryType || '(unknown)'}`,
-            domainName ? `Domain: ${domainName}` : ''
-          ].filter(Boolean).join('\n'),
+          detail,
           confirmLabel: 'Sign',
+          tone: looksLikeApproval ? 'danger' : 'primary',
           origin
         })
         if (!approved) {
@@ -688,7 +762,7 @@ export function registerIpcHandlers(): void {
 
       // ── Read-only: proxy to the active chain's RPC (de-duped + briefly cached) ──
       default:
-        return forwardEvmRpc(method, params, config)
+        return forwardEvmRpc(method, params, config, getDappChainId(origin))
     }
     } catch (err) {
       // Normalize so dApps get a clean, readable error message, never a raw stack.

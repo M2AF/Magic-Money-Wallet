@@ -206,7 +206,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "avalanche",
-      "count": 54
+      "count": 55
     },
     {
       "id": "base",
@@ -222,7 +222,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "ethereum",
-      "count": 111
+      "count": 112
     },
     {
       "id": "gnosis",
@@ -242,7 +242,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "polygon",
-      "count": 72
+      "count": 73
     },
     {
       "id": "ronin",
@@ -5838,13 +5838,16 @@ const APP_HUB: AppHubData = {
       "website": "https://filecoin.io",
       "category": "Real World Assets",
       "chains": [
-        "cardano"
+        "cardano",
+        "ethereum",
+        "polygon",
+        "avalanche"
       ],
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=filecoin.io&sz=64",
       "description": "Verifiable data storage.",
-      "chainCount": 1,
-      "coverage": 6
+      "chainCount": 4,
+      "coverage": 22
     },
     {
       "id": "finest-investments",
