@@ -24,22 +24,28 @@ const WALLET_CSP =
   "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 
 function installRendererCsp(): void {
-  // Only the wallet's own document (loaded from file:// in the packaged app) gets
-  // the strict policy. dApp pages (https) and the data: approval windows are left
-  // untouched. mainFrame-only so we set it on the document, not every sub-resource.
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    if (details.resourceType === 'mainFrame' && details.url.startsWith('file://')) {
-      const headers = { ...details.responseHeaders }
-      // Drop any existing CSP header variants before setting ours.
-      for (const k of Object.keys(headers)) {
-        if (k.toLowerCase() === 'content-security-policy') delete headers[k]
+  // IMPORTANT: scope the listener with a URL filter to file:// ONLY. The dApp
+  // browser (WebContentsView) shares this default session and is extremely chatty
+  // (RPC polling, websockets, charts). Without the filter the listener fired for
+  // every one of those requests, loading the main process and making the wallet
+  // UI sluggish. With the filter, dApp https traffic bypasses this entirely and
+  // only the wallet's own documents (loaded from file:// when packaged) are seen.
+  session.defaultSession.webRequest.onHeadersReceived(
+    { urls: ['file:///*'] },
+    (details, callback) => {
+      if (details.resourceType === 'mainFrame') {
+        const headers = { ...details.responseHeaders }
+        // Drop any existing CSP header variants before setting ours.
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'content-security-policy') delete headers[k]
+        }
+        headers['Content-Security-Policy'] = [WALLET_CSP]
+        callback({ responseHeaders: headers })
+      } else {
+        callback({ responseHeaders: details.responseHeaders })
       }
-      headers['Content-Security-Policy'] = [WALLET_CSP]
-      callback({ responseHeaders: headers })
-    } else {
-      callback({ responseHeaders: details.responseHeaders })
     }
-  })
+  )
 }
 
 // Prevent multiple instances

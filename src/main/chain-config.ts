@@ -25,6 +25,19 @@ export interface ChainDef {
   comingSoon?: boolean      // skip balance fetch, show "Coming Soon" in UI
 }
 
+// Monad (143) public RPC endpoints (docs.monad.xyz). Each provider has a low
+// per-IP rate limit (QuickNode 25 rps, Alchemy 15 rps, etc.), so a chatty dApp
+// (e.g. nad.fun) exhausts a single one instantly → throttled, slow, timeouts.
+// Reads rotate across these and sends fall back through them, multiplying the
+// effective throughput and surviving any one endpoint being slow/down.
+export const MONAD_RPCS = [
+  'https://rpc.monad.xyz',              // QuickNode  25 rps
+  'https://rpc1.monad.xyz',             // Alchemy    15 rps
+  'https://rpc2.monad.xyz',             // Goldsky    300/10s, eth_call history
+  'https://rpc3.monad.xyz',             // Ankr       300/10s
+  'https://rpc-mainnet.monadinfra.com', // MF         20 rps,  eth_call history
+]
+
 // ─── EVM chains ───────────────────────────────────────────────────────────────
 
 export const EVM_CHAINS: ChainDef[] = [

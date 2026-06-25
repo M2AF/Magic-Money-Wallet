@@ -9,12 +9,14 @@ import {
   createPublicClient,
   createWalletClient,
   http,
+  fallback,
   parseEther,
   parseUnits,
   encodeFunctionData,
   parseAbi,
   defineChain,
-  type Chain
+  type Chain,
+  type Transport
 } from 'viem'
 import {
   mainnet,
@@ -48,6 +50,7 @@ import {
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch } from './api-proxy'
+import { MONAD_RPCS } from './chain-config'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -102,6 +105,14 @@ const EVM_CHAINS: Record<string, EvmChainEntry> = {
   hyperevm:   { chain: hyperEvm,      rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',                              explorer: 'https://purrsec.com/tx',                                nativeSymbol: 'HYPE' }
 }
 
+// Monad's public RPCs each throttle under load; build a viem fallback transport
+// across all of them so estimates/sends fail over instead of timing out. Other
+// chains keep their single HTTP transport.
+function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
+  if (entry.chain.id === 143) return fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
+  return http(entry.rpcUrl(config))
+}
+
 export async function estimateEvmFee(
   from: string,
   to: string,
@@ -110,7 +121,7 @@ export async function estimateEvmFee(
   chainId = 'ethereum'
 ): Promise<FeeEstimate> {
   const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
-  const transport = http(entry.rpcUrl(config))
+  const transport = evmTransport(entry, config)
   const client = createPublicClient({ chain: entry.chain, transport })
 
   const [gasEstimate, feeData] = await Promise.all([
@@ -164,7 +175,7 @@ export async function sendEvmTransaction(
   const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
   const account = privateKeyToAccount(pk)
-  const transport = http(entry.rpcUrl(config))
+  const transport = evmTransport(entry, config)
   const walletClient = createWalletClient({ chain: entry.chain, transport, account })
 
   const hash = await walletClient.sendTransaction({
@@ -210,7 +221,7 @@ export async function sendRawEvmTransaction(
 
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
   const account = privateKeyToAccount(pk)
-  const walletClient = createWalletClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)), account })
+  const walletClient = createWalletClient({ chain: entry.chain, transport: evmTransport(entry, config), account })
 
   const hash = await walletClient.sendTransaction({
     to: tx.to as `0x${string}`,
@@ -277,7 +288,7 @@ export async function sendAgwTransaction(
 export async function waitForEvmReceipt(chainId: number, hash: string, config: WalletConfig): Promise<void> {
   const entry = evmEntryByChainId(chainId)
   if (!entry) return
-  const client = createPublicClient({ chain: entry.chain, transport: http(entry.rpcUrl(config)) })
+  const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
   await client.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 })
 }
 
