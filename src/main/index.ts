@@ -9,6 +9,14 @@ import { autoUpdater } from 'electron-updater'
 // when loading IPFS gateway images in Electron's Chromium engine
 app.commandLine.appendSwitch('disable-quic')
 
+// Force hardware-accelerated rendering for canvas/WebGL-heavy dApps in the built-in
+// browser (e.g. nad.fun's TradingView charts). Chromium frequently blocklists the
+// GPU on Windows and falls back to slow software rasterization; these override that.
+// Verify with chrome://gpu inside the in-app browser ("Canvas: Hardware accelerated").
+app.commandLine.appendSwitch('ignore-gpu-blocklist')
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('enable-zero-copy')
+
 // Strict CSP for the packaged wallet renderer (closes C-2: no inline scripts, no
 // arbitrary connect targets). Enforced as a response header — stronger than the
 // <meta> tag and, unlike the meta, it can be scoped so it does NOT apply to the
@@ -132,6 +140,13 @@ app.on('web-contents-created', (_event, contents) => {
 })
 
 app.whenReady().then(() => {
+  // Confirm hardware acceleration is actually active (the in-app browser can't
+  // easily reach chrome://gpu). In the terminal, look for "gpu_compositing",
+  // "rasterization" and "webgl" = "enabled". If they read "disabled_software" /
+  // "unavailable_software", the GPU is being software-rendered (the real cause of
+  // slow canvas/WebGL dApps) and the slowness is NOT something the wallet can fix.
+  console.log('[GPU] feature status:', app.getGPUFeatureStatus())
+
   // Harden the renderer with a strict CSP in packaged builds (see WALLET_CSP).
   if (app.isPackaged) installRendererCsp()
   registerIpcHandlers()

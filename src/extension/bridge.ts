@@ -116,6 +116,11 @@ export function createExtensionWallet() {
     setAccount:     (i: number)             => send('wallet:set-account', i),
     setAgw:         (i: number, address: string | null) => send('wallet:set-agw', i, address),
 
+    // Connected sites (revoke dApp access)
+    getConnectedSites: ()             => send<string[]>('wallet:get-connected-sites'),
+    revokeSite:     (origin: string)  => send<string[]>('wallet:revoke-site', origin),
+    revokeAllSites: ()                => send<string[]>('wallet:revoke-all-sites'),
+
     // Transactions
     estimateFee:    (c: string, t: string, a: string) => send('wallet:estimate-fee', c, t, a),
     sendEvm:        (c: string, t: string, a: string) => send('wallet:send-evm', c, t, a),

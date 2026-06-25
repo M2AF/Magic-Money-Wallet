@@ -223,12 +223,22 @@ export async function sendRawEvmTransaction(
   const account = privateKeyToAccount(pk)
   const walletClient = createWalletClient({ chain: entry.chain, transport: evmTransport(entry, config), account })
 
-  const hash = await walletClient.sendTransaction({
-    to: tx.to as `0x${string}`,
-    data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
-    value: toBig(tx.value) ?? 0n,
-    gas: toBig(tx.gas),
-  })
+  let hash: `0x${string}`
+  try {
+    hash = await walletClient.sendTransaction({
+      to: tx.to as `0x${string}`,
+      data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
+      value: toBig(tx.value) ?? 0n,
+      gas: toBig(tx.gas),
+    })
+  } catch (err) {
+    // viem wraps RPC failures as a generic "unknown RPC error". Log the full chain
+    // so the real reason (fees / nonce / revert) is visible in the terminal.
+    const e = err as { shortMessage?: string; details?: string; cause?: { message?: string; details?: string } }
+    console.error(`[tx-sender] broadcast failed on chainId ${tx.chainId} — full error:`, err)
+    console.error('[tx-sender] shortMessage:', e.shortMessage, '| details:', e.details, '| cause:', e.cause)
+    throw new Error(e.cause?.details || e.cause?.message || e.shortMessage || (err as Error).message || 'Transaction failed')
+  }
 
   return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
 }

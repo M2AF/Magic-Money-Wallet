@@ -64,6 +64,11 @@ contextBridge.exposeInMainWorld('wallet', {
   ssCreateExchange:(params: unknown)   => ipcRenderer.invoke('ss:create-exchange', params),
   ssStatus:        (id: string)        => ipcRenderer.invoke('ss:status', id),
 
+  // ── Connected sites (revoke dApp access) ──────────────────────────────
+  getConnectedSites: ()              => ipcRenderer.invoke('wallet:get-connected-sites'),
+  revokeSite:    (origin: string)    => ipcRenderer.invoke('wallet:revoke-site', origin),
+  revokeAllSites:()                  => ipcRenderer.invoke('wallet:revoke-all-sites'),
+
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
 

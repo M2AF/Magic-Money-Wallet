@@ -29,6 +29,7 @@ import {
   getApprovedOrigins,
   addApprovedOrigin,
   removeApprovedOrigin,
+  clearApprovedOrigins,
   loadAgwOverride,
   saveAgwOverride,
   unlock,
@@ -375,6 +376,34 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:delete', () => {
     deleteWallet()
     return true
+  })
+
+  // ── Connected sites (revoke dApp access, like MetaMask/Phantom) ────────
+  // The approved-origins allowlist is shared across every chain, so revoking
+  // an origin disconnects it everywhere. If that origin is the dApp currently
+  // open in the built-in browser, push accountsChanged []/disconnect so the
+  // page reflects the disconnect immediately instead of on next reload.
+  const currentDappOrigin = (): string => {
+    try { return new URL(getBrowserState().url).origin } catch { return '' }
+  }
+  const notifyDappDisconnected = (): void => {
+    emitDappEvent('eth', 'accountsChanged', [])
+    emitDappEvent('solana', 'disconnect', null)
+  }
+
+  ipcMain.handle('wallet:get-connected-sites', () => getApprovedOrigins())
+
+  ipcMain.handle('wallet:revoke-site', (_event, origin: string) => {
+    if (typeof origin !== 'string' || !origin) return getApprovedOrigins()
+    removeApprovedOrigin(origin)
+    if (currentDappOrigin() === origin) notifyDappDisconnected()
+    return getApprovedOrigins()
+  })
+
+  ipcMain.handle('wallet:revoke-all-sites', () => {
+    clearApprovedOrigins()
+    notifyDappDisconnected()
+    return []
   })
 
   // ── Phase 2: Fee estimation ────────────────────────────────────────────

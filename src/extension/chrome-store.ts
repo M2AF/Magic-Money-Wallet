@@ -194,3 +194,8 @@ export async function removeApprovedOrigin(origin: string): Promise<void> {
   const existing = await getApprovedOrigins()
   await chrome.storage.local.set({ 'wallet.approved_origins': existing.filter(o => o !== origin) })
 }
+
+/** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
+export async function clearApprovedOrigins(): Promise<void> {
+  await chrome.storage.local.set({ 'wallet.approved_origins': [] })
+}

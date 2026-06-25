@@ -260,6 +260,10 @@ declare global {
       getAccountIndex(): Promise<number>
       setAccount(index: number): Promise<WalletAddresses>
       setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
+      // Connected sites (revoke dApp access)
+      getConnectedSites(): Promise<string[]>
+      revokeSite(origin: string): Promise<string[]>
+      revokeAllSites(): Promise<string[]>
       deleteWallet(): Promise<boolean>
       // Phase 5
       getMarket(): Promise<MarketResult>

@@ -289,7 +289,10 @@ export function closeBrowserWindow(): void {
 
 export function browserNavigate(url: string): void {
   if (!dappView) return
-  const normalized = /^https?:\/\//i.test(url) ? url : `https://${url}`
+  // Pass http(s) and internal diagnostic schemes (chrome://gpu, about:) through
+  // as-is; otherwise treat the input as a hostname and default to https://.
+  const trimmed = url.trim()
+  const normalized = /^(https?|chrome|about):/i.test(trimmed) ? trimmed : `https://${trimmed}`
   dappView.webContents.loadURL(normalized)
 }
 

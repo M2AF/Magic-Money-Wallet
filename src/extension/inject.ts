@@ -51,16 +51,18 @@ window.addEventListener('message', (event) => {
   const m = event.data
   if (!m || m.__mm !== 'bg→page:event' || m.chain !== 'eth') return
   emitEth(m.event, m.data)
+  // Update OUR provider object (not window.ethereum, which may belong to another
+  // wallet in a multi-wallet browser, or be locked).
   if (m.event === 'chainChanged') {
-    ;(window.ethereum as Record<string, unknown>).chainId = m.data
-    ;(window.ethereum as Record<string, unknown>).networkVersion = String(parseInt(m.data as string, 16))
+    ;(mmEthereum as Record<string, unknown>).chainId = m.data
+    ;(mmEthereum as Record<string, unknown>).networkVersion = String(parseInt(m.data as string, 16))
   }
   if (m.event === 'accountsChanged') {
-    ;(window.ethereum as Record<string, unknown>).selectedAddress = (m.data as string[])[0] ?? null
+    ;(mmEthereum as Record<string, unknown>).selectedAddress = (m.data as string[])[0] ?? null
   }
 })
 
-;(window as Record<string, unknown>).ethereum = {
+const mmEthereum = {
   isMetaMask:      true,
   isMagicMoney:    true,
   chainId:         '0x1',
@@ -86,9 +88,21 @@ window.addEventListener('message', (event) => {
   enable() { return this.request({ method: 'eth_requestAccounts', params: [] }) },
 }
 
+// Best-effort install on window.ethereum. In a multi-wallet browser another wallet
+// (MetaMask/Phantom) may have already defined it as read-only — that assignment
+// would THROW and, since this is a top-level statement, abort the ENTIRE script
+// (Solana/Cardano/unisat/Polkadot AND the EIP-6963 announce below), leaving
+// MagicMoney undiscoverable. Swallow the failure: modern dApps (nad.fun, OpenSea)
+// find us through the EIP-6963 announce regardless of who owns window.ethereum.
+try {
+  Object.defineProperty(window, 'ethereum', { value: mmEthereum, writable: true, configurable: true })
+} catch {
+  try { (window as Record<string, unknown>).ethereum = mmEthereum } catch { /* locked — EIP-6963 only */ }
+}
+
 // ── window.solana ─────────────────────────────────────────────────────────────
 
-;(window as Record<string, unknown>).solana = {
+const mmSolana = {
   isMagicMoney: true,
   isConnected:  false,
   publicKey:    null as string | null,
@@ -126,6 +140,12 @@ window.addEventListener('message', (event) => {
   },
   on(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
   removeListener(_event: string, _cb: (...a: unknown[]) => void) { /* future */ },
+}
+
+// Only claim legacy window.solana if no other wallet (e.g. Phantom) owns it, and
+// never throw if it's locked — Solana dApps discover us via Wallet Standard below.
+if (typeof (window as Record<string, unknown>).solana === 'undefined') {
+  try { (window as Record<string, unknown>).solana = mmSolana } catch { /* locked by another wallet */ }
 }
 
 // ── CIP-30 window.cardano.magicmoney ─────────────────────────────────────────
@@ -294,7 +314,7 @@ function announceProvider() {
         icon:  WALLET_ICON,
         rdns:  'info.chainlens.magicmoney',
       }),
-      provider: window.ethereum,
+      provider: mmEthereum,
     })
   }))
 }
@@ -304,7 +324,7 @@ window.addEventListener('eip6963:requestProvider', announceProvider)
 
 // ── window.unisat — Bitcoin dApp standard (Ordinals, Runes, BRC-20) ──────────
 
-;(window as Record<string, unknown>).unisat = {
+const mmUnisat = {
   isMagicMoney: true,
 
   getAccounts:     ()                                        => send<string[]>('bitcoin:get-accounts', []),
@@ -319,6 +339,11 @@ window.addEventListener('eip6963:requestProvider', announceProvider)
 
   on:              (_e: string, _cb: (...a: unknown[]) => void) => {},
   removeListener:  (_e: string, _cb: (...a: unknown[]) => void) => {},
+}
+
+// Only claim window.unisat if a Bitcoin wallet hasn't already locked it; never throw.
+if (typeof (window as Record<string, unknown>).unisat === 'undefined') {
+  try { (window as Record<string, unknown>).unisat = mmUnisat } catch { /* locked by another wallet */ }
 }
 
 // ── window.injectedWeb3 — Polkadot.js extension standard ─────────────────────

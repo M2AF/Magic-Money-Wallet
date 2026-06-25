@@ -97,6 +97,17 @@ function openApprovalPopup(): void {
   })
 }
 
+// ── Monad RPC rotation ────────────────────────────────────────────────────────
+// Monad's public RPCs each throttle under load (a chatty dApp like nad.fun blows
+// past a single one's rate limit). Rotate reads across all of them and fall over
+// on transport errors; sends use a viem fallback transport. Mirrors the Electron
+// app (ipc-handlers.ts / tx-sender.ts).
+let _monadRpcCursor = 0
+function rotateMonadRpcs(list: readonly string[]): string[] {
+  const start = _monadRpcCursor++ % list.length
+  return [...list.slice(start), ...list.slice(0, start)]
+}
+
 // ── WalletConnect startup ─────────────────────────────────────────────────────
 
 initWalletConnect().catch(e => console.error('[WC] startup error:', e))
@@ -107,6 +118,21 @@ function broadcastEthEvent(event: string, data: unknown) {
   chrome.tabs.query({}, tabs => {
     for (const tab of tabs) {
       if (tab.id != null) {
+        chrome.tabs.sendMessage(tab.id, { type: 'eth:event', event, data }).catch(() => {})
+      }
+    }
+  })
+}
+
+// Push an EIP-1193 event to ONLY the tabs whose page matches `origin`. Used when a
+// single site is revoked so other connected dApps in other tabs aren't disturbed.
+function emitEthEventToOrigin(origin: string, event: string, data: unknown) {
+  chrome.tabs.query({}, tabs => {
+    for (const tab of tabs) {
+      if (tab.id == null || !tab.url) continue
+      let tabOrigin = ''
+      try { tabOrigin = new URL(tab.url).origin } catch { continue }
+      if (tabOrigin === origin) {
         chrome.tabs.sendMessage(tab.id, { type: 'eth:event', event, data }).catch(() => {})
       }
     }
@@ -215,6 +241,26 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wallet:delete': {
       await store.deleteWallet()
       return true
+    }
+
+    // ── Connected sites (revoke dApp access, like MetaMask/Phantom) ─────────
+    case 'wallet:get-connected-sites':
+      return store.getApprovedOrigins()
+
+    case 'wallet:revoke-site': {
+      const origin = String(a0 ?? '')
+      if (!origin) return store.getApprovedOrigins()
+      await store.removeApprovedOrigin(origin)
+      // Tell any open tab on that origin it's been disconnected (MetaMask behavior).
+      emitEthEventToOrigin(origin, 'accountsChanged', [])
+      return store.getApprovedOrigins()
+    }
+
+    case 'wallet:revoke-all-sites': {
+      const all = await store.getApprovedOrigins()
+      await store.clearApprovedOrigins()
+      for (const origin of all) emitEthEventToOrigin(origin, 'accountsChanged', [])
+      return []
     }
 
     // ── Data reads ─────────────────────────────────────────────────────────
@@ -538,23 +584,38 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           return null
         }
 
-        // Proxy all other read-only RPC calls to the current chain's endpoint
+        // Proxy all other read-only RPC calls to the current chain's endpoint.
+        // Monad rotates across its public set so a chatty dApp's reads survive any
+        // one endpoint throttling; other chains use their single URL.
         default: {
           const chainNum = parseInt(_currentChainId, 16) || 1
-          const { EVM_CHAINS: evmCfg } = await import('../main/chain-config')
+          const { EVM_CHAINS: evmCfg, MONAD_RPCS } = await import('../main/chain-config')
           const rpcCfg = await store.loadConfig()
           const chainDef = evmCfg.find(c => c.chainId === chainNum)
-          const rpcUrl = chainDef?.rpcUrl(rpcCfg) ?? alchemyRpcUrl('eth-mainnet', rpcCfg)
-          const rpcRes = await fetch(rpcUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-            signal: AbortSignal.timeout(15_000)
-          })
-          if (!rpcRes.ok) throw new Error(`RPC error ${rpcRes.status}: ${method}`)
-          const rpcJson = await rpcRes.json() as { result?: unknown; error?: { message: string; code?: number } }
-          if (rpcJson.error) throw Object.assign(new Error(rpcJson.error.message), { code: rpcJson.error.code })
-          return rpcJson.result
+          const urls = chainNum === 143
+            ? rotateMonadRpcs(MONAD_RPCS)
+            : [chainDef?.rpcUrl(rpcCfg) ?? alchemyRpcUrl('eth-mainnet', rpcCfg)]
+          const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+          let lastErr: unknown = null
+          for (const url of urls) {
+            let rpcRes: Response
+            // Only fail over on transport errors (timeout/connection/429/5xx);
+            // a valid JSON-RPC error (e.g. revert) is surfaced as-is.
+            try {
+              rpcRes = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body,
+                signal: AbortSignal.timeout(8_000)
+              })
+            } catch (e) { lastErr = e; continue }
+            if (!rpcRes.ok) { lastErr = new Error(`RPC error ${rpcRes.status}: ${method}`); continue }
+            const rpcJson = await rpcRes.json().catch(() => null) as { result?: unknown; error?: { message: string; code?: number } } | null
+            if (!rpcJson) { lastErr = new Error('Malformed RPC response'); continue }
+            if (rpcJson.error) throw Object.assign(new Error(rpcJson.error.message), { code: rpcJson.error.code })
+            return rpcJson.result
+          }
+          throw lastErr instanceof Error ? lastErr : new Error(`RPC failed: ${method}`)
         }
       }
     }
@@ -741,20 +802,40 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const entry = _web3TxQueue.get(id)
       if (!entry) throw new Error('Pending transaction not found')
       _web3TxQueue.delete(id)
-      const { createWalletClient, http, parseEther } = await import('viem')
+      const { createWalletClient, http, fallback, parseEther } = await import('viem')
       const config = await store.loadConfig()
-      const { EVM_CHAINS } = await import('../main/chain-config')
+      const { EVM_CHAINS, MONAD_RPCS } = await import('../main/chain-config')
       const numId = parseInt(entry.chainId ?? '1', 16) || 1
       const chain = EVM_CHAINS.find(c => c.chainId === numId) ?? EVM_CHAINS[0]
       const key = await deriveEvmKey()
       const acct = privateKeyToAccount(key)
-      const wc = createWalletClient({ account: acct, transport: http(chain.rpcUrl(config)), chain: null as unknown as undefined })
-      const hash = await wc.sendTransaction({
-        to: entry.tx.to as `0x${string}`,
-        value: entry.tx.value ? BigInt(entry.tx.value) : undefined,
-        data: entry.tx.data as `0x${string}` | undefined,
-        gas: entry.tx.gas ? BigInt(entry.tx.gas) : undefined,
-      })
+      // Monad: fall over across all public endpoints instead of timing out on one.
+      const transport = numId === 143
+        ? fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
+        : http(chain.rpcUrl(config))
+      const wc = createWalletClient({ account: acct, transport, chain: null as unknown as undefined })
+      let hash: `0x${string}`
+      try {
+        hash = await wc.sendTransaction({
+          to: entry.tx.to as `0x${string}`,
+          value: entry.tx.value ? BigInt(entry.tx.value) : undefined,
+          data: entry.tx.data as `0x${string}` | undefined,
+          gas: entry.tx.gas ? BigInt(entry.tx.gas) : undefined,
+        })
+      } catch (err) {
+        // viem wraps the RPC failure as a generic "unknown RPC error". Log the FULL
+        // chain (shortMessage / details / cause) to the service-worker console so the
+        // real Monad reason is visible, and surface that instead of the wrapper.
+        const e = err as { shortMessage?: string; details?: string; metaMessages?: string[]; cause?: { message?: string; details?: string; data?: unknown } }
+        console.error('[MagicMoney] Monad send failed — full error:', err)
+        console.error('[MagicMoney] shortMessage:', e.shortMessage)
+        console.error('[MagicMoney] details:', e.details)
+        console.error('[MagicMoney] cause:', e.cause)
+        const reason = e.cause?.details || e.cause?.message || e.shortMessage || e.details || (err as Error).message || 'Transaction failed'
+        const clean = new Error(reason)
+        entry.reject(clean)
+        throw clean
+      }
       entry.resolve(hash)
       return hash
     }

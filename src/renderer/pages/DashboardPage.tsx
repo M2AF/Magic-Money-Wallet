@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
 import { ChainCard } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
@@ -725,6 +725,11 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [tokensLoading, setTokensLoading] = useState(true)
   const [collectibles, setCollectibles] = useState<CollectiblesResult | null>(null)
   const [collectiblesLoading, setCollectiblesLoading] = useState(true)
+  // True once balances + tokens + collectibles have ALL finished their first load.
+  // Gates the portfolio total so it shows one complete figure (not a "growing"
+  // partial) on startup — and, once true, stays true so the silent 3-min refresh
+  // updates the number in place instead of flashing "Calculating…" again.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [selectedNft, setSelectedNft] = useState<WalletCollectible | null>(null)
   const allNfts = collectibles?.items ?? []
 
@@ -795,9 +800,29 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     fetchCollectibles()
   }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles])
 
+  // Mark the first complete load (all three resolved — flags clear even on error)
+  // so the total can switch from "Calculating…" to the final figure, and stay there.
+  useEffect(() => {
+    if (!loading && !tokensLoading && !collectiblesLoading) setHasLoadedOnce(true)
+  }, [loading, tokensLoading, collectiblesLoading])
+
+  // Gentle background refresh every 3 minutes (immediate first load already ran on
+  // mount, so there's no startup wait). Quiet — updates values in place; the total
+  // doesn't revert to "Calculating…" because hasLoadedOnce stays true.
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchBalances(true)
+      fetchHistory()
+      fetchTokens()
+      fetchCollectibles()
+    }, 180_000)
+    return () => clearInterval(id)
+  }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles])
+
   const switchAccount = async (newIndex: number) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return
     setAccountSwitching(true)
+    setHasLoadedOnce(false)
     setBalances(null)
     setHistory(null)
     setTokensResult(null)
@@ -816,7 +841,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     }
   }
 
-  const totalUsd = (() => {
+  // Memoized so it recomputes only when the underlying data changes — not on every
+  // render (hover, tab switch). Iterating balances + all tokens + all NFTs (hundreds)
+  // on each render was the source of the "calculating" lag.
+  const totalUsd = useMemo(() => {
     if (!balances) return null
 
     const chainTotal = Object.values(balances.chains)
@@ -832,14 +860,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       .reduce((a, b) => a + b, 0)
 
     // NFTs valued at collection floor (hidden/spam excluded).
-    const nftTotal = allNfts
+    const nftTotal = (collectibles?.items ?? [])
       .filter(n => { const k = nftKey(n); return !hiddenItems.has(k) && !spamItems.has(k) })
       .map(n => n.usdValue ? parseFloat(n.usdValue.replace(/[$,]/g, '')) : 0)
       .reduce((a, b) => a + b, 0)
 
     const total = chainTotal + tokenTotal + nftTotal
     return total > 0 ? `$${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : null
-  })()
+  }, [balances, tokensResult, collectibles, hiddenItems, spamItems])
 
   const lastUpdated = balances
     ? new Date(balances.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -870,7 +898,11 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title" style={{ fontSize: 18 }}>Portfolio</h1>
-          {totalUsd && (
+          {!hasLoadedOnce ? (
+            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
+              Calculating…
+            </div>
+          ) : totalUsd ? (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
               <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
                 {totalUsd}
@@ -879,7 +911,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                 <PortfolioPnl data={balances.portfolioSparkline} />
               )}
             </div>
-          )}
+          ) : null}
           {lastUpdated && (
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
               Updated {lastUpdated}

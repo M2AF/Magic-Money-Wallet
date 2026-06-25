@@ -333,3 +333,10 @@ export function removeApprovedOrigin(origin: string): void {
   writeFileSync(approvedOriginsPath(), JSON.stringify(next, null, 2))
   approvedOriginsCache = next
 }
+
+/** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
+export function clearApprovedOrigins(): void {
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(approvedOriginsPath(), JSON.stringify([], null, 2))
+  approvedOriginsCache = []
+}
