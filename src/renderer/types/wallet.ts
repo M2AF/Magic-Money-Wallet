@@ -299,6 +299,12 @@ declare global {
       offBrowserTitle(cb: (title: string) => void): void
       onBrowserClosed(cb: () => void): void
       offBrowserClosed(cb: () => void): void
+      // dApp browser: active EVM network (toolbar switcher + awareness)
+      web3GetChain(): Promise<string>
+      web3GetChains(): Promise<Array<{ chainId: number; id: string; name: string; color: string }>>
+      web3SetChain(chainId: number): Promise<string>
+      onWeb3ChainChanged(cb: (hex: string) => void): void
+      offWeb3ChainChanged(cb: (hex: string) => void): void
       // Phase 9: ChainLens profile sync
       chainlensGetProfile(): Promise<ClUser | null>
       chainlensSync(): Promise<ChainlensSyncResult>

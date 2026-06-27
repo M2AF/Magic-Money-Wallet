@@ -137,18 +137,8 @@ export function BrowserApp() {
           />
         </form>
 
-        {/* Web3 connected badge */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '3px 8px',
-          background: 'rgba(34,197,94,0.08)',
-          border: '1px solid rgba(34,197,94,0.25)',
-          borderRadius: 12,
-          flexShrink: 0
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e' }} />
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#22c55e', letterSpacing: '0.04em' }}>Web3</span>
-        </div>
+        {/* Network switcher (active EVM network + manual switch) */}
+        <NetworkSwitcher />
 
         {loading && (
           <div style={{
@@ -161,6 +151,66 @@ export function BrowserApp() {
 
       {/* ── Content area (filled by WebContentsView from main process) ── */}
       <div style={{ flex: 1, background: 'transparent' }} />
+    </div>
+  )
+}
+
+// Active EVM network for the dApp browser. Shows the current network and lets the
+// user switch it manually — which fires chainChanged to the dApp exactly like a
+// dApp-initiated wallet_switchEthereumChain. A NATIVE <select> is used on purpose:
+// its option popup is OS-drawn and floats above the dApp WebContentsView, whereas a
+// custom HTML dropdown would be hidden behind that view.
+function NetworkSwitcher() {
+  const [chains, setChains] = useState<Array<{ chainId: number; id: string; name: string; color: string }>>([])
+  const [chainId, setChainId] = useState('0x1')
+
+  useEffect(() => {
+    window.wallet.web3GetChains().then(setChains).catch(() => {})
+    window.wallet.web3GetChain().then(setChainId).catch(() => {})
+    const onChange = (hex: string) => setChainId(hex)
+    window.wallet.onWeb3ChainChanged(onChange)
+    return () => window.wallet.offWeb3ChainChanged(onChange)
+  }, [])
+
+  const numId = parseInt(chainId, 16)
+  const current = chains.find(c => c.chainId === numId)
+  const color = current?.color ?? '#22c55e'
+  const label = current?.name ?? (Number.isFinite(numId) ? `Chain ${numId}` : 'Network')
+
+  return (
+    <div
+      title="Switch network"
+      style={{
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
+        padding: '3px 8px', background: 'var(--surface-raised)',
+        border: '1px solid var(--border)', borderRadius: 12,
+        flexShrink: 0, maxWidth: 150
+      }}
+    >
+      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {label}
+      </span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+      <select
+        aria-label="Switch network"
+        value={Number.isFinite(numId) ? numId : ''}
+        onChange={e => {
+          const id = Number(e.target.value)
+          if (Number.isFinite(id)) window.wallet.web3SetChain(id).then(setChainId).catch(() => {})
+        }}
+        style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          opacity: 0, cursor: 'pointer', border: 'none', colorScheme: 'dark'
+        }}
+      >
+        {!current && <option value="" disabled>{label}</option>}
+        {chains.map(c => (
+          <option key={c.id} value={c.chainId}>{c.name}</option>
+        ))}
+      </select>
     </div>
   )
 }

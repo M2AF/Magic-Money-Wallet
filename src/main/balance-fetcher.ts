@@ -9,10 +9,11 @@
 import { base58 } from '@scure/base'
 import { blake2b } from '@noble/hashes/blake2b'
 import type { WalletConfig } from './secure-store'
-import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, type ChainDef } from './chain-config'
+import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, type ChainDef } from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback } from './api-proxy'
+import { koiosAddressLovelace } from './cardano-koios'
 
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
@@ -161,22 +162,25 @@ async function fetchBitcoinNative(
   address: string
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
-  try {
-    const res = await fetch(`https://mempool.space/api/address/${address}`, {
-      signal: AbortSignal.timeout(10_000)
-    })
-    if (!res.ok) return { native: 0, tokenCount: 0, error: `Mempool ${res.status}` }
-    const json = await res.json() as {
-      chain_stats:   { funded_txo_sum: number; spent_txo_sum: number }
-      mempool_stats: { funded_txo_sum: number; spent_txo_sum: number }
+  // Try each Esplora host in turn — they share the identical /address/{addr}
+  // response, so blockstream.info covers for mempool.space when it's down.
+  let lastErr: string | null = null
+  for (const base of BITCOIN_ESPLORA) {
+    try {
+      const res = await fetch(`${base}/address/${address}`, { signal: AbortSignal.timeout(10_000) })
+      if (!res.ok) { lastErr = `Esplora ${res.status}`; continue }
+      const json = await res.json() as {
+        chain_stats:   { funded_txo_sum: number; spent_txo_sum: number }
+        mempool_stats: { funded_txo_sum: number; spent_txo_sum: number }
+      }
+      const confirmed = json.chain_stats.funded_txo_sum   - json.chain_stats.spent_txo_sum
+      const pending   = json.mempool_stats.funded_txo_sum - json.mempool_stats.spent_txo_sum
+      return { native: (confirmed + pending) / 1e8, tokenCount: 0, error: null }
+    } catch (err) {
+      lastErr = String(err).includes('abort') ? 'Timed out' : 'Network error'
     }
-    const confirmed = json.chain_stats.funded_txo_sum   - json.chain_stats.spent_txo_sum
-    const pending   = json.mempool_stats.funded_txo_sum - json.mempool_stats.spent_txo_sum
-    return { native: (confirmed + pending) / 1e8, tokenCount: 0, error: null }
-  } catch (err) {
-    const msg = String(err)
-    return { native: 0, tokenCount: 0, error: msg.includes('abort') ? 'Timed out' : 'Network error' }
   }
+  return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
 }
 
 // ─── Polkadot via Substrate RPC (Tatum gateway) + SCALE decode ───────────────
@@ -234,13 +238,14 @@ async function fetchSolanaNative(
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   const url = CHAIN_MAP['solana'].rpcUrl(config)
   try {
-    const [balRes, tokRes] = await Promise.all([
-      fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] }),
-        signal: AbortSignal.timeout(10_000)
-      }),
+    // Native balance: Helius proxy first, then public Solana RPCs (drop-in JSON-RPC)
+    // so a throttled key still shows SOL. Token-account enrichment stays Helius-only.
+    const [balJson, tokRes] = await Promise.all([
+      rpcReadWithFallback(
+        [url, ...SOLANA_RPCS],
+        { jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] },
+        10_000
+      ) as Promise<{ result?: { value: number }; error?: { message?: string } } | null>,
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,10 +258,9 @@ async function fetchSolanaNative(
       })
     ])
 
-    if (!balRes.ok) return { native: 0, tokenCount: 0, error: `Helius ${balRes.status}` }
+    if (!balJson) return { native: 0, tokenCount: 0, error: 'RPC error' }
 
-    const balJson = await balRes.json() as { result: { value: number } }
-    const native = balJson.result.value / 1e9
+    const native = (balJson.result?.value ?? 0) / 1e9
     let tokenCount = 0
     if (tokRes.ok) {
       const tokJson = await tokRes.json() as { result: { value: unknown[] } }
@@ -293,6 +297,10 @@ async function fetchCardanaNative(
       lovelace = Number(addrJson.amount?.find(a => a.unit === 'lovelace')?.quantity ?? '0')
       if (addrJson.stake_address) resolvedStake = addrJson.stake_address
     } else if (addrRes.status !== 404) {
+      // Blockfrost errored (not a missing address) — fall back to keyless Koios so
+      // ADA balance still shows. Token count isn't mirrored on this path (enrichment).
+      const koiosLovelace = await koiosAddressLovelace(address)
+      if (koiosLovelace != null) return { native: koiosLovelace / 1e6, tokenCount: 0, error: null }
       const body = await addrRes.json().catch(() => ({})) as { message?: string }
       return { native: 0, tokenCount: 0, error: `Blockfrost ${addrRes.status}: ${body.message ?? addrRes.statusText}` }
     }
@@ -309,6 +317,9 @@ async function fetchCardanaNative(
 
     return { native: lovelace / 1e6, tokenCount, error: null }
   } catch (err) {
+    // Blockfrost unreachable — last-chance keyless Koios fallback for ADA balance.
+    const koiosLovelace = await koiosAddressLovelace(address)
+    if (koiosLovelace != null) return { native: koiosLovelace / 1e6, tokenCount: 0, error: null }
     return { native: 0, tokenCount: 0, error: String(err).includes('abort') ? 'Timed out' : 'Network error' }
   }
 }

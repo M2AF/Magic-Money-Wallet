@@ -70,7 +70,21 @@ const mmEthereum = {
   networkVersion:  '1',
 
   request({ method, params }: { method: string; params?: unknown[] }) {
-    return send('web3:request', [{ method, params: params ?? [] }])
+    const p = send('web3:request', [{ method, params: params ?? [] }])
+    if (method === 'wallet_switchEthereumChain' || method === 'wallet_addEthereumChain') {
+      // On success, reflect the new chain on the provider SYNCHRONOUSLY (the background
+      // emits chainChanged separately) so a dApp reading provider.chainId right after the
+      // switch resolves sees the new value — the race behind "Switch Network does nothing".
+      return p.then((result) => {
+        const reqChain = (params as Array<{ chainId?: string }> | undefined)?.[0]?.chainId
+        if (typeof reqChain === 'string') {
+          ;(mmEthereum as Record<string, unknown>).chainId = reqChain
+          ;(mmEthereum as Record<string, unknown>).networkVersion = String(parseInt(reqChain, 16))
+        }
+        return result
+      })
+    }
+    return p
   },
   on(event: string, cb: (...a: unknown[]) => void) {
     if (!_ethListeners[event]) _ethListeners[event] = []

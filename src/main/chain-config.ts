@@ -310,23 +310,50 @@ export const CHAIN_MAP: Record<string, ChainDef> = Object.fromEntries(
 
 export const CHAIN_ORDER: string[] = ALL_CHAINS.map(c => c.id)
 
-// Public, keyless community RPCs — fallback for READ-ONLY native-balance calls
-// when the proxy/Alchemy key is throttled or exhausted, so a balance degrades to
-// a public node instead of showing "—". Never used for sends (broadcast stays on
-// the proxy). Keyed by chain id; only chains whose primary RPC needs a key are listed.
+// Public, keyless community RPCs — fallbacks appended AFTER each chain's primary
+// (the proxy/Alchemy URL, or the chain's own public node). Reads (native-balance +
+// connected-dApp calls) fail over down the list when the primary is throttled/down
+// so a balance degrades to a public node instead of showing "—"; sends use the same
+// list as a viem `fallback` transport (primary tried first, public only on a
+// transport error — see tx-sender evmTransport). Keyed by chain id. Order = priority.
 export const PUBLIC_RPCS: Record<string, string[]> = {
-  ethereum:   ['https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
-  arbitrum:   ['https://arb1.arbitrum.io/rpc'],
-  optimism:   ['https://mainnet.optimism.io'],
-  base:       ['https://mainnet.base.org'],
-  polygon:    ['https://polygon-rpc.com'],
-  avalanche:  ['https://api.avax.network/ext/bc/C/rpc'],
-  blast:      ['https://rpc.blast.io'],
-  gnosis:     ['https://rpc.gnosischain.com'],
-  abstract:   ['https://api.mainnet.abs.xyz'],
-  apechain:   ['https://rpc.apechain.com/http'],
-  ronin:      ['https://api.roninchain.com/rpc'],
-  soneium:    ['https://rpc.soneium.org'],
-  worldchain: ['https://worldchain-mainnet.g.alchemy.com/public'],
-  zora:       ['https://rpc.zora.energy'],
+  ethereum:   ['https://cloudflare-eth.com', 'https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
+  arbitrum:   ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com', 'https://rpc.ankr.com/arbitrum'],
+  optimism:   ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com', 'https://rpc.ankr.com/optimism'],
+  base:       ['https://mainnet.base.org', 'https://base.llamarpc.com', 'https://rpc.ankr.com/base'],
+  polygon:    ['https://polygon-rpc.com', 'https://polygon.llamarpc.com', 'https://rpc.ankr.com/polygon'],
+  avalanche:  ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche.public-rpc.com', 'https://rpc.ankr.com/avalanche'],
+  blast:      ['https://rpc.blast.io', 'https://blast.blockpi.network/v1/rpc/public', 'https://rpc.ankr.com/blast'],
+  gnosis:     ['https://rpc.gnosischain.com', 'https://gnosis.public-rpc.com', 'https://rpc.ankr.com/gnosis'],
+  abstract:   ['https://api.mainnet.abs.xyz', 'https://2741.rpc.thirdweb.com'],
+  apechain:   ['https://rpc.apechain.com/http', 'https://apechain.calderachain.xyz/http'],
+  ronin:      ['https://api.roninchain.com/rpc', 'https://ronin.rpc.thirdweb.com'],
+  soneium:    ['https://rpc.soneium.org', 'https://soneium.rpc.thirdweb.com'],
+  worldchain: ['https://worldchain-mainnet.g.alchemy.com/public', 'https://worldchain.rpc.thirdweb.com'],
+  zora:       ['https://rpc.zora.energy', 'https://zora.rpc.thirdweb.com'],
+  // hyperevm's primary (rpc.hyperliquid.xyz/evm) is already public; 1rpc is a backup.
+  hyperevm:   ['https://public.1rpc.io/hyperliquid'],
+  // Monad is handled separately via MONAD_RPCS (rotation) in the hot read/send paths.
 }
+
+// Public, keyless Solana RPCs — read-only fallback for the native getBalance call
+// when the Helius proxy is throttled. Same JSON-RPC shape, so they're drop-in.
+// Sends keep the single Helius Connection (sendRawTransaction is preflight-sensitive).
+export const SOLANA_RPCS: string[] = [
+  'https://api.mainnet-beta.solana.com',
+  'https://solana-rpc.publicnode.com',
+  'https://rpc.ankr.com/solana',
+]
+
+// Public Bitcoin Esplora REST APIs — both expose the identical /address/{addr}
+// (chain_stats / mempool_stats) shape, so they're drop-in fallbacks for the
+// balance read. (blockchain.info, the bitcoind JSON-RPC gateways, and Electrum
+// wss endpoints use different protocols and are intentionally not listed here.)
+export const BITCOIN_ESPLORA: string[] = [
+  'https://mempool.space/api',
+  'https://blockstream.info/api',
+]
+
+// Koios — keyless Cardano API, used as a fallback when Blockfrost is down/throttled.
+// Different request/response shape than Blockfrost, so it's normalized in cardano-koios.ts.
+export const KOIOS_URL = 'https://api.koios.rest/api/v1'

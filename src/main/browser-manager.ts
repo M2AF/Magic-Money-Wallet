@@ -20,6 +20,7 @@ import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain } from 'ele
 import type { IpcMainEvent } from 'electron'
 import { join } from 'path'
 import { WALLET_ICON } from '../preload/wallet-icon'
+import { getDappChainId, setDappChainId, DEFAULT_CHAIN_ID } from './dapp-chain'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
 
@@ -29,6 +30,10 @@ const CHROME_HEIGHT = 80
 let popupWin: BrowserWindow | null = null
 let dappView: WebContentsView | null = null
 let mainWin: BrowserWindow | null = null
+
+// Last top-level dApp origin loaded — used to reset the active EVM network when the
+// user navigates to a DIFFERENT dApp, so a prior dApp's chain doesn't leak forward.
+let _lastDappOrigin: string | null = null
 
 const PHISHING_BLOCKLIST = new Set([
   'metarnask.io', 'myehereum.com', 'pancakeswep.finance',
@@ -171,6 +176,21 @@ function attachDappView(): void {
       canBack: dappView!.webContents.canGoBack(),
       canForward: dappView!.webContents.canGoForward()
     })
+
+    // Reset the active EVM network to Ethereum when moving to a NEW dApp origin so a
+    // prior dApp's chain (e.g. Monad on nad.fun) doesn't leak into the next one
+    // (which made Compound read Monad → "unsupported network"). Same-origin reloads
+    // and SPA in-page route changes (did-navigate-in-page) keep the current chain.
+    let origin: string | null = null
+    try { origin = new URL(url).origin } catch { origin = null }
+    if (origin && origin !== _lastDappOrigin) {
+      _lastDappOrigin = origin
+      const changed = getDappChainId() !== DEFAULT_CHAIN_ID
+      setDappChainId(DEFAULT_CHAIN_ID)
+      const hex = `0x${DEFAULT_CHAIN_ID.toString(16)}`
+      if (changed) emitDappEvent('eth', 'chainChanged', hex) // correct a page that synced the stale chain
+      notifyBrowserChrome('web3:chain-changed', hex)         // keep the toolbar pill in sync
+    }
   })
 
   dappView.webContents.on('did-navigate-in-page', (_, url) => {
@@ -311,6 +331,19 @@ export function browserHome(): void    { dappView?.webContents.loadURL(BROWSER_H
 export function emitDappEvent(chain: 'eth' | 'solana' | 'cardano', event: string, data: unknown): void {
   if (!dappView || dappView.webContents.isDestroyed()) return
   dappView.webContents.send('web3:event', { chain, event, data })
+}
+
+/**
+ * Send a message to the dApp browser's CHROME renderer (titlebar/toolbar) — e.g.
+ * the `web3:chain-changed` push that keeps the toolbar's network pill in sync with
+ * the active EVM network. No-op when the browser window isn't open.
+ */
+export function notifyBrowserChrome(channel: string, payload: unknown): void {
+  try {
+    if (popupWin && !popupWin.isDestroyed() && !popupWin.webContents.isDestroyed()) {
+      popupWin.webContents.send(channel, payload)
+    }
+  } catch { /* window torn down mid-send — safe to ignore */ }
 }
 
 export function getBrowserState() {

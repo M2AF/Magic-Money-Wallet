@@ -53,9 +53,11 @@ import {
   getBrowserState,
   getMainWin,
   showApprovalWindow,
-  emitDappEvent
+  emitDappEvent,
+  notifyBrowserChrome
 } from './browser-manager'
-import { EVM_CHAINS, MONAD_RPCS } from './chain-config'
+import { EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from './chain-config'
+import { getDappChainId, setDappChainId } from './dapp-chain'
 import { openseaFetch, heliusRpcUrl, canOpensea } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
@@ -97,13 +99,10 @@ function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
 }
 
 // ── dApp EVM chain state ─────────────────────────────────────────────────────
-// The injected provider is multi-chain: the connected dApp selects the active
-// network via wallet_switchEthereumChain. This is a SINGLE shared value that the
-// dApp view and its child login popup both see — restoring the pre-update
-// behavior real dApps (e.g. nad.fun on Monad) rely on. (A per-origin scheme was
-// tried to harden the rare dApp+popup edge case but broke chain context for
-// normal dApps, so it was reverted.) Defaults to Ethereum (1).
-let _currentChainId = 1
+// The active network lives in dapp-chain.ts (getDappChainId/setDappChainId) so it
+// can be shared with browser-manager, which RESETS it to Ethereum when the browser
+// navigates to a new dApp origin — otherwise a prior dApp's chain (e.g. nad.fun on
+// Monad) leaks into the next one (e.g. Compound → "unsupported network").
 
 /** Look up a supported EVM network by numeric chainId (shared chain-config). */
 function evmChainById(chainId: number) {
@@ -121,7 +120,7 @@ async function sendEvmFromDapp(
   tx: { to?: string; value?: string; data?: string; gas?: string; chainId?: string },
   config: WalletConfig
 ): Promise<string> {
-  const chainId = tx.chainId ? (parseInt(tx.chainId, 16) || _currentChainId) : _currentChainId
+  const chainId = tx.chainId ? (parseInt(tx.chainId, 16) || getDappChainId()) : getDappChainId()
   const { txHash } = await sendRawEvmTransaction(
     mnemonic,
     { to: tx.to ?? '', data: tx.data, value: tx.value, gas: tx.gas, chainId },
@@ -211,9 +210,12 @@ const MONAD_CHAIN_ID = 143
 let _monadRpcCursor = 0
 
 /**
- * RPC endpoints to try for the active chain. Monad rotates across its public set
- * (each has a low per-IP rate limit) so a chatty dApp's reads are spread out and
- * survive any one endpoint throttling/dropping; other chains use their single URL.
+ * RPC endpoints to try (in order) for the active chain. Monad rotates across its
+ * public set (each has a low per-IP rate limit) so a chatty dApp's reads are spread
+ * out and survive any one endpoint throttling/dropping. Every other chain tries its
+ * primary (proxy/Alchemy or its own public node) first, then the keyless PUBLIC_RPCS
+ * fallbacks — forwardEvmRpc only fails over on transport errors, so a real RPC error
+ * (e.g. a revert) is still surfaced from the primary.
  */
 function rpcUrlsForChain(chainId: number, config: WalletConfig): string[] {
   if (chainId === MONAD_CHAIN_ID) {
@@ -221,11 +223,11 @@ function rpcUrlsForChain(chainId: number, config: WalletConfig): string[] {
     return [...MONAD_RPCS.slice(start), ...MONAD_RPCS.slice(0, start)]
   }
   const chain = evmChainById(chainId) ?? EVM_CHAINS[0]
-  return [chain.rpcUrl(config)]
+  return [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
 }
 
 async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig): Promise<unknown> {
-  const key = `${_currentChainId}|${method}|${JSON.stringify(params ?? [])}`
+  const key = `${getDappChainId()}|${method}|${JSON.stringify(params ?? [])}`
 
   if (RPC_TTL_METHODS.has(method)) {
     const hit = rpcTtlCache.get(key)
@@ -236,7 +238,7 @@ async function forwardEvmRpc(method: string, params: unknown[], config: WalletCo
   if (existing) return existing
 
   const p = (async () => {
-    const urls = rpcUrlsForChain(_currentChainId, config)
+    const urls = rpcUrlsForChain(getDappChainId(), config)
     const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
     let lastErr: unknown = null
     // Fall over only on transport-level failures (timeout, connection, 429/5xx).
@@ -404,6 +406,29 @@ export function registerIpcHandlers(): void {
     clearApprovedOrigins()
     notifyDappDisconnected()
     return []
+  })
+
+  // ── dApp browser: active EVM network (toolbar switcher + awareness) ────
+  // The current chain is reset to Ethereum when navigating to a new dApp origin
+  // (browser-manager); these let the toolbar read it, list switchable networks,
+  // and switch manually — which fires chainChanged to the dApp just like a dApp-
+  // initiated wallet_switchEthereumChain.
+  ipcMain.handle('web3:get-chain', () => `0x${getDappChainId().toString(16)}`)
+
+  ipcMain.handle('web3:get-chains', () =>
+    EVM_CHAINS.map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
+  )
+
+  ipcMain.handle('web3:set-chain', (_event, chainId: number | string) => {
+    const target = typeof chainId === 'string' ? parseInt(chainId, 16) : chainId
+    if (!Number.isFinite(target) || !evmChainById(target)) {
+      throw new Error('Unsupported network')
+    }
+    setDappChainId(target)
+    const hex = `0x${target.toString(16)}`
+    emitDappEvent('eth', 'chainChanged', hex)
+    notifyBrowserChrome('web3:chain-changed', hex)
+    return hex
   })
 
   // ── Phase 2: Fee estimation ────────────────────────────────────────────
@@ -639,10 +664,10 @@ export function registerIpcHandlers(): void {
         return getApprovedOrigins().includes(origin) && addresses?.evm ? [addresses.evm] : []
 
       case 'eth_chainId':
-        return `0x${_currentChainId.toString(16)}`
+        return `0x${getDappChainId().toString(16)}`
 
       case 'net_version':
-        return String(_currentChainId)
+        return String(getDappChainId())
 
       // ── Network switching ───────────────────────────────────────────────
       case 'wallet_switchEthereumChain': {
@@ -655,8 +680,10 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
-        _currentChainId = target
-        emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
+        setDappChainId(target)
+        const hex = `0x${target.toString(16)}`
+        emitDappEvent('eth', 'chainChanged', hex)
+        notifyBrowserChrome('web3:chain-changed', hex)
         return null
       }
 
@@ -671,8 +698,10 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
-        _currentChainId = target
-        emitDappEvent('eth', 'chainChanged', `0x${target.toString(16)}`)
+        setDappChainId(target)
+        const hex = `0x${target.toString(16)}`
+        emitDappEvent('eth', 'chainChanged', hex)
+        notifyBrowserChrome('web3:chain-changed', hex)
         return null
       }
 
@@ -753,14 +782,14 @@ export function registerIpcHandlers(): void {
         }
         // H-1: format the amount with the ACTIVE chain's native symbol + full
         // decimals (viem formatEther), not integer-divided "0 ETH".
-        const activeChain = evmChainById(_currentChainId)
+        const activeChain = evmChainById(getDappChainId())
         const approved = await showApprovalWindow({
           title: 'Send Transaction',
           heading: 'A dApp wants to send a transaction',
           detail: describeEvmSend(
             tx,
             activeChain?.nativeSymbol ?? 'ETH',
-            activeChain?.name ?? `chain ${_currentChainId}`
+            activeChain?.name ?? `chain ${getDappChainId()}`
           ),
           confirmLabel: 'Send',
           origin

@@ -17,6 +17,7 @@ import {
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
 import { blockfrostFetch } from './api-proxy'
+import { koiosSubmitTx } from './cardano-koios'
 
 // ── CBOR primitives ───────────────────────────────────────────────────────────
 
@@ -402,14 +403,27 @@ export async function cip30SignData(
 }
 
 export async function cip30SubmitTx(txHex: string, config: WalletConfig): Promise<string> {
-  const res = await blockfrostFetch('tx/submit', config, 20_000, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/cbor' },
-    body: new Uint8Array(hexToBytes(txHex)),
-  })
-  if (!res.ok) {
-    const msg = await res.text().catch(() => String(res.status))
-    throw new Error(`Submit failed: ${msg}`)
+  const bytes = new Uint8Array(hexToBytes(txHex))
+  // Blockfrost first; fall back to keyless Koios /submittx if it's unreachable or
+  // rejects on transport grounds, so a down primary doesn't block a dApp broadcast.
+  let res: Response | null = null
+  try {
+    res = await blockfrostFetch('tx/submit', config, 20_000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/cbor' },
+      body: bytes,
+    })
+  } catch { res = null }
+
+  if (res && res.ok) return res.json()
+
+  try {
+    return await koiosSubmitTx(bytes)
+  } catch (koiosErr) {
+    if (res) {
+      const msg = await res.text().catch(() => String(res.status))
+      throw new Error(`Submit failed: ${msg}`)
+    }
+    throw koiosErr instanceof Error ? koiosErr : new Error('Cardano submit failed')
   }
-  return res.json()
 }

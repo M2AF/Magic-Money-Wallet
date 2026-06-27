@@ -97,6 +97,18 @@ webFrame.executeJavaScript(`(function () {
             mmEthereum.chainId = result;
             mmEthereum.networkVersion = String(parseInt(result, 16));
           }
+          if (method === 'wallet_switchEthereumChain' || method === 'wallet_addEthereumChain') {
+            // Success (main resolved without throwing): reflect the new chain on the
+            // provider SYNCHRONOUSLY so a dApp that reads provider.chainId right after
+            // the switch promise resolves sees the new value instead of the stale one
+            // (that race is why "Switch Network" appeared to do nothing). The
+            // chainChanged EVENT is fired by the main process — we don't double-emit.
+            const reqChain = params && params[0] && params[0].chainId;
+            if (typeof reqChain === 'string') {
+              mmEthereum.chainId = reqChain;
+              mmEthereum.networkVersion = String(parseInt(reqChain, 16));
+            }
+          }
           return result;
         }).catch(rawErr => {
           // Electron IPC strips custom error props, so reconstruct an EIP-1193

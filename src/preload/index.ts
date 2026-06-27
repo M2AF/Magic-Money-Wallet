@@ -100,6 +100,13 @@ contextBridge.exposeInMainWorld('wallet', {
   onBrowserClosed:    (cb: () => void)  => ipcRenderer.on('browser:closed',  () => cb()),
   offBrowserClosed:   (cb: () => void)  => ipcRenderer.removeListener('browser:closed', cb as never),
 
+  // ── dApp browser: active EVM network (toolbar switcher + awareness) ───
+  web3GetChain:   ()                => ipcRenderer.invoke('web3:get-chain'),
+  web3GetChains:  ()                => ipcRenderer.invoke('web3:get-chains'),
+  web3SetChain:   (chainId: number) => ipcRenderer.invoke('web3:set-chain', chainId),
+  onWeb3ChainChanged:  (cb: (hex: string) => void) => ipcRenderer.on('web3:chain-changed', (_e, v) => cb(v)),
+  offWeb3ChainChanged: (cb: (hex: string) => void) => ipcRenderer.removeListener('web3:chain-changed', cb as never),
+
   // ── Phase 10: WalletConnect ───────────────────────────────────────────────
   wcGetSessions:          ()                  => ipcRenderer.invoke('wc:get-sessions'),
   wcGetPendingProposals:  ()                  => ipcRenderer.invoke('wc:get-pending-proposals'),

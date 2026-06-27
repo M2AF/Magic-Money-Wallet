@@ -50,7 +50,8 @@ import {
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch } from './api-proxy'
-import { MONAD_RPCS } from './chain-config'
+import { MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS } from './chain-config'
+import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -105,12 +106,25 @@ const EVM_CHAINS: Record<string, EvmChainEntry> = {
   hyperevm:   { chain: hyperEvm,      rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',                              explorer: 'https://purrsec.com/tx',                                nativeSymbol: 'HYPE' }
 }
 
-// Monad's public RPCs each throttle under load; build a viem fallback transport
-// across all of them so estimates/sends fail over instead of timing out. Other
-// chains keep their single HTTP transport.
+// Keyless public fallbacks keyed by numeric EVM chain id (derived from chain-config
+// so the string-keyed PUBLIC_RPCS doesn't have to be duplicated here).
+const PUBLIC_RPCS_BY_CHAIN_ID: Record<number, string[]> = Object.fromEntries(
+  EVM_CHAIN_DEFS
+    .filter(c => c.chainId != null)
+    .map(c => [c.chainId as number, PUBLIC_RPCS[c.id] ?? []])
+)
+
+// Build the transport for estimates/sends. Monad rotates its whole public set
+// (each endpoint has a tiny rate limit). Every other chain tries its primary
+// (proxy/Alchemy or own public node) FIRST and only fails over to the keyless
+// PUBLIC_RPCS on a transport error (timeout/connection/5xx) — a normal broadcast
+// still goes to the proxy; public nodes are the safety net when it's unreachable.
 function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
   if (entry.chain.id === 143) return fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
-  return http(entry.rpcUrl(config))
+  const urls = [entry.rpcUrl(config), ...(PUBLIC_RPCS_BY_CHAIN_ID[entry.chain.id] ?? [])]
+  return urls.length > 1
+    ? fallback(urls.map(u => http(u, { timeout: 10_000 })))
+    : http(urls[0])
 }
 
 export async function estimateEvmFee(
@@ -361,24 +375,27 @@ export async function sendSolanaTransaction(
 // ─── Cardano ──────────────────────────────────────────────────────────────────
 
 async function fetchUtxos(address: string, config: WalletConfig): Promise<CardanoUtxo[]> {
-  const res = await blockfrostFetch(`addresses/${address}/utxos`, config)
-  if (res.status === 404) return []
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({})) as { message?: string }
-    throw new Error(`Blockfrost ${res.status}: ${body.message ?? res.statusText}`)
-  }
+  try {
+    const res = await blockfrostFetch(`addresses/${address}/utxos`, config)
+    if (res.status === 404) return []   // address has no funds on-chain (definitive)
+    if (res.ok) {
+      const utxos = await res.json() as Array<{
+        tx_hash: string
+        tx_index: number
+        amount: Array<{ unit: string; quantity: string }>
+      }>
+      return utxos.map(u => ({
+        txHash: u.tx_hash,
+        txIndex: u.tx_index,
+        lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
+      }))
+    }
+    // Non-404 error — fall through to the keyless Koios fallback below.
+  } catch { /* Blockfrost unreachable — fall through to Koios */ }
 
-  const utxos = await res.json() as Array<{
-    tx_hash: string
-    tx_index: number
-    amount: Array<{ unit: string; quantity: string }>
-  }>
-
-  return utxos.map(u => ({
-    txHash: u.tx_hash,
-    txIndex: u.tx_index,
-    lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
-  }))
+  const koios = await koiosAddressUtxos(address)
+  if (koios) return koios
+  throw new Error('Could not fetch Cardano UTXOs (Blockfrost and Koios both unavailable)')
 }
 
 export async function estimateCardanoFee(
@@ -450,21 +467,32 @@ export async function sendCardanoTransaction(
     spendKey
   )
 
-  // Submit via Blockfrost (proxy injects project_id; CBOR body passed through)
-  const submitRes = await blockfrostFetch('tx/submit', config, 20_000, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/cbor' },
-    body: new Uint8Array(txCbor)   // fresh ArrayBuffer-backed copy → valid BodyInit
-  })
+  // Submit via Blockfrost (proxy injects project_id; CBOR body passed through).
+  // If Blockfrost is unreachable or rejects on transport grounds, fall back to the
+  // keyless Koios /submittx so a down primary doesn't block the broadcast. (An
+  // INVALID tx will be rejected by both — we then surface the Blockfrost reason.)
+  let submitRes: Response | null = null
+  try {
+    submitRes = await blockfrostFetch('tx/submit', config, 20_000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/cbor' },
+      body: new Uint8Array(txCbor)   // fresh ArrayBuffer-backed copy → valid BodyInit
+    })
+  } catch { submitRes = null }
 
-  if (!submitRes.ok) {
-    const body = await submitRes.json().catch(() => ({})) as { message?: string }
-    throw new Error(`Submit failed (${submitRes.status}): ${body.message ?? submitRes.statusText}`)
+  if (submitRes && submitRes.ok) {
+    return { txHash, explorerUrl: `https://cardanoscan.io/transaction/${txHash}` }
   }
 
-  return {
-    txHash,
-    explorerUrl: `https://cardanoscan.io/transaction/${txHash}`
+  try {
+    await koiosSubmitTx(txCbor)
+    return { txHash, explorerUrl: `https://cardanoscan.io/transaction/${txHash}` }
+  } catch (koiosErr) {
+    if (submitRes) {
+      const body = await submitRes.json().catch(() => ({})) as { message?: string }
+      throw new Error(`Submit failed (${submitRes.status}): ${body.message ?? submitRes.statusText}`)
+    }
+    throw koiosErr instanceof Error ? koiosErr : new Error('Cardano submit failed')
   }
 }
 

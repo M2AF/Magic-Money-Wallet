@@ -589,12 +589,14 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
         // one endpoint throttling; other chains use their single URL.
         default: {
           const chainNum = parseInt(_currentChainId, 16) || 1
-          const { EVM_CHAINS: evmCfg, MONAD_RPCS } = await import('../main/chain-config')
+          const { EVM_CHAINS: evmCfg, MONAD_RPCS, PUBLIC_RPCS } = await import('../main/chain-config')
           const rpcCfg = await store.loadConfig()
           const chainDef = evmCfg.find(c => c.chainId === chainNum)
+          // Monad rotates its public set; every other chain tries its primary first
+          // then the keyless PUBLIC_RPCS fallbacks (loop fails over on transport errors).
           const urls = chainNum === 143
             ? rotateMonadRpcs(MONAD_RPCS)
-            : [chainDef?.rpcUrl(rpcCfg) ?? alchemyRpcUrl('eth-mainnet', rpcCfg)]
+            : [chainDef?.rpcUrl(rpcCfg) ?? alchemyRpcUrl('eth-mainnet', rpcCfg), ...(chainDef ? (PUBLIC_RPCS[chainDef.id] ?? []) : [])]
           const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
           let lastErr: unknown = null
           for (const url of urls) {
@@ -804,15 +806,20 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       _web3TxQueue.delete(id)
       const { createWalletClient, http, fallback, parseEther } = await import('viem')
       const config = await store.loadConfig()
-      const { EVM_CHAINS, MONAD_RPCS } = await import('../main/chain-config')
+      const { EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } = await import('../main/chain-config')
       const numId = parseInt(entry.chainId ?? '1', 16) || 1
       const chain = EVM_CHAINS.find(c => c.chainId === numId) ?? EVM_CHAINS[0]
       const key = await deriveEvmKey()
       const acct = privateKeyToAccount(key)
-      // Monad: fall over across all public endpoints instead of timing out on one.
+      // Monad rotates its whole public set. Every other chain tries its primary
+      // (proxy/Alchemy or own node) first and only fails over to the keyless
+      // PUBLIC_RPCS on a transport error, so a normal broadcast still hits the proxy.
+      const sendUrls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
       const transport = numId === 143
         ? fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
-        : http(chain.rpcUrl(config))
+        : sendUrls.length > 1
+          ? fallback(sendUrls.map(u => http(u, { timeout: 10_000 })))
+          : http(sendUrls[0])
       const wc = createWalletClient({ account: acct, transport, chain: null as unknown as undefined })
       let hash: `0x${string}`
       try {
