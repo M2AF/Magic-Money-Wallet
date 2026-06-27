@@ -23,7 +23,7 @@ export interface SimpleSwapAsset {
   label: string     // e.g. 'SOL'
   name: string      // e.g. 'Solana'
   /** Wallet address book key used to auto-fill destination/refund (null = not held). */
-  addrKey: 'evm' | 'solana' | 'cardano' | 'bitcoin' | null
+  addrKey: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | null
 }
 
 export interface SsEstimateParams {
@@ -75,4 +75,20 @@ export interface SsExchange {
   validUntil: string | null
   createdAt: string | null
   error: string | null
+  provider?: ExchangeProvider       // which deposit-address provider answered
+}
+
+// ── Deposit-address exchange aggregator (SimpleSwap primary, ChangeNOW fallback) ──
+// Additive layer: SimpleSwap stays the default; ChangeNOW only answers pairs
+// SimpleSwap can't (e.g. Polkadot/DOT). The provider is threaded estimate→create→status.
+export type ExchangeProvider = 'simpleswap' | 'changenow'
+
+/** Estimate result, tagged with the provider that produced it. */
+export interface XchangeEstimate extends SsEstimate {
+  provider: ExchangeProvider
+}
+
+/** Create-exchange params carry the provider chosen from the estimate. */
+export interface XchangeCreateParams extends SsCreateParams {
+  provider: ExchangeProvider
 }

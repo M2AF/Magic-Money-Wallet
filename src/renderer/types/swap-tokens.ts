@@ -59,13 +59,26 @@ export const SWAP_TOKEN_LISTS: Record<SwapChain, SwapToken[]> = {
     t('solana', 'USDC', 'USD Coin', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 6),
     t('solana', 'USDT', 'Tether USD', 'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB', 6),
   ],
+  monad: [
+    t('monad', 'MON', 'Monad', NATIVE_EVM_SENTINEL, 18, true),
+  ],
   cardano: [
     t('cardano', 'ADA', 'Cardano', 'lovelace', 6, true),
     t('cardano', 'MIN', 'Minswap', '29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e', 6),
   ],
+  bitcoin: [
+    t('bitcoin', 'BTC', 'Bitcoin', 'bitcoin', 8, true),
+  ],
+  polkadot: [
+    t('polkadot', 'DOT', 'Polkadot', 'polkadot', 10, true),
+  ],
 }
 
-/** Chains the DEX side can quote (EVM + Solana live; Cardano stubbed). */
+/**
+ * Networks shown in the swap pickers. EVM + Solana + Monad can be a SOURCE (the
+ * wallet signs locally). Bitcoin/Cardano/Polkadot appear too but, as a source,
+ * hand off to the Cross-Chain (SimpleSwap) flow — see isDexSignableSource.
+ */
 export const DEX_CHAINS: { id: SwapChain; label: string }[] = [
   { id: 'ethereum', label: 'Ethereum' },
   { id: 'arbitrum', label: 'Arbitrum' },
@@ -74,12 +87,27 @@ export const DEX_CHAINS: { id: SwapChain; label: string }[] = [
   { id: 'polygon', label: 'Polygon' },
   { id: 'avalanche', label: 'Avalanche' },
   { id: 'bsc', label: 'BNB Chain' },
+  { id: 'monad', label: 'Monad' },
   { id: 'solana', label: 'Solana' },
+  { id: 'bitcoin', label: 'Bitcoin' },
+  { id: 'cardano', label: 'Cardano' },
+  { id: 'polkadot', label: 'Polkadot' },
 ]
 
-/** Address-book key used to source the taker address per chain. */
-export function takerKeyForChain(chain: SwapChain): 'evm' | 'solana' | 'cardano' {
+/** Address-book key used to source the wallet address per chain. */
+export function takerKeyForChain(chain: SwapChain): 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' {
   if (chain === 'solana') return 'solana'
   if (chain === 'cardano') return 'cardano'
+  if (chain === 'bitcoin') return 'bitcoin'
+  if (chain === 'polkadot') return 'polkadot'
   return 'evm'
+}
+
+/**
+ * True when the wallet can locally sign a swap that SPENDS from this chain
+ * (all EVM chains + Solana). Bitcoin/Cardano/Polkadot need PSBT/CBOR/Substrate
+ * signing the executor doesn't have, so as a source they route via SimpleSwap.
+ */
+export function isDexSignableSource(chain: SwapChain): boolean {
+  return chain !== 'bitcoin' && chain !== 'cardano' && chain !== 'polkadot'
 }

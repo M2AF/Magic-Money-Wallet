@@ -57,7 +57,7 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
             docked sidebar (fluid), and the resizable Electron window. */}
         <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 14 }}>
           {mode === 'dex'
-            ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} />
+            ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')} />
             : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
 
           <SwapModeToggle mode={mode} onChange={switchMode} />

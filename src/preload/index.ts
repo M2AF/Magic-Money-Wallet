@@ -59,10 +59,14 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
   swapGetQuote:    (req: unknown)      => ipcRenderer.invoke('swap:getQuote', req),
   swapExecute:     (quote: unknown)    => ipcRenderer.invoke('swap:execute', quote),
+  swapCrossStatus: (req: unknown)      => ipcRenderer.invoke('swap:crossStatus', req),
   swapGetTokens:   (chain: string)     => ipcRenderer.invoke('swap:getTokenList', chain),
   ssEstimate:      (params: unknown)   => ipcRenderer.invoke('ss:estimate', params),
   ssCreateExchange:(params: unknown)   => ipcRenderer.invoke('ss:create-exchange', params),
   ssStatus:        (id: string)        => ipcRenderer.invoke('ss:status', id),
+  xEstimate:       (params: unknown)   => ipcRenderer.invoke('xchange:estimate', params),
+  xCreateExchange: (params: unknown)   => ipcRenderer.invoke('xchange:create', params),
+  xStatus:         (provider: string, id: string) => ipcRenderer.invoke('xchange:status', provider, id),
 
   // ── Connected sites (revoke dApp access) ──────────────────────────────
   getConnectedSites: ()              => ipcRenderer.invoke('wallet:get-connected-sites'),

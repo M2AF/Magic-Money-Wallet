@@ -15,8 +15,10 @@
 
 import type { WalletConfig } from './secure-store'
 
-export type SwapProvider = '0x' | '1inch' | 'jupiter' | 'okx' | 'lifi' | 'muesliswap'
-export type SwapChain = 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon' | 'avalanche' | 'bsc' | 'solana' | 'cardano'
+export type SwapProvider = '0x' | '1inch' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
+export type SwapChain =
+  | 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon' | 'avalanche' | 'bsc'
+  | 'monad' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot'
 
 export interface SwapToken {
   chain: SwapChain
@@ -38,6 +40,9 @@ export interface SwapQuoteRequest {
   sellAmountRaw: string
   slippageBps: number
   taker: string
+  toAddress: string
+  fromDecimals?: number
+  toDecimals?: number
 }
 
 export interface NormalizedSwapQuote {
@@ -55,6 +60,12 @@ export interface NormalizedSwapQuote {
   priceImpactPct: number
   rate: number
   expiresAt: number
+  isCrossChain?: boolean
+  toAddress?: string
+  bridgeTool?: string | null
+  estimatedDurationSec?: number
+  feeBps?: number
+  requestId?: string | null
   txData: {
     to?: string
     data?: string
@@ -72,6 +83,24 @@ export interface SwapQuoteResponse {
 
 export interface SwapTokenListResponse {
   tokens: SwapToken[]
+  error: string | null
+}
+
+export interface CrossSwapStatusRequest {
+  provider: SwapProvider
+  txHash: string
+  fromChain: string
+  toChain: string
+  bridgeTool?: string | null
+  requestId?: string | null
+}
+
+export interface CrossSwapStatus {
+  status: 'pending' | 'done' | 'failed' | 'unknown'
+  substatus?: string | null
+  receivedAmountRaw?: string | null
+  destTxHash?: string | null
+  destExplorerUrl?: string | null
   error: string | null
 }
 
@@ -93,7 +122,9 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
   if (!base) return { quote: null, error: NOT_CONFIGURED }
 
   const params = new URLSearchParams({
-    chain: req.fromChain,
+    chain: req.fromChain,          // legacy alias (same-chain); fromChain is authoritative
+    fromChain: req.fromChain,
+    toChain: req.toChain,
     sell: req.fromToken,
     buy: req.toToken,
     sellSymbol: req.fromSymbol,
@@ -101,7 +132,10 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
     amount: req.sellAmountRaw,
     slippageBps: String(req.slippageBps),
     taker: req.taker,
+    toAddress: req.toAddress || req.taker,
   })
+  if (req.fromDecimals != null) params.set('fromDecimals', String(req.fromDecimals))
+  if (req.toDecimals != null) params.set('toDecimals', String(req.toDecimals))
 
   try {
     const res = await fetch(`${base}/quote?${params}`, {
@@ -114,6 +148,31 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
     return { quote: data.quote ?? null, error: data.error ?? (data.quote ? null : 'No route available.') }
   } catch (e) {
     return { quote: null, error: msg(e) }
+  }
+}
+
+/** Poll the bridge for a cross-chain swap after the source tx is broadcast. */
+export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: WalletConfig): Promise<CrossSwapStatus> {
+  const base = proxyBase(config)
+  if (!base) return { status: 'unknown', error: NOT_CONFIGURED }
+  const params = new URLSearchParams({
+    provider: req.provider,
+    txHash: req.txHash,
+    fromChain: req.fromChain,
+    toChain: req.toChain,
+  })
+  if (req.bridgeTool) params.set('bridge', req.bridgeTool)
+  if (req.requestId) params.set('requestId', req.requestId)
+  try {
+    const res = await fetch(`${base}/swap/status?${params}`, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(15_000),
+    })
+    const data = await res.json().catch(() => null) as CrossSwapStatus | null
+    if (!res.ok || !data) return { status: 'pending', error: null }   // transient — keep polling
+    return data
+  } catch (e) {
+    return { status: 'pending', error: msg(e) }   // network blip — keep polling
   }
 }
 

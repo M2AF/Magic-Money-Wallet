@@ -43,11 +43,19 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
     </div>
   )
 
+  const viaLabel = quote.bridgeTool ? `${quote.provider} · ${quote.bridgeTool}` : quote.provider
+  const eta = quote.estimatedDurationSec && quote.estimatedDurationSec > 0
+    ? (quote.estimatedDurationSec >= 60 ? `~${Math.round(quote.estimatedDurationSec / 60)} min` : `~${quote.estimatedDurationSec}s`)
+    : null
+
   return (
     <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 7 }}>
       {row('Rate', `1 ${fromSymbol} = ${fmt(rate)} ${toSymbol}`)}
-      {row('Price impact', <span style={{ color: impact > 3 ? '#fca5a5' : 'var(--text-primary)' }}>{impact.toFixed(2)}%</span>)}
-      {row('Via', quote.provider)}
+      {quote.isCrossChain && row('Route', <span style={{ color: '#38bdf8' }}>Cross-chain</span>)}
+      {impact > 0 && row('Price impact', <span style={{ color: impact > 3 ? '#fca5a5' : 'var(--text-primary)' }}>{impact.toFixed(2)}%</span>)}
+      {row('Via', viaLabel)}
+      {eta && row('Est. time', eta)}
+      {quote.feeBps != null && quote.feeBps > 0 && row('Fee', `${(quote.feeBps / 100).toFixed(2)}%`)}
       {row('Slippage', `${isAuto ? 'Auto · ' : ''}${(quote.slippageBps / 100).toFixed(2)}%`)}
       {priceChanged
         ? <div style={{ fontSize: 12, color: '#facc15', fontWeight: 600 }}>⚠ Price moved — review the new rate</div>

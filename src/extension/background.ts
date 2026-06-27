@@ -11,9 +11,10 @@ import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
-import { getSwapQuote, getSwapTokenList, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote } from '../main/swap-proxy'
+import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from '../main/swap-proxy'
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
+import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
@@ -402,6 +403,11 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return getSwapQuote(a0 as SwapQuoteRequest, config)
     }
 
+    case 'swap:crossStatus': {
+      const config = await store.loadConfig()
+      return getCrossSwapStatus(a0 as CrossSwapStatusRequest, config)
+    }
+
     case 'swap:execute': {
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
@@ -423,6 +429,15 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'ss:status':
       return ssGetStatus(String(a0), await store.loadConfig())
+
+    case 'xchange:estimate':
+      return xEstimate(a0 as SsEstimateParams, await store.loadConfig())
+
+    case 'xchange:create':
+      return xCreateExchange(a0 as XCreateParams, await store.loadConfig())
+
+    case 'xchange:status':
+      return xGetStatus(a0 as ExchangeProvider, String(a1), await store.loadConfig())
 
     case 'wallet:get-nft-floor':
       return { floor: null, currency: 'ETH', floorUsd: null }

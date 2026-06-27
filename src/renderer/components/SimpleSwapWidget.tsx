@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { WalletAddresses, AllBalances } from '../types/wallet'
-import type { SsExchange, SimpleSwapRateType } from '../types/simpleswap'
+import type { SsExchange, SimpleSwapRateType, ExchangeProvider } from '../types/simpleswap'
 import { SS_ASSETS, ssKey, findSsAsset, ssBalanceChain } from '../types/simpleswap-assets'
 import { ExchangeStatusCard } from './ExchangeStatusCard'
 
@@ -24,12 +24,13 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', fontFamily: 'var(--font-body)',
 }
 
-function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' | 'bitcoin' | null): string {
+function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | null): string {
   if (!key) return ''
   if (key === 'evm') return addresses.evm
   if (key === 'solana') return addresses.solana
   if (key === 'cardano') return addresses.cardano
   if (key === 'bitcoin') return addresses.bitcoin
+  if (key === 'polkadot') return addresses.polkadot
   return ''
 }
 
@@ -42,6 +43,7 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
   const [estimate, setEstimate] = useState<string | null>(null)
   const [range, setRange] = useState<{ min: string | null; max: string | null }>({ min: null, max: null })
   const [rateId, setRateId] = useState<string | null>(null)
+  const [provider, setProvider] = useState<ExchangeProvider>('simpleswap')
   const [estLoading, setEstLoading] = useState(false)
   const [estError, setEstError] = useState<string | null>(null)
 
@@ -88,13 +90,13 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
     setEstLoading(true)
     debounce.current = setTimeout(async () => {
       try {
-        const r = await window.wallet.ssEstimate({
+        const r = await window.wallet.xEstimate({
           tickerFrom: from.ticker, networkFrom: from.network,
           tickerTo: to.ticker, networkTo: to.network,
           amount: amount.trim(), fixed: rateType === 'fixed',
         })
         setEstimate(r.estimatedAmount); setRateId(r.rateId); setEstError(r.error)
-        setRange({ min: r.min, max: r.max })
+        setRange({ min: r.min, max: r.max }); setProvider(r.provider)
       } catch (e) {
         setEstError(e instanceof Error ? e.message : 'Estimate failed')
       } finally {
@@ -118,7 +120,8 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
   const create = async () => {
     setCreating(true); setCreateError(null)
     try {
-      const ex = await window.wallet.ssCreateExchange({
+      const ex = await window.wallet.xCreateExchange({
+        provider,
         tickerFrom: from.ticker, networkFrom: from.network,
         tickerTo: to.ticker, networkTo: to.network,
         amount: amount.trim(), fixed: rateType === 'fixed',
@@ -145,6 +148,7 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
     return (
       <ExchangeStatusCard
         exchange={exchange}
+        provider={exchange.provider ?? provider}
         fromLabel={from.label}
         toLabel={to.label}
         fromNetworkName={from.name}
@@ -194,7 +198,14 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
 
       {/* YOU RECEIVE */}
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>YOU RECEIVE</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }}>YOU RECEIVE</span>
+          {estimate && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: provider === 'changenow' ? '#a78bfa' : 'var(--accent)' }}>
+              via {provider === 'changenow' ? 'ChangeNOW' : 'SimpleSwap'}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: estimate ? 'var(--text-primary)' : 'var(--text-muted)' }}>
             {estLoading ? '…' : estimate ? `≈ ${estimate}` : '—'}

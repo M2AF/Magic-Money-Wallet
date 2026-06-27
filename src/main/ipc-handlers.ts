@@ -63,9 +63,10 @@ import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
-import { getSwapQuote, getSwapTokenList, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote } from './swap-proxy'
+import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from './swap-proxy'
 import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
+import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from './xchange-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
 import {
   wcGetSessions, wcGetPendingProposals,
@@ -566,6 +567,10 @@ export function registerIpcHandlers(): void {
     return executeSwap(quote, loadMnemonic(), loadConfig(), stored.accountIndex ?? 0)
   })
 
+  ipcMain.handle('swap:crossStatus', async (_e, req: CrossSwapStatusRequest) => {
+    return getCrossSwapStatus(req, loadConfig())
+  })
+
   ipcMain.handle('swap:getTokenList', async (_e, chain: SwapChain) => {
     return getSwapTokenList(chain, loadConfig())
   })
@@ -581,6 +586,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('ss:status', async (_e, id: string) => {
     return ssGetStatus(id, loadConfig())
+  })
+
+  // ── Deposit-address aggregator (SimpleSwap primary, ChangeNOW fallback) ───
+  ipcMain.handle('xchange:estimate', async (_e, params: SsEstimateParams) => {
+    return xEstimate(params, loadConfig())
+  })
+
+  ipcMain.handle('xchange:create', async (_e, params: XCreateParams) => {
+    return xCreateExchange(params, loadConfig())
+  })
+
+  ipcMain.handle('xchange:status', async (_e, provider: ExchangeProvider, id: string) => {
+    return xGetStatus(provider, id, loadConfig())
   })
 
   // ── NFT floor price via OpenSea (EVM) ─────────────────────────────────────

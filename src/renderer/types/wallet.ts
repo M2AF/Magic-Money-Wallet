@@ -1,5 +1,5 @@
-import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange } from './simpleswap'
-import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain } from './swap'
+import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange, XchangeEstimate, XchangeCreateParams, ExchangeProvider } from './simpleswap'
+import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
 
 export interface WalletAddresses {
   evm: string
@@ -204,7 +204,7 @@ export interface ChainlensSyncResult {
 export type MainTab = 'portfolio' | 'market' | 'swap' | 'apphub' | 'profile'
 
 // ─── DEX swap types live in ./swap (re-exported here for convenience) ─────────
-export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse } from './swap'
+export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
 
 export type AppPage =
   | 'loading'
@@ -274,10 +274,14 @@ declare global {
       getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
       swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>
+      swapCrossStatus(req: CrossSwapStatusRequest): Promise<CrossSwapStatus>
       swapGetTokens(chain: SwapChain): Promise<SwapTokenListResponse>
       ssEstimate(params: SsEstimateParams): Promise<SsEstimate>
       ssCreateExchange(params: SsCreateParams): Promise<SsExchange>
       ssStatus(id: string): Promise<SsExchange>
+      xEstimate(params: SsEstimateParams): Promise<XchangeEstimate>
+      xCreateExchange(params: XchangeCreateParams): Promise<SsExchange>
+      xStatus(provider: ExchangeProvider, id: string): Promise<SsExchange>
       minimize(): void
       close(): void
       // Phase 6: popup dApp browser

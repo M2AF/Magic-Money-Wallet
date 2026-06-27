@@ -1,9 +1,9 @@
 /**
- * simpleswap-assets.ts — curated SimpleSwap asset catalog for the cross-chain UI.
- *
- * SimpleSwap keys assets by (ticker, network), both lowercase. `addrKey` maps to
- * the wallet's address book for auto-filling destination/refund (null = the
- * wallet doesn't hold that chain, so the user pastes manually).
+ * simpleswap-assets.ts — curated asset catalog for the cross-chain (deposit-address)
+ * exchange UI. Routed through the `xchange` aggregator: SimpleSwap is tried first,
+ * ChangeNOW answers pairs SimpleSwap can't (e.g. Polkadot/DOT). Both providers key
+ * assets by (ticker, network), lowercase. `addrKey` maps to the wallet's address
+ * book for auto-filling destination/refund (null = not held, user pastes manually).
  */
 
 import type { SimpleSwapAsset } from './simpleswap'
@@ -13,6 +13,7 @@ export const SS_ASSETS: SimpleSwapAsset[] = [
   { ticker: 'eth',  network: 'eth',      label: 'ETH',  name: 'Ethereum',  addrKey: 'evm' },
   { ticker: 'sol',  network: 'sol',      label: 'SOL',  name: 'Solana',    addrKey: 'solana' },
   { ticker: 'ada',  network: 'ada',      label: 'ADA',  name: 'Cardano',   addrKey: 'cardano' },
+  { ticker: 'dot',  network: 'dot',      label: 'DOT',  name: 'Polkadot',  addrKey: 'polkadot' },
   { ticker: 'usdc', network: 'eth',      label: 'USDC', name: 'USD Coin (ERC-20)', addrKey: 'evm' },
   { ticker: 'usdt', network: 'eth',      label: 'USDT', name: 'Tether (ERC-20)',   addrKey: 'evm' },
   { ticker: 'bnb',  network: 'bsc',      label: 'BNB',  name: 'BNB Chain', addrKey: 'evm' },
@@ -48,6 +49,7 @@ const SS_BALANCE_CHAIN: Record<string, string> = {
   'eth:eth': 'ethereum',
   'sol:sol': 'solana',
   'ada:ada': 'cardano',
+  'dot:dot': 'polkadot',
   'bnb:bsc': 'bsc',
   'pol:polygon': 'polygon',
   'avax:avaxc': 'avalanche',

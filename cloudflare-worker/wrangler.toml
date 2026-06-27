@@ -20,6 +20,20 @@ id = "91f84d4789c14f998fb0e3c1efdf5f75"
 # Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60.
 # READ_RPM = "600"
 # DB_RPM = "60"
+#
+# ── Swap fee / monetization (non-secret: public receiving addresses + integrator)
+# Fee in basis points (90 = 0.9%). Recipients are the chain the user spends FROM.
+FEE_BPS = "90"
+FEE_EVM = "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13"
+FEE_SOLANA = "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d"
+FEE_CARDANO = "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h"
+FEE_BITCOIN = "bc1qt6cx7977r8xttn5rg42d2ulnlc7agspycd600w"
+FEE_POLKADOT = "1dhUhWA8DZEbT5GmjXTJBuafJGWtS5YH13Wqz46KtFdDyoS"
+# LI.FI integrator string — set after registering at portal.li.fi (required to
+# attribute + withdraw the integrator fee). Until set, LI.FI routes still work fee-free.
+# LIFI_INTEGRATOR = "magicmoney"
+# 1inch referrer defaults to FEE_EVM when unset:
+# ONEINCH_REFERRER = "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13"
 
 # ── Secrets (NEVER stored here) ───────────────────────────────────────────────
 # Set with wrangler so keys never enter source. Use ROTATED keys — the old ones
@@ -29,8 +43,15 @@ id = "91f84d4789c14f998fb0e3c1efdf5f75"
 #   wrangler secret put ZEROX_API_KEY
 #   wrangler secret put ONEINCH_API_KEY
 #   wrangler secret put JUPITER_API_KEY        # optional
-#   wrangler secret put LIFI_API_KEY           # optional
+#   wrangler secret put LIFI_API_KEY           # optional — routing is keyless; key only raises rate limits
 #   wrangler secret put SIMPLESWAP_API_KEY
+#
+# Swap (cross-chain + fees):
+#   wrangler secret put RANGO_API_KEY              # cross-chain fallback / exotic chains
+#   wrangler secret put SWAPKIT_API_KEY            # THORChain/Maya/Chainflip — native BTC routes
+#   wrangler secret put CHANGENOW_API_KEY          # deposit-address fallback (covers Polkadot/DOT)
+#   wrangler secret put JUPITER_REFERRAL_ACCOUNT   # optional — Jupiter platform fee skipped when unset
+#   # FEE_* + LIFI_INTEGRATOR live in [vars] above (public). Override there as secrets if preferred.
 #
 # Read-path (new):
 #   wrangler secret put ALCHEMY_KEY

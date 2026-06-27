@@ -5,10 +5,11 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import type { SsExchange, SimpleSwapStatus } from '../types/simpleswap'
+import type { SsExchange, SimpleSwapStatus, ExchangeProvider } from '../types/simpleswap'
 
 interface Props {
   exchange: SsExchange
+  provider: ExchangeProvider
   fromLabel: string
   toLabel: string
   fromNetworkName: string
@@ -35,7 +36,7 @@ function shorten(s: string, head = 10, tail = 6): string {
   return `${s.slice(0, head)}…${s.slice(-tail)}`
 }
 
-export function ExchangeStatusCard({ exchange: initial, fromLabel, toLabel, fromNetworkName, onNewExchange }: Props) {
+export function ExchangeStatusCard({ exchange: initial, provider, fromLabel, toLabel, fromNetworkName, onNewExchange }: Props) {
   const [exchange, setExchange] = useState<SsExchange>(initial)
   const [copied, setCopied] = useState(false)
   const [remaining, setRemaining] = useState<number | null>(null)
@@ -53,7 +54,7 @@ export function ExchangeStatusCard({ exchange: initial, fromLabel, toLabel, from
     let timer: ReturnType<typeof setTimeout>
     const poll = async () => {
       try {
-        const next = await window.wallet.ssStatus(exchange.id)
+        const next = await window.wallet.xStatus(provider, exchange.id)
         if (!alive.current) return
         if (!next.error && next.id) setExchange(prev => ({ ...prev, ...next }))
         if (next.error || !TERMINAL.has(String(next.status))) timer = setTimeout(poll, 8000)
