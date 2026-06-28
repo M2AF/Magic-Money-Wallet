@@ -41,6 +41,10 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:send-solana', to, amount),
   sendCardano:   (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-cardano', to, amount),
+  sendTron:      (to: string, amount: string, token?: { contractAddress: string; decimals: number }) =>
+    ipcRenderer.invoke('wallet:send-tron', to, amount, token),
+  sendDogecoin:  (to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-dogecoin', to, amount),
 
   // ── Phase 3: History + multi-account ─────────────────────────────────
   getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),

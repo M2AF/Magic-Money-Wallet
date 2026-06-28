@@ -66,6 +66,12 @@ export interface FeeEstimate {
   feeUsd: string | null
 }
 
+// Tron + Dogecoin senders live in their own modules (TRON HTTP API / UTXO signing
+// are unlike the viem-centric EVM path here). Re-exported so callers import from one
+// place, mirroring how Cardano signing lives in cardano-pure.ts.
+export { sendTronTransaction, estimateTronFee } from './tron'
+export { sendDogecoinTransaction, estimateDogecoinFee } from './dogecoin'
+
 // ─── EVM ──────────────────────────────────────────────────────────────────────
 
 // Custom chains not yet exported by viem 2.21

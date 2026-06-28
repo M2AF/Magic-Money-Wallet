@@ -9,10 +9,10 @@
 import { base58 } from '@scure/base'
 import { blake2b } from '@noble/hashes/blake2b'
 import type { WalletConfig } from './secure-store'
-import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, type ChainDef } from './chain-config'
+import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE, type ChainDef } from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
-import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback } from './api-proxy'
+import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, tronApiUrl } from './api-proxy'
 import { koiosAddressLovelace } from './cardano-koios'
 
 export interface ChainBalance {
@@ -183,6 +183,59 @@ async function fetchBitcoinNative(
   return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
 }
 
+// ─── Tron via TRON HTTP API (Alchemy) ─────────────────────────────────────────
+
+async function fetchTronNative(
+  address: string | undefined,
+  config: WalletConfig
+): Promise<{ native: number; tokenCount: number; error: string | null }> {
+  if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
+  try {
+    const res = await fetch(tronApiUrl('wallet/getaccount', config), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ address, visible: true }),
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (!res.ok) return { native: 0, tokenCount: 0, error: `Tron ${res.status}` }
+    // An un-activated account returns `{}` (no balance field) — zero, not an error.
+    const json = await res.json() as { balance?: number }
+    return { native: (json?.balance ?? 0) / 1e6, tokenCount: 0, error: null }
+  } catch (err) {
+    return { native: 0, tokenCount: 0, error: String(err).includes('abort') ? 'Timed out' : 'Network error' }
+  }
+}
+
+// ─── Dogecoin via BlockCypher — Blockchair fallback ───────────────────────────
+
+async function fetchDogecoinNative(
+  address: string | undefined
+): Promise<{ native: number; tokenCount: number; error: string | null }> {
+  if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
+  // BlockCypher (keyless) — final_balance is in koinu (1 DOGE = 1e8), incl. mempool.
+  let lastErr: string | null = null
+  try {
+    const res = await fetch(`${DOGE_API_BASE}/addrs/${address}/balance`, { signal: AbortSignal.timeout(10_000) })
+    if (res.ok) {
+      const json = await res.json() as { final_balance?: number }
+      return { native: (json.final_balance ?? 0) / 1e8, tokenCount: 0, error: null }
+    }
+    lastErr = `BlockCypher ${res.status}`
+  } catch (err) {
+    lastErr = String(err).includes('abort') ? 'Timed out' : 'Network error'
+  }
+  // Last-chance keyless Blockchair fallback (different shape, balance in koinu).
+  try {
+    const res = await fetch(`https://api.blockchair.com/dogecoin/dashboards/address/${address}`, { signal: AbortSignal.timeout(10_000) })
+    if (res.ok) {
+      const json = await res.json() as { data?: Record<string, { address?: { balance?: number } }> }
+      const bal = json.data?.[address]?.address?.balance
+      if (typeof bal === 'number') return { native: bal / 1e8, tokenCount: 0, error: null }
+    }
+  } catch { /* fall through to lastErr */ }
+  return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
+}
+
 // ─── Polkadot via Substrate RPC (Tatum gateway) + SCALE decode ───────────────
 // Storage key: TWOX_128("System") + TWOX_128("Account") + BLAKE2_128_CONCAT(pubkey32)
 // Both TWOX_128 portions are constants derivable from the Polkadot runtime source.
@@ -327,10 +380,10 @@ async function fetchCardanaNative(
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; polkadot?: string; agw?: string },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string },
   config: WalletConfig
 ): Promise<AllBalances> {
-  const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot']
+  const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot', 'tron', 'dogecoin']
 
   const COMING_SOON = { native: 0, tokenCount: 0, error: 'coming-soon' }
 
@@ -356,7 +409,9 @@ export async function fetchAllBalances(
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     (hasAgw && abstractDef)
       ? fetchEvmNative(abstractDef, addresses.agw!, config)
-      : Promise.resolve<typeof NO_AGW>(NO_AGW)
+      : Promise.resolve<typeof NO_AGW>(NO_AGW),
+    fetchTronNative(addresses.tron, config),
+    fetchDogecoinNative(addresses.dogecoin)
   ])
 
   const marketMap  = prices as Record<string, MarketData>
@@ -369,6 +424,8 @@ export async function fetchAllBalances(
   const bitcoinRaw= rawResults[EVM_CHAINS.length + 2] as { native: number; tokenCount: number; error: string | null }
   const polkadotRaw=rawResults[EVM_CHAINS.length + 3] as { native: number; tokenCount: number; error: string | null }
   const agwRaw    = rawResults[EVM_CHAINS.length + 4] as { native: number; tokenCount: number; error: string | null }
+  const tronRaw   = rawResults[EVM_CHAINS.length + 5] as { native: number; tokenCount: number; error: string | null }
+  const dogecoinRaw=rawResults[EVM_CHAINS.length + 6] as { native: number; tokenCount: number; error: string | null }
 
   const toBalance = (chain: ChainDef, raw: typeof solanaRaw, decimals = 6): ChainBalance => {
     const market = marketMap[chain.coingeckoId]
@@ -397,6 +454,8 @@ export async function fetchAllBalances(
   chains['cardano']  = toBalance(CHAIN_MAP['cardano'],  cardanoRaw)
   chains['bitcoin']  = toBalance(CHAIN_MAP['bitcoin'],  bitcoinRaw,  8)
   chains['polkadot'] = toBalance(CHAIN_MAP['polkadot'], polkadotRaw, 4)
+  chains['tron']     = toBalance(CHAIN_MAP['tron'],     tronRaw,     6)
+  chains['dogecoin'] = toBalance(CHAIN_MAP['dogecoin'], dogecoinRaw, 8)
 
   // Abstract Global Wallet native ETH — surfaced as its own entry so it both
   // counts toward the portfolio total (the dashboard sums Object.values(chains))

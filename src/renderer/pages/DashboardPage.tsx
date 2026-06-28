@@ -329,7 +329,7 @@ const NFT_NATIVE_SYMBOL: Record<string, string> = {
   ethereum: 'ETH', arbitrum: 'ETH', optimism: 'ETH', base: 'ETH', blast: 'ETH',
   abstract: 'ETH', soneium: 'ETH', worldchain: 'ETH', zora: 'ETH',
   polygon: 'POL', avalanche: 'AVAX', gnosis: 'xDAI', apechain: 'APE', ronin: 'RON',
-  monad: 'MON', solana: 'SOL', cardano: 'ADA',
+  monad: 'MON', solana: 'SOL', cardano: 'ADA', tron: 'TRX', dogecoin: 'DOGE',
 }
 const formatFloor = (n: number) => Number(n.toFixed(4)).toLocaleString('en-US')
 
@@ -675,7 +675,7 @@ interface Props {
 }
 
 const ALL_CHAINS = [
-  'cardano', 'solana', 'bitcoin', 'polkadot',
+  'cardano', 'solana', 'bitcoin', 'polkadot', 'tron', 'dogecoin',
   'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche',
   'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'ronin',
   'soneium', 'worldchain', 'zora', 'hyperevm'
@@ -698,6 +698,8 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   if (chainId === 'cardano')  return addresses.cardano  || null
   if (chainId === 'bitcoin')  return addresses.bitcoin  || null
   if (chainId === 'polkadot') return addresses.polkadot || null
+  if (chainId === 'tron')     return addresses.tron     || null
+  if (chainId === 'dogecoin') return addresses.dogecoin || null
   return addresses.evm
 }
 

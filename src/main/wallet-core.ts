@@ -18,7 +18,9 @@ import { deriveCardanoAddress, deriveCardanoStakeAddress } from './cardano-pure'
 import { sha256 } from '@noble/hashes/sha256'
 import { ripemd160 } from '@noble/hashes/ripemd160'
 import { blake2b } from '@noble/hashes/blake2b'
+import { keccak_256 } from '@noble/hashes/sha3'
 import { ed25519 } from '@noble/curves/ed25519'
+import { secp256k1 } from '@noble/curves/secp256k1'
 import { bech32, base58 } from '@scure/base'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -30,6 +32,8 @@ export interface WalletAddresses {
   cardanoStake: string   // bech32 stake address (stake1…)
   bitcoin: string        // BIP-84 P2WPKH native SegWit (bc1q…)
   polkadot: string       // SS58 ED25519 (1…)
+  tron: string           // base58check secp256k1 (T…)
+  dogecoin: string       // BIP-44 legacy P2PKH (D…)
   accountIndex: number   // BIP-44 account index (0 = default)
   // Abstract Global Wallet (smart account) — resolved, not seed-derived.
   // agw = manual override ?? auto-derived from evm. agwOwned = this EOA can sign
@@ -73,6 +77,34 @@ function ss58Encode(pubkey: Uint8Array, networkPrefix = 0): string {
   return base58.encode(new Uint8Array([...payload, ...checksum]))
 }
 
+// ─── base58check (Tron, Dogecoin) ────────────────────────────────────────────
+// payload ++ first-4-bytes(double-sha256(payload)), base58-encoded. Shared by the
+// two secp256k1 chains below (Bitcoin uses bech32, so it has its own encoder above).
+
+function base58check(payload: Uint8Array): string {
+  const checksum = sha256(sha256(payload)).slice(0, 4)
+  return base58.encode(new Uint8Array([...payload, ...checksum]))
+}
+
+// ─── Tron (T…) ────────────────────────────────────────────────────────────────
+// secp256k1, same as EVM: keccak256 of the 64-byte uncompressed pubkey (no 0x04
+// prefix), last 20 bytes, prepended with 0x41 (mainnet), then base58check.
+
+function deriveTronAddress(privateKey: Uint8Array): string {
+  const uncompressed = secp256k1.getPublicKey(privateKey, false)  // 65 bytes, 0x04 prefix
+  const hash = keccak_256(uncompressed.slice(1))                  // drop 0x04
+  return base58check(new Uint8Array([0x41, ...hash.slice(-20)]))
+}
+
+// ─── Dogecoin legacy P2PKH (D…) ───────────────────────────────────────────────
+// Bitcoin-style HASH160 of the compressed pubkey, version byte 0x1E, base58check.
+// Dogecoin mainnet does not use SegWit, so this is BIP-44 (m/44'/3') P2PKH.
+
+function deriveDogecoinAddress(compressedPubkey: Uint8Array): string {
+  const hash160 = ripemd160(sha256(compressedPubkey))
+  return base58check(new Uint8Array([0x1e, ...hash160]))
+}
+
 // ─── Address derivation ───────────────────────────────────────────────────────
 
 /**
@@ -113,7 +145,17 @@ export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promi
   const dotPubKey           = ed25519.getPublicKey(dotPrivKey)
   const polkadotAddress     = ss58Encode(dotPubKey, 0)   // prefix 0 = Polkadot relay chain
 
-  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, bitcoin: bitcoinAddress, polkadot: polkadotAddress, accountIndex }
+  // ── Tron — secp256k1 — m/44'/195'/{account}'/0/0 ─────────────────────────
+  const tronNode = HDKey.fromMasterSeed(seed).derive(`m/44'/195'/${accountIndex}'/0/0`)
+  if (!tronNode.privateKey) throw new Error('Tron derivation failed')
+  const tronAddress = deriveTronAddress(tronNode.privateKey)
+
+  // ── Dogecoin — secp256k1 — m/44'/3'/{account}'/0/0 (legacy P2PKH) ─────────
+  const dogeNode = HDKey.fromMasterSeed(seed).derive(`m/44'/3'/${accountIndex}'/0/0`)
+  if (!dogeNode.publicKey) throw new Error('Dogecoin derivation failed')
+  const dogecoinAddress = deriveDogecoinAddress(dogeNode.publicKey)
+
+  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, bitcoin: bitcoinAddress, polkadot: polkadotAddress, tron: tronAddress, dogecoin: dogecoinAddress, accountIndex }
 }
 
 // ─── Signing helpers (Phase 2) ───────────────────────────────────────────────
@@ -143,4 +185,18 @@ export async function getPolkadotKey(mnemonic: string, accountIndex = 0): Promis
   const { key: privKey } = derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer.from(seed).toString('hex'))
   const pubKey = ed25519.getPublicKey(privKey)
   return { privateKey: privKey, publicKey: pubKey }
+}
+
+export async function getTronKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const node = HDKey.fromMasterSeed(seed).derive(`m/44'/195'/${accountIndex}'/0/0`)
+  if (!node.privateKey) throw new Error('Tron key derivation failed')
+  return { privateKey: node.privateKey, publicKey: secp256k1.getPublicKey(node.privateKey, false), address: deriveTronAddress(node.privateKey) }
+}
+
+export async function getDogecoinKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const node = HDKey.fromMasterSeed(seed).derive(`m/44'/3'/${accountIndex}'/0/0`)
+  if (!node.privateKey || !node.publicKey) throw new Error('Dogecoin key derivation failed')
+  return { privateKey: node.privateKey, publicKey: node.publicKey, address: deriveDogecoinAddress(node.publicKey) }
 }

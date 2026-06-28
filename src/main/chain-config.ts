@@ -6,12 +6,12 @@
  */
 
 import type { WalletConfig } from './secure-store'
-import { alchemyRpcUrl, heliusRpcUrl } from './api-proxy'
+import { alchemyRpcUrl, heliusRpcUrl, tronApiUrl } from './api-proxy'
 
 export interface ChainDef {
   id: string
   name: string
-  type: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot'
+  type: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | 'tron' | 'dogecoin'
   chainId?: number          // EVM only
   nativeSymbol: string
   coingeckoId: string       // for price batch lookup
@@ -297,6 +297,32 @@ export const NON_EVM_CHAINS: ChainDef[] = [
     explorerTx: 'https://polkadot.subscan.io/extrinsic',
     color: '#E6007A',
     colorRgb: '230, 0, 122'
+  },
+  {
+    id: 'tron',
+    name: 'Tron',
+    type: 'tron',
+    nativeSymbol: 'TRX',
+    coingeckoId: 'tron',
+    // Tron speaks the TRON HTTP API (wallet/*), not JSON-RPC — fetchers call
+    // tronApiUrl(path) directly; this is the documentary base.
+    rpcUrl: (cfg) => tronApiUrl('', cfg),
+    explorerTx: 'https://tronscan.org/#/transaction',
+    color: '#EB0029',
+    colorRgb: '235, 0, 41'
+  },
+  {
+    id: 'dogecoin',
+    name: 'Dogecoin',
+    type: 'dogecoin',
+    nativeSymbol: 'DOGE',
+    coingeckoId: 'dogecoin',
+    // UTXO chain — balance/UTXOs come from the keyless Blockbook indexers in
+    // DOGE_INDEXERS (Alchemy's Doge JSON-RPC can't query an arbitrary address).
+    rpcUrl: () => 'https://doge1.trezor.io',
+    explorerTx: 'https://dogechain.info/tx',
+    color: '#C2A633',
+    colorRgb: '194, 166, 51'
   }
 ]
 
@@ -353,6 +379,13 @@ export const BITCOIN_ESPLORA: string[] = [
   'https://mempool.space/api',
   'https://blockstream.info/api',
 ]
+
+// Keyless Dogecoin provider — BlockCypher serves balance, UTXOs, and broadcast from
+// one consistent API (the UTXO equivalent of BITCOIN_ESPLORA). Blockchair is a
+// balance-only display fallback (different shape, normalized in balance-fetcher).
+// (Alchemy's Doge endpoint is Dogecoin-Core JSON-RPC, which can't return an
+// arbitrary address balance, so it is intentionally not used here.)
+export const DOGE_API_BASE = 'https://api.blockcypher.com/v1/doge/main'
 
 // Koios — keyless Cardano API, used as a fallback when Blockfrost is down/throttled.
 // Different request/response shape than Blockfrost, so it's normalized in cardano-koios.ts.

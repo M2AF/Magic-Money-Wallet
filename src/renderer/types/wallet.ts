@@ -8,6 +8,8 @@ export interface WalletAddresses {
   cardanoStake: string
   bitcoin: string
   polkadot: string
+  tron?: string
+  dogecoin?: string
   accountIndex: number
   // Abstract Global Wallet (smart account). agw = manual override ?? auto-derived.
   // agwOwned = this wallet's EOA can sign for it (required to send from it).
@@ -255,6 +257,8 @@ declare global {
       sendAgw(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
+      sendTron(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
+      sendDogecoin(to: string, amount: string): Promise<SendResult>
       // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>

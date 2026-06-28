@@ -131,6 +131,8 @@ export function createExtensionWallet() {
     sendAgw:        (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-agw', t, a, token),
     sendSolana:     (t: string, a: string)            => send('wallet:send-solana', t, a),
     sendCardano:    (t: string, a: string)            => send('wallet:send-cardano', t, a),
+    sendTron:       (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-tron', t, a, token),
+    sendDogecoin:   (t: string, a: string)            => send('wallet:send-dogecoin', t, a),
 
     // Market
     getMarket:      ()                      => send('wallet:get-market'),

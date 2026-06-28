@@ -55,6 +55,17 @@ export function alchemyNftBase(network: string, config: WalletConfig): string {
   return base ? `${base}/alchemy-nft/${network}` : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}`
 }
 
+/**
+ * Alchemy TRON HTTP API endpoint. `path` is the TRON method after the key, e.g.
+ * 'wallet/getaccount' or 'wallet/broadcasttransaction'. The Worker injects the key
+ * (route /rpc/alchemy-tron/*); direct mode needs a user-supplied Alchemy key.
+ */
+export function tronApiUrl(path: string, config: WalletConfig): string {
+  const base = proxyBase(config)
+  const p = path.replace(/^\/+/, '')
+  return base ? `${base}/rpc/alchemy-tron/${p}` : `https://tron-mainnet.g.alchemy.com/v2/${config.alchemyKey}/${p}`
+}
+
 /** Helius (Solana) JSON-RPC endpoint. */
 export function heliusRpcUrl(config: WalletConfig): string {
   const base = proxyBase(config)

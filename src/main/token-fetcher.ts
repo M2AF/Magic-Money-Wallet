@@ -3,8 +3,9 @@ import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import {
   alchemyRpcUrl, alchemyNftBase, heliusRpcUrl,
-  blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
+  blockfrostFetch, moralisFetch, openseaFetch, canOpensea, tronApiUrl,
 } from './api-proxy'
+import { tronAddrParam, tronConstantCall } from './tron'
 
 export interface WalletToken {
   contractAddress: string
@@ -92,6 +93,7 @@ const NATIVE_CG: Record<string, string> = {
   gnosis: 'xdai',          apechain: 'apecoin',     ronin: 'ronin',
   monad: 'monad',
   solana: 'solana',        cardano: 'cardano',
+  tron: 'tron',
 }
 
 // Native token symbol per chain
@@ -100,15 +102,17 @@ const NATIVE_SYMBOL: Record<string, string> = {
   blast: 'ETH',     abstract: 'ETH',  soneium: 'ETH',  worldchain: 'ETH', zora: 'ETH',
   polygon: 'POL',   avalanche: 'AVAX', gnosis: 'xDAI',
   apechain: 'APE',  ronin: 'RON',     monad: 'MON',
-  solana: 'SOL',    cardano: 'ADA',
+  solana: 'SOL',    cardano: 'ADA',   tron: 'TRX',
 }
 
-// DexScreener chain IDs
+// DexScreener chain IDs (Tron tokens are keyed by their base58 T-address, matched
+// case-insensitively against our curated list — see enrichWithPrices).
 const DS_CHAIN: Record<string, string> = {
   ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
   polygon: 'polygon',   avalanche: 'avalanche', blast: 'blast',    gnosis: 'gnosis',
   abstract: 'abstract', apechain: 'apechain',   ronin: 'ronin',    soneium: 'soneium',
   worldchain: 'worldchain', zora: 'zora',       monad: 'monad',    solana: 'solana',
+  tron: 'tron',
 }
 
 // DefiLlama Coins API chain slugs — free, no key. Used to backfill prices for
@@ -635,12 +639,86 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
   return tokens
 }
 
+// ─── Tron TRC-20 tokens via the TRON HTTP API ─────────────────────────────────
+
+const TRON_CHAIN = { id: 'tron', label: 'Tron', color: '#EB0029' }
+
+// Curated major TRC-20 tokens — like KNOWN_MONAD_TOKENS, balances are read via
+// balanceOf since the TRON node has no "all token balances" call. USDT-TRC20 is by
+// far the most-held; the rest cover the common DeFi/utility set.
+const KNOWN_TRC20_TOKENS = [
+  { address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', name: 'Tether USD',  symbol: 'USDT', decimals: 6  },
+  { address: 'TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8', name: 'USD Coin',    symbol: 'USDC', decimals: 6  },
+  { address: 'TPYmHEhy5n8TCEfYGqW2rPxsghSfzghPDn', name: 'Decentralized USD', symbol: 'USDD', decimals: 18 },
+  { address: 'TCFLL5dx5ZJdKnWuesXxi1VPwjLVmWZZy9', name: 'JUST',        symbol: 'JST',  decimals: 18 },
+  { address: 'TLa2f6VPqDgRE67v1736s7bJ8Ray5wYjU7', name: 'WINkLink',    symbol: 'WIN',  decimals: 6  },
+  { address: 'TSSMHYeV2uE9qYH95DqyoCuNCzEL1NvU3S', name: 'SUN',         symbol: 'SUN',  decimals: 18 },
+  { address: 'TAFjULxiVgT4qWk6UZwjqwZXTSaGaqnVp4', name: 'BitTorrent',  symbol: 'BTT',  decimals: 18 },
+] as const
+
+async function fetchTronTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
+  const tokens: WalletToken[] = []
+  try {
+    // Native TRX
+    const accRes = await fetch(tronApiUrl('wallet/getaccount', config), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ address, visible: true }),
+      signal: AbortSignal.timeout(10_000)
+    })
+    if (accRes.ok) {
+      const acc = await accRes.json() as { balance?: number }
+      const trx = (acc?.balance ?? 0) / 1e6
+      if (trx > 0) {
+        tokens.push({
+          contractAddress: NATIVE_ADDR,
+          name: 'Tron', symbol: 'TRX', decimals: 6,
+          balance: trx.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+          usdValue: null, nativeEquivalent: null, nativeSymbol: 'TRX',
+          logoUri: 'https://assets.coingecko.com/coins/images/1094/small/tron-logo.png',
+          chain: TRON_CHAIN.id, chainLabel: TRON_CHAIN.label, chainColor: TRON_CHAIN.color
+        })
+      }
+    }
+
+    // Known TRC-20 tokens — balanceOf(address)
+    const param = tronAddrParam(address)
+    const results = await Promise.all(
+      KNOWN_TRC20_TOKENS.map(t =>
+        tronConstantCall(t.address, address, 'balanceOf(address)', param, config)
+          .then(hex => ({ t, hex }))
+          .catch(() => ({ t, hex: null as string | null }))
+      )
+    )
+    for (const { t, hex } of results) {
+      if (!hex) continue
+      let raw: bigint
+      try { raw = BigInt('0x' + hex.slice(-64)) } catch { continue }
+      if (raw === 0n) continue
+      const bal = Number(raw) / Math.pow(10, t.decimals)
+      if (bal < 0.000001) continue
+      tokens.push({
+        contractAddress: t.address,
+        name: t.name, symbol: t.symbol, decimals: t.decimals,
+        balance: bal.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+        usdValue: null, nativeEquivalent: null, nativeSymbol: 'TRX',
+        logoUri: null,   // enrichWithPrices backfills from DexScreener
+        chain: TRON_CHAIN.id, chainLabel: TRON_CHAIN.label, chainColor: TRON_CHAIN.color
+      })
+    }
+  } catch (e) {
+    console.error('[Tron] token fetch error:', e)
+  }
+  return tokens
+}
+
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 export interface AllAddresses {
   evm: string
   solana?: string
   cardano?: string
+  tron?: string
   agw?: string   // resolved Abstract Global Wallet (override ?? auto-derive); null/absent = derive
 }
 
@@ -653,11 +731,12 @@ export async function fetchAllTokens(
     // never derive a counterfactual address here — only fetch what was resolved.
     const agwAddress = addresses.agw ?? null
 
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens] = await Promise.all([
       Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
       addresses.solana  ? fetchSolanaTokens(addresses.solana,   config)      : Promise.resolve([] as WalletToken[]),
       addresses.cardano ? fetchCardanoTokens(addresses.cardano, config)  : Promise.resolve([] as WalletToken[]),
       fetchMonadTokens(addresses.evm),
+      addresses.tron    ? fetchTronTokens(addresses.tron, config)        : Promise.resolve([] as WalletToken[]),
     ])
 
     // Fetch Abstract tokens from the AGW smart account if it differs from the EOA,
@@ -667,7 +746,7 @@ export async function fetchAllTokens(
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens]
+    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens]
     const tokens = await enrichWithPrices(raw)
     tokens.sort((a, b) => {
       const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
@@ -945,6 +1024,56 @@ async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<Wa
   }
 }
 
+// ─── Tron TRC-721 NFTs via TronScan (best-effort, keyless) ───────────────────
+// No Alchemy/Moralis/OpenSea coverage for TRON, so this uses the public TronScan
+// API. It is rate-limited and unkeyed — any failure degrades silently to []. NFTs
+// here are not floor-valued (no provider), so they show without a USD figure.
+
+async function fetchTronNFTs(address: string): Promise<WalletCollectible[]> {
+  if (!address) return []
+  try {
+    const res = await fetch(
+      `https://apilist.tronscanapi.com/api/account/nfts?address=${address}&limit=50&start=0`,
+      { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(12_000) }
+    )
+    if (!res.ok) return []
+    const json = await res.json() as {
+      data?: Array<{
+        contract_address?: string
+        token_id?: string | number
+        name?: string
+        collection_name?: string
+        image_url?: string
+        metadata?: { name?: string; description?: string; image?: string } | null
+        nft_type?: string
+      }>
+    }
+    const items = json.data ?? []
+    return items.map(nft => {
+      const meta = nft.metadata ?? {}
+      const tokenId = String(nft.token_id ?? '')
+      const contract = nft.contract_address ?? ''
+      return {
+        id: `tron:${contract}:${tokenId}`,
+        name: meta.name ?? nft.name ?? (tokenId ? `#${tokenId}` : 'Tron NFT'),
+        description: meta.description ?? null,
+        image: normalizeImageUrl(nft.image_url ?? meta.image ?? null),
+        animationUrl: null,
+        collectionName: nft.collection_name ?? null,
+        chain: 'tron',
+        chainLabel: 'Tron',
+        chainColor: '#EB0029',
+        tokenId,
+        contractAddress: contract,
+        contractType: nft.nft_type === 'trc1155' ? 'TRC-1155' : 'TRC-721',
+        traits: []
+      } satisfies WalletCollectible
+    }).filter(n => n.contractAddress)
+  } catch {
+    return []
+  }
+}
+
 // ─── NFT floor-price valuation (OpenSea) ─────────────────────────────────────
 
 // Wallet chain id → OpenSea v2 chain slug. Floors are priced via OpenSea for
@@ -1167,6 +1296,7 @@ export async function fetchAllCollectibles(
   config: WalletConfig,
   solanaAddress?: string,
   agw?: string,
+  tronAddress?: string,
   excludeIds?: string[]
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
@@ -1175,7 +1305,7 @@ export async function fetchAllCollectibles(
     const agwAddress = agw ?? null
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
-    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts] = await Promise.all([
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts] = await Promise.all([
       Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config))),
       solanaAddress  ? fetchSolanaNFTs(solanaAddress, config)       : Promise.resolve([] as WalletCollectible[]),
       cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
@@ -1183,9 +1313,10 @@ export async function fetchAllCollectibles(
         ? fetchNftsForChain(agwAddress, abstractChainCfg, config).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
       fetchMonadNFTs(evmAddress, config),
+      tronAddress ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
     ])
 
-    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts]
+    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts]
     const chainResults: Record<string, { count: number; error: string | null }> = {}
     for (const r of evmResults) {
       chainResults[r.chain.id] = { count: r.items.length, error: r.error }
@@ -1196,6 +1327,9 @@ export async function fetchAllCollectibles(
     }
     if (cardanoAddress) {
       chainResults['cardano'] = { count: cardanoNfts.length, error: null }
+    }
+    if (tronAddress) {
+      chainResults['tron'] = { count: tronNfts.length, error: null }
     }
 
     // Value each NFT by collection floor and sort by USD (highest first).

@@ -24,13 +24,15 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', fontFamily: 'var(--font-body)',
 }
 
-function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | null): string {
+function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | 'tron' | 'dogecoin' | null): string {
   if (!key) return ''
   if (key === 'evm') return addresses.evm
   if (key === 'solana') return addresses.solana
   if (key === 'cardano') return addresses.cardano
   if (key === 'bitcoin') return addresses.bitcoin
   if (key === 'polkadot') return addresses.polkadot
+  if (key === 'tron') return addresses.tron ?? ''
+  if (key === 'dogecoin') return addresses.dogecoin ?? ''
   return ''
 }
 

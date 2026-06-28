@@ -37,7 +37,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       `Solana:   ${addrs.solana}`,
       `Cardano:  ${addrs.cardano}`,
       `Bitcoin:  ${addrs.bitcoin}`,
-      `Polkadot: ${addrs.polkadot}`
+      `Polkadot: ${addrs.polkadot}`,
+      `Tron:     ${addrs.tron ?? ''}`,
+      `Dogecoin: ${addrs.dogecoin ?? ''}`
     ].join('\n')
     navigator.clipboard.writeText(text).catch(() => {})
     setCopied(true)
@@ -58,7 +60,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           <SettingsRow
             icon="📋"
             label={copied ? 'Copied!' : 'Copy All Addresses'}
-            sublabel="EVM, Solana, Cardano, Bitcoin, Polkadot"
+            sublabel="EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, Dogecoin"
             onClick={copyAddresses}
           />
           <SettingsRow

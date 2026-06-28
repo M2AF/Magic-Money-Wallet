@@ -3,7 +3,7 @@ import type { ClUser, ChainlensSyncResult, WalletCollectible } from '../types/wa
 
 const CHAIN_LABELS: Record<string, string> = {
   evm: 'Ethereum/EVM', solana: 'Solana', cardano: 'Cardano',
-  bitcoin: 'Bitcoin', polkadot: 'Polkadot'
+  bitcoin: 'Bitcoin', polkadot: 'Polkadot', tron: 'Tron', dogecoin: 'Dogecoin'
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -457,7 +457,7 @@ function EmptyRow({ label }: { label: string }) {
 function ChainIcon({ chain }: { chain: string }) {
   const BG: Record<string, string> = {
     evm: '#627EEA', solana: '#9945FF', cardano: '#2A7DEA',
-    bitcoin: '#F7931A', polkadot: '#E6007A'
+    bitcoin: '#F7931A', polkadot: '#E6007A', tron: '#EB0029', dogecoin: '#C2A633'
   }
   const bg = BG[chain] ?? '#6b7280'
 
@@ -472,7 +472,9 @@ function ChainIcon({ chain }: { chain: string }) {
       {chain === 'cardano'  && <AdaIcon />}
       {chain === 'bitcoin'  && <BtcIcon />}
       {chain === 'polkadot' && <DotIcon />}
-      {!['evm','solana','cardano','bitcoin','polkadot'].includes(chain) && (
+      {chain === 'tron'     && <TrxIcon />}
+      {chain === 'dogecoin' && <DogeIcon />}
+      {!['evm','solana','cardano','bitcoin','polkadot','tron','dogecoin'].includes(chain) && (
         <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>{chain[0].toUpperCase()}</span>
       )}
     </div>
@@ -520,6 +522,19 @@ const DotIcon = () => (
     <circle cx="12" cy="21" r="2" fill="white" opacity="0.7"/>
     <circle cx="3" cy="12" r="2" fill="white" opacity="0.7"/>
     <circle cx="21" cy="12" r="2" fill="white" opacity="0.7"/>
+  </svg>
+)
+
+const TrxIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+    <path d="M4 5 L20 8.5 L11 21 Z M4 5 L11 21 M4 5 L15.5 11 M20 8.5 L11 21"
+      stroke="white" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.95"/>
+  </svg>
+)
+
+const DogeIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+    <text x="5" y="18" fontSize="17" fontWeight="900" fill="white" fontFamily="Arial">Ð</text>
   </svg>
 )
 

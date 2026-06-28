@@ -23,7 +23,7 @@ export interface SimpleSwapAsset {
   label: string     // e.g. 'SOL'
   name: string      // e.g. 'Solana'
   /** Wallet address book key used to auto-fill destination/refund (null = not held). */
-  addrKey: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | null
+  addrKey: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | 'tron' | 'dogecoin' | null
 }
 
 export interface SsEstimateParams {

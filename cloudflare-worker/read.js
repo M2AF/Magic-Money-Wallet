@@ -32,6 +32,10 @@ const TATUM_GATEWAYS = {
 
 const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea'])
 
+// Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
+// hosts — TRON uses path-based `wallet/*` methods under /v2/{key}/).
+const ALCHEMY_TRON = (env) => `https://tron-mainnet.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
+
 const alchemyRpc = (network, env) => `https://${network}.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
 const alchemyNft = (network, env) => `https://${network}.g.alchemy.com/nft/v3/${env.ALCHEMY_KEY}`
 
@@ -56,6 +60,21 @@ export async function handleRead(request, url, env, ctx) {
     if (isAllMetadata(body)) return json(env, await alchemyMetaCached(network, body, env, ctx))
     const res = await fetch(alchemyRpc(network, env), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    return passthrough(env, res)
+  }
+
+  // ── Alchemy TRON HTTP API: POST /rpc/alchemy-tron/* ───────────────────────
+  // Forwards the TRON method sub-path (e.g. wallet/getaccount, wallet/
+  // triggerconstantcontract, wallet/broadcasttransaction) to the keyed host.
+  if (parts[0] === 'rpc' && parts[1] === 'alchemy-tron' && request.method === 'POST') {
+    if (!env.ALCHEMY_KEY) return err(env, 'Alchemy key not configured', 500)
+    const sub = parts.slice(2).join('/')
+    if (!sub) return err(env, 'Missing TRON method')
+    const res = await fetch(`${ALCHEMY_TRON(env)}/${sub}${url.search}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: await request.text(),
     })
     return passthrough(env, res)
   }

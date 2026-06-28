@@ -77,11 +77,15 @@ import {
   estimateEvmFee,
   estimateSolanaFee,
   estimateCardanoFee,
+  estimateTronFee,
+  estimateDogecoinFee,
   sendEvmTransaction,
   sendRawEvmTransaction,
   sendAgwTransaction,
   sendSolanaTransaction,
-  sendCardanoTransaction
+  sendCardanoTransaction,
+  sendTronTransaction,
+  sendDogecoinTransaction
 } from './tx-sender'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
@@ -180,7 +184,7 @@ async function resolveAgw(addresses: WalletAddresses): Promise<WalletAddresses> 
 async function getFullAddresses() {
   let stored = loadAddresses()
   if (!stored) throw new Error('No addresses found — wallet not set up')
-  if (!stored.bitcoin || !stored.polkadot) {
+  if (!stored.bitcoin || !stored.polkadot || !stored.tron || !stored.dogecoin) {
     // Re-derive from mnemonic to fill in missing fields (drops any resolved agw)
     stored = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
     saveAddresses(stored)
@@ -441,10 +445,15 @@ export function registerIpcHandlers(): void {
     amount: string
   ) => {
     const config = loadConfig()
-    const addresses = loadAddresses()
-    if (!addresses) throw new Error('No addresses found')
-    if (chainId === 'solana') return estimateSolanaFee(config)
-    if (chainId === 'cardano') return estimateCardanoFee(addresses.cardano, config)
+    // getFullAddresses migrates older wallets so tron/dogecoin addresses exist here.
+    const addresses = await getFullAddresses()
+    if (chainId === 'solana')   return estimateSolanaFee(config)
+    if (chainId === 'cardano')  return estimateCardanoFee(addresses.cardano, config)
+    if (chainId === 'tron')     return estimateTronFee(to, config)
+    if (chainId === 'dogecoin') {
+      if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
+      return estimateDogecoinFee(addresses.dogecoin, to, amount)
+    }
     return estimateEvmFee(addresses.evm, to, amount, config, chainId)
   })
 
@@ -488,6 +497,27 @@ export function registerIpcHandlers(): void {
     const addresses = loadAddresses()
     if (!addresses?.cardano) throw new Error('No Cardano address found')
     return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config, addresses.accountIndex ?? 0)
+  })
+
+  // ── Send Tron (native TRX, or TRC-20 when token is provided) ──────────────
+  ipcMain.handle('wallet:send-tron', async (
+    _event,
+    to: string,
+    amount: string,
+    token?: { contractAddress: string; decimals: number }
+  ) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    return sendTronTransaction(mnemonic, to, amount, config, accountIndex, token)
+  })
+
+  // ── Send Dogecoin (legacy P2PKH UTXO) ─────────────────────────────────────
+  ipcMain.handle('wallet:send-dogecoin', async (_event, to: string, amountDoge: string) => {
+    const mnemonic = loadMnemonic()
+    const addresses = await getFullAddresses()
+    if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
+    return sendDogecoinTransaction(mnemonic, addresses.dogecoin, to, amountDoge, addresses.accountIndex ?? 0)
   })
 
   // ── Phase 3: Transaction history ──────────────────────────────────────
@@ -546,7 +576,7 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllTokens(
-      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, agw: addresses.agw },
+      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw },
       config
     )
   })
@@ -554,7 +584,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async (_event, excludeIds?: string[]) => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, excludeIds)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds)
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────

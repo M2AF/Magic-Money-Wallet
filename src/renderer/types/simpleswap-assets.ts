@@ -20,9 +20,9 @@ export const SS_ASSETS: SimpleSwapAsset[] = [
   { ticker: 'pol',  network: 'polygon',  label: 'POL',  name: 'Polygon',   addrKey: 'evm' },
   { ticker: 'avax', network: 'avaxc',    label: 'AVAX', name: 'Avalanche', addrKey: 'evm' },
   { ticker: 'ltc',  network: 'ltc',      label: 'LTC',  name: 'Litecoin',  addrKey: null },
-  { ticker: 'doge', network: 'doge',     label: 'DOGE', name: 'Dogecoin',  addrKey: null },
+  { ticker: 'doge', network: 'doge',     label: 'DOGE', name: 'Dogecoin',  addrKey: 'dogecoin' },
   { ticker: 'xmr',  network: 'xmr',      label: 'XMR',  name: 'Monero',    addrKey: null },
-  { ticker: 'trx',  network: 'trx',      label: 'TRX',  name: 'Tron',      addrKey: null },
+  { ticker: 'trx',  network: 'trx',      label: 'TRX',  name: 'Tron',      addrKey: 'tron' },
   { ticker: 'xrp',  network: 'xrp',      label: 'XRP',  name: 'XRP',       addrKey: null },
 ]
 
@@ -43,7 +43,7 @@ export function requiresCrossChain(a: { network: string }): boolean {
 
 // SimpleSwap native coins → the wallet's balance chain id (from chain-config / AllBalances).
 // Only native coins the wallet actually tracks are mapped; tokens (usdc/usdt) and
-// chains we don't hold (ltc/doge/xmr/trx/xrp) return null → no balance shown.
+// chains we don't hold (ltc/xmr/xrp) return null → no balance shown.
 const SS_BALANCE_CHAIN: Record<string, string> = {
   'btc:btc': 'bitcoin',
   'eth:eth': 'ethereum',
@@ -53,6 +53,8 @@ const SS_BALANCE_CHAIN: Record<string, string> = {
   'bnb:bsc': 'bsc',
   'pol:polygon': 'polygon',
   'avax:avaxc': 'avalanche',
+  'doge:doge': 'dogecoin',
+  'trx:trx': 'tron',
 }
 
 /** The wallet balance-chain id for a SimpleSwap asset, or null if not held/known. */

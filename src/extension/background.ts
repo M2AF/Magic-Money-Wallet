@@ -15,7 +15,7 @@ import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteReque
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction } from '../main/tx-sender'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -171,6 +171,11 @@ async function resolveAgw(addresses: any): Promise<any> {
 async function loadFullAddresses(): Promise<any> {
   let stored = await store.loadAddresses()
   if (!stored) throw new Error('No wallet')
+  // Auto-migrate wallets created before tron/dogecoin existed (re-derive fills them).
+  if (!stored.tron || !stored.dogecoin) {
+    stored = await deriveAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
+    await store.saveAddresses(stored)
+  }
   if ((stored as { agwOwned?: boolean }).agwOwned === undefined) {
     stored = await resolveAgw(stored)
     await store.saveAddresses(stored)
@@ -308,11 +313,16 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wallet:estimate-fee': {
       const [chain, to, amount] = [String(a0), String(a1), String(a2)]
       const config = await store.loadConfig()
-      const addresses = await store.loadAddresses()
+      const addresses = await loadFullAddresses()
       if (!addresses) throw new Error('No wallet')
       // Match the shared tx-sender signatures (Electron calls these the same way).
       if (chain === 'solana') return estimateSolanaFee(config)
       if (chain === 'cardano') return estimateCardanoFee(addresses.cardano ?? '', config)
+      if (chain === 'tron') return estimateTronFee(to, config)
+      if (chain === 'dogecoin') {
+        if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
+        return estimateDogecoinFee(addresses.dogecoin, to, amount)
+      }
       return estimateEvmFee(addresses.evm, to, amount, config, chain)
     }
 
@@ -336,6 +346,21 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!addresses) throw new Error('No wallet')
       const mnemonic = await store.loadMnemonic()
       return sendCardanoTransaction(mnemonic, addresses.cardano, String(a0), String(a1), config)
+    }
+
+    case 'wallet:send-tron': {
+      const mnemonic = await store.loadMnemonic()
+      const config = await store.loadConfig()
+      const addresses = await store.loadAddresses()
+      const token = a2 as { contractAddress: string; decimals: number } | undefined
+      return sendTronTransaction(mnemonic, String(a0), String(a1), config, addresses?.accountIndex ?? 0, token)
+    }
+
+    case 'wallet:send-dogecoin': {
+      const addresses = await loadFullAddresses()
+      if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
+      const mnemonic = await store.loadMnemonic()
+      return sendDogecoinTransaction(mnemonic, addresses.dogecoin, String(a0), String(a1), addresses.accountIndex ?? 0)
     }
 
     // ── Abstract Global Wallet: send + manual address override ──────────────
@@ -386,7 +411,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       return fetchAllTokens(
-        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, agw: addresses.agw },
+        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw },
         config
       )
     }
@@ -395,7 +420,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       const excludeIds = Array.isArray(a0) ? (a0 as string[]) : undefined
-      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, excludeIds)
+      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds)
     }
 
     case 'swap:getQuote': {

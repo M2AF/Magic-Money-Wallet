@@ -45,7 +45,9 @@ const CHAIN_META: Record<string, ChainMeta> = {
   solana:     { name: 'Solana',       networks: 'Mainnet',                    color: '#9945FF', colorRgb: '153, 69, 255'   },
   cardano:    { name: 'Cardano',      networks: 'Mainnet',                    color: '#2A7DEA', colorRgb: '42, 125, 234'   },
   bitcoin:    { name: 'Bitcoin',      networks: 'Mainnet',                    color: '#F7931A', colorRgb: '247, 147, 26'   },
-  polkadot:   { name: 'Polkadot',     networks: 'Relay Chain',                color: '#E6007A', colorRgb: '230, 0, 122'    }
+  polkadot:   { name: 'Polkadot',     networks: 'Relay Chain',                color: '#E6007A', colorRgb: '230, 0, 122'    },
+  tron:       { name: 'Tron',         networks: 'Mainnet',                    color: '#EB0029', colorRgb: '235, 0, 41'     },
+  dogecoin:   { name: 'Dogecoin',     networks: 'Mainnet',                    color: '#C2A633', colorRgb: '194, 166, 51'   }
 }
 
 const FALLBACK_META: ChainMeta = { name: 'Unknown', networks: '', color: '#6B7280', colorRgb: '107, 114, 128' }
