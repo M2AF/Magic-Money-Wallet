@@ -23,6 +23,19 @@ const msg = (e: unknown) =>
 
 const flowOf = (fixed: boolean) => (fixed ? 'fixed-rate' : 'standard')
 
+// Our asset catalog uses SimpleSwap's (ticker, network) codes; ChangeNOW uses
+// different codes for some coins. Translate where they diverge. ChangeNOW only
+// ever sees pairs SimpleSwap can't price, so this list stays small.
+//   dot/dot → dot/assethub : native Polkadot lives on Asset Hub at ChangeNOW
+//                            (same SS58 address; ChangeNOW has no `dot/dot`).
+const CN_OVERRIDE: Record<string, { ticker?: string; network?: string }> = {
+  'dot:dot': { network: 'assethub' },
+}
+function cnPair(ticker: string, network: string): { ticker: string; network: string } {
+  const o = CN_OVERRIDE[`${ticker}:${network}`]
+  return { ticker: o?.ticker ?? ticker, network: o?.network ?? network }
+}
+
 function errorExchange(error: string): SsExchangeResult {
   return {
     id: '', status: 'failed', tickerFrom: '', tickerTo: '', networkFrom: '', networkTo: '',
@@ -64,7 +77,9 @@ export async function cnEstimate(params: SsEstimateParams, config: WalletConfig)
   if (!proxy) return { estimatedAmount: null, rateId: null, validUntil: null, min: null, max: null, error: 'ChangeNOW not configured.' }
 
   const flow = flowOf(params.fixed)
-  const q = `fromCurrency=${params.tickerFrom}&toCurrency=${params.tickerTo}&fromNetwork=${params.networkFrom}&toNetwork=${params.networkTo}`
+  const f = cnPair(params.tickerFrom, params.networkFrom)
+  const t = cnPair(params.tickerTo, params.networkTo)
+  const q = `fromCurrency=${f.ticker}&toCurrency=${t.ticker}&fromNetwork=${f.network}&toNetwork=${t.network}`
   const estUrl = `${proxy}/cn/estimate?${q}&fromAmount=${encodeURIComponent(params.amount)}&flow=${flow}&type=direct`
   const rangeUrl = `${proxy}/cn/range?${q}&flow=${flow}`
   try {
@@ -108,10 +123,10 @@ export async function cnCreateExchange(params: SsCreateParams, config: WalletCon
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        fromCurrency: params.tickerFrom,
-        toCurrency: params.tickerTo,
-        fromNetwork: params.networkFrom,
-        toNetwork: params.networkTo,
+        fromCurrency: cnPair(params.tickerFrom, params.networkFrom).ticker,
+        toCurrency: cnPair(params.tickerTo, params.networkTo).ticker,
+        fromNetwork: cnPair(params.tickerFrom, params.networkFrom).network,
+        toNetwork: cnPair(params.tickerTo, params.networkTo).network,
         fromAmount: params.amount,
         address: params.addressTo,
         extraId: params.extraIdTo ?? '',
