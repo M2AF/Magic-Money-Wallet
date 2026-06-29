@@ -159,29 +159,32 @@ async function handleQuote(url, env) {
 
   if (sameChain && fromChain in EVM_CHAIN_IDS) {
     // Same-chain EVM: best price from native aggregators first, LI.FI/Rango as backup.
-    tries.push(() => zeroExQuote(fromChain, q, env))
-    tries.push(() => oneInchQuote(fromChain, q, env))
-    tries.push(() => lifiQuote(q, env))
-    tries.push(() => rangoQuote(q, env))
+    tries.push(['0x', () => zeroExQuote(fromChain, q, env)])
+    tries.push(['1inch', () => oneInchQuote(fromChain, q, env)])
+    tries.push(['lifi', () => lifiQuote(q, env)])
+    tries.push(['rango', () => rangoQuote(q, env)])
   } else if (sameChain && fromChain === 'solana') {
-    tries.push(() => jupiterQuote(q, env))
-    tries.push(() => lifiQuote(q, env))
-    tries.push(() => rangoQuote(q, env))
+    tries.push(['jupiter', () => jupiterQuote(q, env)])
+    tries.push(['lifi', () => lifiQuote(q, env)])
+    tries.push(['rango', () => rangoQuote(q, env)])
   } else {
-    // Cross-chain (any → any): LI.FI primary, Rango + SwapKit/THORChain fallback.
-    // SwapKit shines on native-BTC destinations from EVM/Solana sources.
-    tries.push(() => lifiQuote(q, env))
-    tries.push(() => rangoQuote(q, env))
-    tries.push(() => swapkitQuote(q, env))
+    // Cross-chain (any → any). The client calls LI.FI directly (its IP isn't rate-
+    // limited like our shared Worker IP) and sets skipLifi; only try LI.FI here as a
+    // last resort when the client didn't. Rango + SwapKit are the real fallbacks.
+    tries.push(['rango', () => rangoQuote(q, env)])
+    tries.push(['swapkit', () => swapkitQuote(q, env)])
+    if (q.skipLifi !== '1') tries.push(['lifi', () => lifiQuote(q, env)])
   }
 
-  let lastErr = null
-  for (const run of tries) {
+  // Try each in order; return the first success. On total failure, report EVERY
+  // provider's reason (labeled) so failures are diagnosable instead of masked.
+  const errors = []
+  for (const [name, run] of tries) {
     const r = await run().catch(e => ({ _error: e && e.message ? e.message : 'route error' }))
     if (r && !r._error) return json(env, { quote: r, error: null })
-    if (r && r._error) lastErr = r._error
+    if (r && r._error) errors.push(`${name}: ${r._error}`)
   }
-  return json(env, { quote: null, error: lastErr || 'No route available for this pair.' })
+  return json(env, { quote: null, error: errors.join(' | ') || 'No route available for this pair.' })
 }
 
 // 0x Swap API v2 (allowance-holder). Docs: https://0x.org/docs/api
