@@ -208,8 +208,24 @@ async function fetchDogecoinNative(
   address: string | undefined
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
-  // BlockCypher (keyless) — final_balance is in koinu (1 DOGE = 1e8), incl. mempool.
+  // Three keyless sources tried in order — BlockCypher's free tier 429s readily, so
+  // Dogechain.info (the most reliable keyless balance API) goes first; the others
+  // are fallbacks. 1 DOGE = 1e8 koinu. First source that answers wins.
   let lastErr: string | null = null
+
+  // 1) Dogechain.info — { balance: "1.23", success: 1 } with balance already in DOGE.
+  try {
+    const res = await fetch(`https://dogechain.info/api/v1/address/balance/${address}`, { signal: AbortSignal.timeout(10_000) })
+    if (res.ok) {
+      const j = await res.json() as { balance?: string; success?: number }
+      if (j.success === 1 && j.balance != null) return { native: parseFloat(j.balance) || 0, tokenCount: 0, error: null }
+    }
+    lastErr = `Dogechain ${res.status}`
+  } catch (err) {
+    lastErr = String(err).includes('abort') ? 'Timed out' : 'Network error'
+  }
+
+  // 2) BlockCypher — final_balance in koinu, incl. mempool.
   try {
     const res = await fetch(`${DOGE_API_BASE}/addrs/${address}/balance`, { signal: AbortSignal.timeout(10_000) })
     if (res.ok) {
@@ -217,10 +233,9 @@ async function fetchDogecoinNative(
       return { native: (json.final_balance ?? 0) / 1e8, tokenCount: 0, error: null }
     }
     lastErr = `BlockCypher ${res.status}`
-  } catch (err) {
-    lastErr = String(err).includes('abort') ? 'Timed out' : 'Network error'
-  }
-  // Last-chance keyless Blockchair fallback (different shape, balance in koinu).
+  } catch { /* try the next source */ }
+
+  // 3) Blockchair — { data: { <addr>: { address: { balance } } } } in koinu.
   try {
     const res = await fetch(`https://api.blockchair.com/dogecoin/dashboards/address/${address}`, { signal: AbortSignal.timeout(10_000) })
     if (res.ok) {
@@ -229,6 +244,7 @@ async function fetchDogecoinNative(
       if (typeof bal === 'number') return { native: bal / 1e8, tokenCount: 0, error: null }
     }
   } catch { /* fall through to lastErr */ }
+
   return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
 }
 

@@ -75,9 +75,10 @@ export const SWAP_TOKEN_LISTS: Record<SwapChain, SwapToken[]> = {
 }
 
 /**
- * Networks shown in the swap pickers. EVM + Solana + Monad can be a SOURCE (the
- * wallet signs locally). Bitcoin/Cardano/Polkadot appear too but, as a source,
- * hand off to the Cross-Chain (SimpleSwap) flow — see isDexSignableSource.
+ * Networks shown in the DEX Swap pickers — only locally-signable sources (EVM +
+ * Solana + Monad). Bitcoin/Cardano/Polkadot are intentionally NOT here: until
+ * native (PSBT/CBOR/Substrate) signing exists, those swaps live in the Cross-Chain
+ * (SimpleSwap/ChangeNOW) tab only.
  */
 export const DEX_CHAINS: { id: SwapChain; label: string }[] = [
   { id: 'ethereum', label: 'Ethereum' },
@@ -89,9 +90,6 @@ export const DEX_CHAINS: { id: SwapChain; label: string }[] = [
   { id: 'bsc', label: 'BNB Chain' },
   { id: 'monad', label: 'Monad' },
   { id: 'solana', label: 'Solana' },
-  { id: 'bitcoin', label: 'Bitcoin' },
-  { id: 'cardano', label: 'Cardano' },
-  { id: 'polkadot', label: 'Polkadot' },
 ]
 
 /** Address-book key used to source the wallet address per chain. */
