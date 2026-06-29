@@ -1,8 +1,54 @@
 # MagicMoney Wallet
 
-A self-custody multi-chain wallet by ChainLens, available as a **desktop app** (Electron) and **browser extension** (Chrome MV3).
+A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as both a **desktop app** (Electron, Windows/macOS/Linux) and a **Chrome browser extension** (Manifest V3).
 
-**Chains:** EVM (Ethereum · Arbitrum · Optimism · Base · Polygon · Avalanche · Blast · Gnosis · ApeChain · Ronin · Soneium · WorldChain · Zora · HyperEVM · Monad · Abstract) · Solana · Cardano · Bitcoin · Polkadot
+It manages **22 networks** across six ecosystems from a single seed phrase, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, and never lets your keys leave your device.
+
+> **Ecosystems:** EVM · Solana · Cardano · Bitcoin · Polkadot · Tron · Dogecoin
+
+---
+
+## Highlights
+
+- **One seed, 22 chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
+- **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
+- **No API keys to configure** — keyed providers are proxied through a hosted Cloudflare Worker, so the app works out of the box with **zero secrets shipped in the bundle**.
+- **dApp ready** — injects `window.ethereum` (EIP-1193 / EIP-6963), `window.solana` (Wallet Standard), and `window.cardano.magicmoney` (CIP-30), plus WalletConnect v2.
+- **Built-in swaps** — same-chain DEX aggregation and cross-chain bridging/exchange in one Swap page.
+- **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
+- **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
+- **Auto-updating desktop app** and a **side-panel mode** in the extension (Phantom-style dock).
+
+---
+
+## Supported Networks
+
+| Network | Ecosystem | Native | Primary provider |
+|---|---|---|---|
+| Ethereum | EVM L1 | ETH | Alchemy |
+| Arbitrum One | EVM L2 | ETH | Alchemy |
+| Optimism | EVM L2 | ETH | Alchemy |
+| Base | EVM L2 | ETH | Alchemy |
+| Polygon | EVM L2 | POL | Alchemy |
+| Avalanche | EVM L1 | AVAX | Alchemy |
+| Blast | EVM L2 | ETH | Alchemy |
+| Gnosis | EVM L1 | xDAI | Alchemy |
+| Abstract | EVM L2 | ETH | Alchemy |
+| ApeChain | EVM L2 | APE | Alchemy |
+| Ronin | EVM L2 | RON | Alchemy |
+| Soneium | EVM L2 | ETH | Alchemy |
+| WorldChain | EVM L2 | WLD | Alchemy |
+| Zora | EVM L2 | ETH | Alchemy |
+| Monad | EVM L1 | MON | monad.xyz RPC (+ rotation) |
+| HyperEVM | EVM L1 | HYPE | hyperliquid.xyz RPC |
+| Solana | SVM | SOL | Helius |
+| Cardano | eUTXO | ADA | Blockfrost (+ Koios fallback) |
+| Bitcoin | UTXO | BTC | Tatum (+ Esplora fallback) |
+| Polkadot | Substrate | DOT | Tatum |
+| Tron | TRON | TRX | TRON HTTP API (+ TronGrid fallback) |
+| Dogecoin | UTXO | DOGE | BlockCypher |
+
+Every chain has a multi-RPC fallback chain: the primary endpoint is always tried first, and keyless public mirrors only engage on transport errors, so the normal path is unchanged.
 
 ---
 
@@ -10,6 +56,7 @@ A self-custody multi-chain wallet by ChainLens, available as a **desktop app** (
 
 ### Desktop App
 Download the latest installer from [GitHub Releases](../../releases):
+
 - **Windows** — `MagicMoney-Wallet-Setup-x.x.x.exe`
 - **macOS** — `MagicMoney-Wallet-x.x.x.dmg`
 - **Linux** — `MagicMoney-Wallet-x.x.x.AppImage`
@@ -26,37 +73,105 @@ The app checks for updates automatically and prompts you to restart when one is 
 
 ---
 
-## Development Setup
-
-```bash
-npm install
-npm run dev          # Electron dev server with hot reload
-```
+## Quick Start (Development)
 
 **Prerequisites:** Node.js 20+, npm 10+
 
-To build the browser extension in dev:
 ```bash
+npm install
+
+# Desktop (Electron) with hot reload
+npm run dev
+
+# Chrome extension build → dist-extension/
 npm run build:extension
-# Then load dist-extension/ as an unpacked extension in chrome://extensions
+# then load dist-extension/ as an unpacked extension in chrome://extensions
+```
+
+Useful checks:
+
+```bash
+npm run typecheck     # tsc on both node + web tsconfigs
+npm test              # vitest (wallet-core, crypto-vault, tx-describe, secure-store)
 ```
 
 ---
 
-## API Keys
+## Architecture
 
-On first launch the app uses built-in free-tier keys. For production use, open **Settings** inside the wallet to enter your own keys. Keys are stored encrypted on-device — never transmitted.
+MagicMoney is **one codebase with two runtime surfaces**. All wallet logic — key derivation, balance/token/NFT fetching, transaction building, swap routing, dApp request handling — is shared. Only the platform primitives differ, and they're swapped at build time via Vite aliases:
 
-| Key | Provider | Used for |
+| Concern | Desktop (Electron) | Extension (Chrome MV3) |
 |---|---|---|
-| `alchemyKey` | [alchemy.com](https://alchemy.com) | EVM balances, tokens, NFTs, tx history |
-| `heliusKey` | [helius.dev](https://helius.dev) | Solana balances, SPL tokens, tx history |
-| `blockfrostKey` | [blockfrost.io](https://blockfrost.io) | Cardano balances, native assets, NFTs |
-| `moralisKey` | [moralis.io](https://moralis.io) | Monad NFTs |
-| `walletConnectProjectId` | [cloud.walletconnect.com](https://cloud.walletconnect.com) | WalletConnect v2 pairing |
+| Privileged runtime | Main process (`ipc-handlers.ts`) | Service worker (`background.ts`) |
+| Encrypted key storage | `safeStorage` (OS keychain) | `chrome.storage.local` + AES-256 (`crypto-vault.ts`) |
+| Storage adapter | `secure-store.ts` | `chrome-store.ts` |
+| Renderer ↔ core bridge | `contextBridge` / IPC | `chrome.runtime.sendMessage` (`bridge.ts`) |
+| dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs |
 
-> CoinGecko (prices, sparklines) and DexScreener (token prices) use free public APIs — no key needed.
-> Bitcoin and Polkadot use Tatum's public gateway — no key needed.
+### API proxy — no keys in the client
+
+All **keyed** providers (Alchemy, Helius, Blockfrost, Tatum, Moralis, OpenSea, the swap aggregators, and Supabase) route through a **Cloudflare Worker** (`cloudflare-worker/`). The client is proxy-first: `src/main/api-proxy.ts` rewrites provider URLs/headers to the Worker, which injects the real secrets server-side. As a result **no provider API keys ship in the app bundle**.
+
+The Worker (`read.js`, `swap-proxy.js`, `lib.js`, `db.js`, `auth.js`) also adds a shared cross-user KV cache (token metadata, NFT floors), per-IP rate limiting, and EVM-signature-gated write routes for profile sync.
+
+**Deliberately kept client-side and direct:** keyless, per-IP endpoints — CoinGecko (prices/sparklines), DexScreener, DefiLlama, mempool.space, Magic Eden. Proxying these would collapse every user onto one Worker IP and trigger provider rate limits.
+
+> The app ships pointing at a hosted Worker, so it works with no setup. Advanced users can self-host the Worker (see `cloudflare-worker/README.md`) or supply their own keys in **Settings** — config keys default to empty and are stored on-device only.
+
+### Security model
+
+```
+Renderer / Popup (React)              Main Process / Service Worker
+──────────────────────────            ──────────────────────────────────
+UI, balances, addresses           ←── Cloudflare Worker → Alchemy / Helius / …
+window.wallet.getBalances()       ──► IPC / sendMessage → balance-fetcher.ts
+window.wallet.generate()          ──► wallet-core.ts → returns word[] only
+window.wallet.confirmBackup()     ──► wallet-core.ts → derive → encrypted storage
+
+dApp page (injected provider)         Privileged runtime (signing)
+──────────────────────────            ──────────────────────────────────
+window.ethereum (EIP-1193/6963)   ──► per-origin approval → tx-sender.ts
+window.solana   (Wallet Standard) ──► sign with ed25519 (@noble) → broadcast
+window.cardano.magicmoney (CIP-30)──► cardano-cip30.ts → witness → submit
+WalletConnect v2 URI              ──► @walletconnect/sign-client
+```
+
+**Guarantees:**
+- Mnemonic encrypted at rest — OS keychain (`safeStorage`) on desktop, AES-256 behind a user password in the extension.
+- Private keys are derived transiently for signing and never persisted in the clear; the renderer/popup only ever receives public addresses and balance strings.
+- Desktop hardening: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`.
+- The extension's `MAIN`-world inject script provides the dApp APIs but has **no access** to wallet storage — every privileged action crosses the message bridge.
+
+---
+
+## dApp Connectivity
+
+MagicMoney is a fully-fledged signer for EVM, Solana, and Cardano dApps.
+
+- **EVM** — injects `window.ethereum` with EIP-1193 + EIP-6963 (multi-wallet discovery), per-origin approvals, chain switching (`wallet_switchEthereumChain` / `wallet_addEthereumChain`), and `eth_signTypedData_v4`. dApps see "MagicMoney Wallet" alongside other wallets.
+- **Solana** — Wallet Standard + legacy `window.solana`: `connect`, `signMessage` (e.g. OpenSea SIWS), `signTransaction`, and `signAndSendTransaction`.
+- **Cardano (CIP-30)** — exposed at `window.cardano.magicmoney`, so any CIP-30 dApp or library ([weld](https://github.com/Cardano-Forge/weld), [Lucid](https://lucid.spacebudz.io/), [Mesh.js](https://meshjs.dev/)) can connect. MagicMoney is registered in the **weld** registry as `magicmoney`. Implemented methods: `getNetworkId`, `getBalance`, `getUtxos`, `getCollateral`, `getUsedAddresses`, `getUnusedAddresses`, `getChangeAddress`, `getRewardAddresses`, `signTx`, `signData`, `submitTx`.
+- **WalletConnect v2** — pair via URI for dApps that prefer it.
+
+On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script.
+
+---
+
+## Swaps
+
+The Swap page is dual-mode, covering both on-chain and cross-chain trades:
+
+- **DEX (sign locally)** — same-chain swaps aggregate the best price across **0x / 1inch** (EVM) and **Jupiter** (Solana). Cross-chain routes use **LI.FI / Rango / SwapKit (THORChain)** with a Phantom-style auto-router (independent From/To network selectors). Transactions are signed locally with your own keys.
+- **Cross-chain exchange (deposit address)** — **SimpleSwap** with a **ChangeNOW** fallback, used for assets that can't be signed locally as a source (e.g. BTC, ADA, DOT).
+
+Quotes, slippage, gas preflight, and a periodic price-refresh guard are handled in the swap widgets. Cardano on-chain DEX execution is stubbed.
+
+---
+
+## Abstract Global Wallet (AGW)
+
+MagicMoney can display your **Abstract Global Wallet** (a zkSync smart account on Abstract, chainId 2741) inside the same portfolio total. Because an AGW is typically owned by a Privy embedded signer rather than your EOA, auto-discovery isn't possible — you add the AGW address manually in the **AgwPanel** (Networks tab). Its native ETH, tokens, and NFTs are badged as AGW-sourced and counted in your total. Direct sending is enabled only when your EOA is a verified on-chain owner; otherwise the panel links out to the Abstract Portal.
 
 ---
 
@@ -64,7 +179,7 @@ On first launch the app uses built-in free-tier keys. For production use, open *
 
 ```bash
 # Development
-npm run dev                    # Electron + hot reload
+npm run dev                    # Electron + hot reload (regenerates App Hub, builds injects)
 npm run build:extension        # Chrome extension → dist-extension/
 
 # Production builds
@@ -73,104 +188,21 @@ npm run package                # Electron installer → dist/
 npm run package:publish        # Build + publish to GitHub Releases (requires GH_TOKEN)
 
 # Release (bump version + tag + push → GitHub Actions builds everything)
-npm run release:patch          # 0.1.0 → 0.1.1
-npm run release:minor          # 0.1.0 → 0.2.0
-npm run release:major          # 0.1.0 → 1.0.0
+npm run release:patch          # 0.1.1 → 0.1.2
+npm run release:minor          # 0.1.1 → 0.2.0
+npm run release:major          # 0.1.1 → 1.0.0
 ```
+
+> **Build note:** the dApp-injection preloads (`web3-inject`, `popup-chrome`, `popup-connect`, `approval-preload`) are bundled by a separate `build:inject` esbuild step into `out/inject/`. The `dev`, `build`, and `package` scripts all run it; don't remove it or the in-app dApp browser loses its provider.
 
 ### Automated CI/CD
 
 Pushing a version tag triggers `.github/workflows/release.yml`, which:
-1. Builds the Electron app on Windows, macOS, and Linux in parallel
-2. Publishes installers to GitHub Releases via `electron-builder --publish always`
-3. Builds the Chrome extension and uploads the `.zip` to the same release
+1. Builds the Electron app on Windows, macOS, and Linux in parallel.
+2. Publishes installers to GitHub Releases via `electron-builder --publish always`.
+3. Builds the Chrome extension and uploads the `.zip` to the same release.
 
-The release scripts handle the entire flow — bump, commit, tag, push, done.
-
----
-
-## Browser Extension Architecture
-
-The extension shares all business logic with the desktop app. Platform-specific adapters are swapped at build time via Vite aliases:
-
-| Desktop | Extension |
-|---|---|
-| `safeStorage` (OS keychain) | `chrome.storage.local` (AES-256 encrypted mnemonic) |
-| `ipc-handlers.ts` (Electron IPC) | `background.ts` (MV3 service worker) |
-| `secure-store.ts` | `chrome-store.ts` |
-| Electron `BrowserView` browser | User's existing browser tabs |
-
-**Key extension behaviours:**
-- **Password lock** — mnemonic encrypted with a user-set password at setup; re-enters locked state when the browser is restarted
-- **dApp connectivity** — injects `window.ethereum` (EIP-1193), `window.solana`, and `window.cardano.magicmoney` (CIP-30) into every page via content script; also supports WalletConnect v2 via the popup UI
-- **Sidebar mode** — click the panel icon in the Portfolio header to dock the wallet as a Chrome side panel (Phantom-style); click again to return to popup
-- **Multi-account** — BIP-44 account index switcher (accounts 0–9) in the Portfolio header
-- **Cardano** — fully supported via pure-JS `@noble/*` + `@scure/*` libraries; no native binary required
-
----
-
-## Security Architecture
-
-```
-Renderer / Popup (React)              Main Process / Service Worker
-──────────────────────────            ──────────────────────────────────
-UI, balance display               ←── Alchemy / Helius / Blockfrost APIs
-window.wallet.getBalances()       ──► IPC / sendMessage → balance-fetcher.ts
-window.wallet.generate()          ──► wallet-core.ts → returns word[] only
-window.wallet.confirmBackup()     ──► wallet-core.ts → derive → encrypted storage
-
-dApp page (content script)            Background service worker
-──────────────────────────            ──────────────────────────────────
-window.ethereum (injected)        ──► content.ts → sendMessage → background.ts
-window.solana   (injected)        ──► content.ts → sendMessage → background.ts
-window.cardano.magicmoney (CIP-30)──► content.ts → sendMessage → background.ts
-WalletConnect URI (popup UI)      ──► wc-ext.ts → @walletconnect/sign-client
-```
-
-**Key guarantees:**
-- Mnemonic encrypted at rest — OS keychain (`safeStorage`) on desktop, AES-256 via a user password in the extension
-- Private keys exist only transiently in the main process / service worker during signing
-- The renderer / popup never receives mnemonics or private keys — only public addresses and balance strings
-- `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false` on desktop
-- Extension content script runs in `MAIN` world for `window.ethereum` injection but has no access to wallet storage
-
----
-
-## Cardano dApp Connectivity
-
-MagicMoney implements **CIP-30** (the Cardano dApp connector standard) at `window.cardano.magicmoney`. This means any dApp or library that supports CIP-30 can connect to MagicMoney — including [weld](https://github.com/Cardano-Forge/weld), [Lucid](https://lucid.spacebudz.io/), and [Mesh.js](https://meshjs.dev/).
-
-MagicMoney is listed in the **weld** wallet registry as key `magicmoney`.
-
-**Supported CIP-30 methods:**
-`getNetworkId` · `getBalance` · `getUtxos` · `getUsedAddresses` · `getUnusedAddresses` · `getChangeAddress` · `getRewardAddresses` · `signTx` · `signData` · `submitTx`
-
----
-
-## Supported Networks
-
-| Network | Type | Native | Provider | Status |
-|---|---|---|---|---|
-| Ethereum | EVM L1 | ETH | Alchemy | ✅ |
-| Arbitrum | EVM L2 | ETH | Alchemy | ✅ |
-| Optimism | EVM L2 | ETH | Alchemy | ✅ |
-| Base | EVM L2 | ETH | Alchemy | ✅ |
-| Polygon | EVM L2 | POL | Alchemy | ✅ |
-| Avalanche | EVM L1 | AVAX | Alchemy | ✅ |
-| Blast | EVM L2 | ETH | Alchemy | ✅ |
-| Gnosis | EVM L1 | xDAI | Alchemy | ✅ |
-| Abstract | EVM L2 | ETH | Alchemy | ✅ |
-| ApeChain | EVM L2 | APE | Alchemy | ✅ |
-| Ronin | EVM L2 | RON | Alchemy | ✅ |
-| Soneium | EVM L2 | ETH | Alchemy | ✅ |
-| WorldChain | EVM L2 | WLD | Alchemy | ✅ |
-| Zora | EVM L2 | ETH | Alchemy | ✅ |
-| Monad | EVM L1 | MON | monad.xyz RPC | ✅ |
-| HyperEVM | EVM L1 | HYPE | hyperliquid.xyz RPC | ✅ |
-| Solana | SVM | SOL | Helius | ✅ |
-| Cardano | UTXO | ADA | Blockfrost | ✅ |
-| Bitcoin | UTXO | BTC | Tatum | ✅ |
-| Polkadot | Substrate | DOT | Tatum | ✅ |
+The release scripts handle the whole flow — bump, commit, tag, push.
 
 ---
 
@@ -178,57 +210,81 @@ MagicMoney is listed in the **weld** wallet registry as key `magicmoney`.
 
 ```
 src/
-├── main/                    ← Electron main process + shared business logic
+├── main/                    ← Privileged logic (Electron main + shared core)
 │   ├── index.ts             ← App entry, BrowserWindow, auto-updater
-│   ├── wallet-core.ts       ← BIP-39/32/44 derivation — private keys never leave here
-│   ├── cardano-pure.ts      ← Pure-JS Cardano address derivation (CIP-3 Icarus + CIP-1852)
-│   ├── cardano-cip30.ts     ← CIP-30 handler implementations (getUtxos, signTx, etc.)
-│   ├── secure-store.ts      ← safeStorage wrapper (OS keychain)
-│   ├── browser-manager.ts   ← Detached dApp browser popup (WebContentsView)
-│   ├── balance-fetcher.ts   ← Alchemy, Helius, Blockfrost, Tatum
-│   ├── chain-config.ts      ← RPC endpoints for all 20 networks
-│   ├── market-fetcher.ts    ← CoinGecko + in-memory cache
-│   ├── token-fetcher.ts     ← ERC-20 tokens, SPL tokens, Cardano assets, NFTs
-│   ├── tx-history.ts        ← Transaction history (Alchemy / Helius / Blockfrost)
-│   ├── tx-sender.ts         ← Send transactions (EVM / Solana / Cardano)
-│   ├── supabase-sync.ts     ← ChainLens profile sync
+│   ├── wallet-core.ts       ← BIP-39/32/44 derivation — keys never leave here
+│   ├── chain-config.ts      ← All 22 networks, RPC endpoints, fallback lists
+│   ├── api-proxy.ts         ← Proxy-first URL/header rewriting to the Worker
+│   ├── balance-fetcher.ts   ← Native balances across every chain
+│   ├── token-fetcher.ts     ← ERC-20 / SPL / Cardano assets + NFTs
+│   ├── market-fetcher.ts    ← CoinGecko prices (cached)
+│   ├── native-prices.ts     ← Shared native-USD cache (avoids CoinGecko 429s)
+│   ├── tx-sender.ts         ← Send transactions (EVM / Solana / Cardano / Tron / Doge)
+│   ├── tx-history.ts        ← Transaction history
+│   ├── tx-describe.ts       ← Human-readable tx descriptions
+│   ├── cardano-pure.ts      ← Pure-JS Cardano derivation (CIP-1852 / Icarus)
+│   ├── cardano-cip30.ts     ← CIP-30 dApp connector implementation
+│   ├── cardano-koios.ts     ← Keyless Koios fallback for core Cardano ops
+│   ├── tron.ts              ← TRON HTTP API client (TronGrid fallback)
+│   ├── dogecoin.ts          ← Dogecoin (BlockCypher + @scure/btc-signer)
+│   ├── agw.ts               ← Abstract Global Wallet resolution/linking
+│   ├── swap-proxy.ts        ← DEX/bridge quote routing (LI.FI client-side)
+│   ├── swap-executor.ts     ← Local signing for DEX swaps
+│   ├── simpleswap-client.ts / changenow-client.ts / xchange-client.ts ← Cross-chain exchange
+│   ├── browser-manager.ts   ← Pop-out dApp browser (WebContentsView)
+│   ├── dapp-chain.ts        ← Per-session active dApp chain state
+│   ├── secure-store.ts      ← safeStorage wrapper + config/approved-origins
+│   ├── crypto-vault.ts      ← AES-256 vault (extension key encryption)
+│   ├── supabase-sync.ts     ← ChainLens profile sync (signature-gated)
 │   ├── wc-client.ts         ← WalletConnect v2 (desktop)
-│   └── ipc-handlers.ts      ← All wallet:* IPC handlers
+│   └── ipc-handlers.ts      ← All wallet:* / web3:* / swap:* handlers
 ├── preload/
-│   ├── index.ts             ← contextBridge — only surface between renderer and main
-│   └── web3-inject.ts       ← window.ethereum + window.solana for built-in browser
-├── extension/               ← Extension-specific adapters (swap in via Vite aliases)
-│   ├── background.ts        ← MV3 service worker (replaces ipc-handlers + main)
+│   ├── index.ts             ← contextBridge — the only renderer↔main surface
+│   ├── web3-inject.ts       ← Injected EIP-1193/6963 + Solana + CIP-30 (built to out/inject)
+│   ├── popup-chrome.ts      ← Branded titlebar for frameless dApp popups
+│   ├── popup-connect.ts     ← web3-inject + titlebar for auth popups (AGW/Privy login)
+│   └── approval-preload.ts  ← Approval window preload
+├── extension/               ← MV3 adapters (swapped in via Vite aliases)
+│   ├── background.ts        ← Service worker (replaces ipc-handlers + main)
 │   ├── chrome-store.ts      ← chrome.storage adapter (replaces secure-store)
-│   ├── bridge.ts            ← window.wallet shim via chrome.runtime.sendMessage
-│   ├── content.ts           ← Injects window.ethereum + window.solana into pages
-│   ├── inject.ts            ← window.ethereum, window.solana, window.cardano (CIP-30), EIP-6963, Wallet Standard
+│   ├── bridge.ts            ← window.wallet shim over chrome.runtime.sendMessage
+│   ├── content.ts           ← ISOLATED-world relay
+│   ├── inject.ts            ← MAIN-world EIP-1193/6963 + Solana + CIP-30 + Wallet Standard
 │   ├── wc-ext.ts            ← WalletConnect v2 (extension)
-│   ├── ExtApp.tsx           ← Extension popup wrapper (lock screen, password setup)
-│   ├── popup.html/tsx       ← Extension popup entry
-│   ├── sidepanel.html/tsx   ← Chrome side panel entry
+│   ├── ExtApp.tsx           ← Popup wrapper (lock screen, password setup)
+│   ├── popup.* / sidepanel.*← Popup and side-panel entries
 │   └── manifest.json        ← MV3 manifest
-└── renderer/                ← React UI (shared between desktop and extension)
-    ├── App.tsx              ← Page router
-    ├── pages/               ← DashboardPage, MarketPage, ProfilePage, etc.
-    └── components/          ← Reusable UI components
+└── renderer/                ← React UI (shared across desktop + extension)
+    ├── App.tsx / main.tsx   ← Router + entry
+    ├── BrowserApp.tsx       ← Desktop dApp-browser chrome
+    ├── pages/               ← Dashboard, Market, Swap, AppHub, Profile, Settings, onboarding…
+    ├── components/          ← SendModal, swap widgets, AgwPanel, ChainCard, TxList…
+    └── data/app-hub.ts      ← Auto-generated dApp directory (do not edit by hand)
 ```
 
 ---
 
 ## Updating the App Hub
 
-The App Hub dApp list is sourced from the ChainLens project. To sync an updated list, just run:
+The App Hub dApp directory is **auto-generated** from `ChainLens_Files/app-hub-data.js` — never edit `src/renderer/data/app-hub.ts` by hand. The conversion runs automatically via npm `predev` / `prebuild` hooks, so `npm run dev`, `build`, and `package` always regenerate it. To regenerate manually:
 
 ```bash
-node scripts/convert-apphub.js
+npm run apphub
 ```
 
-The script automatically reads from `C:\Users\balla\Desktop\ChainLens\chainlens\app-hub-data.js` and regenerates `src/renderer/data/app-hub.ts`. Commit the updated file to apply the changes.
+Edit the source file (`ChainLens_Files/app-hub-data.js`) to add or remove apps; a JS syntax error there will fail the build.
 
 ---
 
 ## Roadmap
 
-- **Cardano tx chaining (`supportsTxChaining: true`)** — Currently `getUtxos()` queries Blockfrost, which only returns confirmed UTXOs. Tx chaining requires tracking submitted-but-unconfirmed UTXOs locally (merged with Blockfrost results) so dApps can chain multiple transactions without waiting for each to be confirmed on-chain. Eternl is currently the only wallet in the weld registry with this capability. Implementation requires: (1) caching new UTXOs from each `submitTx` call, (2) merging them into `getUtxos()` responses, (3) pruning once Blockfrost confirms them.
-- **Chrome Web Store** — Public extension listing for first stable release.
+- **Chrome Web Store** — public extension listing for the first stable release.
+- **Cardano tx chaining** (`supportsTxChaining`) — track submitted-but-unconfirmed UTXOs locally so dApps can chain transactions without waiting for confirmation.
+- **Cardano DEX execution** — wire the stubbed on-chain swap path (MuesliSwap).
+- **Fiat on/off-ramp** — Transak integration (planned).
+
+---
+
+## License
+
+See [LICENSE](LICENSE).
