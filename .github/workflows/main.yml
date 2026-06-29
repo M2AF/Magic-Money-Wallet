@@ -1,0 +1,24 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.magicmoney.wallet
+productName: MagicMoney Wallet
+files:
+  - filter:
+      - out/**/*
+      - resources/**/*
+publish:
+  provider: github
+mac:
+  category: public.app-category.finance
+  target:
+    - dmg
+    - zip
+win:
+  target:
+    - nsis
+linux:
+  target:
+    - AppImage
+    - deb
+electronVersion: 32.3.3
