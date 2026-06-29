@@ -16,6 +16,36 @@ import { tronApiUrl } from './api-proxy'
 import { getTronKey } from './wallet-core'
 import type { SendResult, FeeEstimate } from './tx-sender'
 
+// Keyless native TRON HTTP API fallbacks — same `wallet/*` shape as the Alchemy
+// endpoint, so they're drop-in when the proxy route isn't deployed or Alchemy is
+// throttled/unkeyed (mirrors PUBLIC_RPCS / BITCOIN_ESPLORA). TronGrid is the
+// canonical public node.
+const TRON_FALLBACKS = ['https://api.trongrid.io']
+
+/**
+ * POST a TRON HTTP API method, trying the primary (proxy/Alchemy) first and failing
+ * over to the keyless public nodes. Returns the first OK JSON response; throws only
+ * if every endpoint fails. Used for reads, tx building, and broadcast alike.
+ */
+export async function tronApiPost<T>(path: string, body: unknown, config: WalletConfig, timeoutMs = 15_000): Promise<T> {
+  const p = path.replace(/^\/+/, '')
+  const urls = [tronApiUrl(p, config), ...TRON_FALLBACKS.map(b => `${b}/${p}`)]
+  let lastErr: unknown = null
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs)
+      })
+      if (!res.ok) { lastErr = new Error(`TRON ${p} ${res.status}`); continue }
+      return await res.json() as T
+    } catch (e) { lastErr = e }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`TRON ${p} unreachable`)
+}
+
 // ─── Address conversion ────────────────────────────────────────────────────────
 
 /** base58check `T…` address → 20-byte hex (no 0x41 prefix), for ABI encoding. */
@@ -50,32 +80,16 @@ export async function tronConstantCall(
   config: WalletConfig
 ): Promise<string | null> {
   try {
-    const res = await fetch(tronApiUrl('wallet/triggerconstantcontract', config), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ owner_address: owner, contract_address: contract, function_selector: selector, parameter, visible: true }),
-      signal: AbortSignal.timeout(10_000)
-    })
-    if (!res.ok) return null
-    const json = await res.json() as { constant_result?: string[] }
+    const json = await tronApiPost<{ constant_result?: string[] }>('wallet/triggerconstantcontract',
+      { owner_address: owner, contract_address: contract, function_selector: selector, parameter, visible: true },
+      config, 10_000)
     return json.constant_result?.[0] ?? null
   } catch { return null }
 }
 
-// ─── Signing + broadcast (filled in the senders step) ──────────────────────────
+// ─── Signing + broadcast ───────────────────────────────────────────────────────
 
 const EXPLORER = 'https://tronscan.org/#/transaction'
-
-async function tronPost<T>(path: string, body: unknown, config: WalletConfig, timeoutMs = 15_000): Promise<T> {
-  const res = await fetch(tronApiUrl(path, config), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs)
-  })
-  if (!res.ok) throw new Error(`TRON ${path} ${res.status}`)
-  return res.json() as Promise<T>
-}
 
 /** Sign a transaction's txID (hex) with the secp256k1 key → 65-byte hex (r‖s‖v). */
 function signTxid(txID: string, privateKey: Uint8Array): string {
@@ -108,7 +122,7 @@ export async function sendTronTransaction(
     const raw = BigInt(Math.round(parseFloat(amount) * 10 ** token.decimals))
     if (raw <= 0n) throw new Error('Amount must be greater than 0')
     const parameter = tronAddrParam(to) + raw.toString(16).padStart(64, '0')
-    const res = await tronPost<{ transaction?: TronUnsignedTx; result?: { message?: string }; txID?: string }>(
+    const res = await tronApiPost<{ transaction?: TronUnsignedTx; result?: { message?: string }; txID?: string }>(
       'wallet/triggersmartcontract',
       {
         owner_address: from, contract_address: token.contractAddress,
@@ -122,7 +136,7 @@ export async function sendTronTransaction(
   } else {
     const sun = BigInt(Math.round(parseFloat(amount) * 1e6))
     if (sun <= 0n) throw new Error('Amount must be greater than 0')
-    unsigned = await tronPost<TronUnsignedTx>('wallet/createtransaction',
+    unsigned = await tronApiPost<TronUnsignedTx>('wallet/createtransaction',
       { owner_address: from, to_address: to, amount: Number(sun), visible: true }, config)
     if (!unsigned.txID) throw new Error('TRX build failed — check the recipient address')
   }
@@ -130,7 +144,7 @@ export async function sendTronTransaction(
   const signature = signTxid(unsigned.txID, privateKey)
   const signed = { ...unsigned, signature: [signature] }
 
-  const broadcast = await tronPost<{ result?: boolean; txid?: string; code?: string; message?: string }>(
+  const broadcast = await tronApiPost<{ result?: boolean; txid?: string; code?: string; message?: string }>(
     'wallet/broadcasttransaction', signed, config)
   if (broadcast.result !== true && !broadcast.txid) {
     throw new Error(decodeTronError(broadcast.message) || broadcast.code || 'Broadcast rejected')

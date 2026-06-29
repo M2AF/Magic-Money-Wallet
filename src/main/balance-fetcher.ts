@@ -12,8 +12,9 @@ import type { WalletConfig } from './secure-store'
 import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE, type ChainDef } from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
-import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, tronApiUrl } from './api-proxy'
+import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback } from './api-proxy'
 import { koiosAddressLovelace } from './cardano-koios'
+import { tronApiPost } from './tron'
 
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
@@ -191,15 +192,10 @@ async function fetchTronNative(
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
   try {
-    const res = await fetch(tronApiUrl('wallet/getaccount', config), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ address, visible: true }),
-      signal: AbortSignal.timeout(10_000)
-    })
-    if (!res.ok) return { native: 0, tokenCount: 0, error: `Tron ${res.status}` }
+    // Proxy/Alchemy first, then keyless TronGrid fallback (so Tron shows a balance
+    // even before the Worker's /rpc/alchemy-tron route is deployed).
     // An un-activated account returns `{}` (no balance field) — zero, not an error.
-    const json = await res.json() as { balance?: number }
+    const json = await tronApiPost<{ balance?: number }>('wallet/getaccount', { address, visible: true }, config, 10_000)
     return { native: (json?.balance ?? 0) / 1e6, tokenCount: 0, error: null }
   } catch (err) {
     return { native: 0, tokenCount: 0, error: String(err).includes('abort') ? 'Timed out' : 'Network error' }

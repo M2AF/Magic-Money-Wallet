@@ -3,9 +3,9 @@ import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import {
   alchemyRpcUrl, alchemyNftBase, heliusRpcUrl,
-  blockfrostFetch, moralisFetch, openseaFetch, canOpensea, tronApiUrl,
+  blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
 } from './api-proxy'
-import { tronAddrParam, tronConstantCall } from './tron'
+import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 
 export interface WalletToken {
   contractAddress: string
@@ -659,15 +659,9 @@ const KNOWN_TRC20_TOKENS = [
 async function fetchTronTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
   const tokens: WalletToken[] = []
   try {
-    // Native TRX
-    const accRes = await fetch(tronApiUrl('wallet/getaccount', config), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({ address, visible: true }),
-      signal: AbortSignal.timeout(10_000)
-    })
-    if (accRes.ok) {
-      const acc = await accRes.json() as { balance?: number }
+    // Native TRX (proxy/Alchemy → keyless TronGrid fallback)
+    const acc = await tronApiPost<{ balance?: number }>('wallet/getaccount', { address, visible: true }, config, 10_000).catch(() => null)
+    if (acc) {
       const trx = (acc?.balance ?? 0) / 1e6
       if (trx > 0) {
         tokens.push({
