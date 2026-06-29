@@ -1,6 +1,7 @@
-import { app, BrowserWindow, shell, dialog, session } from 'electron'
+import { app, BrowserWindow, shell, dialog, session, net } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
+import { setSwapFetch } from './swap-proxy'
 import { setMainWindow } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { autoUpdater } from 'electron-updater'
@@ -146,6 +147,11 @@ app.whenReady().then(() => {
   // "unavailable_software", the GPU is being software-rendered (the real cause of
   // slow canvas/WebGL dApps) and the slowness is NOT something the wallet can fix.
   console.log('[GPU] feature status:', app.getGPUFeatureStatus())
+
+  // Route swap/LI.FI fetches through Chromium's network stack (net.fetch). Node's
+  // undici fetch can hang on some hosts in the main process; net.fetch matches the
+  // (working) renderer/extension behaviour.
+  setSwapFetch((input, init) => net.fetch(input, init))
 
   // Harden the renderer with a strict CSP in packaged builds (see WALLET_CSP).
   if (app.isPackaged) installRendererCsp()

@@ -34,8 +34,8 @@ export const MONAD_RPCS = [
   'https://rpc.monad.xyz',              // QuickNode  25 rps
   'https://rpc1.monad.xyz',             // Alchemy    15 rps
   'https://rpc2.monad.xyz',             // Goldsky    300/10s, eth_call history
-  'https://rpc3.monad.xyz',             // Ankr       300/10s
   'https://rpc-mainnet.monadinfra.com', // MF         20 rps,  eth_call history
+  // rpc3.monad.xyz (Ankr) removed — Ankr now 401s without a key.
 ]
 
 // ─── EVM chains ───────────────────────────────────────────────────────────────
@@ -342,15 +342,19 @@ export const CHAIN_ORDER: string[] = ALL_CHAINS.map(c => c.id)
 // so a balance degrades to a public node instead of showing "—"; sends use the same
 // list as a viem `fallback` transport (primary tried first, public only on a
 // transport error — see tx-sender evmTransport). Keyed by chain id. Order = priority.
+// NOTE: bare `rpc.ankr.com/<chain>` is intentionally NOT listed — Ankr deprecated
+// keyless access (returns 401). The KEYED Ankr endpoint is appended as a reliable
+// fallback at the call sites that have `config` (balance-fetcher, tx-sender) via
+// api-proxy `ankrRpcUrl()`.
 export const PUBLIC_RPCS: Record<string, string[]> = {
-  ethereum:   ['https://cloudflare-eth.com', 'https://eth.llamarpc.com', 'https://rpc.ankr.com/eth'],
-  arbitrum:   ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com', 'https://rpc.ankr.com/arbitrum'],
-  optimism:   ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com', 'https://rpc.ankr.com/optimism'],
-  base:       ['https://mainnet.base.org', 'https://base.llamarpc.com', 'https://rpc.ankr.com/base'],
-  polygon:    ['https://polygon-rpc.com', 'https://polygon.llamarpc.com', 'https://rpc.ankr.com/polygon'],
-  avalanche:  ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche.public-rpc.com', 'https://rpc.ankr.com/avalanche'],
-  blast:      ['https://rpc.blast.io', 'https://blast.blockpi.network/v1/rpc/public', 'https://rpc.ankr.com/blast'],
-  gnosis:     ['https://rpc.gnosischain.com', 'https://gnosis.public-rpc.com', 'https://rpc.ankr.com/gnosis'],
+  ethereum:   ['https://cloudflare-eth.com', 'https://eth.llamarpc.com'],
+  arbitrum:   ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com'],
+  optimism:   ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com'],
+  base:       ['https://mainnet.base.org', 'https://base.llamarpc.com'],
+  polygon:    ['https://polygon-rpc.com', 'https://polygon.llamarpc.com'],
+  avalanche:  ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche.public-rpc.com'],
+  blast:      ['https://rpc.blast.io', 'https://blast.blockpi.network/v1/rpc/public'],
+  gnosis:     ['https://rpc.gnosischain.com', 'https://gnosis.public-rpc.com'],
   abstract:   ['https://api.mainnet.abs.xyz', 'https://2741.rpc.thirdweb.com'],
   apechain:   ['https://rpc.apechain.com/http', 'https://apechain.calderachain.xyz/http'],
   ronin:      ['https://api.roninchain.com/rpc', 'https://ronin.rpc.thirdweb.com'],
@@ -368,7 +372,7 @@ export const PUBLIC_RPCS: Record<string, string[]> = {
 export const SOLANA_RPCS: string[] = [
   'https://api.mainnet-beta.solana.com',
   'https://solana-rpc.publicnode.com',
-  'https://rpc.ankr.com/solana',
+  // keyed Ankr (rpc.ankr.com/solana) is appended via ankrRpcUrl() in balance-fetcher
 ]
 
 // Public Bitcoin Esplora REST APIs — both expose the identical /address/{addr}

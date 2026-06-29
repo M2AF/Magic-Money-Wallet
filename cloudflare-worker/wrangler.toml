@@ -55,6 +55,7 @@ FEE_POLKADOT = "1dhUhWA8DZEbT5GmjXTJBuafJGWtS5YH13Wqz46KtFdDyoS"
 #
 # Read-path (new):
 #   wrangler secret put ALCHEMY_KEY
+#   wrangler secret put ANKR_API_KEY          # keyed RPC fallback (Ankr deprecated keyless)
 #   wrangler secret put HELIUS_KEY
 #   wrangler secret put TATUM_KEY
 #   wrangler secret put BLOCKFROST_KEY

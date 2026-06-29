@@ -209,6 +209,7 @@ export function saveAgwOverride(accountIndex: number, address: string | null): v
 
 export interface WalletConfig {
   alchemyKey: string
+  ankrKey: string
   heliusKey: string
   blockfrostKey: string
   tatumKey: string
@@ -230,6 +231,7 @@ export interface WalletConfig {
 // design — WalletConnect connects to its relay directly, not through our Worker.
 const DEFAULT_CONFIG: WalletConfig = {
   alchemyKey: '',
+  ankrKey: '',
   heliusKey: '',
   blockfrostKey: '',
   tatumKey: '',

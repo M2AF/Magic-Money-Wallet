@@ -15,6 +15,7 @@ import type { WalletAddresses } from '../main/wallet-core'
 
 export interface WalletConfig {
   alchemyKey: string
+  ankrKey: string
   heliusKey: string
   blockfrostKey: string
   tatumKey: string
@@ -34,6 +35,7 @@ export interface WalletConfig {
 // to its relay directly, not through our Worker).
 const DEFAULT_CONFIG: WalletConfig = {
   alchemyKey:             '',
+  ankrKey:                '',
   heliusKey:              '',
   blockfrostKey:          '',
   tatumKey:               '',

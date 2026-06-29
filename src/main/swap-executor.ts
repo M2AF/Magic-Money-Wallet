@@ -101,17 +101,37 @@ async function executeSolanaSwap(
   const keypair = await getSolanaKeypair(mnemonic, accountIndex)
   const connection = new Connection(heliusRpcUrl(config), 'confirmed')
 
-  const buf = Buffer.from(quote.txData.swapTransaction, 'base64')
-  const tx = VersionedTransaction.deserialize(buf)
+  const tx = VersionedTransaction.deserialize(Buffer.from(quote.txData.swapTransaction, 'base64'))
   tx.sign([keypair])
+  const raw = tx.serialize()
+  const blockhash = tx.message.recentBlockhash
 
-  const sig = await connection.sendRawTransaction(tx.serialize(), {
-    skipPreflight: false,
-    preflightCommitment: 'confirmed',
-    maxRetries: 3,
-  })
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
-  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed')
+  // Send + KEEP re-broadcasting while polling status. Solana RPCs routinely drop
+  // a tx from the mempool before it lands, which is what surfaces as
+  // "TransactionExpiredBlockheightExceeded". Re-sending every couple of seconds
+  // until the tx's OWN blockhash is no longer valid is the reliable pattern
+  // (skipPreflight so a stale-state simulation doesn't reject a valid aggregator tx).
+  const send = () => connection.sendRawTransaction(raw, { skipPreflight: true, maxRetries: 0 })
+  const sig = await send()
 
-  return { txHash: sig, explorerUrl: SOLSCAN(sig), approvalTxHash: null }
+  const confirmed = (s?: { err: unknown; confirmationStatus?: string } | null) =>
+    !!s && !s.err && (s.confirmationStatus === 'confirmed' || s.confirmationStatus === 'finalized')
+
+  const deadline = Date.now() + 90_000
+  while (Date.now() < deadline) {
+    const st = (await connection.getSignatureStatuses([sig])).value[0]
+    if (st?.err) throw new Error('Swap transaction failed on-chain.')
+    if (confirmed(st)) return { txHash: sig, explorerUrl: SOLSCAN(sig), approvalTxHash: null }
+
+    const stillValid = await connection.isBlockhashValid(blockhash, { commitment: 'confirmed' })
+      .then(r => r.value).catch(() => true)
+    if (!stillValid) break
+    await send().catch(() => { /* keep polling; a re-broadcast may transiently fail */ })
+    await new Promise(r => setTimeout(r, 2_000))
+  }
+
+  // One last check — it may have landed right at the edge of expiry.
+  const final = (await connection.getSignatureStatuses([sig])).value[0]
+  if (confirmed(final)) return { txHash: sig, explorerUrl: SOLSCAN(sig), approvalTxHash: null }
+  throw new Error('Solana transaction expired before it could land (network congestion) — please try again.')
 }

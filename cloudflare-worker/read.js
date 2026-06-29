@@ -30,6 +30,11 @@ const TATUM_GATEWAYS = {
   bitcoin: 'https://bitcoin-mainnet.gateway.tatum.io',
 }
 
+// Ankr RPC slugs we allow proxying (rpc.ankr.com/<slug>/<key>) — keyed fallback.
+const ANKR_CHAINS = new Set([
+  'eth', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'bsc', 'gnosis', 'blast', 'solana',
+])
+
 const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea'])
 
 // Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
@@ -75,6 +80,19 @@ export async function handleRead(request, url, env, ctx) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', accept: 'application/json' },
       body: await request.text(),
+    })
+    return passthrough(env, res)
+  }
+
+  // ── Ankr JSON-RPC: POST /rpc/ankr/:chain (inject key) ─────────────────────
+  // Keyed fallback RPC. Ankr deprecated keyless access, so the wallet's public
+  // fallback now routes the Ankr endpoint through here. :chain is Ankr's slug.
+  if (parts[0] === 'rpc' && parts[1] === 'ankr' && request.method === 'POST') {
+    const chain = parts[2]
+    if (!ANKR_CHAINS.has(chain)) return err(env, `Unknown Ankr chain: ${chain}`)
+    if (!env.ANKR_API_KEY) return err(env, 'Ankr key not configured', 500)
+    const res = await fetch(`https://rpc.ankr.com/${chain}/${env.ANKR_API_KEY}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: await request.text(),
     })
     return passthrough(env, res)
   }

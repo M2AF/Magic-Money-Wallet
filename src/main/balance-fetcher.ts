@@ -12,7 +12,7 @@ import type { WalletConfig } from './secure-store'
 import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE, type ChainDef } from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
-import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback } from './api-proxy'
+import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl } from './api-proxy'
 import { koiosAddressLovelace } from './cardano-koios'
 import { tronApiPost } from './tron'
 
@@ -107,7 +107,7 @@ async function fetchEvmNative(
   try {
     // Native balance: proxy/Alchemy first, then public fallbacks so a throttled
     // key shows a balance instead of "—". Token count below stays Alchemy-only.
-    const urls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
+    const urls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? []), ankrRpcUrl(chain.id, config)]
     const balJson = await rpcReadWithFallback(
       urls, { jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }, 10_000
     ) as { result?: string; error?: { message: string } } | null
@@ -291,7 +291,7 @@ async function fetchSolanaNative(
     // so a throttled key still shows SOL. Token-account enrichment stays Helius-only.
     const [balJson, tokRes] = await Promise.all([
       rpcReadWithFallback(
-        [url, ...SOLANA_RPCS],
+        [url, ...SOLANA_RPCS, ankrRpcUrl('solana', config)],
         { jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] },
         10_000
       ) as Promise<{ result?: { value: number }; error?: { message?: string } } | null>,

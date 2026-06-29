@@ -78,8 +78,12 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   const [execResult, setExecResult] = useState<{ txHash: string; explorerUrl: string; approvalTxHash: string | null } | null>(null)
   const [execError, setExecError] = useState<string | null>(null)
 
+  // Set true on (re)mount AND clear on unmount. Without the explicit `= true`, React
+  // StrictMode's dev-only mount→cleanup→mount cycle leaves it stuck `false`, which
+  // silently dropped every quote result and froze the button on "Fetching quote…"
+  // (desktop dev only; the production extension build has no StrictMode double-invoke).
   const alive = useRef(true)
-  useEffect(() => () => { alive.current = false }, [])
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   const isAuto = overrideBps === null
   const autoBps = getAutoSlippageBps(fromToken.symbol, toToken.symbol)

@@ -49,7 +49,7 @@ import {
   type CardanoUtxo
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
-import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch } from './api-proxy'
+import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch, ankrRpcUrl } from './api-proxy'
 import { MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS } from './chain-config'
 import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
 
@@ -119,6 +119,10 @@ const PUBLIC_RPCS_BY_CHAIN_ID: Record<number, string[]> = Object.fromEntries(
     .filter(c => c.chainId != null)
     .map(c => [c.chainId as number, PUBLIC_RPCS[c.id] ?? []])
 )
+// numeric chainId → our string chain id, so we can resolve the keyed Ankr fallback.
+const ID_BY_CHAIN_ID: Record<number, string> = Object.fromEntries(
+  EVM_CHAIN_DEFS.filter(c => c.chainId != null).map(c => [c.chainId as number, c.id])
+)
 
 // Build the transport for estimates/sends. Monad rotates its whole public set
 // (each endpoint has a tiny rate limit). Every other chain tries its primary
@@ -128,6 +132,9 @@ const PUBLIC_RPCS_BY_CHAIN_ID: Record<number, string[]> = Object.fromEntries(
 function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
   if (entry.chain.id === 143) return fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
   const urls = [entry.rpcUrl(config), ...(PUBLIC_RPCS_BY_CHAIN_ID[entry.chain.id] ?? [])]
+  const sid = ID_BY_CHAIN_ID[entry.chain.id]
+  const ankr = sid ? ankrRpcUrl(sid, config) : undefined
+  if (ankr) urls.push(ankr)   // keyed Ankr as the reliable last-resort fallback
   return urls.length > 1
     ? fallback(urls.map(u => http(u, { timeout: 10_000 })))
     : http(urls[0])

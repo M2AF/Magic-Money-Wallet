@@ -35,6 +35,7 @@ export function proxyBase(config: WalletConfig): string | null {
 
 const hasProxy = (c: WalletConfig) => !!proxyBase(c)
 export const canAlchemy   = (c: WalletConfig) => hasProxy(c) || !!c.alchemyKey
+export const canAnkr      = (c: WalletConfig) => hasProxy(c) || !!c.ankrKey
 export const canHelius    = (c: WalletConfig) => hasProxy(c) || !!c.heliusKey
 export const canTatum     = (c: WalletConfig) => hasProxy(c) || !!c.tatumKey
 export const canBlockfrost = (c: WalletConfig) => hasProxy(c) || !!c.blockfrostKey
@@ -64,6 +65,28 @@ export function tronApiUrl(path: string, config: WalletConfig): string {
   const base = proxyBase(config)
   const p = path.replace(/^\/+/, '')
   return base ? `${base}/rpc/alchemy-tron/${p}` : `https://tron-mainnet.g.alchemy.com/v2/${config.alchemyKey}/${p}`
+}
+
+// Our chain id → Ankr RPC slug (rpc.ankr.com/<slug>). Only chains the current Ankr
+// key is entitled to — Solana is omitted (this key 403s on it; Helius + public
+// Solana RPCs cover it anyway).
+const ANKR_CHAIN: Record<string, string> = {
+  ethereum: 'eth', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
+  polygon: 'polygon', avalanche: 'avalanche', bsc: 'bsc', gnosis: 'gnosis', blast: 'blast',
+}
+
+/**
+ * Keyed Ankr JSON-RPC endpoint for a wallet chain id, used as a reliable read/send
+ * fallback (Ankr deprecated keyless access). Proxy injects the key; direct mode
+ * needs a user-supplied Ankr key. Returns undefined for chains Ankr doesn't serve
+ * or when no key/proxy is available (callers skip undefined fallbacks).
+ */
+export function ankrRpcUrl(chainId: string, config: WalletConfig): string | undefined {
+  const slug = ANKR_CHAIN[chainId]
+  if (!slug) return undefined
+  const base = proxyBase(config)
+  if (base) return `${base}/rpc/ankr/${slug}`
+  return config.ankrKey ? `https://rpc.ankr.com/${slug}/${config.ankrKey}` : undefined
 }
 
 /** Helius (Solana) JSON-RPC endpoint. */

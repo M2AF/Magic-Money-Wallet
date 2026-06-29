@@ -15,6 +15,33 @@
 
 import type { WalletConfig } from './secure-store'
 
+// Pluggable fetch. In the Electron MAIN process, Node's undici `fetch` can hang
+// indefinitely on some hosts (e.g. li.quest) and even ignore AbortSignal.timeout —
+// which is why the desktop quote "hung forever" while the extension (Chromium fetch)
+// worked. Electron main injects `net.fetch` (Chromium's stack) via setSwapFetch();
+// the extension/service-worker leaves the global fetch in place.
+type FetchFn = (input: string, init?: RequestInit) => Promise<Response>
+let swapFetch: FetchFn = (input, init) => fetch(input, init)
+export function setSwapFetch(fn: FetchFn): void { swapFetch = fn }
+
+/**
+ * swapFetch wrapped in a HARD deadline. `Promise.race` against a manual setTimeout
+ * guarantees a settle even if the underlying fetch never resolves and ignores
+ * AbortSignal.timeout — so a quote can never hang the UI indefinitely. The `label`
+ * identifies which provider timed out.
+ */
+async function fetchWithDeadline(url: string, init: RequestInit | undefined, ms: number, label: string): Promise<Response> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const deadline = new Promise<never>((_, rej) => {
+    timer = setTimeout(() => rej(new Error(`${label} timed out after ${ms}ms`)), ms)
+  })
+  try {
+    return await Promise.race([swapFetch(url, init), deadline])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 export type SwapProvider = '0x' | '1inch' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
 export type SwapChain =
   | 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon' | 'avalanche' | 'bsc'
@@ -156,10 +183,10 @@ async function lifiQuoteDirect(req: SwapQuoteRequest): Promise<NormalizedSwapQuo
     toAddress: req.toAddress || req.taker,
     slippage: String(req.slippageBps / 10000),
   })
-  const res = await fetch(`https://li.quest/v1/quote?${params}`, {
+  const res = await fetchWithDeadline(`https://li.quest/v1/quote?${params}`, {
     headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(20_000),
-  })
+  }, 12_000, 'LI.FI direct')
   if (!res.ok) return null
   const d = await res.json().catch(() => null) as Record<string, unknown> | null
   if (!d) return null
@@ -213,7 +240,7 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
     try {
       const q = await lifiQuoteDirect(req)
       if (q && q.buyAmountRaw && q.buyAmountRaw !== '0') return { quote: q, error: null }
-    } catch { /* LI.FI failed/no route — let the proxy try Rango/SwapKit */ }
+    } catch (e) { console.warn('[swap] LI.FI direct failed — falling through to proxy:', e instanceof Error ? e.message : e) }
   }
 
   const params = new URLSearchParams({
@@ -234,10 +261,10 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
   if (crossChain) params.set('skipLifi', '1')   // we already tried LI.FI from the client
 
   try {
-    const res = await fetch(`${base}/quote?${params}`, {
+    const res = await fetchWithDeadline(`${base}/quote?${params}`, {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(20_000),
-    })
+    }, 12_000, 'Worker /quote')
     const data = await res.json().catch(() => null) as SwapQuoteResponse | null
     if (!res.ok) return { quote: null, error: (data && data.error) || `Proxy ${res.status}` }
     if (!data) return { quote: null, error: 'Malformed proxy response.' }
@@ -260,10 +287,10 @@ export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: Wa
   if (req.bridgeTool) params.set('bridge', req.bridgeTool)
   if (req.requestId) params.set('requestId', req.requestId)
   try {
-    const res = await fetch(`${base}/swap/status?${params}`, {
+    const res = await fetchWithDeadline(`${base}/swap/status?${params}`, {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(15_000),
-    })
+    }, 12_000, 'Worker /swap/status')
     const data = await res.json().catch(() => null) as CrossSwapStatus | null
     if (!res.ok || !data) return { status: 'pending', error: null }   // transient — keep polling
     return data
@@ -277,7 +304,7 @@ export async function getSwapTokenList(chain: SwapChain, config: WalletConfig): 
   const base = proxyBase(config)
   if (!base) return { tokens: [], error: null }
   try {
-    const res = await fetch(`${base}/tokens?chain=${encodeURIComponent(chain)}`, {
+    const res = await swapFetch(`${base}/tokens?chain=${encodeURIComponent(chain)}`, {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(15_000),
     })
