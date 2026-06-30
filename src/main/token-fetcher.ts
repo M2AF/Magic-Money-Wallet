@@ -4,6 +4,7 @@ import { getTokenBalances } from './alchemy-cache'
 import {
   alchemyRpcUrl, alchemyNftBase, heliusRpcUrl,
   blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
+  ordinalsFetch, canOrdiscan,
 } from './api-proxy'
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 
@@ -714,6 +715,81 @@ export interface AllAddresses {
   cardano?: string
   tron?: string
   agw?: string   // resolved Abstract Global Wallet (override ?? auto-derive); null/absent = derive
+  bitcoinTaproot?: string   // Ordinals/Runes/BRC-20 live on the Taproot (bc1p) address
+}
+
+// ─── Bitcoin fungible tokens (Runes + BRC-20) via Ordiscan ────────────────────
+// Runes/BRC-20 live on the Taproot (bc1p) address (same as inscriptions). The
+// address/runes endpoint returns only {name, balance(raw)}, so each rune's
+// decimals/symbol come from a per-rune detail call (capped). BRC-20 amounts are
+// already human-decimal strings per the standard (no divisibility applied).
+async function fetchBitcoinTokens(taprootAddress: string | undefined, config: WalletConfig): Promise<WalletToken[]> {
+  if (!taprootAddress || !canOrdiscan(config)) return []
+  const btcMeta = { chain: 'bitcoin', chainLabel: 'Bitcoin', chainColor: '#F7931A', nativeSymbol: 'BTC' } as const
+  const out: WalletToken[] = []
+
+  // ── Runes ──
+  try {
+    const res = await ordinalsFetch(`address/${taprootAddress}/runes`, config, 12_000)
+    if (res.ok) {
+      const json = await res.json() as { data?: Array<{ name: string; balance: string }> }
+      const runes = (json.data ?? []).slice(0, 30)
+      const details = await Promise.all(runes.map(async r => {
+        try {
+          const d = await ordinalsFetch(`rune/${encodeURIComponent(r.name)}`, config, 10_000)
+          if (!d.ok) return null
+          const j = await d.json() as { data?: { decimals?: number; symbol?: string; formatted_name?: string } }
+          return j.data ?? null
+        } catch { return null }
+      }))
+      runes.forEach((r, i) => {
+        const d = details[i]
+        const decimals = d?.decimals ?? 0
+        out.push({
+          ...btcMeta,
+          contractAddress: `rune:${r.name}`,
+          name: d?.formatted_name || r.name,
+          symbol: d?.symbol || r.name,
+          decimals,
+          balance: humanBalance(r.balance, decimals),
+          usdValue: null, nativeEquivalent: null, logoUri: null,
+        })
+      })
+    } else {
+      console.error(`[TOKEN] Runes HTTP ${res.status}`)
+    }
+  } catch (e) {
+    console.error('[TOKEN] Runes fetch failed:', e instanceof Error ? e.message : e)
+  }
+
+  // ── BRC-20 (amounts already human-decimal; degrade gracefully on field drift) ──
+  try {
+    const res = await ordinalsFetch(`address/${taprootAddress}/brc20`, config, 12_000)
+    if (res.ok) {
+      const json = await res.json() as { data?: Array<Record<string, unknown>> }
+      for (const b of (json.data ?? [])) {
+        const tick = (b.tick ?? b.ticker ?? b.name) as string | undefined
+        if (!tick) continue
+        const bal = String(b.overall_balance ?? b.balance ?? b.available_balance ?? '0')
+        out.push({
+          ...btcMeta,
+          contractAddress: `brc20:${tick}`,
+          name: tick.toUpperCase(),
+          symbol: tick.toUpperCase(),
+          decimals: 0,
+          balance: bal,
+          usdValue: null, nativeEquivalent: null, logoUri: null,
+        })
+      }
+    } else {
+      console.error(`[TOKEN] BRC-20 HTTP ${res.status}`)
+    }
+  } catch (e) {
+    console.error('[TOKEN] BRC-20 fetch failed:', e instanceof Error ? e.message : e)
+  }
+
+  console.log(`[TOKEN] Bitcoin: ${out.length} runes/BRC-20 tokens`)
+  return out
 }
 
 export async function fetchAllTokens(
@@ -725,12 +801,13 @@ export async function fetchAllTokens(
     // never derive a counterfactual address here — only fetch what was resolved.
     const agwAddress = addresses.agw ?? null
 
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens] = await Promise.all([
       Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
       addresses.solana  ? fetchSolanaTokens(addresses.solana,   config)      : Promise.resolve([] as WalletToken[]),
       addresses.cardano ? fetchCardanoTokens(addresses.cardano, config)  : Promise.resolve([] as WalletToken[]),
       fetchMonadTokens(addresses.evm),
       addresses.tron    ? fetchTronTokens(addresses.tron, config)        : Promise.resolve([] as WalletToken[]),
+      fetchBitcoinTokens(addresses.bitcoinTaproot, config),
     ])
 
     // Fetch Abstract tokens from the AGW smart account if it differs from the EOA,
@@ -740,7 +817,7 @@ export async function fetchAllTokens(
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens]
+    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens]
     const tokens = await enrichWithPrices(raw)
     tokens.sort((a, b) => {
       const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
@@ -884,6 +961,42 @@ async function fetchCardanoNFTs(
     console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`)
     return nfts
   } catch { return [] }
+}
+
+// ─── Bitcoin Ordinals (inscriptions) via Ordiscan ─────────────────────────────
+// Inscriptions live on the Taproot (bc1p) address. Ordiscan serves the content at
+// ordiscan.com/content/{id}; image/* inscriptions render directly.
+async function fetchBitcoinOrdinals(taprootAddress: string | undefined, config: WalletConfig): Promise<WalletCollectible[]> {
+  if (!taprootAddress || !canOrdiscan(config)) return []
+  try {
+    const res = await ordinalsFetch(`address/${taprootAddress}/inscriptions`, config, 12_000)
+    if (!res.ok) { console.error(`[NFT] Ordinals HTTP ${res.status}`); return [] }
+    const json = await res.json() as {
+      data?: Array<{ inscription_id: string; inscription_number: number; content_type?: string; content_url?: string; collection_slug?: string | null }>
+    }
+    const items = (json.data ?? []).map(o => {
+      const content = o.content_url ?? `https://ordiscan.com/content/${o.inscription_id}`
+      const isImage = (o.content_type ?? '').startsWith('image/')
+      return {
+        id: `bitcoin:ordinal:${o.inscription_id}`,
+        name: `Inscription #${o.inscription_number}`,
+        description: null,
+        image: isImage ? content : null,
+        animationUrl: null,
+        collectionName: o.collection_slug ?? null,
+        chain: 'bitcoin', chainLabel: 'Bitcoin', chainColor: '#F7931A',
+        tokenId: String(o.inscription_number),
+        contractAddress: o.inscription_id,
+        contractType: 'inscription',
+        traits: [],
+      } satisfies WalletCollectible
+    })
+    console.log(`[NFT] Bitcoin: found ${items.length} inscriptions via Ordiscan`)
+    return items
+  } catch (e) {
+    console.error('[NFT] Ordinals fetch failed:', e instanceof Error ? e.message : e)
+    return []
+  }
 }
 
 // ─── NFT fetch ────────────────────────────────────────────────────────────────
@@ -1291,7 +1404,8 @@ export async function fetchAllCollectibles(
   solanaAddress?: string,
   agw?: string,
   tronAddress?: string,
-  excludeIds?: string[]
+  excludeIds?: string[],
+  bitcoinTaproot?: string
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
@@ -1299,7 +1413,7 @@ export async function fetchAllCollectibles(
     const agwAddress = agw ?? null
     const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
 
-    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts] = await Promise.all([
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals] = await Promise.all([
       Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config))),
       solanaAddress  ? fetchSolanaNFTs(solanaAddress, config)       : Promise.resolve([] as WalletCollectible[]),
       cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
@@ -1308,9 +1422,10 @@ export async function fetchAllCollectibles(
         : Promise.resolve([] as WalletCollectible[]),
       fetchMonadNFTs(evmAddress, config),
       tronAddress ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
+      fetchBitcoinOrdinals(bitcoinTaproot, config),
     ])
 
-    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts]
+    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals]
     const chainResults: Record<string, { count: number; error: string | null }> = {}
     for (const r of evmResults) {
       chainResults[r.chain.id] = { count: r.items.length, error: r.error }
@@ -1324,6 +1439,9 @@ export async function fetchAllCollectibles(
     }
     if (tronAddress) {
       chainResults['tron'] = { count: tronNfts.length, error: null }
+    }
+    if (bitcoinTaproot) {
+      chainResults['bitcoin'] = { count: bitcoinOrdinals.length, error: null }
     }
 
     // Value each NFT by collection floor and sort by USD (highest first).

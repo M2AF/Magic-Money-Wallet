@@ -215,6 +215,7 @@ export interface WalletConfig {
   tatumKey: string
   moralisKey: string
   openseaKey: string
+  ordiscanKey: string
   supabaseUrl: string
   supabaseKey: string
   walletConnectProjectId: string
@@ -237,6 +238,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   tatumKey: '',
   moralisKey: '',
   openseaKey: '',
+  ordiscanKey: '',
   supabaseUrl: '',
   supabaseKey: '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',

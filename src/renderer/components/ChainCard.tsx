@@ -56,24 +56,43 @@ interface Props {
   chainId: string
   balance: ChainBalance | null
   address: string | null
+  /** When set (e.g. Bitcoin's Native/Nested SegWit + Taproot), render a labeled list instead of one chip. */
+  altAddresses?: Array<{ label: string; address: string }>
   loading?: boolean
   onSend?: () => void
   history?: ChainHistory | null
 }
 
-export function ChainCard({ chainId, balance, address, loading, onSend, history }: Props) {
-  const [copied, setCopied] = useState(false)
+export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history }: Props) {
+  const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const meta = CHAIN_META[chainId] ?? FALLBACK_META
 
   const truncate = (addr: string) => addr.length > 16 ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : addr
 
-  const copyAddress = async () => {
-    if (!address) return
-    await navigator.clipboard.writeText(address)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+  const copy = async (addr: string) => {
+    await navigator.clipboard.writeText(addr)
+    setCopiedAddr(addr)
+    setTimeout(() => setCopiedAddr(null), 1800)
   }
+
+  const addressChip = (a: string) => (
+    <div className="address-chip" onClick={() => copy(a)} title={a} style={{ cursor: 'pointer' }}>
+      <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.5 }}>
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <span style={{ flex: 1 }}>{truncate(a)}</span>
+      {copiedAddr === a ? (
+        <svg width="11" height="11" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      ) : (
+        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ opacity: 0.4 }}>
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+      )}
+    </div>
+  )
 
   return (
     <div
@@ -129,30 +148,18 @@ export function ChainCard({ chainId, balance, address, loading, onSend, history 
         </div>
       </div>
 
-      {/* Address row */}
-      {address ? (
-        <div
-          className="address-chip"
-          onClick={copyAddress}
-          title={address}
-          style={{ cursor: 'pointer' }}
-        >
-          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.5 }}>
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-          <span style={{ flex: 1 }}>{truncate(address)}</span>
-          {copied ? (
-            <svg width="11" height="11" fill="none" stroke="#22c55e" strokeWidth="2" viewBox="0 0 24 24">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          ) : (
-            <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" style={{ opacity: 0.4 }}>
-              <rect x="9" y="9" width="13" height="13" rx="2"/>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-            </svg>
-          )}
+      {/* Address row(s) — Bitcoin shows three labeled types; every other chain shows one */}
+      {altAddresses && altAddresses.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+          {altAddresses.filter(x => x.address).map(({ label, address: a }) => (
+            <div key={a}>
+              <div style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 3 }}>{label}</div>
+              {addressChip(a)}
+            </div>
+          ))}
         </div>
+      ) : address ? (
+        addressChip(address)
       ) : (
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           {chainId === 'cardano' ? 'Deriving address…' : 'No address'}

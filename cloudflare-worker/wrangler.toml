@@ -61,6 +61,7 @@ FEE_POLKADOT = "1dhUhWA8DZEbT5GmjXTJBuafJGWtS5YH13Wqz46KtFdDyoS"
 #   wrangler secret put BLOCKFROST_KEY
 #   wrangler secret put MORALIS_KEY
 #   wrangler secret put OPENSEA_KEY
+#   wrangler secret put ORDISCAN_API_KEY       # Bitcoin Ordinals/Runes/BRC-20 (Ordiscan)
 #
 # Supabase (new — service-role key, server-side only):
 #   wrangler secret put SUPABASE_SERVICE_KEY

@@ -11,11 +11,12 @@ interface Props {
 
 type Step = 'form' | 'confirm' | 'sending' | 'success' | 'error'
 
-function getChainType(chainId: string): 'evm' | 'solana' | 'cardano' | 'tron' | 'dogecoin' {
+function getChainType(chainId: string): 'evm' | 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin' {
   if (chainId === 'solana') return 'solana'
   if (chainId === 'cardano') return 'cardano'
   if (chainId === 'tron') return 'tron'
   if (chainId === 'dogecoin') return 'dogecoin'
+  if (chainId === 'bitcoin') return 'bitcoin'
   return 'evm'
 }
 
@@ -24,6 +25,7 @@ function getAddressPlaceholder(chainId: string): string {
   if (chainId === 'cardano') return 'addr1q...'
   if (chainId === 'tron') return 'T...'
   if (chainId === 'dogecoin') return 'D...'
+  if (chainId === 'bitcoin') return 'bc1q… / bc1p… / 3…'
   return '0x...'
 }
 
@@ -91,6 +93,7 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
       else if (chainType === 'cardano')  res = await window.wallet.sendCardano(to.trim(), amount.trim())
       else if (chainType === 'tron')     res = await window.wallet.sendTron(to.trim(), amount.trim())
       else if (chainType === 'dogecoin') res = await window.wallet.sendDogecoin(to.trim(), amount.trim())
+      else if (chainType === 'bitcoin')  res = await window.wallet.sendBitcoin(to.trim(), amount.trim())
       else                               res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim())
       setResult(res)
       setStep('success')

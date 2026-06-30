@@ -41,6 +41,7 @@ export const canTatum     = (c: WalletConfig) => hasProxy(c) || !!c.tatumKey
 export const canBlockfrost = (c: WalletConfig) => hasProxy(c) || !!c.blockfrostKey
 export const canMoralis   = (c: WalletConfig) => hasProxy(c) || !!c.moralisKey
 export const canOpensea   = (c: WalletConfig) => hasProxy(c) || !!c.openseaKey
+export const canOrdiscan  = (c: WalletConfig) => hasProxy(c) || !!c.ordiscanKey
 
 // ─── URL-embedded-key providers (Alchemy, Helius) ─────────────────────────────
 
@@ -174,5 +175,14 @@ export function openseaFetch(path: string, config: WalletConfig, timeoutMs = 8_0
   const url = base ? `${base}/opensea/${path}` : `https://api.opensea.io/api/v2/${path}`
   const headers: Record<string, string> = { accept: 'application/json' }
   if (!base) headers['x-api-key'] = config.openseaKey
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
+}
+
+/** Ordiscan (Bitcoin Ordinals/Runes/BRC-20) GET. `path` is after `/v1/` (e.g. `address/<addr>/inscriptions`). */
+export function ordinalsFetch(path: string, config: WalletConfig, timeoutMs = 12_000): Promise<Response> {
+  const base = proxyBase(config)
+  const url = base ? `${base}/ordinals/${path}` : `https://api.ordiscan.com/v1/${path}`
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (!base) headers['Authorization'] = `Bearer ${config.ordiscanKey}`
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
 }

@@ -999,6 +999,11 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               chainId={chainId}
               balance={balances?.chains[chainId] ?? null}
               address={getAddress(chainId, localAddresses)}
+              altAddresses={chainId === 'bitcoin' && localAddresses ? [
+                { label: 'Native SegWit · Payment', address: localAddresses.bitcoin },
+                { label: 'Nested SegWit', address: localAddresses.bitcoinNested },
+                { label: 'Taproot · Ordinals', address: localAddresses.bitcoinTaproot },
+              ] : undefined}
               loading={loading}
               onSend={() => setSendChain(chainId)}
               history={historyFor(chainId)}

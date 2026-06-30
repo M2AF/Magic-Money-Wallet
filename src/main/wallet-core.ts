@@ -21,7 +21,8 @@ import { blake2b } from '@noble/hashes/blake2b'
 import { keccak_256 } from '@noble/hashes/sha3'
 import { ed25519 } from '@noble/curves/ed25519'
 import { secp256k1 } from '@noble/curves/secp256k1'
-import { bech32, base58 } from '@scure/base'
+import { base58 } from '@scure/base'
+import * as btc from '@scure/btc-signer'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -30,7 +31,9 @@ export interface WalletAddresses {
   solana: string         // base58 pubkey
   cardano: string        // bech32 base address  (addr1q…)
   cardanoStake: string   // bech32 stake address (stake1…)
-  bitcoin: string        // BIP-84 P2WPKH native SegWit (bc1q…)
+  bitcoin: string        // BIP-84 P2WPKH native SegWit (bc1q…) — the payment address
+  bitcoinNested: string  // BIP-49 P2SH-P2WPKH nested SegWit (3…)
+  bitcoinTaproot: string // BIP-86 P2TR taproot (bc1p…) — the ordinals/inscriptions address
   polkadot: string       // SS58 ED25519 (1…)
   tron: string           // base58check secp256k1 (T…)
   dogecoin: string       // BIP-44 legacy P2PKH (D…)
@@ -59,12 +62,25 @@ export function validateMnemonic(phrase: string): boolean {
   return bip39.validateMnemonic(cleaned, wordlist)
 }
 
-// ─── Bitcoin P2WPKH (bc1q…) ──────────────────────────────────────────────────
+// ─── Bitcoin addresses via @scure/btc-signer (mainnet) ───────────────────────
+// Three address types from one seed: Native SegWit (bc1q, BIP-84), Nested SegWit
+// (3…, BIP-49 P2SH-P2WPKH), Taproot (bc1p, BIP-86 — p2tr applies the BIP-86 key
+// tweak internally, so we pass the x-only internal key = compressed pubkey[1..]).
 
-function deriveBitcoinAddress(compressedPubkey: Uint8Array): string {
-  const hash160 = ripemd160(sha256(compressedPubkey))
-  const words   = Array.from(bech32.toWords(hash160))
-  return bech32.encode('bc', new Uint8Array([0, ...words]))  // witness version 0
+function btcNativeSegwit(compressedPubkey: Uint8Array): string {
+  const a = btc.p2wpkh(compressedPubkey).address
+  if (!a) throw new Error('Bitcoin native-SegWit address failed')
+  return a
+}
+function btcNestedSegwit(compressedPubkey: Uint8Array): string {
+  const a = btc.p2sh(btc.p2wpkh(compressedPubkey)).address
+  if (!a) throw new Error('Bitcoin nested-SegWit address failed')
+  return a
+}
+function btcTaproot(compressedPubkey: Uint8Array): string {
+  const a = btc.p2tr(compressedPubkey.slice(1)).address
+  if (!a) throw new Error('Bitcoin Taproot address failed')
+  return a
 }
 
 // ─── Polkadot SS58 (1…) ──────────────────────────────────────────────────────
@@ -135,10 +151,18 @@ export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promi
   const cardanoAddress = deriveCardanoAddress(entropy, accountIndex)
   const cardanoStake   = deriveCardanoStakeAddress(entropy, accountIndex)
 
-  // ── Bitcoin — BIP-84 — m/84'/0'/{account}'/0/0 ───────────────────────────
-  const btcNode = HDKey.fromMasterSeed(seed).derive(`m/84'/0'/${accountIndex}'/0/0`)
-  if (!btcNode.publicKey) throw new Error('Bitcoin derivation failed')
-  const bitcoinAddress = deriveBitcoinAddress(btcNode.publicKey)
+  // ── Bitcoin — three address types from one seed ──────────────────────────
+  //   Native SegWit  m/84'/0'/{acct}'/0/0  (bc1q…) — payment
+  //   Nested SegWit  m/49'/0'/{acct}'/0/0  (3…)
+  //   Taproot        m/86'/0'/{acct}'/0/0  (bc1p…) — ordinals
+  const btcRoot = HDKey.fromMasterSeed(seed)
+  const btcNativeNode  = btcRoot.derive(`m/84'/0'/${accountIndex}'/0/0`)
+  const btcNestedNode  = btcRoot.derive(`m/49'/0'/${accountIndex}'/0/0`)
+  const btcTaprootNode = btcRoot.derive(`m/86'/0'/${accountIndex}'/0/0`)
+  if (!btcNativeNode.publicKey || !btcNestedNode.publicKey || !btcTaprootNode.publicKey) throw new Error('Bitcoin derivation failed')
+  const bitcoinAddress = btcNativeSegwit(btcNativeNode.publicKey)
+  const bitcoinNested  = btcNestedSegwit(btcNestedNode.publicKey)
+  const bitcoinTaproot = btcTaproot(btcTaprootNode.publicKey)
 
   // ── Polkadot — SLIP-0010 ED25519 — m/44'/354'/{account}'/0'/0' ───────────
   const { key: dotPrivKey } = derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer.from(seed).toString('hex'))
@@ -155,7 +179,7 @@ export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promi
   if (!dogeNode.publicKey) throw new Error('Dogecoin derivation failed')
   const dogecoinAddress = deriveDogecoinAddress(dogeNode.publicKey)
 
-  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, bitcoin: bitcoinAddress, polkadot: polkadotAddress, tron: tronAddress, dogecoin: dogecoinAddress, accountIndex }
+  return { evm: evmAddress, solana: solanaAddress, cardano: cardanoAddress, cardanoStake, bitcoin: bitcoinAddress, bitcoinNested, bitcoinTaproot, polkadot: polkadotAddress, tron: tronAddress, dogecoin: dogecoinAddress, accountIndex }
 }
 
 // ─── Signing helpers (Phase 2) ───────────────────────────────────────────────
@@ -177,6 +201,22 @@ export async function getBitcoinKey(mnemonic: string, accountIndex = 0): Promise
   const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
   const node = HDKey.fromMasterSeed(seed).derive(`m/84'/0'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin key derivation failed')
+  return { privateKey: node.privateKey, publicKey: node.publicKey }
+}
+
+/** BIP-49 nested-SegWit (3…) signing key. */
+export async function getBitcoinNestedKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const node = HDKey.fromMasterSeed(seed).derive(`m/49'/0'/${accountIndex}'/0/0`)
+  if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin nested key derivation failed')
+  return { privateKey: node.privateKey, publicKey: node.publicKey }
+}
+
+/** BIP-86 Taproot (bc1p…) signing key — the ordinals address key. */
+export async function getBitcoinTaprootKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
+  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const node = HDKey.fromMasterSeed(seed).derive(`m/86'/0'/${accountIndex}'/0/0`)
+  if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin Taproot key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey }
 }
 

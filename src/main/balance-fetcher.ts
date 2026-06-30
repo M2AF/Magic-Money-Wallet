@@ -184,6 +184,21 @@ async function fetchBitcoinNative(
   return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
 }
 
+// Total BTC across all three address types (Native SegWit + Nested SegWit + Taproot).
+// A Taproot inscription UTXO's sat value still counts toward holdings; the send path
+// (bitcoin.ts) is what prevents inscriptions from being spent as fees/change.
+async function fetchBitcoinTotal(
+  addrs: { bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string }
+): Promise<{ native: number; tokenCount: number; error: string | null }> {
+  const list = [addrs.bitcoin, addrs.bitcoinNested, addrs.bitcoinTaproot].filter((a): a is string => !!a)
+  if (list.length === 0) return { native: 0, tokenCount: 0, error: 'No address' }
+  const results = await Promise.all(list.map(a => fetchBitcoinNative(a)))
+  const native = results.reduce((sum, r) => sum + (r.native || 0), 0)
+  // Only surface an error if EVERY address failed — one host hiccup shouldn't blank the card.
+  const allErrored = results.every(r => r.error)
+  return { native, tokenCount: 0, error: allErrored ? (results[0].error ?? 'Network error') : null }
+}
+
 // ─── Tron via TRON HTTP API (Alchemy) ─────────────────────────────────────────
 
 async function fetchTronNative(
@@ -414,7 +429,7 @@ export async function fetchAllBalances(
     fetchSolanaNative(addresses.solana, config),
     fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config),
     addresses.bitcoin
-      ? fetchBitcoinNative(addresses.bitcoin)
+      ? fetchBitcoinTotal(addresses)
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     addresses.polkadot
       ? fetchPolkadotNative(addresses.polkadot, config)

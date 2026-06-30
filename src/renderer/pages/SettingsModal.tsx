@@ -36,7 +36,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       `EVM:      ${addrs.evm}`,
       `Solana:   ${addrs.solana}`,
       `Cardano:  ${addrs.cardano}`,
-      `Bitcoin:  ${addrs.bitcoin}`,
+      `Bitcoin (Native SegWit): ${addrs.bitcoin}`,
+      `Bitcoin (Nested SegWit): ${addrs.bitcoinNested}`,
+      `Bitcoin (Taproot):       ${addrs.bitcoinTaproot}`,
       `Polkadot: ${addrs.polkadot}`,
       `Tron:     ${addrs.tron ?? ''}`,
       `Dogecoin: ${addrs.dogecoin ?? ''}`

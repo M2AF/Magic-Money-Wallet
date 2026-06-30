@@ -15,8 +15,17 @@ import {
   generateMnemonic,
   validateMnemonic,
   deriveAddresses,
-  getSolanaKeypair
+  getSolanaKeypair,
+  getBitcoinKey,
+  getBitcoinTaprootKey
 } from './wallet-core'
+import {
+  signBitcoinPsbt,
+  signBitcoinMessage,
+  broadcastBitcoin,
+  getBitcoinAddressBalance,
+  type PsbtSignRequest
+} from './bitcoin'
 import {
   saveMnemonic,
   loadMnemonic,
@@ -79,13 +88,15 @@ import {
   estimateCardanoFee,
   estimateTronFee,
   estimateDogecoinFee,
+  estimateBitcoinFee,
   sendEvmTransaction,
   sendRawEvmTransaction,
   sendAgwTransaction,
   sendSolanaTransaction,
   sendCardanoTransaction,
   sendTronTransaction,
-  sendDogecoinTransaction
+  sendDogecoinTransaction,
+  sendBitcoinTransaction
 } from './tx-sender'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
@@ -184,7 +195,7 @@ async function resolveAgw(addresses: WalletAddresses): Promise<WalletAddresses> 
 async function getFullAddresses() {
   let stored = loadAddresses()
   if (!stored) throw new Error('No addresses found — wallet not set up')
-  if (!stored.bitcoin || !stored.polkadot || !stored.tron || !stored.dogecoin) {
+  if (!stored.bitcoin || !stored.bitcoinNested || !stored.bitcoinTaproot || !stored.polkadot || !stored.tron || !stored.dogecoin) {
     // Re-derive from mnemonic to fill in missing fields (drops any resolved agw)
     stored = await deriveAddresses(loadMnemonic(), stored.accountIndex ?? 0)
     saveAddresses(stored)
@@ -454,6 +465,10 @@ export function registerIpcHandlers(): void {
       if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
       return estimateDogecoinFee(addresses.dogecoin, to, amount)
     }
+    if (chainId === 'bitcoin') {
+      if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
+      return estimateBitcoinFee(addresses.bitcoin, to, amount, loadMnemonic(), addresses.accountIndex ?? 0)
+    }
     return estimateEvmFee(addresses.evm, to, amount, config, chainId)
   })
 
@@ -520,6 +535,14 @@ export function registerIpcHandlers(): void {
     return sendDogecoinTransaction(mnemonic, addresses.dogecoin, to, amountDoge, addresses.accountIndex ?? 0)
   })
 
+  // ── Send Bitcoin (Native SegWit P2WPKH; inscription-safe) ─────────────────
+  ipcMain.handle('wallet:send-bitcoin', async (_event, to: string, amountBtc: string) => {
+    const mnemonic = loadMnemonic()
+    const addresses = await getFullAddresses()
+    if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
+    return sendBitcoinTransaction(mnemonic, addresses.bitcoin, to, amountBtc, addresses.accountIndex ?? 0)
+  })
+
   // ── Phase 3: Transaction history ──────────────────────────────────────
   ipcMain.handle('wallet:get-history', async () => {
     const addresses = await getFullAddresses()
@@ -576,7 +599,7 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllTokens(
-      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw },
+      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
       config
     )
   })
@@ -584,7 +607,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async (_event, excludeIds?: string[]) => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds)
+    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds, addresses.bitcoinTaproot)
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────
@@ -1100,6 +1123,125 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('cardano:submit-tx', async (_event, txHex: string) => {
     const config = loadConfig()
     return cip30SubmitTx(txHex, config)
+  })
+
+  // ── Bitcoin / Ordinals dApp provider (sats-connect/WBIP + Unisat) ─────────
+  // Mirrors the Cardano CIP-30 flow: connect is approval-gated + the origin is
+  // remembered; every signing request shows the approval modal with the origin.
+  const btcAddrType = (addr: string, a: WalletAddresses): 'native' | 'nested' | 'taproot' =>
+    addr === a.bitcoinNested ? 'nested' : addr === a.bitcoinTaproot ? 'taproot' : 'native'
+
+  async function btcConnect(origin: string): Promise<WalletAddresses> {
+    const a = await getFullAddresses()
+    if (!getApprovedOrigins().includes(origin)) {
+      const approved = await showApprovalWindow({
+        title: 'Connect Bitcoin Wallet',
+        heading: `${origin} wants to connect to your Bitcoin wallet`,
+        detail: `Payment (SegWit):\n${a.bitcoin}\n\nOrdinals (Taproot):\n${a.bitcoinTaproot}`,
+        confirmLabel: 'Connect',
+        origin
+      })
+      if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+      addApprovedOrigin(origin)
+    }
+    return a
+  }
+
+  ipcMain.handle('bitcoin:is-enabled', (event) =>
+    getApprovedOrigins().includes(getSenderOrigin(event.sender.getURL())))
+
+  // sats-connect getAddresses → { addresses: [{ address, publicKey, purpose, addressType }] }
+  ipcMain.handle('bitcoin:request-addresses', async (event, purposes?: string[]) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    const a = await btcConnect(origin)
+    const acct = a.accountIndex ?? 0
+    const [nat, tap] = await Promise.all([getBitcoinKey(loadMnemonic(), acct), getBitcoinTaprootKey(loadMnemonic(), acct)])
+    const all = [
+      { address: a.bitcoin, publicKey: Buffer.from(nat.publicKey).toString('hex'), purpose: 'payment', addressType: 'p2wpkh' },
+      { address: a.bitcoinTaproot, publicKey: Buffer.from(tap.publicKey.slice(1)).toString('hex'), purpose: 'ordinals', addressType: 'p2tr' },
+    ]
+    const want = purposes && purposes.length ? purposes : ['payment', 'ordinals']
+    return { addresses: all.filter(x => want.includes(x.purpose)) }
+  })
+
+  // Unisat getAccounts (silent) / requestAccounts (prompt) → [payment address]
+  ipcMain.handle('bitcoin:get-accounts', async (event) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    const a = await getFullAddresses()
+    return getApprovedOrigins().includes(origin) && a.bitcoin ? [a.bitcoin] : []
+  })
+  ipcMain.handle('bitcoin:request-accounts', async (event) => {
+    const a = await btcConnect(getSenderOrigin(event.sender.getURL()))
+    return [a.bitcoin]
+  })
+  ipcMain.handle('bitcoin:get-public-key', async () => {
+    const a = await getFullAddresses()
+    const k = await getBitcoinKey(loadMnemonic(), a.accountIndex ?? 0)
+    return Buffer.from(k.publicKey).toString('hex')
+  })
+  ipcMain.handle('bitcoin:get-balance', async () => {
+    const a = await getFullAddresses()
+    if (!a.bitcoin) throw new Error('No Bitcoin wallet')
+    return getBitcoinAddressBalance(a.bitcoin)
+  })
+
+  ipcMain.handle('bitcoin:sign-psbt', async (event, psbt: string, opts?: Record<string, unknown>) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    const approved = await showApprovalWindow({
+      title: 'Sign Bitcoin Transaction',
+      heading: `${origin} wants you to sign a Bitcoin PSBT`,
+      detail: `PSBT:\n${String(psbt).slice(0, 180)}${String(psbt).length > 180 ? '…' : ''}`,
+      confirmLabel: 'Sign',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const a = await getFullAddresses()
+    const o = (opts ?? {}) as { signInputs?: Record<string, number[]>; autoFinalized?: boolean; broadcast?: boolean }
+    const req: PsbtSignRequest = { psbt: String(psbt), signInputs: o.signInputs, finalize: o.autoFinalized !== false, extractTx: !!o.broadcast }
+    const signed = await signBitcoinPsbt(req, loadMnemonic(), a, a.accountIndex ?? 0)
+    let txid: string | undefined
+    if (o.broadcast && signed.txHex) txid = await broadcastBitcoin(signed.txHex)
+    return { psbtHex: signed.psbtHex, psbtBase64: signed.psbtBase64, txid }
+  })
+
+  ipcMain.handle('bitcoin:sign-message', async (event, message: string, addressOrType?: string) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    const approved = await showApprovalWindow({
+      title: 'Sign Message',
+      heading: `${origin} wants you to sign a message with your Bitcoin wallet`,
+      detail: String(message).slice(0, 800),
+      confirmLabel: 'Sign',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const a = await getFullAddresses()
+    // The 2nd arg may be an address (sats-connect) or a Unisat type ('ecdsa'/'bip322-simple').
+    const type = addressOrType && (addressOrType.startsWith('bc1') || addressOrType.startsWith('3'))
+      ? btcAddrType(addressOrType, a) : 'native'
+    return signBitcoinMessage(String(message), type, loadMnemonic(), a.accountIndex ?? 0)
+  })
+
+  ipcMain.handle('bitcoin:push-psbt', async (_event, rawTxHex: string) => broadcastBitcoin(String(rawTxHex)))
+  ipcMain.handle('bitcoin:push-tx', async (_event, rawTxHex: string) => broadcastBitcoin(String(rawTxHex)))
+
+  // Unisat sendBitcoin(to, satoshis) — build+sign+broadcast from the payment address.
+  ipcMain.handle('bitcoin:send', async (event, to: string, satoshis: number) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
+    const a = await getFullAddresses()
+    const btcAmount = (Number(satoshis) / 1e8).toFixed(8)
+    const approved = await showApprovalWindow({
+      title: 'Send Bitcoin',
+      heading: `${origin} wants to send Bitcoin`,
+      detail: `Send ${btcAmount} BTC\nTo: ${to}`,
+      confirmLabel: 'Send',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    const res = await sendBitcoinTransaction(loadMnemonic(), a.bitcoin, String(to), btcAmount, a.accountIndex ?? 0)
+    return res.txHash
   })
 
   // ── Config: get/set API keys ───────────────────────────────────────────

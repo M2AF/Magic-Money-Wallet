@@ -71,6 +71,7 @@ export interface FeeEstimate {
 // place, mirroring how Cardano signing lives in cardano-pure.ts.
 export { sendTronTransaction, estimateTronFee } from './tron'
 export { sendDogecoinTransaction, estimateDogecoinFee } from './dogecoin'
+export { sendBitcoinTransaction, estimateBitcoinFee } from './bitcoin'
 
 // ─── EVM ──────────────────────────────────────────────────────────────────────
 

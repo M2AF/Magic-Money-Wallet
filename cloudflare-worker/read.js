@@ -35,7 +35,7 @@ const ANKR_CHAINS = new Set([
   'eth', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'bsc', 'gnosis', 'blast', 'solana',
 ])
 
-const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea'])
+const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea', 'ordinals'])
 
 // Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
 // hosts — TRON uses path-based `wallet/*` methods under /v2/{key}/).
@@ -176,6 +176,16 @@ export async function handleRead(request, url, env, ctx) {
     const data = await res.json().catch(() => null)
     if (data) cachePut(env, ctx, ckey, data, 60)
     return json(env, data)
+  }
+
+  // ── Ordiscan (Bitcoin Ordinals/Runes/BRC-20): GET /ordinals/* (inject Bearer)
+  if (parts[0] === 'ordinals' && request.method === 'GET') {
+    if (!env.ORDISCAN_API_KEY) return err(env, 'Ordiscan key not configured', 500)
+    const rest = parts.slice(1).join('/')
+    const res = await fetch(`https://api.ordiscan.com/v1/${rest}${url.search}`, {
+      headers: { accept: 'application/json', Authorization: `Bearer ${env.ORDISCAN_API_KEY}` },
+    })
+    return passthrough(env, res)
   }
 
   // ── OpenSea REST: GET /opensea/* (inject x-api-key) ───────────────────────

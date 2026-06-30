@@ -6,7 +6,9 @@ export interface WalletAddresses {
   solana: string
   cardano: string
   cardanoStake: string
-  bitcoin: string
+  bitcoin: string          // Native SegWit (bc1q…) — payment
+  bitcoinNested: string    // Nested SegWit (3…)
+  bitcoinTaproot: string   // Taproot (bc1p…) — ordinals
   polkadot: string
   tron?: string
   dogecoin?: string
@@ -257,6 +259,7 @@ declare global {
       sendAgw(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
       sendSolana(to: string, amount: string): Promise<SendResult>
       sendCardano(to: string, amount: string): Promise<SendResult>
+      sendBitcoin(to: string, amount: string): Promise<SendResult>
       sendTron(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
       sendDogecoin(to: string, amount: string): Promise<SendResult>
       // Phase 3

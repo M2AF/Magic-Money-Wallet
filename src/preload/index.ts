@@ -41,6 +41,8 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:send-solana', to, amount),
   sendCardano:   (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-cardano', to, amount),
+  sendBitcoin:   (to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-bitcoin', to, amount),
   sendTron:      (to: string, amount: string, token?: { contractAddress: string; decimals: number }) =>
     ipcRenderer.invoke('wallet:send-tron', to, amount, token),
   sendDogecoin:  (to: string, amount: string) =>

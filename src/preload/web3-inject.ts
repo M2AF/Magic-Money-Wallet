@@ -275,6 +275,81 @@ webFrame.executeJavaScript(`(function () {
     }, 200);
   } catch(e) { console.error('[MagicMoney] Cardano injection failed:', e); }
 
+  // ── Bitcoin: Unisat-compatible provider (window.unisat) ───────────────────
+  try {
+    const mmUnisat = {
+      isMagicMoney: true,
+      requestAccounts: () => call('bitcoin:request-accounts'),
+      getAccounts:     () => call('bitcoin:get-accounts'),
+      getNetwork:      () => Promise.resolve('livenet'),
+      switchNetwork:   () => Promise.resolve('livenet'),
+      getPublicKey:    () => call('bitcoin:get-public-key'),
+      getBalance:      () => call('bitcoin:get-balance'),
+      signMessage:     (msg, type) => call('bitcoin:sign-message', msg, type),
+      signPsbt:        (psbtHex, opts) => call('bitcoin:sign-psbt', psbtHex, opts || {}).then(r => r.psbtHex),
+      signPsbts:       (psbts, opts) => Promise.all((psbts || []).map(p => call('bitcoin:sign-psbt', p, opts || {}).then(r => r.psbtHex))),
+      pushPsbt:        (psbtHex) => call('bitcoin:push-psbt', psbtHex),
+      pushTx:          (raw) => call('bitcoin:push-tx', (raw && raw.rawtx) ? raw.rawtx : raw),
+      sendBitcoin:     (to, satoshis) => call('bitcoin:send', to, satoshis),
+      on:              () => {},
+      removeListener:  () => {},
+    };
+    if (typeof window.unisat === 'undefined') {
+      try { window.unisat = mmUnisat; } catch (_) {}
+    }
+  } catch(e) { console.error('[MagicMoney] Unisat injection failed:', e); }
+
+  // ── Bitcoin: sats-connect / WBIP provider (window.btc_providers) ──────────
+  try {
+    const ok = (result) => ({ status: 'success', result });
+    const mmBtc = {
+      id: 'MagicMoneyProviders.BitcoinProvider',
+      name: 'MagicMoney Wallet',
+      icon: ${_ICON_JSON},
+      isMagicMoney: true,
+      // WBIP-001 JSON-RPC entrypoint (sats-connect v2/v3)
+      request: function (method, params) {
+        params = params || {};
+        switch (method) {
+          case 'getInfo':
+            return Promise.resolve(ok({ version: '1.0.0', methods: ['getAddresses','signMessage','signPsbt','sendTransfer'], supports: [] }));
+          case 'wallet_connect':
+          case 'getAddresses':
+            return call('bitcoin:request-addresses', params.purposes).then(r => ok(r));
+          case 'getBalance':
+            return call('bitcoin:get-balance').then(b => ok({ confirmed: String(b.confirmed), unconfirmed: String(b.unconfirmed), total: String(b.total) }));
+          case 'signMessage':
+            return call('bitcoin:sign-message', params.message, params.address).then(sig => ok({ signature: sig, address: params.address }));
+          case 'signPsbt':
+            return call('bitcoin:sign-psbt', params.psbt, { signInputs: params.signInputs, broadcast: !!params.broadcast, autoFinalized: params.finalize !== false })
+              .then(r => ok({ psbt: r.psbtBase64, txid: r.txid }));
+          case 'sendTransfer': {
+            const recips = params.recipients || [];
+            if (!recips.length) return Promise.reject(new Error('No recipients'));
+            return call('bitcoin:send', recips[0].address, recips[0].amount).then(txid => ok({ txid }));
+          }
+          default:
+            return Promise.reject(Object.assign(new Error('Method not supported: ' + method), { code: -32601 }));
+        }
+      },
+      // Legacy sats-connect v1 convenience methods
+      connect:     function () { return call('bitcoin:request-addresses'); },
+      signMessage: function (msg, addr) { return call('bitcoin:sign-message', msg, addr); },
+      signPsbt:    function (psbt, opts) { return call('bitcoin:sign-psbt', psbt, opts || {}).then(r => r.psbtBase64); },
+    };
+    try {
+      if (!window.MagicMoneyProviders) Object.defineProperty(window, 'MagicMoneyProviders', { value: {}, writable: true, configurable: true, enumerable: false });
+      window.MagicMoneyProviders.BitcoinProvider = mmBtc;
+    } catch (_) {}
+    try {
+      if (!Array.isArray(window.btc_providers)) Object.defineProperty(window, 'btc_providers', { value: [], writable: true, configurable: true, enumerable: true });
+      if (!window.btc_providers.some(p => p && p.id === mmBtc.id)) {
+        window.btc_providers.push({ id: mmBtc.id, name: mmBtc.name, icon: mmBtc.icon });
+      }
+    } catch (_) {}
+    try { if (typeof window.BitcoinProvider === 'undefined') window.BitcoinProvider = mmBtc; } catch (_) {}
+  } catch(e) { console.error('[MagicMoney] Bitcoin WBIP injection failed:', e); }
+
   // ── Solana Wallet Standard ────────────────────────────────────────────────
   const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   function b58Decode(s) {

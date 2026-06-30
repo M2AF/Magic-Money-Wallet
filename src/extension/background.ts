@@ -6,7 +6,8 @@
  * Private keys and mnemonics never leave this file.
  */
 
-import { generateMnemonic, validateMnemonic, deriveAddresses, getSolanaKeypair, getBitcoinKey, getPolkadotKey } from '../main/wallet-core'
+import { generateMnemonic, validateMnemonic, deriveAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
+import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTransaction as sendBtc, type PsbtSignRequest } from '../main/bitcoin'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
@@ -15,7 +16,7 @@ import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteReque
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction } from '../main/tx-sender'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -171,8 +172,8 @@ async function resolveAgw(addresses: any): Promise<any> {
 async function loadFullAddresses(): Promise<any> {
   let stored = await store.loadAddresses()
   if (!stored) throw new Error('No wallet')
-  // Auto-migrate wallets created before tron/dogecoin existed (re-derive fills them).
-  if (!stored.tron || !stored.dogecoin) {
+  // Auto-migrate wallets created before tron/dogecoin/taproot existed (re-derive fills them).
+  if (!stored.tron || !stored.dogecoin || !stored.bitcoinNested || !stored.bitcoinTaproot) {
     stored = await deriveAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
     await store.saveAddresses(stored)
   }
@@ -323,6 +324,10 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
         if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
         return estimateDogecoinFee(addresses.dogecoin, to, amount)
       }
+      if (chain === 'bitcoin') {
+        if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
+        return estimateBitcoinFee(addresses.bitcoin, to, amount, await store.loadMnemonic(), addresses.accountIndex ?? 0)
+      }
       return estimateEvmFee(addresses.evm, to, amount, config, chain)
     }
 
@@ -361,6 +366,13 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
       const mnemonic = await store.loadMnemonic()
       return sendDogecoinTransaction(mnemonic, addresses.dogecoin, String(a0), String(a1), addresses.accountIndex ?? 0)
+    }
+
+    case 'wallet:send-bitcoin': {
+      const addresses = await loadFullAddresses()
+      if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
+      const mnemonic = await store.loadMnemonic()
+      return sendBitcoinTransaction(mnemonic, addresses.bitcoin, String(a0), String(a1), addresses.accountIndex ?? 0)
     }
 
     // ── Abstract Global Wallet: send + manual address override ──────────────
@@ -411,7 +423,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       return fetchAllTokens(
-        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw },
+        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
         config
       )
     }
@@ -420,7 +432,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       const excludeIds = Array.isArray(a0) ? (a0 as string[]) : undefined
-      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds)
+      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds, addresses.bitcoinTaproot)
     }
 
     case 'swap:getQuote': {
@@ -689,6 +701,31 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       })
     }
 
+    case 'bitcoin:request-addresses': {
+      const btcOrigin = sender?.origin ?? 'unknown'
+      const toHex = (u: Uint8Array) => Array.from(u).map(b => b.toString(16).padStart(2, '0')).join('')
+      const build = async () => {
+        const a = await loadFullAddresses()
+        const acct = a.accountIndex ?? 0
+        const mn = await store.loadMnemonic()
+        const [nat, tap] = await Promise.all([getBitcoinKey(mn, acct), getBitcoinTaprootKey(mn, acct)])
+        const all = [
+          { address: a.bitcoin, publicKey: toHex(nat.publicKey), purpose: 'payment', addressType: 'p2wpkh' },
+          { address: a.bitcoinTaproot, publicKey: toHex(tap.publicKey.slice(1)), purpose: 'ordinals', addressType: 'p2tr' },
+        ]
+        const want = Array.isArray(a0) ? (a0 as string[]) : ['payment', 'ordinals']
+        return { addresses: all.filter(x => want.includes(x.purpose)) }
+      }
+      if ((await store.getApprovedOrigins()).includes(btcOrigin)) return build()
+      const reqId = crypto.randomUUID()
+      await new Promise<void>((resolve, reject) => {
+        _connectionQueue.set(reqId, { resolve: () => resolve(), reject, origin: btcOrigin, tabId: sender?.tabId, chain: 'bitcoin' })
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id: reqId, origin: btcOrigin } }).catch(() => openApprovalPopup())
+        setTimeout(() => { if (_connectionQueue.has(reqId)) { _connectionQueue.delete(reqId); reject(Object.assign(new Error('User rejected the request.'), { code: 4001 })) } }, 120_000)
+      })
+      return build()
+    }
+
     case 'bitcoin:get-public-key': {
       const btcMnemonic = await store.loadMnemonic()
       const btcAddrs = await store.loadAddresses()
@@ -711,27 +748,22 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'bitcoin:sign-message': {
-      const btcMsg = String(a0)
-      const btcMnemonic = await store.loadMnemonic()
+      // BIP-137 over the Native-SegWit key (the old inline impl used a P2PKH header).
       const btcAddrs = await store.loadAddresses()
-      const { privateKey: btcPriv } = await getBitcoinKey(btcMnemonic, btcAddrs?.accountIndex ?? 0)
-      const { secp256k1 } = await import('@noble/curves/secp256k1')
-      const { sha256: sha256fn } = await import('@noble/hashes/sha256')
-      const msgBytes = new TextEncoder().encode(btcMsg)
-      const prefix = new TextEncoder().encode('\x18Bitcoin Signed Message:\n')
-      const len = msgBytes.length
-      const lenBytes = len < 0xfd ? [len] : [0xfd, len & 0xff, (len >> 8) & 0xff]
-      const combined = new Uint8Array([...prefix, ...lenBytes, ...msgBytes])
-      const hash = sha256fn(sha256fn(combined))
-      const sig = secp256k1.sign(hash, btcPriv, { lowS: true })
-      const header = new Uint8Array([27 + (sig.recovery ?? 0)])
-      const sigBytes = new Uint8Array([...header, ...sig.toCompactRawBytes()])
-      return btoa(String.fromCharCode(...sigBytes))
+      return signBitcoinMessage(String(a0), 'native', await store.loadMnemonic(), btcAddrs?.accountIndex ?? 0)
     }
 
-    case 'bitcoin:sign-psbt':
-      // Full PSBT signing requires @scure/btc-signer — planned for next release
-      throw new Error('PSBT signing not yet supported — use the wallet send screen for Bitcoin transactions')
+    case 'bitcoin:sign-psbt': {
+      const btcOrigin = sender?.origin ?? 'unknown'
+      if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+      const btcAddrs = await loadFullAddresses()
+      const o = (a1 ?? {}) as { signInputs?: Record<string, number[]>; autoFinalized?: boolean; broadcast?: boolean }
+      const req: PsbtSignRequest = { psbt: String(a0), signInputs: o.signInputs, finalize: o.autoFinalized !== false, extractTx: !!o.broadcast }
+      const signed = await signBitcoinPsbt(req, await store.loadMnemonic(), btcAddrs, btcAddrs.accountIndex ?? 0)
+      let txid: string | undefined
+      if (o.broadcast && signed.txHex) txid = await broadcastBitcoin(signed.txHex)
+      return { psbtHex: signed.psbtHex, psbtBase64: signed.psbtBase64, txid }
+    }
 
     case 'bitcoin:push-psbt': {
       const rawTxHex = String(a0)
@@ -745,8 +777,14 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return await pushRes.text()
     }
 
-    case 'bitcoin:send':
-      throw new Error('Bitcoin send via dApp coming soon — use the wallet send screen')
+    case 'bitcoin:send': {
+      const btcOrigin = sender?.origin ?? 'unknown'
+      if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
+      const btcAddrs = await loadFullAddresses()
+      const btcAmount = (Number(a1) / 1e8).toFixed(8)
+      const res = await sendBtc(await store.loadMnemonic(), btcAddrs.bitcoin, String(a0), btcAmount, btcAddrs.accountIndex ?? 0)
+      return res.txHash
+    }
 
     // ── Polkadot (window.injectedWeb3) dApp handlers ──────────────────────────
 

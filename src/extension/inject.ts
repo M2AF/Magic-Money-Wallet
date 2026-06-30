@@ -346,10 +346,13 @@ const mmUnisat = {
   getPublicKey:    ()                                        => send<string>('bitcoin:get-public-key', []),
   getNetwork:      ()                                        => Promise.resolve('livenet'),
   getBalance:      ()                                        => send<{ confirmed: number; unconfirmed: number; total: number }>('bitcoin:get-balance', []),
+  switchNetwork:   ()                                        => Promise.resolve('livenet'),
   signMessage:     (msg: string, type = 'ecdsa')             => send<string>('bitcoin:sign-message', [msg, type]),
-  signPsbt:        (psbtHex: string, opts = {})              => send<string>('bitcoin:sign-psbt', [psbtHex, opts]),
+  signPsbt:        (psbtHex: string, opts = {})              => send<{ psbtHex: string }>('bitcoin:sign-psbt', [psbtHex, opts]).then(r => r.psbtHex),
+  signPsbts:       (psbts: string[], opts = {})             => Promise.all((psbts || []).map(p => send<{ psbtHex: string }>('bitcoin:sign-psbt', [p, opts]).then(r => r.psbtHex))),
   pushPsbt:        (psbtHex: string)                         => send<string>('bitcoin:push-psbt', [psbtHex]),
-  sendBitcoin:     (to: string, satoshis: number, opts = {}) => send<string>('bitcoin:send', [to, satoshis, opts]),
+  pushTx:          (raw: { rawtx: string } | string)        => send<string>('bitcoin:push-tx', [typeof raw === 'object' ? raw.rawtx : raw]),
+  sendBitcoin:     (to: string, satoshis: number)           => send<string>('bitcoin:send', [to, satoshis]),
 
   on:              (_e: string, _cb: (...a: unknown[]) => void) => {},
   removeListener:  (_e: string, _cb: (...a: unknown[]) => void) => {},
@@ -359,6 +362,52 @@ const mmUnisat = {
 if (typeof (window as Record<string, unknown>).unisat === 'undefined') {
   try { (window as Record<string, unknown>).unisat = mmUnisat } catch { /* locked by another wallet */ }
 }
+
+// ── sats-connect / WBIP provider (window.btc_providers) — Satflow, Gamma, ME … ─
+type BtcParams = Record<string, unknown>
+const okResult = (result: unknown) => ({ status: 'success', result })
+const mmBtcProvider = {
+  id: 'MagicMoneyProviders.BitcoinProvider',
+  name: 'MagicMoney Wallet',
+  icon: WALLET_ICON,
+  isMagicMoney: true,
+  request: (method: string, params: BtcParams = {}): Promise<unknown> => {
+    switch (method) {
+      case 'getInfo':
+        return Promise.resolve(okResult({ version: '1.0.0', methods: ['getAddresses', 'signMessage', 'signPsbt', 'sendTransfer'], supports: [] }))
+      case 'wallet_connect':
+      case 'getAddresses':
+        return send<unknown>('bitcoin:request-addresses', [params.purposes]).then(okResult)
+      case 'getBalance':
+        return send<{ confirmed: number; unconfirmed: number; total: number }>('bitcoin:get-balance', [])
+          .then(b => okResult({ confirmed: String(b.confirmed), unconfirmed: String(b.unconfirmed), total: String(b.total) }))
+      case 'signMessage':
+        return send<string>('bitcoin:sign-message', [params.message, params.address]).then(sig => okResult({ signature: sig, address: params.address }))
+      case 'signPsbt':
+        return send<{ psbtBase64: string; txid?: string }>('bitcoin:sign-psbt', [params.psbt, { signInputs: params.signInputs, broadcast: !!params.broadcast, autoFinalized: params.finalize !== false }])
+          .then(r => okResult({ psbt: r.psbtBase64, txid: r.txid }))
+      case 'sendTransfer': {
+        const recips = (params.recipients as Array<{ address: string; amount: number }>) || []
+        if (!recips.length) return Promise.reject(new Error('No recipients'))
+        return send<string>('bitcoin:send', [recips[0].address, recips[0].amount]).then(txid => okResult({ txid }))
+      }
+      default:
+        return Promise.reject(Object.assign(new Error('Method not supported: ' + method), { code: -32601 }))
+    }
+  },
+  connect:     () => send('bitcoin:request-addresses', []),
+  signMessage: (msg: string, addr?: string) => send<string>('bitcoin:sign-message', [msg, addr]),
+  signPsbt:    (psbt: string, opts: BtcParams = {}) => send<{ psbtBase64: string }>('bitcoin:sign-psbt', [psbt, opts]).then(r => r.psbtBase64),
+}
+try {
+  const w = window as Record<string, unknown>
+  if (!w.MagicMoneyProviders) w.MagicMoneyProviders = {}
+  ;(w.MagicMoneyProviders as Record<string, unknown>).BitcoinProvider = mmBtcProvider
+  if (!Array.isArray(w.btc_providers)) w.btc_providers = []
+  const list = w.btc_providers as Array<{ id: string }>
+  if (!list.some(p => p && p.id === mmBtcProvider.id)) list.push({ id: mmBtcProvider.id, name: mmBtcProvider.name, icon: mmBtcProvider.icon } as { id: string })
+  if (typeof w.BitcoinProvider === 'undefined') w.BitcoinProvider = mmBtcProvider
+} catch { /* window locked */ }
 
 // ── window.injectedWeb3 — Polkadot.js extension standard ─────────────────────
 
