@@ -64,10 +64,13 @@ export function alchemyRpcUrl(network: string, config: WalletConfig): string {
   return base ? proxyUrl(`${base}/rpc/alchemy/${network}`, config) : `https://${network}.g.alchemy.com/v2/${config.alchemyKey}`
 }
 
-/** Alchemy NFT v3 base for a network slug. Callers append `/getNFTsForOwner?…`. */
-export function alchemyNftBase(network: string, config: WalletConfig): string {
+/** Alchemy NFT v3 URL for a path such as `getNFTsForOwner?owner=...`. */
+export function alchemyNftUrl(network: string, path: string, config: WalletConfig): string {
   const base = proxyBase(config)
-  return base ? proxyUrl(`${base}/alchemy-nft/${network}`, config) : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}`
+  const p = path.replace(/^\/+/, '')
+  return base
+    ? proxyUrl(`${base}/alchemy-nft/${network}/${p}`, config)
+    : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}/${p}`
 }
 
 /**

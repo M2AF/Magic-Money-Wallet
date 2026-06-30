@@ -7,12 +7,14 @@
 
 // ── Node.js 20 global polyfills — must run before WalletConnect imports ───────
 
-// 1. WebSocket — Node 20 has no native global WebSocket
+// 1. WebSocket — WalletConnect's Node relay expects the `ws` API shape. Electron
+// 43 exposes a browser-style global WebSocket, but it lacks `.on(...)`, so force
+// the Node implementation here instead of only filling the global when missing.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-if (typeof globalThis.WebSocket === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ;(globalThis as any).WebSocket = require('ws')
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const NodeWebSocket = require('ws') as any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+;(globalThis as any).WebSocket = NodeWebSocket.WebSocket ?? NodeWebSocket
 
 // 2. Web Crypto — WalletConnect relay uses crypto.subtle for session encryption.
 //    Node 20 has webcrypto but it may not be bound to globalThis.crypto.subtle.
@@ -26,7 +28,6 @@ if (!globalThis.crypto) {
   ;(globalThis.crypto as any).subtle = _nodeCrypto.webcrypto.subtle
 }
 
-import SignClient from '@walletconnect/sign-client'
 import type { SignClientTypes, SessionTypes } from '@walletconnect/types'
 import { app } from 'electron'
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
@@ -42,6 +43,12 @@ import { getSolanaKeypair } from './wallet-core'
 import { alchemyRpcUrl } from './api-proxy'
 import { EVM_CHAINS } from './chain-config'
 import { describeTypedData, summarizeEvmSend } from './tx-describe'
+
+// Keep this as a runtime require after the WebSocket polyfill. A static import is
+// evaluated before top-level code and lets Electron's browser WebSocket leak into
+// WalletConnect's Node relay transport.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { SignClient } = require('@walletconnect/sign-client') as typeof import('@walletconnect/sign-client')
 
 // ── EVM chains we advertise support for ──────────────────────────────────────
 

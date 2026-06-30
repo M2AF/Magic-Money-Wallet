@@ -2,7 +2,7 @@ import type { WalletConfig } from './secure-store'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import {
-  alchemyRpcUrl, alchemyNftBase, heliusRpcUrl,
+  alchemyRpcUrl, alchemyNftUrl, heliusRpcUrl,
   blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
   ordinalsFetch, canOrdiscan,
 } from './api-proxy'
@@ -135,7 +135,7 @@ function rpcUrl(network: string, config: WalletConfig) {
   return alchemyRpcUrl(network, config)
 }
 function nftUrl(network: string, config: WalletConfig) {
-  return alchemyNftBase(network, config)
+  return (path: string) => alchemyNftUrl(network, path, config)
 }
 
 function normalizeImageUrl(url: string | null | undefined): string | null {
@@ -1012,8 +1012,7 @@ async function fetchNftsForChain(
   chain: typeof NFT_CHAINS[0],
   config: WalletConfig
 ): Promise<ChainNftResult> {
-  const base = nftUrl(chain.network, config)
-  const url = `${base}/getNFTsForOwner?owner=${address}&withMetadata=true`
+  const url = nftUrl(chain.network, config)(`getNFTsForOwner?owner=${encodeURIComponent(address)}&withMetadata=true`)
   console.log(`[NFT] Fetching ${chain.label} for ${address.slice(0, 10)}…`)
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })

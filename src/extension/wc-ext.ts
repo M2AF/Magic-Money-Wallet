@@ -9,7 +9,7 @@
 
 // WebSocket and WebCrypto are available natively in MV3 service workers — no polyfills needed
 
-import SignClient from '@walletconnect/sign-client'
+import { SignClient } from '@walletconnect/sign-client'
 import type { SignClientTypes, SessionTypes } from '@walletconnect/types'
 import { getSdkError } from '@walletconnect/utils'
 import { HDKey } from '@scure/bip32'
