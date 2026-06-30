@@ -34,7 +34,7 @@ export interface EncryptedBlob {
   salt: number[]   // 16 bytes
   iv: number[]     // 12 bytes
   data: number[]   // AES-GCM ciphertext + tag
-  kdf?: 'PBKDF2-SHA256'
+  kdf?: 'PBKDF2-SHA256' | 'HKDF-SHA256'
   kdfVersion?: number
   iterations?: number
 }
@@ -96,6 +96,52 @@ export function kdfIterations(blob: EncryptedBlob): number {
 
 export function needsKdfUpgrade(blob: EncryptedBlob): boolean {
   return kdfIterations(blob) < ACTIVE_PBKDF2_ITERATIONS
+}
+
+// ─── Key-material AEAD (Windows Hello unlock) ────────────────────────────────
+//
+// For the Hello unlock path the "secret" is a high-entropy TPM signature, not a
+// human password — so we HKDF it straight to an AES key (no slow PBKDF2 stretch
+// needed) and AES-256-GCM the mnemonic under it. Used only by the wallet.hello.enc
+// copy; the password copy (wallet.enc) is untouched. See secure-store enrollHello.
+
+const HELLO_HKDF_INFO = new TextEncoder().encode('magicmoney-hello-vault-v1')
+
+async function deriveKeyFromMaterial(material: Uint8Array, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+  const raw = await subtle.importKey('raw', material as unknown as BufferSource, 'HKDF', false, ['deriveKey'])
+  return subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt, info: HELLO_HKDF_INFO },
+    raw,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  )
+}
+
+/** Encrypt a secret under raw high-entropy key material (e.g. a Hello signature). */
+export async function encryptWithKeyMaterial(plaintext: string, material: Uint8Array): Promise<EncryptedBlob> {
+  const salt = getRandom(16)
+  const iv = getRandom(12)
+  const key = await deriveKeyFromMaterial(material, salt)
+  const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(plaintext))
+  return {
+    salt: Array.from(salt),
+    iv: Array.from(iv),
+    data: Array.from(new Uint8Array(ct)),
+    kdf: 'HKDF-SHA256',
+  }
+}
+
+/** Decrypt a blob produced by encryptWithKeyMaterial. Throws if the material differs. */
+export async function decryptWithKeyMaterial(blob: EncryptedBlob, material: Uint8Array): Promise<string> {
+  const key = await deriveKeyFromMaterial(material, new Uint8Array(blob.salt))
+  let decrypted: ArrayBuffer
+  try {
+    decrypted = await subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(blob.iv) }, key, new Uint8Array(blob.data))
+  } catch {
+    throw new Error('Hello unlock failed')
+  }
+  return new TextDecoder().decode(decrypted)
 }
 
 /** Shape guard — distinguishes a new-scheme blob from a legacy raw string. */

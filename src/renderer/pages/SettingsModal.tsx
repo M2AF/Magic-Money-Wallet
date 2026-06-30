@@ -12,11 +12,35 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [revealOpen, setRevealOpen] = useState(false)
   const [sitesOpen, setSitesOpen] = useState(false)
   const [siteCount, setSiteCount] = useState<number | null>(null)
+  const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean } | null>(null)
+  const [helloBusy, setHelloBusy] = useState(false)
+  const [helloError, setHelloError] = useState<string | null>(null)
 
   const refreshSiteCount = () => {
     window.wallet.getConnectedSites().then(s => setSiteCount(s.length)).catch(() => setSiteCount(null))
   }
   useEffect(refreshSiteCount, [])
+
+  const refreshHello = () => { window.wallet.helloStatus?.().then(setHello).catch(() => setHello(null)) }
+  useEffect(refreshHello, [])
+
+  // Enrolling needs the wallet unlocked (it wraps a copy of the seed under a Hello
+  // key) — Settings is only reachable while unlocked, so that holds here. Toggling
+  // off removes the Hello copy + its TPM key; the password copy is never touched.
+  const toggleHello = async () => {
+    if (!hello || helloBusy) return
+    setHelloBusy(true); setHelloError(null)
+    try {
+      if (hello.enrolled) await window.wallet.helloRemove?.()
+      else await window.wallet.helloEnroll?.()   // triggers the Hello prompt
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!/cancel/i.test(msg)) setHelloError(msg.replace(/^Error:\s*/, ''))
+    } finally {
+      setHelloBusy(false)
+      refreshHello()
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirmDelete) { setConfirmDelete(true); return }
@@ -86,6 +110,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             }
             onClick={() => setSitesOpen(true)}
           />
+          {hello?.supported && (
+            <SettingsRow
+              icon="👋"
+              label={helloBusy ? 'Please wait…' : hello.enrolled ? 'Windows Hello unlock — On' : 'Enable Windows Hello unlock'}
+              sublabel={hello.enrolled
+                ? 'Unlock with face / fingerprint / PIN. Tap to turn off.'
+                : 'Skip typing your password. Password stays as backup.'}
+              onClick={toggleHello}
+              disabled={helloBusy}
+              noChevron
+            />
+          )}
+          {helloError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{helloError}</div>
+          )}
         </SettingsSection>
 
         <SettingsSection label="About">

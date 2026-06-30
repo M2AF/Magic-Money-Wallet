@@ -748,8 +748,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     setSpamItems(prev  => { const next = new Set(prev);  next.delete(id); saveSet(spamKey, next);   return next })
   }, [hiddenKey, spamKey])
 
-  const fetchCollectibles = useCallback(async () => {
-    setCollectiblesLoading(true)
+  const fetchCollectibles = useCallback(async (quiet = false) => {
+    if (!quiet) setCollectiblesLoading(true)
     try {
       const result = await window.wallet.getCollectibles(excludeRef.current)
       setCollectibles(result)
@@ -783,8 +783,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     }
   }, [])
 
-  const fetchTokens = useCallback(async () => {
-    setTokensLoading(true)
+  const fetchTokens = useCallback(async (quiet = false) => {
+    if (!quiet) setTokensLoading(true)
     try {
       const result = await window.wallet.getTokens()
       setTokensResult(result)
@@ -808,16 +808,18 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     if (!loading && !tokensLoading && !collectiblesLoading) setHasLoadedOnce(true)
   }, [loading, tokensLoading, collectiblesLoading])
 
-  // Gentle background refresh every 3 minutes (immediate first load already ran on
-  // mount, so there's no startup wait). Quiet — updates values in place; the total
-  // doesn't revert to "Calculating…" because hasLoadedOnce stays true.
+  // Gentle background refresh every 5 minutes (immediate first load already ran on
+  // mount, so there's no startup wait). Quiet — all fetchers run without setting their
+  // loading flags, so tokens/NFTs/networks stay on screen (no skeleton flash, scroll
+  // preserved) and the total doesn't revert to "Calculating…" (hasLoadedOnce stays true);
+  // new data swaps in place when it resolves.
   useEffect(() => {
     const id = setInterval(() => {
       fetchBalances(true)
       fetchHistory()
-      fetchTokens()
-      fetchCollectibles()
-    }, 180_000)
+      fetchTokens(true)
+      fetchCollectibles(true)
+    }, 300_000)
     return () => clearInterval(id)
   }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles])
 

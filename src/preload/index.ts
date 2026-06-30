@@ -24,6 +24,13 @@ contextBridge.exposeInMainWorld('wallet', {
   needsMigration: ()                 => ipcRenderer.invoke('wallet:needs-migration'),
   onLocked:       (cb: () => void)   => ipcRenderer.on('wallet:locked', () => cb()),
   offLocked:      (cb: () => void)   => ipcRenderer.removeListener('wallet:locked', cb as never),
+  // Fire-and-forget user-activity ping that resets main's idle auto-lock timer.
+  reportActivity: ()                 => ipcRenderer.send('wallet:activity'),
+  // Windows Hello unlock (optional convenience factor; password kept as recovery).
+  helloStatus:    ()                 => ipcRenderer.invoke('wallet:hello-status'),
+  helloEnroll:    ()                 => ipcRenderer.invoke('wallet:hello-enroll'),
+  helloUnlock:    ()                 => ipcRenderer.invoke('wallet:hello-unlock'),
+  helloRemove:    ()                 => ipcRenderer.invoke('wallet:hello-remove'),
 
   // ── Data reads ────────────────────────────────────────────────────────
   getAddresses:  ()                  => ipcRenderer.invoke('wallet:get-addresses'),

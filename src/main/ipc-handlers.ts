@@ -47,8 +47,13 @@ import {
   needsMigration,
   migrateLegacy,
   verifyPassword,
+  hasHelloUnlock,
+  enrollHello,
+  unlockWithHello,
+  removeHello,
   type WalletConfig
 } from './secure-store'
+import { helloSupported } from './hello-bridge'
 import { resolveAccountAgw } from './agw'
 import type { WalletAddresses } from './wallet-core'
 import {
@@ -155,9 +160,12 @@ let _pendingMnemonic: string | null = null
 
 // ── Idle auto-lock ────────────────────────────────────────────────────────────
 // The decrypted mnemonic lives only in secure-store's memory after unlock. We
-// clear it after a period with no sensitive activity and tell every window to
-// show the unlock screen. touchActivity() is called from unlock + signing paths;
-// polled reads deliberately do NOT reset it, so the wallet still locks while idle.
+// clear it after a period with no activity and tell every window to show the
+// unlock screen. touchActivity() is called from unlock + signing paths AND from
+// genuine UI interaction (the renderer's throttled 'wallet:activity' ping — mouse/
+// keyboard/scroll). Background polled reads (balances/tokens/NFTs) deliberately do
+// NOT reset it, so the wallet still locks when the USER is idle but never locks
+// mid-use while they're actively scrolling or typing.
 const AUTO_LOCK_MS = 15 * 60_000
 let _lockTimer: NodeJS.Timeout | null = null
 
@@ -365,6 +373,31 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:lock', () => {
     lock()
     if (_lockTimer) { clearTimeout(_lockTimer); _lockTimer = null }
+    return true
+  })
+  // Renderer reports genuine user interaction (throttled) so the idle timer only
+  // fires after real inactivity — not while the user is actively scrolling/typing.
+  // Fire-and-forget; touchActivity() no-ops when the wallet is already locked.
+  ipcMain.on('wallet:activity', () => touchActivity())
+
+  // ── Windows Hello unlock (optional convenience factor; password kept) ─────
+  // status: can Hello be offered (platform + a PIN/biometric set up) and is this
+  // wallet already enrolled. enroll/unlock trigger the Hello consent UI.
+  ipcMain.handle('wallet:hello-status', async () => ({
+    supported: await helloSupported(),
+    enrolled: hasHelloUnlock(),
+  }))
+  ipcMain.handle('wallet:hello-enroll', async () => {
+    await enrollHello()            // requires the wallet to be unlocked
+    return true
+  })
+  ipcMain.handle('wallet:hello-unlock', async () => {
+    await unlockWithHello()        // throws on cancel/failure
+    touchActivity()
+    return true
+  })
+  ipcMain.handle('wallet:hello-remove', async () => {
+    await removeHello()
     return true
   })
   ipcMain.handle('wallet:is-unlocked', () => isUnlocked())

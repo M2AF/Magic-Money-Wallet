@@ -866,28 +866,47 @@ h1, h2, h3 { font-family: var(--font-display); }
 .apphub-card {
   position: relative;
   overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid rgba(var(--card-accent-rgb, 0, 170, 255), 0.2);
+  background:
+    linear-gradient(145deg, rgba(18, 31, 57, 0.78), rgba(7, 14, 28, 0.54) 58%, rgba(var(--card-accent-rgb, 0, 170, 255), 0.16)) padding-box,
+    var(--chains-gradient, linear-gradient(135deg, var(--accent), #05d9ff)) border-box;
+  border: 2px solid transparent;
   border-radius: var(--radius-lg);
-  padding: 12px 10px 8px;
+  padding: 11px 9px 7px;
   display: flex;
   flex-direction: column;
   gap: 7px;
-  transition: border-color var(--transition), transform var(--transition);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.10),
+    inset 0 -24px 36px rgba(var(--card-accent-rgb, 0, 170, 255), 0.08),
+    0 0 18px rgba(var(--card-accent-rgb, 0, 170, 255), 0.08);
+  transition: box-shadow var(--transition), filter var(--transition), transform var(--transition);
 }
 
-/* Multicolor accent bar — blends the colors of every chain the app supports. */
 .apphub-card::before {
   content: '';
   position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--chains-gradient, linear-gradient(90deg, transparent, var(--accent), transparent));
-  opacity: 0.85;
+  inset: 2px;
+  border-radius: calc(var(--radius-lg) - 3px);
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%);
+  opacity: 0.55;
+}
+
+.apphub-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .apphub-card:hover {
-  border-color: rgba(var(--card-accent-rgb, 0, 170, 255), 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -24px 42px rgba(var(--card-accent-rgb, 0, 170, 255), 0.12),
+    0 0 24px rgba(var(--card-accent-rgb, 0, 170, 255), 0.20);
+  filter: saturate(1.08);
   transform: translateY(-1px);
 }
 
@@ -903,7 +922,8 @@ h1, h2, h3 { font-family: var(--font-display); }
   border-radius: 6px;
   flex-shrink: 0;
   object-fit: contain;
-  background: var(--bg-surface);
+  background: rgba(6, 11, 24, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .apphub-favicon-fallback {
@@ -911,7 +931,7 @@ h1, h2, h3 { font-family: var(--font-display); }
   height: 28px;
   border-radius: 6px;
   flex-shrink: 0;
-  background: var(--bg-surface);
+  background: rgba(6, 11, 24, 0.58);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -929,7 +949,10 @@ h1, h2, h3 { font-family: var(--font-display); }
 .apphub-card-name {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #f8fbff;
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 8px rgba(0, 0, 0, 0.72);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -937,7 +960,10 @@ h1, h2, h3 { font-family: var(--font-display); }
 
 .apphub-card-category {
   font-size: 9px;
-  color: var(--text-muted);
+  color: rgba(248, 251, 255, 0.82);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.95),
+    0 0 7px rgba(0, 0, 0, 0.78);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -954,9 +980,11 @@ h1, h2, h3 { font-family: var(--font-display); }
   font-weight: 600;
   padding: 1px 5px;
   border-radius: 4px;
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
+  background: rgba(4, 10, 22, 0.46);
+  color: rgba(220, 244, 255, 0.82);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(125, 211, 252, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   text-transform: capitalize;
 }
 
@@ -967,8 +995,8 @@ h1, h2, h3 { font-family: var(--font-display); }
   width: 100%;
   padding: 5px 0;
   border-radius: var(--radius-sm);
-  background: var(--accent-dim);
-  border: 1px solid var(--border-active);
+  background: linear-gradient(180deg, rgba(44, 141, 220, 0.42), rgba(0, 170, 255, 0.20));
+  border: 1px solid rgba(125, 211, 252, 0.44);
   color: var(--accent-text);
   font-size: 11px;
   font-weight: 700;
@@ -979,7 +1007,40 @@ h1, h2, h3 { font-family: var(--font-display); }
 }
 
 .apphub-open-btn:hover {
-  background: rgba(0, 170, 255, 0.28);
+  background: linear-gradient(180deg, rgba(64, 160, 236, 0.52), rgba(0, 170, 255, 0.28));
+}
+
+.apphub-context-menu {
+  position: fixed;
+  z-index: 9998;
+  width: 172px;
+  padding: 5px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.48);
+}
+
+.apphub-context-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 32px;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.apphub-context-item:hover {
+  background: var(--accent-dim);
+  color: var(--accent-text);
 }
 
 /* ── Phase 9: Profile ─────────────────────────────────────────────────────── */

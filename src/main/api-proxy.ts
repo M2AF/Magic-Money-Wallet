@@ -55,6 +55,7 @@ export const canBlockfrost = (c: WalletConfig) => hasProxy(c) || !!c.blockfrostK
 export const canMoralis   = (c: WalletConfig) => hasProxy(c) || !!c.moralisKey
 export const canOpensea   = (c: WalletConfig) => hasProxy(c) || !!c.openseaKey
 export const canOrdiscan  = (c: WalletConfig) => hasProxy(c) || !!c.ordiscanKey
+export const canAnvil     = (c: WalletConfig) => hasProxy(c) || !!c.anvilKey
 
 // ─── URL-embedded-key providers (Alchemy, Helius) ─────────────────────────────
 
@@ -205,5 +206,20 @@ export function ordinalsFetch(path: string, config: WalletConfig, timeoutMs = 12
   const headers: Record<string, string> = { accept: 'application/json' }
   if (base) Object.assign(headers, proxyHeaders(config))
   else headers['Authorization'] = `Bearer ${config.ordiscanKey}`
+  return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
+}
+
+/**
+ * Anvil (Cardano marketplace) GET. `path` is everything after `/v2/services/`
+ * (e.g. `marketplace/collections/<policyId>/assets?orderBy=priceAsc`). Used to
+ * value Cardano NFTs by collection floor. Proxy injects the X-Api-Key; direct mode
+ * needs a user-supplied Anvil key.
+ */
+export function anvilFetch(path: string, config: WalletConfig, timeoutMs = 10_000): Promise<Response> {
+  const base = proxyBase(config)
+  const url = base ? proxyUrl(`${base}/anvil/${path}`, config) : `https://prod.api.ada-anvil.app/v2/services/${path}`
+  const headers: Record<string, string> = { accept: 'application/json' }
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['X-Api-Key'] = config.anvilKey
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
 }

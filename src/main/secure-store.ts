@@ -13,11 +13,13 @@ import { safeStorage, app } from 'electron'
 import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import type { WalletAddresses } from './wallet-core'
-import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, type EncryptedBlob } from './crypto-vault'
+import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob } from './crypto-vault'
+import { runHello, helloPlatformOk, HELLO_KEY_NAME, HELLO_CHALLENGE_B64 } from './hello-bridge'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
 const addressesPath = () => join(userData(), 'addresses.json')
+const walletHelloPath = () => join(userData(), 'wallet.hello.enc')
 const configPath = () => join(userData(), 'config.json')
 const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
 const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
@@ -118,6 +120,56 @@ export function lock(): void {
   _unlockedMnemonic = null
 }
 
+// ─── Windows Hello unlock (optional, additive) ───────────────────────────────
+//
+// A SECOND encrypted copy of the mnemonic at wallet.hello.enc, wrapped by a key
+// derived (HKDF) from a TPM-backed Windows Hello signature (hello-bridge.ts). It
+// NEVER touches the password copy (wallet.enc) — it's a convenience unlock and the
+// password remains the recovery path. At rest it's safeStorage.encrypt(JSON(blob)),
+// and the blob is only decryptable after a real Hello ceremony: the signature can't
+// be produced without the TPM key + user verification, so the seed stays
+// unrecoverable from the device files alone.
+
+/** True when a Hello unlock copy is enrolled for this wallet. */
+export function hasHelloUnlock(): boolean {
+  return existsSync(walletHelloPath())
+}
+
+/** Enroll Hello unlock for the CURRENTLY-UNLOCKED wallet. Triggers a Hello prompt. */
+export async function enrollHello(): Promise<void> {
+  if (!helloPlatformOk()) throw new Error('Windows Hello is only available on Windows')
+  if (_unlockedMnemonic == null) throw new Error('Unlock the wallet first')
+  requireSafeStorage()
+  const res = await runHello('enroll', HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
+  if (!res.ok || !res.signatureB64) {
+    throw new Error(res.status === 'UserCanceled' ? 'Windows Hello was canceled' : (res.status ?? res.error ?? 'Windows Hello enrollment failed'))
+  }
+  const material = new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
+  const blob = await encryptWithKeyMaterial(_unlockedMnemonic, material)
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(walletHelloPath(), safeStorage.encryptString(JSON.stringify(blob)))
+}
+
+/** Unlock via Windows Hello. Triggers a Hello prompt; caches the phrase on success. */
+export async function unlockWithHello(): Promise<void> {
+  if (!hasHelloUnlock()) throw new Error('Windows Hello is not set up for this wallet')
+  requireSafeStorage()
+  const res = await runHello('sign', HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
+  if (!res.ok || !res.signatureB64) {
+    throw new Error(res.status === 'UserCanceled' ? 'Windows Hello was canceled' : (res.status ?? res.error ?? 'Windows Hello unlock failed'))
+  }
+  const material = new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
+  const outer = safeStorage.decryptString(readFileSync(walletHelloPath()))
+  const blob = JSON.parse(outer) as EncryptedBlob
+  _unlockedMnemonic = await decryptWithKeyMaterial(blob, material)
+}
+
+/** Disable Hello unlock: remove the encrypted copy and the TPM-backed key. */
+export async function removeHello(): Promise<void> {
+  if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath())
+  if (helloPlatformOk()) { try { await runHello('delete', HELLO_KEY_NAME) } catch { /* best effort */ } }
+}
+
 export function isUnlocked(): boolean {
   return _unlockedMnemonic !== null
 }
@@ -135,6 +187,9 @@ export function walletExists(): boolean {
 export function deleteWallet(): void {
   if (existsSync(walletEncPath())) unlinkSync(walletEncPath())
   if (existsSync(addressesPath())) unlinkSync(addressesPath())
+  // Also remove the Hello unlock copy + its TPM key (fire-and-forget for the key).
+  if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath())
+  if (helloPlatformOk()) { void runHello('delete', HELLO_KEY_NAME).catch(() => { /* best effort */ }) }
   _unlockedMnemonic = null
   addressesCache = null
   addressesCached = false
@@ -224,6 +279,7 @@ export interface WalletConfig {
   moralisKey: string
   openseaKey: string
   ordiscanKey: string
+  anvilKey: string
   supabaseUrl: string
   supabaseKey: string
   walletConnectProjectId: string
@@ -248,6 +304,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   moralisKey: '',
   openseaKey: '',
   ordiscanKey: '',
+  anvilKey: '',
   supabaseUrl: '',
   supabaseKey: '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',

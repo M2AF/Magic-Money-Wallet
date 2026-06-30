@@ -19,16 +19,16 @@ function chainAccents(chains: string[]): ChainColor[] {
   return out.length ? out : [chainColor('')]
 }
 
-/** Horizontal gradient that blends the supported chains' colors, fading at both ends. */
+/** Smooth rounded-card ring that blends the supported chains' colors. */
 function accentGradient(colors: ChainColor[]): string {
-  if (colors.length === 1) {
-    return `linear-gradient(90deg, transparent, ${colors[0].hex}, transparent)`
-  }
-  const stops = colors.map((c, i) => {
-    const pos = 12 + (76 * i) / (colors.length - 1)
-    return `${c.hex} ${pos.toFixed(1)}%`
+  const palette = colors.length === 1
+    ? [colors[0].hex, '#05D9FF', colors[0].hex]
+    : colors.map(c => c.hex)
+  const stops = [...palette, palette[0]].map((hex, i) => {
+    const pos = (100 * i) / palette.length
+    return `${hex} ${pos.toFixed(1)}%`
   })
-  return `linear-gradient(90deg, transparent 0%, ${stops.join(', ')}, transparent 100%)`
+  return `conic-gradient(from 140deg at 50% 50%, ${stops.join(', ')})`
 }
 
 interface DropdownOption { value: string; label: string; count?: number }
@@ -39,13 +39,30 @@ interface TabProps {
   wcPending?: boolean
   onProfile?: () => void
   onSettings?: () => void
+  browserOpen?: boolean
+  onBrowserOpened?: () => void
 }
 
-export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: TabProps) {
+interface AppContextMenu {
+  app: AppEntry
+  x: number
+  y: number
+}
+
+export function AppHubPage({
+  onWcOpen,
+  wcActiveSessions,
+  wcPending,
+  onProfile,
+  onSettings,
+  browserOpen = false,
+  onBrowserOpened,
+}: TabProps) {
   const [chainFilter, setChainFilter]       = useState<string>(ALL)
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
   const [search, setSearch]                 = useState('')
   const [openDropdown, setOpenDropdown]     = useState<'category' | 'chain' | null>(null)
+  const [contextMenu, setContextMenu]        = useState<AppContextMenu | null>(null)
 
   const filtered = useMemo<AppEntry[]>(() => {
     const q = search.trim().toLowerCase()
@@ -60,18 +77,52 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
   const featured = filtered.filter(a => a.featured)
   const rest      = filtered.filter(a => !a.featured)
 
-  function openApp(url: string) {
-    // In Chrome extension context chrome.tabs is available — open directly in a new tab.
+  function hasChromeTabs() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((globalThis as any).chrome?.tabs?.create) {
+    return Boolean((globalThis as any).chrome?.tabs?.create)
+  }
+
+  function openApp(url: string) {
+    setContextMenu(null)
+    // In Chrome extension context chrome.tabs is available — open directly in a new tab.
+    if (hasChromeTabs()) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(globalThis as any).chrome.tabs.create({ url })
       return
     }
     // Electron: open the built-in dApp browser popup then navigate to the URL.
     window.wallet.openBrowser()
+    onBrowserOpened?.()
     setTimeout(() => window.wallet.browserNavigate(url), 400)
   }
+
+  function openAppInNewTab(url: string) {
+    setContextMenu(null)
+    if (hasChromeTabs()) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(globalThis as any).chrome.tabs.create({ url })
+      return
+    }
+    if (browserOpen) {
+      window.wallet.browserNewTab(url)
+      return
+    }
+    openApp(url)
+  }
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('mousedown', close)
+    window.addEventListener('wheel', close, { passive: true })
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', close)
+      window.removeEventListener('wheel', close)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [contextMenu])
 
   return (
     <div className="apphub-page">
@@ -142,7 +193,14 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
             <>
               <p className="apphub-section-label">Featured</p>
               <div className="apphub-grid">
-                {featured.map(app => <AppCard key={app.id} app={app} onOpen={openApp} />)}
+                {featured.map(app => (
+                  <AppCard
+                    key={app.id}
+                    app={app}
+                    onOpen={openApp}
+                    onContextMenu={(x, y) => setContextMenu({ app, x, y })}
+                  />
+                ))}
               </div>
             </>
           )}
@@ -150,10 +208,45 @@ export function AppHubPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
             <>
               {featured.length > 0 && <p className="apphub-section-label">All apps</p>}
               <div className="apphub-grid">
-                {rest.map(app => <AppCard key={app.id} app={app} onOpen={openApp} />)}
+                {rest.map(app => (
+                  <AppCard
+                    key={app.id}
+                    app={app}
+                    onOpen={openApp}
+                    onContextMenu={(x, y) => setContextMenu({ app, x, y })}
+                  />
+                ))}
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="apphub-context-menu"
+          style={{
+            left: Math.max(8, Math.min(contextMenu.x, window.innerWidth - 180)),
+            top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - (browserOpen || hasChromeTabs() ? 92 : 50))),
+          }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          {(browserOpen || hasChromeTabs()) && (
+            <button
+              type="button"
+              className="apphub-context-item"
+              onClick={() => openAppInNewTab(contextMenu.app.website)}
+            >
+              Open in New Tab
+            </button>
+          )}
+          <button
+            type="button"
+            className="apphub-context-item"
+            onClick={() => openApp(contextMenu.app.website)}
+          >
+            {browserOpen ? 'Open in Current Tab' : 'Open in Browser'}
+          </button>
         </div>
       )}
     </div>
@@ -228,7 +321,15 @@ function FilterDropdown({
   )
 }
 
-function AppCard({ app, onOpen }: { app: AppEntry; onOpen: (url: string) => void }) {
+function AppCard({
+  app,
+  onOpen,
+  onContextMenu,
+}: {
+  app: AppEntry
+  onOpen: (url: string) => void
+  onContextMenu: (x: number, y: number) => void
+}) {
   const [imgErr, setImgErr] = useState(false)
 
   const accents = chainAccents(app.chains)
@@ -237,6 +338,10 @@ function AppCard({ app, onOpen }: { app: AppEntry; onOpen: (url: string) => void
   return (
     <div
       className="apphub-card"
+      onContextMenu={e => {
+        e.preventDefault()
+        onContextMenu(e.clientX, e.clientY)
+      }}
       style={{
         ['--chains-gradient' as string]: accentGradient(accents),
         ['--card-accent' as string]: primary.hex,

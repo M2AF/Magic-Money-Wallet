@@ -22,6 +22,7 @@ export interface WalletConfig {
   moralisKey: string
   openseaKey: string
   ordiscanKey: string
+  anvilKey: string
   supabaseUrl: string
   supabaseKey: string
   walletConnectProjectId: string
@@ -44,6 +45,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   moralisKey:             '',
   openseaKey:             '',
   ordiscanKey:            '',
+  anvilKey:               '',
   supabaseUrl:            '',
   supabaseKey:            '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',

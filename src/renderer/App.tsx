@@ -74,6 +74,25 @@ export function App() {
     return () => window.wallet.offLocked?.(onLocked)
   }, [])
 
+  // Inactivity-aware auto-lock: report genuine user interaction to main so its idle
+  // timer only fires after real inactivity — scrolling/typing/mouse keeps the wallet
+  // open. Throttled to one ping every 30s (timer is minutes), so high-frequency
+  // events like mousemove/scroll cost almost nothing. Optional-chained for the
+  // extension bridge (no reportActivity).
+  useEffect(() => {
+    if (!window.wallet.reportActivity) return
+    let last = 0
+    const ping = () => {
+      const now = Date.now()
+      if (now - last < 30_000) return
+      last = now
+      window.wallet.reportActivity!()
+    }
+    const events: Array<keyof WindowEventMap> = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart', 'scroll']
+    for (const e of events) window.addEventListener(e, ping, { capture: true, passive: true })
+    return () => { for (const e of events) window.removeEventListener(e, ping, { capture: true }) }
+  }, [])
+
   // New / imported wallet is derived; now require a password before going live.
   const handleWalletReady = (addrs: WalletAddresses) => {
     setAddresses(addrs)
@@ -155,7 +174,13 @@ export function App() {
       {/* Swap stays mounted while in the dashboard so in-progress swap state (and the
           SimpleSwap status poller) survive switching to other tabs and back. */}
       {inDashboard && addresses && <SwapPage addresses={addresses} hidden={activeTab !== 'swap'} {...toolbarProps} />}
-      {inDashboard && activeTab === 'apphub' && <AppHubPage {...toolbarProps} />}
+      {inDashboard && activeTab === 'apphub' && (
+        <AppHubPage
+          {...toolbarProps}
+          browserOpen={browserOpen}
+          onBrowserOpened={() => setBrowserOpen(true)}
+        />
+      )}
 
       {/* Global settings sheet — opened from any tab's header toolbar */}
       {inDashboard && showSettings && (

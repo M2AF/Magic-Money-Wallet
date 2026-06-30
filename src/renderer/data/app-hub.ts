@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 428,
+  "totalApps": 429,
   "totalChains": 18,
   "chains": [
     {
@@ -143,7 +143,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Portfolio & Analytics",
       "short": "Portfolio",
-      "count": 30
+      "count": 31
     },
     {
       "name": "Perps & Prediction Markets",
@@ -218,7 +218,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "cardano",
-      "count": 226
+      "count": 227
     },
     {
       "id": "ethereum",
@@ -4024,6 +4024,20 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=konnektr.net&sz=64",
       "description": "An open-source developer toolset and SDK for PostgreSQL/Apache AGE, providing graph database capabilities and integration libraries for C# and .NET environments.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
+      "id": "mizutools",
+      "name": "MizuTools",
+      "website": "https://mizutools.xyz/",
+      "category": "Portfolio & Analytics",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=mizutools.xyz&sz=64",
+      "description": "A comprehensive analytics and portfolio tracking platform designed to provide insights into the Cardano ecosystem and asset performance.",
       "chainCount": 1,
       "coverage": 6
     },

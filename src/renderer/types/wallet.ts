@@ -257,6 +257,12 @@ declare global {
       needsMigration(): Promise<boolean>
       onLocked(cb: () => void): void
       offLocked(cb: () => void): void
+      reportActivity?(): void
+      // Windows Hello unlock (optional; desktop only). Absent on the extension bridge.
+      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean }>
+      helloEnroll?(): Promise<boolean>
+      helloUnlock?(): Promise<boolean>
+      helloRemove?(): Promise<boolean>
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
       revealSeed(password: string): Promise<string[]>

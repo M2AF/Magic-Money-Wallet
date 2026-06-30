@@ -11,6 +11,7 @@ const config: WalletConfig = {
   moralisKey: '',
   openseaKey: '',
   ordiscanKey: '',
+  anvilKey: '',
   supabaseUrl: '',
   supabaseKey: '',
   walletConnectProjectId: '',

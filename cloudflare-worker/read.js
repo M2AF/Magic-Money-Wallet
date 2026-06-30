@@ -13,7 +13,8 @@
  * client so each user keeps their own IP-based quota.
  *
  * Required env: ALCHEMY_KEY, HELIUS_KEY, TATUM_KEY, BLOCKFROST_KEY, MORALIS_KEY,
- *   OPENSEA_KEY. Optional: CACHE (KV), CLIENT_TOKEN, READ_RPM.
+ *   OPENSEA_KEY. Optional: ORDISCAN_API_KEY, ANKR_API_KEY, ANVIL_API_KEY (Cardano
+ *   marketplace floors), CACHE (KV), CLIENT_TOKEN, READ_RPM.
  */
 
 import { json, err, passthrough, cacheGet, cachePut, clientOk, rateLimit, pathParts } from './lib.js'
@@ -35,7 +36,7 @@ const ANKR_CHAINS = new Set([
   'eth', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'bsc', 'gnosis', 'blast', 'solana',
 ])
 
-const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea', 'ordinals'])
+const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea', 'ordinals', 'anvil'])
 
 // Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
 // hosts — TRON uses path-based `wallet/*` methods under /v2/{key}/).
@@ -202,6 +203,25 @@ export async function handleRead(request, url, env, ctx) {
     if (!res.ok) return passthrough(env, res)
     const data = await res.json().catch(() => null)
     if (ckey && data) cachePut(env, ctx, ckey, data, ttl)
+    return json(env, data)
+  }
+
+  // ── Anvil (Cardano marketplace): GET /anvil/* (inject X-Api-Key) ──────────
+  // Collection floor = cheapest listed asset. Collection-scoped reads are the
+  // same for every user, so cache them 10m to cut Anvil load; wallet-scoped and
+  // other reads pass through.
+  if (parts[0] === 'anvil' && request.method === 'GET') {
+    if (!env.ANVIL_API_KEY) return err(env, 'Anvil key not configured', 500)
+    const rest = parts.slice(1).join('/')
+    const cacheable = parts[1] === 'marketplace' && parts[2] === 'collections'
+    const ckey = cacheable ? `anvil:${rest}${url.search}` : null
+    if (ckey) { const hit = await cacheGet(env, ckey); if (hit) return json(env, hit) }
+    const res = await fetch(`https://prod.api.ada-anvil.app/v2/services/${rest}${url.search}`, {
+      headers: { 'X-Api-Key': env.ANVIL_API_KEY, accept: 'application/json' },
+    })
+    if (!res.ok) return passthrough(env, res)
+    const data = await res.json().catch(() => null)
+    if (ckey && data) cachePut(env, ctx, ckey, data, 600)
     return json(env, data)
   }
 

@@ -4,7 +4,7 @@ import { getTokenBalances } from './alchemy-cache'
 import {
   alchemyRpcUrl, alchemyNftUrl, heliusRpcUrl,
   blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
-  ordinalsFetch, canOrdiscan,
+  ordinalsFetch, canOrdiscan, anvilFetch, canAnvil,
 } from './api-proxy'
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 
@@ -1183,8 +1183,8 @@ async function fetchTronNFTs(address: string): Promise<WalletCollectible[]> {
 // ─── NFT floor-price valuation (OpenSea) ─────────────────────────────────────
 
 // Wallet chain id → OpenSea v2 chain slug. Floors are priced via OpenSea for
-// every chain it supports (all major EVMs + Solana). Chains absent here (Cardano,
-// Monad) have no OpenSea coverage and stay unvalued.
+// every chain it supports (all major EVMs + Solana). Cardano is priced separately
+// via Anvil (see anvilCollectionFloor); chains absent from both stay unvalued.
 const OPENSEA_NFT_CHAIN: Record<string, string> = {
   ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
   polygon: 'matic', abstract: 'abstract', blast: 'blast', avalanche: 'avalanche',
@@ -1307,6 +1307,31 @@ async function meCollectionFloor(symbol: string): Promise<FloorEntry | null> {
   return value
 }
 
+/**
+ * Anvil (Cardano) collection floor — the cheapest currently-listed asset in the
+ * collection (policyId). Listing price is in lovelace → ADA. Cached alongside the
+ * OpenSea/Magic Eden floors.
+ */
+async function anvilCollectionFloor(policyId: string, config: WalletConfig): Promise<FloorEntry | null> {
+  const cacheKey = `anvil:${policyId}`
+  const hit = floorCache.get(cacheKey)
+  if (hit && hit.exp > Date.now()) return hit.value
+  let value: FloorEntry | null = null
+  try {
+    const res = await anvilFetch(
+      `marketplace/collections/${policyId}/assets?orderBy=priceAsc&saleType=listedOnly&limit=1`,
+      config, 9_000
+    )
+    if (res.ok) {
+      const json = await res.json() as { results?: Array<{ listing?: { price?: number } }> }
+      const lovelace = json.results?.[0]?.listing?.price
+      if (typeof lovelace === 'number' && lovelace > 0) value = { floor: lovelace / 1e6, symbol: 'ADA' }
+    }
+  } catch { /* leave null */ }
+  floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
+  return value
+}
+
 interface FloorOpts { solanaAddress?: string; evmAddress?: string; agw?: string; exclude?: Set<string> }
 
 /**
@@ -1323,6 +1348,8 @@ interface FloorOpts { solanaAddress?: string; evmAddress?: string; agw?: string;
 async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig, opts: FloorOpts = {}): Promise<WalletCollectible[]> {
   // OpenSea is available via the proxy even when no client key is set.
   const osOk = canOpensea(config)
+  // Anvil (Cardano marketplace floors) — proxy or a user-supplied key.
+  const anvilOk = canAnvil(config)
   const { solanaAddress, evmAddress, agw, exclude } = opts
   // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
   // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
@@ -1352,6 +1379,16 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const tasks = new Map<string, () => Promise<FloorEntry | null>>()
   for (const i of priced) {
     if (i.floorPrice != null) { taskKeyOf.set(i, null); continue }  // already has an inline floor
+    // Cardano floors come from Anvil (keyed by policyId = the NFT's contractAddress).
+    if (i.chain === 'cardano') {
+      const policy = i.contractAddress
+      if (anvilOk && /^[0-9a-f]{56}$/i.test(policy)) {
+        const tk = `anvil:${policy}`
+        if (!tasks.has(tk)) tasks.set(tk, () => anvilCollectionFloor(policy, config))
+        taskKeyOf.set(i, tk)
+      } else taskKeyOf.set(i, null)
+      continue
+    }
     const osChain = OPENSEA_NFT_CHAIN[i.chain]
     if (!osChain || !osOk) { taskKeyOf.set(i, null); continue }
     let tk: string | null = null
