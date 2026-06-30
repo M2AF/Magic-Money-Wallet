@@ -50,6 +50,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   simpleSwapApiKey:       ''
 }
 
+const AUTO_LOCK_MS = 15 * 60_000
+
 // ── WebCrypto helpers ─────────────────────────────────────────────────────────
 
 async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
@@ -67,6 +69,30 @@ async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey>
 
 // ── Mnemonic (encrypted at rest, decrypted in session) ───────────────────────
 
+async function saveUnlockedMnemonic(mnemonic: string): Promise<void> {
+  await chrome.storage.session.set({
+    'wallet.unlocked': mnemonic,
+    'wallet.unlockedAt': Date.now()
+  })
+}
+
+async function clearUnlockedMnemonic(): Promise<void> {
+  await chrome.storage.session.remove(['wallet.unlocked', 'wallet.unlockedAt'])
+}
+
+async function getUnlockedMnemonic(): Promise<string | null> {
+  const r = await chrome.storage.session.get(['wallet.unlocked', 'wallet.unlockedAt'])
+  const mnemonic = r['wallet.unlocked']
+  if (!mnemonic) return null
+  const unlockedAt = Number(r['wallet.unlockedAt'] ?? 0)
+  if (!Number.isFinite(unlockedAt) || Date.now() - unlockedAt > AUTO_LOCK_MS) {
+    await clearUnlockedMnemonic()
+    return null
+  }
+  await chrome.storage.session.set({ 'wallet.unlockedAt': Date.now() })
+  return mnemonic as string
+}
+
 export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const iv   = crypto.getRandomValues(new Uint8Array(12))
@@ -79,7 +105,7 @@ export async function saveMnemonic(mnemonic: string, password: string): Promise<
       data: Array.from(new Uint8Array(ct))
     }
   })
-  await chrome.storage.session.set({ 'wallet.unlocked': mnemonic })
+  await saveUnlockedMnemonic(mnemonic)
 }
 
 export async function walletExists(): Promise<boolean> {
@@ -88,8 +114,7 @@ export async function walletExists(): Promise<boolean> {
 }
 
 export async function isUnlocked(): Promise<boolean> {
-  const r = await chrome.storage.session.get('wallet.unlocked')
-  return !!r['wallet.unlocked']
+  return (await getUnlockedMnemonic()) !== null
 }
 
 export async function unlock(password: string): Promise<void> {
@@ -104,7 +129,7 @@ export async function unlock(password: string): Promise<void> {
     throw new Error('Incorrect password')
   }
   const mnemonic = new TextDecoder().decode(decrypted)
-  await chrome.storage.session.set({ 'wallet.unlocked': mnemonic })
+  await saveUnlockedMnemonic(mnemonic)
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
@@ -121,18 +146,18 @@ export async function verifyPassword(password: string): Promise<boolean> {
 }
 
 export async function lock(): Promise<void> {
-  await chrome.storage.session.remove('wallet.unlocked')
+  await clearUnlockedMnemonic()
 }
 
 export async function loadMnemonic(): Promise<string> {
-  const r = await chrome.storage.session.get('wallet.unlocked')
-  if (!r['wallet.unlocked']) throw new Error('Wallet is locked — please unlock first')
-  return r['wallet.unlocked'] as string
+  const mnemonic = await getUnlockedMnemonic()
+  if (!mnemonic) throw new Error('Wallet is locked — please unlock first')
+  return mnemonic
 }
 
 export async function deleteWallet(): Promise<void> {
   await chrome.storage.local.remove(['wallet.enc', 'wallet.addresses'])
-  await chrome.storage.session.remove('wallet.unlocked')
+  await clearUnlockedMnemonic()
 }
 
 // ── Temp mnemonic during create/import flow (before password is set) ──────────

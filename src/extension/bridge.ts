@@ -75,6 +75,18 @@ function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
   })
 }
 
+function normalizeWebUrl(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const u = new URL(candidate)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null
+  } catch {
+    return null
+  }
+}
+
 // ── Push event registry (background → popup via chrome.runtime.onMessage) ────
 
 const _listenerMap = new WeakMap<Function, (msg: { type: string; data: unknown }) => void>()
@@ -166,7 +178,11 @@ export function createExtensionWallet() {
     browserForward:  () => {},
     browserReload:   () => {},
     browserHome:     () => {},
-    browserNavigate: (url: string) => { chrome.tabs.create({ url }); return Promise.resolve() },
+    browserNavigate: (url: string) => {
+      const safeUrl = normalizeWebUrl(url)
+      if (safeUrl) chrome.tabs.create({ url: safeUrl })
+      return Promise.resolve()
+    },
     browserGetState: () => Promise.resolve({ url: '', canBack: false, canForward: false, loading: false }),
     onBrowserUrl:        () => {},
     onBrowserLoading:    () => {},

@@ -69,6 +69,29 @@ function isSafe(url: string): boolean {
   } catch { return false }
 }
 
+function openExternalSafe(url: string): void {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+      shell.openExternal(parsed.toString())
+    }
+  } catch {
+    // Ignore malformed or unsupported external URLs.
+  }
+}
+
+function normalizeWebUrl(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const parsed = new URL(candidate)
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.toString() : null
+  } catch {
+    return null
+  }
+}
+
 /** Called once from index.ts so we know which window to show signing dialogs on */
 export function setMainWindow(win: BrowserWindow): void {
   mainWin = win
@@ -235,7 +258,7 @@ function attachDappView(): void {
   dappView.webContents.setWindowOpenHandler(({ url }) => {
     // Non-web schemes (mailto:, etc.) → hand off to the OS.
     if (!/^https?:\/\//i.test(url)) {
-      shell.openExternal(url)
+      openExternalSafe(url)
       return { action: 'deny' }
     }
     // Phishing blocklist parity with in-view navigation — block, don't relocate.
@@ -275,7 +298,7 @@ function attachDappView(): void {
   dappView.webContents.on('did-create-window', (childWin) => {
     childWin.webContents.setWindowOpenHandler(({ url }) => {
       if (/^https?:\/\//i.test(url) && isSafe(url)) return { action: 'allow' }
-      shell.openExternal(url)
+      openExternalSafe(url)
       return { action: 'deny' }
     })
   })
@@ -309,10 +332,8 @@ export function closeBrowserWindow(): void {
 
 export function browserNavigate(url: string): void {
   if (!dappView) return
-  // Pass http(s) and internal diagnostic schemes (chrome://gpu, about:) through
-  // as-is; otherwise treat the input as a hostname and default to https://.
-  const trimmed = url.trim()
-  const normalized = /^(https?|chrome|about):/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const normalized = normalizeWebUrl(url)
+  if (!normalized) return
   dappView.webContents.loadURL(normalized)
 }
 

@@ -57,6 +57,17 @@ function installRendererCsp(): void {
   )
 }
 
+function openExternalSafe(url: string): void {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+      shell.openExternal(parsed.toString())
+    }
+  } catch {
+    // Ignore malformed or unsupported external URLs.
+  }
+}
+
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
@@ -95,7 +106,7 @@ function createWindow(): void {
 
   // Force external links to system browser, not Electron
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    openExternalSafe(url)
     return { action: 'deny' }
   })
 

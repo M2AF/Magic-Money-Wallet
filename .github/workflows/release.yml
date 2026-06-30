@@ -9,8 +9,33 @@ permissions:
   contents: write
 
 jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Critical production dependency audit
+        run: npm audit --omit=dev --audit-level=critical
+
   # ── Build Electron app for all three platforms ─────────────────────────────
   electron:
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -43,6 +68,7 @@ jobs:
 
   # ── Build Chrome extension zip (runs once on Linux) ────────────────────────
   extension:
+    needs: validate
     runs-on: ubuntu-latest
     name: Chrome Extension
 
