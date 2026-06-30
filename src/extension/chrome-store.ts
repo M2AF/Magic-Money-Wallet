@@ -107,6 +107,19 @@ export async function unlock(password: string): Promise<void> {
   await chrome.storage.session.set({ 'wallet.unlocked': mnemonic })
 }
 
+export async function verifyPassword(password: string): Promise<boolean> {
+  const r = await chrome.storage.local.get('wallet.enc')
+  if (!r['wallet.enc']) return false
+  const { salt, iv, data } = r['wallet.enc'] as { salt: number[]; iv: number[]; data: number[] }
+  const key = await deriveKey(password, new Uint8Array(salt))
+  try {
+    await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data))
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function lock(): Promise<void> {
   await chrome.storage.session.remove('wallet.unlocked')
 }

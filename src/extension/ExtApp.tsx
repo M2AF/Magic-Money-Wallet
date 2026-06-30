@@ -17,6 +17,8 @@ import { App } from '../renderer/App'
 type ExtPage = 'checking' | 'locked' | 'setpassword' | 'app'
 
 type ConnRequest = { id: string; origin: string }
+type TxRequest = { id: string; origin?: string; chainId?: string; from?: string; to?: string; value?: string; data?: string }
+type SignRequest = { id: string; origin: string; chain: string; method: string; summary: string; details?: string }
 
 export function ExtApp() {
   const [page, setPage] = useState<ExtPage>('checking')
@@ -27,6 +29,8 @@ export function ExtApp() {
 
   // dApp connection request (null = none pending)
   const [connRequest, setConnRequest] = useState<ConnRequest | null>(null)
+  const [txRequest, setTxRequest] = useState<TxRequest | null>(null)
+  const [signRequest, setSignRequest] = useState<SignRequest | null>(null)
   const [connAddress, setConnAddress] = useState<string>('')
 
   useEffect(() => {
@@ -48,15 +52,25 @@ export function ExtApp() {
 
   // Listen for incoming dApp connection requests from the background
   useEffect(() => {
-    function handleMsg(msg: { type: string; data: ConnRequest }) {
+    function handleMsg(msg: { type: string; data: ConnRequest | TxRequest | SignRequest }) {
       if (msg?.type === 'web3:connection-request') {
-        setConnRequest(msg.data)
+        setConnRequest(msg.data as ConnRequest)
+      } else if (msg?.type === 'web3:tx-request') {
+        setTxRequest(msg.data as TxRequest)
+      } else if (msg?.type === 'web3:sign-request') {
+        setSignRequest(msg.data as SignRequest)
       }
     }
     chrome.runtime.onMessage.addListener(handleMsg)
     // Also check for any pending requests that arrived before the popup opened
     ;(window.wallet as any).web3GetPendingConnections?.()
       .then((reqs: ConnRequest[]) => { if (reqs.length > 0) setConnRequest(reqs[0]) })
+      .catch(() => {})
+    ;(window.wallet as any).web3GetPendingTx?.()
+      .then((reqs: TxRequest[]) => { if (reqs.length > 0) setTxRequest(reqs[0]) })
+      .catch(() => {})
+    ;(window.wallet as any).web3GetPendingSign?.()
+      .then((reqs: SignRequest[]) => { if (reqs.length > 0) setSignRequest(reqs[0]) })
       .catch(() => {})
     return () => chrome.runtime.onMessage.removeListener(handleMsg)
   }, [])
@@ -178,10 +192,93 @@ export function ExtApp() {
 
   let hostname = ''
   try { hostname = connRequest ? new URL(connRequest.origin).hostname : '' } catch { hostname = connRequest?.origin ?? '' }
+  let txHostname = ''
+  try { txHostname = txRequest?.origin ? new URL(txRequest.origin).hostname : '' } catch { txHostname = txRequest?.origin ?? '' }
+  let signHostname = ''
+  try { signHostname = signRequest?.origin ? new URL(signRequest.origin).hostname : '' } catch { signHostname = signRequest?.origin ?? '' }
+  const txNativeValue = txRequest?.value ? formatWei(txRequest.value) : '0'
 
   return (
     <>
       <App />
+
+      {txRequest && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100000,
+          background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{
+            background: '#111', borderRadius: 20, padding: '26px 22px', width: '100%',
+            maxWidth: 360, border: '1px solid #2a2a2a',
+            display: 'flex', flexDirection: 'column', gap: 14
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 34, marginBottom: 8 }}>✍</div>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Approve Transaction</div>
+              <div style={{ color: '#888', fontSize: 12, lineHeight: 1.5 }}>
+                <span style={{ color: '#a78bfa', fontWeight: 600 }}>{txHostname || 'Connected site'}</span>
+                {' '}wants to send a transaction
+              </div>
+            </div>
+
+            <div style={detailBoxStyle}>
+              <DetailRow label="Chain" value={txRequest.chainId ?? 'current'} />
+              <DetailRow label="To" value={shorten(txRequest.to)} mono />
+              <DetailRow label="Value" value={`${txNativeValue} native`} />
+              {txRequest.data && txRequest.data !== '0x' && <DetailRow label="Data" value={`${txRequest.data.slice(0, 18)}…${txRequest.data.slice(-8)}`} mono />}
+            </div>
+
+            <div style={{ color: '#777', fontSize: 11, lineHeight: 1.55 }}>
+              Only approve if you trust this site and recognize the transaction.
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button onClick={doRejectTx} style={{ ...rejectBtnStyle, flex: 1 }} type="button">Reject</button>
+              <button onClick={doApproveTx} style={{ ...btnStyle, flex: 2, marginTop: 0 }} type="button">Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {signRequest && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100001,
+          background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20
+        }}>
+          <div style={{
+            background: '#111', borderRadius: 20, padding: '26px 22px', width: '100%',
+            maxWidth: 360, border: '1px solid #2a2a2a',
+            display: 'flex', flexDirection: 'column', gap: 14
+          }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 34, marginBottom: 8 }}>✎</div>
+              <div style={{ color: '#fff', fontWeight: 700, fontSize: 17, marginBottom: 4 }}>Approve Signature</div>
+              <div style={{ color: '#888', fontSize: 12, lineHeight: 1.5 }}>
+                <span style={{ color: '#a78bfa', fontWeight: 600 }}>{signHostname || 'Connected site'}</span>
+                {' '}wants your signature
+              </div>
+            </div>
+
+            <div style={detailBoxStyle}>
+              <DetailRow label="Chain" value={signRequest.chain} />
+              <DetailRow label="Method" value={signRequest.method} mono />
+              <DetailRow label="Request" value={signRequest.summary} />
+              {signRequest.details && <DetailRow label="Details" value={signRequest.details} mono />}
+            </div>
+
+            <div style={{ color: '#777', fontSize: 11, lineHeight: 1.55 }}>
+              Signatures can grant permissions or authorize off-chain actions. Approve only if you understand this request.
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button onClick={doRejectSign} style={{ ...rejectBtnStyle, flex: 1 }} type="button">Reject</button>
+              <button onClick={doApproveSign} style={{ ...btnStyle, flex: 2, marginTop: 0 }} type="button">Sign</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {connRequest && (
         <div style={{
@@ -296,6 +393,63 @@ export function ExtApp() {
     } catch { /* already gone */ }
     setConnRequest(null)
   }
+
+  async function doApproveTx() {
+    if (!txRequest) return
+    try {
+      await (window.wallet as any).web3ApproveTx(txRequest.id, txRequest.chainId)
+    } catch { /* background may have already resolved */ }
+    setTxRequest(null)
+  }
+
+  async function doRejectTx() {
+    if (!txRequest) return
+    try {
+      await (window.wallet as any).web3RejectTx(txRequest.id)
+    } catch { /* already gone */ }
+    setTxRequest(null)
+  }
+
+  async function doApproveSign() {
+    if (!signRequest) return
+    try {
+      await (window.wallet as any).web3ApproveSign(signRequest.id)
+    } catch { /* background may have already resolved */ }
+    setSignRequest(null)
+  }
+
+  async function doRejectSign() {
+    if (!signRequest) return
+    try {
+      await (window.wallet as any).web3RejectSign(signRequest.id)
+    } catch { /* already gone */ }
+    setSignRequest(null)
+  }
+}
+
+function shorten(value?: string): string {
+  if (!value) return '-'
+  return value.length > 18 ? `${value.slice(0, 10)}…${value.slice(-6)}` : value
+}
+
+function formatWei(value: string): string {
+  try {
+    const wei = BigInt(value)
+    const whole = wei / 1_000_000_000_000_000_000n
+    const frac = (wei % 1_000_000_000_000_000_000n).toString().padStart(18, '0').slice(0, 6).replace(/0+$/, '')
+    return frac ? `${whole}.${frac}` : whole.toString()
+  } catch {
+    return value
+  }
+}
+
+function DetailRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: 10, alignItems: 'start' }}>
+      <div style={{ color: '#666', fontSize: 10, textTransform: 'uppercase', letterSpacing: '.05em' }}>{label}</div>
+      <div style={{ color: '#fff', fontSize: 12, fontFamily: mono ? 'monospace' : undefined, overflowWrap: 'anywhere' }}>{value}</div>
+    </div>
+  )
 }
 
 const inputStyle: React.CSSProperties = {
@@ -315,4 +469,14 @@ const rejectBtnStyle: React.CSSProperties = {
   padding: '12px', borderRadius: 12,
   background: 'transparent', color: '#888', fontWeight: 600, fontSize: 14,
   border: '1px solid #2a2a2a', cursor: 'pointer'
+}
+
+const detailBoxStyle: React.CSSProperties = {
+  background: '#1a1a1a',
+  borderRadius: 12,
+  padding: '12px 14px',
+  border: '1px solid #2a2a2a',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8
 }

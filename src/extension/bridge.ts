@@ -114,7 +114,7 @@ export function createExtensionWallet() {
     // Data
     getAddresses:   ()                      => send('wallet:get-addresses'),
     getBalances:    ()                      => send('wallet:get-balances'),
-    revealSeed:     ()                      => send<string[]>('wallet:reveal-seed'),
+    revealSeed:     (password: string)      => send<string[]>('wallet:reveal-seed', password),
     getHistory:     ()                      => send('wallet:get-history'),
     getAccountIndex:()                      => send<number>('wallet:get-account'),
     setAccount:     (i: number)             => send('wallet:set-account', i),
@@ -194,6 +194,9 @@ export function createExtensionWallet() {
     web3GetPendingTx:          () => send('web3:get-pending-tx'),
     web3ApproveTx:             (id: string, chainId?: string) => send('web3:approve-tx', { id, chainId }),
     web3RejectTx:              (id: string) => send('web3:reject-tx', id),
+    web3GetPendingSign:        () => send('web3:get-pending-sign'),
+    web3ApproveSign:           (id: string) => send('web3:approve-sign', id),
+    web3RejectSign:            (id: string) => send('web3:reject-sign', id),
     web3GetPendingConnections: () => send('web3:get-pending-connections'),
     web3ApproveConnection:     (id: string) => send('web3:approve-connection', { id }),
     web3RejectConnection:      (id: string) => send('web3:reject-connection', { id }),

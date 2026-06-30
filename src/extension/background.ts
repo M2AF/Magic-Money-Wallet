@@ -54,7 +54,7 @@ const _connectionQueue = new Map<string, {
   reject:  (e: Error) => void
   origin:  string
   tabId:   number | undefined
-  chain:   'evm' | 'cardano' | 'bitcoin' | 'polkadot'
+  chain:   'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot'
 }>()
 
 // ── web3 transaction approval queue ──────────────────────────────────────────
@@ -62,8 +62,19 @@ const _connectionQueue = new Map<string, {
 const _web3TxQueue = new Map<string, {
   resolve: (r: unknown) => void
   reject: (e: Error) => void
+  origin: string
   tx: Record<string, string>
   chainId: string
+}>()
+
+const _web3SignQueue = new Map<string, {
+  resolve: () => void
+  reject: (e: Error) => void
+  origin: string
+  chain: string
+  method: string
+  summary: string
+  details?: string
 }>()
 
 // ── Approval popup (works from service worker — no user gesture required) ────
@@ -97,6 +108,40 @@ function openApprovalPopup(): void {
       }
     })
   })
+}
+
+async function requireApprovedOrigin(sender: Sender | undefined, action: string): Promise<string> {
+  const origin = sender?.origin ?? 'unknown'
+  if (!(await store.getApprovedOrigins()).includes(origin)) {
+    throw Object.assign(new Error(`Connect the wallet before ${action}.`), { code: 4100 })
+  }
+  return origin
+}
+
+async function requestSignatureApproval(
+  sender: Sender | undefined,
+  req: { chain: string; method: string; summary: string; details?: string }
+): Promise<void> {
+  if (sender?.kind !== 'page') return
+  const origin = await requireApprovedOrigin(sender, 'signing')
+  const id = crypto.randomUUID()
+  return new Promise<void>((resolve, reject) => {
+    _web3SignQueue.set(id, { resolve, reject, origin, ...req })
+    chrome.runtime.sendMessage({ type: 'web3:sign-request', data: { id, origin, ...req } }).catch(() => openApprovalPopup())
+    setTimeout(() => {
+      if (_web3SignQueue.has(id)) {
+        _web3SignQueue.delete(id)
+        reject(Object.assign(new Error('Signature request timed out'), { code: 4001 }))
+      }
+    }, 120_000)
+  })
+}
+
+function previewBytes(bytes: Uint8Array | number[] | string, max = 96): string {
+  const text = typeof bytes === 'string'
+    ? bytes
+    : Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
+  return text.length > max ? `${text.slice(0, max)}...` : text
 }
 
 // ── Monad RPC rotation ────────────────────────────────────────────────────────
@@ -187,11 +232,49 @@ async function loadFullAddresses(): Promise<any> {
 // ── Message router ────────────────────────────────────────────────────────────
 
 type Msg = { type: string; args: unknown[] }
-type Sender = { origin: string; tabId?: number }
+type Sender = { origin: string; tabId?: number; kind: 'page' | 'extension' }
+
+const PAGE_RPC_TYPES = new Set([
+  'web3:request',
+  'web3:solana:connect',
+  'web3:solana:sign',
+  'web3:solana:sign-tx',
+  'web3:solana:sign-and-send',
+  'cardano:is-enabled',
+  'cardano:enable',
+  'cardano:get-network-id',
+  'cardano:get-balance',
+  'cardano:get-utxos',
+  'cardano:get-used-addresses',
+  'cardano:get-unused-addresses',
+  'cardano:get-change-address',
+  'cardano:get-reward-addresses',
+  'cardano:get-collateral',
+  'cardano:sign-tx',
+  'cardano:sign-data',
+  'cardano:submit-tx',
+  'bitcoin:get-accounts',
+  'bitcoin:request-accounts',
+  'bitcoin:request-addresses',
+  'bitcoin:get-public-key',
+  'bitcoin:get-balance',
+  'bitcoin:sign-message',
+  'bitcoin:sign-psbt',
+  'bitcoin:push-psbt',
+  'bitcoin:push-tx',
+  'bitcoin:send',
+  'polkadot:enable',
+  'polkadot:get-accounts',
+  'polkadot:sign-payload',
+  'polkadot:sign-raw',
+])
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handle(msg: Msg, sender?: Sender): Promise<any> {
   const [a0, a1, a2] = msg.args ?? []
+  if (sender?.kind === 'page' && !PAGE_RPC_TYPES.has(msg.type)) {
+    throw Object.assign(new Error(`Method not available to web pages: ${msg.type}`), { code: 4100 })
+  }
 
   switch (msg.type) {
 
@@ -284,6 +367,9 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'wallet:reveal-seed': {
+      if (!(await store.verifyPassword(String(a0 ?? '')))) {
+        throw new Error('Incorrect password')
+      }
       const mnemonic = await store.loadMnemonic()
       return mnemonic.split(' ')
     }
@@ -562,12 +648,24 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           return String(parseInt(_currentChainId, 16))
 
         case 'personal_sign': {
+          await requestSignatureApproval(sender, {
+            chain: 'EVM',
+            method: 'personal_sign',
+            summary: 'Sign message',
+            details: previewBytes(String(params[0] ?? '')),
+          })
           const key = await deriveEvmKey()
           const acct = privateKeyToAccount(key)
           return acct.signMessage({ message: { raw: String(params[0]) as `0x${string}` } })
         }
 
         case 'eth_sign': {
+          await requestSignatureApproval(sender, {
+            chain: 'EVM',
+            method: 'eth_sign',
+            summary: 'Sign raw hex message',
+            details: previewBytes(String(params[1] ?? '')),
+          })
           const key = await deriveEvmKey()
           const acct = privateKeyToAccount(key)
           return acct.signMessage({ message: { raw: String(params[1]) as `0x${string}` } })
@@ -576,22 +674,30 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
         case 'eth_signTypedData':
         case 'eth_signTypedData_v3':
         case 'eth_signTypedData_v4': {
-          const key = await deriveEvmKey()
-          const acct = privateKeyToAccount(key)
           // v3/v4: params = [address, typedData]; legacy v1: params = [typedData, address]
           const rawPayload = method === 'eth_signTypedData' ? params[0] : params[1]
           const td = typeof rawPayload === 'string' ? JSON.parse(rawPayload) : rawPayload
+          await requestSignatureApproval(sender, {
+            chain: 'EVM',
+            method,
+            summary: `Sign typed data${td?.primaryType ? `: ${String(td.primaryType)}` : ''}`,
+            details: previewBytes(JSON.stringify(td?.message ?? td ?? {})),
+          })
+          const key = await deriveEvmKey()
+          const acct = privateKeyToAccount(key)
           const { EIP712Domain: _dom, ...types } = td.types ?? {}
           return acct.signTypedData({ domain: td.domain ?? {}, types, primaryType: td.primaryType, message: td.message })
         }
 
         case 'eth_sendTransaction': {
+          await requireApprovedOrigin(sender, 'sending transactions')
           const id = crypto.randomUUID()
           const tx = params[0] as Record<string, string>
           const txChainId = _currentChainId
           return new Promise((resolve, reject) => {
-            _web3TxQueue.set(id, { resolve, reject, tx, chainId: txChainId })
-            chrome.runtime.sendMessage({ type: 'web3:tx-request', data: { id, chainId: txChainId, ...tx } }).catch(() => openApprovalPopup())
+            const origin = sender?.origin ?? 'unknown'
+            _web3TxQueue.set(id, { resolve, reject, origin, tx, chainId: txChainId })
+            chrome.runtime.sendMessage({ type: 'web3:tx-request', data: { id, origin, chainId: txChainId, ...tx } }).catch(() => openApprovalPopup())
             setTimeout(() => {
               if (_web3TxQueue.has(id)) {
                 _web3TxQueue.delete(id)
@@ -749,6 +855,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'bitcoin:sign-message': {
       // BIP-137 over the Native-SegWit key (the old inline impl used a P2PKH header).
+      await requestSignatureApproval(sender, {
+        chain: 'Bitcoin',
+        method: 'signMessage',
+        summary: 'Sign Bitcoin message',
+        details: previewBytes(String(a0 ?? '')),
+      })
       const btcAddrs = await store.loadAddresses()
       return signBitcoinMessage(String(a0), 'native', await store.loadMnemonic(), btcAddrs?.accountIndex ?? 0)
     }
@@ -756,6 +868,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'bitcoin:sign-psbt': {
       const btcOrigin = sender?.origin ?? 'unknown'
       if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+      await requestSignatureApproval(sender, {
+        chain: 'Bitcoin',
+        method: 'signPsbt',
+        summary: 'Sign Bitcoin PSBT',
+        details: previewBytes(String(a0 ?? '')),
+      })
       const btcAddrs = await loadFullAddresses()
       const o = (a1 ?? {}) as { signInputs?: Record<string, number[]>; autoFinalized?: boolean; broadcast?: boolean }
       const req: PsbtSignRequest = { psbt: String(a0), signInputs: o.signInputs, finalize: o.autoFinalized !== false, extractTx: !!o.broadcast }
@@ -780,6 +898,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'bitcoin:send': {
       const btcOrigin = sender?.origin ?? 'unknown'
       if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
+      await requestSignatureApproval(sender, {
+        chain: 'Bitcoin',
+        method: 'sendBitcoin',
+        summary: `Send ${(Number(a1) / 1e8).toFixed(8)} BTC`,
+        details: `To ${String(a0)}`,
+      })
       const btcAddrs = await loadFullAddresses()
       const btcAmount = (Number(a1) / 1e8).toFixed(8)
       const res = await sendBtc(await store.loadMnemonic(), btcAddrs.bitcoin, String(a0), btcAmount, btcAddrs.accountIndex ?? 0)
@@ -813,6 +937,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'polkadot:sign-payload': {
       const dotPayload = a0 as { method?: string; [k: string]: unknown }
+      await requestSignatureApproval(sender, {
+        chain: 'Polkadot',
+        method: 'signPayload',
+        summary: 'Sign Polkadot payload',
+        details: previewBytes(JSON.stringify(dotPayload)),
+      })
       const dotMnemonic = await store.loadMnemonic()
       const dotAddrs = await store.loadAddresses()
       const { privateKey: dotPriv } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
@@ -827,6 +957,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'polkadot:sign-raw': {
       const dotRaw = a0 as { data?: string }
+      await requestSignatureApproval(sender, {
+        chain: 'Polkadot',
+        method: 'signRaw',
+        summary: 'Sign Polkadot raw data',
+        details: previewBytes(dotRaw.data ?? ''),
+      })
       const dotMnemonic = await store.loadMnemonic()
       const dotAddrs = await store.loadAddresses()
       const { privateKey: dotPriv2 } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
@@ -851,6 +987,8 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       await store.addApprovedOrigin(entry.origin)
       if (entry.chain === 'cardano' || entry.chain === 'polkadot') {
         entry.resolve(true)
+      } else if (entry.chain === 'solana') {
+        entry.resolve(connAddresses?.solana ?? '')
       } else if (entry.chain === 'bitcoin') {
         entry.resolve(connAddresses?.bitcoin ? [connAddresses.bitcoin] : [])
       } else {
@@ -875,7 +1013,7 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'web3:get-pending-tx':
-      return [..._web3TxQueue.entries()].map(([id, { tx, chainId: c }]) => ({ id, chainId: c, ...tx }))
+      return [..._web3TxQueue.entries()].map(([id, { tx, chainId: c, origin }]) => ({ id, origin, chainId: c, ...tx }))
 
     case 'web3:approve-tx': {
       const { id } = a0 as { id: string; chainId?: string }
@@ -932,16 +1070,53 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return true
     }
 
+    case 'web3:get-pending-sign':
+      return [..._web3SignQueue.entries()].map(([id, req]) => ({ id, origin: req.origin, chain: req.chain, method: req.method, summary: req.summary, details: req.details }))
+
+    case 'web3:approve-sign': {
+      const id = String(a0)
+      const entry = _web3SignQueue.get(id)
+      if (!entry) throw new Error('Pending signature request not found')
+      _web3SignQueue.delete(id)
+      entry.resolve()
+      return true
+    }
+
+    case 'web3:reject-sign': {
+      const id = String(a0)
+      const entry = _web3SignQueue.get(id)
+      if (entry) { entry.reject(Object.assign(new Error('User rejected the signature request'), { code: 4001 })); _web3SignQueue.delete(id) }
+      return true
+    }
+
     // ── window.solana provider requests ───────────────────────────────────
 
     case 'web3:solana:connect': {
+      const solOrigin = sender?.origin ?? 'unknown'
       const addresses = await store.loadAddresses()
       if (!addresses?.solana) throw new Error('No Solana wallet')
-      return addresses.solana
+      if ((await store.getApprovedOrigins()).includes(solOrigin)) return addresses.solana
+      const solId = crypto.randomUUID()
+      return new Promise((resolve, reject) => {
+        _connectionQueue.set(solId, { resolve, reject, origin: solOrigin, tabId: sender?.tabId, chain: 'solana' })
+        chrome.runtime.sendMessage({ type: 'web3:connection-request', data: { id: solId, origin: solOrigin } }).catch(() => openApprovalPopup())
+        setTimeout(() => {
+          if (_connectionQueue.has(solId)) {
+            _connectionQueue.delete(solId)
+            reject(Object.assign(new Error('User rejected the request.'), { code: 4001 }))
+          }
+        }, 120_000)
+      })
     }
 
     case 'web3:solana:sign': {
       const bytes = new Uint8Array(a0 as number[])
+      await requestSignatureApproval(sender, {
+        chain: 'Solana',
+        method: 'signMessage',
+        summary: 'Sign Solana message',
+        details: previewBytes(bytes),
+      })
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()
       const keypair = await getSolanaKeypair(mnemonic, addresses?.accountIndex ?? 0)
@@ -955,6 +1130,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const input = a0 as { transaction?: number[] | Uint8Array }
       if (!input?.transaction) throw new Error('No transaction data provided')
       const txBytes = input.transaction instanceof Uint8Array ? input.transaction : new Uint8Array(input.transaction as number[])
+      await requestSignatureApproval(sender, {
+        chain: 'Solana',
+        method: 'signAndSendTransaction',
+        summary: 'Sign and send Solana transaction',
+        details: `${txBytes.length} bytes`,
+      })
       const solMnemonic = await store.loadMnemonic()
       const solAddresses = await store.loadAddresses()
       const solConfig = await store.loadConfig()
@@ -969,6 +1150,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'web3:solana:sign-tx': {
       const txBytes = new Uint8Array(a0 as number[])
+      await requestSignatureApproval(sender, {
+        chain: 'Solana',
+        method: 'signTransaction',
+        summary: 'Sign Solana transaction',
+        details: `${txBytes.length} bytes`,
+      })
       const solMnemonic2 = await store.loadMnemonic()
       const solAddresses2 = await store.loadAddresses()
       const { VersionedTransaction: VT2 } = await import('@solana/web3.js')
@@ -1050,6 +1237,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'cardano:sign-tx': {
       const [txHex, _partial] = [String(a0), Boolean(a1)]
+      await requestSignatureApproval(sender, {
+        chain: 'Cardano',
+        method: 'signTx',
+        summary: 'Sign Cardano transaction',
+        details: `${txHex.length / 2} bytes`,
+      })
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()
       const accountIdx = addresses?.accountIndex ?? 0
@@ -1062,6 +1255,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'cardano:sign-data': {
       const [addrArg, payloadHex] = [String(a0), String(a1)]
+      await requestSignatureApproval(sender, {
+        chain: 'Cardano',
+        method: 'signData',
+        summary: 'Sign Cardano data',
+        details: previewBytes(payloadHex),
+      })
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()
       const accountIdx = addresses?.accountIndex ?? 0
@@ -1113,9 +1312,10 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message: Msg, rawSender, sendResponse) => {
+  const senderKind: Sender['kind'] = rawSender.tab?.id != null ? 'page' : 'extension'
   const senderOrigin = rawSender.origin
     ?? (rawSender.url ? (() => { try { return new URL(rawSender.url!).origin } catch { return 'unknown' } })() : 'extension')
-  const sender: Sender = { origin: senderOrigin, tabId: rawSender.tab?.id }
+  const sender: Sender = { origin: senderOrigin, tabId: rawSender.tab?.id, kind: senderKind }
   handle(message, sender)
     .then(result => sendResponse({ ok: true, result }))
     .catch(err => sendResponse({ ok: false, error: String(err) }))
