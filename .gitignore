@@ -4,6 +4,8 @@ out/
 dist/
 dist-extension/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # ── Secrets / local env ──────────────────────────────────────

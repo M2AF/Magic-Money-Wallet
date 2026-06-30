@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { writeFileSync } from 'fs'
+import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 // Integration test for the C-1 vault + H-3 proxy pinning. The PASSWORD layer
@@ -26,6 +26,7 @@ import {
   needsMigration, migrateLegacy, verifyPassword, walletExists, deleteWallet,
   loadConfig, saveConfig,
 } from './secure-store'
+import { ACTIVE_PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS, encryptSecret } from './crypto-vault'
 
 const MNEMONIC = 'test test test test test test test test test test test junk'
 const PW = 'correct horse battery staple'
@@ -92,6 +93,17 @@ describe('secure-store · legacy migration', () => {
     lock()
     await unlock(PW)
     expect(loadMnemonic()).toBe(MNEMONIC)
+  })
+
+  it('upgrades legacy 210k password blobs after a successful unlock', async () => {
+    const legacy = await encryptSecret(MNEMONIC, PW, LEGACY_PBKDF2_ITERATIONS)
+    writeFileSync(join(tmp, 'wallet.enc'), Buffer.from(JSON.stringify(legacy), 'utf8'))
+
+    await unlock(PW)
+    expect(loadMnemonic()).toBe(MNEMONIC)
+
+    const upgraded = JSON.parse(Buffer.from(readFileSync(join(tmp, 'wallet.enc'))).toString('utf8'))
+    expect(upgraded.iterations).toBe(ACTIVE_PBKDF2_ITERATIONS)
   })
 })
 

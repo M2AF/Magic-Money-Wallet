@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { encryptSecret, decryptSecret, isEncryptedBlob } from './crypto-vault'
+import {
+  ACTIVE_PBKDF2_ITERATIONS,
+  LEGACY_PBKDF2_ITERATIONS,
+  decryptSecret,
+  encryptSecret,
+  isEncryptedBlob,
+  needsKdfUpgrade,
+} from './crypto-vault'
 
 // Locks in the C-1 password vault: a wrong password MUST fail, and a correct one
 // MUST recover the exact phrase. A regression here would silently lock users out
@@ -10,7 +17,18 @@ describe('crypto-vault', () => {
   it('round-trips a secret with the correct password', async () => {
     const blob = await encryptSecret(SECRET, 'correct horse battery staple')
     expect(isEncryptedBlob(blob)).toBe(true)
+    expect(blob.iterations).toBe(ACTIVE_PBKDF2_ITERATIONS)
+    expect(needsKdfUpgrade(blob)).toBe(false)
     expect(await decryptSecret(blob, 'correct horse battery staple')).toBe(SECRET)
+  })
+
+  it('still decrypts legacy 210k-iteration blobs so existing wallets survive upgrade', async () => {
+    const legacy = await encryptSecret(SECRET, 'pw', LEGACY_PBKDF2_ITERATIONS)
+    delete legacy.iterations
+    delete legacy.kdf
+    delete legacy.kdfVersion
+    expect(needsKdfUpgrade(legacy)).toBe(true)
+    expect(await decryptSecret(legacy, 'pw')).toBe(SECRET)
   })
 
   it('rejects a wrong password', async () => {

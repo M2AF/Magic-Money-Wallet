@@ -13,7 +13,7 @@ import { safeStorage, app } from 'electron'
 import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import type { WalletAddresses } from './wallet-core'
-import { encryptSecret, decryptSecret, isEncryptedBlob } from './crypto-vault'
+import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, type EncryptedBlob } from './crypto-vault'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -50,11 +50,15 @@ function readOuter(): string | null {
 
 /** Encrypt `mnemonic` under `password` and persist it; leaves the wallet unlocked. */
 export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
+  await persistEncryptedMnemonic(mnemonic, password)
+  _unlockedMnemonic = mnemonic
+}
+
+async function persistEncryptedMnemonic(mnemonic: string, password: string): Promise<void> {
   requireSafeStorage()
   const blob = await encryptSecret(mnemonic, password)
   mkdirSync(userData(), { recursive: true })
   writeFileSync(walletEncPath(), safeStorage.encryptString(JSON.stringify(blob)))
-  _unlockedMnemonic = mnemonic
 }
 
 /** True when wallet.enc holds the new password-encrypted blob (vs. a legacy phrase). */
@@ -79,7 +83,11 @@ export async function unlock(password: string): Promise<void> {
   if (outer == null) throw new Error('No wallet found — please create or import one')
   const parsed = (() => { try { return JSON.parse(outer) } catch { return null } })()
   if (!isEncryptedBlob(parsed)) throw new Error('NEEDS_MIGRATION')
-  _unlockedMnemonic = await decryptSecret(parsed, password)
+  const blob = parsed as EncryptedBlob
+  _unlockedMnemonic = await decryptSecret(blob, password)
+  if (needsKdfUpgrade(blob)) {
+    await persistEncryptedMnemonic(_unlockedMnemonic, password)
+  }
 }
 
 /** Upgrade a legacy (safeStorage-only) wallet to password encryption, then unlock. */

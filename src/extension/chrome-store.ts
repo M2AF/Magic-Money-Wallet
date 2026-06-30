@@ -51,20 +51,69 @@ const DEFAULT_CONFIG: WalletConfig = {
 }
 
 const AUTO_LOCK_MS = 15 * 60_000
+const LEGACY_PBKDF2_ITERATIONS = 210_000
+const ACTIVE_PBKDF2_ITERATIONS = 600_000
+const ACTIVE_KDF_VERSION = 2
+
+type StoredEncryptedWallet = {
+  salt: number[]
+  iv: number[]
+  data: number[]
+  kdf?: 'PBKDF2-SHA256'
+  kdfVersion?: number
+  iterations?: number
+}
 
 // ── WebCrypto helpers ─────────────────────────────────────────────────────────
 
-async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array, iterations = ACTIVE_PBKDF2_ITERATIONS): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
   )
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations: 210_000, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
     raw,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt']
   )
+}
+
+function kdfIterations(blob: StoredEncryptedWallet): number {
+  const iterations = Number(blob.iterations ?? LEGACY_PBKDF2_ITERATIONS)
+  if (!Number.isSafeInteger(iterations) || iterations < LEGACY_PBKDF2_ITERATIONS) {
+    throw new Error('Unsupported wallet KDF parameters')
+  }
+  return iterations
+}
+
+function needsKdfUpgrade(blob: StoredEncryptedWallet): boolean {
+  return kdfIterations(blob) < ACTIVE_PBKDF2_ITERATIONS
+}
+
+async function encryptMnemonic(mnemonic: string, password: string): Promise<StoredEncryptedWallet> {
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const iv   = crypto.getRandomValues(new Uint8Array(12))
+  const key  = await deriveKey(password, salt)
+  const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(mnemonic))
+  return {
+    salt: Array.from(salt),
+    iv: Array.from(iv),
+    data: Array.from(new Uint8Array(ct)),
+    kdf: 'PBKDF2-SHA256',
+    kdfVersion: ACTIVE_KDF_VERSION,
+    iterations: ACTIVE_PBKDF2_ITERATIONS,
+  }
+}
+
+async function decryptMnemonic(blob: StoredEncryptedWallet, password: string): Promise<string> {
+  const key = await deriveKey(password, new Uint8Array(blob.salt), kdfIterations(blob))
+  try {
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(blob.iv) }, key, new Uint8Array(blob.data))
+    return new TextDecoder().decode(decrypted)
+  } catch {
+    throw new Error('Incorrect password')
+  }
 }
 
 // ── Mnemonic (encrypted at rest, decrypted in session) ───────────────────────
@@ -94,17 +143,7 @@ async function getUnlockedMnemonic(): Promise<string | null> {
 }
 
 export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const iv   = crypto.getRandomValues(new Uint8Array(12))
-  const key  = await deriveKey(password, salt)
-  const ct   = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(mnemonic))
-  await chrome.storage.local.set({
-    'wallet.enc': {
-      salt: Array.from(salt),
-      iv:   Array.from(iv),
-      data: Array.from(new Uint8Array(ct))
-    }
-  })
+  await chrome.storage.local.set({ 'wallet.enc': await encryptMnemonic(mnemonic, password) })
   await saveUnlockedMnemonic(mnemonic)
 }
 
@@ -120,25 +159,19 @@ export async function isUnlocked(): Promise<boolean> {
 export async function unlock(password: string): Promise<void> {
   const r = await chrome.storage.local.get('wallet.enc')
   if (!r['wallet.enc']) throw new Error('No wallet found')
-  const { salt, iv, data } = r['wallet.enc'] as { salt: number[]; iv: number[]; data: number[] }
-  const key = await deriveKey(password, new Uint8Array(salt))
-  let decrypted: ArrayBuffer
-  try {
-    decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data))
-  } catch {
-    throw new Error('Incorrect password')
+  const blob = r['wallet.enc'] as StoredEncryptedWallet
+  const mnemonic = await decryptMnemonic(blob, password)
+  if (needsKdfUpgrade(blob)) {
+    await chrome.storage.local.set({ 'wallet.enc': await encryptMnemonic(mnemonic, password) })
   }
-  const mnemonic = new TextDecoder().decode(decrypted)
   await saveUnlockedMnemonic(mnemonic)
 }
 
 export async function verifyPassword(password: string): Promise<boolean> {
   const r = await chrome.storage.local.get('wallet.enc')
   if (!r['wallet.enc']) return false
-  const { salt, iv, data } = r['wallet.enc'] as { salt: number[]; iv: number[]; data: number[] }
-  const key = await deriveKey(password, new Uint8Array(salt))
   try {
-    await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(iv) }, key, new Uint8Array(data))
+    await decryptMnemonic(r['wallet.enc'] as StoredEncryptedWallet, password)
     return true
   } catch {
     return false
