@@ -864,18 +864,30 @@ h1, h2, h3 { font-family: var(--font-display); }
 /* ── App card ───────────────────────────────────────────────────────────── */
 
 .apphub-card {
+  position: relative;
+  overflow: hidden;
   background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 10px 10px 8px;
+  border: 1px solid rgba(var(--card-accent-rgb, 0, 170, 255), 0.2);
+  border-radius: var(--radius-lg);
+  padding: 12px 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 7px;
   transition: border-color var(--transition), transform var(--transition);
 }
 
+/* Multicolor accent bar — blends the colors of every chain the app supports. */
+.apphub-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--chains-gradient, linear-gradient(90deg, transparent, var(--accent), transparent));
+  opacity: 0.85;
+}
+
 .apphub-card:hover {
-  border-color: var(--border-active);
+  border-color: rgba(var(--card-accent-rgb, 0, 170, 255), 0.5);
   transform: translateY(-1px);
 }
 

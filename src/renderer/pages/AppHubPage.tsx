@@ -1,8 +1,35 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import APP_HUB, { AppEntry } from '../data/app-hub'
 import { HeaderToolbar } from '../components/HeaderToolbar'
+import { chainColor, type ChainColor } from '../data/chain-colors'
 
 const ALL = 'All'
+
+/** Distinct chain accent colors for an app, in chain order, capped for legibility. */
+function chainAccents(chains: string[]): ChainColor[] {
+  const seen = new Set<string>()
+  const out: ChainColor[] = []
+  for (const c of chains) {
+    const col = chainColor(c)
+    if (seen.has(col.hex)) continue
+    seen.add(col.hex)
+    out.push(col)
+    if (out.length >= 6) break
+  }
+  return out.length ? out : [chainColor('')]
+}
+
+/** Horizontal gradient that blends the supported chains' colors, fading at both ends. */
+function accentGradient(colors: ChainColor[]): string {
+  if (colors.length === 1) {
+    return `linear-gradient(90deg, transparent, ${colors[0].hex}, transparent)`
+  }
+  const stops = colors.map((c, i) => {
+    const pos = 12 + (76 * i) / (colors.length - 1)
+    return `${c.hex} ${pos.toFixed(1)}%`
+  })
+  return `linear-gradient(90deg, transparent 0%, ${stops.join(', ')}, transparent 100%)`
+}
 
 interface DropdownOption { value: string; label: string; count?: number }
 
@@ -204,8 +231,18 @@ function FilterDropdown({
 function AppCard({ app, onOpen }: { app: AppEntry; onOpen: (url: string) => void }) {
   const [imgErr, setImgErr] = useState(false)
 
+  const accents = chainAccents(app.chains)
+  const primary = accents[0]
+
   return (
-    <div className="apphub-card">
+    <div
+      className="apphub-card"
+      style={{
+        ['--chains-gradient' as string]: accentGradient(accents),
+        ['--card-accent' as string]: primary.hex,
+        ['--card-accent-rgb' as string]: primary.rgb,
+      }}
+    >
       <div className="apphub-card-top">
         {imgErr || !app.favicon ? (
           <div className="apphub-favicon-fallback">

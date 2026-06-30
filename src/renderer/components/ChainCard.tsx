@@ -35,7 +35,7 @@ const CHAIN_META: Record<string, ChainMeta> = {
   blast:      { name: 'Blast',        networks: 'L2 · Ethereum',              color: '#FCFC03', colorRgb: '252, 252, 3'    },
   gnosis:     { name: 'Gnosis',       networks: 'Mainnet',                    color: '#04795B', colorRgb: '4, 121, 91'     },
   monad:      { name: 'Monad',        networks: 'Mainnet',                    color: '#836EF9', colorRgb: '131, 110, 249'  },
-  abstract:   { name: 'Abstract',     networks: 'L2 · Ethereum',              color: '#6B7280', colorRgb: '107, 114, 128'  },
+  abstract:   { name: 'Abstract',     networks: 'L2 · Ethereum',              color: '#1FCE92', colorRgb: '31, 206, 146'   },
   apechain:   { name: 'ApeChain',     networks: 'L3 · ApeChain',              color: '#0066FF', colorRgb: '0, 102, 255'    },
   ronin:      { name: 'Ronin',        networks: 'Mainnet',                    color: '#1273EA', colorRgb: '18, 115, 234'   },
   soneium:    { name: 'Soneium',      networks: 'L2 · Ethereum',              color: '#5B5EA6', colorRgb: '91, 94, 166'    },
