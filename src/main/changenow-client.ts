@@ -14,7 +14,7 @@
  */
 
 import type { WalletConfig } from './secure-store'
-import { proxyBase } from './api-proxy'
+import { proxyBase, proxyHeaders, proxyUrl } from './api-proxy'
 import type { SsEstimateParams, SsEstimateResult, SsCreateParams, SsExchangeResult } from './simpleswap-client'
 
 const msg = (e: unknown) =>
@@ -80,12 +80,12 @@ export async function cnEstimate(params: SsEstimateParams, config: WalletConfig)
   const f = cnPair(params.tickerFrom, params.networkFrom)
   const t = cnPair(params.tickerTo, params.networkTo)
   const q = `fromCurrency=${f.ticker}&toCurrency=${t.ticker}&fromNetwork=${f.network}&toNetwork=${t.network}`
-  const estUrl = `${proxy}/cn/estimate?${q}&fromAmount=${encodeURIComponent(params.amount)}&flow=${flow}&type=direct`
-  const rangeUrl = `${proxy}/cn/range?${q}&flow=${flow}`
+  const estUrl = proxyUrl(`${proxy}/cn/estimate?${q}&fromAmount=${encodeURIComponent(params.amount)}&flow=${flow}&type=direct`, config)
+  const rangeUrl = proxyUrl(`${proxy}/cn/range?${q}&flow=${flow}`, config)
   try {
     const [estRes, rangeRes] = await Promise.all([
-      fetch(estUrl, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15_000) }),
-      fetch(rangeUrl, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15_000) }),
+      fetch(estUrl, { headers: proxyHeaders(config, { accept: 'application/json' }), signal: AbortSignal.timeout(15_000) }),
+      fetch(rangeUrl, { headers: proxyHeaders(config, { accept: 'application/json' }), signal: AbortSignal.timeout(15_000) }),
     ])
 
     let estimatedAmount: string | null = null, rateId: string | null = null, validUntil: string | null = null, error: string | null = null
@@ -119,9 +119,9 @@ export async function cnCreateExchange(params: SsCreateParams, config: WalletCon
   if (!params.addressTo) return errorExchange('Destination address is required.')
 
   try {
-    const res = await fetch(`${proxy}/cn/exchange`, {
+    const res = await fetch(proxyUrl(`${proxy}/cn/exchange`, config), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: proxyHeaders(config, { 'content-type': 'application/json' }),
       body: JSON.stringify({
         fromCurrency: cnPair(params.tickerFrom, params.networkFrom).ticker,
         toCurrency: cnPair(params.tickerTo, params.networkTo).ticker,
@@ -155,7 +155,7 @@ export async function cnGetStatus(id: string, config: WalletConfig): Promise<SsE
   if (!id) return errorExchange('Missing exchange id.')
 
   try {
-    const res = await fetch(`${proxy}/cn/status/${encodeURIComponent(id)}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
+    const res = await fetch(proxyUrl(`${proxy}/cn/status/${encodeURIComponent(id)}`, config), { headers: proxyHeaders(config, { accept: 'application/json' }), signal: AbortSignal.timeout(15_000) })
     if (!res.ok) {
       const j = await res.json().catch(() => null) as { message?: string; error?: string } | null
       return errorExchange((j && (j.message || j.error)) || `ChangeNOW ${res.status}`)

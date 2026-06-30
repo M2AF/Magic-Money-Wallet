@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest'
+import { alchemyRpcUrl, proxyHeaders, proxyUrl } from './api-proxy'
+import type { WalletConfig } from './secure-store'
+
+const config: WalletConfig = {
+  alchemyKey: '',
+  ankrKey: '',
+  heliusKey: '',
+  blockfrostKey: '',
+  tatumKey: '',
+  moralisKey: '',
+  openseaKey: '',
+  ordiscanKey: '',
+  supabaseUrl: '',
+  supabaseKey: '',
+  walletConnectProjectId: '',
+  swapProxyUrl: 'https://proxy.example',
+  clientToken: 'magicmoney-wallet-v1',
+  simpleSwapApiKey: '',
+}
+
+describe('api proxy client gate', () => {
+  it('adds the public client tag to proxy URLs used as RPC endpoints', () => {
+    expect(alchemyRpcUrl('eth-mainnet', config)).toBe('https://proxy.example/rpc/alchemy/eth-mainnet?mm_client=magicmoney-wallet-v1')
+    expect(proxyUrl('https://proxy.example/tokens?chain=base', config)).toBe('https://proxy.example/tokens?chain=base&mm_client=magicmoney-wallet-v1')
+  })
+
+  it('adds the public client tag to fetch headers without dropping existing headers', () => {
+    expect(proxyHeaders(config, { accept: 'application/json' })).toEqual({
+      accept: 'application/json',
+      'x-mm-client': 'magicmoney-wallet-v1',
+    })
+  })
+})

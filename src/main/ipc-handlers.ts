@@ -59,6 +59,8 @@ import {
   browserForward,
   browserReload,
   browserHome,
+  browserNewTab,
+  openTabsMenu,
   getBrowserState,
   getMainWin,
   showApprovalWindow,
@@ -698,6 +700,8 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:forward', () => browserForward())
   ipcMain.on('browser:reload',  () => browserReload())
   ipcMain.on('browser:home',    () => browserHome())
+  ipcMain.on('browser:open-tabs-menu', () => openTabsMenu())
+  ipcMain.on('browser:new-tab', (_event, url?: string) => browserNewTab(url))
   ipcMain.handle('browser:navigate', (_event, url: string) => { browserNavigate(url) })
   ipcMain.handle('browser:get-state', () => getBrowserState())
 

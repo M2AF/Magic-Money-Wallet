@@ -35,7 +35,7 @@
  *   ONEINCH_REFERRER     — 1inch referrer address (defaults to FEE_EVM)
  */
 
-import { cors, json, err } from './lib.js'
+import { cors, json, err, productionConfigError } from './lib.js'
 import { handleRead } from './read.js'
 import { handleDb } from './db.js'
 
@@ -115,6 +115,10 @@ export default {
     const { pathname } = url
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors(env) })
+
+    const configError = productionConfigError(env)
+    if (pathname === '/health') return json(env, { ok: !configError, error: configError }, configError ? 500 : 200)
+    if (configError) return err(env, `Worker production guard failed: ${configError}`, 500)
 
     try {
       // Read-path + Supabase routes — each returns null when its namespace

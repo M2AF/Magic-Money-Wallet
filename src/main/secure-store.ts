@@ -228,6 +228,7 @@ export interface WalletConfig {
   supabaseKey: string
   walletConnectProjectId: string
   swapProxyUrl: string       // MagicMoney swap proxy (Cloudflare Worker) origin — empty until deployed
+  clientToken: string         // Public client tag sent to the Worker as x-mm-client/mm_client
   simpleSwapApiKey: string
 }
 
@@ -252,6 +253,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
   // All keyed providers (RPC, NFT, prices, DEX, Supabase) route through this proxy.
   swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
+  clientToken: 'magicmoney-wallet-v1',
   simpleSwapApiKey: ''
 }
 

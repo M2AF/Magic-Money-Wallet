@@ -95,16 +95,20 @@ contextBridge.exposeInMainWorld('wallet', {
   browserHome:     ()               => ipcRenderer.send('browser:home'),
   browserNavigate: (url: string)    => ipcRenderer.invoke('browser:navigate', url),
   browserGetState: ()               => ipcRenderer.invoke('browser:get-state'),
+  browserOpenTabsMenu: ()           => ipcRenderer.send('browser:open-tabs-menu'),
+  browserNewTab:   (url?: string)   => ipcRenderer.send('browser:new-tab', url),
 
   onBrowserUrl:      (cb: (url: string) => void)                                    => ipcRenderer.on('browser:url',       (_e, v) => cb(v)),
   onBrowserLoading:  (cb: (loading: boolean) => void)                               => ipcRenderer.on('browser:loading',   (_e, v) => cb(v)),
   onBrowserNavState: (cb: (s: { canBack: boolean; canForward: boolean }) => void)   => ipcRenderer.on('browser:nav-state', (_e, v) => cb(v)),
   onBrowserTitle:    (cb: (title: string) => void)                                  => ipcRenderer.on('browser:title',     (_e, v) => cb(v)),
+  onBrowserTabs:     (cb: (s: { activeTabId: number; tabs: Array<{ id: number; title: string; url: string; loading: boolean }> }) => void) => ipcRenderer.on('browser:tabs', (_e, v) => cb(v)),
 
   offBrowserUrl:      (cb: (url: string) => void)                                   => ipcRenderer.removeListener('browser:url',       cb as never),
   offBrowserLoading:  (cb: (loading: boolean) => void)                              => ipcRenderer.removeListener('browser:loading',   cb as never),
   offBrowserNavState: (cb: (s: { canBack: boolean; canForward: boolean }) => void)  => ipcRenderer.removeListener('browser:nav-state', cb as never),
   offBrowserTitle:    (cb: (title: string) => void)                                 => ipcRenderer.removeListener('browser:title',     cb as never),
+  offBrowserTabs:     (cb: (s: { activeTabId: number; tabs: Array<{ id: number; title: string; url: string; loading: boolean }> }) => void) => ipcRenderer.removeListener('browser:tabs', cb as never),
 
   // Fired when the popup is closed (so the wallet can update the Browser button state)
   onBrowserClosed:    (cb: () => void)  => ipcRenderer.on('browser:closed',  () => cb()),

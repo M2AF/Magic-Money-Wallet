@@ -234,6 +234,13 @@ export interface SendResult {
   explorerUrl: string
 }
 
+export interface BrowserTab {
+  id: number
+  title: string
+  url: string
+  loading: boolean
+}
+
 declare global {
   interface Window {
     wallet: {
@@ -299,15 +306,19 @@ declare global {
       browserReload(): void
       browserHome(): void
       browserNavigate(url: string): Promise<void>
-      browserGetState(): Promise<{ url: string; canBack: boolean; canForward: boolean; loading: boolean }>
+      browserGetState(): Promise<{ url: string; canBack: boolean; canForward: boolean; loading: boolean; tabs: BrowserTab[]; activeTabId: number }>
+      browserOpenTabsMenu(): void
+      browserNewTab(url?: string): void
       onBrowserUrl(cb: (url: string) => void): void
       onBrowserLoading(cb: (loading: boolean) => void): void
       onBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void
       onBrowserTitle(cb: (title: string) => void): void
+      onBrowserTabs(cb: (s: { activeTabId: number; tabs: BrowserTab[] }) => void): void
       offBrowserUrl(cb: (url: string) => void): void
       offBrowserLoading(cb: (loading: boolean) => void): void
       offBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void
       offBrowserTitle(cb: (title: string) => void): void
+      offBrowserTabs(cb: (s: { activeTabId: number; tabs: BrowserTab[] }) => void): void
       onBrowserClosed(cb: () => void): void
       offBrowserClosed(cb: () => void): void
       // dApp browser: active EVM network (toolbar switcher + awareness)

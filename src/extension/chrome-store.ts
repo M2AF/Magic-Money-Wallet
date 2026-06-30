@@ -26,6 +26,7 @@ export interface WalletConfig {
   supabaseKey: string
   walletConnectProjectId: string
   swapProxyUrl: string
+  clientToken: string
   simpleSwapApiKey: string
 }
 
@@ -47,6 +48,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   supabaseKey:            '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
   swapProxyUrl:           'https://magicmoney-swap-proxy.guildfordking.workers.dev',
+  clientToken:            'magicmoney-wallet-v1',
   simpleSwapApiKey:       ''
 }
 

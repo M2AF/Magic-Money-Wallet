@@ -7,17 +7,20 @@
  *
  * Architecture:
  *   Popup BrowserWindow (1100 × 750, resizable)
- *   ├── Chrome renderer: src/renderer/browser.html (titlebar + address bar)
+ *   ├── Chrome renderer: src/renderer/browser.html (titlebar + address bar + tab button)
  *   │   Preload: preload/index.js  — exposes wallet.browserNavigate() etc.
- *   └── WebContentsView (dApp content)
+ *   └── One WebContentsView PER TAB (dApp content); only the active tab is attached
  *       Preload: inject/web3-inject.js — exposes window.ethereum / window.solana
+ *
+ * Link buttons that window.open a different site open as new TABS; genuine
+ * auth/wallet/sign popups (about:blank, sized, or known auth hosts) stay popups.
  *
  * Web3 signing dialogs (eth_requestAccounts, personal_sign, etc.) attach to
  * the MAIN wallet window so the user sees them inside the wallet UI.
  */
 
-import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain } from 'electron'
-import type { IpcMainEvent } from 'electron'
+import { WebContentsView, BrowserWindow, Menu, dialog, shell, app, ipcMain } from 'electron'
+import type { IpcMainEvent, MenuItemConstructorOptions, HandlerDetails, WindowOpenHandlerResponse } from 'electron'
 import { join } from 'path'
 import { WALLET_ICON } from '../preload/wallet-icon'
 import { getDappChainId, setDappChainId, DEFAULT_CHAIN_ID } from './dapp-chain'
@@ -27,13 +30,68 @@ export const BROWSER_HOME = 'https://chainlensnft.info'
 // Chrome bar height in the popup: 32px titlebar + 48px address bar
 const CHROME_HEIGHT = 80
 
+// Each open tab owns its own WebContentsView (its own dApp page + injected provider).
+// Only the ACTIVE tab's view is attached to the window; the rest stay alive but hidden.
+interface Tab {
+  id: number
+  view: WebContentsView
+  url: string
+  title: string
+  loading: boolean
+  canBack: boolean
+  canForward: boolean
+}
+
 let popupWin: BrowserWindow | null = null
-let dappView: WebContentsView | null = null
 let mainWin: BrowserWindow | null = null
+let tabs: Tab[] = []
+let activeTabId = 0
+let nextTabId = 1
 
 // Last top-level dApp origin loaded — used to reset the active EVM network when the
 // user navigates to a DIFFERENT dApp, so a prior dApp's chain doesn't leak forward.
 let _lastDappOrigin: string | null = null
+
+function activeTab(): Tab | undefined {
+  return tabs.find(t => t.id === activeTabId)
+}
+function activeView(): WebContentsView | null {
+  return activeTab()?.view ?? null
+}
+
+/** Send to the popup's CHROME renderer (titlebar / address bar / tab button). */
+function sendToChrome(channel: string, payload: unknown): void {
+  try {
+    if (popupWin && !popupWin.isDestroyed() && !popupWin.webContents.isDestroyed()) {
+      popupWin.webContents.send(channel, payload)
+    }
+  } catch { /* window torn down mid-send — safe to ignore */ }
+}
+
+/** Push the tab list + active id so the chrome can render the tab button/count and menu. */
+function pushTabs(): void {
+  sendToChrome('browser:tabs', {
+    activeTabId,
+    tabs: tabs.map(t => ({ id: t.id, title: t.title, url: t.url, loading: t.loading })),
+  })
+}
+
+/** Re-emit the active tab's nav state on the legacy single-view channels the chrome uses. */
+function pushActive(): void {
+  const t = activeTab()
+  if (!t) return
+  sendToChrome('browser:url', t.url)
+  sendToChrome('browser:title', t.title)
+  sendToChrome('browser:loading', t.loading)
+  sendToChrome('browser:nav-state', { canBack: t.canBack, canForward: t.canForward })
+}
+
+function layoutActiveView(): void {
+  const t = activeTab()
+  if (!t || !popupWin || popupWin.isDestroyed()) return
+  const [w, h] = popupWin.getContentSize()
+  t.view.setBounds({ x: 0, y: CHROME_HEIGHT, width: w, height: Math.max(0, h - CHROME_HEIGHT) })
+}
 
 const PHISHING_BLOCKLIST = new Set([
   'metarnask.io', 'myehereum.com', 'pancakeswep.finance',
@@ -136,20 +194,21 @@ export function openBrowserWindow(): void {
 
   popupWin.once('ready-to-show', () => {
     popupWin?.show()
-    attachDappView()
+    createTab(BROWSER_HOME, true)
   })
 
   popupWin.on('close', () => {
-    // A WebContentsView is NOT auto-destroyed when its window closes, so the
+    // A WebContentsView is NOT auto-destroyed when its window closes, so each
     // dApp renderer (OpenSea etc.) would keep running in the background —
     // websockets, animation frames, and RPC polling through web3:request —
     // which starves the wallet window and makes it sluggish to drag long after
-    // the browser is gone. Tear it down while the window is still valid.
-    destroyDappView()
+    // the browser is gone. Tear them all down while the window is still valid.
+    destroyAllTabs()
   })
 
   popupWin.on('closed', () => {
-    dappView = null
+    tabs = []
+    activeTabId = 0
     popupWin = null
     // Tell wallet renderer the popup closed
     if (mainWin && !mainWin.isDestroyed()) {
@@ -157,86 +216,138 @@ export function openBrowserWindow(): void {
     }
   })
 
-  popupWin.on('resize', () => {
-    if (dappView && popupWin && !popupWin.isDestroyed()) {
-      const [w, h] = popupWin.getContentSize()
-      dappView.setBounds({ x: 0, y: CHROME_HEIGHT, width: w, height: Math.max(0, h - CHROME_HEIGHT) })
-    }
-  })
+  popupWin.on('resize', () => layoutActiveView())
 }
 
-function attachDappView(): void {
-  if (!popupWin || popupWin.isDestroyed()) return
+// Hosts whose featureless window.open is still an auth/sign popup (not a link).
+// Most OAuth/wallet popups pass window features (width/height) — caught separately —
+// but Abstract/Privy sometimes open a featureless auth window, so allow-list them.
+const AUTH_POPUP_HOSTS = ['abs.xyz', 'privy.io', 'walletconnect.com', 'walletconnect.org', 'web3auth.io']
 
-  dappView = new WebContentsView({
-    webPreferences: {
-      preload: web3InjectPath(),
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true
-    }
-  })
-
-  popupWin.contentView.addChildView(dappView)
-
-  const [w, h] = popupWin.getContentSize()
-  dappView.setBounds({ x: 0, y: CHROME_HEIGHT, width: w, height: Math.max(0, h - CHROME_HEIGHT) })
-  dappView.webContents.loadURL(BROWSER_HOME)
-
-  // ── Forward dApp nav events to popup chrome renderer ──────────────────
-  function sendToChrome(channel: string, payload: unknown) {
-    try {
-      if (popupWin && !popupWin.isDestroyed() && !popupWin.webContents.isDestroyed()) {
-        popupWin.webContents.send(channel, payload)
-      }
-    } catch { /* window torn down mid-send — safe to ignore */ }
+/** Options for a frameless branded popup that carries the full web3 provider. */
+function popupResult(): WindowOpenHandlerResponse {
+  return {
+    action: 'allow',
+    overrideBrowserWindowOptions: {
+      width: 480,
+      height: 760,
+      minWidth: 360,
+      minHeight: 480,
+      parent: popupWin ?? undefined,
+      frame: false,             // frameless — we draw our own branded titlebar
+      backgroundColor: '#0b1220',
+      webPreferences: {
+        // Titlebar + full web3 provider, so AGW/Privy "Login with Wallet" and
+        // other in-popup wallet flows can detect MagicMoney and sign here.
+        preload: popupConnectPath(),
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+      },
+    },
   }
+}
 
-  dappView.webContents.on('did-navigate', (_, url) => {
-    sendToChrome('browser:url', url)
-    sendToChrome('browser:nav-state', {
-      canBack: dappView!.webContents.canGoBack(),
-      canForward: dappView!.webContents.canGoForward()
-    })
+/** True when a window.open should be a real popup window (auth/wallet/sign), not a tab. */
+function wantsPopup(url: string, features: string): boolean {
+  // Window features (width/height/popup=…) ⇒ an intentional popup (OAuth, sign, WC).
+  if (typeof features === 'string' && features.trim().length > 0) return true
+  try {
+    const h = new URL(url).hostname.toLowerCase()
+    return AUTH_POPUP_HOSTS.some(d => h === d || h.endsWith(`.${d}`))
+  } catch { return false }
+}
 
-    // Reset the active EVM network to Ethereum when moving to a NEW dApp origin so a
-    // prior dApp's chain (e.g. Monad on nad.fun) doesn't leak into the next one
-    // (which made Compound read Monad → "unsupported network"). Same-origin reloads
-    // and SPA in-page route changes (did-navigate-in-page) keep the current chain.
-    let origin: string | null = null
-    try { origin = new URL(url).origin } catch { origin = null }
-    if (origin && origin !== _lastDappOrigin) {
-      _lastDappOrigin = origin
-      const changed = getDappChainId() !== DEFAULT_CHAIN_ID
-      setDappChainId(DEFAULT_CHAIN_ID)
-      const hex = `0x${DEFAULT_CHAIN_ID.toString(16)}`
-      if (changed) emitDappEvent('eth', 'chainChanged', hex) // correct a page that synced the stale chain
-      notifyBrowserChrome('web3:chain-changed', hex)         // keep the toolbar pill in sync
+/**
+ * Decide what a dApp's window.open becomes:
+ *   • about:* ............ real popup. Wallet/OAuth libs (AGW/Privy message signing)
+ *     open an `about:blank` popup synchronously then navigate it — denying it leaves
+ *     the sign window inert ("Authentication failed").
+ *   • sized / auth-host .. real branded popup (connect, sign, WalletConnect).
+ *   • other http(s) ...... a plain link/redirect (e.g. a game's "Play Now") → NEW TAB.
+ *   • mailto:/tel:/sms: .. hand to the OS. Everything else is ignored.
+ */
+function handleWindowOpen(details: HandlerDetails): WindowOpenHandlerResponse {
+  const { url, features } = details
+  if (/^about:/i.test(url)) return popupResult()
+  if (/^https?:\/\//i.test(url)) {
+    if (!isSafe(url)) return { action: 'deny' }
+    if (wantsPopup(url, features)) return popupResult()
+    // Defer: don't mutate the view tree from inside the handler.
+    setImmediate(() => createTab(url, true))
+    return { action: 'deny' }
+  }
+  openExternalSafe(url)
+  return { action: 'deny' }
+}
+
+/** Wire all per-tab webContents events (nav, title, loading, phishing, popups). */
+function wireTab(tab: Tab): void {
+  const wc = tab.view.webContents
+  const isActive = () => tab.id === activeTabId
+
+  wc.on('did-navigate', (_e, url) => {
+    tab.url = url
+    tab.canBack = wc.canGoBack()
+    tab.canForward = wc.canGoForward()
+    if (isActive()) {
+      sendToChrome('browser:url', url)
+      sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
+
+      // Reset the active EVM network to Ethereum when moving to a NEW dApp origin so a
+      // prior dApp's chain (e.g. Monad on nad.fun) doesn't leak into the next one.
+      // Same-origin reloads and SPA route changes (did-navigate-in-page) keep the chain.
+      let origin: string | null = null
+      try { origin = new URL(url).origin } catch { origin = null }
+      if (origin && origin !== _lastDappOrigin) {
+        _lastDappOrigin = origin
+        const changed = getDappChainId() !== DEFAULT_CHAIN_ID
+        setDappChainId(DEFAULT_CHAIN_ID)
+        const hex = `0x${DEFAULT_CHAIN_ID.toString(16)}`
+        if (changed) emitDappEvent('eth', 'chainChanged', hex) // correct a page that synced the stale chain
+        notifyBrowserChrome('web3:chain-changed', hex)         // keep the toolbar pill in sync
+      }
     }
+    pushTabs()
   })
 
-  dappView.webContents.on('did-navigate-in-page', (_, url) => {
-    sendToChrome('browser:url', url)
-    sendToChrome('browser:nav-state', {
-      canBack: dappView!.webContents.canGoBack(),
-      canForward: dappView!.webContents.canGoForward()
-    })
+  wc.on('did-navigate-in-page', (_e, url) => {
+    tab.url = url
+    tab.canBack = wc.canGoBack()
+    tab.canForward = wc.canGoForward()
+    if (isActive()) {
+      sendToChrome('browser:url', url)
+      sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
+    }
+    pushTabs()
   })
 
-  dappView.webContents.on('page-title-updated', (_, title) => {
-    sendToChrome('browser:title', title)
-    if (popupWin && !popupWin.isDestroyed()) popupWin.setTitle(title || 'MagicMoney Browser')
+  wc.on('page-title-updated', (_e, title) => {
+    tab.title = title || 'Untitled'
+    if (isActive()) {
+      sendToChrome('browser:title', tab.title)
+      if (popupWin && !popupWin.isDestroyed()) popupWin.setTitle(tab.title)
+    }
+    pushTabs()
   })
 
-  dappView.webContents.on('did-start-loading', () => sendToChrome('browser:loading', true))
-  dappView.webContents.on('did-stop-loading', () => {
-    sendToChrome('browser:loading', false)
-    sendToChrome('browser:url', dappView!.webContents.getURL())
+  wc.on('did-start-loading', () => {
+    tab.loading = true
+    if (isActive()) sendToChrome('browser:loading', true)
+    pushTabs()
+  })
+  wc.on('did-stop-loading', () => {
+    tab.loading = false
+    tab.url = wc.getURL()
+    if (isActive()) {
+      sendToChrome('browser:loading', false)
+      sendToChrome('browser:url', tab.url)
+    }
+    pushTabs()
   })
 
   // ── Phishing guard ──────────────────────────────────────────────────────
-  dappView.webContents.on('will-navigate', (event, url) => {
+  wc.on('will-navigate', (event, url) => {
     if (!isSafe(url)) {
       event.preventDefault()
       const win = popupWin ?? mainWin
@@ -248,55 +359,19 @@ function attachDappView(): void {
         detail: url,
         buttons: ['Block (Recommended)', 'Visit Anyway'],
         defaultId: 0,
-        cancelId: 0
+        cancelId: 0,
       }).then(({ response }) => {
-        if (response === 1) dappView?.webContents.loadURL(url)
+        if (response === 1) wc.loadURL(url)
       })
     }
   })
 
-  dappView.webContents.setWindowOpenHandler(({ url }) => {
-    // Non-web schemes (mailto:, etc.) → hand off to the OS.
-    if (!/^https?:\/\//i.test(url)) {
-      openExternalSafe(url)
-      return { action: 'deny' }
-    }
-    // Phishing blocklist parity with in-view navigation — block, don't relocate.
-    if (!isSafe(url)) return { action: 'deny' }
+  wc.setWindowOpenHandler(handleWindowOpen)
 
-    // Open a REAL popup window. Wallet-connect / OAuth flows (Abstract Global
-    // Wallet cross-app connect, Google sign-in, WalletConnect web) rely on
-    // window.open + window.opener.postMessage to return their result to the
-    // dApp. Reloading the URL in the same view broke that channel and left the
-    // approval UI inert (Approve/Reject did nothing). Letting Electron create
-    // the popup keeps the opener relationship and makes it independently
-    // interactive.
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: {
-        width: 480,
-        height: 760,
-        minWidth: 360,
-        minHeight: 480,
-        parent: popupWin ?? undefined,
-        frame: false,             // frameless — we draw our own branded titlebar
-        backgroundColor: '#0b1220',
-        webPreferences: {
-          // Titlebar + full web3 provider, so AGW/Privy "Login with Wallet" and
-          // other in-popup wallet flows can detect MagicMoney and sign here.
-          preload: popupConnectPath(),
-          contextIsolation: true,
-          sandbox: true,
-          nodeIntegration: false
-        }
-      }
-    }
-  })
-
-  // Configure each popup the dApp opens (auth / wallet-connect windows) so its
-  // own nested popups and external links are handled too.
-  dappView.webContents.on('did-create-window', (childWin) => {
+  // Nested popups (the auth window opening its own) get the same treatment.
+  wc.on('did-create-window', (childWin) => {
     childWin.webContents.setWindowOpenHandler(({ url }) => {
+      if (/^about:/i.test(url)) return popupResult()
       if (/^https?:\/\//i.test(url) && isSafe(url)) return { action: 'allow' }
       openExternalSafe(url)
       return { action: 'deny' }
@@ -304,43 +379,142 @@ function attachDappView(): void {
   })
 }
 
+/** Create a new tab loading `url`; activates it when `activate` is true. */
+function createTab(url: string, activate = true): number {
+  if (!popupWin || popupWin.isDestroyed()) return -1
+  const view = new WebContentsView({
+    webPreferences: {
+      preload: web3InjectPath(),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
+  })
+  const tab: Tab = { id: nextTabId++, view, url, title: 'New Tab', loading: true, canBack: false, canForward: false }
+  tabs.push(tab)
+  wireTab(tab)
+  view.webContents.loadURL(url)
+  if (activate) setActiveTab(tab.id)
+  else pushTabs()
+  return tab.id
+}
+
+/** Bring a tab to the front: only the active tab's view is attached to the window. */
+function setActiveTab(id: number): void {
+  const next = tabs.find(t => t.id === id)
+  if (!next || !popupWin || popupWin.isDestroyed()) return
+  const cur = activeTab()
+  if (cur && cur.id !== id) {
+    try { popupWin.contentView.removeChildView(cur.view) } catch { /* not attached */ }
+  }
+  activeTabId = id
+  try { popupWin.contentView.addChildView(next.view) } catch { /* already attached */ }
+  layoutActiveView()
+  pushActive()
+  pushTabs()
+}
+
+/** Close a tab. The last remaining tab is reset to Home rather than left empty. */
+function closeTab(id: number): void {
+  const idx = tabs.findIndex(t => t.id === id)
+  if (idx === -1) return
+  const tab = tabs[idx]
+
+  if (tabs.length === 1) {
+    _lastDappOrigin = null
+    tab.view.webContents.loadURL(BROWSER_HOME)
+    return
+  }
+
+  try {
+    if (popupWin && !popupWin.isDestroyed()) popupWin.contentView.removeChildView(tab.view)
+    const wc = tab.view.webContents
+    if (wc && !wc.isDestroyed()) { wc.stop(); wc.close() }
+  } catch { /* already torn down */ }
+
+  const wasActive = tab.id === activeTabId
+  tabs.splice(idx, 1)
+  if (wasActive) {
+    setActiveTab(tabs[Math.min(idx, tabs.length - 1)].id)
+  } else {
+    pushTabs()
+  }
+}
+
+/**
+ * Native popup menu listing open tabs (click to switch) with a Close submenu and a
+ * New-tab action. A native Menu is used (like the network <select>) so it floats
+ * ABOVE the dApp WebContentsView — an HTML dropdown would be hidden behind it.
+ */
+export function openTabsMenu(): void {
+  if (!popupWin || popupWin.isDestroyed() || tabs.length === 0) return
+  const trunc = (s: string) => (s.length > 42 ? `${s.slice(0, 41)}…` : s)
+  const label = (t: Tab) => {
+    const name = t.title && t.title !== 'New Tab' ? t.title : ''
+    if (name) return trunc(name)
+    try { return new URL(t.url).hostname } catch { return trunc(t.url) }
+  }
+  const template: MenuItemConstructorOptions[] = [
+    { label: `Open tabs (${tabs.length})`, enabled: false },
+    { type: 'separator' },
+    ...tabs.map<MenuItemConstructorOptions>(t => ({
+      label: (t.id === activeTabId ? '● ' : '   ') + label(t),
+      click: () => setActiveTab(t.id),
+    })),
+    { type: 'separator' },
+    {
+      label: 'Close tab',
+      submenu: tabs.map<MenuItemConstructorOptions>(t => ({
+        label: trunc(label(t)),
+        click: () => closeTab(t.id),
+      })),
+    },
+    { type: 'separator' },
+    { label: '＋  New tab', click: () => createTab(BROWSER_HOME, true) },
+  ]
+  Menu.buildFromTemplate(template).popup({ window: popupWin })
+}
+
 // ── Control functions called by IPC handlers ──────────────────────────────
 
 /**
- * Fully tears down the dApp WebContents so it stops consuming CPU/GPU and
- * network once the browser is closed. Without this the renderer leaks and the
+ * Fully tears down every tab's WebContents so they stop consuming CPU/GPU and
+ * network once the browser is closed. Without this the renderers leak and the
  * wallet UI stays laggy. Safe to call multiple times.
  */
-function destroyDappView(): void {
-  if (!dappView) return
-  try {
-    const wc = dappView.webContents
-    if (popupWin && !popupWin.isDestroyed()) {
-      popupWin.contentView.removeChildView(dappView)
-    }
-    if (wc && !wc.isDestroyed()) {
-      wc.stop()
-      wc.close()
-    }
-  } catch { /* already torn down — safe to ignore */ }
-  dappView = null
+function destroyAllTabs(): void {
+  for (const t of tabs) {
+    try {
+      if (popupWin && !popupWin.isDestroyed()) popupWin.contentView.removeChildView(t.view)
+      const wc = t.view.webContents
+      if (wc && !wc.isDestroyed()) { wc.stop(); wc.close() }
+    } catch { /* already torn down — safe to ignore */ }
+  }
+  tabs = []
+  activeTabId = 0
 }
 
 export function closeBrowserWindow(): void {
   if (popupWin && !popupWin.isDestroyed()) popupWin.close()
 }
 
+/** Navigate the ACTIVE tab. Empty/invalid input is ignored. */
 export function browserNavigate(url: string): void {
-  if (!dappView) return
+  const v = activeView()
+  if (!v) return
   const normalized = normalizeWebUrl(url)
   if (!normalized) return
-  dappView.webContents.loadURL(normalized)
+  v.webContents.loadURL(normalized)
 }
 
-export function browserBack(): void    { dappView?.webContents.goBack() }
-export function browserForward(): void { dappView?.webContents.goForward() }
-export function browserReload(): void  { dappView?.webContents.reload() }
-export function browserHome(): void    { dappView?.webContents.loadURL(BROWSER_HOME) }
+export function browserBack(): void    { activeView()?.webContents.goBack() }
+export function browserForward(): void { activeView()?.webContents.goForward() }
+export function browserReload(): void  { activeView()?.webContents.reload() }
+export function browserHome(): void    { activeView()?.webContents.loadURL(BROWSER_HOME) }
+
+/** Open a new tab (used by the tab menu's "New tab" and by IPC). */
+export function browserNewTab(url?: string): void { createTab(url || BROWSER_HOME, true) }
 
 /**
  * Push a provider event (e.g. EIP-1193 `chainChanged` / `accountsChanged`) into
@@ -350,8 +524,10 @@ export function browserHome(): void    { dappView?.webContents.loadURL(BROWSER_H
  * up. No-op when no dApp view is open.
  */
 export function emitDappEvent(chain: 'eth' | 'solana' | 'cardano', event: string, data: unknown): void {
-  if (!dappView || dappView.webContents.isDestroyed()) return
-  dappView.webContents.send('web3:event', { chain, event, data })
+  // Chain/account state is global to the browser, so notify every open tab's page.
+  for (const t of tabs) {
+    if (!t.view.webContents.isDestroyed()) t.view.webContents.send('web3:event', { chain, event, data })
+  }
 }
 
 /**
@@ -368,12 +544,15 @@ export function notifyBrowserChrome(channel: string, payload: unknown): void {
 }
 
 export function getBrowserState() {
+  const t = activeTab()
   return {
-    url: dappView?.webContents.getURL() ?? BROWSER_HOME,
-    canBack: dappView?.webContents.canGoBack() ?? false,
-    canForward: dappView?.webContents.canGoForward() ?? false,
-    loading: dappView?.webContents.isLoading() ?? false,
-    isOpen: !!(popupWin && !popupWin.isDestroyed())
+    url: t?.url ?? BROWSER_HOME,
+    canBack: t?.canBack ?? false,
+    canForward: t?.canForward ?? false,
+    loading: t?.loading ?? false,
+    isOpen: !!(popupWin && !popupWin.isDestroyed()),
+    tabs: tabs.map(x => ({ id: x.id, title: x.title, url: x.url, loading: x.loading })),
+    activeTabId,
   }
 }
 

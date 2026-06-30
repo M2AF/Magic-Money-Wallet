@@ -12,7 +12,7 @@
  */
 
 import type { WalletConfig } from './secure-store'
-import { proxyBase } from './api-proxy'
+import { proxyBase, proxyHeaders, proxyUrl } from './api-proxy'
 import { loadMnemonic, loadAddresses } from './secure-store'
 import { getEvmPrivateKey } from './wallet-core'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -90,8 +90,8 @@ export async function getProfileByAddress(
   const base = proxyBase(config)
   if (!base) return null
   try {
-    const res = await fetch(`${base}/profile?address=${encodeURIComponent(evmAddress.toLowerCase())}`, {
-      headers: { accept: 'application/json' },
+    const res = await fetch(proxyUrl(`${base}/profile?address=${encodeURIComponent(evmAddress.toLowerCase())}`, config), {
+      headers: proxyHeaders(config, { accept: 'application/json' }),
       signal: AbortSignal.timeout(10_000),
     })
     if (!res.ok) return null
@@ -117,9 +117,9 @@ export async function syncWallets(
   const sig = await signOwnership('sync', addresses.evm)
   if (!sig) return { success: false, profile: null, error: 'Could not sign ownership proof.' }
   try {
-    const res = await fetch(`${base}/sync`, {
+    const res = await fetch(proxyUrl(`${base}/sync`, config), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: proxyHeaders(config, { 'content-type': 'application/json' }),
       body: JSON.stringify({ ...addresses, ts: sig.ts, signature: sig.signature }),
       signal: AbortSignal.timeout(12_000),
     })
@@ -144,9 +144,9 @@ export async function updateProfile(
   const sig = await signOwnership('profile-update', evm)
   if (!sig) return { success: false, error: 'Could not sign ownership proof.' }
   try {
-    const res = await fetch(`${base}/profile/update`, {
+    const res = await fetch(proxyUrl(`${base}/profile/update`, config), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: proxyHeaders(config, { 'content-type': 'application/json' }),
       body: JSON.stringify({ userId, address: evm.toLowerCase(), ts: sig.ts, signature: sig.signature, ...updates }),
       signal: AbortSignal.timeout(10_000),
     })

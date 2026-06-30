@@ -20,6 +20,14 @@ export const json = (env, obj, status = 200) =>
 
 export const err = (env, message, status = 400) => json(env, { error: message }, status)
 
+export function productionConfigError(env) {
+  if (env.ALLOW_INSECURE_DEV === 'true') return null
+  if (!env.ALLOWED_ORIGIN || env.ALLOWED_ORIGIN === '*') return 'ALLOWED_ORIGIN must be set to a specific production origin.'
+  if (!env.CLIENT_TOKEN) return 'CLIENT_TOKEN must be set before production deploy.'
+  if (!env.CACHE) return 'CACHE KV binding is required for production rate limits and replay protection.'
+  return null
+}
+
 /** Forward an upstream Response back to the client verbatim, with CORS attached. */
 export async function passthrough(env, upstream) {
   const body = await upstream.text()
@@ -60,7 +68,8 @@ export function cachePut(env, ctx, key, value, ttlSeconds) {
  */
 export function clientOk(request, env) {
   if (!env.CLIENT_TOKEN) return true
-  return request.headers.get('x-mm-client') === env.CLIENT_TOKEN
+  const url = new URL(request.url)
+  return request.headers.get('x-mm-client') === env.CLIENT_TOKEN || url.searchParams.get('mm_client') === env.CLIENT_TOKEN
 }
 
 /**

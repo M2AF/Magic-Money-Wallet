@@ -9,6 +9,7 @@ export function BrowserApp() {
   const [canBack, setCanBack]   = useState(false)
   const [canFwd, setCanFwd]     = useState(false)
   const [title, setTitle]       = useState('MagicMoney Browser')
+  const [tabCount, setTabCount] = useState(1)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -19,16 +20,19 @@ export function BrowserApp() {
       setCanBack(s.canBack); setCanFwd(s.canForward)
     }
     const onTitle = (t: string)  => setTitle(t || 'MagicMoney Browser')
+    const onTabs  = (s: { tabs: Array<unknown> }) => setTabCount(s.tabs.length)
 
     window.wallet.onBrowserUrl(onUrl)
     window.wallet.onBrowserLoading(onLoad)
     window.wallet.onBrowserNavState(onNav)
     window.wallet.onBrowserTitle(onTitle)
+    window.wallet.onBrowserTabs(onTabs)
 
     window.wallet.browserGetState().then(s => {
       setUrl(s.url); setInputUrl(s.url)
       setCanBack(s.canBack); setCanFwd(s.canForward)
       setLoading(s.loading)
+      setTabCount(s.tabs?.length ?? 1)
     })
 
     return () => {
@@ -36,6 +40,7 @@ export function BrowserApp() {
       window.wallet.offBrowserLoading(onLoad)
       window.wallet.offBrowserNavState(onNav)
       window.wallet.offBrowserTitle(onTitle)
+      window.wallet.offBrowserTabs(onTabs)
     }
   }, [])
 
@@ -137,6 +142,9 @@ export function BrowserApp() {
           />
         </form>
 
+        {/* Open tabs (count + native popup menu to switch/close) */}
+        <TabsButton count={tabCount} />
+
         {/* Network switcher (active EVM network + manual switch) */}
         <NetworkSwitcher />
 
@@ -212,6 +220,34 @@ function NetworkSwitcher() {
         ))}
       </select>
     </div>
+  )
+}
+
+// Open-tabs control: shows the tab count and opens a native menu (main process) to
+// switch between or close tabs. A native menu is used so it floats above the dApp
+// WebContentsView — a custom HTML dropdown would be hidden behind it.
+function TabsButton({ count }: { count: number }) {
+  return (
+    <button
+      type="button"
+      title={`${count} open tab${count !== 1 ? 's' : ''}`}
+      onClick={() => window.wallet.browserOpenTabsMenu()}
+      style={{
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
+        padding: '3px 9px', background: 'var(--surface-raised)',
+        border: '1px solid var(--border)', borderRadius: 12,
+        flexShrink: 0, cursor: 'pointer', color: 'var(--text-secondary)',
+        transition: 'border-color 0.15s, color 0.15s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <line x1="3" y1="9" x2="21" y2="9" />
+      </svg>
+      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{count}</span>
+    </button>
   )
 }
 

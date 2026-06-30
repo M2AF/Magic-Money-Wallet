@@ -53,25 +53,31 @@ export function SetPasswordPage({ mode, onComplete }: Props) {
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form
+        onSubmit={(e) => { e.preventDefault(); submit() }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+      >
         <input
           className="input" type="password" autoFocus
+          aria-label="New wallet password"
+          autoComplete="new-password"
           placeholder="Password (min 8 characters)"
           value={password}
           onChange={e => { setPassword(e.target.value); setError(null) }}
         />
         <input
           className="input" type="password"
+          aria-label="Confirm wallet password"
+          autoComplete="new-password"
           placeholder="Confirm password"
           value={confirm}
           onChange={e => { setConfirm(e.target.value); setError(null) }}
-          onKeyDown={e => { if (e.key === 'Enter') submit() }}
         />
         {error && <div style={{ color: 'var(--error)', fontSize: 12, textAlign: 'center' }}>{error}</div>}
-        <button className="btn btn-primary" onClick={submit} disabled={busy || !password || !confirm}>
+        <button type="submit" className="btn btn-primary" disabled={busy || !password || !confirm}>
           {busy ? 'Encrypting…' : 'Encrypt & Continue'}
         </button>
-      </div>
+      </form>
 
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
         There is no password recovery. If you forget it, restore from your seed phrase.

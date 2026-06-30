@@ -73,15 +73,19 @@ wrangler secret put MORALIS_KEY
 wrangler secret put OPENSEA_KEY
 #    Supabase (new — service-role key, server-side only):
 wrangler secret put SUPABASE_SERVICE_KEY
-#    Optional client gate (filters drive-by abuse):
+#    Required production client gate (filters drive-by abuse):
 wrangler secret put CLIENT_TOKEN
 
 # 3. Deploy
 wrangler deploy
 ```
 
-`SUPABASE_URL` is a non-secret `[vars]` entry in `wrangler.toml`. Optional
-per-IP limits: `READ_RPM` (default 600), `DB_RPM` (default 60).
+`SUPABASE_URL` is a non-secret `[vars]` entry in `wrangler.toml`. `CLIENT_TOKEN`
+is a public client tag, not a true secret; it filters generic web abuse but is
+visible to packaged clients. Production deploys fail closed unless
+`ALLOWED_ORIGIN` is a specific origin, `CLIENT_TOKEN` is set, and `CACHE` is bound.
+For local `wrangler dev` only, set `ALLOW_INSECURE_DEV = "true"`. Optional per-IP
+limits: `READ_RPM` (default 600), `DB_RPM` (default 60).
 
 ## Local dev / smoke tests
 
@@ -90,15 +94,17 @@ per-IP limits: `READ_RPM` (default 600), `DB_RPM` (default 60).
 wrangler dev
 
 # Alchemy RPC:
-curl -s -X POST http://localhost:8787/rpc/alchemy/eth-mainnet \
+curl -s "http://localhost:8787/health?mm_client=magicmoney-wallet-v1"
+
+curl -s -X POST "http://localhost:8787/rpc/alchemy/eth-mainnet?mm_client=magicmoney-wallet-v1" \
   -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
 
 # OpenSea floor (should be a KV hit on the 2nd call):
-curl -s "http://localhost:8787/opensea/collections/boredapeyachtclub/stats"
+curl -s "http://localhost:8787/opensea/collections/boredapeyachtclub/stats?mm_client=magicmoney-wallet-v1"
 
 # Profile read:
-curl -s "http://localhost:8787/profile?address=0x0000000000000000000000000000000000000000"
+curl -s "http://localhost:8787/profile?address=0x0000000000000000000000000000000000000000&mm_client=magicmoney-wallet-v1"
 ```
 
 Verify **no key/secret** appears in any response body or header.

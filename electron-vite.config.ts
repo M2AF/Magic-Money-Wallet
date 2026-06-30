@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    define: {
+      'process.env.WS_NO_BUFFER_UTIL': '"1"',
+      'process.env.WS_NO_UTF_8_VALIDATE': '"1"',
+    },
     build: {
       rollupOptions: {
         // web3-inject.ts is the dApp-browser preload. It is built separately by

@@ -36,10 +36,10 @@ wrangler secret put SUPABASE_SERVICE_KEY     # rotated service-role key
 wrangler secret put SIMPLESWAP_API_KEY
 wrangler secret put ZEROX_API_KEY            # if not already set
 wrangler secret put ONEINCH_API_KEY          # if not already set
-# optional abuse gate (must match the client tag if you wire one later):
-# wrangler secret put CLIENT_TOKEN
+wrangler secret put CLIENT_TOKEN             # must match clientToken in wallet config
 ```
-Confirm `SUPABASE_URL` is set in `wrangler.toml [vars]` (already added).
+Confirm `SUPABASE_URL` is set in `wrangler.toml [vars]` (already added), and
+set `ALLOWED_ORIGIN` to a specific production origin. Do not leave it as `*`.
 
 ## 4. Deploy
 ```bash
@@ -49,10 +49,11 @@ wrangler deploy
 ## 5. Verify the Worker (curl)
 ```bash
 W=https://magicmoney-swap-proxy.guildfordking.workers.dev
-curl -s -X POST $W/rpc/alchemy/eth-mainnet -H 'content-type: application/json' \
+curl -s "$W/health?mm_client=magicmoney-wallet-v1"
+curl -s -X POST "$W/rpc/alchemy/eth-mainnet?mm_client=magicmoney-wallet-v1" -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}'
-curl -s "$W/opensea/collections/boredapeyachtclub/stats"          # 2nd call = KV hit
-curl -s "$W/profile?address=0x0000000000000000000000000000000000000000"
+curl -s "$W/opensea/collections/boredapeyachtclub/stats?mm_client=magicmoney-wallet-v1"          # 2nd call = KV hit
+curl -s "$W/profile?address=0x0000000000000000000000000000000000000000&mm_client=magicmoney-wallet-v1"
 ```
 None of the responses may contain a key/secret.
 

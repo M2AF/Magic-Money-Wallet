@@ -14,6 +14,7 @@
  */
 
 import type { WalletConfig } from './secure-store'
+import { proxyHeaders, proxyUrl } from './api-proxy'
 
 // Pluggable fetch. In the Electron MAIN process, Node's undici `fetch` can hang
 // indefinitely on some hosts (e.g. li.quest) and even ignore AbortSignal.timeout —
@@ -261,8 +262,8 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
   if (crossChain) params.set('skipLifi', '1')   // we already tried LI.FI from the client
 
   try {
-    const res = await fetchWithDeadline(`${base}/quote?${params}`, {
-      headers: { accept: 'application/json' },
+    const res = await fetchWithDeadline(proxyUrl(`${base}/quote?${params}`, config), {
+      headers: proxyHeaders(config, { accept: 'application/json' }),
       signal: AbortSignal.timeout(20_000),
     }, 12_000, 'Worker /quote')
     const data = await res.json().catch(() => null) as SwapQuoteResponse | null
@@ -287,8 +288,8 @@ export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: Wa
   if (req.bridgeTool) params.set('bridge', req.bridgeTool)
   if (req.requestId) params.set('requestId', req.requestId)
   try {
-    const res = await fetchWithDeadline(`${base}/swap/status?${params}`, {
-      headers: { accept: 'application/json' },
+    const res = await fetchWithDeadline(proxyUrl(`${base}/swap/status?${params}`, config), {
+      headers: proxyHeaders(config, { accept: 'application/json' }),
       signal: AbortSignal.timeout(15_000),
     }, 12_000, 'Worker /swap/status')
     const data = await res.json().catch(() => null) as CrossSwapStatus | null
@@ -304,8 +305,8 @@ export async function getSwapTokenList(chain: SwapChain, config: WalletConfig): 
   const base = proxyBase(config)
   if (!base) return { tokens: [], error: null }
   try {
-    const res = await swapFetch(`${base}/tokens?chain=${encodeURIComponent(chain)}`, {
-      headers: { accept: 'application/json' },
+    const res = await swapFetch(proxyUrl(`${base}/tokens?chain=${encodeURIComponent(chain)}`, config), {
+      headers: proxyHeaders(config, { accept: 'application/json' }),
       signal: AbortSignal.timeout(15_000),
     })
     const data = await res.json().catch(() => null) as SwapTokenListResponse | null

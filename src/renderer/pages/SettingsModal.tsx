@@ -245,6 +245,8 @@ function RevealSeedModal({ onClose }: { onClose: () => void }) {
             </div>
             <input
               className="input" type="password" autoFocus placeholder="Enter your password"
+              aria-label="Wallet password"
+              autoComplete="current-password"
               value={password}
               onChange={e => { setPassword(e.target.value); setError(null) }}
               onKeyDown={e => { if (e.key === 'Enter') reveal() }}

@@ -16,7 +16,12 @@ id = "91f84d4789c14f998fb0e3c1efdf5f75"
 # NOTE: SUPABASE_URL is set as a dashboard secret on this Worker, so it is NOT
 # declared here (a [vars] entry of the same name would collide on deploy).
 [vars]
-# ALLOWED_ORIGIN = "*"
+# Production guardrails:
+# - ALLOWED_ORIGIN must be a specific origin, not "*".
+# - CLIENT_TOKEN must be set as a secret and match the wallet's public client tag.
+# - CACHE must be bound for rate limits and replay protection.
+# For local wrangler dev only, set ALLOW_INSECURE_DEV = "true".
+# ALLOWED_ORIGIN = "https://magicmoneywallet.com"
 # Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60.
 # READ_RPM = "600"
 # DB_RPM = "60"
@@ -67,4 +72,4 @@ FEE_POLKADOT = "1dhUhWA8DZEbT5GmjXTJBuafJGWtS5YH13Wqz46KtFdDyoS"
 #   wrangler secret put SUPABASE_SERVICE_KEY
 #
 # Optional client gate (filters drive-by abuse; the client sends it as x-mm-client):
-#   wrangler secret put CLIENT_TOKEN
+#   wrangler secret put CLIENT_TOKEN  # value must match clientToken in wallet config

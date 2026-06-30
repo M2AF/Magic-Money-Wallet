@@ -62,8 +62,18 @@ test.describe('extension page boundary', () => {
   test('blocks direct page attempts to call internal wallet methods', async ({ page }) => {
     await loadExtensionPageScripts(page, ['content.js'])
 
-    const result = await requestViaPageMessage(page, 'wallet:reveal-seed', ['pw']) as { error?: string }
-    expect(result.error).toContain('Wallet method not available to web pages')
+    const sensitiveMethods = [
+      ['wallet:reveal-seed', ['pw']],
+      ['wallet:unlock', ['pw']],
+      ['wallet:get-addresses', []],
+      ['swap:execute', [{ provider: '0x' }]],
+      ['web3:get-pending-sign', []],
+    ] as const
+
+    for (const [type, args] of sensitiveMethods) {
+      const result = await requestViaPageMessage(page, type, [...args]) as { error?: string }
+      expect(result.error).toContain('Wallet method not available to web pages')
+    }
 
     const forwarded = await page.evaluate(() => (window as typeof window & { __mmRuntimeMessages: RuntimeMessage[] }).__mmRuntimeMessages)
     expect(forwarded).toEqual([])

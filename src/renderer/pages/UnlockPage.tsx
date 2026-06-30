@@ -47,19 +47,23 @@ export function UnlockPage({ onUnlocked }: Props) {
         <p className="page-subtitle" style={{ marginTop: 8 }}>Enter your password to unlock.</p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form
+        onSubmit={(e) => { e.preventDefault(); submit() }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+      >
         <input
           className="input" type="password" autoFocus
+          aria-label="Wallet password"
+          autoComplete="current-password"
           placeholder="Password"
           value={password}
           onChange={e => { setPassword(e.target.value); setError(null) }}
-          onKeyDown={e => { if (e.key === 'Enter') submit() }}
         />
         {error && <div style={{ color: 'var(--error)', fontSize: 12, textAlign: 'center' }}>{error}</div>}
-        <button className="btn btn-primary" onClick={submit} disabled={busy || !password}>
+        <button type="submit" className="btn btn-primary" disabled={busy || !password}>
           {busy ? 'Unlocking…' : 'Unlock'}
         </button>
-      </div>
+      </form>
     </div>
   )
 }

@@ -139,19 +139,22 @@ export function ExtApp() {
         <div style={{ fontSize: 40, marginBottom: 8 }}>🔒</div>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>MagicMoney Wallet</div>
         <div style={{ color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 8 }}>Enter your password to unlock</div>
-        <input
-          type="password"
-          value={password}
-          onChange={e => { setPassword(e.target.value); setPwError('') }}
-          onKeyDown={e => e.key === 'Enter' && doUnlock()}
-          placeholder="Password"
-          autoFocus
-          style={inputStyle}
-        />
-        {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
-        <button onClick={doUnlock} disabled={!password || loading} style={btnStyle} type="button">
-          {loading ? 'Unlocking…' : 'Unlock'}
-        </button>
+        <form onSubmit={(e) => { e.preventDefault(); doUnlock() }} style={{ display: 'contents' }}>
+          <input
+            type="password"
+            aria-label="Wallet password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setPwError('') }}
+            placeholder="Password"
+            autoFocus
+            style={inputStyle}
+          />
+          {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
+          <button disabled={!password || loading} style={btnStyle} type="submit">
+            {loading ? 'Unlocking…' : 'Unlock'}
+          </button>
+        </form>
       </div>
     )
   }
@@ -165,25 +168,30 @@ export function ExtApp() {
           Your wallet is encrypted with this password.<br />
           You'll need it every time you open a new browser session.
         </div>
-        <input
-          type="password"
-          value={password}
-          onChange={e => { setPassword(e.target.value); setPwError('') }}
-          placeholder="Password (min 8 characters)"
-          style={inputStyle}
-        />
-        <input
-          type="password"
-          value={confirmPw}
-          onChange={e => { setConfirmPw(e.target.value); setPwError('') }}
-          onKeyDown={e => e.key === 'Enter' && doSetPassword()}
-          placeholder="Confirm password"
-          style={inputStyle}
-        />
-        {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
-        <button onClick={doSetPassword} disabled={!password || loading} style={btnStyle} type="button">
-          {loading ? 'Encrypting…' : 'Encrypt & Continue'}
-        </button>
+        <form onSubmit={(e) => { e.preventDefault(); doSetPassword() }} style={{ display: 'contents' }}>
+          <input
+            type="password"
+            aria-label="New wallet password"
+            autoComplete="new-password"
+            value={password}
+            onChange={e => { setPassword(e.target.value); setPwError('') }}
+            placeholder="Password (min 8 characters)"
+            style={inputStyle}
+          />
+          <input
+            type="password"
+            aria-label="Confirm wallet password"
+            autoComplete="new-password"
+            value={confirmPw}
+            onChange={e => { setConfirmPw(e.target.value); setPwError('') }}
+            placeholder="Confirm password"
+            style={inputStyle}
+          />
+          {pwError && <div style={{ color: '#ef4444', fontSize: 12 }}>{pwError}</div>}
+          <button disabled={!password || loading} style={btnStyle} type="submit">
+            {loading ? 'Encrypting…' : 'Encrypt & Continue'}
+          </button>
+        </form>
       </div>
     )
   }

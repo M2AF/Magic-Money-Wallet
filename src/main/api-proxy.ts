@@ -28,6 +28,19 @@ export function proxyBase(config: WalletConfig): string | null {
   return b || null
 }
 
+export function proxyHeaders(config: WalletConfig, headers: Record<string, string> = {}): Record<string, string> {
+  const token = (config.clientToken || '').trim()
+  return token ? { ...headers, 'x-mm-client': token } : headers
+}
+
+export function proxyUrl(url: string, config: WalletConfig): string {
+  const token = (config.clientToken || '').trim()
+  if (!token) return url
+  const u = new URL(url)
+  u.searchParams.set('mm_client', token)
+  return u.toString()
+}
+
 // ─── Capability gates ─────────────────────────────────────────────────────────
 // A provider is available when EITHER the proxy is configured OR the user supplied
 // their own key. Use these instead of raw `config.xKey` truthiness so emptying the
@@ -48,13 +61,13 @@ export const canOrdiscan  = (c: WalletConfig) => hasProxy(c) || !!c.ordiscanKey
 /** Alchemy JSON-RPC endpoint for a network slug (e.g. 'eth-mainnet'). */
 export function alchemyRpcUrl(network: string, config: WalletConfig): string {
   const base = proxyBase(config)
-  return base ? `${base}/rpc/alchemy/${network}` : `https://${network}.g.alchemy.com/v2/${config.alchemyKey}`
+  return base ? proxyUrl(`${base}/rpc/alchemy/${network}`, config) : `https://${network}.g.alchemy.com/v2/${config.alchemyKey}`
 }
 
 /** Alchemy NFT v3 base for a network slug. Callers append `/getNFTsForOwner?…`. */
 export function alchemyNftBase(network: string, config: WalletConfig): string {
   const base = proxyBase(config)
-  return base ? `${base}/alchemy-nft/${network}` : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}`
+  return base ? proxyUrl(`${base}/alchemy-nft/${network}`, config) : `https://${network}.g.alchemy.com/nft/v3/${config.alchemyKey}`
 }
 
 /**
@@ -65,7 +78,7 @@ export function alchemyNftBase(network: string, config: WalletConfig): string {
 export function tronApiUrl(path: string, config: WalletConfig): string {
   const base = proxyBase(config)
   const p = path.replace(/^\/+/, '')
-  return base ? `${base}/rpc/alchemy-tron/${p}` : `https://tron-mainnet.g.alchemy.com/v2/${config.alchemyKey}/${p}`
+  return base ? proxyUrl(`${base}/rpc/alchemy-tron/${p}`, config) : `https://tron-mainnet.g.alchemy.com/v2/${config.alchemyKey}/${p}`
 }
 
 // Our chain id → Ankr RPC slug (rpc.ankr.com/<slug>). Only chains the current Ankr
@@ -86,14 +99,14 @@ export function ankrRpcUrl(chainId: string, config: WalletConfig): string | unde
   const slug = ANKR_CHAIN[chainId]
   if (!slug) return undefined
   const base = proxyBase(config)
-  if (base) return `${base}/rpc/ankr/${slug}`
+  if (base) return proxyUrl(`${base}/rpc/ankr/${slug}`, config)
   return config.ankrKey ? `https://rpc.ankr.com/${slug}/${config.ankrKey}` : undefined
 }
 
 /** Helius (Solana) JSON-RPC endpoint. */
 export function heliusRpcUrl(config: WalletConfig): string {
   const base = proxyBase(config)
-  return base ? `${base}/rpc/helius` : `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`
+  return base ? proxyUrl(`${base}/rpc/helius`, config) : `https://mainnet.helius-rpc.com/?api-key=${config.heliusKey}`
 }
 
 /**
@@ -103,7 +116,7 @@ export function heliusRpcUrl(config: WalletConfig): string {
  */
 export function heliusApiFetch(path: string, config: WalletConfig, timeoutMs = 12_000): Promise<Response> {
   const base = proxyBase(config)
-  if (base) return fetch(`${base}/helius-api/${path}`, { signal: AbortSignal.timeout(timeoutMs) })
+  if (base) return fetch(proxyUrl(`${base}/helius-api/${path}`, config), { headers: proxyHeaders(config), signal: AbortSignal.timeout(timeoutMs) })
   const sep = path.includes('?') ? '&' : '?'
   return fetch(`https://api.helius.xyz/${path}${sep}api-key=${config.heliusKey}`, { signal: AbortSignal.timeout(timeoutMs) })
 }
@@ -142,9 +155,10 @@ export async function rpcReadWithFallback(
 /** Tatum gateway JSON-RPC POST (gateway = 'polkadot' | 'bitcoin'). */
 export function tatumFetch(gateway: string, body: unknown, config: WalletConfig, timeoutMs = 10_000): Promise<Response> {
   const base = proxyBase(config)
-  const url = base ? `${base}/rpc/tatum/${gateway}` : `https://${gateway}-mainnet.gateway.tatum.io`
+  const url = base ? proxyUrl(`${base}/rpc/tatum/${gateway}`, config) : `https://${gateway}-mainnet.gateway.tatum.io`
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (!base) headers['x-api-key'] = config.tatumKey
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['x-api-key'] = config.tatumKey
   return fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
 }
 
@@ -154,35 +168,39 @@ export function tatumFetch(gateway: string, body: unknown, config: WalletConfig,
  */
 export function blockfrostFetch(path: string, config: WalletConfig, timeoutMs = 10_000, init?: RequestInit): Promise<Response> {
   const base = proxyBase(config)
-  const url = base ? `${base}/blockfrost/${path}` : `https://cardano-mainnet.blockfrost.io/api/v0/${path}`
+  const url = base ? proxyUrl(`${base}/blockfrost/${path}`, config) : `https://cardano-mainnet.blockfrost.io/api/v0/${path}`
   const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined) }
-  if (!base) headers['project_id'] = config.blockfrostKey
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['project_id'] = config.blockfrostKey
   return fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) })
 }
 
 /** Moralis GET. `path` is everything after `/api/v2.2/` (e.g. `<addr>/nft?chain=0x8f`). */
 export function moralisFetch(path: string, config: WalletConfig, timeoutMs = 15_000): Promise<Response> {
   const base = proxyBase(config)
-  const url = base ? `${base}/moralis/${path}` : `https://deep-index.moralis.io/api/v2.2/${path}`
+  const url = base ? proxyUrl(`${base}/moralis/${path}`, config) : `https://deep-index.moralis.io/api/v2.2/${path}`
   const headers: Record<string, string> = { accept: 'application/json' }
-  if (!base) headers['X-API-Key'] = config.moralisKey
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['X-API-Key'] = config.moralisKey
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
 }
 
 /** OpenSea v2 GET. `path` is everything after `/api/v2/` (e.g. `collections/<slug>/stats`). */
 export function openseaFetch(path: string, config: WalletConfig, timeoutMs = 8_000): Promise<Response> {
   const base = proxyBase(config)
-  const url = base ? `${base}/opensea/${path}` : `https://api.opensea.io/api/v2/${path}`
+  const url = base ? proxyUrl(`${base}/opensea/${path}`, config) : `https://api.opensea.io/api/v2/${path}`
   const headers: Record<string, string> = { accept: 'application/json' }
-  if (!base) headers['x-api-key'] = config.openseaKey
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['x-api-key'] = config.openseaKey
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
 }
 
 /** Ordiscan (Bitcoin Ordinals/Runes/BRC-20) GET. `path` is after `/v1/` (e.g. `address/<addr>/inscriptions`). */
 export function ordinalsFetch(path: string, config: WalletConfig, timeoutMs = 12_000): Promise<Response> {
   const base = proxyBase(config)
-  const url = base ? `${base}/ordinals/${path}` : `https://api.ordiscan.com/v1/${path}`
+  const url = base ? proxyUrl(`${base}/ordinals/${path}`, config) : `https://api.ordiscan.com/v1/${path}`
   const headers: Record<string, string> = { accept: 'application/json' }
-  if (!base) headers['Authorization'] = `Bearer ${config.ordiscanKey}`
+  if (base) Object.assign(headers, proxyHeaders(config))
+  else headers['Authorization'] = `Bearer ${config.ordiscanKey}`
   return fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) })
 }
