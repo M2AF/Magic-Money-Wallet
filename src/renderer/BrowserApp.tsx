@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 
 const HOME = 'https://chainlensnft.info'
 
+interface TabInfo { id: number; title: string; url: string; loading: boolean }
+
 export function BrowserApp() {
   const [url, setUrl]           = useState(HOME)
   const [inputUrl, setInputUrl] = useState(HOME)
@@ -9,7 +11,10 @@ export function BrowserApp() {
   const [canBack, setCanBack]   = useState(false)
   const [canFwd, setCanFwd]     = useState(false)
   const [title, setTitle]       = useState('MagicMoney Browser')
-  const [tabCount, setTabCount] = useState(1)
+  const [tabs, setTabs]         = useState<TabInfo[]>([])
+  const [activeTabId, setActiveTabId] = useState(0)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [snapshot, setSnapshot] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -20,7 +25,9 @@ export function BrowserApp() {
       setCanBack(s.canBack); setCanFwd(s.canForward)
     }
     const onTitle = (t: string)  => setTitle(t || 'MagicMoney Browser')
-    const onTabs  = (s: { tabs: Array<unknown> }) => setTabCount(s.tabs.length)
+    const onTabs  = (s: { activeTabId: number; tabs: TabInfo[] }) => {
+      setTabs(s.tabs); setActiveTabId(s.activeTabId)
+    }
 
     window.wallet.onBrowserUrl(onUrl)
     window.wallet.onBrowserLoading(onLoad)
@@ -32,7 +39,7 @@ export function BrowserApp() {
       setUrl(s.url); setInputUrl(s.url)
       setCanBack(s.canBack); setCanFwd(s.canForward)
       setLoading(s.loading)
-      setTabCount(s.tabs?.length ?? 1)
+      setTabs(s.tabs ?? []); setActiveTabId(s.activeTabId ?? 0)
     })
 
     return () => {
@@ -47,6 +54,19 @@ export function BrowserApp() {
   const navigate = useCallback((target: string) => {
     window.wallet.browserNavigate(target)
     inputRef.current?.blur()
+  }, [])
+
+  // Tab overview: snapshot the live page (returned by suspend) and paint it behind
+  // the dropdown so the dApp stays visible while the overlay is open.
+  const openTabsMenu = useCallback(async () => {
+    const img = await window.wallet.browserSuspendTabsMenu()
+    setSnapshot(img || null)
+    setMenuOpen(true)
+  }, [])
+  const closeTabsMenu = useCallback(() => {
+    setMenuOpen(false)
+    setSnapshot(null)
+    window.wallet.browserResumeTabsMenu()
   }, [])
 
   const onSubmit = (e: React.FormEvent) => {
@@ -142,8 +162,14 @@ export function BrowserApp() {
           />
         </form>
 
-        {/* Open tabs (count + native popup menu to switch/close) */}
-        <TabsButton count={tabCount} />
+        {/* Open tabs */}
+        <TabsMenu
+          tabs={tabs}
+          activeTabId={activeTabId}
+          open={menuOpen}
+          onOpen={openTabsMenu}
+          onClose={closeTabsMenu}
+        />
 
         {/* Network switcher (active EVM network + manual switch) */}
         <NetworkSwitcher />
@@ -157,8 +183,18 @@ export function BrowserApp() {
         )}
       </div>
 
-      {/* ── Content area (filled by WebContentsView from main process) ── */}
-      <div style={{ flex: 1, background: 'transparent' }} />
+      {/* ── Content area (filled by WebContentsView from main process) ─────
+          While the tab overview is open the live view is detached, so we paint
+          the snapshot captured on open here to keep the dApp visible behind it. */}
+      <div style={{
+        flex: 1,
+        background: 'transparent',
+        ...(snapshot ? {
+          backgroundImage: `url(${snapshot})`,
+          backgroundSize: '100% 100%',
+          backgroundRepeat: 'no-repeat',
+        } : {}),
+      }} />
     </div>
   )
 }
@@ -223,31 +259,170 @@ function NetworkSwitcher() {
   )
 }
 
-// Open-tabs control: shows the tab count and opens a native menu (main process) to
-// switch between or close tabs. A native menu is used so it floats above the dApp
-// WebContentsView — a custom HTML dropdown would be hidden behind it.
-function TabsButton({ count }: { count: number }) {
+// Custom HTML tab overview. Rendered by the chrome renderer (this React app), NOT a
+// native Electron menu — native menus can't put a clickable × on the same row, which
+// is what forced the old two-row-per-tab layout. One row per tab: an active-tab dot,
+// the tab label (click to switch), and an inline × (click to close).
+//
+// The active tab's dApp WebContentsView is layered ABOVE this renderer, so it would
+// hide the dropdown. On open the main process snapshots the live page and detaches
+// the view (browserSuspendTabsMenu); BrowserApp paints that snapshot behind the
+// dropdown so the site stays visible, and the view is re-attached on close
+// (browserResumeTabsMenu).
+function TabsMenu({ tabs, activeTabId, open, onOpen, onClose }: {
+  tabs: TabInfo[]
+  activeTabId: number
+  open: boolean
+  onOpen: () => void
+  onClose: () => void
+}) {
+  const count = tabs.length
+  const closeMenu = onClose
+
+  // Close on Escape while the overlay is open.
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeMenu() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, closeMenu])
+
+  // If every tab closes (shouldn't happen — the last tab resets to Home), fold up.
+  useEffect(() => { if (open && count === 0) closeMenu() }, [open, count, closeMenu])
+
+  const tabLabel = (t: TabInfo) => {
+    const name = t.title && t.title !== 'New Tab' && t.title !== 'Untitled' ? t.title : ''
+    if (name) return name
+    try { return new URL(t.url).hostname } catch { return t.url }
+  }
+
   return (
-    <button
-      type="button"
-      title={`${count} open tab${count !== 1 ? 's' : ''}`}
-      onClick={() => window.wallet.browserOpenTabsMenu()}
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 9px', background: 'var(--surface-raised)',
-        border: '1px solid var(--border)', borderRadius: 12,
-        flexShrink: 0, cursor: 'pointer', color: 'var(--text-secondary)',
-        transition: 'border-color 0.15s, color 0.15s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}
-    >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <rect x="3" y="5" width="18" height="14" rx="2" />
-        <line x1="3" y1="9" x2="21" y2="9" />
-      </svg>
-      <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{count}</span>
-    </button>
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        title={`${count} open tab${count !== 1 ? 's' : ''}`}
+        onClick={() => (open ? closeMenu() : onOpen())}
+        style={{
+          position: 'relative', zIndex: open ? 50 : undefined,
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '3px 9px', background: open ? 'var(--bg)' : 'var(--surface-raised)',
+          border: `1px solid ${open ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12,
+          flexShrink: 0, cursor: 'pointer', color: open ? 'var(--text-primary)' : 'var(--text-secondary)',
+          transition: 'border-color 0.15s, color 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' } }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+        </svg>
+        <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{count}</span>
+      </button>
+
+      {open && (
+        <>
+          {/* Transparent backdrop: keeps the page (snapshot) visible and catches
+              outside clicks to close. */}
+          <div
+            onClick={closeMenu}
+            style={{ position: 'fixed', inset: 0, background: 'transparent', zIndex: 40 }}
+          />
+          {/* Dropdown panel */}
+          <div
+            style={{
+              position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
+              width: 280, maxHeight: 360, overflowY: 'auto',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 12, boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+              padding: 4,
+            }}
+          >
+            <div style={{
+              padding: '6px 8px 8px', fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+              textTransform: 'uppercase', color: 'var(--text-muted)',
+            }}>
+              Open tabs ({count})
+            </div>
+
+            {tabs.map(t => {
+              const isActive = t.id === activeTabId
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => { window.wallet.browserSetActiveTab(t.id); closeMenu() }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '7px 6px 7px 8px', borderRadius: 8, cursor: 'pointer',
+                    background: isActive ? 'var(--surface-raised)' : 'transparent',
+                    transition: 'background 0.12s',
+                  }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface-raised)' }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+                >
+                  {/* Active-tab dot */}
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: isActive ? 'var(--accent)' : 'transparent',
+                    border: isActive ? 'none' : '1px solid var(--border)',
+                  }} />
+
+                  <span style={{
+                    flex: 1, minWidth: 0, fontSize: 12,
+                    fontWeight: isActive ? 600 : 500,
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {tabLabel(t)}
+                  </span>
+
+                  {/* Inline close — hidden for the last remaining tab (it can't be removed). */}
+                  {count > 1 && (
+                    <button
+                      type="button"
+                      title="Close tab"
+                      aria-label={`Close ${tabLabel(t)}`}
+                      onClick={e => { e.stopPropagation(); window.wallet.browserCloseTab(t.id) }}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 20, height: 20, flexShrink: 0, padding: 0,
+                        background: 'none', border: 'none', borderRadius: 5,
+                        color: 'var(--text-muted)', cursor: 'pointer', transition: 'background 0.12s, color 0.12s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--border)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-muted)' }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 6px' }} />
+
+            <div
+              onClick={() => { window.wallet.browserNewTab(); closeMenu() }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px', borderRadius: 8, cursor: 'pointer',
+                fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)',
+                transition: 'background 0.12s, color 0.12s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              New tab
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   )
 }
 

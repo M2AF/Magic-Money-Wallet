@@ -102,8 +102,11 @@ contextBridge.exposeInMainWorld('wallet', {
   browserHome:     ()               => ipcRenderer.send('browser:home'),
   browserNavigate: (url: string)    => ipcRenderer.invoke('browser:navigate', url),
   browserGetState: ()               => ipcRenderer.invoke('browser:get-state'),
-  browserOpenTabsMenu: ()           => ipcRenderer.send('browser:open-tabs-menu'),
-  browserNewTab:   (url?: string)   => ipcRenderer.send('browser:new-tab', url),
+  browserNewTab:      (url?: string) => ipcRenderer.send('browser:new-tab', url),
+  browserSetActiveTab: (id: number)  => ipcRenderer.send('browser:set-active-tab', id),
+  browserCloseTab:     (id: number)  => ipcRenderer.send('browser:close-tab', id),
+  browserSuspendTabsMenu: ()         => ipcRenderer.invoke('browser:suspend-tabs-menu'),
+  browserResumeTabsMenu:  ()         => ipcRenderer.send('browser:resume-tabs-menu'),
 
   onBrowserUrl:      (cb: (url: string) => void)                                    => ipcRenderer.on('browser:url',       (_e, v) => cb(v)),
   onBrowserLoading:  (cb: (loading: boolean) => void)                               => ipcRenderer.on('browser:loading',   (_e, v) => cb(v)),

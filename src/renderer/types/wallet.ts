@@ -313,8 +313,11 @@ declare global {
       browserHome(): void
       browserNavigate(url: string): Promise<void>
       browserGetState(): Promise<{ url: string; canBack: boolean; canForward: boolean; loading: boolean; tabs: BrowserTab[]; activeTabId: number }>
-      browserOpenTabsMenu(): void
       browserNewTab(url?: string): void
+      browserSetActiveTab(id: number): void
+      browserCloseTab(id: number): void
+      browserSuspendTabsMenu(): Promise<string>
+      browserResumeTabsMenu(): void
       onBrowserUrl(cb: (url: string) => void): void
       onBrowserLoading(cb: (loading: boolean) => void): void
       onBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void

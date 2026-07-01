@@ -19,8 +19,8 @@
  * the MAIN wallet window so the user sees them inside the wallet UI.
  */
 
-import { WebContentsView, BrowserWindow, Menu, dialog, shell, app, ipcMain } from 'electron'
-import type { IpcMainEvent, MenuItemConstructorOptions, HandlerDetails, WindowOpenHandlerResponse } from 'electron'
+import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain } from 'electron'
+import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents } from 'electron'
 import { join } from 'path'
 import { WALLET_ICON } from '../preload/wallet-icon'
 import { getDappChainId, setDappChainId, DEFAULT_CHAIN_ID } from './dapp-chain'
@@ -47,6 +47,12 @@ let mainWin: BrowserWindow | null = null
 let tabs: Tab[] = []
 let activeTabId = 0
 let nextTabId = 1
+
+// True while the chrome renderer's custom tab-overview dropdown is open. The active
+// tab's WebContentsView is layered ABOVE the chrome renderer, so it must stay
+// detached while the dropdown is showing (otherwise it hides the dropdown). It is
+// re-attached when the dropdown closes. See browserSuspendTabsMenu / …Resume….
+let tabsMenuOpen = false
 
 // Last top-level dApp origin loaded — used to reset the active EVM network when the
 // user navigates to a DIFFERENT dApp, so a prior dApp's chain doesn't leak forward.
@@ -91,6 +97,13 @@ function layoutActiveView(): void {
   if (!t || !popupWin || popupWin.isDestroyed()) return
   const [w, h] = popupWin.getContentSize()
   t.view.setBounds({ x: 0, y: CHROME_HEIGHT, width: w, height: Math.max(0, h - CHROME_HEIGHT) })
+}
+
+function navCanGo(wc: WebContents): { canBack: boolean; canForward: boolean } {
+  return {
+    canBack: wc.navigationHistory.canGoBack(),
+    canForward: wc.navigationHistory.canGoForward(),
+  }
 }
 
 const PHISHING_BLOCKLIST = new Set([
@@ -209,6 +222,7 @@ export function openBrowserWindow(): void {
   popupWin.on('closed', () => {
     tabs = []
     activeTabId = 0
+    tabsMenuOpen = false
     popupWin = null
     // Tell wallet renderer the popup closed
     if (mainWin && !mainWin.isDestroyed()) {
@@ -288,8 +302,9 @@ function wireTab(tab: Tab): void {
 
   wc.on('did-navigate', (_e, url) => {
     tab.url = url
-    tab.canBack = wc.canGoBack()
-    tab.canForward = wc.canGoForward()
+    const nav = navCanGo(wc)
+    tab.canBack = nav.canBack
+    tab.canForward = nav.canForward
     if (isActive()) {
       sendToChrome('browser:url', url)
       sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
@@ -313,8 +328,9 @@ function wireTab(tab: Tab): void {
 
   wc.on('did-navigate-in-page', (_e, url) => {
     tab.url = url
-    tab.canBack = wc.canGoBack()
-    tab.canForward = wc.canGoForward()
+    const nav = navCanGo(wc)
+    tab.canBack = nav.canBack
+    tab.canForward = nav.canForward
     if (isActive()) {
       sendToChrome('browser:url', url)
       sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
@@ -409,8 +425,12 @@ function setActiveTab(id: number): void {
     try { popupWin.contentView.removeChildView(cur.view) } catch { /* not attached */ }
   }
   activeTabId = id
-  try { popupWin.contentView.addChildView(next.view) } catch { /* already attached */ }
-  layoutActiveView()
+  // While the tab-overview dropdown is open the active view stays detached so it
+  // doesn't hide the dropdown; browserResumeTabsMenu re-attaches it on close.
+  if (!tabsMenuOpen) {
+    try { popupWin.contentView.addChildView(next.view) } catch { /* already attached */ }
+    layoutActiveView()
+  }
   pushActive()
   pushTabs()
 }
@@ -443,38 +463,51 @@ function closeTab(id: number): void {
 }
 
 /**
- * Native popup menu listing open tabs (click to switch) with a Close submenu and a
- * New-tab action. A native Menu is used (like the network <select>) so it floats
- * ABOVE the dApp WebContentsView — an HTML dropdown would be hidden behind it.
+ * The tab overview is a custom HTML dropdown drawn by the chrome renderer
+ * (BrowserApp.tsx) — a single row per tab with an active-tab dot and an inline
+ * close (×). Native Electron menus can't render a clickable × on the same row,
+ * which forced the old two-row layout; the HTML dropdown replaces it.
+ *
+ * Because the active tab's WebContentsView is layered above the chrome renderer,
+ * it must be detached while the dropdown is open. The renderer calls suspend when
+ * it opens the dropdown and resume when it closes.
+ *
+ * Returns a JPEG data-URL snapshot of the live page, captured just before the view
+ * is detached, so the chrome renderer can paint it behind the dropdown — the dApp
+ * stays visible while the overlay is open instead of blanking to an empty area.
  */
-export function openTabsMenu(): void {
-  if (!popupWin || popupWin.isDestroyed() || tabs.length === 0) return
-  const trunc = (s: string) => (s.length > 42 ? `${s.slice(0, 41)}…` : s)
-  const label = (t: Tab) => {
-    const name = t.title && t.title !== 'New Tab' ? t.title : ''
-    if (name) return trunc(name)
-    try { return new URL(t.url).hostname } catch { return trunc(t.url) }
+export async function browserSuspendTabsMenu(): Promise<string> {
+  if (tabsMenuOpen) return ''
+  const cur = activeTab()
+  let snapshot = ''
+  if (cur && popupWin && !popupWin.isDestroyed()) {
+    try {
+      const img = await cur.view.webContents.capturePage()
+      if (!img.isEmpty()) snapshot = `data:image/jpeg;base64,${img.toJPEG(85).toString('base64')}`
+    } catch { /* capture unavailable — fall back to an empty content area */ }
   }
-  const template: MenuItemConstructorOptions[] = [
-    { label: `Open tabs (${tabs.length})`, enabled: false },
-    { type: 'separator' },
-    ...tabs.map<MenuItemConstructorOptions>(t => ({
-      label: (t.id === activeTabId ? '● ' : '   ') + label(t),
-      click: () => setActiveTab(t.id),
-    })),
-    { type: 'separator' },
-    {
-      label: 'Close tab',
-      submenu: tabs.map<MenuItemConstructorOptions>(t => ({
-        label: trunc(label(t)),
-        click: () => closeTab(t.id),
-      })),
-    },
-    { type: 'separator' },
-    { label: '＋  New tab', click: () => createTab(BROWSER_HOME, true) },
-  ]
-  Menu.buildFromTemplate(template).popup({ window: popupWin })
+  tabsMenuOpen = true
+  if (cur && popupWin && !popupWin.isDestroyed()) {
+    try { popupWin.contentView.removeChildView(cur.view) } catch { /* not attached */ }
+  }
+  return snapshot
 }
+
+export function browserResumeTabsMenu(): void {
+  if (!tabsMenuOpen) return
+  tabsMenuOpen = false
+  const cur = activeTab()
+  if (cur && popupWin && !popupWin.isDestroyed()) {
+    try { popupWin.contentView.addChildView(cur.view) } catch { /* already attached */ }
+    layoutActiveView()
+  }
+}
+
+/** Activate a tab by id (from the tab-overview dropdown). */
+export function browserSetActiveTab(id: number): void { setActiveTab(id) }
+
+/** Close a tab by id (from the tab-overview dropdown's inline × button). */
+export function browserCloseTab(id: number): void { closeTab(id) }
 
 // ── Control functions called by IPC handlers ──────────────────────────────
 
