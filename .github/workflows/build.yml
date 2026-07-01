@@ -39,9 +39,15 @@ jobs:
           # No Apple Developer cert in CI → don't try to auto-discover one (it would
           # fail). electron-builder ad-hoc signs the .app so it still runs locally.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run package
+        # --publish never: electron-builder auto-publishes when it detects CI + a
+        # publish config; this is a build-only workflow (no token), so opt out.
+        run: |
+          npm run build
+          npx electron-builder --publish never
 
       - name: Upload installers
+        # always() so we still collect whatever built even if one sub-target fails.
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: magicmoney-${{ matrix.name }}

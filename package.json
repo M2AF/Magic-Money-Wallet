@@ -2,6 +2,10 @@
   "name": "magicmoney-wallet",
   "version": "0.1.1",
   "description": "Self-custody multi-chain wallet — EVM · Solana · Cardano",
+  "author": {
+    "name": "ChainLens",
+    "email": "guildfordking@gmail.com"
+  },
   "main": "./out/main/index.js",
   "private": true,
   "scripts": {
