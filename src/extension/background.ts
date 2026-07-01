@@ -43,9 +43,13 @@ self.addEventListener('unhandledrejection', e => console.error('[SW] unhandled r
 
 let _pendingMnemonic: string | null = null
 
-// ── Current chain (updated by wallet_switchEthereumChain) ────────────────────
+// ── Current chain (updated by wallet_switchEthereumChain / the popup switcher) ─
+// In-memory for synchronous eth_chainId reads; persisted to chrome.storage so the
+// user's selection survives the MV3 service worker sleeping/restarting (which
+// would otherwise reset it to Ethereum and make dApps show "Wrong Network").
 
 let _currentChainId = '0x1'
+store.getCurrentChain().then(v => { if (v) _currentChainId = v }).catch(() => {})
 
 // ── dApp connection approval queue ───────────────────────────────────────────
 
@@ -169,6 +173,32 @@ function broadcastEthEvent(event: string, data: unknown) {
       }
     }
   })
+}
+
+// Push the active-chain change to extension UI pages (popup / side panel) so the
+// network switcher pill reflects dApp-initiated switches live. broadcastEthEvent
+// uses chrome.tabs.sendMessage (reaches dApp content scripts, NOT extension pages),
+// so extension pages need this chrome.runtime.sendMessage path instead. Mirrors the
+// Electron app's notifyBrowserChrome('web3:chain-changed', hex).
+function pushChainChangedToUi(hex: string) {
+  chrome.runtime.sendMessage({ type: 'web3:chain-changed', data: hex }).catch(() => {})
+}
+
+// Apply an EVM chain switch from any source: update in-memory state, persist it,
+// fire chainChanged to dApp tabs, and update the extension UI. Returns the hex id.
+function applyChainSwitch(hex: string): string {
+  _currentChainId = hex
+  store.setCurrentChain(hex).catch(() => {})
+  broadcastEthEvent('chainChanged', hex)
+  pushChainChangedToUi(hex)
+  return hex
+}
+
+// Whether a numeric chainId is one of the wallet's supported EVM chains. The
+// dynamic import is module-cached, so repeated calls are cheap.
+async function isSupportedEvmChain(chainNum: number): Promise<boolean> {
+  const { EVM_CHAINS } = await import('../main/chain-config')
+  return EVM_CHAINS.some(c => c.chainId === chainNum)
 }
 
 // Push an EIP-1193 event to ONLY the tabs whose page matches `origin`. Used when a
@@ -607,6 +637,26 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     // ── window.ethereum provider requests (from content.ts injection) ────
 
+    // ── EVM chain switcher (extension UI, not web pages) ────────────────────
+    // Drives the popup's NetworkSwitcher. Mirrors the Electron main-process
+    // web3:get-chain / web3:get-chains / web3:set-chain IPC handlers.
+
+    case 'web3:get-chain':
+      return _currentChainId
+
+    case 'web3:get-chains': {
+      const { EVM_CHAINS } = await import('../main/chain-config')
+      return EVM_CHAINS.map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
+    }
+
+    case 'web3:set-chain': {
+      const target = typeof a0 === 'string' ? parseInt(a0, 16) : Number(a0)
+      if (!Number.isFinite(target) || !(await isSupportedEvmChain(target))) {
+        throw new Error('Unsupported network')
+      }
+      return applyChainSwitch(`0x${target.toString(16)}`)
+    }
+
     case 'web3:request': {
       const { method, params = [] } = (a0 as { method: string; params?: unknown[] })
       const addresses = await store.loadAddresses()
@@ -707,18 +757,32 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           })
         }
 
-        // Switch to a different chain — update state and fire chainChanged to all tabs
+        // Switch to a different chain — validate, persist, fire chainChanged to all
+        // tabs, and reflect in the extension UI. Unsupported chains reject with 4902
+        // (EIP-3085), matching the Electron app.
         case 'wallet_switchEthereumChain': {
           const chainId = (params[0] as { chainId?: string })?.chainId
-          if (chainId) {
-            _currentChainId = chainId
-            broadcastEthEvent('chainChanged', chainId)
+          const target = chainId ? parseInt(chainId, 16) : NaN
+          if (!Number.isFinite(target) || !(await isSupportedEvmChain(target))) {
+            throw Object.assign(
+              new Error(`This wallet doesn't support network 0x${(target || 0).toString(16)}.`),
+              { code: 4902 }
+            )
           }
+          applyChainSwitch(`0x${target.toString(16)}`)
           return null
         }
 
-        case 'wallet_addEthereumChain':
+        // We don't maintain a custom-chain list, but if the requested chain is one we
+        // already support, honor it by switching (many dApps call add then switch).
+        case 'wallet_addEthereumChain': {
+          const addId = (params[0] as { chainId?: string })?.chainId
+          const addTarget = addId ? parseInt(addId, 16) : NaN
+          if (Number.isFinite(addTarget) && (await isSupportedEvmChain(addTarget))) {
+            applyChainSwitch(`0x${addTarget.toString(16)}`)
+          }
           return null
+        }
 
         // EIP-2255 permissions
         case 'wallet_requestPermissions': {

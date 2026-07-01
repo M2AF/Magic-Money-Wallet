@@ -255,6 +255,21 @@ export async function saveAgwOverride(accountIndex: number, address: string | nu
   await chrome.storage.local.set({ 'wallet.agw_overrides': map })
 }
 
+// ── Active EVM chain (persisted so it survives service-worker restarts) ───────
+// The service worker's in-memory `_currentChainId` resets to Ethereum whenever
+// the MV3 SW sleeps. Persisting the user's selection here keeps the injected
+// provider's eth_chainId stable across restarts (see background.ts hydration).
+
+export async function getCurrentChain(): Promise<string | null> {
+  const r = await chrome.storage.local.get('wallet.current_chain')
+  const hex = r['wallet.current_chain']
+  return typeof hex === 'string' ? hex : null
+}
+
+export async function setCurrentChain(hex: string): Promise<void> {
+  await chrome.storage.local.set({ 'wallet.current_chain': hex })
+}
+
 // ── Approved dApp origins ─────────────────────────────────────────────────────
 
 export async function getApprovedOrigins(): Promise<string[]> {

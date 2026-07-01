@@ -5,7 +5,11 @@
  * WalletConnect, Refresh, Profile, Settings) so Portfolio / Market / Swap / Apps
  * all share one consistent control cluster. WC / Profile / Settings are wired to
  * App-level state; Refresh is page-specific (omitted when a page has no refresh).
+ *
+ * The EVM NetworkSwitcher is extension-only (the Electron build has its own in the
+ * browser chrome), gated on the same __EXT_SIDEBAR_FN__ marker as the sidebar toggle.
  */
+import { NetworkSwitcher } from './NetworkSwitcher'
 
 interface Props {
   onWcOpen?: () => void
@@ -32,7 +36,13 @@ export function HeaderToolbar({
   const isSidePanel = (window as any).__SIDE_PANEL__
 
   return (
-    <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+      {/* EVM network switcher — extension only (Electron has its own in browser
+          chrome). Sits ABOVE the button row so it doesn't widen the row off-screen
+          and push the sparkline out of view. */}
+      {!!sidebarFn && <NetworkSwitcher />}
+
+      <div style={{ display: 'flex', gap: 8 }}>
       {/* Sidebar toggle — extension only */}
       {!!sidebarFn && (
         <button
@@ -118,6 +128,7 @@ export function HeaderToolbar({
           </svg>
         </button>
       )}
+      </div>
     </div>
   )
 }

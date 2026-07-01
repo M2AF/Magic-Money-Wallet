@@ -216,6 +216,14 @@ export function createExtensionWallet() {
     web3GetPendingConnections: () => send('web3:get-pending-connections'),
     web3ApproveConnection:     (id: string) => send('web3:approve-connection', { id }),
     web3RejectConnection:      (id: string) => send('web3:reject-connection', { id }),
+
+    // EVM network switcher — same contract as the Electron window.wallet API so the
+    // shared NetworkSwitcher component works in both. Chain state lives in the SW.
+    web3GetChain:   () => send<string>('web3:get-chain'),
+    web3GetChains:  () => send<Array<{ chainId: number; id: string; name: string; color: string }>>('web3:get-chains'),
+    web3SetChain:   (chainId: number) => send<string>('web3:set-chain', chainId),
+    onWeb3ChainChanged:  (cb: (hex: string) => void) => on('web3:chain-changed', cb as (d: unknown) => void),
+    offWeb3ChainChanged: (cb: (hex: string) => void) => off('web3:chain-changed', cb as (d: unknown) => void),
     wcPair:                (uri: string) => send('wc:pair', uri),
     wcApproveSession:      (id: number)  => send('wc:approve-session', id),
     wcRejectSession:       (id: number)  => send('wc:reject-session', id),
