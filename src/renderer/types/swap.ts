@@ -13,7 +13,7 @@
 
 export type SwapMode = 'dex' | 'crosschain'
 
-export type SwapProvider = '0x' | '1inch' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
+export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
 
 /** Wallet-internal chain ids the DEX side understands (matches chain-config). */
 export type SwapChain =
@@ -85,6 +85,13 @@ export interface NormalizedSwapQuote {
 
   // EVM-only: a prior ERC-20 approval, if the route needs an allowance.
   approvalTx?: {
+    to: string
+    data: string
+    value: string
+  } | null
+
+  // Uniswap only: a Permit2.approve tx sent after approvalTx and before the swap.
+  permitTx?: {
     to: string
     data: string
     value: string

@@ -159,15 +159,49 @@ async function handleQuote(url, env) {
   if (!q.sell || !q.buy || !q.amount || !q.taker) return err(env, 'Missing quote parameters.')
 
   const sameChain = fromChain === toChain
-  const tries = []
 
+  // Same-chain EVM: run the native aggregators in PARALLEL and return the BEST output
+  // (buyAmountRaw is already net of each provider's fee). LI.FI/Rango stay as fallbacks
+  // only if all three fail. (Other branches keep first-success ordering below.)
   if (sameChain && fromChain in EVM_CHAIN_IDS) {
-    // Same-chain EVM: best price from native aggregators first, LI.FI/Rango as backup.
-    tries.push(['0x', () => zeroExQuote(fromChain, q, env)])
-    tries.push(['1inch', () => oneInchQuote(fromChain, q, env)])
-    tries.push(['lifi', () => lifiQuote(q, env)])
-    tries.push(['rango', () => rangoQuote(q, env)])
-  } else if (sameChain && fromChain === 'solana') {
+    const primary = [
+      ['0x', () => zeroExQuote(fromChain, q, env)],
+      ['1inch', () => oneInchQuote(fromChain, q, env)],
+      ['uniswap', () => uniswapQuote(fromChain, q, env)],
+    ]
+    const settled = await Promise.all(primary.map(([name, run]) =>
+      run().then(quote => ({ name, quote })).catch(e => ({ name, error: e && e.message ? e.message : 'route error' }))
+    ))
+    const wins = settled.filter(s => s.quote && s.quote.buyAmountRaw && s.quote.buyAmountRaw !== '0')
+    if (wins.length) {
+      // Compare each output NET OF OUR STANDARD FEE. A provider that doesn't apply our
+      // fee (e.g. Uniswap until it's enabled on the key) would otherwise win just by
+      // skipping it — so discount its output by the fee gap. The winner's real quote is
+      // returned unchanged (if Uniswap still wins, the user simply gets the un-fee'd amount).
+      const STD = feeBps(env)
+      const cmp = (qt) => {
+        try {
+          const gap = Math.max(0, STD - (Number(qt.feeBps) || 0))   // 0 for 0x/1inch, ~90 for Uniswap
+          return BigInt(qt.buyAmountRaw) * BigInt(10000 - gap) / 10000n
+        } catch { return 0n }
+      }
+      wins.sort((a, b) => {
+        const av = cmp(a.quote), bv = cmp(b.quote)
+        return av > bv ? -1 : av < bv ? 1 : 0   // highest fee-adjusted output first
+      })
+      return json(env, { quote: wins[0].quote, error: null })
+    }
+    const errors = settled.map(s => `${s.name}: ${s.error || 'no route'}`)
+    for (const [name, run] of [['lifi', () => lifiQuote(q, env)], ['rango', () => rangoQuote(q, env)]]) {
+      const r = await run().catch(e => ({ _error: e && e.message ? e.message : 'route error' }))
+      if (r && !r._error) return json(env, { quote: r, error: null })
+      if (r && r._error) errors.push(`${name}: ${r._error}`)
+    }
+    return json(env, { quote: null, error: errors.join(' | ') || 'No route available for this pair.' })
+  }
+
+  const tries = []
+  if (sameChain && fromChain === 'solana') {
     tries.push(['jupiter', () => jupiterQuote(q, env)])
     tries.push(['lifi', () => lifiQuote(q, env)])
     tries.push(['rango', () => rangoQuote(q, env)])
@@ -297,15 +331,114 @@ async function oneInchQuote(chain, q, env) {
   }
 }
 
+// Uniswap Trading API — classic v2/v3/v4. Docs: https://developers.uniswap.org/docs/trading
+// Three POSTs so the normalized quote is self-contained (like 0x): check_approval
+// (ERC-20 → Permit2) + quote (CLASSIC, permit-as-transaction so no off-chain signature)
+// + swap. Our fee is a portion of the OUTPUT token → FEE_EVM. Field-name fallbacks are
+// defensive (the key can't be exercised from CI; validate the exact shapes live).
+const UNISWAP_API = 'https://trade-api.gateway.uniswap.org/v1'
+async function uniswapPost(path, body, env) {
+  const res = await fetch(`${UNISWAP_API}${path}`, {
+    method: 'POST',
+    headers: { 'x-api-key': env.UNISWAP_API_KEY, 'content-type': 'application/json', accept: 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const d = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error((d && (d.detail || d.message || d.error || d.errorCode)) || `Uniswap ${res.status}`)
+  return d
+}
+
+async function uniswapQuote(chain, q, env) {
+  if (!env.UNISWAP_API_KEY) throw new Error('Uniswap key not configured')
+  const chainId = EVM_CHAIN_IDS[chain]
+  if (!chainId) throw new Error('Uniswap: unsupported chain')
+  const uniTok = (a) => isNativeEvm(a) ? NATIVE_ZERO : a
+  const sellNative = isNativeEvm(q.sell)
+
+  // a. ERC-20 → Permit2 approval (native input needs none).
+  let approvalTx = null
+  if (!sellNative) {
+    const ap = await uniswapPost('/check_approval', {
+      walletAddress: q.taker, token: q.sell, amount: q.amount, chainId,
+    }, env)
+    const a = ap.approval
+    if (a && a.to && a.data) approvalTx = { to: a.to, data: a.data, value: a.value || '0x0' }
+  }
+
+  // b. CLASSIC quote — permit generated as a tx (no off-chain signature).
+  const qd = await uniswapPost('/quote', {
+    type: 'EXACT_INPUT',
+    amount: q.amount,
+    tokenInChainId: chainId,
+    tokenOutChainId: chainId,
+    tokenIn: uniTok(q.sell),
+    tokenOut: uniTok(q.buy),
+    swapper: q.taker,
+    slippageTolerance: Number(q.slippageBps || 50) / 100,   // 50 bps → 0.5(%)
+    routingPreference: 'BEST_PRICE',   // request enum is BEST_PRICE|FASTEST; response `routing` may be CLASSIC/DUTCH/…
+    generatePermitAsTransaction: true,
+    // portion fee is enabled on the API key by Uniswap Labs (request fields are ignored
+    // until then) — sent anyway so it activates automatically once enabled.
+    ...(feeBps(env) > 0 && env.FEE_EVM ? { portionBips: feeBps(env), portionRecipient: env.FEE_EVM } : {}),
+  }, env)
+  // We can only execute on-chain CLASSIC routes here; DUTCH/UniswapX needs /order + an
+  // off-chain order signature (out of scope) — throw so Uniswap drops out for those.
+  if (qd.routing && qd.routing !== 'CLASSIC') throw new Error(`Uniswap: ${qd.routing} route not supported`)
+  const quote = qd.quote || qd
+  const outAmount = String((quote.output && quote.output.amount) || quote.quote || quote.amountOut || '0')
+  if (outAmount === '0') throw new Error('Uniswap: no route')
+  const portionBips = Number(quote.portionBips || 0)
+  const pt = qd.permitTransaction || quote.permitTransaction || null
+  const permitTx = pt && pt.to && pt.data ? { to: pt.to, data: pt.data, value: pt.value || '0x0' } : null
+
+  // c. Swap calldata (the permit was applied on-chain via permitTx / check_approval).
+  const sd = await uniswapPost('/swap', { quote, simulateTransaction: false }, env)
+  const swap = sd.swap || sd
+  if (!swap.to || !swap.data) throw new Error('Uniswap: no swap calldata')
+
+  const sellAmt = Number(q.amount), buyAmt = Number(outAmount)
+  return {
+    provider: 'uniswap',
+    fromChain: chain, toChain: chain,
+    fromTokenAddress: q.sell, toTokenAddress: q.buy,
+    fromTokenSymbol: q.sellSymbol || '', toTokenSymbol: q.buySymbol || '',
+    sellAmountRaw: q.amount, buyAmountRaw: outAmount,
+    estimatedGasRaw: String(swap.gasLimit || (quote.gasFee && quote.gasFee.gasLimit) || '0'),
+    slippageBps: Number(q.slippageBps || 50),
+    priceImpactPct: quote.priceImpact != null ? Number(quote.priceImpact) : 0,
+    rate: sellAmt > 0 ? buyAmt / sellAmt : 0,
+    expiresAt: Date.now() + 30_000,
+    isCrossChain: false,
+    feeBps: portionBips,
+    txData: { to: swap.to, data: swap.data, value: swap.value || '0' },
+    permitTx,
+    approvalTx,
+  }
+}
+
 // Jupiter Swap API v1. Keyed host: api.jup.ag; free host: lite-api.jup.ag.
 // Docs: https://dev.jup.ag/docs/swap-api
 async function jupiterQuote(q, env) {
   const base = env.JUPITER_API_KEY ? 'https://api.jup.ag' : 'https://lite-api.jup.ag'
   const headers = env.JUPITER_API_KEY ? { 'x-api-key': env.JUPITER_API_KEY } : {}
-  // Platform fee — needs a referral token account (ATA) for the fee mint. Skip
-  // gracefully when unconfigured so swaps still work before referral setup.
-  const referral = env.JUPITER_REFERRAL_ACCOUNT || ''
-  const takeFee = referral && feeBps(env) > 0
+  // `solFeeAccount` is the referral TOKEN account (a PDA) derived client-side from
+  // the output mint. If that mint's referral ATA hasn't been created, Jupiter rejects
+  // it — so retry once fee-less rather than fail the swap.
+  const feeAccount = q.solFeeAccount || ''
+  const wantFee = feeAccount && feeBps(env) > 0
+  try {
+    return await jupiterInner(q, base, headers, wantFee ? feeAccount : '', env)
+  } catch (e) {
+    const m = String((e && e.message) || e).toLowerCase()
+    if (wantFee && (m.includes('fee') || m.includes('account') || m.includes('referral'))) {
+      return await jupiterInner(q, base, headers, '', env)
+    }
+    throw e
+  }
+}
+
+async function jupiterInner(q, base, headers, feeAccount, env) {
+  const takeFee = !!feeAccount
   const params = new URLSearchParams({
     inputMint: q.sell, outputMint: q.buy, amount: q.amount,
     slippageBps: q.slippageBps || '50',
@@ -316,7 +449,7 @@ async function jupiterQuote(q, env) {
   if (!quoteRes.ok || !quote.outAmount) throw new Error(quote.error || `Jupiter ${quoteRes.status}`)
 
   const swapBody = { quoteResponse: quote, userPublicKey: q.taker, wrapAndUnwrapSol: true, dynamicComputeUnitLimit: true }
-  if (takeFee) swapBody.feeAccount = referral
+  if (takeFee) swapBody.feeAccount = feeAccount
   const swapRes = await fetch(`${base}/swap/v1/swap`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },

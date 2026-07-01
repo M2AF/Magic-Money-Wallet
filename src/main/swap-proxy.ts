@@ -13,8 +13,30 @@
  * existing main↔renderer type convention).
  */
 
+import { PublicKey } from '@solana/web3.js'
 import type { WalletConfig } from './secure-store'
 import { proxyHeaders, proxyUrl } from './api-proxy'
+
+// ── Affiliate / integrator fee config (mirrors the Worker's FEE_BPS = 90) ─────
+const AFFILIATE_FEE_BPS = 90                        // 0.9%
+const LIFI_INTEGRATOR = 'ChainLens'                 // registered at portal.li.fi; receivers configured there
+
+// Jupiter Referral Program: the swap `feeAccount` must be the referral TOKEN
+// account — a PDA of ['referral_ata', referralAccount, mint] — NOT the referral
+// account itself. Both IDs are public (visible in every fee transfer on-chain).
+const JUP_REFERRAL_PROGRAM = new PublicKey('REFER4ZgmyYx9c6He5XfaTMiGfdLwRnkV4RPp9t9iF3')
+const JUP_REFERRAL_ACCOUNT = new PublicKey('9vBwkLqEcNs6LKv8Szyrt4P9h82SBWaD3hbiDZ1A3hUy')
+
+/** Referral token account (PDA) for an output mint, or null if the mint isn't valid base58. */
+function jupiterFeeAccount(outputMint: string): string | null {
+  try {
+    const [pda] = PublicKey.findProgramAddressSync(
+      [new TextEncoder().encode('referral_ata'), JUP_REFERRAL_ACCOUNT.toBytes(), new PublicKey(outputMint).toBytes()],
+      JUP_REFERRAL_PROGRAM,
+    )
+    return pda.toBase58()
+  } catch { return null }
+}
 
 // Pluggable fetch. In the Electron MAIN process, Node's undici `fetch` can hang
 // indefinitely on some hosts (e.g. li.quest) and even ignore AbortSignal.timeout —
@@ -43,7 +65,7 @@ async function fetchWithDeadline(url: string, init: RequestInit | undefined, ms:
   }
 }
 
-export type SwapProvider = '0x' | '1inch' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
+export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'rango' | 'swapkit' | 'muesliswap'
 export type SwapChain =
   | 'ethereum' | 'arbitrum' | 'optimism' | 'base' | 'polygon' | 'avalanche' | 'bsc'
   | 'monad' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot'
@@ -102,6 +124,9 @@ export interface NormalizedSwapQuote {
     cbor?: string
   }
   approvalTx?: { to: string; data: string; value: string } | null
+  // Uniswap only: a Permit2.approve transaction sent AFTER approvalTx, BEFORE the swap
+  // (generatePermitAsTransaction path, so no off-chain permit signature is needed).
+  permitTx?: { to: string; data: string; value: string } | null
 }
 
 export interface SwapQuoteResponse {
@@ -184,6 +209,9 @@ async function lifiQuoteDirect(req: SwapQuoteRequest): Promise<NormalizedSwapQuo
     toAddress: req.toAddress || req.taker,
     slippage: String(req.slippageBps / 10000),
   })
+  // Integrator fee — routed to the receivers configured under 'ChainLens' at portal.li.fi.
+  params.set('integrator', LIFI_INTEGRATOR)
+  if (AFFILIATE_FEE_BPS > 0) params.set('fee', String(AFFILIATE_FEE_BPS / 10000))   // 0.009 = 0.9%
   const res = await fetchWithDeadline(`https://li.quest/v1/quote?${params}`, {
     headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(20_000),
@@ -223,7 +251,7 @@ async function lifiQuoteDirect(req: SwapQuoteRequest): Promise<NormalizedSwapQuo
     toAddress: req.toAddress || req.taker,
     bridgeTool: (d.tool as string) || toolDetails?.key || null,
     estimatedDurationSec: Number(est.executionDuration ?? 0),
-    feeBps: 0,
+    feeBps: AFFILIATE_FEE_BPS,
     requestId: null,
     txData,
     approvalTx,
@@ -260,6 +288,14 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
   if (req.fromDecimals != null) params.set('fromDecimals', String(req.fromDecimals))
   if (req.toDecimals != null) params.set('toDecimals', String(req.toDecimals))
   if (crossChain) params.set('skipLifi', '1')   // we already tried LI.FI from the client
+
+  // Jupiter platform fee: pass the referral token account for the output mint so the
+  // Worker collects our fee. The Worker retries fee-less if that mint's referral ATA
+  // hasn't been created, so an unconfigured mint never breaks the swap.
+  if (!crossChain && req.fromChain === 'solana' && AFFILIATE_FEE_BPS > 0) {
+    const feeAcct = jupiterFeeAccount(req.toToken)
+    if (feeAcct) params.set('solFeeAccount', feeAcct)
+  }
 
   try {
     const res = await fetchWithDeadline(proxyUrl(`${base}/quote?${params}`, config), {

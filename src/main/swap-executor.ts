@@ -33,6 +33,9 @@ const NATIVE_EVM_SENTINEL = '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
 const ZERO_EVM_ADDRESS = '0x0000000000000000000000000000000000000000'
 const MAX_QUOTE_TTL_MS = 10 * 60_000
 const APPROVE_SELECTOR = '0x095ea7b3'
+// Canonical Permit2 contract (same address on every EVM chain) — the only allowed
+// target for a Uniswap permitTx.
+const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
 
 export interface SwapExecuteResult {
   txHash: string
@@ -105,11 +108,23 @@ function validateEvmQuote(quote: NormalizedSwapQuote): void {
     const sell = BigInt(quote.sellAmountRaw)
     if (txValue !== sell) throw new Error('Native swap value does not match the quoted sell amount.')
     if (quote.approvalTx) throw new Error('Native swaps must not include an approval transaction.')
+    if (quote.permitTx) throw new Error('Native swaps must not include a permit transaction.')
   } else {
     if (!isEvmAddress(quote.fromTokenAddress)) throw new Error('ERC-20 sell token address is invalid.')
     if (txValue !== 0n) throw new Error('ERC-20 swaps must not include native transaction value.')
     if (quote.approvalTx) validateApprovalTx(quote)
+    if (quote.permitTx) validatePermitTx(quote)
   }
+}
+
+// Uniswap Permit2 approval tx (sent between the ERC-20→Permit2 approval and the swap).
+// It may only ever target the canonical Permit2 contract and carry no native value.
+function validatePermitTx(quote: NormalizedSwapQuote): void {
+  const permit = quote.permitTx
+  if (!permit) return
+  if (!isSameEvmAddress(permit.to, PERMIT2_ADDRESS)) throw new Error('Permit transaction target must be the Permit2 contract.')
+  if (!isZeroValue(permit.value)) throw new Error('Permit transactions must not send native value.')
+  if (!isHexData(permit.data)) throw new Error('Permit calldata is invalid.')
 }
 
 function validateApprovalTx(quote: NormalizedSwapQuote): void {
@@ -216,6 +231,18 @@ async function executeEvmSwap(
     }, config, accountIndex)
     approvalTxHash = appr.txHash
     await waitForEvmReceipt(chainId, appr.txHash, config)
+  }
+
+  // Step A2 — Uniswap Permit2.approve (after the token→Permit2 allowance, before the
+  // swap). Only present for Uniswap's generatePermitAsTransaction path.
+  if (quote.permitTx?.to) {
+    const permit = await sendRawEvmTransaction(mnemonic, {
+      to: quote.permitTx.to,
+      data: quote.permitTx.data,
+      value: quote.permitTx.value || '0x0',
+      chainId,
+    }, config, accountIndex)
+    await waitForEvmReceipt(chainId, permit.txHash, config)
   }
 
   // Step B — fire the compiled swap calldata.
