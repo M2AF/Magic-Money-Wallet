@@ -34,7 +34,6 @@ yarn-debug.log*
 pnpm-debug.log*
 Gemini_Advice.md
 /.ChainLens_Files/
-ChainLens_Files/app-hub-data.js
 ChainLens_Files/backend-server.js
 ChainLens_Files/DESIGN.md
 ChainLens_Files/index.html
