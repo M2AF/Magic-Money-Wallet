@@ -70,6 +70,11 @@ jobs:
       - name: Build & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # No Apple Developer cert configured → skip identity auto-discovery so the
+          # macOS build doesn't fail looking for one (it ad-hoc signs instead). When
+          # you add real signing later, set CSC_LINK / CSC_KEY_PASSWORD secrets and
+          # drop this line.
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run package:publish
 
   # ── Build Chrome extension zip (runs once on Linux) ────────────────────────

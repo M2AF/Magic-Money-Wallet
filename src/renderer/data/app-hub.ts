@@ -138,7 +138,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "NFT Marketplace",
       "short": "NFT",
-      "count": 37
+      "count": 36
     },
     {
       "name": "Portfolio & Analytics",
@@ -188,7 +188,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Real World Assets",
       "short": "RWA",
-      "count": 35
+      "count": 36
     }
   ],
   "chainStats": [
@@ -5917,6 +5917,20 @@ const APP_HUB: AppHubData = {
       "coverage": 6
     },
     {
+      "id": "cswap-nft-marketplace",
+      "name": "CSwap NFT Marketplace",
+      "website": "https://app.cswap.fi",
+      "category": "Real World Assets",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=app.cswap.fi&sz=64",
+      "description": "RWA marketplace with liquidity pools.",
+      "chainCount": 1,
+      "coverage": 6
+    },
+    {
       "id": "digift-platform",
       "name": "DigiFT Platform",
       "website": "https://digift.io",
@@ -6672,20 +6686,6 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=atomic-swap.io&sz=64",
       "description": "Peer-to-peer asset swap tool.",
-      "chainCount": 1,
-      "coverage": 6
-    },
-    {
-      "id": "cswap-nft-marketplace",
-      "name": "CSwap NFT Marketplace",
-      "website": "https://app.cswap.fi",
-      "category": "NFT Marketplace",
-      "chains": [
-        "cardano"
-      ],
-      "featured": false,
-      "favicon": "https://www.google.com/s2/favicons?domain=app.cswap.fi&sz=64",
-      "description": "NFT marketplace with liquidity pools.",
       "chainCount": 1,
       "coverage": 6
     },

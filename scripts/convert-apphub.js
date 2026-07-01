@@ -17,15 +17,23 @@ const candidates = [
   path.join(__dirname, '../../chainlens/app-hub-data.js'),
 ].filter(Boolean)
 
+const outPath = path.join(__dirname, '../src/renderer/data/app-hub.ts')
+
 const srcPath = candidates.find(p => fs.existsSync(p))
 if (!srcPath) {
-  console.error('Could not find app-hub-data.js. Set APPHUB_SRC env variable or place the file at:')
+  // CI / clean checkouts don't have the private ChainLens source. The generated
+  // app-hub.ts is committed, so build from that as-is rather than failing — the
+  // source only matters when you're regenerating the App Hub locally.
+  if (fs.existsSync(outPath)) {
+    console.warn('app-hub-data.js source not found — using the committed src/renderer/data/app-hub.ts as-is.')
+    console.warn('(Set APPHUB_SRC or add ChainLens_Files/app-hub-data.js to regenerate it.)')
+    process.exit(0)
+  }
+  console.error('Could not find app-hub-data.js, and no generated app-hub.ts exists. Set APPHUB_SRC or place the file at:')
   candidates.slice(1).forEach(p => console.error(' ', p))
   process.exit(1)
 }
 console.log(`Reading from: ${srcPath}`)
-
-const outPath = path.join(__dirname, '../src/renderer/data/app-hub.ts')
 
 const code = fs.readFileSync(srcPath, 'utf-8')
 const ctx  = { window: {} }
