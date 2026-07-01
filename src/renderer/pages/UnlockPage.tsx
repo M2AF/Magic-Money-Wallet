@@ -53,6 +53,11 @@ export function UnlockPage({ onUnlocked }: Props) {
       const msg = e instanceof Error ? e.message : String(e)
       // Cancel is a normal, quiet outcome — don't shout about it.
       if (!/cancel/i.test(msg)) setError(msg.replace(/^Error:\s*/, ''))
+      // Enrollment may have self-healed away (e.g. a lost TPM key) — re-check so
+      // the Hello button hides itself and the user just uses their password.
+      window.wallet.helloStatus?.()
+        .then(s => setHelloOn(s.enrolled && s.supported))
+        .catch(() => { /* leave as-is */ })
     } finally {
       setHelloBusy(false)
     }

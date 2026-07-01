@@ -156,7 +156,16 @@ export async function unlockWithHello(): Promise<void> {
   requireSafeStorage()
   const res = await runHello('sign', HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
   if (!res.ok || !res.signatureB64) {
-    throw new Error(res.status === 'UserCanceled' ? 'Windows Hello was canceled' : (res.status ?? res.error ?? 'Windows Hello unlock failed'))
+    if (res.status === 'UserCanceled') throw new Error('Windows Hello was canceled')
+    // NotFound = Windows evicted the TPM key (reboot / PIN change / update / TPM
+    // reset) but our encrypted copy is still on disk. That copy can never be
+    // decrypted again, so remove it — the app falls back cleanly to password-only
+    // and the Hello button disappears — and tell the user to re-enroll.
+    if (res.status === 'NotFound') {
+      try { if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath()) } catch { /* best effort */ }
+      throw new Error('Windows Hello enrollment was lost. Unlock with your password, then re-enable Windows Hello in Settings.')
+    }
+    throw new Error(res.status ?? res.error ?? 'Windows Hello unlock failed')
   }
   const material = new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
   const outer = safeStorage.decryptString(readFileSync(walletHelloPath()))
