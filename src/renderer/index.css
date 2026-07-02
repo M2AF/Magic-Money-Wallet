@@ -40,6 +40,14 @@
 
   --blur:           blur(20px);
   --transition:     0.18s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Aliases — the browser chrome (BrowserApp/BrowserPage/WindowLayout) references
+     these shorthand tokens; without definitions they resolved to TRANSPARENT,
+     which made panels drawn over the dApp snapshot see-through. */
+  --bg:             var(--bg-deep);
+  --surface:        var(--bg-dark);
+  --surface-raised: var(--bg-surface);
+  --text:           var(--text-primary);
 }
 
 /* ── Reset ───────────────────────────────────────────────────────────────────── */
@@ -141,6 +149,9 @@ html, body, #root {
 .titlebar-btn:hover { opacity: 0.8; }
 .titlebar-btn.close  { background: #ff5f57; }
 .titlebar-btn.min    { background: #febc2e; }
+.titlebar-btn.full   { background: #28c840; }
+/* When the two windows are tiled, ring the green dot so its state is obvious. */
+.titlebar-btn.full.active { box-shadow: 0 0 0 2px rgba(40, 200, 64, 0.35); }
 
 /* ── Main-tab brand banner ───────────────────────────────────────────────────── */
 /* Hidden by default (the Electron build already shows the titlebar logo); the

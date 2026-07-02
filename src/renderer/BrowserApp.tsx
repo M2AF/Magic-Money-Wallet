@@ -1,6 +1,19 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { FullScreenButton, LayoutMenu } from './components/WindowLayout'
+import APP_HUB, { type AppEntry } from './data/app-hub'
 
 const HOME = 'https://chainlensnft.info'
+
+// Address-bar suggestions: same matching as the App Hub search (name/website
+// substring), same "Featured" set as the popular default when nothing is typed.
+const SUGGEST_LIMIT = 8
+function suggestApps(query: string): AppEntry[] {
+  const q = query.trim().toLowerCase()
+  const pool = q
+    ? APP_HUB.apps.filter(a => a.name.toLowerCase().includes(q) || a.website.toLowerCase().includes(q))
+    : APP_HUB.apps.filter(a => a.featured)
+  return pool.slice(0, SUGGEST_LIMIT)
+}
 
 interface TabInfo { id: number; title: string; url: string; loading: boolean }
 
@@ -15,6 +28,8 @@ export function BrowserApp() {
   const [activeTabId, setActiveTabId] = useState(0)
   const [menuOpen, setMenuOpen] = useState(false)
   const [snapshot, setSnapshot] = useState<string | null>(null)
+  const [sugOpen, setSugOpen]   = useState(false)
+  const [typed, setTyped]       = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -69,6 +84,36 @@ export function BrowserApp() {
     window.wallet.browserResumeTabsMenu()
   }, [])
 
+  // Address-bar App Hub suggestions. The dropdown extends below the chrome into
+  // the area covered by the dApp WebContentsView, so while it is open it reuses
+  // the exact suspend/snapshot machinery the tab overview uses: detach the live
+  // view, paint its snapshot behind the dropdown, re-attach on close.
+  const openSuggest = useCallback(async () => {
+    if (menuOpen) return // tab overview owns the overlay right now
+    const img = await window.wallet.browserSuspendTabsMenu()
+    // Focus may have moved on while the snapshot was being captured.
+    if (document.activeElement !== inputRef.current) {
+      window.wallet.browserResumeTabsMenu()
+      return
+    }
+    setSnapshot(img || null)
+    setSugOpen(true)
+  }, [menuOpen])
+
+  const closeSuggest = useCallback(() => {
+    setSugOpen(false)
+    setSnapshot(null)
+    window.wallet.browserResumeTabsMenu()
+  }, [])
+
+  // Nothing typed yet → App Hub "Featured" (popular); typing narrows exactly
+  // like the App Hub search. Always current: the data is regenerated from
+  // ChainLens_Files/app-hub-data.js on every dev run and build.
+  const suggestions = useMemo(
+    () => (sugOpen ? suggestApps(typed ? inputUrl : '') : []),
+    [sugOpen, typed, inputUrl]
+  )
+
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     navigate(inputUrl)
@@ -93,6 +138,7 @@ export function BrowserApp() {
         </div>
         <div className="titlebar-controls">
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
+          <FullScreenButton />
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
         </div>
       </div>
@@ -137,13 +183,13 @@ export function BrowserApp() {
           </svg>
         </NavBtn>
 
-        {/* URL bar */}
-        <form onSubmit={onSubmit} style={{ flex: 1, minWidth: 0 }}>
+        {/* URL bar + App Hub suggestions */}
+        <form onSubmit={onSubmit} style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
             value={inputUrl}
-            onChange={e => setInputUrl(e.target.value)}
+            onChange={e => { setInputUrl(e.target.value); setTyped(true) }}
             spellCheck={false}
             style={{
               width: '100%', padding: '5px 12px',
@@ -157,10 +203,44 @@ export function BrowserApp() {
               boxSizing: 'border-box',
               transition: 'border-color 0.15s'
             }}
-            onFocus={e => { setInputUrl(url); e.currentTarget.select(); e.currentTarget.style.borderColor = 'var(--accent)' }}
-            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+            onFocus={e => { setInputUrl(url); setTyped(false); e.currentTarget.select(); e.currentTarget.style.borderColor = 'var(--accent)'; openSuggest() }}
+            onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; if (sugOpen) closeSuggest() }}
+            onKeyDown={e => { if (e.key === 'Escape') e.currentTarget.blur() }}
           />
+
+          {sugOpen && (
+            <div
+              // Keep focus in the input so clicking a suggestion isn't killed by blur.
+              onMouseDown={e => e.preventDefault()}
+              style={{
+                position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50,
+                background: 'var(--bg-surface)', border: '1px solid var(--border-active)',
+                borderRadius: 12, boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+                padding: 4, maxHeight: 340, overflowY: 'auto',
+              }}
+            >
+              <div style={{
+                padding: '6px 8px 8px', fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+                textTransform: 'uppercase', color: 'var(--text-muted)',
+              }}>
+                {typed && inputUrl.trim() ? `Apps (${suggestions.length})` : 'Popular apps'}
+              </div>
+
+              {suggestions.map(a => (
+                <SuggestRow key={a.id} app={a} onOpen={navigate} />
+              ))}
+
+              {suggestions.length === 0 && (
+                <div style={{ padding: '4px 8px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
+                  No matching apps — press Enter to open the address
+                </div>
+              )}
+            </div>
+          )}
         </form>
+
+        {/* Window layout (Full Screen Mode / side / detach) — left of the tabs button */}
+        <LayoutMenu />
 
         {/* Open tabs */}
         <TabsMenu
@@ -195,6 +275,73 @@ export function BrowserApp() {
           backgroundRepeat: 'no-repeat',
         } : {}),
       }} />
+    </div>
+  )
+}
+
+// One row of the address-bar App Hub dropdown: favicon, name, hostname, category.
+// Clicking navigates the ACTIVE tab to the app — same semantics as typing its URL.
+function SuggestRow({ app, onOpen }: { app: AppEntry; onOpen: (url: string) => void }) {
+  const [imgErr, setImgErr] = useState(false)
+  let host = app.website
+  try { host = new URL(app.website).hostname } catch { /* keep raw website */ }
+
+  return (
+    <div
+      onClick={() => onOpen(app.website)}
+      title={app.website}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '7px 8px', borderRadius: 8, cursor: 'pointer',
+        transition: 'background 0.12s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+    >
+      {imgErr || !app.favicon ? (
+        <div style={{
+          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'var(--surface-raised)', border: '1px solid var(--border)',
+          fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)',
+        }}>
+          {app.name.charAt(0).toUpperCase()}
+        </div>
+      ) : (
+        <img
+          src={app.favicon}
+          alt=""
+          width={20}
+          height={20}
+          style={{ borderRadius: 6, flexShrink: 0 }}
+          onError={() => setImgErr(true)}
+          loading="lazy"
+        />
+      )}
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <span style={{
+          fontSize: 12, fontWeight: 600, color: 'var(--text-primary)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {app.name}
+        </span>
+        <span style={{
+          fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {host}
+        </span>
+      </div>
+
+      <span style={{
+        fontSize: 9, fontWeight: 600, flexShrink: 0, padding: '2px 6px',
+        borderRadius: 8, background: 'var(--surface-raised)',
+        border: '1px solid var(--border)', color: 'var(--text-secondary)',
+        whiteSpace: 'nowrap',
+      }}>
+        {app.category}
+      </span>
     </div>
   )
 }
@@ -333,7 +480,7 @@ function TabsMenu({ tabs, activeTabId, open, onOpen, onClose }: {
             style={{
               position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50,
               width: 280, maxHeight: 360, overflowY: 'auto',
-              background: 'var(--surface)', border: '1px solid var(--border)',
+              background: 'var(--bg-surface)', border: '1px solid var(--border-active)',
               borderRadius: 12, boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
               padding: 4,
             }}
@@ -354,10 +501,10 @@ function TabsMenu({ tabs, activeTabId, open, onOpen, onClose }: {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '7px 6px 7px 8px', borderRadius: 8, cursor: 'pointer',
-                    background: isActive ? 'var(--surface-raised)' : 'transparent',
+                    background: isActive ? 'var(--accent-dim)' : 'transparent',
                     transition: 'background 0.12s',
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--surface-raised)' }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
                 >
                   {/* Active-tab dot */}

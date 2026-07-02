@@ -93,6 +93,16 @@ contextBridge.exposeInMainWorld('wallet', {
   minimize:      ()                  => ipcRenderer.send('window:minimize'),
   close:         ()                  => ipcRenderer.send('window:close'),
 
+  // ── Side-by-side window layout (Full Screen Mode) ────────────────────
+  layoutSnap:     (side: 'left' | 'right') => ipcRenderer.send('layout:snap', side),
+  layoutDetach:   ()                 => ipcRenderer.send('layout:detach'),
+  layoutToggle:   ()                 => ipcRenderer.send('layout:toggle'),
+  layoutGetState: ()                 => ipcRenderer.invoke('layout:get-state'),
+  onLayoutChanged:  (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void) =>
+    ipcRenderer.on('layout:changed', (_e, v) => cb(v)),
+  offLayoutChanged: (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void) =>
+    ipcRenderer.removeListener('layout:changed', cb as never),
+
   // ── Phase 6: Built-in dApp browser (popup) ───────────────────────────
   openBrowser:     ()               => ipcRenderer.send('browser:open'),
   closeBrowser:    ()               => ipcRenderer.send('browser:close'),

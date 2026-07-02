@@ -19,8 +19,8 @@
  * the MAIN wallet window so the user sees them inside the wallet UI.
  */
 
-import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain } from 'electron'
-import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents } from 'electron'
+import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen } from 'electron'
+import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle } from 'electron'
 import { join } from 'path'
 import { WALLET_ICON } from '../preload/wallet-icon'
 import { getDappChainId, setDappChainId, DEFAULT_CHAIN_ID } from './dapp-chain'
@@ -47,6 +47,19 @@ let mainWin: BrowserWindow | null = null
 let tabs: Tab[] = []
 let activeTabId = 0
 let nextTabId = 1
+
+// ── Side-by-side window layout ───────────────────────────────────────────────
+// The wallet (mainWin) and dApp browser (popupWin) are two independent OS windows.
+// "Full Screen Mode" tiles them to fill the current display's work area — wallet on
+// one side, browser on the other — by positioning each with setBounds. This is the
+// cross-platform-safe approach (no OS-window merging or fragile move syncing).
+type SnapSide = 'left' | 'right'
+let snapSide: SnapSide | null = null   // current snap side of the WALLET, or null when detached
+let lastSide: SnapSide = 'left'        // remembered side for the toggle / "Enter Full Screen"
+let pendingSnap: SnapSide | null = null // snap to apply once a freshly-opened browser is ready
+// Free-floating bounds captured before the first snap, restored on Detach.
+let preSnap: { main: Rectangle | null; popup: Rectangle | null } = { main: null, popup: null }
+const SNAP_WALLET_WIDTH = 440          // wallet pane width when tiled (browser gets the rest)
 
 // True while the chrome renderer's custom tab-overview dropdown is open. The active
 // tab's WebContentsView is layered ABOVE the chrome renderer, so it must stay
@@ -208,6 +221,13 @@ export function openBrowserWindow(): void {
   popupWin.once('ready-to-show', () => {
     popupWin?.show()
     createTab(BROWSER_HOME, true)
+    // If the browser was opened as part of an "Enter Full Screen Mode" action,
+    // tile the two windows now that the popup exists and is visible.
+    if (pendingSnap) {
+      const side = pendingSnap
+      pendingSnap = null
+      applySnap(side)
+    }
   })
 
   popupWin.on('close', () => {
@@ -224,13 +244,117 @@ export function openBrowserWindow(): void {
     activeTabId = 0
     tabsMenuOpen = false
     popupWin = null
+    // The window that was tiled with the wallet is gone — drop snap state (the
+    // wallet keeps its current position) and refresh the wallet's layout controls.
+    snapSide = null
+    preSnap = { main: null, popup: null }
     // Tell wallet renderer the popup closed
     if (mainWin && !mainWin.isDestroyed()) {
       mainWin.webContents.send('browser:closed')
     }
+    broadcastLayout()
   })
 
   popupWin.on('resize', () => layoutActiveView())
+}
+
+// ── Window layout control ────────────────────────────────────────────────────
+
+/** Current snap state, pushed to both renderers so their controls stay in sync. */
+export function getLayoutState(): { snapped: boolean; side: SnapSide | null; browserOpen: boolean } {
+  return {
+    snapped: snapSide !== null,
+    side: snapSide,
+    browserOpen: !!(popupWin && !popupWin.isDestroyed()),
+  }
+}
+
+/** Push the layout state to the wallet + browser chromes (green button / dropdown). */
+function broadcastLayout(): void {
+  const state = getLayoutState()
+  for (const win of [mainWin, popupWin]) {
+    try {
+      if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) {
+        win.webContents.send('layout:changed', state)
+      }
+    } catch { /* window torn down mid-send — safe to ignore */ }
+  }
+}
+
+/** The work area (screen minus taskbar/dock) of the display the browser is on. */
+function snapWorkArea(): Rectangle {
+  const anchor = popupWin && !popupWin.isDestroyed() ? popupWin : mainWin
+  const bounds = anchor && !anchor.isDestroyed() ? anchor.getBounds() : { x: 0, y: 0, width: 0, height: 0 }
+  return screen.getDisplayMatching(bounds).workArea
+}
+
+/** Tile the wallet + browser side by side to fill the current display. */
+function applySnap(side: SnapSide): void {
+  if (!mainWin || mainWin.isDestroyed() || !popupWin || popupWin.isDestroyed()) return
+
+  // Bring both out of any state that would fight setBounds.
+  for (const win of [mainWin, popupWin]) {
+    if (win.isMinimized()) win.restore()
+    if (win.isFullScreen()) win.setFullScreen(false)
+    if (win.isMaximized()) win.unmaximize()
+  }
+
+  // Capture free-floating bounds the first time we tile, so Detach can restore them.
+  if (snapSide === null) {
+    preSnap = { main: mainWin.getBounds(), popup: popupWin.getBounds() }
+  }
+
+  const wa = snapWorkArea()
+  const walletW = Math.min(SNAP_WALLET_WIDTH, Math.floor(wa.width / 2))
+  const browserW = wa.width - walletW
+  const walletX = side === 'left' ? wa.x : wa.x + browserW
+  const browserX = side === 'left' ? wa.x + walletW : wa.x
+
+  mainWin.setBounds({ x: walletX, y: wa.y, width: walletW, height: wa.height })
+  popupWin.setBounds({ x: browserX, y: wa.y, width: browserW, height: wa.height })
+
+  snapSide = side
+  lastSide = side
+  layoutActiveView()
+  broadcastLayout()
+}
+
+/** Snap the wallet to `side`; opens the browser first if it isn't already open. */
+export function layoutSnap(side: SnapSide): void {
+  if (!popupWin || popupWin.isDestroyed()) {
+    pendingSnap = side           // applied from popupWin's ready-to-show handler
+    openBrowserWindow()
+    return
+  }
+  applySnap(side)
+}
+
+/** Un-tile: restore both windows to their pre-snap free-floating bounds. */
+export function layoutDetach(): void {
+  if (snapSide === null) return
+  const restore = (win: BrowserWindow | null, saved: Rectangle | null, fallback: { width: number; height: number }): void => {
+    if (!win || win.isDestroyed()) return
+    if (saved) { win.setBounds(saved); return }
+    const wa = screen.getDisplayMatching(win.getBounds()).workArea
+    win.setBounds({
+      x: wa.x + Math.max(0, Math.floor((wa.width - fallback.width) / 2)),
+      y: wa.y + Math.max(0, Math.floor((wa.height - fallback.height) / 2)),
+      width: fallback.width,
+      height: fallback.height,
+    })
+  }
+  restore(mainWin, preSnap.main, { width: 420, height: 900 })
+  restore(popupWin, preSnap.popup, { width: 1100, height: 750 })
+  snapSide = null
+  preSnap = { main: null, popup: null }
+  layoutActiveView()
+  broadcastLayout()
+}
+
+/** Green titlebar button: tile if detached, detach if tiled. */
+export function layoutToggle(): void {
+  if (snapSide !== null) { layoutDetach(); return }
+  layoutSnap(lastSide)
 }
 
 // Hosts whose featureless window.open is still an auth/sign popup (not a link).

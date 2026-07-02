@@ -74,7 +74,11 @@ import {
   getMainWin,
   showApprovalWindow,
   emitDappEvent,
-  notifyBrowserChrome
+  notifyBrowserChrome,
+  layoutSnap,
+  layoutDetach,
+  layoutToggle,
+  getLayoutState
 } from './browser-manager'
 import { EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
@@ -746,6 +750,12 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:resume-tabs-menu', () => browserResumeTabsMenu())
   ipcMain.handle('browser:navigate', (_event, url: string) => { browserNavigate(url) })
   ipcMain.handle('browser:get-state', () => getBrowserState())
+
+  // ── Side-by-side window layout (Full Screen Mode) ─────────────────────────
+  ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))
+  ipcMain.on('layout:detach', () => layoutDetach())
+  ipcMain.on('layout:toggle', () => layoutToggle())
+  ipcMain.handle('layout:get-state', () => getLayoutState())
 
   // ── Phase 6: Web3 dApp requests (from web3-inject preload) ───────────────
   ipcMain.handle('web3:request', async (

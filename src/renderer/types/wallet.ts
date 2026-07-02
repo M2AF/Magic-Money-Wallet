@@ -305,6 +305,13 @@ declare global {
       xStatus(provider: ExchangeProvider, id: string): Promise<SsExchange>
       minimize(): void
       close(): void
+      // Side-by-side window layout (Full Screen Mode)
+      layoutSnap(side: 'left' | 'right'): void
+      layoutDetach(): void
+      layoutToggle(): void
+      layoutGetState(): Promise<{ snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }>
+      onLayoutChanged(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
+      offLayoutChanged(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
       // Phase 6: popup dApp browser
       openBrowser(): void
       closeBrowser(): void
