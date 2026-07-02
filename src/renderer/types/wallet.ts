@@ -258,8 +258,9 @@ declare global {
       onLocked(cb: () => void): void
       offLocked(cb: () => void): void
       reportActivity?(): void
-      // Windows Hello unlock (optional; desktop only). Absent on the extension bridge.
-      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean }>
+      // Biometric unlock — Windows Hello / Touch ID (optional; desktop only).
+      // Absent on the extension bridge.
+      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | null }>
       helloEnroll?(): Promise<boolean>
       helloUnlock?(): Promise<boolean>
       helloRemove?(): Promise<boolean>

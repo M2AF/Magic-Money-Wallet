@@ -122,7 +122,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "DEX",
       "short": "DEX",
-      "count": 47
+      "count": 46
     },
     {
       "name": "Gaming",
@@ -152,7 +152,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 21
+      "count": 22
     },
     {
       "name": "Wallet",
@@ -1748,20 +1748,6 @@ const APP_HUB: AppHubData = {
       "description": "A DEX aggregator delivering optimized swap prices across chains.",
       "chainCount": 6,
       "coverage": 32
-    },
-    {
-      "id": "phoenix",
-      "name": "Phoenix",
-      "website": "https://phoenix.trade",
-      "category": "DEX",
-      "chains": [
-        "solana"
-      ],
-      "featured": false,
-      "favicon": "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
-      "description": "A Solana on-chain limit order book decentralized exchange.",
-      "chainCount": 1,
-      "coverage": 5
     },
     {
       "id": "raydium",
@@ -4449,6 +4435,20 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=bodegacardano.org&sz=64",
       "description": "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events.",
+      "chainCount": 1,
+      "coverage": 5
+    },
+    {
+      "id": "phoenix",
+      "name": "Phoenix",
+      "website": "https://phoenix.trade",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "solana"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
+      "description": "A Solana on-chain limit order book decentralized exchange.",
       "chainCount": 1,
       "coverage": 5
     },

@@ -941,16 +941,6 @@
       description: "A DEX aggregator delivering optimized swap prices across chains.",
     },
     {
-      id:          "phoenix",
-      name:        "Phoenix",
-      website:     "https://phoenix.trade",
-      category:    "DEX",
-      chains:      ["solana"],
-      featured:    false,
-      favicon:     "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
-      description: "A Solana on-chain limit order book decentralized exchange.",
-    },
-    {
       id:          "raydium",
       name:        "Raydium",
       website:     "https://raydium.io",
@@ -2713,6 +2703,16 @@
       featured:    false,
       favicon:     "https://www.google.com/s2/favicons?domain=bodegacardano.org&sz=64",
       description: "An open-source prediction market platform on Cardano enabling users to trade on the outcomes of real-world events.",
+    },
+    {
+      id:          "phoenix",
+      name:        "Phoenix",
+      website:     "https://phoenix.trade",
+      category:    "Perps & Prediction Markets",
+      chains:      ["solana"],
+      featured:    false,
+      favicon:     "https://www.google.com/s2/favicons?domain=phoenix.trade&sz=128",
+      description: "A Solana on-chain limit order book decentralized exchange.",
     },
     {
       id:          "foreon-network",

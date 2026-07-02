@@ -14,7 +14,8 @@ import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from '
 import { join } from 'path'
 import type { WalletAddresses } from './wallet-core'
 import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob } from './crypto-vault'
-import { runHello, helloPlatformOk, HELLO_KEY_NAME, HELLO_CHALLENGE_B64 } from './hello-bridge'
+import { runHello, helloPlatformOk, helloSupported, HELLO_KEY_NAME, HELLO_CHALLENGE_B64 } from './hello-bridge'
+import { touchIdPlatformOk, touchIdSupported, touchIdEnrollMaterial, touchIdGetMaterial, touchIdDeleteMaterial, TOUCHID_ITEM_MISSING } from './touchid-bridge'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -120,63 +121,112 @@ export function lock(): void {
   _unlockedMnemonic = null
 }
 
-// ─── Windows Hello unlock (optional, additive) ───────────────────────────────
+// ─── Biometric unlock (optional, additive) ───────────────────────────────────
 //
-// A SECOND encrypted copy of the mnemonic at wallet.hello.enc, wrapped by a key
-// derived (HKDF) from a TPM-backed Windows Hello signature (hello-bridge.ts). It
-// NEVER touches the password copy (wallet.enc) — it's a convenience unlock and the
-// password remains the recovery path. At rest it's safeStorage.encrypt(JSON(blob)),
-// and the blob is only decryptable after a real Hello ceremony: the signature can't
-// be produced without the TPM key + user verification, so the seed stays
-// unrecoverable from the device files alone.
+// A SECOND encrypted copy of the mnemonic at wallet.hello.enc, wrapped (HKDF →
+// AES-GCM) by platform key material that is only released after a biometric
+// ceremony. It NEVER touches the password copy (wallet.enc) — it's a convenience
+// unlock and the password remains the recovery path. At rest it's
+// safeStorage.encrypt(JSON(blob)).
+//
+//   Windows — Windows Hello (hello-bridge.ts): material is a deterministic RSA
+//   signature from a TPM-backed key; the blob is unrecoverable from device files
+//   alone (hardware-bound).
+//
+//   macOS — Touch ID (touchid-bridge.ts): material is a random secret in the
+//   login keychain, released after Electron's promptTouchID. The gate is
+//   app-enforced, not hardware-bound (see touchid-bridge.ts for why).
 
-/** True when a Hello unlock copy is enrolled for this wallet. */
+export type BioMethod = 'windows-hello' | 'touch-id'
+
+/** Which biometric method this platform offers, or null (Linux, etc.). */
+export function bioMethod(): BioMethod | null {
+  if (helloPlatformOk()) return 'windows-hello'
+  if (touchIdPlatformOk()) return 'touch-id'
+  return null
+}
+
+function bioLabel(): string {
+  return bioMethod() === 'touch-id' ? 'Touch ID' : 'Windows Hello'
+}
+
+/** Can biometric unlock be offered on this machine (hardware + OS enrollment)? */
+export async function bioSupported(): Promise<boolean> {
+  const method = bioMethod()
+  if (method === 'windows-hello') return helloSupported()
+  if (method === 'touch-id') return touchIdSupported()
+  return false
+}
+
+/** True when a biometric unlock copy is enrolled for this wallet. */
 export function hasHelloUnlock(): boolean {
   return existsSync(walletHelloPath())
 }
 
-/** Enroll Hello unlock for the CURRENTLY-UNLOCKED wallet. Triggers a Hello prompt. */
-export async function enrollHello(): Promise<void> {
-  if (!helloPlatformOk()) throw new Error('Windows Hello is only available on Windows')
-  if (_unlockedMnemonic == null) throw new Error('Unlock the wallet first')
-  requireSafeStorage()
-  const res = await runHello('enroll', HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
-  if (!res.ok || !res.signatureB64) {
-    throw new Error(res.status === 'UserCanceled' ? 'Windows Hello was canceled' : (res.status ?? res.error ?? 'Windows Hello enrollment failed'))
-  }
-  const material = new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
-  const blob = await encryptWithKeyMaterial(_unlockedMnemonic, material)
-  mkdirSync(userData(), { recursive: true })
-  writeFileSync(walletHelloPath(), safeStorage.encryptString(JSON.stringify(blob)))
-}
-
-/** Unlock via Windows Hello. Triggers a Hello prompt; caches the phrase on success. */
-export async function unlockWithHello(): Promise<void> {
-  if (!hasHelloUnlock()) throw new Error('Windows Hello is not set up for this wallet')
-  requireSafeStorage()
-  const res = await runHello('sign', HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
+/** Windows Hello ceremony → signature key material. Throws user-facing errors. */
+async function helloMaterial(command: 'enroll' | 'sign'): Promise<Uint8Array> {
+  const res = await runHello(command, HELLO_KEY_NAME, HELLO_CHALLENGE_B64)
   if (!res.ok || !res.signatureB64) {
     if (res.status === 'UserCanceled') throw new Error('Windows Hello was canceled')
     // NotFound = Windows evicted the TPM key (reboot / PIN change / update / TPM
     // reset) but our encrypted copy is still on disk. That copy can never be
     // decrypted again, so remove it — the app falls back cleanly to password-only
     // and the Hello button disappears — and tell the user to re-enroll.
-    if (res.status === 'NotFound') {
+    if (command === 'sign' && res.status === 'NotFound') {
       try { if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath()) } catch { /* best effort */ }
       throw new Error('Windows Hello enrollment was lost. Unlock with your password, then re-enable Windows Hello in Settings.')
     }
-    throw new Error(res.status ?? res.error ?? 'Windows Hello unlock failed')
+    throw new Error(res.status ?? res.error ?? `Windows Hello ${command === 'enroll' ? 'enrollment' : 'unlock'} failed`)
   }
-  const material = new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
+  return new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
+}
+
+/** Enroll biometric unlock for the CURRENTLY-UNLOCKED wallet. Triggers a prompt. */
+export async function enrollHello(): Promise<void> {
+  const method = bioMethod()
+  if (method == null) throw new Error('Biometric unlock is not available on this platform')
+  if (_unlockedMnemonic == null) throw new Error('Unlock the wallet first')
+  requireSafeStorage()
+  const material = method === 'touch-id'
+    ? await touchIdEnrollMaterial()
+    : await helloMaterial('enroll')
+  const blob = await encryptWithKeyMaterial(_unlockedMnemonic, material)
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(walletHelloPath(), safeStorage.encryptString(JSON.stringify(blob)))
+}
+
+/** Unlock biometrically. Triggers a prompt; caches the phrase on success. */
+export async function unlockWithHello(): Promise<void> {
+  const method = bioMethod()
+  if (method == null) throw new Error('Biometric unlock is not available on this platform')
+  if (!hasHelloUnlock()) throw new Error(`${bioLabel()} is not set up for this wallet`)
+  requireSafeStorage()
+  let material: Uint8Array
+  if (method === 'touch-id') {
+    try {
+      material = await touchIdGetMaterial()
+    } catch (e) {
+      // Same self-heal as Windows' NotFound: the keychain item is gone, so the
+      // encrypted copy is permanently undecryptable — drop it and fall back.
+      if (e instanceof Error && e.message === TOUCHID_ITEM_MISSING) {
+        try { if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath()) } catch { /* best effort */ }
+        throw new Error('Touch ID enrollment was lost. Unlock with your password, then re-enable Touch ID in Settings.')
+      }
+      throw e
+    }
+  } else {
+    material = await helloMaterial('sign')
+  }
   const outer = safeStorage.decryptString(readFileSync(walletHelloPath()))
   const blob = JSON.parse(outer) as EncryptedBlob
   _unlockedMnemonic = await decryptWithKeyMaterial(blob, material)
 }
 
-/** Disable Hello unlock: remove the encrypted copy and the TPM-backed key. */
+/** Disable biometric unlock: remove the encrypted copy and the platform key. */
 export async function removeHello(): Promise<void> {
   if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath())
   if (helloPlatformOk()) { try { await runHello('delete', HELLO_KEY_NAME) } catch { /* best effort */ } }
+  if (touchIdPlatformOk()) await touchIdDeleteMaterial()
 }
 
 export function isUnlocked(): boolean {
@@ -196,9 +246,10 @@ export function walletExists(): boolean {
 export function deleteWallet(): void {
   if (existsSync(walletEncPath())) unlinkSync(walletEncPath())
   if (existsSync(addressesPath())) unlinkSync(addressesPath())
-  // Also remove the Hello unlock copy + its TPM key (fire-and-forget for the key).
+  // Also remove the biometric unlock copy + its platform key (fire-and-forget).
   if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath())
   if (helloPlatformOk()) { void runHello('delete', HELLO_KEY_NAME).catch(() => { /* best effort */ }) }
+  if (touchIdPlatformOk()) { void touchIdDeleteMaterial() }
   _unlockedMnemonic = null
   addressesCache = null
   addressesCached = false

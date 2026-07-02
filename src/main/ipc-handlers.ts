@@ -51,9 +51,10 @@ import {
   enrollHello,
   unlockWithHello,
   removeHello,
+  bioSupported,
+  bioMethod,
   type WalletConfig
 } from './secure-store'
-import { helloSupported } from './hello-bridge'
 import { resolveAccountAgw } from './agw'
 import type { WalletAddresses } from './wallet-core'
 import {
@@ -383,12 +384,14 @@ export function registerIpcHandlers(): void {
   // Fire-and-forget; touchActivity() no-ops when the wallet is already locked.
   ipcMain.on('wallet:activity', () => touchActivity())
 
-  // ── Windows Hello unlock (optional convenience factor; password kept) ─────
-  // status: can Hello be offered (platform + a PIN/biometric set up) and is this
-  // wallet already enrolled. enroll/unlock trigger the Hello consent UI.
+  // ── Biometric unlock (optional convenience factor; password kept) ─────────
+  // status: can it be offered (platform + OS enrollment), is this wallet already
+  // enrolled, and which method ('windows-hello' | 'touch-id') so the renderer can
+  // label the UI. enroll/unlock trigger the OS consent UI.
   ipcMain.handle('wallet:hello-status', async () => ({
-    supported: await helloSupported(),
+    supported: await bioSupported(),
     enrolled: hasHelloUnlock(),
+    method: bioMethod(),
   }))
   ipcMain.handle('wallet:hello-enroll', async () => {
     await enrollHello()            // requires the wallet to be unlocked

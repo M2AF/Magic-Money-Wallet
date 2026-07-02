@@ -9,8 +9,9 @@ interface Props {
  * password-protected wallet exists but the session isn't unlocked. Calls
  * wallet:unlock in main, which decrypts the mnemonic into main-process memory.
  *
- * If Windows Hello unlock is enrolled (optional, set up in Settings), a Hello
- * button is offered as a convenience — the password remains the recovery path.
+ * If biometric unlock is enrolled (optional, set up in Settings — Windows Hello
+ * on Windows, Touch ID on macOS), a biometric button is offered as a
+ * convenience — the password remains the recovery path.
  */
 export function UnlockPage({ onUnlocked }: Props) {
   const [password, setPassword] = useState('')
@@ -18,13 +19,18 @@ export function UnlockPage({ onUnlocked }: Props) {
   const [busy, setBusy]         = useState(false)
   const [helloOn, setHelloOn]   = useState(false)
   const [helloBusy, setHelloBusy] = useState(false)
+  const [bioName, setBioName]   = useState('Windows Hello')
 
-  // Offer the Hello button only when this wallet is enrolled AND Hello is still
-  // set up on the OS. Optional-chained for the extension bridge (no helloStatus).
+  // Offer the biometric button only when this wallet is enrolled AND biometrics
+  // are still set up on the OS. Optional-chained for the extension bridge.
   useEffect(() => {
     let alive = true
     window.wallet.helloStatus?.()
-      .then(s => { if (alive) setHelloOn(s.enrolled && s.supported) })
+      .then(s => {
+        if (!alive) return
+        setHelloOn(s.enrolled && s.supported)
+        setBioName(s.method === 'touch-id' ? 'Touch ID' : 'Windows Hello')
+      })
       .catch(() => { /* leave the button hidden */ })
     return () => { alive = false }
   }, [])
@@ -53,8 +59,8 @@ export function UnlockPage({ onUnlocked }: Props) {
       const msg = e instanceof Error ? e.message : String(e)
       // Cancel is a normal, quiet outcome — don't shout about it.
       if (!/cancel/i.test(msg)) setError(msg.replace(/^Error:\s*/, ''))
-      // Enrollment may have self-healed away (e.g. a lost TPM key) — re-check so
-      // the Hello button hides itself and the user just uses their password.
+      // Enrollment may have self-healed away (e.g. a lost TPM/keychain key) —
+      // re-check so the button hides itself and the user just uses their password.
       window.wallet.helloStatus?.()
         .then(s => setHelloOn(s.enrolled && s.supported))
         .catch(() => { /* leave as-is */ })
@@ -79,7 +85,7 @@ export function UnlockPage({ onUnlocked }: Props) {
         </div>
         <h1 className="page-title">Welcome Back</h1>
         <p className="page-subtitle" style={{ marginTop: 8 }}>
-          {helloOn ? 'Unlock with Windows Hello or your password.' : 'Enter your password to unlock.'}
+          {helloOn ? `Unlock with ${bioName} or your password.` : 'Enter your password to unlock.'}
         </p>
       </div>
 
@@ -90,7 +96,7 @@ export function UnlockPage({ onUnlocked }: Props) {
             <path d="M12 2a5 5 0 0 0-5 5v3" /><rect x="4" y="10" width="16" height="11" rx="2" />
             <circle cx="12" cy="15.5" r="1.4" fill="currentColor" stroke="none" />
           </svg>
-          {helloBusy ? 'Waiting for Windows Hello…' : 'Unlock with Windows Hello'}
+          {helloBusy ? `Waiting for ${bioName}…` : `Unlock with ${bioName}`}
         </button>
       )}
 
