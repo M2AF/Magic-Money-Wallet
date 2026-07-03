@@ -593,7 +593,13 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       const excludeIds = Array.isArray(a0) ? (a0 as string[]) : undefined
-      return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds, addresses.bitcoinTaproot)
+      // Returns as soon as items are fetched; the background floor pass pushes
+      // the re-valued list to the popup/sidepanel when it completes.
+      return fetchAllCollectibles(
+        addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw,
+        addresses.tron, excludeIds, addresses.bitcoinTaproot,
+        (updated) => { chrome.runtime.sendMessage({ type: 'collectibles:updated', data: updated }).catch(() => {}) }
+      )
     }
 
     case 'swap:getQuote': {

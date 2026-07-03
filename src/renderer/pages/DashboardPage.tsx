@@ -822,6 +822,15 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     if (!loading && !tokensLoading && !collectiblesLoading) setHasLoadedOnce(true)
   }, [loading, tokensLoading, collectiblesLoading])
 
+  // getCollectibles returns before floor valuation finishes (the tab renders
+  // immediately); when the background pass completes, main pushes the re-valued
+  // list here — swap it in place so USD values fill in without a refetch.
+  useEffect(() => {
+    const onUpdated = (r: CollectiblesResult) => setCollectibles(r)
+    window.wallet.onCollectiblesUpdated(onUpdated)
+    return () => window.wallet.offCollectiblesUpdated(onUpdated)
+  }, [])
+
   // Gentle background refresh every 5 minutes (immediate first load already ran on
   // mount, so there's no startup wait). Quiet — all fetchers run without setting their
   // loading flags, so tokens/NFTs/networks stay on screen (no skeleton flash, scroll

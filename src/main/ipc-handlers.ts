@@ -712,7 +712,17 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-collectibles', async (_event, excludeIds?: string[]) => {
     const addresses = await getFullAddresses()
     const config = loadConfig()
-    return fetchAllCollectibles(addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw, addresses.tron, excludeIds, addresses.bitcoinTaproot)
+    // Returns as soon as items are fetched (with cached floor values applied);
+    // the live floor pass then runs in the background and pushes the re-valued
+    // list to the wallet window when it completes.
+    return fetchAllCollectibles(
+      addresses.evm, addresses.cardano, config, addresses.solana, addresses.agw,
+      addresses.tron, excludeIds, addresses.bitcoinTaproot,
+      (updated) => {
+        const win = getMainWin()
+        if (win && !win.isDestroyed()) win.webContents.send('collectibles:updated', updated)
+      }
+    )
   })
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────

@@ -222,6 +222,10 @@ export function createExtensionWallet() {
     getTestnetMode: () => send<boolean>('wallet:get-testnet-mode'),
     setTestnetMode: (enabled: boolean) => send('wallet:set-testnet-mode', enabled),
 
+    // Background floor-valuation push (Collectibles tab renders before values).
+    onCollectiblesUpdated:  (cb: (r: unknown) => void) => on('collectibles:updated', cb as (d: unknown) => void),
+    offCollectiblesUpdated: (cb: (r: unknown) => void) => off('collectibles:updated', cb as (d: unknown) => void),
+
     // EVM network switcher — same contract as the Electron window.wallet API so the
     // shared NetworkSwitcher component works in both. Chain state lives in the SW.
     web3GetChain:   () => send<string>('web3:get-chain'),

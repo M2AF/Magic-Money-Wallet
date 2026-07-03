@@ -260,6 +260,22 @@ export async function saveConfig(config: Partial<WalletConfig>): Promise<void> {
   await chrome.storage.local.set({ 'wallet.config': { ...current, ...config } })
 }
 
+// ── NFT floor cache (display-only market data) ────────────────────────────────
+// Mirrors secure-store.ts's floor-cache.json, persisted in chrome.storage so a
+// freshly-woken service worker starts with warm last-known-good floors.
+
+export interface FloorCacheEntry { floor: number; symbol: string; at: number }
+
+export async function loadFloorCache(): Promise<Record<string, FloorCacheEntry>> {
+  const r = await chrome.storage.local.get('wallet.floor_cache')
+  const m = r['wallet.floor_cache']
+  return (m && typeof m === 'object') ? m as Record<string, FloorCacheEntry> : {}
+}
+
+export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
+  chrome.storage.local.set({ 'wallet.floor_cache': map }).catch(() => { /* display-only cache */ })
+}
+
 // ── Abstract Global Wallet manual override (per account) ──────────────────────
 // Mirrors secure-store.ts's agw-overrides.json, but persisted in chrome.storage.
 

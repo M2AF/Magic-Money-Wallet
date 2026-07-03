@@ -232,10 +232,15 @@ export async function handleRead(request, url, env, ctx) {
   return err(env, 'Not found', 404)
 }
 
-// /opensea/collections/:slug/stats → 10m ; /opensea/chain/:chain/contract/:contract → 7d
+// /opensea/collections/:slug/stats → 30m (floors move slowly; 3× fewer upstream
+// calls than the old 10m) ; /opensea/chain/:chain/contract/:contract → 7d ;
+// /opensea/chain/:chain/account/:owner/nfts → 2m (dedupes the dashboard-mount
+// slug sweeps — incl. a dev + packaged instance racing each other; per-owner
+// path so the cache is cross-user safe).
 function openseaTtl(parts) {
-  if (parts[1] === 'collections' && parts[3] === 'stats') return 600
+  if (parts[1] === 'collections' && parts[3] === 'stats') return 1800
   if (parts[1] === 'chain' && parts[3] === 'contract') return 604800
+  if (parts[1] === 'chain' && parts[3] === 'account' && parts[5] === 'nfts') return 120
   return 0
 }
 

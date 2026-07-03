@@ -1,4 +1,4 @@
-import type { WalletConfig } from './secure-store'
+import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry } from './secure-store'
 import { isTestnet } from './chain-config'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
@@ -1111,7 +1111,16 @@ async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<Wa
   // chain=0x8f is Monad mainnet (chainId 143)
   console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`)
   try {
-    const res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
+    // One retry on throttling (429 from the Worker's shared rate bucket or
+    // Moralis itself, 5xx transients). The dashboard-mount burst — especially
+    // with a second wallet instance open — can trip the per-minute limit, and
+    // without a retry this silently returned [] until the next full refresh.
+    let res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
+    if (res.status === 429 || res.status >= 500) {
+      console.warn(`[NFT] Monad Moralis HTTP ${res.status} — retrying once in 1.5s`)
+      await new Promise(r => setTimeout(r, 1_500))
+      res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
+    }
     console.log(`[NFT] Monad Moralis HTTP ${res.status}`)
     if (!res.ok) {
       const body = await res.text().catch(() => '')
@@ -1239,12 +1248,117 @@ interface FloorEntry { floor: number; symbol: string }
 const floorCache = new Map<string, { value: FloorEntry | null; exp: number }>()
 const FLOOR_TTL = 10 * 60_000
 
-async function osGet<T>(path: string, config: WalletConfig): Promise<T | null> {
-  try {
-    const res = await openseaFetch(path, config, 8_000)
-    if (!res.ok) return null
-    return await res.json() as T
-  } catch { return null }
+// ── Last-known-good floor disk cache ──────────────────────────────────────────
+// Keyed by a canonical per-collection key derivable from an item ALONE (no slug
+// sweep needed): EVM `chain:contract`, Solana `solmint:{mint}`, Cardano
+// `policy:{policyId}`. Loaded once per process, written through (debounced)
+// whenever the live pass resolves a floor. This gives a cold process the same
+// warm floor knowledge a long-running dev process holds in memory — the reason
+// packaged (fresh-process) launches kept losing values that dev always showed.
+const FLOOR_DISK_MAX_AGE = 7 * 24 * 60 * 60_000
+
+function floorKeyOf(i: WalletCollectible): string {
+  if (i.chain === 'solana') return `solmint:${i.tokenId}`
+  if (i.chain === 'cardano') return `policy:${i.contractAddress}`
+  return `${i.chain}:${i.contractAddress.toLowerCase()}`
+}
+
+let _lastGood: Record<string, FloorCacheEntry> | null = null
+let _lastGoodLoading: Promise<Record<string, FloorCacheEntry>> | null = null
+function lastGoodFloors(): Promise<Record<string, FloorCacheEntry>> {
+  if (_lastGood) return Promise.resolve(_lastGood)
+  if (!_lastGoodLoading) {
+    _lastGoodLoading = loadFloorCache().then(m => (_lastGood = m)).catch(() => (_lastGood = {}))
+  }
+  return _lastGoodLoading
+}
+
+let _floorSaveTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleFloorSave(): void {
+  if (_floorSaveTimer) return
+  _floorSaveTimer = setTimeout(() => {
+    _floorSaveTimer = null
+    if (_lastGood) saveFloorCache(_lastGood)
+  }, 2_000)
+}
+
+// Items whose floorPrice came from the DISK cache (display value) rather than a
+// live source — the enrichment pass must still fetch their real floor, and must
+// not mistake them for Alchemy inline floors.
+const _diskFloored = new WeakSet<WalletCollectible>()
+
+/**
+ * Apply last-known-good floors to freshly-fetched items so the Collectibles tab
+ * shows values IMMEDIATELY; the live enrichment pass then refreshes them in the
+ * background and pushes the corrected list to the UI. Also USD-izes Alchemy
+ * inline floors so those don't wait for the live pass either.
+ */
+async function applyCachedFloors(items: WalletCollectible[], exclude?: Set<string>): Promise<void> {
+  const lastGood = await lastGoodFloors()
+  const now = Date.now()
+  const withEntry: Array<[WalletCollectible, { floor: number; symbol: string }]> = []
+  for (const i of items) {
+    if (exclude?.has(i.id)) continue
+    if (i.floorPrice != null) {
+      // Alchemy inline floor (native units) — just needs a USD conversion.
+      withEntry.push([i, { floor: i.floorPrice, symbol: NATIVE_SYMBOL[i.chain] ?? 'ETH' }])
+      continue
+    }
+    const e = lastGood[floorKeyOf(i)]
+    if (e && e.floor > 0 && now - e.at < FLOOR_DISK_MAX_AGE) {
+      _diskFloored.add(i)
+      i.floorPrice = e.floor
+      withEntry.push([i, e])
+    }
+  }
+  if (withEntry.length === 0) return
+  const prices = await fetchNativePrices([...new Set(withEntry.map(([i]) => i.chain))])
+  for (const [i, e] of withEntry) {
+    const cg = FLOOR_SYMBOL_CG[e.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]
+    const price = prices[cg] ?? 0
+    if (price > 0) i.usdValue = `$${(e.floor * price).toFixed(2)}`
+  }
+  const usd = (i: WalletCollectible) => parseFloat(i.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
+  items.sort((a, b) => usd(b) - usd(a))
+}
+
+// ── OpenSea pacing ────────────────────────────────────────────────────────────
+// One shared limiter for EVERY OpenSea call (owner sweeps + floor lookups): a
+// slot every 350ms ≈ 3 req/s, safely under OpenSea's ~4 req/s key limit. The
+// old loop fired 4 calls per 250ms (16/s) — a COLD process's full floor burst
+// self-inflicted mass 429s. Dev's warm in-memory cache hid this; every packaged
+// launch is a cold process, which is why only installed builds lost floors.
+let _osNextSlot = 0
+function osPace(): Promise<void> {
+  const now = Date.now()
+  const slot = Math.max(now, _osNextSlot)
+  _osNextSlot = slot + 350
+  return slot > now ? new Promise(r => setTimeout(r, slot - now)) : Promise.resolve()
+}
+
+/**
+ * OpenSea GET. `undefined` = transport/throttle FAILURE (truth unknown — callers
+ * must NOT cache a negative); a parsed body = success (missing fields = a real
+ * "no floor" negative). One retry on 429 — the pacer usually clears the burst.
+ */
+async function osGet<T>(path: string, config: WalletConfig): Promise<T | undefined> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await osPace()
+    try {
+      const res = await openseaFetch(path, config, 8_000)
+      if (res.status === 429 && attempt === 0) {
+        console.warn(`[NFT] OpenSea 429 on ${path.split('?')[0]} — retrying`)
+        await new Promise(r => setTimeout(r, 1_500))
+        continue
+      }
+      if (!res.ok) {
+        if (res.status === 429 || res.status >= 500) console.warn(`[NFT] OpenSea ${res.status} on ${path.split('?')[0]}`)
+        return undefined
+      }
+      return await res.json() as T
+    } catch { return undefined }
+  }
+  return undefined
 }
 
 async function osCollectionFloor(slug: string, config: WalletConfig): Promise<FloorEntry | null> {
@@ -1252,6 +1366,7 @@ async function osCollectionFloor(slug: string, config: WalletConfig): Promise<Fl
   const hit = floorCache.get(cacheKey)
   if (hit && hit.exp > Date.now()) return hit.value
   const json = await osGet<{ total?: { floor_price?: number; floor_price_symbol?: string } }>(`collections/${slug}/stats`, config)
+  if (json === undefined) return null   // throttled/unreachable — don't cache a false negative
   const total = json?.total
   const value: FloorEntry | null = (total?.floor_price != null && total.floor_price > 0)
     ? { floor: total.floor_price, symbol: total.floor_price_symbol ?? 'ETH' } : null
@@ -1265,6 +1380,7 @@ async function osEvmContractFloor(osChain: string, contract: string, config: Wal
   const hit = floorCache.get(cacheKey)
   if (hit && hit.exp > Date.now()) return hit.value
   const json = await osGet<{ collection?: string }>(`chain/${osChain}/contract/${contract}`, config)
+  if (json === undefined) return null   // throttled/unreachable — don't cache a false negative
   const value = json?.collection ? await osCollectionFloor(json.collection, config) : null
   floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
   return value
@@ -1309,12 +1425,13 @@ async function osAccountSlugs(osChain: string, owner: string, config: WalletConf
 
 const ME_BASE = 'https://api-mainnet.magiceden.dev/v2'
 
-async function meGet<T>(path: string): Promise<T | null> {
+/** Magic Eden GET. `undefined` = failure (don't cache negatives); body = success. */
+async function meGet<T>(path: string): Promise<T | undefined> {
   try {
     const res = await fetch(`${ME_BASE}/${path}`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(9_000) })
-    if (!res.ok) return null
+    if (!res.ok) return undefined
     return await res.json() as T
-  } catch { return null }
+  } catch { return undefined }
 }
 
 /** Owned Solana NFT mint → Magic Eden collection symbol (one paginated sweep, no key). */
@@ -1335,6 +1452,7 @@ async function meCollectionFloor(symbol: string): Promise<FloorEntry | null> {
   const hit = floorCache.get(cacheKey)
   if (hit && hit.exp > Date.now()) return hit.value
   const stats = await meGet<{ floorPrice?: number }>(`collections/${symbol}/stats`)
+  if (stats === undefined) return null   // throttled/unreachable — don't cache a false negative
   const value: FloorEntry | null = (stats?.floorPrice && stats.floorPrice > 0)
     ? { floor: stats.floorPrice / 1e9, symbol: 'SOL' } : null
   floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
@@ -1356,12 +1474,11 @@ async function anvilCollectionFloor(policyId: string, config: WalletConfig): Pro
       `marketplace/collections/${policyId}/assets?orderBy=priceAsc&saleType=listedOnly&limit=1`,
       config, 9_000
     )
-    if (res.ok) {
-      const json = await res.json() as { results?: Array<{ listing?: { price?: number } }> }
-      const lovelace = json.results?.[0]?.listing?.price
-      if (typeof lovelace === 'number' && lovelace > 0) value = { floor: lovelace / 1e6, symbol: 'ADA' }
-    }
-  } catch { /* leave null */ }
+    if (!res.ok) return null   // throttled/unreachable — don't cache a false negative
+    const json = await res.json() as { results?: Array<{ listing?: { price?: number } }> }
+    const lovelace = json.results?.[0]?.listing?.price
+    if (typeof lovelace === 'number' && lovelace > 0) value = { floor: lovelace / 1e6, symbol: 'ADA' }
+  } catch { return null }     // ditto — truth unknown, leave uncached
   floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
   return value
 }
@@ -1388,7 +1505,6 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
   // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
   const priced = exclude && exclude.size ? items.filter(i => !exclude.has(i.id)) : items
-  const prices = await fetchNativePrices([...priced.map(i => i.chain), 'solana'])
 
   const hasSolana = priced.some(i => i.chain === 'solana')
   const evmChains = new Set(priced.filter(i => i.chain !== 'solana' && OPENSEA_NFT_CHAIN[i.chain]).map(i => OPENSEA_NFT_CHAIN[i.chain]))
@@ -1412,7 +1528,9 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const taskKeyOf = new Map<WalletCollectible, string | null>()
   const tasks = new Map<string, () => Promise<FloorEntry | null>>()
   for (const i of priced) {
-    if (i.floorPrice != null) { taskKeyOf.set(i, null); continue }  // already has an inline floor
+    // Alchemy inline floors need no task; disk-cached display floors DO — the
+    // live pass must still refresh them.
+    if (i.floorPrice != null && !_diskFloored.has(i)) { taskKeyOf.set(i, null); continue }
     // Cardano floors come from Anvil (keyed by policyId = the NFT's contractAddress).
     if (i.chain === 'cardano') {
       const policy = i.contractAddress
@@ -1440,31 +1558,82 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
     taskKeyOf.set(i, tk)
   }
 
-  // Resolve unique collection floors, throttled (small batches + gap) to stay under
-  // OpenSea's ~4 req/s limit so later chains aren't starved.
+  // Resolve unique collection floors in three provider LANES running in
+  // parallel, each paced for its own provider. OpenSea calls are additionally
+  // serialized by osPace() (~3 req/s) inside osGet, so its lane needs no extra
+  // gap; Magic Eden and Anvil have separate budgets and no longer queue behind
+  // a long OpenSea run (Cardano/Solana floors used to starve there).
   const resolved = new Map<string, FloorEntry | null>()
   const entries = [...tasks.entries()].slice(0, 500)
-  const CONCURRENCY = 4
-  for (let s = 0; s < entries.length; s += CONCURRENCY) {
-    const batch = await Promise.all(entries.slice(s, s + CONCURRENCY).map(async ([k, run]) => [k, await run()] as const))
-    for (const [k, r] of batch) resolved.set(k, r)
-    if (s + CONCURRENCY < entries.length) await new Promise(r => setTimeout(r, 250))
+  const laneOf = (k: string) => k.startsWith('me:') ? 'me' : k.startsWith('anvil:') ? 'anvil' : 'os'
+  const LANES: Record<string, { batch: number; gapMs: number }> = {
+    os:    { batch: 3, gapMs: 0 },     // osPace() meters the actual request rate
+    me:    { batch: 2, gapMs: 500 },
+    anvil: { batch: 4, gapMs: 250 },
   }
+  await Promise.all(Object.entries(LANES).map(async ([lane, { batch, gapMs }]) => {
+    const laneEntries = entries.filter(([k]) => laneOf(k) === lane)
+    for (let s = 0; s < laneEntries.length; s += batch) {
+      const part = await Promise.all(laneEntries.slice(s, s + batch).map(async ([k, run]) => [k, await run()] as const))
+      for (const [k, r] of part) resolved.set(k, r)
+      if (gapMs && s + batch < laneEntries.length) await new Promise(r => setTimeout(r, gapMs))
+    }
+  }))
 
+  // Native USD prices are fetched AFTER the (slow, paced) floor resolution on
+  // purpose: on a cold start the dashboard-mount burst can 429 CoinGecko, and this
+  // path used to lose that race with an EMPTY cache — floors resolved fine but
+  // every USD value silently nulled. By now the balance fetcher's coins/markets
+  // seed has landed (or the burst has cleared), so the cache answers reliably.
+  const prices = await fetchNativePrices([...priced.map(i => i.chain), 'solana'])
+
+  const lastGood = await lastGoodFloors()
+  const now = Date.now()
   for (const i of items) {
     const tk = taskKeyOf.get(i)
-    const f: FloorEntry | null = (i.floorPrice != null)
-      ? { floor: i.floorPrice, symbol: NATIVE_SYMBOL[i.chain] ?? 'ETH' }   // Alchemy inline floor
+    const inline = i.floorPrice != null && !_diskFloored.has(i)
+    const f: FloorEntry | null = inline
+      ? { floor: i.floorPrice as number, symbol: NATIVE_SYMBOL[i.chain] ?? 'ETH' }   // Alchemy inline floor
       : (tk ? resolved.get(tk) ?? null : null)
-    const cg = f ? (FLOOR_SYMBOL_CG[f.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]) : NATIVE_CG[i.chain]
+    // No fresh truth for this item (throttled provider or unlisted collection):
+    // KEEP whatever applyCachedFloors already displayed instead of nulling it.
+    if (!f || f.floor <= 0) continue
+    const cg = FLOOR_SYMBOL_CG[f.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]
     const price = prices[cg] ?? 0
-    i.floorPrice = f?.floor ?? null
-    i.usdValue = (f && f.floor > 0 && price > 0) ? `$${(f.floor * price).toFixed(2)}` : null
+    i.floorPrice = f.floor
+    if (price > 0) i.usdValue = `$${(f.floor * price).toFixed(2)}`
+    lastGood[floorKeyOf(i)] = { floor: f.floor, symbol: f.symbol, at: now }
   }
+  scheduleFloorSave()
+
+  // One-line health summary so a silent valuation failure is diagnosable from the
+  // log: distinguishes "no floors found" (provider throttled) from "no prices"
+  // (CoinGecko down) at a glance.
+  const floorsFound = [...resolved.values()].filter(Boolean).length
+  const valued = items.filter(i => i.usdValue != null).length
+  console.log(`[NFT] floors: ${tasks.size} collections → ${floorsFound} floors, prices for ${Object.keys(prices).length} ids → ${valued}/${items.length} NFTs valued`)
 
   const usd = (i: WalletCollectible) => parseFloat(i.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
   items.sort((a, b) => usd(b) - usd(a))
   return items
+}
+
+// Background floor pass: one at a time. A refresh that lands while a pass is
+// running just serves cached-applied values; the running pass's push follows.
+let _enriching = false
+
+function scheduleFloorEnrichment(
+  result: CollectiblesResult,
+  config: WalletConfig,
+  opts: FloorOpts,
+  onEnriched?: (r: CollectiblesResult) => void
+): void {
+  if (_enriching) return
+  _enriching = true
+  void enrichNftFloors(result.items, config, opts)
+    .then(() => onEnriched?.({ ...result, fetchedAt: Date.now() }))
+    .catch(e => console.error('[NFT] floor enrichment failed:', e))
+    .finally(() => { _enriching = false })
 }
 
 export async function fetchAllCollectibles(
@@ -1475,7 +1644,8 @@ export async function fetchAllCollectibles(
   agw?: string,
   tronAddress?: string,
   excludeIds?: string[],
-  bitcoinTaproot?: string
+  bitcoinTaproot?: string,
+  onEnriched?: (r: CollectiblesResult) => void
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
@@ -1519,17 +1689,22 @@ export async function fetchAllCollectibles(
       chainResults['bitcoin'] = { count: bitcoinOrdinals.length, error: null }
     }
 
-    // Value each NFT by collection floor and sort by USD (highest first).
-    // Skipped on testnets — OpenSea/Magic Eden/Anvil floors are mainnet-only.
+    // Value instantly from the last-known-good disk cache, then refresh the real
+    // floors in the BACKGROUND: the Collectibles tab renders as soon as items are
+    // fetched instead of blocking on the rate-limit-paced floor providers, and
+    // the corrected list is pushed to the UI (collectibles:updated) when the live
+    // pass finishes. Skipped on testnets — floor providers are mainnet-only.
+    const result: CollectiblesResult = { items, fetchedAt: Date.now(), error: null, chainResults }
     if (!testnet) {
-      await enrichNftFloors(items, config, {
-        solanaAddress, evmAddress, agw: agwAddress ?? undefined,
-        exclude: excludeIds ? new Set(excludeIds) : undefined,
-      })
+      const exclude = excludeIds ? new Set(excludeIds) : undefined
+      await applyCachedFloors(items, exclude)
+      scheduleFloorEnrichment(result, config, {
+        solanaAddress, evmAddress, agw: agwAddress ?? undefined, exclude,
+      }, onEnriched)
     }
 
     console.log(`[NFT] Total NFTs found: ${items.length}`)
-    return { items, fetchedAt: Date.now(), error: null, chainResults }
+    return result
   } catch (e) {
     return { items: [], fetchedAt: Date.now(), error: String(e), chainResults: {} }
   }

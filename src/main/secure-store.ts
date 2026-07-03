@@ -311,6 +311,41 @@ export function effectiveAddresses(addresses: WalletAddresses, cfg: WalletConfig
   }
 }
 
+// ─── NFT floor cache (plain JSON, display-only market data) ──────────────────
+// Last-known-good collection floors, keyed by a canonical per-collection key
+// (see token-fetcher floorKeyOf). Persisted so a FRESH process starts with the
+// same warm floor knowledge a long-running dev process has — without this,
+// every packaged launch cold-bursts the floor providers and gets throttled.
+// async on purpose: the extension's chrome-store mirror is chrome.storage-backed.
+
+export interface FloorCacheEntry { floor: number; symbol: string; at: number }
+
+const floorCachePath = () => join(userData(), 'floor-cache.json')
+let floorCacheDisk: Record<string, FloorCacheEntry> | null = null
+
+export async function loadFloorCache(): Promise<Record<string, FloorCacheEntry>> {
+  if (floorCacheDisk) return floorCacheDisk
+  try {
+    if (existsSync(floorCachePath())) {
+      const parsed = JSON.parse(readFileSync(floorCachePath(), 'utf-8'))
+      floorCacheDisk = (parsed && typeof parsed === 'object') ? parsed as Record<string, FloorCacheEntry> : {}
+    } else {
+      floorCacheDisk = {}
+    }
+  } catch {
+    floorCacheDisk = {}
+  }
+  return floorCacheDisk
+}
+
+export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
+  floorCacheDisk = map
+  try {
+    mkdirSync(userData(), { recursive: true })
+    writeFileSync(floorCachePath(), JSON.stringify(map))
+  } catch { /* display-only cache — losing a write is harmless */ }
+}
+
 // ─── AGW overrides (per-account manual Abstract Global Wallet address) ───────
 // Stored separately from addresses.json because switching accounts re-derives
 // addresses wholesale. Map: accountIndex (string) → AGW address. A null/missing

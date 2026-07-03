@@ -305,6 +305,9 @@ declare global {
       getCoinChart(coinId: string, days: string): Promise<Array<[number, number]>>
       getTokens(): Promise<TokensResult>
       getCollectibles(excludeIds?: string[]): Promise<CollectiblesResult>
+      // Pushed when the background floor-valuation pass finishes.
+      onCollectiblesUpdated(cb: (r: CollectiblesResult) => void): void
+      offCollectiblesUpdated(cb: (r: CollectiblesResult) => void): void
       getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
       swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>

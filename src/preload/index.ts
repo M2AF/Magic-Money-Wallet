@@ -72,6 +72,10 @@ contextBridge.exposeInMainWorld('wallet', {
   getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),
   getTokens:       ()                  => ipcRenderer.invoke('wallet:get-tokens'),
   getCollectibles: (excludeIds?: string[]) => ipcRenderer.invoke('wallet:get-collectibles', excludeIds),
+  // Pushed when the background floor-valuation pass finishes (getCollectibles
+  // returns before floors resolve so the tab renders immediately).
+  onCollectiblesUpdated:  (cb: (r: unknown) => void) => ipcRenderer.on('collectibles:updated', (_e, v) => cb(v)),
+  offCollectiblesUpdated: (cb: (r: unknown) => void) => ipcRenderer.removeListener('collectibles:updated', cb as never),
   getNftFloor:     (chain: string, contractAddress: string) =>
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
   swapGetQuote:    (req: unknown)      => ipcRenderer.invoke('swap:getQuote', req),
