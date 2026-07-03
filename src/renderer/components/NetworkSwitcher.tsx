@@ -19,7 +19,12 @@ export function NetworkSwitcher() {
   useEffect(() => {
     window.wallet.web3GetChains().then(setChains).catch(() => {})
     window.wallet.web3GetChain().then(setChainId).catch(() => {})
-    const onChange = (hex: string) => setChainId(hex)
+    const onChange = (hex: string) => {
+      setChainId(hex)
+      // Testnet Mode flips swap the whole chain list (and push a chainChanged),
+      // so refresh the options too — not just the selected pill.
+      window.wallet.web3GetChains().then(setChains).catch(() => {})
+    }
     window.wallet.onWeb3ChainChanged(onChange)
     return () => window.wallet.offWeb3ChainChanged(onChange)
   }, [])

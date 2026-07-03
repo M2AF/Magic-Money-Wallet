@@ -217,6 +217,11 @@ export function createExtensionWallet() {
     web3ApproveConnection:     (id: string) => send('web3:approve-connection', { id }),
     web3RejectConnection:      (id: string) => send('web3:reject-connection', { id }),
 
+    // Testnet Mode — same contract as the Electron window.wallet API so the
+    // shared SettingsModal toggle works in both.
+    getTestnetMode: () => send<boolean>('wallet:get-testnet-mode'),
+    setTestnetMode: (enabled: boolean) => send('wallet:set-testnet-mode', enabled),
+
     // EVM network switcher — same contract as the Electron window.wallet API so the
     // shared NetworkSwitcher component works in both. Chain state lives in the SW.
     web3GetChain:   () => send<string>('web3:get-chain'),

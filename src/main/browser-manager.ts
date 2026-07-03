@@ -23,7 +23,9 @@ import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen } f
 import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle } from 'electron'
 import { join } from 'path'
 import { WALLET_ICON } from '../preload/wallet-icon'
-import { getDappChainId, setDappChainId, DEFAULT_CHAIN_ID } from './dapp-chain'
+import { getDappChainId, setDappChainId } from './dapp-chain'
+import { defaultDappChainId } from './chain-config'
+import { loadConfig } from './secure-store'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
 
@@ -433,16 +435,18 @@ function wireTab(tab: Tab): void {
       sendToChrome('browser:url', url)
       sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
 
-      // Reset the active EVM network to Ethereum when moving to a NEW dApp origin so a
-      // prior dApp's chain (e.g. Monad on nad.fun) doesn't leak into the next one.
-      // Same-origin reloads and SPA route changes (did-navigate-in-page) keep the chain.
+      // Reset the active EVM network to the mode default (Ethereum, or Sepolia in
+      // Testnet Mode) when moving to a NEW dApp origin so a prior dApp's chain
+      // (e.g. Monad on nad.fun) doesn't leak into the next one. Same-origin
+      // reloads and SPA route changes (did-navigate-in-page) keep the chain.
       let origin: string | null = null
       try { origin = new URL(url).origin } catch { origin = null }
       if (origin && origin !== _lastDappOrigin) {
         _lastDappOrigin = origin
-        const changed = getDappChainId() !== DEFAULT_CHAIN_ID
-        setDappChainId(DEFAULT_CHAIN_ID)
-        const hex = `0x${DEFAULT_CHAIN_ID.toString(16)}`
+        const def = defaultDappChainId(loadConfig())
+        const changed = getDappChainId() !== def
+        setDappChainId(def)
+        const hex = `0x${def.toString(16)}`
         if (changed) emitDappEvent('eth', 'chainChanged', hex) // correct a page that synced the stale chain
         notifyBrowserChrome('web3:chain-changed', hex)         // keep the toolbar pill in sync
       }

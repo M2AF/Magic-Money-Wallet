@@ -166,7 +166,7 @@ function deriveChild(parent: KeyNode, index: number): KeyNode {
  *
  * Address = bech32("addr", [0x01] || blake2b-224(payPub) || blake2b-224(stkPub))
  */
-export function deriveCardanoAddress(entropy: Uint8Array, accountIndex = 0): string {
+export function deriveCardanoAddress(entropy: Uint8Array, accountIndex = 0, testnet = false): string {
   const root    = rootKeyFromEntropy(entropy)
   const account = [deriveHardened, deriveHardened, deriveHardened]
     .reduce((key, fn, i) => fn(key, [1852, 1815, accountIndex][i]), root)
@@ -178,11 +178,12 @@ export function deriveCardanoAddress(entropy: Uint8Array, accountIndex = 0): str
   const payHash = blake2b(payPub, { dkLen: 28 })
   const stkHash = blake2b(stkPub, { dkLen: 28 })
 
-  // Header 0x01 = mainnet (low nibble: 1) base address (high nibble: 0b0000)
-  const addrBytes = Buffer.concat([Buffer.from([0x01]), payHash, stkHash])
+  // Header low nibble = network id (1 = mainnet, 0 = testnet/preprod); high
+  // nibble 0b0000 = base address on both. Keys/paths are identical either way.
+  const addrBytes = Buffer.concat([Buffer.from([testnet ? 0x00 : 0x01]), payHash, stkHash])
 
   // Cardano uses standard bech32 with a generous limit (base addresses are 57 bytes)
-  return bech32.encode('addr', bech32.toWords(addrBytes), 1000)
+  return bech32.encode(testnet ? 'addr_test' : 'addr', bech32.toWords(addrBytes), 1000)
 }
 
 /**
@@ -191,7 +192,7 @@ export function deriveCardanoAddress(entropy: Uint8Array, accountIndex = 0): str
  *
  * Stake address = bech32("stake", [0xE1] || blake2b-224(stkPub))
  */
-export function deriveCardanoStakeAddress(entropy: Uint8Array, accountIndex = 0): string {
+export function deriveCardanoStakeAddress(entropy: Uint8Array, accountIndex = 0, testnet = false): string {
   const root    = rootKeyFromEntropy(entropy)
   const account = [deriveHardened, deriveHardened, deriveHardened]
     .reduce((key, fn, i) => fn(key, [1852, 1815, accountIndex][i]), root)
@@ -199,9 +200,9 @@ export function deriveCardanoStakeAddress(entropy: Uint8Array, accountIndex = 0)
   const stkPub  = pubFromKL(deriveSoft(deriveSoft(account, 2), 0).kL)
   const stkHash = blake2b(stkPub, { dkLen: 28 })
 
-  // Header 0xE1 = mainnet reward/stake address
-  const addrBytes = Buffer.concat([Buffer.from([0xe1]), stkHash])
-  return bech32.encode('stake', bech32.toWords(addrBytes), 1000)
+  // Header 0xE1 = mainnet reward/stake address, 0xE0 = testnet
+  const addrBytes = Buffer.concat([Buffer.from([testnet ? 0xe0 : 0xe1]), stkHash])
+  return bech32.encode(testnet ? 'stake_test' : 'stake', bech32.toWords(addrBytes), 1000)
 }
 
 // ─── Signing key export ───────────────────────────────────────────────────────

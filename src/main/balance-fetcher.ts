@@ -9,7 +9,12 @@
 import { base58 } from '@scure/base'
 import { blake2b } from '@noble/hashes/blake2b'
 import type { WalletConfig } from './secure-store'
-import { EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE, type ChainDef } from './chain-config'
+import {
+  EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE,
+  TESTNET_EVM_CHAINS, TESTNET_CHAIN_MAP, TESTNET_PUBLIC_RPCS, TESTNET_SOLANA_RPCS,
+  TESTNET_BITCOIN_ESPLORA, TESTNET4_BITCOIN_ESPLORA, TESTNET_KOIOS_URL, isTestnet,
+  type ChainDef
+} from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl } from './api-proxy'
@@ -107,7 +112,10 @@ async function fetchEvmNative(
   try {
     // Native balance: proxy/Alchemy first, then public fallbacks so a throttled
     // key shows a balance instead of "—". Token count below stays Alchemy-only.
-    const urls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? []), ankrRpcUrl(chain.id, config)]
+    // Ankr slugs are mainnet-only, so that fallback is skipped in testnet mode
+    // (it would silently answer with a MAINNET balance for the testnet chain).
+    const publicRpcs = isTestnet(config) ? TESTNET_PUBLIC_RPCS : PUBLIC_RPCS
+    const urls = [chain.rpcUrl(config), ...(publicRpcs[chain.id] ?? []), isTestnet(config) ? undefined : ankrRpcUrl(chain.id, config)]
     const balJson = await rpcReadWithFallback(
       urls, { jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }, 10_000
     ) as { result?: string; error?: { message: string } } | null
@@ -160,13 +168,14 @@ async function fetchEvmNative(
 // ─── Bitcoin via mempool.space ────────────────────────────────────────────────
 
 async function fetchBitcoinNative(
-  address: string
+  address: string,
+  esplora: string[] = BITCOIN_ESPLORA
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
   // Try each Esplora host in turn — they share the identical /address/{addr}
   // response, so blockstream.info covers for mempool.space when it's down.
   let lastErr: string | null = null
-  for (const base of BITCOIN_ESPLORA) {
+  for (const base of esplora) {
     try {
       const res = await fetch(`${base}/address/${address}`, { signal: AbortSignal.timeout(10_000) })
       if (!res.ok) { lastErr = `Esplora ${res.status}`; continue }
@@ -188,11 +197,12 @@ async function fetchBitcoinNative(
 // A Taproot inscription UTXO's sat value still counts toward holdings; the send path
 // (bitcoin.ts) is what prevents inscriptions from being spent as fees/change.
 async function fetchBitcoinTotal(
-  addrs: { bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string }
+  addrs: { bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string },
+  esplora: string[] = BITCOIN_ESPLORA
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
   const list = [addrs.bitcoin, addrs.bitcoinNested, addrs.bitcoinTaproot].filter((a): a is string => !!a)
   if (list.length === 0) return { native: 0, tokenCount: 0, error: 'No address' }
-  const results = await Promise.all(list.map(a => fetchBitcoinNative(a)))
+  const results = await Promise.all(list.map(a => fetchBitcoinNative(a, esplora)))
   const native = results.reduce((sum, r) => sum + (r.native || 0), 0)
   // Only surface an error if EVERY address failed — one host hiccup shouldn't blank the card.
   const allErrored = results.every(r => r.error)
@@ -316,13 +326,14 @@ async function fetchSolanaNative(
   address: string,
   config: WalletConfig
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
-  const url = CHAIN_MAP['solana'].rpcUrl(config)
+  // Testnet Mode: devnet RPC (keyless) replaces the Helius proxy + mainnet publics.
+  const url = (isTestnet(config) ? TESTNET_CHAIN_MAP : CHAIN_MAP)['solana'].rpcUrl(config)
   try {
     // Native balance: Helius proxy first, then public Solana RPCs (drop-in JSON-RPC)
     // so a throttled key still shows SOL. Token-account enrichment stays Helius-only.
     const [balJson, tokRes] = await Promise.all([
       rpcReadWithFallback(
-        [url, ...SOLANA_RPCS, ankrRpcUrl('solana', config)],
+        [url, ...(isTestnet(config) ? TESTNET_SOLANA_RPCS : SOLANA_RPCS), isTestnet(config) ? undefined : ankrRpcUrl('solana', config)],
         { jsonrpc: '2.0', id: 1, method: 'getBalance', params: [address] },
         10_000
       ) as Promise<{ result?: { value: number }; error?: { message?: string } } | null>,
@@ -404,12 +415,71 @@ async function fetchCardanaNative(
   }
 }
 
+// ─── Cardano preprod (Testnet Mode) via keyless Koios ─────────────────────────
+// Blockfrost project keys are network-scoped (a mainnet key 403s on preprod), so
+// testnet Cardano reads skip Blockfrost entirely and use Koios preprod.
+
+async function fetchCardanoPreprod(
+  address: string | null
+): Promise<{ native: number; tokenCount: number; error: string | null }> {
+  if (!address) return { native: 0, tokenCount: 0, error: 'No address' }
+  const lovelace = await koiosAddressLovelace(address, TESTNET_KOIOS_URL)
+  if (lovelace == null) return { native: 0, tokenCount: 0, error: 'Network error' }
+  return { native: lovelace / 1e6, tokenCount: 0, error: null }
+}
+
+// ─── Testnet orchestrator ─────────────────────────────────────────────────────
+// Separate from the mainnet path on purpose: no prices/sparklines (CoinGecko has
+// none for testnets), no Dogecoin/Polkadot/AGW (no testnet data provider), and
+// Bitcoin appears twice (Testnet3 + Testnet4 — same tb1 addresses, different
+// chains). Callers pass effectiveAddresses() so bitcoin/cardano are already the
+// testnet-encoded ones.
+
+async function fetchAllBalancesTestnet(
+  addresses: { evm: string; solana: string; cardano: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; tron?: string },
+  config: WalletConfig
+): Promise<AllBalances> {
+  const btcAddrs = { bitcoin: addresses.bitcoin, bitcoinNested: addresses.bitcoinNested, bitcoinTaproot: addresses.bitcoinTaproot }
+  const NO_ADDR = { native: 0, tokenCount: 0, error: 'No address' }
+
+  const rawResults = await Promise.all([
+    ...TESTNET_EVM_CHAINS.map(chain => fetchEvmNative(chain, addresses.evm, config)),
+    fetchSolanaNative(addresses.solana, config),
+    fetchCardanoPreprod(addresses.cardano ?? null),
+    addresses.bitcoin ? fetchBitcoinTotal(btcAddrs, TESTNET_BITCOIN_ESPLORA)  : Promise.resolve(NO_ADDR),
+    addresses.bitcoin ? fetchBitcoinTotal(btcAddrs, TESTNET4_BITCOIN_ESPLORA) : Promise.resolve(NO_ADDR),
+    fetchTronNative(addresses.tron, config),
+  ])
+
+  const toBalance = (chain: ChainDef, raw: { native: number; tokenCount: number; error: string | null }, decimals = 6): ChainBalance => {
+    if (raw.error) {
+      return { native: '—', symbol: chain.nativeSymbol, usdValue: null, tokenCount: 0, error: raw.error, priceChange24h: null, sparkline: null }
+    }
+    return { native: raw.native.toFixed(decimals), symbol: chain.nativeSymbol, usdValue: null, tokenCount: raw.tokenCount, error: null, priceChange24h: null, sparkline: null }
+  }
+
+  const chains: Record<string, ChainBalance> = {}
+  TESTNET_EVM_CHAINS.forEach((chain, i) => {
+    chains[chain.id] = toBalance(chain, rawResults[i])
+  })
+  const n = TESTNET_EVM_CHAINS.length
+  chains['solana']           = toBalance(TESTNET_CHAIN_MAP['solana'],           rawResults[n])
+  chains['cardano']          = toBalance(TESTNET_CHAIN_MAP['cardano'],          rawResults[n + 1])
+  chains['bitcoin']          = toBalance(TESTNET_CHAIN_MAP['bitcoin'],          rawResults[n + 2], 8)
+  chains['bitcoin-testnet4'] = toBalance(TESTNET_CHAIN_MAP['bitcoin-testnet4'], rawResults[n + 3], 8)
+  chains['tron']             = toBalance(TESTNET_CHAIN_MAP['tron'],             rawResults[n + 4])
+
+  return { chains, fetchedAt: Date.now(), portfolioSparkline: null }
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string },
   config: WalletConfig
 ): Promise<AllBalances> {
+  if (isTestnet(config)) return fetchAllBalancesTestnet(addresses, config)
+
   const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot', 'tron', 'dogecoin']
 
   const COMING_SOON = { native: 0, tokenCount: 0, error: 'coming-soon' }

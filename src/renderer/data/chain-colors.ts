@@ -15,6 +15,7 @@ export const CHAIN_COLORS: Record<string, ChainColor> = {
   avalanche:  { hex: '#E84142', rgb: '232, 65, 66'   },
   base:       { hex: '#0052FF', rgb: '0, 82, 255'    },
   bitcoin:    { hex: '#F7931A', rgb: '247, 147, 26'  },
+  'bitcoin-testnet4': { hex: '#F7931A', rgb: '247, 147, 26' },
   blast:      { hex: '#FCFC03', rgb: '252, 252, 3'   },
   cardano:    { hex: '#2A7DEA', rgb: '42, 125, 234'  },
   ethereum:   { hex: '#627EEA', rgb: '98, 126, 234'  },

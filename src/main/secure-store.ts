@@ -289,6 +289,28 @@ export function loadAddresses(): WalletAddresses | null {
   return addressesCache
 }
 
+/**
+ * Testnet Mode address substitution. When the mode is on, the chains whose
+ * addresses differ on testnet (Bitcoin family, Cardano) are swapped for the
+ * cached testnet set, and AGW is cleared (hidden in testnet mode). Fetchers and
+ * send paths receive these effective addresses so they stay network-agnostic.
+ * EVM/Solana/Tron addresses are identical on their testnets and pass through.
+ */
+export function effectiveAddresses(addresses: WalletAddresses, cfg: WalletConfig): WalletAddresses {
+  if (!cfg.testnetMode || !addresses.testnet) return addresses
+  const t = addresses.testnet
+  return {
+    ...addresses,
+    bitcoin: t.bitcoin,
+    bitcoinNested: t.bitcoinNested,
+    bitcoinTaproot: t.bitcoinTaproot,
+    cardano: t.cardano,
+    cardanoStake: t.cardanoStake,
+    agw: undefined,
+    agwOwned: false,
+  }
+}
+
 // ─── AGW overrides (per-account manual Abstract Global Wallet address) ───────
 // Stored separately from addresses.json because switching accounts re-derives
 // addresses wholesale. Map: accountIndex (string) → AGW address. A null/missing
@@ -346,6 +368,7 @@ export interface WalletConfig {
   swapProxyUrl: string       // MagicMoney swap proxy (Cloudflare Worker) origin — empty until deployed
   clientToken: string         // Public client tag sent to the Worker as x-mm-client/mm_client
   simpleSwapApiKey: string
+  testnetMode: boolean       // Testnet Mode: whole wallet flips to testnets (chain-config selectors)
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -371,7 +394,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   // All keyed providers (RPC, NFT, prices, DEX, Supabase) route through this proxy.
   swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
   clientToken: 'magicmoney-wallet-v1',
-  simpleSwapApiKey: ''
+  simpleSwapApiKey: '',
+  testnetMode: false
 }
 
 let configCache: WalletConfig | null = null

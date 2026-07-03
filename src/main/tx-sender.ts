@@ -29,7 +29,16 @@ import {
   bsc,
   gnosis,
   ronin,
-  zora
+  zora,
+  sepolia,
+  arbitrumSepolia,
+  optimismSepolia,
+  baseSepolia,
+  polygonAmoy,
+  avalancheFuji,
+  blastSepolia,
+  gnosisChiado,
+  zoraSepolia
 } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
@@ -50,7 +59,10 @@ import {
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch, ankrRpcUrl } from './api-proxy'
-import { MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS } from './chain-config'
+import {
+  MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS,
+  TESTNET_EVM_CHAINS as TESTNET_EVM_CHAIN_DEFS, TESTNET_PUBLIC_RPCS, TESTNET_KOIOS_URL, isTestnet
+} from './chain-config'
 import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
@@ -113,12 +125,52 @@ const EVM_CHAINS: Record<string, EvmChainEntry> = {
   hyperevm:   { chain: hyperEvm,      rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',                              explorer: 'https://purrsec.com/tx',                                nativeSymbol: 'HYPE' }
 }
 
+// ─── Testnet Mode sender entries (same string ids as mainnet) ─────────────────
+// viem ships the Sepolia-family chains; the rest are defined inline (matching
+// chain-config TESTNET_EVM_CHAINS chainIds/RPCs).
+const monadTestnet = defineChain({ id: 10143, name: 'Monad Testnet', nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } }, testnet: true })
+const abstractTestnet = defineChain({ id: 11124, name: 'Abstract Testnet', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://api.testnet.abs.xyz'] } }, testnet: true })
+const apeChainCurtis = defineChain({ id: 33111, name: 'ApeChain Curtis', nativeCurrency: { name: 'ApeCoin', symbol: 'APE', decimals: 18 }, rpcUrls: { default: { http: ['https://curtis.rpc.caldera.xyz/http'] } }, testnet: true })
+const roninSaigon = defineChain({ id: 2021, name: 'Ronin Saigon', nativeCurrency: { name: 'Ronin', symbol: 'RON', decimals: 18 }, rpcUrls: { default: { http: ['https://saigon-testnet.roninchain.com/rpc'] } }, testnet: true })
+const soneiumMinato = defineChain({ id: 1946, name: 'Soneium Minato', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.minato.soneium.org'] } }, testnet: true })
+const worldchainSepolia = defineChain({ id: 4801, name: 'World Chain Sepolia', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-sepolia.g.alchemy.com/public'] } }, testnet: true })
+const hyperEvmTestnet = defineChain({ id: 998, name: 'HyperEVM Testnet', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid-testnet.xyz/evm'] } }, testnet: true })
+
+const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
+  ethereum:   { chain: sepolia,           rpcUrl: cfg => alchemyRpcUrl('eth-sepolia', cfg),        explorer: 'https://sepolia.etherscan.io/tx',                       nativeSymbol: 'ETH'  },
+  arbitrum:   { chain: arbitrumSepolia,   rpcUrl: cfg => alchemyRpcUrl('arb-sepolia', cfg),        explorer: 'https://sepolia.arbiscan.io/tx',                        nativeSymbol: 'ETH'  },
+  optimism:   { chain: optimismSepolia,   rpcUrl: cfg => alchemyRpcUrl('opt-sepolia', cfg),        explorer: 'https://sepolia-optimism.etherscan.io/tx',              nativeSymbol: 'ETH'  },
+  base:       { chain: baseSepolia,       rpcUrl: cfg => alchemyRpcUrl('base-sepolia', cfg),       explorer: 'https://sepolia.basescan.org/tx',                       nativeSymbol: 'ETH'  },
+  polygon:    { chain: polygonAmoy,       rpcUrl: cfg => alchemyRpcUrl('polygon-amoy', cfg),       explorer: 'https://amoy.polygonscan.com/tx',                       nativeSymbol: 'POL'  },
+  avalanche:  { chain: avalancheFuji,     rpcUrl: () => 'https://api.avax-test.network/ext/bc/C/rpc', explorer: 'https://testnet.snowtrace.io/tx',                    nativeSymbol: 'AVAX' },
+  blast:      { chain: blastSepolia,      rpcUrl: cfg => alchemyRpcUrl('blast-sepolia', cfg),      explorer: 'https://sepolia.blastscan.io/tx',                       nativeSymbol: 'ETH'  },
+  gnosis:     { chain: gnosisChiado,      rpcUrl: () => 'https://rpc.chiadochain.net',             explorer: 'https://gnosis-chiado.blockscout.com/tx',               nativeSymbol: 'XDAI' },
+  monad:      { chain: monadTestnet,      rpcUrl: () => 'https://testnet-rpc.monad.xyz',           explorer: 'https://testnet.monadexplorer.com/tx',                  nativeSymbol: 'MON'  },
+  abstract:   { chain: abstractTestnet,   rpcUrl: () => 'https://api.testnet.abs.xyz',             explorer: 'https://sepolia.abscan.org/tx',                         nativeSymbol: 'ETH'  },
+  apechain:   { chain: apeChainCurtis,    rpcUrl: () => 'https://curtis.rpc.caldera.xyz/http',     explorer: 'https://curtis.explorer.caldera.xyz/tx',                nativeSymbol: 'APE'  },
+  ronin:      { chain: roninSaigon,       rpcUrl: () => 'https://saigon-testnet.roninchain.com/rpc', explorer: 'https://saigon-app.roninchain.com/tx',                nativeSymbol: 'RON'  },
+  soneium:    { chain: soneiumMinato,     rpcUrl: () => 'https://rpc.minato.soneium.org',          explorer: 'https://soneium-minato.blockscout.com/tx',              nativeSymbol: 'ETH'  },
+  worldchain: { chain: worldchainSepolia, rpcUrl: () => 'https://worldchain-sepolia.g.alchemy.com/public', explorer: 'https://worldchain-sepolia.explorer.alchemy.com/tx', nativeSymbol: 'WLD' },
+  zora:       { chain: zoraSepolia,       rpcUrl: () => 'https://sepolia.rpc.zora.energy',         explorer: 'https://sepolia.explorer.zora.energy/tx',               nativeSymbol: 'ETH'  },
+  hyperevm:   { chain: hyperEvmTestnet,   rpcUrl: () => 'https://rpc.hyperliquid-testnet.xyz/evm', explorer: 'https://testnet.purrsec.com/tx',                        nativeSymbol: 'HYPE' }
+}
+
+/** Sender entries for the active mode — every lookup below goes through this. */
+function evmEntries(config: WalletConfig): Record<string, EvmChainEntry> {
+  return isTestnet(config) ? TESTNET_EVM_SENDERS : EVM_CHAINS
+}
+
 // Keyless public fallbacks keyed by numeric EVM chain id (derived from chain-config
 // so the string-keyed PUBLIC_RPCS doesn't have to be duplicated here).
 const PUBLIC_RPCS_BY_CHAIN_ID: Record<number, string[]> = Object.fromEntries(
   EVM_CHAIN_DEFS
     .filter(c => c.chainId != null)
     .map(c => [c.chainId as number, PUBLIC_RPCS[c.id] ?? []])
+)
+const TESTNET_PUBLIC_RPCS_BY_CHAIN_ID: Record<number, string[]> = Object.fromEntries(
+  TESTNET_EVM_CHAIN_DEFS
+    .filter(c => c.chainId != null)
+    .map(c => [c.chainId as number, TESTNET_PUBLIC_RPCS[c.id] ?? []])
 )
 // numeric chainId → our string chain id, so we can resolve the keyed Ankr fallback.
 const ID_BY_CHAIN_ID: Record<number, string> = Object.fromEntries(
@@ -132,8 +184,11 @@ const ID_BY_CHAIN_ID: Record<number, string> = Object.fromEntries(
 // still goes to the proxy; public nodes are the safety net when it's unreachable.
 function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
   if (entry.chain.id === 143) return fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
-  const urls = [entry.rpcUrl(config), ...(PUBLIC_RPCS_BY_CHAIN_ID[entry.chain.id] ?? [])]
-  const sid = ID_BY_CHAIN_ID[entry.chain.id]
+  const publicByChainId = isTestnet(config) ? TESTNET_PUBLIC_RPCS_BY_CHAIN_ID : PUBLIC_RPCS_BY_CHAIN_ID
+  const urls = [entry.rpcUrl(config), ...(publicByChainId[entry.chain.id] ?? [])]
+  // Ankr slugs are mainnet-only — never appended in testnet mode (it would
+  // silently broadcast to MAINNET for a same-id testnet chain).
+  const sid = isTestnet(config) ? undefined : ID_BY_CHAIN_ID[entry.chain.id]
   const ankr = sid ? ankrRpcUrl(sid, config) : undefined
   if (ankr) urls.push(ankr)   // keyed Ankr as the reliable last-resort fallback
   return urls.length > 1
@@ -148,7 +203,8 @@ export async function estimateEvmFee(
   config: WalletConfig,
   chainId = 'ethereum'
 ): Promise<FeeEstimate> {
-  const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
+  const entries = evmEntries(config)
+  const entry = entries[chainId] ?? entries.ethereum
   const transport = evmTransport(entry, config)
   const client = createPublicClient({ chain: entry.chain, transport })
 
@@ -168,15 +224,17 @@ export async function estimateEvmFee(
   const feeSymbol = entry.nativeSymbol
 
   let feeUsd: string | null = null
-  try {
-    const priceRes = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(getCoingeckoId(chainId))}&vs_currencies=usd`,
-      { signal: AbortSignal.timeout(5_000) }
-    )
-    const priceJson = await priceRes.json() as Record<string, { usd?: number }>
-    const price = Object.values(priceJson)[0]?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeNative * price).toFixed(4)}`
-  } catch { /* price optional */ }
+  if (!isTestnet(config)) {
+    try {
+      const priceRes = await fetch(
+        `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(getCoingeckoId(chainId))}&vs_currencies=usd`,
+        { signal: AbortSignal.timeout(5_000) }
+      )
+      const priceJson = await priceRes.json() as Record<string, { usd?: number }>
+      const price = Object.values(priceJson)[0]?.usd ?? 0
+      if (price > 0) feeUsd = `$${(feeNative * price).toFixed(4)}`
+    } catch { /* price optional */ }
+  }
 
   return { fee: feeNative.toFixed(8), feeSymbol, feeUsd }
 }
@@ -200,7 +258,8 @@ export async function sendEvmTransaction(
   chainId = 'ethereum',
   accountIndex = 0
 ): Promise<SendResult> {
-  const entry = EVM_CHAINS[chainId] ?? EVM_CHAINS.ethereum
+  const entries = evmEntries(config)
+  const entry = entries[chainId] ?? entries.ethereum
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
   const account = privateKeyToAccount(pk)
   const transport = evmTransport(entry, config)
@@ -215,8 +274,8 @@ export async function sendEvmTransaction(
 }
 
 // Reverse lookup: numeric EVM chain id → chain entry (for raw/swap txs)
-function evmEntryByChainId(chainId: number): EvmChainEntry | null {
-  for (const entry of Object.values(EVM_CHAINS)) {
+function evmEntryByChainId(chainId: number, config: WalletConfig): EvmChainEntry | null {
+  for (const entry of Object.values(evmEntries(config))) {
     if (entry.chain.id === chainId) return entry
   }
   return null
@@ -244,7 +303,7 @@ export async function sendRawEvmTransaction(
   config: WalletConfig,
   accountIndex = 0
 ): Promise<SendResult> {
-  const entry = evmEntryByChainId(tx.chainId)
+  const entry = evmEntryByChainId(tx.chainId, config)
   if (!entry) throw new Error(`Unsupported EVM network (chainId ${tx.chainId}) — can't sign here yet.`)
 
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
@@ -291,6 +350,10 @@ export async function sendAgwTransaction(
   accountIndex = 0,
   opts?: { token?: { contractAddress: string; decimals: number }; agwAddress?: string }
 ): Promise<SendResult> {
+  // AGW is hidden in Testnet Mode (renderer gates it too) — hard-stop here so a
+  // stale renderer can't accidentally fire a MAINNET Abstract transaction.
+  if (isTestnet(config)) throw new Error('AGW sends are unavailable in Testnet Mode')
+
   const pk = await getEvmPrivateKey(mnemonic, accountIndex)
   const signer = privateKeyToAccount(pk)
 
@@ -324,7 +387,7 @@ export async function sendAgwTransaction(
 
 /** Block until an EVM tx is mined (used to sequence ERC-20 approval before the swap). */
 export async function waitForEvmReceipt(chainId: number, hash: string, config: WalletConfig): Promise<void> {
-  const entry = evmEntryByChainId(chainId)
+  const entry = evmEntryByChainId(chainId, config)
   if (!entry) return
   const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
   await client.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 })
@@ -338,14 +401,16 @@ export async function estimateSolanaFee(config: WalletConfig): Promise<FeeEstima
   const feeSol = feeLamports / LAMPORTS_PER_SOL
 
   let feeUsd: string | null = null
-  try {
-    const priceRes = await fetch(
-      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
-    )
-    const priceJson = await priceRes.json() as { solana?: { usd: number } }
-    const price = priceJson.solana?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeSol * price).toFixed(6)}`
-  } catch { /* price optional */ }
+  if (!isTestnet(config)) {
+    try {
+      const priceRes = await fetch(
+        'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd'
+      )
+      const priceJson = await priceRes.json() as { solana?: { usd: number } }
+      const price = priceJson.solana?.usd ?? 0
+      if (price > 0) feeUsd = `$${(feeSol * price).toFixed(6)}`
+    } catch { /* price optional */ }
+  }
 
   return { fee: feeSol.toFixed(9), feeSymbol: 'SOL', feeUsd }
 }
@@ -358,7 +423,11 @@ export async function sendSolanaTransaction(
   accountIndex = 0
 ): Promise<SendResult> {
   const keypair = await getSolanaKeypair(mnemonic, accountIndex)
-  const connection = new Connection(heliusRpcUrl(config), 'confirmed')
+  // Testnet Mode: devnet — same address, keyless canonical RPC.
+  const connection = new Connection(
+    isTestnet(config) ? 'https://api.devnet.solana.com' : heliusRpcUrl(config),
+    'confirmed'
+  )
 
   const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL)
   if (lamports <= 0) throw new Error('Amount must be greater than 0')
@@ -383,12 +452,21 @@ export async function sendSolanaTransaction(
 
   await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight })
 
-  return { txHash: sig, explorerUrl: `https://solscan.io/tx/${sig}` }
+  const cluster = isTestnet(config) ? '?cluster=devnet' : ''
+  return { txHash: sig, explorerUrl: `https://solscan.io/tx/${sig}${cluster}` }
 }
 
 // ─── Cardano ──────────────────────────────────────────────────────────────────
 
 async function fetchUtxos(address: string, config: WalletConfig): Promise<CardanoUtxo[]> {
+  // Testnet Mode: Blockfrost keys are network-scoped (mainnet key 403s on
+  // preprod), so preprod UTXOs come from keyless Koios preprod directly.
+  if (isTestnet(config)) {
+    const koiosPreprod = await koiosAddressUtxos(address, TESTNET_KOIOS_URL)
+    if (koiosPreprod) return koiosPreprod
+    throw new Error('Could not fetch Cardano preprod UTXOs (Koios unavailable)')
+  }
+
   try {
     const res = await blockfrostFetch(`addresses/${address}/utxos`, config)
     if (res.status === 404) return []   // address has no funds on-chain (definitive)
@@ -480,6 +558,13 @@ export async function sendCardanoTransaction(
     amountLovelace,
     spendKey
   )
+
+  // Testnet Mode: broadcast via keyless Koios preprod (Blockfrost keys are
+  // network-scoped, so the mainnet proxy route can't submit preprod txs).
+  if (isTestnet(config)) {
+    await koiosSubmitTx(txCbor, TESTNET_KOIOS_URL)
+    return { txHash, explorerUrl: `https://preprod.cardanoscan.io/transaction/${txHash}` }
+  }
 
   // Submit via Blockfrost (proxy injects project_id; CBOR body passed through).
   // If Blockfrost is unreachable or rejects on transport grounds, fall back to the

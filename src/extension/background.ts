@@ -6,7 +6,7 @@
  * Private keys and mnemonics never leave this file.
  */
 
-import { generateMnemonic, validateMnemonic, deriveAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
+import { generateMnemonic, validateMnemonic, deriveAddresses, deriveTestnetAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
 import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTransaction as sendBtc, type PsbtSignRequest } from '../main/bitcoin'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
@@ -195,10 +195,12 @@ function applyChainSwitch(hex: string): string {
 }
 
 // Whether a numeric chainId is one of the wallet's supported EVM chains. The
-// dynamic import is module-cached, so repeated calls are cheap.
+// dynamic import is module-cached, so repeated calls are cheap. Mode-aware:
+// only the active network set (mainnet ⟷ testnet) validates.
 async function isSupportedEvmChain(chainNum: number): Promise<boolean> {
-  const { EVM_CHAINS } = await import('../main/chain-config')
-  return EVM_CHAINS.some(c => c.chainId === chainNum)
+  const { activeEvmChains } = await import('../main/chain-config')
+  const config = await store.loadConfig()
+  return activeEvmChains(config).some(c => c.chainId === chainNum)
 }
 
 // Push an EIP-1193 event to ONLY the tabs whose page matches `origin`. Used when a
@@ -256,7 +258,15 @@ async function loadFullAddresses(): Promise<any> {
     stored = await resolveAgw(stored)
     await store.saveAddresses(stored)
   }
-  return stored
+  const config = await store.loadConfig()
+  // Testnet Mode: backfill + substitute the testnet-encoded set (mirrors the
+  // Electron getFullAddresses). Needs the unlocked seed; the Settings toggle
+  // derives it eagerly, so this only covers stale stores.
+  if (config.testnetMode && !stored.testnet && (await store.isUnlocked())) {
+    stored = { ...stored, testnet: await deriveTestnetAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0) }
+    await store.saveAddresses(stored)
+  }
+  return store.effectiveAddresses(stored, config)
 }
 
 // ── Message router ────────────────────────────────────────────────────────────
@@ -408,6 +418,9 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
       const config = await store.loadConfig()
+      // Mainnet history providers would mislabel mainnet activity as testnet
+      // (same EVM address) — show none instead. Mirrors the Electron handler.
+      if (config.testnetMode) return {}
       return fetchAllHistory(addresses, config)
     }
 
@@ -420,9 +433,41 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const idx = Number(a0)
       const mnemonic = await store.loadMnemonic()
       const derived = await deriveAddresses(mnemonic, idx)
-      const addresses = await resolveAgw(derived)
+      let addresses = await resolveAgw(derived)
+      const config = await store.loadConfig()
+      // Keep the testnet-encoded set in step with the account while the mode is on.
+      if (config.testnetMode) {
+        addresses = { ...addresses, testnet: await deriveTestnetAddresses(mnemonic, idx) }
+      }
       await store.saveAddresses(addresses)
-      return addresses
+      return store.effectiveAddresses(addresses, config)
+    }
+
+    // ── Testnet Mode (mirrors the Electron wallet:get/set-testnet-mode IPC) ──
+
+    case 'wallet:get-testnet-mode': {
+      const config = await store.loadConfig()
+      return !!config.testnetMode
+    }
+
+    case 'wallet:set-testnet-mode': {
+      const on = !!a0
+      if (on) {
+        if (!(await store.isUnlocked())) throw new Error('Unlock the wallet to enable Testnet Mode')
+        const stored = await store.loadAddresses()
+        if (stored && !stored.testnet) {
+          const testnet = await deriveTestnetAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
+          await store.saveAddresses({ ...stored, testnet })
+        }
+      }
+      await store.saveConfig({ testnetMode: on })
+      // Reset the active chain to the mode's default (Sepolia ⟷ Ethereum) and
+      // notify dApp tabs + the extension UI, exactly like a manual switch.
+      const { defaultDappChainId } = await import('../main/chain-config')
+      const config = await store.loadConfig()
+      applyChainSwitch(`0x${defaultDappChainId(config).toString(16)}`)
+      const addresses = await store.loadAddresses()
+      return { testnet: on, addresses: addresses ? store.effectiveAddresses(addresses, config) : null }
     }
 
     // ── Send transactions ──────────────────────────────────────────────────
@@ -645,8 +690,9 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return _currentChainId
 
     case 'web3:get-chains': {
-      const { EVM_CHAINS } = await import('../main/chain-config')
-      return EVM_CHAINS.map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
+      const { activeEvmChains } = await import('../main/chain-config')
+      const config = await store.loadConfig()
+      return activeEvmChains(config).map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
     }
 
     case 'web3:set-chain': {

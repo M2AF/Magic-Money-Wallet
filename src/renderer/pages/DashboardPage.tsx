@@ -681,9 +681,18 @@ const ALL_CHAINS = [
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
-function sortedChains(balances: AllBalances | null): string[] {
-  if (!balances) return ALL_CHAINS
-  return [...ALL_CHAINS].sort((a, b) => {
+// Testnet Mode: Polkadot + Dogecoin have no testnet data provider (hidden), and
+// Bitcoin appears twice — Testnet3 + Testnet4 share the same tb1 addresses.
+const TESTNET_CHAINS = [
+  'cardano', 'solana', 'bitcoin', 'bitcoin-testnet4', 'tron',
+  'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche',
+  'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'ronin',
+  'soneium', 'worldchain', 'zora', 'hyperevm'
+]
+
+function sortedChains(balances: AllBalances | null, chains: string[]): string[] {
+  if (!balances) return chains
+  return [...chains].sort((a, b) => {
     const usdA = parseFloat(balances.chains[a]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
     const usdB = parseFloat(balances.chains[b]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
     if (usdB !== usdA) return usdB - usdA
@@ -697,6 +706,7 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   if (chainId === 'solana')   return addresses.solana   || null
   if (chainId === 'cardano')  return addresses.cardano  || null
   if (chainId === 'bitcoin')  return addresses.bitcoin  || null
+  if (chainId === 'bitcoin-testnet4') return addresses.bitcoin || null  // same tb1 address as Testnet3
   if (chainId === 'polkadot') return addresses.polkadot || null
   if (chainId === 'tron')     return addresses.tron     || null
   if (chainId === 'dogecoin') return addresses.dogecoin || null
@@ -712,6 +722,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [accountSwitching, setAccountSwitching] = useState(false)
   const [portfolioTab, setPortfolioTab]     = useState<PortfolioTab>('networks')
   const [sendChain, setSendChain]           = useState<string | null>(null)
+  // Testnet Mode — flipped from Settings (which reloads the renderer), so this
+  // only needs to be read once on mount.
+  const [testnet, setTestnet] = useState(false)
+  useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => {}) }, [])
 
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
@@ -901,7 +915,18 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: 18 }}>Portfolio</h1>
+          <h1 className="page-title" style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+            Portfolio
+            {testnet && (
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px',
+                borderRadius: 6, color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+              }}>
+                TESTNET
+              </span>
+            )}
+          </h1>
           {!hasLoadedOnce ? (
             <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
               Calculating…
@@ -992,39 +1017,45 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         // its value comes from the synthetic 'abstract-agw' balance entry.
         const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
         const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
-        const rows = sortedChains(balances).map(chainId => ({
+        const rows = sortedChains(balances, testnet ? TESTNET_CHAINS : ALL_CHAINS).map(chainId => ({
           usd: usdOf(chainId),
           nat: natOf(chainId),
           node: (
             <ChainCard
               key={chainId}
               chainId={chainId}
+              testnet={testnet}
               balance={balances?.chains[chainId] ?? null}
               address={getAddress(chainId, localAddresses)}
-              altAddresses={chainId === 'bitcoin' && localAddresses ? [
+              altAddresses={(chainId === 'bitcoin' || chainId === 'bitcoin-testnet4') && localAddresses ? [
                 { label: 'Native SegWit · Payment', address: localAddresses.bitcoin },
                 { label: 'Nested SegWit', address: localAddresses.bitcoinNested },
                 { label: 'Taproot · Ordinals', address: localAddresses.bitcoinTaproot },
               ] : undefined}
               loading={loading}
-              onSend={() => setSendChain(chainId)}
+              // Testnet4 is display-only (sends/PSBTs operate on Testnet3 while
+              // the mode is on) — no Send button on that card.
+              onSend={chainId === 'bitcoin-testnet4' ? undefined : () => setSendChain(chainId)}
               history={historyFor(chainId)}
             />
           )
         }))
-        rows.push({
-          usd: usdOf('abstract-agw'),
-          nat: natOf('abstract-agw'),
-          node: (
-            <AgwPanel
-              key="abstract-agw"
-              addresses={localAddresses}
-              balance={balances?.chains['abstract-agw'] ?? null}
-              onSend={() => setSendChain('abstract-agw')}
-              onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
-            />
-          )
-        })
+        // AGW is a mainnet Abstract smart account — hidden in Testnet Mode.
+        if (!testnet) {
+          rows.push({
+            usd: usdOf('abstract-agw'),
+            nat: natOf('abstract-agw'),
+            node: (
+              <AgwPanel
+                key="abstract-agw"
+                addresses={localAddresses}
+                balance={balances?.chains['abstract-agw'] ?? null}
+                onSend={() => setSendChain('abstract-agw')}
+                onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
+              />
+            )
+          })
+        }
         rows.sort((a, b) => (b.usd - a.usd) || (b.nat - a.nat))
         return rows.map(r => r.node)
       })()}

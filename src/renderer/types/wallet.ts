@@ -17,6 +17,16 @@ export interface WalletAddresses {
   // agwOwned = this wallet's EOA can sign for it (required to send from it).
   agw?: string
   agwOwned?: boolean
+  // Testnet Mode: cached testnet-encoded set (Bitcoin tb1…, Cardano addr_test…).
+  // While the mode is on, main substitutes these into the top-level fields before
+  // returning, so the renderer rarely needs to read this directly.
+  testnet?: {
+    bitcoin: string
+    bitcoinNested: string
+    bitcoinTaproot: string
+    cardano: string
+    cardanoStake: string
+  }
 }
 
 export interface ChainBalance {
@@ -280,6 +290,9 @@ declare global {
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>
       setAccount(index: number): Promise<WalletAddresses>
+      // Testnet Mode
+      getTestnetMode(): Promise<boolean>
+      setTestnetMode(enabled: boolean): Promise<{ testnet: boolean; addresses: WalletAddresses | null }>
       setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
       // Connected sites (revoke dApp access)
       getConnectedSites(): Promise<string[]>

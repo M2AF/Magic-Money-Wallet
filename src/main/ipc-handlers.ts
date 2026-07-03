@@ -15,6 +15,7 @@ import {
   generateMnemonic,
   validateMnemonic,
   deriveAddresses,
+  deriveTestnetAddresses,
   getSolanaKeypair,
   getBitcoinKey,
   getBitcoinTaprootKey
@@ -33,6 +34,7 @@ import {
   deleteWallet,
   saveAddresses,
   loadAddresses,
+  effectiveAddresses,
   loadConfig,
   saveConfig,
   getApprovedOrigins,
@@ -80,7 +82,7 @@ import {
   layoutToggle,
   getLayoutState
 } from './browser-manager'
-import { EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from './chain-config'
+import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { openseaFetch, heliusRpcUrl, canOpensea } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
@@ -135,9 +137,13 @@ function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
 // navigates to a new dApp origin — otherwise a prior dApp's chain (e.g. nad.fun on
 // Monad) leaks into the next one (e.g. Compound → "unsupported network").
 
-/** Look up a supported EVM network by numeric chainId (shared chain-config). */
+/**
+ * Look up a supported EVM network by numeric chainId (shared chain-config).
+ * Mode-aware: in Testnet Mode only testnet chains resolve, so dApp requests for
+ * mainnet chainIds are rejected as unsupported (4902) and vice versa.
+ */
 function evmChainById(chainId: number) {
-  return EVM_CHAINS.find(c => c.chainId === chainId)
+  return activeEvmChains(loadConfig()).find(c => c.chainId === chainId)
 }
 
 /**
@@ -224,7 +230,16 @@ async function getFullAddresses() {
     stored = await resolveAgw(stored)
     saveAddresses(stored)
   }
-  return stored
+  const config = loadConfig()
+  // Testnet Mode: backfill the testnet-encoded address set (Bitcoin tb1…, Cardano
+  // addr_test…) if it isn't cached yet. Needs the seed, so only while unlocked —
+  // the Settings toggle derives it eagerly, this covers pre-existing configs.
+  if (isTestnet(config) && !stored.testnet && isUnlocked()) {
+    stored = { ...stored, testnet: await deriveTestnetAddresses(loadMnemonic(), stored.accountIndex ?? 0) }
+    saveAddresses(stored)
+  }
+  // In Testnet Mode callers receive the testnet-substituted set (and no AGW).
+  return effectiveAddresses(stored, config)
 }
 
 function getSenderOrigin(url: string): string {
@@ -252,12 +267,12 @@ let _monadRpcCursor = 0
  * (e.g. a revert) is still surfaced from the primary.
  */
 function rpcUrlsForChain(chainId: number, config: WalletConfig): string[] {
-  if (chainId === MONAD_CHAIN_ID) {
+  if (chainId === MONAD_CHAIN_ID && !isTestnet(config)) {
     const start = _monadRpcCursor++ % MONAD_RPCS.length
     return [...MONAD_RPCS.slice(start), ...MONAD_RPCS.slice(0, start)]
   }
-  const chain = evmChainById(chainId) ?? EVM_CHAINS[0]
-  return [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
+  const chain = evmChainById(chainId) ?? activeEvmChains(config)[0]
+  return [chain.rpcUrl(config), ...(activePublicRpcs(config)[chain.id] ?? [])]
 }
 
 async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig): Promise<unknown> {
@@ -477,7 +492,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('web3:get-chain', () => `0x${getDappChainId().toString(16)}`)
 
   ipcMain.handle('web3:get-chains', () =>
-    EVM_CHAINS.map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
+    activeEvmChains(loadConfig()).map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
   )
 
   ipcMain.handle('web3:set-chain', (_event, chainId: number | string) => {
@@ -554,8 +569,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:send-cardano', async (_event, to: string, amountAda: string) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
-    const addresses = loadAddresses()
-    if (!addresses?.cardano) throw new Error('No Cardano address found')
+    // getFullAddresses: in Testnet Mode this is the addr_test… address.
+    const addresses = await getFullAddresses()
+    if (!addresses.cardano) throw new Error('No Cardano address found')
     return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config, addresses.accountIndex ?? 0)
   })
 
@@ -590,8 +606,12 @@ export function registerIpcHandlers(): void {
 
   // ── Phase 3: Transaction history ──────────────────────────────────────
   ipcMain.handle('wallet:get-history', async () => {
-    const addresses = await getFullAddresses()
     const config = loadConfig()
+    // History providers (Alchemy transfers, Blockscout, Moralis…) are queried on
+    // their MAINNET networks; since the EVM address is the same on testnets, the
+    // result would be mainnet activity mislabeled as testnet. Show none instead.
+    if (isTestnet(config)) return {}
+    const addresses = await getFullAddresses()
     return fetchAllHistory(addresses, config)
   })
 
@@ -602,9 +622,49 @@ export function registerIpcHandlers(): void {
     if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
     const mnemonic = loadMnemonic()
     const derived = await deriveAddresses(mnemonic, accountIndex)
-    const newAddresses = await resolveAgw(derived)
+    let newAddresses = await resolveAgw(derived)
+    const config = loadConfig()
+    // Keep the testnet-encoded set in step with the account while the mode is on.
+    if (isTestnet(config)) {
+      newAddresses = { ...newAddresses, testnet: await deriveTestnetAddresses(mnemonic, accountIndex) }
+    }
     saveAddresses(newAddresses)
-    return newAddresses
+    return effectiveAddresses(newAddresses, config)
+  })
+
+  // ── Testnet Mode ──────────────────────────────────────────────────────────
+  // Flips the whole wallet between mainnets and testnets (chain-config selectors
+  // read config.testnetMode on every call). Enabling requires the unlocked seed
+  // once, to derive + cache the testnet-encoded addresses (Bitcoin tb1…, Cardano
+  // addr_test…) so later reads work from addresses.json even while locked.
+  ipcMain.handle('wallet:get-testnet-mode', () => isTestnet(loadConfig()))
+
+  ipcMain.handle('wallet:set-testnet-mode', async (_event, enabled: boolean) => {
+    const on = !!enabled
+    if (on) {
+      if (!isUnlocked()) throw new Error('Unlock the wallet to enable Testnet Mode')
+      const stored = loadAddresses()
+      if (stored && !stored.testnet) {
+        const testnet = await deriveTestnetAddresses(loadMnemonic(), stored.accountIndex ?? 0)
+        saveAddresses({ ...stored, testnet })
+      }
+    }
+    saveConfig({ testnetMode: on })
+    const config = loadConfig()
+
+    // Reset the dApp browser to the mode's default chain (Sepolia ⟷ Ethereum) and
+    // notify any connected dApp + the browser toolbar, exactly like a manual switch.
+    const def = defaultDappChainId(config)
+    setDappChainId(def)
+    const hex = `0x${def.toString(16)}`
+    emitDappEvent('eth', 'chainChanged', hex)
+    notifyBrowserChrome('web3:chain-changed', hex)
+
+    const addresses = loadAddresses()
+    return {
+      testnet: on,
+      addresses: addresses ? effectiveAddresses(addresses, config) : null,
+    }
   })
 
   // ── Abstract Global Wallet: set/clear the manual address override ──────────

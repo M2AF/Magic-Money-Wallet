@@ -15,6 +15,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
   const [helloError, setHelloError] = useState<string | null>(null)
+  const [testnet, setTestnet] = useState<boolean | null>(null)
+  const [testnetBusy, setTestnetBusy] = useState(false)
+  const [testnetError, setTestnetError] = useState<string | null>(null)
 
   const refreshSiteCount = () => {
     window.wallet.getConnectedSites().then(s => setSiteCount(s.length)).catch(() => setSiteCount(null))
@@ -23,6 +26,24 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 
   const refreshHello = () => { window.wallet.helloStatus?.().then(setHello).catch(() => setHello(null)) }
   useEffect(refreshHello, [])
+
+  useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => setTestnet(null)) }, [])
+
+  // Flipping the mode changes chains, addresses (BTC/ADA), balances, the swap
+  // availability and the dApp network list at once — a full renderer reload is the
+  // cleanest way to restart every mounted page on the new network set.
+  const toggleTestnet = async () => {
+    if (testnet === null || testnetBusy) return
+    setTestnetBusy(true); setTestnetError(null)
+    try {
+      await window.wallet.setTestnetMode(!testnet)
+      window.location.reload()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setTestnetError(msg.replace(/^Error:\s*/, ''))
+      setTestnetBusy(false)
+    }
+  }
 
   // Enrolling needs the wallet unlocked (it wraps a copy of the seed under a
   // biometric key) — Settings is only reachable while unlocked, so that holds here.
@@ -96,6 +117,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             sublabel="Requires your password — only in a private location"
             onClick={() => setRevealOpen(true)}
           />
+          {testnet !== null && (
+            <SettingsRow
+              icon="🧪"
+              label={testnetBusy ? 'Switching networks…' : `Testnet Mode — ${testnet ? 'On' : 'Off'}`}
+              sublabel={testnet
+                ? 'Sepolia · Devnet · Preprod · BTC Testnet3/4 · Shasta. Tap for mainnet.'
+                : 'Flip every chain to its testnet. No real funds involved.'}
+              onClick={toggleTestnet}
+              disabled={testnetBusy}
+              noChevron
+            />
+          )}
+          {testnetError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{testnetError}</div>
+          )}
         </SettingsSection>
 
         <SettingsSection label="Security">

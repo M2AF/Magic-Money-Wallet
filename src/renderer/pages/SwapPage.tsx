@@ -10,7 +10,7 @@
  * widget (via React key) so all field state resets, per spec.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { WalletAddresses, SwapMode } from '../types/wallet'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 import { SwapModeToggle } from '../components/SwapModeToggle'
@@ -31,6 +31,11 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
   const [mode, setMode] = useState<SwapMode>('dex')
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
+  // Swap providers (0x/1inch/Jupiter/SimpleSwap/LI.FI) only operate on mainnets —
+  // the whole tab is disabled while Testnet Mode is on so a "test" swap can't
+  // create a real mainnet exchange.
+  const [testnet, setTestnet] = useState(false)
+  useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => {}) }, [])
 
   const switchMode = (m: SwapMode) => { if (m !== mode) { setMode(m); setEpoch(e => e + 1) } }
 
@@ -56,11 +61,30 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
         {/* Centered, max-width column so the layout is identical across popup (400px),
             docked sidebar (fluid), and the resizable Electron window. */}
         <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {mode === 'dex'
-            ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')} />
-            : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
+          {testnet ? (
+            <div style={{
+              marginTop: 24, padding: '22px 18px', textAlign: 'center',
+              background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 'var(--radius-md)',
+            }}>
+              <div style={{ fontSize: 22, marginBottom: 8 }}>🧪</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+                Not available in Testnet Mode
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                Swap providers only operate on mainnets. Turn Testnet Mode off in
+                Settings to swap with real funds.
+              </div>
+            </div>
+          ) : (
+            <>
+              {mode === 'dex'
+                ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')} />
+                : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
 
-          <SwapModeToggle mode={mode} onChange={switchMode} />
+              <SwapModeToggle mode={mode} onChange={switchMode} />
+            </>
+          )}
         </div>
       </div>
     </div>

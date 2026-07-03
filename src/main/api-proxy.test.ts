@@ -18,6 +18,7 @@ const config: WalletConfig = {
   swapProxyUrl: 'https://proxy.example',
   clientToken: 'magicmoney-wallet-v1',
   simpleSwapApiKey: '',
+  testnetMode: false,
 }
 
 describe('api proxy client gate', () => {

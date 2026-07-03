@@ -29,7 +29,11 @@ const TRON_FALLBACKS = ['https://api.trongrid.io']
  */
 export async function tronApiPost<T>(path: string, body: unknown, config: WalletConfig, timeoutMs = 15_000): Promise<T> {
   const p = path.replace(/^\/+/, '')
-  const urls = [tronApiUrl(p, config), ...TRON_FALLBACKS.map(b => `${b}/${p}`)]
+  // Testnet Mode: every TRON call (reads, TRC-20, builds, broadcast) targets the
+  // keyless Shasta node instead — one switch covers the whole tron.ts surface.
+  const urls = config.testnetMode
+    ? [`https://api.shasta.trongrid.io/${p}`]
+    : [tronApiUrl(p, config), ...TRON_FALLBACKS.map(b => `${b}/${p}`)]
   let lastErr: unknown = null
   for (const url of urls) {
     try {

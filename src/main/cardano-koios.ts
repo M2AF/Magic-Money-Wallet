@@ -17,8 +17,8 @@
 import { KOIOS_URL } from './chain-config'
 import type { CardanoUtxo } from './cardano-pure'
 
-function koiosPost(path: string, body: unknown, timeoutMs = 12_000): Promise<Response> {
-  return fetch(`${KOIOS_URL}${path}`, {
+function koiosPost(path: string, body: unknown, timeoutMs = 12_000, base = KOIOS_URL): Promise<Response> {
+  return fetch(`${base}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(body),
@@ -32,9 +32,9 @@ function koiosPost(path: string, body: unknown, timeoutMs = 12_000): Promise<Res
  * — for this wallet's single-address-per-account HD scheme that matches the
  * Blockfrost stake `controlled_amount` closely enough for a down-Blockfrost fallback.
  */
-export async function koiosAddressLovelace(address: string): Promise<number | null> {
+export async function koiosAddressLovelace(address: string, base = KOIOS_URL): Promise<number | null> {
   try {
-    const res = await koiosPost('/address_info', { _addresses: [address] })
+    const res = await koiosPost('/address_info', { _addresses: [address] }, 12_000, base)
     if (!res.ok) return null
     const rows = await res.json() as Array<{ balance?: string }>
     if (!Array.isArray(rows)) return null
@@ -47,9 +47,9 @@ export async function koiosAddressLovelace(address: string): Promise<number | nu
  * Spendable UTXOs normalized to the wallet's CardanoUtxo shape (lovelace only —
  * the ADA send path doesn't spend native tokens), or null if Koios is unreachable.
  */
-export async function koiosAddressUtxos(address: string): Promise<CardanoUtxo[] | null> {
+export async function koiosAddressUtxos(address: string, base = KOIOS_URL): Promise<CardanoUtxo[] | null> {
   try {
-    const res = await koiosPost('/address_utxos', { _addresses: [address], _extended: false })
+    const res = await koiosPost('/address_utxos', { _addresses: [address], _extended: false }, 12_000, base)
     if (!res.ok) return null
     const rows = await res.json() as Array<{ tx_hash: string; tx_index: number; value: string }>
     if (!Array.isArray(rows)) return null
@@ -66,8 +66,8 @@ export async function koiosAddressUtxos(address: string): Promise<CardanoUtxo[] 
  * tx hash Koios echoes back. Throws on any failure so the caller can surface the
  * original Blockfrost error instead.
  */
-export async function koiosSubmitTx(txCbor: Uint8Array): Promise<string> {
-  const res = await fetch(`${KOIOS_URL}/submittx`, {
+export async function koiosSubmitTx(txCbor: Uint8Array, base = KOIOS_URL): Promise<string> {
+  const res = await fetch(`${base}/submittx`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/cbor' },
     body: new Uint8Array(txCbor),   // fresh ArrayBuffer-backed copy → valid BodyInit

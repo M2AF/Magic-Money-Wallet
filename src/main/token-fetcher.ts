@@ -1,4 +1,5 @@
 import type { WalletConfig } from './secure-store'
+import { isTestnet } from './chain-config'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import {
@@ -83,6 +84,31 @@ const TOKEN_CHAINS = [
 const NFT_CHAINS = [
   ...TOKEN_CHAINS.slice(0, 5),
   TOKEN_CHAINS.find(c => c.id === 'abstract')!,
+].filter(Boolean)
+
+// Testnet Mode counterparts — same ids as mainnet (labels/colors match the
+// TESTNET_EVM_CHAINS in chain-config.ts), Alchemy testnet slugs. Gnosis Chiado is
+// omitted (no Alchemy token API); non-EVM sources are gated off in the
+// orchestrators below (Helius/Blockfrost/Ordiscan/TronScan are mainnet-scoped).
+const TESTNET_TOKEN_CHAINS: typeof TOKEN_CHAINS = [
+  { id: 'ethereum',   label: 'Ethereum Sepolia',    network: 'eth-sepolia',        color: '#627EEA' },
+  { id: 'arbitrum',   label: 'Arbitrum Sepolia',    network: 'arb-sepolia',        color: '#28A0F0' },
+  { id: 'base',       label: 'Base Sepolia',        network: 'base-sepolia',       color: '#0052FF' },
+  { id: 'polygon',    label: 'Polygon Amoy',        network: 'polygon-amoy',       color: '#8247E5' },
+  { id: 'optimism',   label: 'OP Sepolia',          network: 'opt-sepolia',        color: '#FF0420' },
+  { id: 'avalanche',  label: 'Avalanche Fuji',      network: 'avax-fuji',          color: '#E84142' },
+  { id: 'blast',      label: 'Blast Sepolia',       network: 'blast-sepolia',      color: '#FCFC03' },
+  { id: 'abstract',   label: 'Abstract Testnet',    network: 'abstract-testnet',   color: '#6B7280' },
+  { id: 'apechain',   label: 'ApeChain Curtis',     network: 'apechain-curtis',    color: '#0066FF' },
+  { id: 'ronin',      label: 'Ronin Saigon',        network: 'ronin-saigon',       color: '#1273EA' },
+  { id: 'soneium',    label: 'Soneium Minato',      network: 'soneium-minato',     color: '#5B5EA6' },
+  { id: 'worldchain', label: 'World Chain Sepolia', network: 'worldchain-sepolia', color: '#5A64C8' },
+  { id: 'zora',       label: 'Zora Sepolia',        network: 'zora-sepolia',       color: '#2B5DF0' },
+]
+
+const TESTNET_NFT_CHAINS = [
+  ...TESTNET_TOKEN_CHAINS.slice(0, 5),
+  TESTNET_TOKEN_CHAINS.find(c => c.id === 'abstract')!,
 ].filter(Boolean)
 
 // CoinGecko ID for each chain's native token
@@ -797,28 +823,36 @@ export async function fetchAllTokens(
   config: WalletConfig
 ): Promise<TokensResult> {
   try {
+    const testnet = isTestnet(config)
     // The AGW address is resolved by the caller (override ?? on-chain link). We
     // never derive a counterfactual address here — only fetch what was resolved.
-    const agwAddress = addresses.agw ?? null
+    const agwAddress = testnet ? null : (addresses.agw ?? null)
+    const tokenChains = testnet ? TESTNET_TOKEN_CHAINS : TOKEN_CHAINS
 
+    // Testnet Mode gates: Helius (Solana), Blockfrost (Cardano), MONAD_RPCS
+    // (Monad), and Ordiscan (runes/BRC-20) are mainnet-scoped, so those sources
+    // are skipped. TRC-20s keep working — tronApiPost targets Shasta itself.
     const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens] = await Promise.all([
-      Promise.all(TOKEN_CHAINS.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
-      addresses.solana  ? fetchSolanaTokens(addresses.solana,   config)      : Promise.resolve([] as WalletToken[]),
-      addresses.cardano ? fetchCardanoTokens(addresses.cardano, config)  : Promise.resolve([] as WalletToken[]),
-      fetchMonadTokens(addresses.evm),
+      Promise.all(tokenChains.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
+      (addresses.solana && !testnet)  ? fetchSolanaTokens(addresses.solana,   config) : Promise.resolve([] as WalletToken[]),
+      (addresses.cardano && !testnet) ? fetchCardanoTokens(addresses.cardano, config) : Promise.resolve([] as WalletToken[]),
+      testnet ? Promise.resolve([] as WalletToken[]) : fetchMonadTokens(addresses.evm),
       addresses.tron    ? fetchTronTokens(addresses.tron, config)        : Promise.resolve([] as WalletToken[]),
-      fetchBitcoinTokens(addresses.bitcoinTaproot, config),
+      testnet ? Promise.resolve([] as WalletToken[]) : fetchBitcoinTokens(addresses.bitcoinTaproot, config),
     ])
 
     // Fetch Abstract tokens from the AGW smart account if it differs from the EOA,
     // tagging each so the UI can badge it as living in the smart wallet.
-    const abstractChainCfg = TOKEN_CHAINS.find(c => c.id === 'abstract')!
+    const abstractChainCfg = tokenChains.find(c => c.id === 'abstract')!
     const agwTokens = (agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg)
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
     const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens]
-    const tokens = await enrichWithPrices(raw)
+    // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
+    // mainnet contracts, so a testnet address could collide with an unrelated
+    // mainnet token and show a bogus USD value.
+    const tokens = testnet ? raw : await enrichWithPrices(raw)
     tokens.sort((a, b) => {
       const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
       const ub = parseFloat(b.usdValue?.replace('$', '') ?? '0') || 0
@@ -1445,20 +1479,25 @@ export async function fetchAllCollectibles(
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
+    const testnet = isTestnet(config)
     // AGW resolved by the caller (override ?? on-chain link); no counterfactual derive.
-    const agwAddress = agw ?? null
-    const abstractChainCfg = NFT_CHAINS.find(c => c.id === 'abstract')!
+    const agwAddress = testnet ? null : (agw ?? null)
+    const nftChains = testnet ? TESTNET_NFT_CHAINS : NFT_CHAINS
+    const abstractChainCfg = nftChains.find(c => c.id === 'abstract')!
 
+    // Testnet Mode gates: Helius DAS (Solana), Blockfrost (Cardano), Moralis
+    // Monad route, TronScan, and Ordiscan are mainnet-scoped — skipped. EVM NFTs
+    // keep working via the Alchemy testnet slugs.
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals] = await Promise.all([
-      Promise.all(NFT_CHAINS.map(chain => fetchNftsForChain(evmAddress, chain, config))),
-      solanaAddress  ? fetchSolanaNFTs(solanaAddress, config)       : Promise.resolve([] as WalletCollectible[]),
-      cardanoAddress ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
+      Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config))),
+      (solanaAddress && !testnet)  ? fetchSolanaNFTs(solanaAddress, config)   : Promise.resolve([] as WalletCollectible[]),
+      (cardanoAddress && !testnet) ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
         ? fetchNftsForChain(agwAddress, abstractChainCfg, config).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
-      fetchMonadNFTs(evmAddress, config),
-      tronAddress ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
-      fetchBitcoinOrdinals(bitcoinTaproot, config),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config),
+      (tronAddress && !testnet) ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchBitcoinOrdinals(bitcoinTaproot, config),
     ])
 
     const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals]
@@ -1481,10 +1520,13 @@ export async function fetchAllCollectibles(
     }
 
     // Value each NFT by collection floor and sort by USD (highest first).
-    await enrichNftFloors(items, config, {
-      solanaAddress, evmAddress, agw: agwAddress ?? undefined,
-      exclude: excludeIds ? new Set(excludeIds) : undefined,
-    })
+    // Skipped on testnets — OpenSea/Magic Eden/Anvil floors are mainnet-only.
+    if (!testnet) {
+      await enrichNftFloors(items, config, {
+        solanaAddress, evmAddress, agw: agwAddress ?? undefined,
+        exclude: excludeIds ? new Set(excludeIds) : undefined,
+      })
+    }
 
     console.log(`[NFT] Total NFTs found: ${items.length}`)
     return { items, fetchedAt: Date.now(), error: null, chainResults }

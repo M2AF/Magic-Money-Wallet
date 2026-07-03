@@ -13,21 +13,32 @@ import * as btc from '@scure/btc-signer'
 import { hex, base64 } from '@scure/base'
 import { sha256 } from '@noble/hashes/sha256'
 import { secp256k1 } from '@noble/curves/secp256k1'
-import { BITCOIN_ESPLORA } from './chain-config'
+import { BITCOIN_ESPLORA, TESTNET_BITCOIN_ESPLORA, isTestnet } from './chain-config'
+import { loadConfig } from './secure-store'
 import { getBitcoinKey, getBitcoinNestedKey, getBitcoinTaprootKey } from './wallet-core'
 import type { SendResult, FeeEstimate } from './tx-sender'
 
 /** The wallet's three Bitcoin addresses (passed in so signing can pick the right key per input). */
 export interface BtcAddresses { bitcoin: string; bitcoinNested: string; bitcoinTaproot: string }
 
-const EXPLORER = 'https://mempool.space/tx'
 const DUST = 546n            // standard P2WPKH dust threshold (sats)
 const MIN_FEE_RATE = 2n      // sat/vByte floor
+
+// Testnet Mode context, read fresh per call. Sends/fees/PSBTs operate on
+// TESTNET3 while the mode is on (Testnet4 shares the same tb1 addresses and is
+// display-only — see the renderer's chain card gating). Keys switch to the
+// BIP-44 testnet coin type (m/84'/1'/…) to match the tb1 address derivation.
+function btcMode(): { testnet: boolean; esplora: string[]; network: typeof btc.NETWORK; explorer: string } {
+  const testnet = isTestnet(loadConfig())
+  return testnet
+    ? { testnet, esplora: TESTNET_BITCOIN_ESPLORA, network: btc.TEST_NETWORK, explorer: 'https://mempool.space/testnet/tx' }
+    : { testnet, esplora: BITCOIN_ESPLORA, network: btc.NETWORK, explorer: 'https://mempool.space/tx' }
+}
 
 interface BtcUtxo { txid: string; vout: number; value: bigint }
 
 async function esploraGet(path: string, timeout = 12_000): Promise<Response | null> {
-  for (const base of BITCOIN_ESPLORA) {
+  for (const base of btcMode().esplora) {
     try {
       const res = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(timeout) })
       if (res.ok) return res
@@ -77,14 +88,15 @@ type Selection = NonNullable<ReturnType<typeof btc.selectUTXO>>
 
 // Build a P2WPKH spend from the Native-SegWit payment address ONLY.
 async function buildSegwitSend(
-  publicKey: Uint8Array, fromAddress: string, to: string, sats: bigint, feeRate: bigint
+  publicKey: Uint8Array, fromAddress: string, to: string, sats: bigint, feeRate: bigint,
+  network = btc.NETWORK
 ): Promise<Selection> {
   const utxos = await fetchBitcoinUtxos(fromAddress)
   if (utxos.length === 0) throw new Error('No spendable UTXOs — the SegWit address has no funds on-chain')
-  const p2 = btc.p2wpkh(publicKey)   // .script = the P2WPKH scriptPubKey shared by every UTXO of this address
+  const p2 = btc.p2wpkh(publicKey, network)   // .script = the P2WPKH scriptPubKey shared by every UTXO of this address
   const inputs = utxos.map(u => ({ txid: u.txid, index: u.vout, witnessUtxo: { script: p2.script, amount: u.value } }))
   const selected = btc.selectUTXO(inputs, [{ address: to, amount: sats }], 'default', {
-    changeAddress: fromAddress, feePerByte: feeRate, bip69: true, createTx: true, dust: DUST,
+    changeAddress: fromAddress, feePerByte: feeRate, bip69: true, createTx: true, dust: DUST, network,
   })
   if (!selected) {
     const have = utxos.reduce((a, u) => a + u.value, 0n)
@@ -98,19 +110,22 @@ async function buildSegwitSend(
 export async function estimateBitcoinFee(
   fromAddress: string, to: string, amountBtc: string, mnemonic: string, accountIndex = 0
 ): Promise<FeeEstimate> {
+  const mode = btcMode()
   const sats = BigInt(Math.round(parseFloat(amountBtc) * 1e8))
   if (sats <= 0n) throw new Error('Amount must be greater than 0')
-  const { publicKey } = await getBitcoinKey(mnemonic, accountIndex)
-  const selected = await buildSegwitSend(publicKey, fromAddress, to, sats, await feePerVByte())
+  const { publicKey } = await getBitcoinKey(mnemonic, accountIndex, mode.testnet)
+  const selected = await buildSegwitSend(publicKey, fromAddress, to, sats, await feePerVByte(), mode.network)
   const feeBtc = Number(selected.fee ?? 0n) / 1e8
 
   let feeUsd: string | null = null
-  try {
-    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
-    const j = await res.json() as { bitcoin?: { usd?: number } }
-    const price = j.bitcoin?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeBtc * price).toFixed(2)}`
-  } catch { /* price optional */ }
+  if (!mode.testnet) {
+    try {
+      const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
+      const j = await res.json() as { bitcoin?: { usd?: number } }
+      const price = j.bitcoin?.usd ?? 0
+      if (price > 0) feeUsd = `$${(feeBtc * price).toFixed(2)}`
+    } catch { /* price optional */ }
+  }
 
   return { fee: feeBtc.toFixed(8), feeSymbol: 'BTC', feeUsd }
 }
@@ -118,11 +133,12 @@ export async function estimateBitcoinFee(
 export async function sendBitcoinTransaction(
   mnemonic: string, fromAddress: string, to: string, amountBtc: string, accountIndex = 0
 ): Promise<SendResult> {
+  const mode = btcMode()
   const sats = BigInt(Math.round(parseFloat(amountBtc) * 1e8))
   if (sats <= 0n) throw new Error('Amount must be greater than 0')
 
-  const { privateKey, publicKey } = await getBitcoinKey(mnemonic, accountIndex)
-  const selected = await buildSegwitSend(publicKey, fromAddress, to, sats, await feePerVByte())
+  const { privateKey, publicKey } = await getBitcoinKey(mnemonic, accountIndex, mode.testnet)
+  const selected = await buildSegwitSend(publicKey, fromAddress, to, sats, await feePerVByte(), mode.network)
 
   const tx = selected.tx
   if (!tx) throw new Error('Failed to build Bitcoin transaction')
@@ -131,12 +147,12 @@ export async function sendBitcoinTransaction(
   const rawHex = hex.encode(tx.extract())
 
   const txid = await broadcastBitcoin(rawHex)
-  return { txHash: txid, explorerUrl: `${EXPLORER}/${txid}` }
+  return { txHash: txid, explorerUrl: `${mode.explorer}/${txid}` }
 }
 
 export async function broadcastBitcoin(rawHex: string): Promise<string> {
   let lastErr = 'Broadcast failed'
-  for (const base of BITCOIN_ESPLORA) {
+  for (const base of btcMode().esplora) {
     try {
       const res = await fetch(`${base}/tx`, {
         method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: rawHex, signal: AbortSignal.timeout(20_000),
@@ -177,10 +193,11 @@ export async function signBitcoinPsbt(
 ): Promise<{ psbtBase64: string; psbtHex: string; txHex?: string }> {
   const tx = btc.Transaction.fromPSBT(decodePsbt(req.psbt), { allowUnknownInputs: true, allowUnknownOutputs: true })
 
+  const { testnet } = btcMode()
   const [nat, nes, tap] = await Promise.all([
-    getBitcoinKey(mnemonic, accountIndex),
-    getBitcoinNestedKey(mnemonic, accountIndex),
-    getBitcoinTaprootKey(mnemonic, accountIndex),
+    getBitcoinKey(mnemonic, accountIndex, testnet),
+    getBitcoinNestedKey(mnemonic, accountIndex, testnet),
+    getBitcoinTaprootKey(mnemonic, accountIndex, testnet),
   ])
   const keyFor = (addr: string): Uint8Array | null =>
     addr === addresses.bitcoin ? nat.privateKey
@@ -227,9 +244,10 @@ export async function signBitcoinMessage(
   if (addressType === 'taproot') {
     throw new Error('Taproot (bc1p) message signing uses BIP-322, which is not supported yet — sign with the payment address.')
   }
+  const { testnet } = btcMode()
   const { privateKey } = addressType === 'nested'
-    ? await getBitcoinNestedKey(mnemonic, accountIndex)
-    : await getBitcoinKey(mnemonic, accountIndex)
+    ? await getBitcoinNestedKey(mnemonic, accountIndex, testnet)
+    : await getBitcoinKey(mnemonic, accountIndex, testnet)
 
   const msgBytes = new TextEncoder().encode(message)
   const magic = new TextEncoder().encode('Bitcoin Signed Message:\n')

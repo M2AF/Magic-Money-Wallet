@@ -29,6 +29,7 @@ export interface WalletConfig {
   swapProxyUrl: string
   clientToken: string
   simpleSwapApiKey: string
+  testnetMode: boolean
 }
 
 // Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
@@ -51,7 +52,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
   swapProxyUrl:           'https://magicmoney-swap-proxy.guildfordking.workers.dev',
   clientToken:            'magicmoney-wallet-v1',
-  simpleSwapApiKey:       ''
+  simpleSwapApiKey:       '',
+  testnetMode:            false
 }
 
 const AUTO_LOCK_MS = 15 * 60_000
@@ -214,6 +216,26 @@ export async function clearTempMnemonic(): Promise<void> {
 }
 
 // ── Addresses (plain JSON) ────────────────────────────────────────────────────
+
+/**
+ * Testnet Mode address substitution — mirrors secure-store.effectiveAddresses.
+ * Swaps the testnet-encoded Bitcoin/Cardano set into the top-level fields and
+ * clears AGW (hidden in testnet mode). Pure/sync on purpose.
+ */
+export function effectiveAddresses(addresses: WalletAddresses, cfg: WalletConfig): WalletAddresses {
+  if (!cfg.testnetMode || !addresses.testnet) return addresses
+  const t = addresses.testnet
+  return {
+    ...addresses,
+    bitcoin: t.bitcoin,
+    bitcoinNested: t.bitcoinNested,
+    bitcoinTaproot: t.bitcoinTaproot,
+    cardano: t.cardano,
+    cardanoStake: t.cardanoStake,
+    agw: undefined,
+    agwOwned: false,
+  }
+}
 
 export async function saveAddresses(addresses: WalletAddresses): Promise<void> {
   await chrome.storage.local.set({ 'wallet.addresses': addresses })

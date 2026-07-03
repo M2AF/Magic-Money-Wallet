@@ -16,6 +16,9 @@
 
 export const DEFAULT_CHAIN_ID = 1 // Ethereum mainnet — the safe default most dApps expect
 
+// Sepolia — the equivalent safe default while Testnet Mode is on. Callers pick
+// via defaultDappChainId(cfg) in chain-config (kept out of here to stay dep-free).
+
 let _chainId = DEFAULT_CHAIN_ID
 
 /** Numeric chainId currently active for the dApp browser (e.g. 1, 137, 143). */

@@ -47,7 +47,21 @@ const CHAIN_META: Record<string, ChainMeta> = {
   bitcoin:    { name: 'Bitcoin',      networks: 'Mainnet',                    color: '#F7931A', colorRgb: '247, 147, 26'   },
   polkadot:   { name: 'Polkadot',     networks: 'Relay Chain',                color: '#E6007A', colorRgb: '230, 0, 122'    },
   tron:       { name: 'Tron',         networks: 'Mainnet',                    color: '#EB0029', colorRgb: '235, 0, 41'     },
-  dogecoin:   { name: 'Dogecoin',     networks: 'Mainnet',                    color: '#C2A633', colorRgb: '194, 166, 51'   }
+  dogecoin:   { name: 'Dogecoin',     networks: 'Mainnet',                    color: '#C2A633', colorRgb: '194, 166, 51'   },
+  // Testnet Mode only — the second Bitcoin network entry (same tb1 addresses).
+  'bitcoin-testnet4': { name: 'Bitcoin', networks: 'Testnet4',                color: '#F7931A', colorRgb: '247, 147, 26'   }
+}
+
+// Testnet Mode network subtitles (per chain id). Chains absent here keep their
+// mainnet subtitle — but the dashboard only lists chains with a testnet anyway.
+const TESTNET_NETWORKS: Record<string, string> = {
+  ethereum: 'Sepolia · Testnet',   arbitrum: 'Arbitrum Sepolia',   optimism: 'OP Sepolia',
+  base: 'Base Sepolia',            polygon: 'Amoy · Testnet',      avalanche: 'Fuji · Testnet',
+  blast: 'Blast Sepolia',          gnosis: 'Chiado · Testnet',     monad: 'Monad Testnet',
+  abstract: 'Abstract Testnet',    apechain: 'Curtis · Testnet',   ronin: 'Saigon · Testnet',
+  soneium: 'Minato · Testnet',     worldchain: 'World Chain Sepolia', zora: 'Zora Sepolia',
+  hyperevm: 'HyperEVM Testnet',    solana: 'Devnet',               cardano: 'Preprod · Testnet',
+  bitcoin: 'Testnet3',             'bitcoin-testnet4': 'Testnet4', tron: 'Shasta · Testnet',
 }
 
 const FALLBACK_META: ChainMeta = { name: 'Unknown', networks: '', color: '#6B7280', colorRgb: '107, 114, 128' }
@@ -61,12 +75,15 @@ interface Props {
   loading?: boolean
   onSend?: () => void
   history?: ChainHistory | null
+  /** Testnet Mode: swaps the network subtitle for the chain's testnet label. */
+  testnet?: boolean
 }
 
-export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history }: Props) {
+export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false }: Props) {
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const meta = CHAIN_META[chainId] ?? FALLBACK_META
+  const baseMeta = CHAIN_META[chainId] ?? FALLBACK_META
+  const meta = testnet ? { ...baseMeta, networks: TESTNET_NETWORKS[chainId] ?? baseMeta.networks } : baseMeta
 
   const truncate = (addr: string) => addr.length > 16 ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : addr
 

@@ -59,6 +59,10 @@ contextBridge.exposeInMainWorld('wallet', {
   getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),
   getAccountIndex: ()                  => ipcRenderer.invoke('wallet:get-account'),
   setAccount:      (index: number)     => ipcRenderer.invoke('wallet:set-account', index),
+
+  // ── Testnet Mode ──────────────────────────────────────────────────────
+  getTestnetMode:  ()                  => ipcRenderer.invoke('wallet:get-testnet-mode'),
+  setTestnetMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-testnet-mode', enabled),
   setAgw:          (accountIndex: number, address: string | null) =>
     ipcRenderer.invoke('wallet:set-agw', accountIndex, address),
 
