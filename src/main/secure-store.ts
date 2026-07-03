@@ -346,6 +346,43 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
   } catch { /* display-only cache — losing a write is harmless */ }
 }
 
+// ─── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ─────────
+// Same doctrine as the floor cache above: a provider FAILURE (429/outage) must
+// never present as "you own zero tokens". alchemy-cache.ts serves these when the
+// live call fails, so a throttled launch shows last-known holdings instead of an
+// empty token list. Keyed `network:address` (lowercased).
+
+export interface TokenBalanceCacheEntry {
+  balances: Array<{ contractAddress: string; tokenBalance: string }>
+  at: number
+}
+
+const tokenBalanceCachePath = () => join(userData(), 'token-balance-cache.json')
+let tokenBalanceCacheDisk: Record<string, TokenBalanceCacheEntry> | null = null
+
+export async function loadTokenBalanceCache(): Promise<Record<string, TokenBalanceCacheEntry>> {
+  if (tokenBalanceCacheDisk) return tokenBalanceCacheDisk
+  try {
+    if (existsSync(tokenBalanceCachePath())) {
+      const parsed = JSON.parse(readFileSync(tokenBalanceCachePath(), 'utf-8'))
+      tokenBalanceCacheDisk = (parsed && typeof parsed === 'object') ? parsed as Record<string, TokenBalanceCacheEntry> : {}
+    } else {
+      tokenBalanceCacheDisk = {}
+    }
+  } catch {
+    tokenBalanceCacheDisk = {}
+  }
+  return tokenBalanceCacheDisk
+}
+
+export function saveTokenBalanceCache(map: Record<string, TokenBalanceCacheEntry>): void {
+  tokenBalanceCacheDisk = map
+  try {
+    mkdirSync(userData(), { recursive: true })
+    writeFileSync(tokenBalanceCachePath(), JSON.stringify(map))
+  } catch { /* display-only cache — losing a write is harmless */ }
+}
+
 // ─── AGW overrides (per-account manual Abstract Global Wallet address) ───────
 // Stored separately from addresses.json because switching accounts re-derives
 // addresses wholesale. Map: accountIndex (string) → AGW address. A null/missing

@@ -276,6 +276,25 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
   chrome.storage.local.set({ 'wallet.floor_cache': map }).catch(() => { /* display-only cache */ })
 }
 
+// ── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ───────────
+// Mirrors secure-store.ts's token-balance-cache.json. Served by alchemy-cache.ts
+// when the live call fails so throttling never presents as "zero tokens".
+
+export interface TokenBalanceCacheEntry {
+  balances: Array<{ contractAddress: string; tokenBalance: string }>
+  at: number
+}
+
+export async function loadTokenBalanceCache(): Promise<Record<string, TokenBalanceCacheEntry>> {
+  const r = await chrome.storage.local.get('wallet.token_balance_cache')
+  const m = r['wallet.token_balance_cache']
+  return (m && typeof m === 'object') ? m as Record<string, TokenBalanceCacheEntry> : {}
+}
+
+export function saveTokenBalanceCache(map: Record<string, TokenBalanceCacheEntry>): void {
+  chrome.storage.local.set({ 'wallet.token_balance_cache': map }).catch(() => { /* display-only cache */ })
+}
+
 // ── Abstract Global Wallet manual override (per account) ──────────────────────
 // Mirrors secure-store.ts's agw-overrides.json, but persisted in chrome.storage.
 

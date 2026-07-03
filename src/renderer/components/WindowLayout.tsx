@@ -18,14 +18,20 @@ import { useEffect, useState } from 'react'
 type Side = 'left' | 'right'
 interface LayoutState { snapped: boolean; side: Side | null; browserOpen: boolean }
 
+// The window-layout API only exists in the Electron preload — the browser
+// extension's bridge has no second window to tile. Everything here is
+// optional-chained and the components render nothing without it, mirroring how
+// App.tsx handles onLocked/reportActivity (a hard call would blank the popup).
+const layoutSupported = () => typeof window.wallet.layoutGetState === 'function'
+
 /** Subscribe to the main-process layout state and keep it fresh. */
 function useLayoutState(): LayoutState {
   const [state, setState] = useState<LayoutState>({ snapped: false, side: null, browserOpen: false })
   useEffect(() => {
-    window.wallet.layoutGetState().then(setState).catch(() => {})
+    window.wallet.layoutGetState?.().then(setState).catch(() => {})
     const onChange = (s: LayoutState) => setState(s)
-    window.wallet.onLayoutChanged(onChange)
-    return () => window.wallet.offLayoutChanged(onChange)
+    window.wallet.onLayoutChanged?.(onChange)
+    return () => window.wallet.offLayoutChanged?.(onChange)
   }, [])
   return state
 }
@@ -33,11 +39,12 @@ function useLayoutState(): LayoutState {
 /** Green titlebar dot — tiles the two windows, or un-tiles them if already tiled. */
 export function FullScreenButton() {
   const { snapped } = useLayoutState()
+  if (!layoutSupported()) return null
   return (
     <button
       type="button"
       className={`titlebar-btn full${snapped ? ' active' : ''}`}
-      onClick={() => window.wallet.layoutToggle()}
+      onClick={() => window.wallet.layoutToggle?.()}
       title={snapped ? 'Exit Full Screen Mode' : 'Full Screen Mode'}
       aria-label={snapped ? 'Exit Full Screen Mode' : 'Full Screen Mode'}
     />
@@ -50,12 +57,14 @@ export function LayoutMenu() {
 
   const act = (value: string) => {
     switch (value) {
-      case 'enter':  window.wallet.layoutSnap(side ?? 'left'); break
-      case 'left':   window.wallet.layoutSnap('left');  break
-      case 'right':  window.wallet.layoutSnap('right'); break
-      case 'detach': window.wallet.layoutDetach(); break
+      case 'enter':  window.wallet.layoutSnap?.(side ?? 'left'); break
+      case 'left':   window.wallet.layoutSnap?.('left');  break
+      case 'right':  window.wallet.layoutSnap?.('right'); break
+      case 'detach': window.wallet.layoutDetach?.(); break
     }
   }
+
+  if (!layoutSupported()) return null
 
   const label = snapped ? (side === 'right' ? 'Wallet ›' : '‹ Wallet') : 'Layout'
 
