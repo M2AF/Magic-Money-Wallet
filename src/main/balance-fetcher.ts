@@ -17,7 +17,7 @@ import {
 } from './chain-config'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
-import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl } from './api-proxy'
+import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
 import { koiosAddressLovelace } from './cardano-koios'
 import { tronApiPost } from './tron'
 
@@ -115,7 +115,14 @@ async function fetchEvmNative(
     // Ankr slugs are mainnet-only, so that fallback is skipped in testnet mode
     // (it would silently answer with a MAINNET balance for the testnet chain).
     const publicRpcs = isTestnet(config) ? TESTNET_PUBLIC_RPCS : PUBLIC_RPCS
-    const urls = [chain.rpcUrl(config), ...(publicRpcs[chain.id] ?? []), isTestnet(config) ? undefined : ankrRpcUrl(chain.id, config)]
+    // Tail of the ladder (mainnet only): keyed Ankr, then keyed Tatum gateway —
+    // the last-resort nodes for chains with thin/no public RPC (Abstract, HyperEVM).
+    const urls = [
+      chain.rpcUrl(config),
+      ...(publicRpcs[chain.id] ?? []),
+      isTestnet(config) ? undefined : ankrRpcUrl(chain.id, config),
+      isTestnet(config) ? undefined : tatumRpcUrl(chain.id, config),
+    ]
     const balJson = await rpcReadWithFallback(
       urls, { jsonrpc: '2.0', id: 1, method: 'eth_getBalance', params: [address, 'latest'] }, 10_000
     ) as { result?: string; error?: { message: string } } | null

@@ -58,7 +58,7 @@ import {
   type CardanoUtxo
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
-import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch, ankrRpcUrl } from './api-proxy'
+import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
 import {
   MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS,
   TESTNET_EVM_CHAINS as TESTNET_EVM_CHAIN_DEFS, TESTNET_PUBLIC_RPCS, TESTNET_KOIOS_URL, isTestnet
@@ -191,6 +191,8 @@ function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
   const sid = isTestnet(config) ? undefined : ID_BY_CHAIN_ID[entry.chain.id]
   const ankr = sid ? ankrRpcUrl(sid, config) : undefined
   if (ankr) urls.push(ankr)   // keyed Ankr as the reliable last-resort fallback
+  const tatum = sid ? tatumRpcUrl(sid, config) : undefined
+  if (tatum) urls.push(tatum) // keyed Tatum gateway (Abstract/HyperEVM thin nodes)
   return urls.length > 1
     ? fallback(urls.map(u => http(u, { timeout: 10_000 })))
     : http(urls[0])

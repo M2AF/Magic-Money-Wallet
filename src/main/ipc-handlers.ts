@@ -84,7 +84,7 @@ import {
 } from './browser-manager'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
-import { openseaFetch, heliusRpcUrl, canOpensea } from './api-proxy'
+import { openseaFetch, heliusRpcUrl, canOpensea, tatumRpcUrl } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
@@ -272,7 +272,10 @@ function rpcUrlsForChain(chainId: number, config: WalletConfig): string[] {
     return [...MONAD_RPCS.slice(start), ...MONAD_RPCS.slice(0, start)]
   }
   const chain = evmChainById(chainId) ?? activeEvmChains(config)[0]
-  return [chain.rpcUrl(config), ...(activePublicRpcs(config)[chain.id] ?? [])]
+  // Keyed Tatum gateway as the last-resort node for thin-coverage chains
+  // (Abstract/HyperEVM) — mainnet only, undefined (dropped) otherwise.
+  const tatum = isTestnet(config) ? undefined : tatumRpcUrl(chain.id, config)
+  return [chain.rpcUrl(config), ...(activePublicRpcs(config)[chain.id] ?? []), ...(tatum ? [tatum] : [])]
 }
 
 async function forwardEvmRpc(method: string, params: unknown[], config: WalletConfig): Promise<unknown> {

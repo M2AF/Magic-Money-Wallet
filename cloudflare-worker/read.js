@@ -33,6 +33,13 @@ const ALCHEMY_NETWORKS = new Set([
 const TATUM_GATEWAYS = {
   polkadot: 'https://polkadot-mainnet.gateway.tatum.io',
   bitcoin: 'https://bitcoin-mainnet.gateway.tatum.io',
+  // EVM gateways — keyed last-resort RPC fallback for thin-coverage chains
+  // (Abstract/HyperEVM have few public nodes; Monad has its own rotation). Used
+  // for native-balance reads / dApp RPC / send fallback, NOT token enumeration
+  // (Tatum's Data API doesn't index these chains).
+  abstract: 'https://abstract-mainnet.gateway.tatum.io',
+  monad: 'https://monad-mainnet.gateway.tatum.io',
+  hyperevm: 'https://hyperevm-mainnet.gateway.tatum.io',
 }
 
 // Ankr RPC slugs we allow proxying (rpc.ankr.com/<slug>/<key>) — keyed fallback.
@@ -40,11 +47,16 @@ const ANKR_CHAINS = new Set([
   'eth', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'bsc', 'gnosis', 'blast', 'solana',
 ])
 
-const READ_NS = new Set(['rpc', 'alchemy-nft', 'helius-api', 'blockfrost', 'moralis', 'opensea', 'ordinals', 'anvil'])
+const READ_NS = new Set(['rpc', 'alchemy-nft', 'alchemy-data', 'helius-api', 'blockfrost', 'moralis', 'opensea', 'ordinals', 'anvil'])
 
 // Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
 // hosts — TRON uses path-based `wallet/*` methods under /v2/{key}/).
 const ALCHEMY_TRON = (env) => `https://tron-mainnet.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
+
+// Alchemy Portfolio/Data API host (unified multi-network REST — separate rate
+// bucket from the `${network}.g.alchemy.com` JSON-RPC hosts, and covers chains
+// like Abstract). Used for token balances when alchemy_getTokenBalances is shed.
+const ALCHEMY_DATA = (env) => `https://api.g.alchemy.com/data/v1/${env.ALCHEMY_KEY}`
 
 const alchemyRpc = (network, env) => `https://${network}.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
 const alchemyNft = (network, env) => `https://${network}.g.alchemy.com/nft/v3/${env.ALCHEMY_KEY}`
@@ -70,6 +82,24 @@ export async function handleRead(request, url, env, ctx) {
     if (isAllMetadata(body)) return json(env, await alchemyMetaCached(network, body, env, ctx))
     const res = await fetch(alchemyRpc(network, env), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    return passthrough(env, res)
+  }
+
+  // ── Alchemy Portfolio/Data API: POST /alchemy-data/* ──────────────────────
+  // Unified token-balance endpoint (assets/tokens/by-address). Per-user data,
+  // so passed straight through (no cache). Lives on a different rate bucket than
+  // the JSON-RPC alchemy_getTokenBalances method — the wallet uses it so a
+  // throttled JSON-RPC method doesn't blank the token list, and because it also
+  // covers Abstract.
+  if (parts[0] === 'alchemy-data' && request.method === 'POST') {
+    if (!env.ALCHEMY_KEY) return err(env, 'Alchemy key not configured', 500)
+    const sub = parts.slice(1).join('/')
+    if (!sub) return err(env, 'Missing Data API path')
+    const res = await fetch(`${ALCHEMY_DATA(env)}/${sub}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', accept: 'application/json' },
+      body: await request.text(),
     })
     return passthrough(env, res)
   }

@@ -18,7 +18,7 @@
 
 import type { WalletConfig } from './secure-store'
 import { loadTokenBalanceCache, saveTokenBalanceCache } from './secure-store'
-import { alchemyRpcUrl } from './api-proxy'
+import { alchemyDataFetch } from './api-proxy'
 
 export interface RawTokenBalance {
   contractAddress: string
@@ -112,26 +112,37 @@ export async function getTokenBalances(network: string, address: string, config:
   return p
 }
 
-/** One live attempt (+1 retry on 429/5xx). `undefined` = failure — NOT "no tokens". */
+// Alchemy Portfolio Data API token row (assets/tokens/by-address).
+interface PortfolioToken {
+  tokenAddress: string | null   // null = native coin (skipped — handled separately)
+  tokenBalance: string          // hex
+}
+
+/**
+ * One live attempt (+1 retry on 429/5xx). `undefined` = failure — NOT "no tokens".
+ *
+ * Uses the Portfolio Data API instead of the JSON-RPC `alchemy_getTokenBalances`
+ * method: the RPC method is aggressively shed on the shared tier ("unusually high
+ * global traffic") even while cheap RPC and the NFT API keep working, and it
+ * doesn't cover Abstract. The Data API is a separate rate bucket and covers every
+ * chain we serve, so it survives the throttle that was blanking the token list.
+ */
 async function fetchTokenBalances(network: string, address: string, config: WalletConfig): Promise<RawTokenBalance[] | undefined> {
+  const body = { addresses: [{ address, networks: [network] }], withMetadata: false, withPrices: false }
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(alchemyRpcUrl(network, config), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'alchemy_getTokenBalances', params: [address, 'erc20'] }),
-        signal: AbortSignal.timeout(12_000)
-      })
+      const res = await alchemyDataFetch('assets/tokens/by-address', body, config, 12_000)
       if (res.ok) {
-        const json = await res.json() as { result?: { tokenBalances?: RawTokenBalance[] }; error?: { code?: number; message?: string } }
-        // Some gateways return HTTP 200 with a JSON-RPC error body (e.g. 429 code).
+        const json = await res.json() as { data?: { tokens?: PortfolioToken[] }; error?: { message?: string } }
         if (json.error) {
-          console.warn(`[TOKEN] ${network} getTokenBalances RPC error ${json.error.code}: ${json.error.message ?? ''}`)
+          console.warn(`[TOKEN] ${network} portfolio API error: ${json.error.message ?? ''}`)
         } else {
-          return (json.result?.tokenBalances ?? []).filter(t => nonZero(t.tokenBalance))
+          return (json.data?.tokens ?? [])
+            .filter(t => t.tokenAddress != null && nonZero(t.tokenBalance))
+            .map(t => ({ contractAddress: t.tokenAddress as string, tokenBalance: t.tokenBalance }))
         }
       } else if (res.status !== 429 && res.status < 500) {
-        console.warn(`[TOKEN] ${network} getTokenBalances HTTP ${res.status}`)
+        console.warn(`[TOKEN] ${network} portfolio API HTTP ${res.status}`)
         return undefined  // non-retryable client error
       }
     } catch { /* timeout/network — retryable */ }

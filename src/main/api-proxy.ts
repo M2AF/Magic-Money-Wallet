@@ -75,6 +75,22 @@ export function alchemyNftUrl(network: string, path: string, config: WalletConfi
 }
 
 /**
+ * Alchemy Portfolio/Data API POST. `path` is after `/data/v1/{key}/` (e.g.
+ * `assets/tokens/by-address`). Lives on a different rate bucket than the
+ * JSON-RPC `alchemy_getTokenBalances` method and covers Abstract, so it's the
+ * token-balance source that survives when the JSON-RPC method is throttled.
+ * Proxy injects the key (route /alchemy-data/*); direct mode uses the user key.
+ */
+export function alchemyDataFetch(path: string, body: unknown, config: WalletConfig, timeoutMs = 12_000): Promise<Response> {
+  const base = proxyBase(config)
+  const p = path.replace(/^\/+/, '')
+  const url = base ? proxyUrl(`${base}/alchemy-data/${p}`, config) : `https://api.g.alchemy.com/data/v1/${config.alchemyKey}/${p}`
+  const headers: Record<string, string> = { 'Content-Type': 'application/json', accept: 'application/json' }
+  if (base) Object.assign(headers, proxyHeaders(config))
+  return fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
+}
+
+/**
  * Alchemy TRON HTTP API endpoint. `path` is the TRON method after the key, e.g.
  * 'wallet/getaccount' or 'wallet/broadcasttransaction'. The Worker injects the key
  * (route /rpc/alchemy-tron/*); direct mode needs a user-supplied Alchemy key.
@@ -156,7 +172,7 @@ export async function rpcReadWithFallback(
 // ─── Header-key providers (Tatum, Blockfrost, Moralis, OpenSea) ───────────────
 // Each returns a Response so callers keep their existing .ok / .json() handling.
 
-/** Tatum gateway JSON-RPC POST (gateway = 'polkadot' | 'bitcoin'). */
+/** Tatum gateway JSON-RPC POST (gateway = 'polkadot' | 'bitcoin' | EVM slug). */
 export function tatumFetch(gateway: string, body: unknown, config: WalletConfig, timeoutMs = 10_000): Promise<Response> {
   const base = proxyBase(config)
   const url = base ? proxyUrl(`${base}/rpc/tatum/${gateway}`, config) : `https://${gateway}-mainnet.gateway.tatum.io`
@@ -164,6 +180,31 @@ export function tatumFetch(gateway: string, body: unknown, config: WalletConfig,
   if (base) Object.assign(headers, proxyHeaders(config))
   else headers['x-api-key'] = config.tatumKey
   return fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) })
+}
+
+// Wallet chain.id → Tatum gateway key (Worker TATUM_GATEWAYS). Only chains whose
+// native-balance/RPC reads benefit from a keyed fallback beyond Alchemy + the
+// sparse public nodes: Abstract (no public RPC), HyperEVM (one backup), Monad
+// (has its own rotation but a keyed node is a fine extra safety net).
+const TATUM_EVM_GATEWAY: Record<string, string> = {
+  abstract: 'abstract',
+  monad: 'monad',
+  hyperevm: 'hyperevm',
+}
+
+/**
+ * Tatum EVM gateway URL for a wallet chain.id, as a keyed last-resort entry in a
+ * `rpcReadWithFallback` / viem `fallback` ladder (JSON-RPC eth_* over POST).
+ * Proxy-only: the Tatum key is a Worker secret, and the fallback executor can't
+ * attach a per-URL x-api-key header — so direct mode (no proxy) returns undefined
+ * rather than leak/omit the key. Returns undefined for unsupported chains.
+ */
+export function tatumRpcUrl(chainId: string, config: WalletConfig): string | undefined {
+  const gw = TATUM_EVM_GATEWAY[chainId]
+  if (!gw) return undefined
+  const base = proxyBase(config)
+  if (!base) return undefined
+  return proxyUrl(`${base}/rpc/tatum/${gw}`, config)
 }
 
 /**
