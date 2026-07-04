@@ -16,7 +16,7 @@ import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteReque
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, sendEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction } from '../main/tx-sender'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -1136,47 +1136,29 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const entry = _web3TxQueue.get(id)
       if (!entry) throw new Error('Pending transaction not found')
       _web3TxQueue.delete(id)
-      const { createWalletClient, http, fallback, parseEther } = await import('viem')
+      // Delegate to the SHARED multi-chain sender (same code the Electron app uses
+      // for dApp sends). It builds the viem client with a real per-chain object —
+      // which carries the EIP-1559 fee config — and the shared evmTransport (Monad
+      // RPC rotation + keyed Ankr/Tatum fallback). The old hand-rolled path used
+      // `chain: null`, so viem had to auto-derive fees over live RPC; on Monad that
+      // preparation hung and the dApp timed out after Approve.
       const config = await store.loadConfig()
-      const { EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } = await import('../main/chain-config')
+      const addresses = await store.loadAddresses()
       const numId = parseInt(entry.chainId ?? '1', 16) || 1
-      const chain = EVM_CHAINS.find(c => c.chainId === numId) ?? EVM_CHAINS[0]
-      const key = await deriveEvmKey()
-      const acct = privateKeyToAccount(key)
-      // Monad rotates its whole public set. Every other chain tries its primary
-      // (proxy/Alchemy or own node) first and only fails over to the keyless
-      // PUBLIC_RPCS on a transport error, so a normal broadcast still hits the proxy.
-      const sendUrls = [chain.rpcUrl(config), ...(PUBLIC_RPCS[chain.id] ?? [])]
-      const transport = numId === 143
-        ? fallback(MONAD_RPCS.map(u => http(u, { timeout: 8_000 })))
-        : sendUrls.length > 1
-          ? fallback(sendUrls.map(u => http(u, { timeout: 10_000 })))
-          : http(sendUrls[0])
-      const wc = createWalletClient({ account: acct, transport, chain: null as unknown as undefined })
-      let hash: `0x${string}`
       try {
-        hash = await wc.sendTransaction({
-          to: entry.tx.to as `0x${string}`,
-          value: entry.tx.value ? BigInt(entry.tx.value) : undefined,
-          data: entry.tx.data as `0x${string}` | undefined,
-          gas: entry.tx.gas ? BigInt(entry.tx.gas) : undefined,
-        })
+        const { txHash } = await sendRawEvmTransaction(
+          await store.loadMnemonic(),
+          { to: entry.tx.to ?? '', data: entry.tx.data, value: entry.tx.value, gas: entry.tx.gas, chainId: numId },
+          config,
+          addresses?.accountIndex ?? 0
+        )
+        entry.resolve(txHash)
+        return txHash
       } catch (err) {
-        // viem wraps the RPC failure as a generic "unknown RPC error". Log the FULL
-        // chain (shortMessage / details / cause) to the service-worker console so the
-        // real Monad reason is visible, and surface that instead of the wrapper.
-        const e = err as { shortMessage?: string; details?: string; metaMessages?: string[]; cause?: { message?: string; details?: string; data?: unknown } }
-        console.error('[MagicMoney] Monad send failed — full error:', err)
-        console.error('[MagicMoney] shortMessage:', e.shortMessage)
-        console.error('[MagicMoney] details:', e.details)
-        console.error('[MagicMoney] cause:', e.cause)
-        const reason = e.cause?.details || e.cause?.message || e.shortMessage || e.details || (err as Error).message || 'Transaction failed'
-        const clean = new Error(reason)
+        const clean = err instanceof Error ? err : new Error(String(err))
         entry.reject(clean)
         throw clean
       }
-      entry.resolve(hash)
-      return hash
     }
 
     case 'web3:reject-tx': {
