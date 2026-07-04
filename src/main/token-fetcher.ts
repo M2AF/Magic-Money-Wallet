@@ -139,7 +139,7 @@ const DS_CHAIN: Record<string, string> = {
   polygon: 'polygon',   avalanche: 'avalanche', blast: 'blast',    gnosis: 'gnosis',
   abstract: 'abstract', apechain: 'apechain',   ronin: 'ronin',    soneium: 'soneium',
   worldchain: 'worldchain', zora: 'zora',       monad: 'monad',    solana: 'solana',
-  tron: 'tron',
+  tron: 'tron',             cardano: 'cardano',
 }
 
 // DefiLlama Coins API chain slugs — free, no key. Used to backfill prices for
@@ -177,6 +177,14 @@ function trustWalletUrl(chain: string, address: string): string | null {
   return `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/${tw}/assets/${address}/logo.png`
 }
 
+// Stable native-coin/chain icon. CoinGecko's assets.coingecko.com hotlinks now
+// 403 (blocked), so native logos come from DexScreener's chain-icon CDN, which
+// serves a PNG for every chain we support. Keyed by the DexScreener chain slug.
+function nativeChainLogo(chainId: string): string | null {
+  const ds = DS_CHAIN[chainId]
+  return ds ? `https://dd.dexscreener.com/ds-data/chains/${ds}.png` : null
+}
+
 function humanBalance(hexBalance: string, decimals: number): string {
   const raw = BigInt(hexBalance)
   if (raw === 0n) return '0'
@@ -198,7 +206,9 @@ function formatNum(total: number): string {
   if (total >= 1000) return total.toLocaleString('en-US', { maximumFractionDigits: 2 })
   if (total >= 1)    return total.toFixed(4).replace(/\.?0+$/, '')
   if (total >= 0.0001) return total.toPrecision(4)
-  return total.toExponential(2)
+  // Sub-0.0001 dust: a readable decimal, not scientific notation (e.g. USDC
+  // 0.000038 → "0.000038", not "3.80e-5"). Collapses to "0" below ~1e-8.
+  return total.toFixed(8).replace(/\.?0+$/, '') || '0'
 }
 
 function parseBalance(s: string): number {
@@ -317,8 +327,11 @@ async function fetchTokensForChain(
       const meta = (Array.isArray(metaJson) ? metaJson[i]?.result : null) ?? null
       const decimals = meta?.decimals ?? 18
       const balance  = humanBalance(t.tokenBalance, decimals)
+      // Only the REAL metadata logo here. The TrustWallet fallback is a guessed
+      // URL that 404s for most tokens, so it's applied LAST in enrichWithPrices —
+      // after the DexScreener image — otherwise it preempts a real logo (this is
+      // what hid PIXL, which has no Alchemy logo but does have a DexScreener one).
       const alchemyLogo = normalizeImageUrl(meta?.logo ?? null)
-      const twLogo = trustWalletUrl(chain.id, t.contractAddress)
       return {
         contractAddress: t.contractAddress,
         name:     meta?.name   ?? 'Unknown Token',
@@ -328,7 +341,7 @@ async function fetchTokensForChain(
         usdValue: null,
         nativeEquivalent: null,
         nativeSymbol: NATIVE_SYMBOL[chain.id] ?? 'ETH',
-        logoUri: alchemyLogo ?? twLogo,
+        logoUri: alchemyLogo,
         chain:      chain.id,
         chainLabel: chain.label,
         chainColor: chain.color
@@ -477,11 +490,21 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
           const mj = meta.ok ? await meta.json() as {
             asset_name: string | null
             onchain_metadata?: { name?: string; image?: string } | null
-            metadata?: { name?: string; logo?: string } | null
+            metadata?: { name?: string; ticker?: string; logo?: string; decimals?: number } | null
           } : null
 
+          // Decimals live in the off-chain token registry (Blockfrost `metadata`).
+          // Cardano native assets are raw integers on-chain, so WITHOUT this a
+          // 6-decimal token like USDCx shows its raw quantity (2,877,060 vs 2.877)
+          // and every USD/price calc is off by 10^decimals. Default 0 (most NFTs
+          // / unregistered tokens are genuinely 0-decimal).
+          const decimals = mj?.metadata?.decimals ?? 0
           const rawName = mj?.onchain_metadata?.name ?? mj?.metadata?.name ?? mj?.asset_name ?? null
           const name    = rawName ? decodeAssetName(rawName) : a.unit.slice(0, 8) + '…'
+          // Prefer the registry ticker (e.g. "USDCx") for the symbol; fall back to
+          // the (possibly truncated) name.
+          const ticker  = mj?.metadata?.ticker?.trim()
+          const symbol  = ticker || (name.length <= 10 ? name : name.slice(0, 8) + '…')
           const logo    = mj?.onchain_metadata?.image
             ? normalizeImageUrl(mj.onchain_metadata.image as string)
             : mj?.metadata?.logo
@@ -490,9 +513,9 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
 
           return {
             contractAddress: a.unit,
-            name, symbol: name.length <= 10 ? name : name.slice(0, 8) + '…',
-            decimals: 0,
-            balance: parseInt(a.quantity).toLocaleString('en-US'),
+            name, symbol,
+            decimals,
+            balance: humanBalance(a.quantity, decimals),
             usdValue: null, nativeEquivalent: null, nativeSymbol: 'ADA',
             logoUri: logo,
             chain: 'cardano', chainLabel: 'Cardano', chainColor: '#2A7DEA'
@@ -580,8 +603,11 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
       ...t,
       usdValue: `$${totalUsd.toFixed(2)}`,
       nativeEquivalent: `${nativeEq.toFixed(4)} ${sym}`,
-      // Prefer existing Alchemy logo, fall back to DexScreener image
-      logoUri: t.logoUri ?? normalizeImageUrl(ds?.imageUrl ?? null),
+      // Logo priority: real metadata logo (Alchemy/Cardano registry) → DexScreener
+      // image (verified to exist) → TrustWallet (a guessed path that 404s for most
+      // tokens, so it's the last resort). Preferring the guess over DexScreener is
+      // what hid PIXL's icon.
+      logoUri: t.logoUri ?? normalizeImageUrl(ds?.imageUrl ?? null) ?? trustWalletUrl(t.chain, t.contractAddress),
     }
   })
 }
@@ -625,7 +651,7 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
           name: 'Monad', symbol: 'MON', decimals: 18,
           balance: mon.toFixed(4),
           usdValue: null, nativeEquivalent: null, nativeSymbol: 'MON',
-          logoUri: 'https://assets.coingecko.com/coins/images/54540/small/monad.png',
+          logoUri: nativeChainLogo('monad'),
           chain: 'monad', chainLabel: 'Monad', chainColor: '#836EF9'
         })
       }
@@ -696,7 +722,7 @@ async function fetchTronTokens(address: string, config: WalletConfig): Promise<W
           name: 'Tron', symbol: 'TRX', decimals: 6,
           balance: trx.toLocaleString('en-US', { maximumFractionDigits: 6 }),
           usdValue: null, nativeEquivalent: null, nativeSymbol: 'TRX',
-          logoUri: 'https://assets.coingecko.com/coins/images/1094/small/tron-logo.png',
+          logoUri: nativeChainLogo('tron'),
           chain: TRON_CHAIN.id, chainLabel: TRON_CHAIN.label, chainColor: TRON_CHAIN.color
         })
       }

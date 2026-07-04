@@ -111,6 +111,14 @@ contextBridge.exposeInMainWorld('wallet', {
   offLayoutChanged: (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void) =>
     ipcRenderer.removeListener('layout:changed', cb as never),
 
+  // ── App version + in-app software update (Electron only) ─────────────────
+  getAppVersion:   ()                => ipcRenderer.invoke('app:get-version'),
+  updateCheck:     ()                => ipcRenderer.invoke('update:check'),
+  updateGetState:  ()                => ipcRenderer.invoke('update:get-state'),
+  updateInstall:   ()                => ipcRenderer.send('update:install'),
+  onUpdateStatus:  (cb: (s: unknown) => void) => ipcRenderer.on('update:status', (_e, v) => cb(v)),
+  offUpdateStatus: (cb: (s: unknown) => void) => ipcRenderer.removeListener('update:status', cb as never),
+
   // ── Phase 6: Built-in dApp browser (popup) ───────────────────────────
   openBrowser:     ()               => ipcRenderer.send('browser:open'),
   closeBrowser:    ()               => ipcRenderer.send('browser:close'),

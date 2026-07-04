@@ -1,6 +1,14 @@
 import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange, XchangeEstimate, XchangeCreateParams, ExchangeProvider } from './simpleswap'
 import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
 
+// In-app software update status (Electron only). Mirrors update-manager.ts.
+export interface UpdateStatus {
+  state: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'mac-available' | 'error'
+  version?: string
+  percent?: number
+  error?: string
+}
+
 export interface WalletAddresses {
   evm: string
   solana: string
@@ -329,6 +337,14 @@ declare global {
       layoutGetState?(): Promise<{ snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }>
       onLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
       offLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
+      // App version + in-app software update — Electron only; absent from the
+      // extension bridge (extensions self-update via the Chrome store).
+      getAppVersion?(): Promise<string>
+      updateCheck?(): Promise<UpdateStatus>
+      updateGetState?(): Promise<UpdateStatus>
+      updateInstall?(): void
+      onUpdateStatus?(cb: (s: UpdateStatus) => void): void
+      offUpdateStatus?(cb: (s: UpdateStatus) => void): void
       // Phase 6: popup dApp browser
       openBrowser(): void
       closeBrowser(): void

@@ -6,7 +6,7 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -84,6 +84,7 @@ import {
 } from './browser-manager'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
+import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
 import { openseaFetch, heliusRpcUrl, canOpensea, tatumRpcUrl } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
@@ -829,6 +830,15 @@ export function registerIpcHandlers(): void {
   ipcMain.on('layout:detach', () => layoutDetach())
   ipcMain.on('layout:toggle', () => layoutToggle())
   ipcMain.handle('layout:get-state', () => getLayoutState())
+
+  // ── App version + in-app software update ──────────────────────────────────
+  // Drives electron-updater (update-manager.ts). The renderer subscribes to the
+  // 'update:status' push for live progress; 'update:check' also returns the
+  // current snapshot so a freshly-opened Settings sheet has state immediately.
+  ipcMain.handle('app:get-version', () => app.getVersion())
+  ipcMain.handle('update:check', () => { startUpdateCheck({ silent: false }); return getUpdateState() })
+  ipcMain.handle('update:get-state', () => getUpdateState())
+  ipcMain.on('update:install', () => installUpdate())
 
   // ── Phase 6: Web3 dApp requests (from web3-inject preload) ───────────────
   ipcMain.handle('web3:request', async (

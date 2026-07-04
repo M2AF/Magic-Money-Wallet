@@ -1,10 +1,10 @@
-import { app, BrowserWindow, shell, dialog, session, net } from 'electron'
+import { app, BrowserWindow, shell, session, net } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setSwapFetch } from './swap-proxy'
 import { setMainWindow } from './browser-manager'
 import { initWalletConnect } from './wc-client'
-import { autoUpdater } from 'electron-updater'
+import { startUpdateCheck } from './update-manager'
 
 // Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
 // when loading IPFS gateway images in Electron's Chromium engine
@@ -170,21 +170,10 @@ app.whenReady().then(() => {
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 
-  if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify()
-    autoUpdater.on('update-downloaded', () => {
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'Update Ready',
-        message: 'A new version of MagicMoney Wallet is ready.',
-        detail: 'Restart now to apply the update.',
-        buttons: ['Restart Now', 'Later'],
-        defaultId: 0
-      }).then(({ response }) => {
-        if (response === 0) autoUpdater.quitAndInstall()
-      })
-    })
-  }
+  // Passive check on launch so Settings can show "update available" before the
+  // user clicks. The in-app Settings button (update-manager) drives the actual
+  // download + restart — no forced native dialog. No-op in dev (unpackaged).
+  startUpdateCheck({ silent: true })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

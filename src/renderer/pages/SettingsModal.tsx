@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import type { UpdateStatus } from '../types/wallet'
 
 interface Props {
   onClose: () => void
@@ -18,6 +19,40 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
   const [testnetError, setTestnetError] = useState<string | null>(null)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
+  const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
+
+  // Software update is Electron-only — the extension bridge omits these methods
+  // (extensions self-update via the Chrome store), so the whole section hides.
+  // Same feature-detect idiom as WindowLayout's layoutSupported().
+  const updateSupported = typeof window.wallet.updateCheck === 'function'
+  useEffect(() => {
+    if (!updateSupported) return
+    window.wallet.getAppVersion?.().then(setAppVersion).catch(() => {})
+    window.wallet.updateGetState?.().then(setUpdate).catch(() => {})
+    const onStatus = (s: UpdateStatus) => setUpdate(s)
+    window.wallet.onUpdateStatus?.(onStatus)
+    return () => window.wallet.offUpdateStatus?.(onStatus)
+  }, [updateSupported])
+
+  // One adaptive button: a real terminal state (downloaded / mac-available)
+  // applies the update; anything idle re-checks; busy states are non-interactive.
+  const updateBusy = update.state === 'checking' || update.state === 'downloading' || update.state === 'available'
+  const onUpdateClick = () => {
+    if (update.state === 'downloaded' || update.state === 'mac-available') { window.wallet.updateInstall?.(); return }
+    if (updateBusy) return
+    window.wallet.updateCheck?.().then(setUpdate).catch(() => {})
+  }
+  const updateLabel = update.state === 'checking' ? 'Checking for updates…'
+    : update.state === 'available' ? 'Update available — preparing…'
+    : update.state === 'downloading' ? `Downloading update… ${update.percent ?? 0}%`
+    : update.state === 'downloaded' ? 'Restart to Update'
+    : update.state === 'mac-available' ? `Download update${update.version ? ` v${update.version}` : ''}`
+    : 'Check for Updates'
+  const updateSub = update.state === 'downloaded' ? 'A new version is ready — relaunch to apply.'
+    : update.state === 'mac-available' ? 'Opens the download page (macOS installs manually).'
+    : update.state === 'not-available' ? (update.error ?? `You're on the latest version${appVersion ? ` (v${appVersion})` : ''}.`)
+    : appVersion ? `Current version v${appVersion}` : 'Keep the wallet up to date.'
 
   const refreshSiteCount = () => {
     window.wallet.getConnectedSites().then(s => setSiteCount(s.length)).catch(() => setSiteCount(null))
@@ -170,8 +205,24 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
         </SettingsSection>
 
+        {updateSupported && (
+          <SettingsSection label="Software Update">
+            <SettingsRow
+              icon={update.state === 'downloaded' ? '🔄' : '⬇️'}
+              label={updateLabel}
+              sublabel={updateSub}
+              onClick={onUpdateClick}
+              disabled={updateBusy}
+              noChevron
+            />
+            {update.state === 'error' && update.error && (
+              <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{update.error}</div>
+            )}
+          </SettingsSection>
+        )}
+
         <SettingsSection label="About">
-          <SettingsRow icon="⚡" label="MagicMoney Wallet" sublabel="Phase 10 — WalletConnect" noChevron />
+          <SettingsRow icon="⚡" label="MagicMoney Wallet" sublabel={appVersion ? `Version ${appVersion}` : 'Phase 10 — WalletConnect'} noChevron />
           <SettingsRow icon="🔗" label="Powered by ChainLens" sublabel="chainlensnft.info" noChevron />
         </SettingsSection>
 
