@@ -29,8 +29,12 @@ import { loadConfig } from './secure-store'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
 
-// Chrome bar height in the popup: 32px titlebar + 48px address bar
-const CHROME_HEIGHT = 80
+// Height (px) reserved above the dApp view for the browser chrome (titlebar +
+// address bar). The exact height depends on CSS/layout, so the chrome renderer
+// measures it and reports it live via `browser:set-chrome-height`; this value is
+// only a first-paint fallback until that first report arrives. (Previously a stale
+// hardcoded 80 left the dApp view covering the bottom of the address bar.)
+let chromeHeight = 80
 
 // Each open tab owns its own WebContentsView (its own dApp page + injected provider).
 // Only the ACTIVE tab's view is attached to the window; the rest stay alive but hidden.
@@ -111,7 +115,19 @@ function layoutActiveView(): void {
   const t = activeTab()
   if (!t || !popupWin || popupWin.isDestroyed()) return
   const [w, h] = popupWin.getContentSize()
-  t.view.setBounds({ x: 0, y: CHROME_HEIGHT, width: w, height: Math.max(0, h - CHROME_HEIGHT) })
+  t.view.setBounds({ x: 0, y: chromeHeight, width: w, height: Math.max(0, h - chromeHeight) })
+}
+
+/**
+ * The chrome renderer measures its real height (titlebar + address bar) and reports
+ * it here so the dApp view sits flush beneath the address bar — never covering it,
+ * never leaving a gap — regardless of future CSS/layout changes.
+ */
+export function setChromeHeight(h: number): void {
+  const next = Math.round(h)
+  if (!Number.isFinite(next) || next <= 0 || next === chromeHeight) return
+  chromeHeight = next
+  layoutActiveView()
 }
 
 function navCanGo(wc: WebContents): { canBack: boolean; canForward: boolean } {

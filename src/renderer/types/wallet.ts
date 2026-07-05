@@ -335,6 +335,7 @@ declare global {
       layoutDetach?(): void
       layoutToggle?(): void
       browserToggleMaximize?(): void
+      browserSetChromeHeight?(h: number): void
       layoutGetState?(): Promise<{ snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }>
       onLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void): void
       offLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void): void

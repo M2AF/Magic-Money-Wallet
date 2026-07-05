@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('wallet', {
   layoutDetach:   ()                 => ipcRenderer.send('layout:detach'),
   layoutToggle:   ()                 => ipcRenderer.send('layout:toggle'),
   browserToggleMaximize: ()          => ipcRenderer.send('browser:toggle-maximize'),
+  browserSetChromeHeight: (h: number) => ipcRenderer.send('browser:set-chrome-height', h),
   layoutGetState: ()                 => ipcRenderer.invoke('layout:get-state'),
   onLayoutChanged:  (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void) =>
     ipcRenderer.on('layout:changed', (_e, v) => cb(v)),

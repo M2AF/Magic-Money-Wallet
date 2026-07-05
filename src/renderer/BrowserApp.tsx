@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { FullScreenButton, SnapButtons } from './components/WindowLayout'
 import APP_HUB, { type AppEntry } from './data/app-hub'
 import wordmarkUrl from './assets/wordmark.png'
@@ -121,6 +121,25 @@ export function BrowserApp() {
     navigate(inputUrl)
   }
 
+  // Report the real chrome height (titlebar + address bar) to the main process so
+  // the dApp view sits flush beneath the address bar — never covering its bottom
+  // edge. The content div's viewport-top IS the chrome height; re-measure on any
+  // layout change (window resize, font load) so it can never drift.
+  const contentRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const report = () => {
+      const top = Math.round(el.getBoundingClientRect().top)
+      if (top > 0) window.wallet.browserSetChromeHeight?.(top)
+    }
+    report()
+    const ro = new ResizeObserver(report)
+    ro.observe(document.body)
+    window.addEventListener('resize', report)
+    return () => { ro.disconnect(); window.removeEventListener('resize', report) }
+  }, [])
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       {/* ── Custom titlebar ──────────────────────────────────────────── */}
@@ -132,7 +151,7 @@ export function BrowserApp() {
           src={logoUrl}
           alt="MagicMoney"
           draggable={false}
-          style={{ height: 30, width: 'auto', objectFit: 'contain', marginLeft: 2, userSelect: 'none', pointerEvents: 'none' }}
+          style={{ height: 55, width: 'auto', objectFit: 'contain', marginLeft: 2, position: 'relative', top: 6, userSelect: 'none', pointerEvents: 'none' }}
         />
         <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
         <div className="titlebar-controls">
@@ -146,7 +165,7 @@ export function BrowserApp() {
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6,
         padding: '6px 10px',
-        background: 'var(--surface)',
+        background: 'var(--bg)',
         borderBottom: '1px solid var(--border)',
         flexShrink: 0
       }}>
@@ -265,7 +284,7 @@ export function BrowserApp() {
       {/* ── Content area (filled by WebContentsView from main process) ─────
           While the tab overview is open the live view is detached, so we paint
           the snapshot captured on open here to keep the dApp visible behind it. */}
-      <div style={{
+      <div ref={contentRef} style={{
         flex: 1,
         background: 'transparent',
         ...(snapshot ? {
