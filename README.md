@@ -17,7 +17,7 @@ It manages **22 networks** across six ecosystems from a single seed phrase, conn
 - **Built-in swaps** — same-chain DEX aggregation and cross-chain bridging/exchange in one Swap page.
 - **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
 - **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
-- **Auto-updating desktop app** and a **side-panel mode** in the extension (Phantom-style dock).
+- **One-click updates** — a **Software Update** button in Settings pulls new versions straight from GitHub Releases (Windows/Linux apply silently; macOS opens the download). The extension also has a **side-panel mode** (Phantom-style dock).
 
 ---
 
@@ -61,7 +61,12 @@ Download the latest installer from [GitHub Releases](../../releases):
 - **macOS** — `MagicMoney-Wallet-x.x.x.dmg`
 - **Linux** — `MagicMoney-Wallet-x.x.x.AppImage`
 
-The app checks for updates automatically and prompts you to restart when one is ready.
+**Staying up to date.** The app checks for updates on launch, and **Settings → Software Update** is a one-click button that adapts through the whole flow — *Check for Updates → Downloading NN% → Restart to Update*:
+
+- **Windows / Linux (AppImage)** — the update downloads and the app relaunches into the new version. No reinstall, no hunting for a download.
+- **macOS** — the button detects the new version and opens the [Releases](../../releases) page for a quick drag-install. (Silent macOS auto-apply requires an Apple Developer ID cert + notarization; see *Build & Release*.)
+
+Shipping a new version to everyone is just a release (below) — users get it from the button.
 
 ### Browser Extension
 1. Download `magicmoney-extension-vx.x.x.zip` from [GitHub Releases](../../releases)
@@ -202,7 +207,9 @@ Pushing a version tag triggers `.github/workflows/release.yml`, which:
 2. Publishes installers to GitHub Releases via `electron-builder --publish always`.
 3. Builds the Chrome extension and uploads the `.zip` to the same release.
 
-The release scripts handle the whole flow — bump, commit, tag, push.
+The release scripts handle the whole flow — bump, commit, tag, push. `electron-builder --publish always` also uploads the `latest.yml` / `latest-mac.yml` / `latest-linux.yml` update feeds that the in-app **Software Update** button reads, so publishing a release is all it takes for existing installs to update themselves.
+
+> **Signing note.** Builds are currently unsigned (`CSC_IDENTITY_AUTO_DISCOVERY: false`). Windows NSIS and Linux AppImage auto-*apply* updates fine unsigned; a first-time Windows install may show a SmartScreen warning. **macOS is different** — Squirrel.Mac refuses to apply an unsigned update, so macOS uses the assisted-download fallback until an Apple Developer ID cert + notarization secrets (`CSC_LINK` / `CSC_KEY_PASSWORD` + notarize creds) are added, at which point macOS can be flipped to silent auto-update with a build-config change.
 
 ---
 
@@ -211,7 +218,8 @@ The release scripts handle the whole flow — bump, commit, tag, push.
 ```
 src/
 ├── main/                    ← Privileged logic (Electron main + shared core)
-│   ├── index.ts             ← App entry, BrowserWindow, auto-updater
+│   ├── index.ts             ← App entry, BrowserWindow, startup update check
+│   ├── update-manager.ts    ← electron-updater state machine (in-app Update button)
 │   ├── wallet-core.ts       ← BIP-39/32/44 derivation — keys never leave here
 │   ├── chain-config.ts      ← All 22 networks, RPC endpoints, fallback lists
 │   ├── api-proxy.ts         ← Proxy-first URL/header rewriting to the Worker
