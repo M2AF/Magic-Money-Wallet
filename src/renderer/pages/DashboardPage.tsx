@@ -630,6 +630,32 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onS
   )
 }
 
+// Eye toggle beside the portfolio total — hides/shows the balance from view.
+function EyeToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hidden ? 'Show balance' : 'Hide balance'}
+      aria-label={hidden ? 'Show balance' : 'Hide balance'}
+      style={{ background: 'none', border: 'none', padding: 4, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 0 }}
+    >
+      {hidden ? (
+        <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+          <line x1="1" y1="1" x2="23" y2="23"/>
+        </svg>
+      ) : (
+        <svg width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+      )}
+    </button>
+  )
+}
+
 // 7d PnL chip — sits beside the portfolio total (e.g. "▼ 6.20%").
 function PortfolioPnl({ data }: { data: number[] }) {
   if (data.length < 2) return null
@@ -748,6 +774,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [selectedNft, setSelectedNft] = useState<WalletCollectible | null>(null)
   const allNfts = collectibles?.items ?? []
+
+  // Privacy toggle — hide the portfolio total from view. Persisted globally
+  // (not per-account) so it stays hidden across account switches and restarts.
+  const [balanceHidden, setBalanceHidden] = useState<boolean>(() => localStorage.getItem('mmw_balance_hidden') === '1')
+  const toggleBalanceHidden = useCallback(() => {
+    setBalanceHidden(prev => { const next = !prev; localStorage.setItem('mmw_balance_hidden', next ? '1' : '0'); return next })
+  }, [])
 
   const hideItem = useCallback((id: string) => {
     setHiddenItems(prev => { const next = new Set(prev).add(id); saveSet(hiddenKey, next); return next })
@@ -941,11 +974,12 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               Calculating…
             </div>
           ) : totalUsd ? (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-                {totalUsd}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
+                {balanceHidden ? '••••••' : totalUsd}
               </div>
-              {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
+              <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} />
+              {!balanceHidden && balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
                 <PortfolioPnl data={balances.portfolioSparkline} />
               )}
             </div>

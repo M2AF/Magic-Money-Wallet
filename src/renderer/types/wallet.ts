@@ -334,9 +334,10 @@ declare global {
       layoutSnap?(side: 'left' | 'right'): void
       layoutDetach?(): void
       layoutToggle?(): void
-      layoutGetState?(): Promise<{ snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }>
-      onLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
-      offLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void): void
+      browserToggleMaximize?(): void
+      layoutGetState?(): Promise<{ snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }>
+      onLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void): void
+      offLayoutChanged?(cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void): void
       // App version + in-app software update — Electron only; absent from the
       // extension bridge (extensions self-update via the Chrome store).
       getAppVersion?(): Promise<string>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { AppPage, WalletAddresses, MainTab } from './types/wallet'
 import logoUrl from './assets/logo.png'
 import bannerUrl from './assets/title-bar.png'
+import wordmarkUrl from './assets/wordmark.png'
 import { LoadingPage } from './pages/LoadingPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { CreatePage } from './pages/CreatePage'
@@ -16,7 +17,6 @@ import { AppHubPage } from './pages/AppHubPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
-import { FullScreenButton } from './components/WindowLayout'
 
 export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
@@ -137,9 +137,9 @@ export function App() {
       {/* Custom titlebar — logo only, no text, no divider */}
       <div className="titlebar">
         <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
+        <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
         <div className="titlebar-controls">
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
-          <FullScreenButton />
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
         </div>
       </div>

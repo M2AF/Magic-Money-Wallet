@@ -80,7 +80,8 @@ import {
   layoutSnap,
   layoutDetach,
   layoutToggle,
-  getLayoutState
+  getLayoutState,
+  browserToggleMaximize
 } from './browser-manager'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
@@ -829,6 +830,7 @@ export function registerIpcHandlers(): void {
   ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))
   ipcMain.on('layout:detach', () => layoutDetach())
   ipcMain.on('layout:toggle', () => layoutToggle())
+  ipcMain.on('browser:toggle-maximize', () => browserToggleMaximize())
   ipcMain.handle('layout:get-state', () => getLayoutState())
 
   // ── App version + in-app software update ──────────────────────────────────

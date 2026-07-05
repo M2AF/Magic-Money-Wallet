@@ -258,17 +258,33 @@ export function openBrowserWindow(): void {
   })
 
   popupWin.on('resize', () => layoutActiveView())
+  // Keep the green (maximize) button's active styling in sync with the OS state.
+  popupWin.on('maximize', () => broadcastLayout())
+  popupWin.on('unmaximize', () => broadcastLayout())
 }
 
 // ── Window layout control ────────────────────────────────────────────────────
 
 /** Current snap state, pushed to both renderers so their controls stay in sync. */
-export function getLayoutState(): { snapped: boolean; side: SnapSide | null; browserOpen: boolean } {
+export function getLayoutState(): { snapped: boolean; side: SnapSide | null; browserOpen: boolean; maximized: boolean } {
   return {
     snapped: snapSide !== null,
     side: snapSide,
     browserOpen: !!(popupWin && !popupWin.isDestroyed()),
+    maximized: !!(popupWin && !popupWin.isDestroyed() && popupWin.isMaximized()),
   }
+}
+
+/**
+ * Green titlebar button (browser only): maximize the dApp browser window to the
+ * display's work area, or restore it if already maximized. Independent of the
+ * side-by-side snap (which uses setBounds, not maximize), so the two don't fight.
+ */
+export function browserToggleMaximize(): void {
+  if (!popupWin || popupWin.isDestroyed()) return
+  if (popupWin.isFullScreen()) popupWin.setFullScreen(false)
+  if (popupWin.isMaximized()) popupWin.unmaximize()
+  else popupWin.maximize()
 }
 
 /** Push the layout state to the wallet + browser chromes (green button / dropdown). */

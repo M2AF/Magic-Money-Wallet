@@ -6,17 +6,15 @@
  * paired workspace. The actual window positioning happens in the main process
  * (browser-manager.ts: layoutSnap / layoutDetach / layoutToggle).
  *
- *   • FullScreenButton — the green traffic-light dot in each titlebar (toggles tile).
- *   • LayoutMenu       — the dropdown in the browser chrome (Enter / Left / Right / Detach).
- *
- * LayoutMenu uses a NATIVE <select> on purpose (same reason as NetworkSwitcher): its
- * option popup is OS-drawn and floats ABOVE the dApp WebContentsView, whereas a custom
- * HTML dropdown would be hidden behind that view.
+ *   • FullScreenButton — the green traffic-light dot in the BROWSER titlebar. It
+ *     maximizes/restores the dApp browser window only (never touches the wallet).
+ *   • SnapButtons      — two pills in the browser chrome (‹ Wallet / Wallet ›) that
+ *     tile the wallet+browser to that side; clicking the active side un-tiles.
  */
 import { useEffect, useState } from 'react'
 
 type Side = 'left' | 'right'
-interface LayoutState { snapped: boolean; side: Side | null; browserOpen: boolean }
+interface LayoutState { snapped: boolean; side: Side | null; browserOpen: boolean; maximized: boolean }
 
 // The window-layout API only exists in the Electron preload — the browser
 // extension's bridge has no second window to tile. Everything here is
@@ -26,7 +24,7 @@ const layoutSupported = () => typeof window.wallet.layoutGetState === 'function'
 
 /** Subscribe to the main-process layout state and keep it fresh. */
 function useLayoutState(): LayoutState {
-  const [state, setState] = useState<LayoutState>({ snapped: false, side: null, browserOpen: false })
+  const [state, setState] = useState<LayoutState>({ snapped: false, side: null, browserOpen: false, maximized: false })
   useEffect(() => {
     window.wallet.layoutGetState?.().then(setState).catch(() => {})
     const onChange = (s: LayoutState) => setState(s)
@@ -36,78 +34,68 @@ function useLayoutState(): LayoutState {
   return state
 }
 
-/** Green titlebar dot — tiles the two windows, or un-tiles them if already tiled. */
+/** Green titlebar dot (browser only) — maximizes/restores the dApp browser window. */
 export function FullScreenButton() {
-  const { snapped } = useLayoutState()
+  const { maximized } = useLayoutState()
   if (!layoutSupported()) return null
   return (
     <button
       type="button"
-      className={`titlebar-btn full${snapped ? ' active' : ''}`}
-      onClick={() => window.wallet.layoutToggle?.()}
-      title={snapped ? 'Exit Full Screen Mode' : 'Full Screen Mode'}
-      aria-label={snapped ? 'Exit Full Screen Mode' : 'Full Screen Mode'}
+      className={`titlebar-btn full${maximized ? ' active' : ''}`}
+      onClick={() => window.wallet.browserToggleMaximize?.()}
+      title={maximized ? 'Restore Browser' : 'Maximize Browser'}
+      aria-label={maximized ? 'Restore Browser' : 'Maximize Browser'}
     />
   )
 }
 
-/** Dropdown (left of the tabs button) with the full set of layout actions. */
-export function LayoutMenu() {
+/**
+ * Two pills (left of the tabs button) that tile the wallet + browser side by side.
+ * "‹ Wallet" puts the wallet on the left, "Wallet ›" on the right. Clicking the
+ * side that's already active un-tiles (restores both windows to pre-snap bounds).
+ */
+export function SnapButtons() {
   const { snapped, side } = useLayoutState()
-
-  const act = (value: string) => {
-    switch (value) {
-      case 'enter':  window.wallet.layoutSnap?.(side ?? 'left'); break
-      case 'left':   window.wallet.layoutSnap?.('left');  break
-      case 'right':  window.wallet.layoutSnap?.('right'); break
-      case 'detach': window.wallet.layoutDetach?.(); break
-    }
-  }
-
   if (!layoutSupported()) return null
 
-  const label = snapped ? (side === 'right' ? 'Wallet ›' : '‹ Wallet') : 'Layout'
+  const snap = (target: Side) => {
+    if (snapped && side === target) window.wallet.layoutDetach?.()
+    else window.wallet.layoutSnap?.(target)
+  }
 
-  return (
-    <div
-      title="Window layout"
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 8px', background: 'var(--surface-raised)',
-        border: `1px solid ${snapped ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 12,
-        flexShrink: 0,
-      }}
-    >
-      {/* split-pane icon */}
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-        style={{ color: snapped ? 'var(--accent)' : 'var(--text-muted)', flexShrink: 0 }}>
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <line x1={side === 'right' ? '15' : '9'} y1="4" x2={side === 'right' ? '15' : '9'} y2="20" />
-      </svg>
-      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-        style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-
-      {/* Native select overlay — OS-drawn options float above the dApp view. */}
-      <select
-        aria-label="Window layout"
-        value=""
-        onChange={e => { act(e.target.value); e.currentTarget.value = '' }}
+  const pill = (target: Side, label: string) => {
+    const active = snapped && side === target
+    return (
+      <button
+        type="button"
+        onClick={() => snap(target)}
+        title={active ? 'Un-tile windows' : `Snap wallet to the ${target}`}
+        aria-pressed={active ? 'true' : 'false'}
         style={{
-          position: 'absolute', inset: 0, width: '100%', height: '100%',
-          opacity: 0, cursor: 'pointer', border: 'none', colorScheme: 'dark',
+          display: 'flex', alignItems: 'center', gap: 4,
+          padding: '4px 8px', cursor: 'pointer', flexShrink: 0,
+          background: active ? 'var(--accent)' : 'var(--surface-raised)',
+          border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+          borderRadius: 12,
+          fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap',
+          color: active ? '#fff' : 'var(--text-secondary)',
         }}
       >
-        <option value="" disabled hidden>Window layout</option>
-        <option value="enter">Enter Full Screen Mode</option>
-        <option value="left">Left side panel (wallet)</option>
-        <option value="right">Right side panel (wallet)</option>
-        <option value="detach">Detach</option>
-      </select>
+        {/* split-pane icon: the divider sits on the wallet's side */}
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+          style={{ color: active ? '#fff' : 'var(--text-muted)', flexShrink: 0 }}>
+          <rect x="3" y="4" width="18" height="16" rx="2" />
+          <line x1={target === 'right' ? '15' : '9'} y1="4" x2={target === 'right' ? '15' : '9'} y2="20" />
+        </svg>
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+      {pill('left', '‹ Wallet')}
+      {pill('right', 'Wallet ›')}
     </div>
   )
 }

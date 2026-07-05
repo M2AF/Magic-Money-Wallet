@@ -82,6 +82,7 @@ html, body, #root {
 
 /* ── Custom titlebar ─────────────────────────────────────────────────────────── */
 .titlebar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -89,6 +90,32 @@ html, body, #root {
   height: 48px;
   -webkit-app-region: drag;
   flex-shrink: 0;
+}
+
+/* Centered "MAGIC MONEY" wordmark — absolutely positioned so it stays dead-center
+   in the titlebar regardless of the side elements (logo/title on the left, the
+   traffic-light controls on the right). Non-interactive; part of the drag region. */
+.titlebar-wordmark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  height: 32px;
+  width: auto;
+  max-width: 50%;
+  object-fit: contain;
+  opacity: 0.9;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+/* Wallet titlebar shows a larger wordmark than the browser (more headroom). */
+.app-shell .titlebar-wordmark {
+  height: 64px;
+  max-width: 65%;
+  top: 75%;
 }
 
 .titlebar-title {

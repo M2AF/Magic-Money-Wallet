@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { FullScreenButton, LayoutMenu } from './components/WindowLayout'
+import { FullScreenButton, SnapButtons } from './components/WindowLayout'
 import APP_HUB, { type AppEntry } from './data/app-hub'
+import wordmarkUrl from './assets/wordmark.png'
+import logoUrl from './assets/logo.png'
 
 const HOME = 'https://chainlensnft.info'
 
@@ -126,16 +128,13 @@ export function BrowserApp() {
         className="titlebar"
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 4 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          </svg>
-          <span className="titlebar-title" style={{ maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {title}
-          </span>
-        </div>
+        <img
+          src={logoUrl}
+          alt="MagicMoney"
+          draggable={false}
+          style={{ height: 30, width: 'auto', objectFit: 'contain', marginLeft: 2, userSelect: 'none', pointerEvents: 'none' }}
+        />
+        <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
         <div className="titlebar-controls">
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
           <FullScreenButton />
@@ -239,8 +238,8 @@ export function BrowserApp() {
           )}
         </form>
 
-        {/* Window layout (Full Screen Mode / side / detach) — left of the tabs button */}
-        <LayoutMenu />
+        {/* Snap the wallet + browser side by side — left of the tabs button */}
+        <SnapButtons />
 
         {/* Open tabs */}
         <TabsMenu

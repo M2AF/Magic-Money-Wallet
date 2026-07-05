@@ -105,10 +105,11 @@ contextBridge.exposeInMainWorld('wallet', {
   layoutSnap:     (side: 'left' | 'right') => ipcRenderer.send('layout:snap', side),
   layoutDetach:   ()                 => ipcRenderer.send('layout:detach'),
   layoutToggle:   ()                 => ipcRenderer.send('layout:toggle'),
+  browserToggleMaximize: ()          => ipcRenderer.send('browser:toggle-maximize'),
   layoutGetState: ()                 => ipcRenderer.invoke('layout:get-state'),
-  onLayoutChanged:  (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void) =>
+  onLayoutChanged:  (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void) =>
     ipcRenderer.on('layout:changed', (_e, v) => cb(v)),
-  offLayoutChanged: (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean }) => void) =>
+  offLayoutChanged: (cb: (s: { snapped: boolean; side: 'left' | 'right' | null; browserOpen: boolean; maximized: boolean }) => void) =>
     ipcRenderer.removeListener('layout:changed', cb as never),
 
   // ── App version + in-app software update (Electron only) ─────────────────
