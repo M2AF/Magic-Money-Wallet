@@ -73,18 +73,40 @@ export function clientOk(request, env) {
 }
 
 /**
- * Fixed-window per-IP counter in KV. Approximate (KV is eventually consistent;
- * concurrent requests can undercount) and fail-open — this is abuse mitigation,
- * not a hard guarantee. Returns true when the request is allowed.
+ * Fixed-window per-IP counter. Approximate and fail-open — this is abuse
+ * mitigation, not a hard guarantee. Returns true when the request is allowed.
+ *
+ * Hybrid memory/KV design to respect the KV free tier's 1,000 writes/day cap
+ * (the old write-per-request version exhausted it on its own, which starved
+ * every other cache on the Worker):
+ *  - Counts live in per-isolate memory; clients under `limit/4` in a window
+ *    never touch KV at all (the overwhelming majority of traffic).
+ *  - A client that crosses that floor is merged with the cross-isolate KV
+ *    count and persisted at most every 25th request, so a real abuser is
+ *    still blocked across isolates/colos for pennies of write quota.
  */
+const _rlMem = new Map()  // `${bucket}:${ip}:${window}` → in-isolate count
+
 export async function rateLimit(request, env, ctx, { limit = 600, windowSec = 60, bucket = 'rl' } = {}) {
   if (!env.CACHE) return true
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown'
   const window = Math.floor(Date.now() / 1000 / windowSec)
   const key = `${bucket}:${ip}:${window}`
-  let count = 0
-  try { count = (await env.CACHE.get(key, 'json')) || 0 } catch { return true }
+
+  // Bound memory: when the map grows, drop entries from past windows.
+  if (_rlMem.size > 5000) {
+    for (const k of _rlMem.keys()) if (!k.endsWith(`:${window}`)) _rlMem.delete(k)
+  }
+  const mem = (_rlMem.get(key) || 0) + 1
+  _rlMem.set(key, mem)
+
+  const floor = Math.max(10, Math.floor(limit / 4))
+  if (mem < floor) return true  // cold client — zero KV traffic
+
+  let kvCount = 0
+  try { kvCount = (await env.CACHE.get(key, 'json')) || 0 } catch { return true }
+  const count = Math.max(mem, kvCount + 1)
   if (count >= limit) return false
-  cachePut(env, ctx, key, count + 1, windowSec + 5)
+  if (mem === floor || mem % 25 === 0) cachePut(env, ctx, key, count, windowSec + 5)
   return true
 }
