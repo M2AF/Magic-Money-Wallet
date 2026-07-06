@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 429,
+  "totalApps": 430,
   "totalChains": 19,
   "chains": [
     {
@@ -152,7 +152,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Perps & Prediction Markets",
       "short": "Prediction",
-      "count": 22
+      "count": 23
     },
     {
       "name": "Wallet",
@@ -242,7 +242,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "monad",
-      "count": 35
+      "count": 36
     },
     {
       "id": "optimism",
@@ -6794,6 +6794,20 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=hydrodrip.io&sz=64",
       "description": "Token-reward and coin-flip platform.",
+      "chainCount": 1,
+      "coverage": 5
+    },
+    {
+      "id": "leverup",
+      "name": "LeverUp",
+      "website": "https://app.leverup.xyz/",
+      "category": "Perps & Prediction Markets",
+      "chains": [
+        "monad"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=leverup.xyz&sz=64",
+      "description": "A decentralized leverage and prediction market platform on Monad designed for high-performance trading and speculative event outcomes.",
       "chainCount": 1,
       "coverage": 5
     },

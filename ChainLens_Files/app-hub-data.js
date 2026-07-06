@@ -4429,6 +4429,16 @@
       description: "Token-reward and coin-flip platform.",
     },
     {
+      id:          "leverup"  ,
+      name:        "LeverUp",
+      website:     "https://app.leverup.xyz/",
+      category:    "Perps & Prediction Markets",
+      chains:      ["monad"],
+      featured:    false,
+      favicon:     "https://www.google.com/s2/favicons?domain=leverup.xyz&sz=64",
+      description: "A decentralized leverage and prediction market platform on Monad designed for high-performance trading and speculative event outcomes."
+    },
+    {
       id:          "minute-markets",
       name:        "Minute Markets",
       website:     "https://www.minutemarkets.io/",

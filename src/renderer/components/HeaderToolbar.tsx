@@ -42,7 +42,7 @@ export function HeaderToolbar({
           and push the sparkline out of view. */}
       {!!sidebarFn && <NetworkSwitcher />}
 
-      <div style={{ display: 'flex', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 5 }}>
       {/* Sidebar toggle — extension only */}
       {!!sidebarFn && (
         <button

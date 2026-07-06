@@ -662,7 +662,7 @@ function PortfolioPnl({ data }: { data: number[] }) {
   const isUp = data[data.length - 1] >= data[0]
   const changePct = data[0] > 0 ? ((data[data.length - 1] - data[0]) / data[0]) * 100 : 0
   return (
-    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isUp ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
+    <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isUp ? '#22c55e' : '#ef4444', whiteSpace: 'nowrap' }}>
       {isUp ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}%
     </span>
   )
@@ -970,18 +970,22 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             )}
           </h1>
           {!hasLoadedOnce ? (
-            <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
               Calculating…
             </div>
           ) : totalUsd ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <div style={{ fontSize: 28, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
+              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
                 {balanceHidden ? '••••••' : totalUsd}
               </div>
-              <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} />
-              {!balanceHidden && balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
-                <PortfolioPnl data={balances.portfolioSparkline} />
-              )}
+              {/* Eye stacked ABOVE the 7d % — keeps the cluster narrow so it doesn't
+                  push the toolbar/network switcher off-screen in the extension. */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+                <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} />
+                {!balanceHidden && balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
+                  <PortfolioPnl data={balances.portfolioSparkline} />
+                )}
+              </div>
             </div>
           ) : null}
           {lastUpdated && (
