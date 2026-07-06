@@ -695,14 +695,14 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Phase 5: Market Watch ────────────────────────────────────────────────
-  ipcMain.handle('wallet:get-market', () => fetchMarketTop100())
+  ipcMain.handle('wallet:get-market', () => fetchMarketTop100(loadConfig()))
 
   ipcMain.handle('wallet:search-market', (_event, query: string) =>
-    searchMarketCoins(query)
+    searchMarketCoins(query, loadConfig())
   )
 
   ipcMain.handle('wallet:get-coin-chart', (_event, coinId: string, days: string) =>
-    fetchCoinChart(coinId, days)
+    fetchCoinChart(coinId, days, loadConfig())
   )
 
   // ── Phase 5: Tokens + Collectibles ───────────────────────────────────────

@@ -8,9 +8,11 @@
  * the monthly-quota savings come from. Per-user calls (balances, owner sweeps)
  * are passed straight through.
  *
- * Keyless, per-IP endpoints (CoinGecko, DexScreener, DefiLlama, Magic Eden,
- * mempool.space, Binance) are intentionally NOT proxied — they stay on the
- * client so each user keeps their own IP-based quota.
+ * Keyless, per-IP endpoints (DexScreener, DefiLlama, Magic Eden, mempool.space,
+ * Binance) are intentionally NOT proxied — they stay on the client so each user
+ * keeps their own IP-based quota. Market Watch CoinGecko data is the exception:
+ * market.js serves it from a cron-refreshed global KV cache (not per-request
+ * proxying), so one refresh serves every user.
  *
  * Required env: ALCHEMY_KEY, HELIUS_KEY, TATUM_KEY, BLOCKFROST_KEY, MORALIS_KEY,
  *   OPENSEA_KEY. Optional: ORDISCAN_API_KEY, ANKR_API_KEY, ANVIL_API_KEY (Cardano

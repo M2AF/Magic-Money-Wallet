@@ -38,6 +38,7 @@
 import { cors, json, err, productionConfigError } from './lib.js'
 import { handleRead } from './read.js'
 import { handleDb } from './db.js'
+import { handleMarket, refreshTop500 } from './market.js'
 
 const EVM_CHAIN_IDS = {
   ethereum: 1, arbitrum: 42161, optimism: 10, base: 8453,
@@ -121,12 +122,14 @@ export default {
     if (configError) return err(env, `Worker production guard failed: ${configError}`, 500)
 
     try {
-      // Read-path + Supabase routes — each returns null when its namespace
-      // doesn't match, so the swap routes below still run unchanged.
+      // Read-path + Supabase + market routes — each returns null when its
+      // namespace doesn't match, so the swap routes below still run unchanged.
       const read = await handleRead(request, url, env, ctx)
       if (read) return read
       const db = await handleDb(request, url, env, ctx)
       if (db) return db
+      const market = await handleMarket(request, url, env, ctx)
+      if (market) return market
 
       if (pathname === '/quote') return await handleQuote(url, env)
       if (pathname === '/swap/status') return await handleStatus(url, env)
@@ -144,6 +147,17 @@ export default {
       return err(env, 'Not found', 404)
     } catch (e) {
       return err(env, e && e.message ? e.message : 'Proxy error', 500)
+    }
+  },
+
+  // Cron trigger (wrangler.toml [triggers]) — keeps the global Market Watch
+  // top-500 list warm in KV. Runs outside the fetch-time prod guard; a failed
+  // refresh logs and leaves the previous (stale) KV copy in place.
+  async scheduled(event, env, ctx) {
+    try {
+      await refreshTop500(env)
+    } catch (e) {
+      console.log('market cron refresh failed:', e && e.message ? e.message : e)
     }
   },
 }

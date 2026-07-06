@@ -12,6 +12,14 @@ compatibility_date = "2024-11-01"
 binding = "CACHE"
 id = "91f84d4789c14f998fb0e3c1efdf5f75"
 
+# ── Cron: global Market Watch refresh ─────────────────────────────────────────
+# Refreshes the top-500 coin list into KV (market.js refreshTop500) so every
+# user reads the same cached data. Every 15 min = 96 runs × 2 CoinGecko calls
+# per day ≈ 5.8k/month — sized to fit the free demo key's 10k/month budget
+# with headroom left for chart/search misses.
+[triggers]
+crons = ["*/15 * * * *"]
+
 # ── Non-secret vars ───────────────────────────────────────────────────────────
 # NOTE: SUPABASE_URL is set as a dashboard secret on this Worker, so it is NOT
 # declared here (a [vars] entry of the same name would collide on deploy).
@@ -22,9 +30,11 @@ id = "91f84d4789c14f998fb0e3c1efdf5f75"
 # - CACHE must be bound for rate limits and replay protection.
 # For local wrangler dev only, set ALLOW_INSECURE_DEV = "true".
 # ALLOWED_ORIGIN = "https://magicmoneywallet.com"
-# Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60.
+# Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60,
+# MARKET_RPM=120.
 # READ_RPM = "600"
 # DB_RPM = "60"
+# MARKET_RPM = "120"
 #
 # ── Swap fee / monetization (non-secret: public receiving addresses + integrator)
 # Fee in basis points (90 = 0.9%). Recipients are the chain the user spends FROM.
@@ -70,6 +80,9 @@ LIFI_INTEGRATOR = "ChainLens"
 #   wrangler secret put MORALIS_KEY
 #   wrangler secret put OPENSEA_KEY
 #   wrangler secret put ORDISCAN_API_KEY       # Bitcoin Ordinals/Runes/BRC-20 (Ordiscan)
+#
+# Market Watch (market.js — optional; keyless works but shares Cloudflare egress IPs):
+#   wrangler secret put COINGECKO_KEY           # demo (CG- prefix) or pro key
 #
 # Supabase (new — service-role key, server-side only):
 #   wrangler secret put SUPABASE_SERVICE_KEY

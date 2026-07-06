@@ -572,13 +572,13 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
     // ── Market ─────────────────────────────────────────────────────────────
 
     case 'wallet:get-market':
-      return fetchMarketTop100()
+      return fetchMarketTop100(await store.loadConfig())
 
     case 'wallet:search-market':
-      return searchMarketCoins(String(a0))
+      return searchMarketCoins(String(a0), await store.loadConfig())
 
     case 'wallet:get-coin-chart':
-      return fetchCoinChart(String(a0), String(a1))
+      return fetchCoinChart(String(a0), String(a1), await store.loadConfig())
 
     case 'wallet:get-tokens': {
       const addresses = await loadFullAddresses()

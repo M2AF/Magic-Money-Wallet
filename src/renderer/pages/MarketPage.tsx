@@ -381,7 +381,9 @@ export function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
 
   const clearSearch = () => { setSearch(''); setSearchResults(null) }
 
-  const displayCoins = searchResults ?? data?.coins ?? []
+  // The fetcher returns up to 500 coins so search covers well beyond the table;
+  // the table itself stays top-100.
+  const displayCoins = searchResults ?? (data?.coins ?? []).slice(0, 100)
 
   const lastUpdated = data
     ? new Date(data.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })

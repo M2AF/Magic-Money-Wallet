@@ -15,10 +15,12 @@
  *  - Header key (Tatum, Blockfrost, Moralis, OpenSea): a fetch helper that also
  *    drops the auth header when proxying (the Worker adds it server-side).
  *
- * Keyless, per-IP endpoints (CoinGecko, DexScreener, DefiLlama, Magic Eden,
- * mempool.space, Binance) are deliberately NOT here — they stay direct so each
- * user keeps their own IP quota. Routing them through the Worker would collapse
- * every user onto one IP.
+ * Keyless, per-IP endpoints (DexScreener, DefiLlama, Magic Eden, mempool.space,
+ * Binance) are deliberately NOT here — they stay direct so each user keeps their
+ * own IP quota. Routing them per-request through the Worker would collapse every
+ * user onto one IP. Exception: Market Watch data (market-fetcher.ts) reads the
+ * Worker's /market/* routes — a CRON-refreshed global KV cache, not per-request
+ * proxying, so a handful of upstream CoinGecko calls serve every user.
  */
 
 import type { WalletConfig } from './secure-store'

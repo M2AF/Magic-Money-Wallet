@@ -282,7 +282,7 @@
       category:    "DeFi",
       chains:      ["arbitrum", "avalanche", "base", "ethereum", "gnosis", "optimism", "polygon"],
       featured:    false,
-      favicon:     "https://www.google.com/s2/favicons?domain=aave.com&sz=64",
+      favicon:     "https://aave.com/images/icon-aave-app.png",
       description: "A leading decentralized lending protocol for borrowing and earning yield on crypto assets.",
     },
     {
