@@ -17,6 +17,9 @@ import { ExtApp } from './ExtApp'
 // Pull in shared styles
 import '../renderer/index.css'
 import './popup.css'
+import { initTheme } from '../renderer/theme'
+
+initTheme()
 
 const root = document.getElementById('root')!
 createRoot(root).render(

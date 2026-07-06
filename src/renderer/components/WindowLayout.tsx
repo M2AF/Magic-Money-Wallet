@@ -78,12 +78,12 @@ export function SnapButtons() {
           border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
           borderRadius: 12,
           fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap',
-          color: active ? '#fff' : 'var(--text-secondary)',
+          color: active ? 'var(--on-accent)' : 'var(--text-secondary)',
         }}
       >
         {/* split-pane icon: the divider sits on the wallet's side */}
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-          style={{ color: active ? '#fff' : 'var(--text-muted)', flexShrink: 0 }}>
+          style={{ color: active ? 'var(--on-accent)' : 'var(--text-muted)', flexShrink: 0 }}>
           <rect x="3" y="4" width="18" height="16" rx="2" />
           <line x1={target === 'right' ? '15' : '9'} y1="4" x2={target === 'right' ? '15' : '9'} y2="20" />
         </svg>

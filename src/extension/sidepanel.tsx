@@ -15,6 +15,9 @@ import { ExtApp } from './ExtApp'
 
 import '../renderer/index.css'
 import './sidepanel.css'
+import { initTheme } from '../renderer/theme'
+
+initTheme()
 
 const root = document.getElementById('root')!
 createRoot(root).render(

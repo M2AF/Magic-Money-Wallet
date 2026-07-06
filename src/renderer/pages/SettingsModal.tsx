@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { UpdateStatus } from '../types/wallet'
+import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 
 interface Props {
   onClose: () => void
@@ -16,6 +17,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
   const [helloError, setHelloError] = useState<string | null>(null)
+  const [theme, setThemeState] = useState<ThemeId>(getTheme)
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
   const [testnetError, setTestnetError] = useState<string | null>(null)
@@ -167,6 +169,26 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           {testnetError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{testnetError}</div>
           )}
+        </SettingsSection>
+
+        <SettingsSection label="Appearance">
+          <div className="theme-picker">
+            {THEMES.map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`theme-swatch${theme === t.id ? ' active' : ''}`}
+                onClick={() => { setTheme(t.id); setThemeState(t.id) }}
+                title={t.name}
+              >
+                <span
+                  className="theme-swatch-dot"
+                  style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 50%, ${t.swatch[1]} 50%)` }}
+                />
+                <span className="theme-swatch-name">{t.name}</span>
+              </button>
+            ))}
+          </div>
         </SettingsSection>
 
         <SettingsSection label="Security">

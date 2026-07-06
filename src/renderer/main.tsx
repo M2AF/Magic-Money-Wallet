@@ -4,6 +4,10 @@ import './index.css'
 import { App } from './App'
 import { BrowserApp } from './BrowserApp'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { initTheme } from './theme'
+
+// Stamp the saved theme on <html> before first paint to avoid a color flash
+initTheme()
 
 // Popup browser chrome uses the same index.html with ?browserChrome=1
 const isBrowserChrome = new URLSearchParams(window.location.search).has('browserChrome')
