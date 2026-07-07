@@ -75,11 +75,22 @@ jobs:
           # you add real signing later, set CSC_LINK / CSC_KEY_PASSWORD secrets and
           # drop this line.
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run package:publish
+          # Prerelease tags (v0.2.0-beta.1) publish as a visible GitHub Pre-release;
+          # stable tags publish as a normal release. electron-builder's default
+          # (draft) is incompatible with the extension job appending its zip — a
+          # draft can't be found by tag, so the zip upload would fork a second
+          # release for the same tag (the v0.2.0-beta.1 maiden-run bug).
+          RELEASE_TYPE: ${{ contains(github.ref_name, '-') && 'prerelease' || 'release' }}
+        shell: bash
+        run: npm run build && npx electron-builder --publish always --config.publish.releaseType="$RELEASE_TYPE"
 
   # ── Build Chrome extension zip (runs once on Linux) ────────────────────────
+  # MUST run after the electron matrix: electron-builder owns creating the
+  # GitHub release; this job only appends the zip to it. When this ran in
+  # parallel it created the release first and electron-builder refused to
+  # upload the installers into it (exit 0, empty release).
   extension:
-    needs: validate
+    needs: [validate, electron]
     runs-on: ubuntu-latest
     name: Chrome Extension
 
@@ -106,5 +117,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: magicmoney-extension-${{ github.ref_name }}.zip
+          # Keep the flag electron-builder set — a '-' in the tag means beta.
+          prerelease: ${{ contains(github.ref_name, '-') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

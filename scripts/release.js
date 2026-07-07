@@ -39,7 +39,9 @@ run(`git add package.json ${manifestPath}`)
 run(`git commit -m "chore: release v${next}"`)
 run(`git tag v${next}`)
 run('git push')
-run('git push --tags')
+// Push ONLY this release's tag — `git push --tags` ships every stray local tag
+// and can trigger phantom release builds for old versions.
+run(`git push origin v${next}`)
 
 console.log(`\n  ✓ v${next} tagged and pushed.`)
 console.log('  GitHub Actions will build Windows / macOS / Linux and publish to GitHub Releases.\n')
