@@ -65,7 +65,7 @@ function SpamManagerModal({
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, width: 320, maxHeight: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Hidden & Spam ({entries.length})</span>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
+          <button type="button" onClick={onClose} aria-label="Close hidden & spam manager" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
@@ -98,7 +98,7 @@ function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () =>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
       <button type="button" onClick={e => { e.stopPropagation(); onHide() }}
-        title="Hide"
+        title="Hide" aria-label="Hide this item"
         style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
         <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
@@ -107,7 +107,7 @@ function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () =>
         </svg>
       </button>
       <button type="button" onClick={e => { e.stopPropagation(); onSpam() }}
-        title="Mark as spam"
+        title="Mark as spam" aria-label="Mark this item as spam"
         style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
         <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="10"/>

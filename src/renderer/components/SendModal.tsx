@@ -173,6 +173,7 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
           <button
             type="button"
             onClick={onClose}
+            aria-label="Close send dialog"
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}
           >
             <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

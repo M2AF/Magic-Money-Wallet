@@ -102,7 +102,10 @@ interface EvmChainEntry {
   nativeSymbol: string
 }
 
-const EVM_CHAINS: Record<string, EvmChainEntry> = {
+// Exported for chain-parity tests (M-8): every chain advertised elsewhere
+// (chain-config, swap layer) must have a sender entry here, or users can see
+// balances/quotes for a chain they can't actually transact on (the BSC bug).
+export const EVM_CHAINS: Record<string, EvmChainEntry> = {
   ethereum:   { chain: mainnet,       rpcUrl: cfg => alchemyRpcUrl('eth-mainnet', cfg),     explorer: 'https://etherscan.io/tx',                               nativeSymbol: 'ETH'  },
   arbitrum:   { chain: arbitrum,      rpcUrl: cfg => alchemyRpcUrl('arb-mainnet', cfg),     explorer: 'https://arbiscan.io/tx',                                nativeSymbol: 'ETH'  },
   optimism:   { chain: optimism,      rpcUrl: cfg => alchemyRpcUrl('opt-mainnet', cfg),     explorer: 'https://optimistic.etherscan.io/tx',                    nativeSymbol: 'ETH'  },
@@ -136,7 +139,7 @@ const soneiumMinato = defineChain({ id: 1946, name: 'Soneium Minato', nativeCurr
 const worldchainSepolia = defineChain({ id: 4801, name: 'World Chain Sepolia', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-sepolia.g.alchemy.com/public'] } }, testnet: true })
 const hyperEvmTestnet = defineChain({ id: 998, name: 'HyperEVM Testnet', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid-testnet.xyz/evm'] } }, testnet: true })
 
-const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
+export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
   ethereum:   { chain: sepolia,           rpcUrl: cfg => alchemyRpcUrl('eth-sepolia', cfg),        explorer: 'https://sepolia.etherscan.io/tx',                       nativeSymbol: 'ETH'  },
   arbitrum:   { chain: arbitrumSepolia,   rpcUrl: cfg => alchemyRpcUrl('arb-sepolia', cfg),        explorer: 'https://sepolia.arbiscan.io/tx',                        nativeSymbol: 'ETH'  },
   optimism:   { chain: optimismSepolia,   rpcUrl: cfg => alchemyRpcUrl('opt-sepolia', cfg),        explorer: 'https://sepolia-optimism.etherscan.io/tx',              nativeSymbol: 'ETH'  },

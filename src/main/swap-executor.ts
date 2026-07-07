@@ -23,7 +23,8 @@ import { heliusRpcUrl } from './api-proxy'
 // Wallet chain id → numeric EVM chainId (matches tx-sender's supported set).
 // These double as the source chains the executor can locally sign for a swap —
 // for cross-chain routes (LI.FI/Rango) the source tx is still EVM calldata here.
-const EVM_CHAIN_ID: Record<string, number> = {
+// Exported for chain-parity tests (M-8).
+export const EVM_CHAIN_ID: Record<string, number> = {
   ethereum: 1, arbitrum: 42161, optimism: 10, base: 8453,
   polygon: 137, avalanche: 43114, bsc: 56, monad: 143,
 }

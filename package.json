@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:e2e": "npm run build:extension && playwright test",
+    "test:e2e:app": "npm run build && playwright test e2e/electron-smoke.spec.ts",
     "test:watch": "vitest",
     "predev": "node scripts/convert-apphub.js",
     "dev": "npm run build:inject && electron-vite dev",

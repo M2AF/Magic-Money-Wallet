@@ -141,8 +141,8 @@ export function App() {
         <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
         <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
         <div className="titlebar-controls">
-          <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" />
-          <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" />
+          <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" aria-label="Minimize window" />
+          <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" aria-label="Close window" />
         </div>
       </div>
 
@@ -272,7 +272,7 @@ export function App() {
               <span style={{
                 position: 'absolute', top: 6, right: 14,
                 width: 6, height: 6, borderRadius: '50%',
-                background: '#22c55e', boxShadow: '0 0 4px #22c55e'
+                background: 'var(--success)', boxShadow: '0 0 4px var(--success)'
               }} />
             )}
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
