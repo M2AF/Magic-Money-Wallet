@@ -9,7 +9,7 @@
  * All functions are async (chrome.storage is always async).
  */
 
-import type { WalletAddresses } from '../main/wallet-core'
+import { normalizeMnemonic, type WalletAddresses } from '../main/wallet-core'
 
 // ── WalletConfig — identical shape to secure-store.ts so aliased imports work ─
 
@@ -149,8 +149,11 @@ async function getUnlockedMnemonic(): Promise<string | null> {
 }
 
 export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
-  await chrome.storage.local.set({ 'wallet.enc': await encryptMnemonic(mnemonic, password) })
-  await saveUnlockedMnemonic(mnemonic)
+  // Canonical form at rest — bip39 seeds the raw string, so stray whitespace
+  // would change the derived keys (mirrors secure-store.ts).
+  const cleaned = normalizeMnemonic(mnemonic)
+  await chrome.storage.local.set({ 'wallet.enc': await encryptMnemonic(cleaned, password) })
+  await saveUnlockedMnemonic(cleaned)
 }
 
 export async function walletExists(): Promise<boolean> {
@@ -166,7 +169,8 @@ export async function unlock(password: string): Promise<void> {
   const r = await chrome.storage.local.get('wallet.enc')
   if (!r['wallet.enc']) throw new Error('No wallet found')
   const blob = r['wallet.enc'] as StoredEncryptedWallet
-  const mnemonic = await decryptMnemonic(blob, password)
+  // Normalize on unlock so pre-normalization wallets feed signing the canonical form.
+  const mnemonic = normalizeMnemonic(await decryptMnemonic(blob, password))
   if (needsKdfUpgrade(blob)) {
     await chrome.storage.local.set({ 'wallet.enc': await encryptMnemonic(mnemonic, password) })
   }

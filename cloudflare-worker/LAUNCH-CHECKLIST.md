@@ -36,6 +36,7 @@ wrangler secret put ORDISCAN_API_KEY         # Bitcoin Ordinals/Runes/BRC-20
 wrangler secret put ANKR_API_KEY             # keyed RPC fallback (EVM)
 wrangler secret put ANVIL_API_KEY            # Cardano marketplace floors (NFT USD valuation)
 wrangler secret put SUPABASE_SERVICE_KEY     # rotated service-role key
+wrangler secret put COINMARKETCAP_API_KEY    # Market Watch fallback
 wrangler secret put SIMPLESWAP_API_KEY
 wrangler secret put ZEROX_API_KEY            # if not already set
 wrangler secret put ONEINCH_API_KEY          # if not already set

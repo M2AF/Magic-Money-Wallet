@@ -61,6 +61,17 @@ export interface TestnetAddresses {
 // ─── Mnemonic helpers ────────────────────────────────────────────────────────
 
 /**
+ * Canonical mnemonic form: trimmed, lowercased, single-spaced. EVERY path that
+ * feeds a phrase into bip39 (seed or entropy) must go through this — the seed is
+ * derived from the raw string, so "word  word" and "word word" produce different
+ * keys. Storage (secure-store / chrome-store) also normalizes on save + unlock
+ * so persisted phrases are canonical no matter where they came from.
+ */
+export function normalizeMnemonic(phrase: string): string {
+  return phrase.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+/**
  * Generate a fresh cryptographically secure 12-word BIP-39 mnemonic.
  */
 export function generateMnemonic(): string {
@@ -71,8 +82,7 @@ export function generateMnemonic(): string {
  * Validate a user-entered mnemonic against the BIP-39 English wordlist.
  */
 export function validateMnemonic(phrase: string): boolean {
-  const cleaned = phrase.trim().toLowerCase().replace(/\s+/g, ' ')
-  return bip39.validateMnemonic(cleaned, wordlist)
+  return bip39.validateMnemonic(normalizeMnemonic(phrase), wordlist)
 }
 
 // ─── Bitcoin addresses via @scure/btc-signer ─────────────────────────────────
@@ -143,7 +153,7 @@ function deriveDogecoinAddress(compressedPubkey: Uint8Array): string {
  * Private keys are created transiently and never returned.
  */
 export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promise<WalletAddresses> {
-  const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
+  const cleaned = normalizeMnemonic(mnemonic)
   if (!validateMnemonic(cleaned)) {
     throw new Error('Invalid BIP-39 mnemonic phrase')
   }
@@ -204,7 +214,7 @@ export async function deriveAddresses(mnemonic: string, accountIndex = 0): Promi
  * mainnet keys/path and only flips the network header (preprod convention).
  */
 export async function deriveTestnetAddresses(mnemonic: string, accountIndex = 0): Promise<TestnetAddresses> {
-  const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
+  const cleaned = normalizeMnemonic(mnemonic)
   if (!validateMnemonic(cleaned)) {
     throw new Error('Invalid BIP-39 mnemonic phrase')
   }
@@ -230,20 +240,20 @@ export async function deriveTestnetAddresses(mnemonic: string, accountIndex = 0)
 // ─── Signing helpers (Phase 2) ───────────────────────────────────────────────
 
 export async function getEvmPrivateKey(mnemonic: string, accountIndex = 0): Promise<`0x${string}`> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/44'/60'/${accountIndex}'/0/0`)
   if (!node.privateKey) throw new Error('EVM signing key derivation failed')
   return `0x${Buffer.from(node.privateKey).toString('hex')}`
 }
 
 export async function getSolanaKeypair(mnemonic: string, accountIndex = 0): Promise<Keypair> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const { key } = derivePath(`m/44'/501'/${accountIndex}'/0'`, Buffer.from(seed).toString('hex'))
   return Keypair.fromSeed(key)
 }
 
 export async function getBitcoinKey(mnemonic: string, accountIndex = 0, testnet = false): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/84'/${testnet ? 1 : 0}'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey }
@@ -251,7 +261,7 @@ export async function getBitcoinKey(mnemonic: string, accountIndex = 0, testnet 
 
 /** BIP-49 nested-SegWit (3…) signing key. */
 export async function getBitcoinNestedKey(mnemonic: string, accountIndex = 0, testnet = false): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/49'/${testnet ? 1 : 0}'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin nested key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey }
@@ -259,28 +269,28 @@ export async function getBitcoinNestedKey(mnemonic: string, accountIndex = 0, te
 
 /** BIP-86 Taproot (bc1p…) signing key — the ordinals address key. */
 export async function getBitcoinTaprootKey(mnemonic: string, accountIndex = 0, testnet = false): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/86'/${testnet ? 1 : 0}'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Bitcoin Taproot key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey }
 }
 
 export async function getPolkadotKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const { key: privKey } = derivePath(`m/44'/354'/${accountIndex}'/0'/0'`, Buffer.from(seed).toString('hex'))
   const pubKey = ed25519.getPublicKey(privKey)
   return { privateKey: privKey, publicKey: pubKey }
 }
 
 export async function getTronKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/44'/195'/${accountIndex}'/0/0`)
   if (!node.privateKey) throw new Error('Tron key derivation failed')
   return { privateKey: node.privateKey, publicKey: secp256k1.getPublicKey(node.privateKey, false), address: deriveTronAddress(node.privateKey) }
 }
 
 export async function getDogecoinKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }> {
-  const seed = await bip39.mnemonicToSeed(mnemonic.trim().toLowerCase())
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
   const node = HDKey.fromMasterSeed(seed).derive(`m/44'/3'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Dogecoin key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey, address: deriveDogecoinAddress(node.publicKey) }

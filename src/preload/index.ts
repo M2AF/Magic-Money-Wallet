@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('wallet', {
   revealSeed:    (password: string)  => ipcRenderer.invoke('wallet:reveal-seed', password),
 
   // ── Phase 2: Send transactions ────────────────────────────────────────
+  validateAddress: (chain: string, to: string) =>
+    ipcRenderer.invoke('wallet:validate-address', chain, to),
   estimateFee:   (chain: string, to: string, amount: string) =>
     ipcRenderer.invoke('wallet:estimate-fee', chain, to, amount),
   sendEvm:       (chainId: string, to: string, amount: string) =>

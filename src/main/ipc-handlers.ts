@@ -123,6 +123,7 @@ import {
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
 import { describeEvmSend, describeTypedData } from './tx-describe'
+import { validateAddress } from './address-validate'
 
 // ── Key derivation helpers (used by web3 IPC) ──────────────────────────────
 
@@ -168,6 +169,32 @@ async function sendEvmFromDapp(
     accountIndex
   )
   return txHash
+}
+
+/**
+ * M-9: signing, sending, and chain-switching require a CONNECTED origin. We
+ * don't hard-reject with 4100 like the extension does — popup auth flows (AGW/
+ * Privy "Login with Wallet") sign from popup origins that never called
+ * eth_requestAccounts, so a hard reject would break them. Instead an unknown
+ * origin gets the standard connect prompt first; only after the user explicitly
+ * connects does the actual request proceed (with its own approval window).
+ */
+async function ensureConnectedOrigin(
+  origin: string,
+  addresses: WalletAddresses | null
+): Promise<void> {
+  if (getApprovedOrigins().includes(origin)) return
+  const approved = await showApprovalWindow({
+    title: 'Connect Wallet',
+    heading: `${origin} wants to connect to your wallet`,
+    detail: `EVM Address:\n${addresses?.evm ?? 'Not available'}`,
+    confirmLabel: 'Connect',
+    origin
+  })
+  if (!approved) {
+    throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+  }
+  addApprovedOrigin(origin)
 }
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
@@ -515,6 +542,11 @@ export function registerIpcHandlers(): void {
 
   // ── Phase 2: Fee estimation ────────────────────────────────────────────
   // chainId is a chain-config id: 'ethereum', 'arbitrum', 'solana', 'cardano', etc.
+  // H-3: per-chain recipient validation for the Send form — real decodes of the
+  // formats the senders can pay to, so wrong-chain pastes fail at the field.
+  ipcMain.handle('wallet:validate-address', (_event, chainId: string, address: string) =>
+    validateAddress(String(chainId), String(address), isTestnet(loadConfig())))
+
   ipcMain.handle('wallet:estimate-fee', async (
     _event,
     chainId: string,
@@ -894,6 +926,9 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
+        // H-2: an unconnected page must not steer the wallet's network. Same-chain
+        // requests stay silent; an actual switch requires a connected origin.
+        if (target !== getDappChainId()) await ensureConnectedOrigin(origin, addresses)
         setDappChainId(target)
         const hex = `0x${target.toString(16)}`
         emitDappEvent('eth', 'chainChanged', hex)
@@ -912,6 +947,8 @@ export function registerIpcHandlers(): void {
             { code: 4902 }
           )
         }
+        // H-2: same connected-origin gate as wallet_switchEthereumChain.
+        if (target !== getDappChainId()) await ensureConnectedOrigin(origin, addresses)
         setDappChainId(target)
         const hex = `0x${target.toString(16)}`
         emitDappEvent('eth', 'chainChanged', hex)
@@ -945,6 +982,7 @@ export function registerIpcHandlers(): void {
 
       // ── Message signing ─────────────────────────────────────────────────
       case 'personal_sign': {
+        await ensureConnectedOrigin(origin, addresses)
         const hexMsg = params[0] as string
         let displayText: string
         try {
@@ -969,28 +1007,20 @@ export function registerIpcHandlers(): void {
         return account.signMessage({ message: { raw: hexMsg as `0x${string}` } })
       }
 
-      case 'eth_sign': {
-        const [, hexMsg] = params as [string, string]
-        const approved = await showApprovalWindow({
-          title: 'Sign Data (eth_sign)',
-          heading: 'A dApp wants to sign raw data. Only proceed if you trust this site.',
-          detail: hexMsg.slice(0, 1000),
-          confirmLabel: 'Sign',
-          tone: 'danger',
-          origin
-        })
-        if (!approved) {
-          throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-        }
-        const mnemonic = loadMnemonic()
-        const accountIndex = addresses?.accountIndex ?? 0
-        const pk = deriveEvmKey(mnemonic, accountIndex)
-        const account = privateKeyToAccount(pk)
-        return account.signMessage({ message: { raw: hexMsg as `0x${string}` } })
-      }
+      case 'eth_sign':
+        // M-4: refused outright. Raw-digest eth_sign is a blind-signing footgun,
+        // and our previous implementation actually returned an EIP-191
+        // (personal_sign-scheme) signature no eth_sign caller could verify.
+        // dApps fall back to personal_sign / eth_signTypedData (MetaMask has
+        // shipped the same refusal as its default since 2024).
+        throw Object.assign(
+          new Error('eth_sign is not supported for security reasons. Use personal_sign or eth_signTypedData_v4.'),
+          { code: 4200 }
+        )
 
       // ── Transaction ─────────────────────────────────────────────────────
       case 'eth_sendTransaction': {
+        await ensureConnectedOrigin(origin, addresses)
         const tx = (params[0] ?? {}) as {
           to?: string; value?: string; data?: string; gas?: string
         }
@@ -1020,6 +1050,7 @@ export function registerIpcHandlers(): void {
       case 'eth_signTypedData':
       case 'eth_signTypedData_v3':
       case 'eth_signTypedData_v4': {
+        await ensureConnectedOrigin(origin, addresses)
         // v3/v4: params = [address, typedData]; legacy v1: params = [typedData, address]
         const rawPayload = method === 'eth_signTypedData' ? params[0] : params[1]
         let typed: {

@@ -34,7 +34,7 @@ function saveSet(key: string, s: Set<string>) {
 
 // ─── Spam manager modal ───────────────────────────────────────────────────────
 
-interface SpamEntry { id: string; label: string; type: 'hidden' | 'spam' }
+interface SpamEntry { id: string; label: string; type: 'hidden' | 'spam' | 'flagged' }
 
 function SpamManagerModal({
   hiddenItems, spamItems, allTokens, allNfts,
@@ -54,7 +54,10 @@ function SpamManagerModal({
     const tok = allTokens.find(t => tokenKey(t) === id)
     const nft = allNfts.find(n => nftKey(n) === id)
     const label = tok ? `${tok.name} (${tok.chainLabel})` : nft ? `${nft.name} (${nft.chainLabel})` : id
-    entries.push({ id, label, type: spamItems.has(id) ? 'spam' : 'hidden' })
+    // Auto-flagged phishing airdrops (H-1) get their own badge so the user can
+    // tell wallet-detected scams from things they hid themselves.
+    const type: SpamEntry['type'] = tok?.suspectedSpam ? 'flagged' : spamItems.has(id) ? 'spam' : 'hidden'
+    entries.push({ id, label, type })
   }
 
   return (
@@ -73,9 +76,9 @@ function SpamManagerModal({
           ) : entries.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px' }}>
               <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, fontWeight: 700, letterSpacing: '0.04em',
-                background: e.type === 'spam' ? 'rgba(239,68,68,0.15)' : 'rgba(100,116,139,0.15)',
-                color: e.type === 'spam' ? '#ef4444' : 'var(--text-muted)'
-              }}>{e.type === 'spam' ? 'SPAM' : 'HIDDEN'}</span>
+                background: e.type === 'spam' ? 'rgba(239,68,68,0.15)' : e.type === 'flagged' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
+                color: e.type === 'spam' ? '#ef4444' : e.type === 'flagged' ? '#f59e0b' : 'var(--text-muted)'
+              }}>{e.type === 'spam' ? 'SPAM' : e.type === 'flagged' ? 'SUSPECTED SCAM' : 'HIDDEN'}</span>
               <span style={{ flex: 1, fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.label}</span>
               <button type="button" onClick={() => onRestore(e.id)}
                 style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
@@ -117,14 +120,28 @@ function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () =>
 
 // ─── Token row ────────────────────────────────────────────────────────────────
 
+// Session-scoped negative cache of dead logo URLs. Without it every refresh
+// re-fetched the same broken URLs (≈190 console 404s per session) — remember
+// failures so a URL is only ever tried once per app run.
+const failedLogoUrls = new Set<string>()
+
+// Scam airdrops abuse the symbol field for phishing copy ("$ CLAiM : …com").
+// Long symbols also blow up row layout, so cap what we render anywhere a
+// symbol appears inline.
+function clipSymbol(symbol: string, max = 12): string {
+  return symbol.length > max ? `${symbol.slice(0, max)}…` : symbol
+}
+
 function TokenLogo({ token }: { token: WalletToken }) {
-  const [imgFailed, setImgFailed] = useState(false)
+  const [imgFailed, setImgFailed] = useState(
+    () => !!token.logoUri && failedLogoUrls.has(token.logoUri)
+  )
   if (token.logoUri && !imgFailed) {
     return (
       <img
         src={token.logoUri} alt={token.symbol} width={34} height={34}
         style={{ borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }}
-        onError={() => setImgFailed(true)}
+        onError={() => { failedLogoUrls.add(token.logoUri!); setImgFailed(true) }}
       />
     )
   }
@@ -160,8 +177,8 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {token.name}
           </div>
-          <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
-            {token.symbol}
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {clipSymbol(token.symbol, 28)}
           </div>
           <div style={{ marginTop: 3, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${token.chainColor}22`, color: token.chainColor, fontWeight: 600, display: 'inline-block' }}>
@@ -174,7 +191,7 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
         {/* Balance · Native equiv · USD — three stacked rows aligned to right */}
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-            {token.balance} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-secondary)' }}>{token.symbol}</span>
+            {token.balance} <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-secondary)' }}>{clipSymbol(token.symbol)}</span>
           </div>
           <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginTop: 2, minHeight: 14 }}>
             {token.nativeEquivalent ?? ''}
@@ -755,18 +772,33 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
-  const hiddenKey = `mmw_hidden_${acctIdx}`
-  const spamKey   = `mmw_spam_${acctIdx}`
-  const [hiddenItems, setHiddenItems] = useState<Set<string>>(() => loadSet(hiddenKey))
-  const [spamItems,   setSpamItems]   = useState<Set<string>>(() => loadSet(spamKey))
-  // Ids the floor-valuation should skip (hidden/spam) — kept fresh for fetches.
-  const excludeRef = useRef<string[]>([...loadSet(hiddenKey), ...loadSet(spamKey)])
-  useEffect(() => { excludeRef.current = [...hiddenItems, ...spamItems] }, [hiddenItems, spamItems])
+  const hiddenKey  = `mmw_hidden_${acctIdx}`
+  const spamKey    = `mmw_spam_${acctIdx}`
+  const allowedKey = `mmw_allowed_${acctIdx}`   // user-restored auto-flagged tokens
+  const [hiddenItems, setHiddenItems]   = useState<Set<string>>(() => loadSet(hiddenKey))
+  const [spamItems,   setSpamItems]     = useState<Set<string>>(() => loadSet(spamKey))
+  const [allowedItems, setAllowedItems] = useState<Set<string>>(() => loadSet(allowedKey))
   const [showManager, setShowManager] = useState(false)
   const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
+  // H-1: auto-flagged phishing airdrops (main's spam-filter.ts) are bucketed
+  // with user-marked spam unless the user restored them. Every downstream
+  // consumer (token list, manager, portfolio total, floor-valuation exclusions)
+  // reads this effective set, so flagged tokens behave exactly like spam.
+  const effectiveSpamItems = useMemo(() => {
+    const flagged = (tokensResult?.tokens ?? []).filter(
+      t => t.suspectedSpam && !allowedItems.has(tokenKey(t))
+    )
+    if (flagged.length === 0) return spamItems
+    const merged = new Set(spamItems)
+    for (const t of flagged) merged.add(tokenKey(t))
+    return merged
+  }, [tokensResult, spamItems, allowedItems])
   const [tokensLoading, setTokensLoading] = useState(true)
   const [collectibles, setCollectibles] = useState<CollectiblesResult | null>(null)
   const [collectiblesLoading, setCollectiblesLoading] = useState(true)
+  // Ids the floor-valuation should skip (hidden/spam) — kept fresh for fetches.
+  const excludeRef = useRef<string[]>([...loadSet(hiddenKey), ...loadSet(spamKey)])
+  useEffect(() => { excludeRef.current = [...hiddenItems, ...effectiveSpamItems] }, [hiddenItems, effectiveSpamItems])
   // True once balances + tokens + collectibles have ALL finished their first load.
   // Gates the portfolio total so it shows one complete figure (not a "growing"
   // partial) on startup — and, once true, stays true so the silent 3-min refresh
@@ -793,7 +825,12 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const restoreItem = useCallback((id: string) => {
     setHiddenItems(prev => { const next = new Set(prev); next.delete(id); saveSet(hiddenKey, next); return next })
     setSpamItems(prev  => { const next = new Set(prev);  next.delete(id); saveSet(spamKey, next);   return next })
-  }, [hiddenKey, spamKey])
+    // Auto-flagged tokens need a persistent whitelist entry too, or the
+    // heuristic just re-buckets them on the next fetch.
+    if (tokensResult?.tokens.some(t => t.suspectedSpam && tokenKey(t) === id)) {
+      setAllowedItems(prev => { const next = new Set(prev).add(id); saveSet(allowedKey, next); return next })
+    }
+  }, [hiddenKey, spamKey, allowedKey, tokensResult])
 
   const fetchCollectibles = useCallback(async (quiet = false) => {
     if (!quiet) setCollectiblesLoading(true)
@@ -914,7 +951,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     const tokenTotal = (tokensResult?.tokens ?? [])
       .filter(t => {
         const k = tokenKey(t)
-        return !hiddenItems.has(k) && !spamItems.has(k)
+        return !hiddenItems.has(k) && !effectiveSpamItems.has(k)
       })
       .map(t => t.usdValue ? parseFloat(t.usdValue.replace(/[$,]/g, '')) : 0)
       .reduce((a, b) => a + b, 0)
@@ -927,7 +964,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
     const total = chainTotal + tokenTotal + nftTotal
     return total > 0 ? `$${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : null
-  }, [balances, tokensResult, collectibles, hiddenItems, spamItems])
+  }, [balances, tokensResult, collectibles, hiddenItems, effectiveSpamItems])
 
   const lastUpdated = balances
     ? new Date(balances.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -1111,7 +1148,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           result={tokensResult}
           loading={tokensLoading}
           hiddenItems={hiddenItems}
-          spamItems={spamItems}
+          spamItems={effectiveSpamItems}
           onHide={hideItem}
           onSpam={markSpam}
           onShowManager={() => setShowManager(true)}
@@ -1151,7 +1188,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {showManager && (
         <SpamManagerModal
           hiddenItems={hiddenItems}
-          spamItems={spamItems}
+          spamItems={effectiveSpamItems}
           allTokens={tokensResult?.tokens ?? []}
           allNfts={allNfts}
           onRestore={restoreItem}

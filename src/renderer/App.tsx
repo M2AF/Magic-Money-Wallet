@@ -60,11 +60,13 @@ export function App() {
     })()
   }, [])
 
-  // Track when the popup browser window is closed
+  // Track when the popup browser window is closed. Optional-chained like the
+  // effects below: effects still run when the bridge is missing and the render
+  // bailed to the B-1 fallback screen — an unguarded call would throw there.
   useEffect(() => {
     const onClosed = () => setBrowserOpen(false)
-    window.wallet.onBrowserClosed(onClosed)
-    return () => window.wallet.offBrowserClosed(onClosed)
+    window.wallet?.onBrowserClosed?.(onClosed)
+    return () => window.wallet?.offBrowserClosed?.(onClosed)
   }, [])
 
   // Idle auto-lock: main broadcasts 'wallet:locked' → return to the unlock screen.

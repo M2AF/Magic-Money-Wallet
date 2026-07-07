@@ -83,6 +83,7 @@ LIFI_INTEGRATOR = "ChainLens"
 #
 # Market Watch (market.js — optional; keyless works but shares Cloudflare egress IPs):
 #   wrangler secret put COINGECKO_KEY           # demo (CG- prefix) or pro key
+#   wrangler secret put COINMARKETCAP_API_KEY   # authenticated fallback for top/search/chart
 #
 # Supabase (new — service-role key, server-side only):
 #   wrangler secret put SUPABASE_SERVICE_KEY

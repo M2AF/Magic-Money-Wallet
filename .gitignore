@@ -11,6 +11,7 @@ test-results/
 # ── Secrets / local env ──────────────────────────────────────
 .env
 .env.*
+.dev.vars
 *.enc
 
 # ── Claude Code (keep shared settings.json; ignore personal) ──

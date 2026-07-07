@@ -54,19 +54,66 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
 
   const chainType = getChainType(chainId)
 
+  // While broadcasting, ignore dismissal — closing here loses the tx hash /
+  // success screen even though the transaction still lands on-chain.
+  const canDismiss = step !== 'sending'
+
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === overlayRef.current) onClose()
+    if (e.target === overlayRef.current && canDismiss) onClose()
   }
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape' && canDismiss) onClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [onClose, canDismiss])
 
-  const isValidAddress = to.trim().length > 10
-  const isValidAmount  = parseFloat(amount) > 0 && !isNaN(parseFloat(amount))
-  const canEstimate    = isValidAddress && isValidAmount
+  // ── H-3: real per-chain address validation (main-process decode) ────────
+  type AddrState = 'empty' | 'checking' | 'valid' | 'invalid'
+  const [addrState, setAddrState]   = useState<AddrState>('empty')
+  const [addrReason, setAddrReason] = useState<string | null>(null)
+
+  useEffect(() => {
+    const trimmed = to.trim()
+    if (!trimmed) { setAddrState('empty'); setAddrReason(null); return }
+    setAddrState('checking')
+    let stale = false
+    // Debounced so we don't round-trip IPC on every keystroke.
+    const id = setTimeout(async () => {
+      try {
+        const res = await window.wallet.validateAddress(chainId, trimmed)
+        if (stale) return
+        setAddrState(res.valid ? 'valid' : 'invalid')
+        setAddrReason(res.valid ? null : (res.reason ?? 'Invalid address'))
+      } catch {
+        // Validator unavailable (old bridge / IPC hiccup) — don't block the
+        // send; fee estimation and broadcast still reject bad addresses.
+        if (!stale) { setAddrState('valid'); setAddrReason(null) }
+      }
+    }, 250)
+    return () => { stale = true; clearTimeout(id) }
+  }, [to, chainId])
+
+  // ── H-3: amount ≤ balance, and (once the fee is known) amount + fee ≤ balance
+  const parsedAmount  = parseFloat(amount)
+  const parsedBalance = balance != null ? parseFloat(balance.replace(/,/g, '')) : NaN
+  const exceedsBalance = Number.isFinite(parsedBalance) && parsedAmount > parsedBalance
+  const isValidAmount  = parsedAmount > 0 && !isNaN(parsedAmount) && !exceedsBalance
+  const feeNum = fee ? parseFloat(fee.fee) : NaN
+  // Only comparable when the fee is paid in the sent asset (native sends).
+  const totalExceeds = !!fee && fee.feeSymbol === symbol &&
+    Number.isFinite(parsedBalance) && Number.isFinite(feeNum) &&
+    parsedAmount + feeNum > parsedBalance
+  const canEstimate = addrState === 'valid' && isValidAmount
+
+  // Max = full balance, minus the estimated fee when it's in the same asset.
+  const handleMax = () => {
+    if (!Number.isFinite(parsedBalance)) return
+    const reserve = fee && fee.feeSymbol === symbol && Number.isFinite(feeNum) ? feeNum : 0
+    const v = Math.max(parsedBalance - reserve, 0)
+    setAmount(String(Number(v.toFixed(8))))
+    setFee(null)
+  }
 
   const handleEstimateFee = async () => {
     if (!canEstimate) return
@@ -148,17 +195,31 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
               <div className="label">Recipient Address</div>
               <input
                 className="input"
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}
+                style={{ fontFamily: 'var(--font-mono)', fontSize: 12, borderColor: addrState === 'invalid' ? 'var(--error)' : undefined }}
                 placeholder={getAddressPlaceholder(chainId)}
                 value={to}
                 onChange={e => { setTo(e.target.value); setFee(null) }}
                 spellCheck={false}
                 disabled={step === 'confirm'}
               />
+              {addrState === 'invalid' && addrReason && (
+                <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>{addrReason}</div>
+              )}
             </div>
 
             <div>
-              <div className="label">Amount ({symbol})</div>
+              <div className="label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>Amount ({symbol})</span>
+                {balance != null && step === 'form' && (
+                  <button
+                    type="button"
+                    onClick={handleMax}
+                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 99, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer' }}
+                  >
+                    MAX
+                  </button>
+                )}
+              </div>
               <input
                 className="input"
                 placeholder="0.0"
@@ -166,9 +227,15 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
                 type="number"
                 min="0"
                 step="any"
+                style={{ borderColor: exceedsBalance ? 'var(--error)' : undefined }}
                 onChange={e => { setAmount(e.target.value); setFee(null) }}
                 disabled={step === 'confirm'}
               />
+              {exceedsBalance && (
+                <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>
+                  Exceeds available balance ({balance} {symbol})
+                </div>
+              )}
             </div>
 
             {step === 'form' && (
@@ -208,8 +275,19 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
               </div>
             )}
 
+            {totalExceeds && (
+              <div style={{ fontSize: 11, color: 'var(--error)' }}>
+                Amount + network fee exceeds your balance — use MAX to send the most it can cover.
+              </div>
+            )}
+
             {step === 'form' && (fee || source === 'agw') && (
-              <button type="button" className="btn btn-primary" onClick={() => setStep('confirm')}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setStep('confirm')}
+                disabled={!canEstimate || totalExceeds}
+              >
                 Review Transaction
               </button>
             )}

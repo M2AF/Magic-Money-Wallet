@@ -12,7 +12,7 @@
 import { safeStorage, app } from 'electron'
 import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import type { WalletAddresses } from './wallet-core'
+import { normalizeMnemonic, type WalletAddresses } from './wallet-core'
 import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob } from './crypto-vault'
 import { runHello, helloPlatformOk, helloSupported, HELLO_KEY_NAME, HELLO_CHALLENGE_B64 } from './hello-bridge'
 import { touchIdPlatformOk, touchIdSupported, touchIdEnrollMaterial, touchIdGetMaterial, touchIdDeleteMaterial, TOUCHID_ITEM_MISSING } from './touchid-bridge'
@@ -53,8 +53,11 @@ function readOuter(): string | null {
 
 /** Encrypt `mnemonic` under `password` and persist it; leaves the wallet unlocked. */
 export async function saveMnemonic(mnemonic: string, password: string): Promise<void> {
-  await persistEncryptedMnemonic(mnemonic, password)
-  _unlockedMnemonic = mnemonic
+  // Canonical form at rest — address derivation and signing must see the same
+  // bytes (bip39 seeds the raw string, so stray whitespace changes the keys).
+  const cleaned = normalizeMnemonic(mnemonic)
+  await persistEncryptedMnemonic(cleaned, password)
+  _unlockedMnemonic = cleaned
 }
 
 async function persistEncryptedMnemonic(mnemonic: string, password: string): Promise<void> {
@@ -87,7 +90,9 @@ export async function unlock(password: string): Promise<void> {
   const parsed = (() => { try { return JSON.parse(outer) } catch { return null } })()
   if (!isEncryptedBlob(parsed)) throw new Error('NEEDS_MIGRATION')
   const blob = parsed as EncryptedBlob
-  _unlockedMnemonic = await decryptSecret(blob, password)
+  // Normalize on unlock too, so wallets persisted before normalization existed
+  // still feed signing paths the canonical form.
+  _unlockedMnemonic = normalizeMnemonic(await decryptSecret(blob, password))
   if (needsKdfUpgrade(blob)) {
     await persistEncryptedMnemonic(_unlockedMnemonic, password)
   }
@@ -219,7 +224,7 @@ export async function unlockWithHello(): Promise<void> {
   }
   const outer = safeStorage.decryptString(readFileSync(walletHelloPath()))
   const blob = JSON.parse(outer) as EncryptedBlob
-  _unlockedMnemonic = await decryptWithKeyMaterial(blob, material)
+  _unlockedMnemonic = normalizeMnemonic(await decryptWithKeyMaterial(blob, material))
 }
 
 /** Disable biometric unlock: remove the encrypted copy and the platform key. */

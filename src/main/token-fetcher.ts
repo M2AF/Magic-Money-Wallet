@@ -1,5 +1,6 @@
 import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry } from './secure-store'
 import { isTestnet } from './chain-config'
+import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import {
@@ -23,6 +24,10 @@ export interface WalletToken {
   chainLabel: string
   chainColor: string
   source?: 'agw'   // present when the asset lives in the Abstract Global Wallet (smart account)
+  // H-1: flagged by spam-filter.ts heuristics (phishing URL / claim-bait in the
+  // name or symbol, and no positive USD value). The dashboard buckets these with
+  // user-marked spam by default; a Restore whitelists the token.
+  suspectedSpam?: boolean
 }
 
 export interface TokensResult {
@@ -878,7 +883,10 @@ export async function fetchAllTokens(
     // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
     // mainnet contracts, so a testnet address could collide with an unrelated
     // mainnet token and show a bogus USD value.
-    const tokens = testnet ? raw : await enrichWithPrices(raw)
+    const enriched = testnet ? raw : await enrichWithPrices(raw)
+    // Spam flagging runs AFTER price enrichment — a positive USD value is the
+    // false-positive guardrail (see spam-filter.ts).
+    const tokens = enriched.map(t => isSuspectedSpamToken(t) ? { ...t, suspectedSpam: true } : t)
     tokens.sort((a, b) => {
       const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
       const ub = parseFloat(b.usdValue?.replace('$', '') ?? '0') || 0

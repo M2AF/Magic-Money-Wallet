@@ -138,6 +138,7 @@ export function createExtensionWallet() {
     revokeAllSites: ()                => send<string[]>('wallet:revoke-all-sites'),
 
     // Transactions
+    validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),
     estimateFee:    (c: string, t: string, a: string) => send('wallet:estimate-fee', c, t, a),
     sendEvm:        (c: string, t: string, a: string) => send('wallet:send-evm', c, t, a),
     sendAgw:        (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-agw', t, a, token),

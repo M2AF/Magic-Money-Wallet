@@ -13,7 +13,8 @@
  *   /market/chart/:id?days=D  — price chart   { prices: [ts, usd][], fetchedAt }
  *   /market/search?q=…        — coin search   { coins, fetchedAt }
  *
- * Optional env: COINGECKO_KEY (demo or pro — see cgBase), MARKET_RPM.
+ * Optional env: COINGECKO_KEY (demo or pro — see cgBase),
+ * COINMARKETCAP_API_KEY (authenticated fallback), MARKET_RPM.
  * A failed refresh never overwrites the stale KV copy — stale beats blank.
  */
 
@@ -33,6 +34,120 @@ function cgHeaders(env) {
     ...base,
     [cgIsDemo(env) ? 'x-cg-demo-api-key' : 'x-cg-pro-api-key']: env.COINGECKO_KEY,
   }
+}
+
+// ─── CoinMarketCap fallback (optional secret) ────────────────────────────────
+
+const CMC_BASE = 'https://pro-api.coinmarketcap.com'
+function cmcHeaders(env) {
+  if (!env.COINMARKETCAP_API_KEY) return null
+  return { accept: 'application/json', 'X-CMC_PRO_API_KEY': env.COINMARKETCAP_API_KEY }
+}
+
+function cmcUsdQuote(c) {
+  if (Array.isArray(c && c.quote)) return c.quote.find(q => q && (q.symbol === 'USD' || q.id === 2781)) || c.quote[0] || {}
+  return (c && c.quote && c.quote.USD) || {}
+}
+
+function cmcLogoUrl(id) {
+  return id ? `https://s2.coinmarketcap.com/static/img/coins/64x64/${id}.png` : ''
+}
+
+function trimCmcCoin(c, idx) {
+  const quote = cmcUsdQuote(c)
+  return {
+    id: c.slug || String(c.symbol || '').toLowerCase(),
+    rank: c.cmc_rank || idx + 1,
+    name: c.name || c.symbol || 'Unknown',
+    symbol: String(c.symbol || '').toUpperCase(),
+    image: cmcLogoUrl(c.id),
+    price: Number(quote.price) || 0,
+    change24h: Number.isFinite(Number(quote.percent_change_24h)) ? Number(quote.percent_change_24h) : null,
+    marketCap: Number.isFinite(Number(quote.market_cap)) ? Number(quote.market_cap) : null,
+    sparkline: null,
+  }
+}
+
+async function cmcJson(env, path, params, timeoutMs = 15_000) {
+  const headers = cmcHeaders(env)
+  if (!headers) throw new Error('CoinMarketCap key missing')
+  const url = new URL(`${CMC_BASE}${path}`)
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== '') url.searchParams.set(key, String(value))
+  }
+  const res = await fetch(url.toString(), { headers, signal: AbortSignal.timeout(timeoutMs) })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(`CoinMarketCap ${res.status}: ${(data.status && data.status.error_message) || 'request failed'}`)
+  return data
+}
+
+async function refreshTop500FromCmc(env) {
+  const data = await cmcJson(env, '/v3/cryptocurrency/listings/latest', {
+    start: 1,
+    limit: 500,
+    convert: 'USD',
+    sort: 'market_cap',
+    sort_dir: 'desc',
+  }, 20_000)
+  const rows = Array.isArray(data && data.data) ? data.data : []
+  if (rows.length === 0) throw new Error('CoinMarketCap empty listings')
+  return { coins: rows.map(trimCmcCoin), fetchedAt: Date.now(), source: 'CoinMarketCap' }
+}
+
+async function cmcQuote(env, q) {
+  const query = String(q || '').trim()
+  if (!query) throw new Error('CoinMarketCap empty query')
+  const attempts = []
+  if (/^[a-z0-9$@]{1,15}$/i.test(query)) attempts.push({ symbol: query.toUpperCase(), convert: 'USD', skip_invalid: true })
+  attempts.push({ slug: query.toLowerCase().replace(/\s+/g, '-'), convert: 'USD', skip_invalid: true })
+
+  let lastErr
+  for (const params of attempts) {
+    try {
+      const data = await cmcJson(env, '/v3/cryptocurrency/quotes/latest', params, 10_000)
+      const rows = (Array.isArray(data && data.data) ? data.data : Object.values((data && data.data) || {})).flat()
+      const coin = rows.find(Boolean)
+      if (coin) return trimCmcCoin(coin, 0)
+      lastErr = new Error('CoinMarketCap no quote')
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error('CoinMarketCap no quote')
+}
+
+async function symbolForMarketId(env, id) {
+  const normalized = String(id || '').toLowerCase()
+  const hit = await cacheGet(env, TOP_KEY)
+  const coins = Array.isArray(hit && hit.coins) ? hit.coins : []
+  const coin = coins.find(c =>
+    String(c.id || '').toLowerCase() === normalized ||
+    String(c.symbol || '').toLowerCase() === normalized ||
+    String(c.name || '').toLowerCase() === normalized
+  )
+  return coin && coin.symbol ? coin.symbol : (normalized.length <= 12 ? normalized.toUpperCase() : '')
+}
+
+async function cmcChart(env, id, days) {
+  const symbol = await symbolForMarketId(env, id)
+  if (!symbol) throw new Error('CoinMarketCap symbol unavailable')
+  const intervals = { '1': '1h', '7': '4h', '30': '1d', '365': '7d', max: '30d' }
+  const counts = { '1': 24, '7': 42, '30': 30, '365': 53, max: 120 }
+  const data = await cmcJson(env, '/v3/cryptocurrency/quotes/historical', {
+    symbol,
+    interval: intervals[days] || '4h',
+    count: counts[days] || 42,
+    convert: 'USD',
+    skip_invalid: true,
+  }, 15_000)
+  const container = data && data.data && (data.data[symbol] || Object.values(data.data)[0])
+  const quotes = Array.isArray(container && container.quotes) ? container.quotes : []
+  const prices = quotes
+    .map(q => [Date.parse(q.timestamp), Number(q.quote && q.quote.USD && q.quote.USD.price)])
+    .filter(([ts, price]) => Number.isFinite(ts) && price > 0)
+    .sort((a, b) => a[0] - b[0])
+  if (prices.length < 2) throw new Error('CoinMarketCap empty chart')
+  return prices
 }
 
 // ─── Cache policy ─────────────────────────────────────────────────────────────
@@ -82,18 +197,24 @@ function trimCoin(c, idx) {
 
 export async function refreshTop500(env) {
   if (!env.CACHE) throw new Error('CACHE KV binding missing')
-  const coins = []
-  for (const page of [1, 2]) {
-    const res = await fetch(
-      `${cgBase(env)}/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&sparkline=true&price_change_percentage=24h`,
-      { headers: cgHeaders(env), signal: AbortSignal.timeout(20_000) }
-    )
-    if (!res.ok) throw new Error(`CoinGecko ${res.status} (page ${page})`)
-    const arr = await res.json()
-    if (!Array.isArray(arr) || arr.length === 0) throw new Error(`CoinGecko empty page ${page}`)
-    for (const c of arr) coins.push(trimCoin(c, coins.length))
+  let value
+  try {
+    const coins = []
+    for (const page of [1, 2]) {
+      const res = await fetch(
+        `${cgBase(env)}/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=250&page=${page}&sparkline=true&price_change_percentage=24h`,
+        { headers: cgHeaders(env), signal: AbortSignal.timeout(20_000) }
+      )
+      if (!res.ok) throw new Error(`CoinGecko ${res.status} (page ${page})`)
+      const arr = await res.json()
+      if (!Array.isArray(arr) || arr.length === 0) throw new Error(`CoinGecko empty page ${page}`)
+      for (const c of arr) coins.push(trimCoin(c, coins.length))
+    }
+    value = { coins, fetchedAt: Date.now(), source: 'CoinGecko' }
+  } catch (e) {
+    console.log('market top500 CoinGecko failed, trying CoinMarketCap:', e && e.message ? e.message : e)
+    value = await refreshTop500FromCmc(env)
   }
-  const value = { coins, fetchedAt: Date.now() }
   // Awaited (not write-behind): the cron invocation must not end before the put.
   // Fail-open like every other cache write — on the KV free tier the daily write
   // quota can be exhausted (the per-request rateLimit counters burn it), and a
@@ -166,8 +287,17 @@ async function marketChart(id, url, env, ctx) {
     } catch (e) {
       // Public/demo CoinGecko caps history at 365 days, so days=max 401s.
       // A 1-year chart under the ALL tab still beats "No chart data".
-      if (days !== 'max') throw e
-      prices = await cgChart(env, id, '365')
+      if (days === 'max') {
+        try {
+          prices = await cgChart(env, id, '365')
+        } catch (cg365) {
+          console.log('market chart CoinGecko failed, trying CoinMarketCap:', cg365 && cg365.message ? cg365.message : cg365)
+          prices = await cmcChart(env, id, days)
+        }
+      } else {
+        console.log('market chart CoinGecko failed, trying CoinMarketCap:', e && e.message ? e.message : e)
+        prices = await cmcChart(env, id, days)
+      }
     }
     if (days === '365' || days === 'max') prices = downsample(prices, 500)
     const value = { prices, fetchedAt: Date.now() }
@@ -201,23 +331,32 @@ async function marketSearch(url, env, ctx) {
     return json(env, hit)
 
   try {
-    const sres = await fetch(
-      `${cgBase(env)}/api/v3/search?query=${encodeURIComponent(q)}`,
-      { headers: cgHeaders(env), signal: AbortSignal.timeout(10_000) }
-    )
-    if (!sres.ok) throw new Error(`CoinGecko ${sres.status}`)
-    const sjson = await sres.json()
-    const ids = ((sjson && sjson.coins) || []).slice(0, 20).map((c) => c.id)
-
     let coins = []
-    if (ids.length > 0) {
-      const mres = await fetch(
-        `${cgBase(env)}/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`,
+    try {
+      const sres = await fetch(
+        `${cgBase(env)}/api/v3/search?query=${encodeURIComponent(q)}`,
         { headers: cgHeaders(env), signal: AbortSignal.timeout(10_000) }
       )
-      if (!mres.ok) throw new Error(`CoinGecko ${mres.status}`)
-      const mjson = await mres.json()
-      coins = (Array.isArray(mjson) ? mjson : []).map(trimCoin)
+      if (!sres.ok) throw new Error(`CoinGecko ${sres.status}`)
+      const sjson = await sres.json()
+      const ids = ((sjson && sjson.coins) || []).slice(0, 20).map((c) => c.id)
+
+      if (ids.length > 0) {
+        const mres = await fetch(
+          `${cgBase(env)}/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`,
+          { headers: cgHeaders(env), signal: AbortSignal.timeout(10_000) }
+        )
+        if (!mres.ok) throw new Error(`CoinGecko ${mres.status}`)
+        const mjson = await mres.json()
+        coins = (Array.isArray(mjson) ? mjson : []).map(trimCoin)
+      }
+    } catch (e) {
+      console.log('market search CoinGecko failed, trying CoinMarketCap:', e && e.message ? e.message : e)
+      coins = [await cmcQuote(env, q)]
+    }
+
+    if (coins.length === 0 && env.COINMARKETCAP_API_KEY) {
+      try { coins = [await cmcQuote(env, q)] } catch { /* real empty result remains cacheable */ }
     }
     // A successful empty result ("no coin named that") IS cacheable; failures
     // throw above and never overwrite the stale copy.

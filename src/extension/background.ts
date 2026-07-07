@@ -12,6 +12,8 @@ import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
+import { validateAddress } from '../main/address-validate'
+import { isTestnet } from '../main/chain-config'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from '../main/swap-proxy'
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
@@ -472,6 +474,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     // ── Send transactions ──────────────────────────────────────────────────
 
+    // H-3: mirrors the Electron wallet:validate-address handler.
+    case 'wallet:validate-address': {
+      const config = await store.loadConfig()
+      return validateAddress(String(a0), String(a1), isTestnet(config))
+    }
+
     case 'wallet:estimate-fee': {
       const [chain, to, amount] = [String(a0), String(a1), String(a2)]
       const config = await store.loadConfig()
@@ -761,17 +769,15 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           return acct.signMessage({ message: { raw: String(params[0]) as `0x${string}` } })
         }
 
-        case 'eth_sign': {
-          await requestSignatureApproval(sender, {
-            chain: 'EVM',
-            method: 'eth_sign',
-            summary: 'Sign raw hex message',
-            details: previewBytes(String(params[1] ?? '')),
-          })
-          const key = await deriveEvmKey()
-          const acct = privateKeyToAccount(key)
-          return acct.signMessage({ message: { raw: String(params[1]) as `0x${string}` } })
-        }
+        case 'eth_sign':
+          // M-4: refused outright — raw-digest eth_sign is a blind-signing
+          // footgun, and the old implementation returned an EIP-191
+          // (personal_sign-scheme) signature no eth_sign caller could verify.
+          // Mirrors the Electron handler (ipc-handlers.ts).
+          throw Object.assign(
+            new Error('eth_sign is not supported for security reasons. Use personal_sign or eth_signTypedData_v4.'),
+            { code: 4200 }
+          )
 
         case 'eth_signTypedData':
         case 'eth_signTypedData_v3':
@@ -821,7 +827,14 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
               { code: 4902 }
             )
           }
-          applyChainSwitch(`0x${target.toString(16)}`)
+          // H-2: an unconnected page must not steer the wallet's network.
+          // Same-chain requests stay silent; a real switch from a page needs a
+          // connected origin (internal UI uses web3:set-chain, not this path).
+          const targetHex = `0x${target.toString(16)}`
+          if (sender?.kind === 'page' && targetHex !== _currentChainId) {
+            await requireApprovedOrigin(sender, 'switching networks')
+          }
+          applyChainSwitch(targetHex)
           return null
         }
 
@@ -831,7 +844,12 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
           const addId = (params[0] as { chainId?: string })?.chainId
           const addTarget = addId ? parseInt(addId, 16) : NaN
           if (Number.isFinite(addTarget) && (await isSupportedEvmChain(addTarget))) {
-            applyChainSwitch(`0x${addTarget.toString(16)}`)
+            // H-2: same connected-origin gate as wallet_switchEthereumChain.
+            const addHex = `0x${addTarget.toString(16)}`
+            if (sender?.kind === 'page' && addHex !== _currentChainId) {
+              await requireApprovedOrigin(sender, 'switching networks')
+            }
+            applyChainSwitch(addHex)
           }
           return null
         }

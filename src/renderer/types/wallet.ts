@@ -105,6 +105,9 @@ export interface WalletToken {
   chainLabel: string
   chainColor: string
   source?: 'agw'   // asset lives in the Abstract Global Wallet (smart account)
+  // H-1: heuristic phishing-airdrop flag set by main's spam-filter.ts. The
+  // dashboard treats these as spam by default; restoring whitelists the token.
+  suspectedSpam?: boolean
 }
 
 export interface TokensResult {
@@ -286,6 +289,7 @@ declare global {
       getBalances(): Promise<AllBalances>
       revealSeed(password: string): Promise<string[]>
       // Phase 2
+      validateAddress(chainId: string, to: string): Promise<{ valid: boolean; reason?: string }>
       estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
       sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>
       sendAgw(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>

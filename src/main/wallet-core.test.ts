@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveAddresses, generateMnemonic, validateMnemonic } from './wallet-core'
+import { deriveAddresses, generateMnemonic, validateMnemonic, normalizeMnemonic, getEvmPrivateKey } from './wallet-core'
 
 // The crown-jewel test: if address derivation regresses, users receive funds at
 // addresses they don't control. The EVM vector is the well-known Foundry/Anvil
@@ -42,5 +42,20 @@ describe('wallet-core deriveAddresses', () => {
     expect(m.trim().split(/\s+/)).toHaveLength(12)
     expect(validateMnemonic(m)).toBe(true)
     expect(validateMnemonic('clearly invalid')).toBe(false)
+  })
+
+  // Regression (audit L-2): bip39 seeds the RAW string, so a phrase with stray
+  // whitespace/case must derive the SAME keys everywhere — address derivation
+  // and signing-key derivation must agree, or funds land at addresses the
+  // signing path can't control.
+  it('derives identical addresses and signing keys for whitespace-mangled phrases', async () => {
+    const mangled = `  Test  test\ttest test test  TEST test test test test test junk \n`
+    expect(normalizeMnemonic(mangled)).toBe(FOUNDRY)
+    const clean = await deriveAddresses(FOUNDRY, 0)
+    const messy = await deriveAddresses(mangled, 0)
+    expect(messy).toEqual(clean)
+    expect(await getEvmPrivateKey(mangled, 0)).toBe(await getEvmPrivateKey(FOUNDRY, 0))
+    // The signing key must correspond to the derived address's known vector.
+    expect(clean.evm).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
   })
 })
