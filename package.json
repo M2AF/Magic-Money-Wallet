@@ -1,7 +1,7 @@
 {
   "name": "magicmoney-wallet",
-  "version": "0.1.1",
-  "description": "Self-custody multi-chain wallet — EVM · Solana · Cardano",
+  "version": "0.2.0-beta.1",
+  "description": "Self-custody multi-chain wallet \u2014 EVM \u00b7 Solana \u00b7 Cardano",
   "author": {
     "name": "ChainLens",
     "email": "guildfordking@gmail.com"

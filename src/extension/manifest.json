@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "MagicMoney Wallet",
-  "version": "0.1.1",
-  "description": "Multi-chain self-custody wallet by ChainLens — EVM · Solana · Bitcoin · Polkadot",
+  "version": "0.2.0",
+  "description": "Multi-chain self-custody wallet by ChainLens \u2014 EVM \u00b7 Solana \u00b7 Bitcoin \u00b7 Polkadot",
   "icons": {
     "16": "icon16.png",
     "48": "icon48.png",
