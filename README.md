@@ -290,6 +290,7 @@ Edit the source file (`ChainLens_Files/app-hub-data.js`) to add or remove apps; 
 - **Cardano tx chaining** (`supportsTxChaining`) — track submitted-but-unconfirmed UTXOs locally so dApps can chain transactions without waiting for confirmation.
 - **Cardano DEX execution** — wire the stubbed on-chain swap path (MuesliSwap).
 - **Fiat on/off-ramp** — Transak integration (planned).
+- **Android APK** - Mobile version available to sideload and hopefully Google Play Store
 
 ---
 
