@@ -338,9 +338,10 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return true
 
     case 'wallet:generate': {
-      const words = generateMnemonic()
-      _pendingMnemonic = words.join(' ')
-      return words
+      // generateMnemonic returns the space-separated phrase (see wallet-core);
+      // split for display exactly like the Electron handler does.
+      _pendingMnemonic = generateMnemonic()
+      return _pendingMnemonic.split(' ')
     }
 
     case 'wallet:validate':
@@ -1428,9 +1429,14 @@ async function handle(msg: Msg, sender?: Sender): Promise<any> {
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message: Msg, rawSender, sendResponse) => {
-  const senderKind: Sender['kind'] = rawSender.tab?.id != null ? 'page' : 'extension'
   const senderOrigin = rawSender.origin
     ?? (rawSender.url ? (() => { try { return new URL(rawSender.url!).origin } catch { return 'unknown' } })() : 'extension')
+  // Classify by origin, not by tab presence: our own pages also live in tabs
+  // (windowed approval popup, side panel, popup opened as a tab) and carry
+  // sender.tab — but only extension pages can have our chrome-extension origin,
+  // which the browser sets and content scripts can't spoof.
+  const senderKind: Sender['kind'] =
+    senderOrigin === `chrome-extension://${chrome.runtime.id}` ? 'extension' : 'page'
   const sender: Sender = { origin: senderOrigin, tabId: rawSender.tab?.id, kind: senderKind }
   handle(message, sender)
     .then(result => sendResponse({ ok: true, result }))

@@ -10,13 +10,24 @@ export function CreatePage({ onNavigate }: Props) {
   const [words, setWords] = useState<string[]>([])
   const [blurred, setBlurred] = useState(true)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
     window.wallet.generate().then(w => {
+      if (cancelled) return
       setWords(w)
       setLoading(false)
+    }).catch(e => {
+      if (cancelled) return
+      setError(String(e?.message ?? e))
+      setLoading(false)
     })
-  }, [])
+    return () => { cancelled = true }
+  }, [retryKey])
 
   return (
     <div className="page fade-in" style={{ gap: 20 }}>
@@ -44,6 +55,20 @@ export function CreatePage({ onNavigate }: Props) {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '32px 0' }}>
           <div className="spinner" />
+        </div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            Couldn't generate your seed phrase: {error}
+          </p>
+          <button
+            className="btn"
+            type="button"
+            onClick={() => setRetryKey(k => k + 1)}
+            style={{ alignSelf: 'center' }}
+          >
+            Try Again
+          </button>
         </div>
       ) : (
         <div>
