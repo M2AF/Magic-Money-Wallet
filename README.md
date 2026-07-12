@@ -1,4 +1,4 @@
-# MagicMoney Wallet
+# Magic Money Wallet
 
 A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as both a **desktop app** (Electron, Windows/macOS/Linux) and a **Chrome browser extension** (Manifest V3).
 
