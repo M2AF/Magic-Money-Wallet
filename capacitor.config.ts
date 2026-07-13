@@ -17,10 +17,18 @@ const config: CapacitorConfig = {
     ...(devUrl ? { url: devUrl, cleartext: true } : {})
   },
   plugins: {
-    // Native passthrough for fetch/XHR — bypasses WebView CORS exactly like the
-    // Electron main-process fetch and the extension's host_permissions do.
-    // AbortSignal semantics are restored by src/capacitor/fetch-guard.ts.
-    CapacitorHttp: { enabled: true }
+    // Global fetch patching is OFF: routing everything over the native bridge
+    // made the portfolio's parallel fan-out visibly slow. fetch-guard.ts now
+    // routes per-host — WebView fetch for the Worker + CORS-friendly APIs,
+    // CapacitorHttp.request() only for CORS-hostile hosts.
+    CapacitorHttp: { enabled: false }
+  },
+  android: {
+    // Android 15 forces edge-to-edge with targetSdk 35, drawing the WebView
+    // under the system nav bar (it overlapped the app's bottom nav). 'auto'
+    // makes Capacitor inset the WebView on affected devices; older Androids
+    // are untouched. (Capacitor 7 defaults to 'disable'; 8 flips to 'auto'.)
+    adjustMarginsForEdgeToEdge: 'auto'
   }
 }
 

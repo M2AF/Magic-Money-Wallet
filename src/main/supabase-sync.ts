@@ -25,12 +25,15 @@ function ownershipMessage(action: 'sync' | 'profile-update', addressLower: strin
 // Sign an EIP-191 ownership proof with the current account's EVM key. The Worker
 // recovers the signer and checks it matches the claimed address, so only the key
 // owner can write to a profile. Returns null if the wallet can't be read.
+// NOTE: store reads are awaited even though Electron's secure-store is sync —
+// the Capacitor build aliases './secure-store' to its async Preferences store,
+// and `await` normalizes both (awaiting a plain value is a no-op).
 async function signOwnership(
   action: 'sync' | 'profile-update', evmAddress: string
 ): Promise<{ ts: number; signature: string } | null> {
   try {
-    const idx = loadAddresses()?.accountIndex ?? 0
-    const account = privateKeyToAccount(await getEvmPrivateKey(loadMnemonic(), idx))
+    const idx = (await loadAddresses())?.accountIndex ?? 0
+    const account = privateKeyToAccount(await getEvmPrivateKey(await loadMnemonic(), idx))
     const ts = Date.now()
     const signature = await account.signMessage({ message: ownershipMessage(action, evmAddress.toLowerCase(), ts) })
     return { ts, signature }
@@ -139,7 +142,7 @@ export async function updateProfile(
 ): Promise<{ success: boolean; error: string | null }> {
   const base = proxyBase(config)
   if (!base) return { success: false, error: 'Profile sync not configured.' }
-  const evm = loadAddresses()?.evm
+  const evm = (await loadAddresses())?.evm
   if (!evm) return { success: false, error: 'No wallet address.' }
   const sig = await signOwnership('profile-update', evm)
   if (!sig) return { success: false, error: 'Could not sign ownership proof.' }

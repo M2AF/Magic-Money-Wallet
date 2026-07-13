@@ -863,14 +863,24 @@ export async function fetchAllTokens(
     // Testnet Mode gates: Helius (Solana), Blockfrost (Cardano), MONAD_RPCS
     // (Monad), and Ordiscan (runes/BRC-20) are mainnet-scoped, so those sources
     // are skipped. TRC-20s keep working — tronApiPost targets Shasta itself.
+    // Per-source timing — the slowest source here gates the portfolio header
+    // (see the matching instrumentation in balance-fetcher.fetchAllBalances).
+    const timings: Array<[string, number]> = []
+    const timed = <T,>(label: string, p: Promise<T>): Promise<T> => {
+      const start = Date.now()
+      return p.finally(() => { timings.push([label, Date.now() - start]) })
+    }
+    const tTokens = Date.now()
     const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens] = await Promise.all([
-      Promise.all(tokenChains.map(chain => fetchTokensForChain(addresses.evm, chain, config))),
-      (addresses.solana && !testnet)  ? fetchSolanaTokens(addresses.solana,   config) : Promise.resolve([] as WalletToken[]),
-      (addresses.cardano && !testnet) ? fetchCardanoTokens(addresses.cardano, config) : Promise.resolve([] as WalletToken[]),
-      testnet ? Promise.resolve([] as WalletToken[]) : fetchMonadTokens(addresses.evm),
-      addresses.tron    ? fetchTronTokens(addresses.tron, config)        : Promise.resolve([] as WalletToken[]),
-      testnet ? Promise.resolve([] as WalletToken[]) : fetchBitcoinTokens(addresses.bitcoinTaproot, config),
+      Promise.all(tokenChains.map(chain => timed(chain.id, fetchTokensForChain(addresses.evm, chain, config)))),
+      (addresses.solana && !testnet)  ? timed('solana', fetchSolanaTokens(addresses.solana,   config)) : Promise.resolve([] as WalletToken[]),
+      (addresses.cardano && !testnet) ? timed('cardano', fetchCardanoTokens(addresses.cardano, config)) : Promise.resolve([] as WalletToken[]),
+      testnet ? Promise.resolve([] as WalletToken[]) : timed('monad', fetchMonadTokens(addresses.evm)),
+      addresses.tron    ? timed('tron', fetchTronTokens(addresses.tron, config))        : Promise.resolve([] as WalletToken[]),
+      testnet ? Promise.resolve([] as WalletToken[]) : timed('bitcoin', fetchBitcoinTokens(addresses.bitcoinTaproot, config)),
     ])
+    timings.sort((a, b) => b[1] - a[1])
+    console.log(`[TOKEN] all sources in ${Date.now() - tTokens}ms — slowest: ${timings.slice(0, 6).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
 
     // Fetch Abstract tokens from the AGW smart account if it differs from the EOA,
     // tagging each so the UI can badge it as living in the smart wallet.
@@ -883,7 +893,9 @@ export async function fetchAllTokens(
     // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
     // mainnet contracts, so a testnet address could collide with an unrelated
     // mainnet token and show a bogus USD value.
+    const tEnrich = Date.now()
     const enriched = testnet ? raw : await enrichWithPrices(raw)
+    if (!testnet) console.log(`[TOKEN] price enrichment in ${Date.now() - tEnrich}ms (${raw.length} tokens)`)
     // Spam flagging runs AFTER price enrichment — a positive USD value is the
     // false-positive guardrail (see spam-filter.ts).
     const tokens = enriched.map(t => isSuspectedSpamToken(t) ? { ...t, suspectedSpam: true } : t)

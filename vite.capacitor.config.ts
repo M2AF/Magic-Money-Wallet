@@ -66,10 +66,10 @@ export default defineConfig({
         find: /^\.\/platform(\.ts)?$/,
         replacement: r('src/capacitor/platform-capacitor.ts')
       },
-      {
-        find: /^\.\.\/main\/supabase-sync(\.ts)?$/,
-        replacement: r('src/extension/stubs/supabase-sync-stub.ts')
-      },
+      // NOTE: no supabase-sync stub here (unlike the extension build) — the
+      // real module is Worker-proxied + EIP-191 signature-gated with no client
+      // keys, and its store reads are await-normalized, so ChainLens profile
+      // sync works on Android.
     ]
   },
 

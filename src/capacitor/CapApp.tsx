@@ -14,7 +14,7 @@
  * dApp approval overlays arrive in Phase 3 with the in-app browser.
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
 import { App } from '../renderer/App'
 import {
@@ -34,6 +34,14 @@ export function CapApp() {
   const [confirmPw, setConfirmPw] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Biometric unlock — the shared UnlockPage (which has the Windows Hello /
+  // Touch ID button) is Electron's flow; THIS lock screen is what Android
+  // shows, so it needs its own biometric affordance. Auto-prompts once per
+  // lock; the password form always remains as the recovery path.
+  const [bioReady, setBioReady] = useState(false)
+  const [bioBusy, setBioBusy] = useState(false)
+  const bioAutoTried = useRef(false)
+
   // dApp approval requests (in-app browser pages, routed via dapp-glue)
   const [connRequest, setConnRequest] = useState<ConnRequest | null>(null)
   const [txRequest, setTxRequest] = useState<TxApprovalRequest | null>(null)
@@ -49,6 +57,26 @@ export function CapApp() {
     }
     check().catch(() => setPage('app'))
   }, [])
+
+  // Biometric availability + one auto-prompt whenever the lock screen appears
+  useEffect(() => {
+    if (page !== 'locked') { bioAutoTried.current = false; return }
+    let alive = true
+    window.wallet.helloStatus?.()
+      .then(s => {
+        if (!alive) return
+        const ready = s.supported && s.enrolled
+        setBioReady(ready)
+        if (ready && !bioAutoTried.current) {
+          bioAutoTried.current = true
+          // Small delay so the prompt doesn't race the activity/keyboard focus
+          setTimeout(() => { if (alive) doBioUnlock() }, 350)
+        }
+      })
+      .catch(() => setBioReady(false))
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page])
 
   // Auto-lock push from capacitor-store (sliding session window expired)
   useEffect(() => {
@@ -171,7 +199,14 @@ export function CapApp() {
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0d0d0d', padding: 32, gap: 16 }}>
         <div style={{ fontSize: 40, marginBottom: 8 }}>🔒</div>
         <div style={{ color: '#fff', fontWeight: 700, fontSize: 18 }}>MagicMoney Wallet</div>
-        <div style={{ color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 8 }}>Enter your password to unlock</div>
+        <div style={{ color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 8 }}>
+          {bioReady ? 'Unlock with your fingerprint or password' : 'Enter your password to unlock'}
+        </div>
+        {bioReady && (
+          <button type="button" onClick={doBioUnlock} disabled={bioBusy || loading} style={btnStyle}>
+            {bioBusy ? 'Waiting for biometrics…' : '👆 Unlock with Biometrics'}
+          </button>
+        )}
         <form onSubmit={(e) => { e.preventDefault(); doUnlock() }} style={{ display: 'contents' }}>
           <input
             type="password"
@@ -277,6 +312,20 @@ export function CapApp() {
     } finally {
       setLoading(false)
       setPassword('')
+    }
+  }
+
+  async function doBioUnlock() {
+    setBioBusy(true)
+    setPwError('')
+    try {
+      await window.wallet.helloUnlock?.()
+      setPage('app')
+    } catch {
+      // Cancelled or failed — stay on the lock screen quietly; the password
+      // form is the recovery path (mirrors UnlockPage's behavior).
+    } finally {
+      setBioBusy(false)
     }
   }
 

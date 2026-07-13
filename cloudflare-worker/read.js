@@ -216,12 +216,23 @@ export async function handleRead(request, url, env, ctx) {
   }
 
   // ── Ordiscan (Bitcoin Ordinals/Runes/BRC-20): GET /ordinals/* (inject Bearer)
+  // 5-min KV cache: Ordiscan's per-key rate limit is tight, and every wallet
+  // fires the same three endpoints on each dashboard load + 5-min refresh. The
+  // uncached passthrough 429'd constantly, which the client renders as ZERO
+  // ordinals/runes — a stale-but-present list beats a silently empty one.
   if (parts[0] === 'ordinals' && request.method === 'GET') {
     if (!env.ORDISCAN_API_KEY) return err(env, 'Ordiscan key not configured', 500)
     const rest = parts.slice(1).join('/')
+    const ckey = `ord:${rest}${url.search}`
+    const hit = await cacheGet(env, ckey)
+    if (hit) return json(env, hit)
     const res = await fetch(`https://api.ordiscan.com/v1/${rest}${url.search}`, {
       headers: { accept: 'application/json', Authorization: `Bearer ${env.ORDISCAN_API_KEY}` },
     })
+    if (res.ok) {
+      const body = await res.json().catch(() => null)
+      if (body != null) { cachePut(env, ctx, ckey, body, 300); return json(env, body) }
+    }
     return passthrough(env, res)
   }
 

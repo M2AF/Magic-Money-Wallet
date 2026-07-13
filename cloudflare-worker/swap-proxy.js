@@ -110,8 +110,25 @@ function feeRecipient(env, chain) {
 
 // cors / json / err live in lib.js (shared with the read + db route modules).
 
-export default {
-  async fetch(request, env, ctx) {
+// ── Wallet-app origins (Android/iOS WebView) ─────────────────────────────────
+// The mobile app's browser-fetch path runs from a FIXED WebView origin. The
+// website keeps getting env.ALLOWED_ORIGIN exactly as before; only these two
+// known app origins are reflected per-request (single choke point in fetch()).
+// Requests routed through the app's native bridge carry no Origin and are
+// untouched — CORS is a browser-side gate, the x-mm-client token stays the
+// actual access control either way.
+const APP_ORIGINS = new Set(['https://localhost', 'capacitor://localhost'])
+
+function reflectAppOrigin(request, response) {
+  const origin = request.headers.get('Origin')
+  if (!origin || !APP_ORIGINS.has(origin)) return response
+  const headers = new Headers(response.headers)
+  headers.set('Access-Control-Allow-Origin', origin)
+  headers.append('Vary', 'Origin')
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers })
+}
+
+async function handleFetch(request, env, ctx) {
     const url = new URL(request.url)
     const { pathname } = url
 
@@ -148,6 +165,11 @@ export default {
     } catch (e) {
       return err(env, e && e.message ? e.message : 'Proxy error', 500)
     }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    return reflectAppOrigin(request, await handleFetch(request, env, ctx))
   },
 
   // Cron trigger (wrangler.toml [triggers]) — keeps the global Market Watch

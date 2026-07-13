@@ -497,26 +497,39 @@ export async function fetchAllBalances(
   const hasAgw = !!addresses.agw && addresses.agw.toLowerCase() !== addresses.evm.toLowerCase()
   const NO_AGW = { native: 0, tokenCount: 0, error: 'no-agw' }
 
+  // Per-source timing: everything below runs concurrently, so the SLOWEST
+  // source gates the whole portfolio header. One summary line (slowest first)
+  // makes the straggler visible in every console — desktop devtools, the
+  // extension SW inspector, and Android logcat.
+  const timings: Array<[string, number]> = []
+  const timed = <T,>(label: string, p: Promise<T>): Promise<T> => {
+    const start = Date.now()
+    return p.finally(() => { timings.push([label, Date.now() - start]) })
+  }
+
   // Fire market data + all chain fetches concurrently
+  const t0 = Date.now()
   const [prices, ...rawResults] = await Promise.all([
-    fetchMarketData(allIds),
+    timed('market', fetchMarketData(allIds)),
     ...EVM_CHAINS.map(chain =>
-      chain.comingSoon ? Promise.resolve(COMING_SOON) : fetchEvmNative(chain, addresses.evm, config)
+      chain.comingSoon ? Promise.resolve(COMING_SOON) : timed(chain.id, fetchEvmNative(chain, addresses.evm, config))
     ),
-    fetchSolanaNative(addresses.solana, config),
-    fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config),
+    timed('solana', fetchSolanaNative(addresses.solana, config)),
+    timed('cardano', fetchCardanaNative(addresses.cardano ?? null, addresses.cardanoStake ?? null, config)),
     addresses.bitcoin
-      ? fetchBitcoinTotal(addresses)
+      ? timed('bitcoin', fetchBitcoinTotal(addresses))
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     addresses.polkadot
-      ? fetchPolkadotNative(addresses.polkadot, config)
+      ? timed('polkadot', fetchPolkadotNative(addresses.polkadot, config))
       : Promise.resolve<typeof COMING_SOON>({ native: 0, tokenCount: 0, error: 'No address' }),
     (hasAgw && abstractDef)
-      ? fetchEvmNative(abstractDef, addresses.agw!, config)
+      ? timed('agw', fetchEvmNative(abstractDef, addresses.agw!, config))
       : Promise.resolve<typeof NO_AGW>(NO_AGW),
-    fetchTronNative(addresses.tron, config),
-    fetchDogecoinNative(addresses.dogecoin)
+    timed('tron', fetchTronNative(addresses.tron, config)),
+    timed('dogecoin', fetchDogecoinNative(addresses.dogecoin))
   ])
+  timings.sort((a, b) => b[1] - a[1])
+  console.log(`[balance] all sources in ${Date.now() - t0}ms — slowest: ${timings.slice(0, 8).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
 
   const marketMap  = prices as Record<string, MarketData>
   // Share these native prices with the token + NFT-floor valuation paths so they
