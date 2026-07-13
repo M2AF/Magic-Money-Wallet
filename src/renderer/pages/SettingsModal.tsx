@@ -14,7 +14,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [revealOpen, setRevealOpen] = useState(false)
   const [sitesOpen, setSitesOpen] = useState(false)
   const [siteCount, setSiteCount] = useState<number | null>(null)
-  const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | null } | null>(null)
+  const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
   const [helloError, setHelloError] = useState<string | null>(null)
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
@@ -62,6 +62,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   useEffect(refreshSiteCount, [])
 
   const refreshHello = () => { window.wallet.helloStatus?.().then(setHello).catch(() => setHello(null)) }
+  const bioMethodName = (m?: 'windows-hello' | 'touch-id' | 'android-biometric' | null) =>
+    m === 'touch-id' ? 'Touch ID' : m === 'android-biometric' ? 'Biometric' : 'Windows Hello'
   useEffect(refreshHello, [])
 
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => setTestnet(null)) }, [])
@@ -210,8 +212,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
               label={helloBusy
                 ? 'Please wait…'
                 : hello.enrolled
-                  ? `${hello.method === 'touch-id' ? 'Touch ID' : 'Windows Hello'} unlock — On`
-                  : `Enable ${hello.method === 'touch-id' ? 'Touch ID' : 'Windows Hello'} unlock`}
+                  ? `${bioMethodName(hello.method)} unlock — On`
+                  : `Enable ${bioMethodName(hello.method)} unlock`}
               sublabel={hello.enrolled
                 ? (hello.method === 'touch-id'
                   ? 'Unlock with your fingerprint. Tap to turn off.'

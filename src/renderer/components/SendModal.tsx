@@ -194,15 +194,34 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
           <>
             <div>
               <div className="label">Recipient Address</div>
-              <input
-                className="input"
-                style={{ fontFamily: 'var(--font-mono)', fontSize: 12, borderColor: addrState === 'invalid' ? 'var(--error)' : undefined }}
-                placeholder={getAddressPlaceholder(chainId)}
-                value={to}
-                onChange={e => { setTo(e.target.value); setFee(null) }}
-                spellCheck={false}
-                disabled={step === 'confirm'}
-              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input
+                  className="input"
+                  style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, borderColor: addrState === 'invalid' ? 'var(--error)' : undefined }}
+                  placeholder={getAddressPlaceholder(chainId)}
+                  value={to}
+                  onChange={e => { setTo(e.target.value); setFee(null) }}
+                  spellCheck={false}
+                  disabled={step === 'confirm'}
+                />
+                {typeof window.wallet.scanQr === 'function' && step === 'form' && (
+                  <button
+                    type="button"
+                    aria-label="Scan address QR code"
+                    onClick={async () => {
+                      const text = await window.wallet.scanQr!().catch(() => null)
+                      if (!text) return
+                      // Payment-URI QRs (ethereum:0x…?value=…, bitcoin:bc1…?amount=…)
+                      // carry the address after the scheme, before any query.
+                      const addr = text.replace(/^[a-z][a-z0-9+.-]*:/i, '').split('?')[0].trim()
+                      if (addr) { setTo(addr); setFee(null) }
+                    }}
+                    style={{ padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-dark)', color: 'var(--text)', fontSize: 15, cursor: 'pointer' }}
+                  >
+                    📷
+                  </button>
+                )}
+              </div>
               {addrState === 'invalid' && addrReason && (
                 <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>{addrReason}</div>
               )}

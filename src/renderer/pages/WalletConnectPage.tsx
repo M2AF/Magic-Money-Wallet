@@ -298,15 +298,16 @@ function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: ()
   const [waiting, setWaiting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const pair = async () => {
-    if (!uri.trim().startsWith('wc:')) {
+  const pair = async (value?: string) => {
+    const raw = (value ?? uri).trim()
+    if (!raw.startsWith('wc:')) {
       setError('Invalid WalletConnect URI — it should start with "wc:"')
       return
     }
     setLoading(true)
     setError(null)
     try {
-      await window.wallet.wcPair(uri.trim())
+      await window.wallet.wcPair(raw)
       // pair() returns immediately — proposal arrives via event, show waiting state
       setLoading(false)
       setWaiting(true)
@@ -314,6 +315,16 @@ function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: ()
       setError(String(e))
       setLoading(false)
     }
+  }
+
+  // Camera QR scan — mobile only (capability-detected, like helloStatus)
+  const canScan = typeof window.wallet.scanQr === 'function'
+  const scan = async () => {
+    setError(null)
+    const text = await window.wallet.scanQr!().catch(() => null)
+    if (!text) return
+    setUri(text)
+    pair(text)  // scanned a full URI — connect immediately
   }
 
   // Auto-close once a proposal arrives (WalletConnectManager will show it)
@@ -375,9 +386,14 @@ function ConnectModal({ onClose, onPaired }: { onClose: () => void; onPaired: ()
             {error}
           </div>
         )}
+        {canScan && (
+          <button type="button" onClick={scan} disabled={loading} style={{ ...secondaryBtnStyle, width: '100%', marginTop: 10 }}>
+            📷 Scan QR Code
+          </button>
+        )}
         <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <button type="button" onClick={onClose} style={secondaryBtnStyle}>Cancel</button>
-          <button type="button" onClick={pair} disabled={loading || !uri.trim()} style={primaryBtnStyle}>
+          <button type="button" onClick={() => pair()} disabled={loading || !uri.trim()} style={primaryBtnStyle}>
             {loading ? 'Sending…' : 'Connect'}
           </button>
         </div>

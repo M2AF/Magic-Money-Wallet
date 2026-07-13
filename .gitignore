@@ -3,10 +3,24 @@ node_modules/
 out/
 dist/
 dist-extension/
+dist-capacitor/
 coverage/
 playwright-report/
 test-results/
 *.tsbuildinfo
+
+# ── Android (Capacitor) — native project is committed, outputs are not ──
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+*.keystore
+*.jks
 
 # ── Secrets / local env ──────────────────────────────────────
 .env

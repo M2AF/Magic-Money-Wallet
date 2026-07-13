@@ -1,0 +1,52 @@
+/**
+ * dapp-browser.ts — typed JS wrapper for the native DappBrowser plugin
+ * (android/app/src/main/java/info/chainlens/magicmoney/DappBrowserPlugin.java)
+ */
+
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+
+export interface Bounds { x: number; y: number; width: number; height: number }  // CSS px
+
+export interface DappBrowserState {
+  url: string
+  canBack: boolean
+  canForward: boolean
+  loading: boolean
+  activeTabId: number
+  tabs: Array<{ id: number; title: string; url: string; loading: boolean }>
+}
+
+export interface PageRequestEvent {
+  requestId: string
+  origin: string        // chromium-authenticated page origin
+  tabId: number
+  payloadJson: string   // raw {id, type, args} JSON from dapp-inject.ts
+}
+
+export interface DappBrowserPlugin {
+  open(o: { url: string; bounds: Bounds }): Promise<{ tabId: number }>
+  close(): Promise<void>
+  newTab(o: { url: string }): Promise<{ tabId: number }>
+  selectTab(o: { tabId: number }): Promise<void>
+  closeTab(o: { tabId: number }): Promise<void>
+  navigate(o: { url: string }): Promise<void>
+  goBack(): Promise<void>
+  goForward(): Promise<void>
+  reload(): Promise<void>
+  canGoBack(): Promise<{ canBack: boolean }>
+  setBounds(o: Bounds): Promise<void>
+  hide(): Promise<void>
+  show(): Promise<void>
+  getState(): Promise<DappBrowserState>
+  respond(o: { requestId: string; json: string }): Promise<void>
+  emitEvent(o: { origin?: string; json: string }): Promise<void>
+  addListener(event: 'pageRequest', cb: (e: PageRequestEvent) => void): Promise<PluginListenerHandle>
+  addListener(event: 'urlChanged', cb: (e: { url: string }) => void): Promise<PluginListenerHandle>
+  addListener(event: 'loadingChanged', cb: (e: { loading: boolean }) => void): Promise<PluginListenerHandle>
+  addListener(event: 'navState', cb: (e: { canBack: boolean; canForward: boolean }) => void): Promise<PluginListenerHandle>
+  addListener(event: 'titleChanged', cb: (e: { title: string }) => void): Promise<PluginListenerHandle>
+  addListener(event: 'tabsChanged', cb: (e: { activeTabId: number; tabs: DappBrowserState['tabs'] }) => void): Promise<PluginListenerHandle>
+  addListener(event: 'closed', cb: () => void): Promise<PluginListenerHandle>
+}
+
+export const DappBrowser = registerPlugin<DappBrowserPlugin>('DappBrowser')

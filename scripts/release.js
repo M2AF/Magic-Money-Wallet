@@ -31,6 +31,14 @@ const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 manifest.version = next
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
 
+// Android: versionName tracks package.json; versionCode must strictly increase
+// (Android refuses to update-install an APK with a lower/equal code).
+const gradlePath = 'android/app/build.gradle'
+let gradle = fs.readFileSync(gradlePath, 'utf8')
+gradle = gradle.replace(/versionCode (\d+)/, (_, c) => `versionCode ${Number(c) + 1}`)
+gradle = gradle.replace(/versionName "[^"]*"/, `versionName "${next}"`)
+fs.writeFileSync(gradlePath, gradle)
+
 console.log(`\n  Releasing v${next}...\n`)
 
 const run = cmd => { console.log(`  > ${cmd}`); execSync(cmd, { stdio: 'inherit' }) }

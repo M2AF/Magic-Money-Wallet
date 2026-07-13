@@ -84,6 +84,70 @@ jobs:
         shell: bash
         run: npm run build && npx electron-builder --publish always --config.publish.releaseType="$RELEASE_TYPE"
 
+  # ── Build Android APK (sideload) ───────────────────────────────────────────
+  # Same invariant as the extension job: electron-builder owns creating the
+  # GitHub release; this job only appends the APK to it, so it MUST run after
+  # the electron matrix (the v0.2.0-beta.1 maiden-run bug).
+  # Signing: with the ANDROID_KEYSTORE_* secrets set, produces a release-signed
+  # APK (REQUIRED for update-over-install to keep working between versions).
+  # Without them it falls back to a debug-signed APK marked "-debugsigned"
+  # (installable for testing, but each CI run signs with a throwaway key, so
+  # updates need uninstall/reinstall — add the secrets before real releases).
+  android:
+    needs: [validate, electron]
+    runs-on: ubuntu-latest
+    name: Android APK
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle + sync
+        run: npm run build:capacitor
+
+      - name: Build APK
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          cd android
+          if [ -n "$ANDROID_KEYSTORE_B64" ]; then
+            echo "$ANDROID_KEYSTORE_B64" | base64 -d > magicmoney-release.keystore
+            export ANDROID_KEYSTORE_PATH="$GITHUB_WORKSPACE/android/magicmoney-release.keystore"
+            ./gradlew assembleRelease --no-daemon
+            cp app/build/outputs/apk/release/app-release.apk \
+               "$GITHUB_WORKSPACE/magicmoney-android-${{ github.ref_name }}.apk"
+          else
+            echo "::warning::ANDROID_KEYSTORE_B64 secret not set — building debug-signed APK (updates will require uninstall/reinstall)"
+            ./gradlew assembleDebug --no-daemon
+            cp app/build/outputs/apk/debug/app-debug.apk \
+               "$GITHUB_WORKSPACE/magicmoney-android-${{ github.ref_name }}-debugsigned.apk"
+          fi
+
+      - name: Upload APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: magicmoney-android-*.apk
+          # Keep the flag electron-builder set — a '-' in the tag means beta.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   # ── Build Chrome extension zip (runs once on Linux) ────────────────────────
   # MUST run after the electron matrix: electron-builder owns creating the
   # GitHub release; this job only appends the zip to it. When this ran in

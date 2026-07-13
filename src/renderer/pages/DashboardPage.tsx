@@ -152,6 +152,10 @@ function TokenLogo({ token }: { token: WalletToken }) {
   )
 }
 
+// Touch screens have no hover — keep the Hide/Spam affordances always visible
+// there (Android); desktop keeps the hover-reveal behavior.
+const COARSE_POINTER = typeof matchMedia !== 'undefined' && matchMedia('(hover: none)').matches
+
 interface TokenRowProps {
   token: WalletToken
   isHovered: boolean
@@ -202,8 +206,9 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
         </div>
       </div>
 
-      {/* Action buttons — only mounted on hover so they take zero layout space otherwise */}
-      {isHovered && (
+      {/* Action buttons — only mounted on hover so they take zero layout space
+          otherwise (always mounted on touch screens, which can't hover) */}
+      {(isHovered || COARSE_POINTER) && (
         <div style={{ marginLeft: 3 }}>
           <HideSpamButtons onHide={onHide} onSpam={onSpam} />
         </div>
@@ -618,7 +623,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onS
                   ? <NftImage src={nft.image} alt={nft.name} />
                   : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
                 }
-                {isHovered && (
+                {(isHovered || COARSE_POINTER) && (
                   <div style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
                     <HideSpamButtons onHide={() => onHide(id)} onSpam={() => onSpam(id)} />
                   </div>

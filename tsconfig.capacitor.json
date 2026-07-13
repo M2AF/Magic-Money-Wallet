@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // "chrome" is needed because tsc doesn't see the vite aliases: the import
+    // graph reaches src/extension files (wallet-handlers → './platform' →
+    // platform.ts) that reference chrome.* types. The Capacitor BUILD swaps
+    // those modules out; typechecking them here is a superset, not a problem.
+    "types": ["vite/client", "chrome", "node"]
+  },
+  "include": [
+    "src/capacitor/**/*"
+  ]
+}

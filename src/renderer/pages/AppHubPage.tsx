@@ -332,6 +332,17 @@ function AppCard({
 }) {
   const [imgErr, setImgErr] = useState(false)
 
+  // Touch equivalent of right-click: a 500ms long-press opens the same menu.
+  const longPress = useRef<number | null>(null)
+  const startLongPress = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    const { clientX, clientY } = e
+    longPress.current = window.setTimeout(() => { longPress.current = null; onContextMenu(clientX, clientY) }, 500)
+  }
+  const cancelLongPress = () => {
+    if (longPress.current != null) { clearTimeout(longPress.current); longPress.current = null }
+  }
+
   const accents = chainAccents(app.chains)
   const primary = accents[0]
 
@@ -342,6 +353,11 @@ function AppCard({
         e.preventDefault()
         onContextMenu(e.clientX, e.clientY)
       }}
+      onPointerDown={startLongPress}
+      onPointerUp={cancelLongPress}
+      onPointerMove={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
       style={{
         ['--chains-gradient' as string]: accentGradient(accents),
         ['--card-accent' as string]: primary.hex,

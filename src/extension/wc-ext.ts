@@ -2,9 +2,11 @@
  * wc-ext.ts — WalletConnect v2 for the browser extension
  *
  * Adapted from src/main/wc-client.ts:
- *  - FileStorage → chrome.storage.local (no filesystem in service workers)
- *  - pushAll → chrome.runtime.sendMessage (no BrowserWindow)
+ *  - FileStorage → platform wcKv (chrome.storage.local / Capacitor Preferences)
+ *  - pushAll → platform pushToUi (chrome.runtime.sendMessage / in-process bus)
  *  - loadConfig / loadAddresses / loadMnemonic → async chrome-store
+ * Environment side effects go through './platform' so the Capacitor build can
+ * alias in its own implementations and reuse this module unchanged.
  */
 
 // WebSocket and WebCrypto are available natively in MV3 service workers — no polyfills needed
@@ -17,6 +19,7 @@ import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
 import nacl from 'tweetnacl'
 import { loadConfig, loadAddresses, loadMnemonic } from './chrome-store'
+import { pushToUi, wcKv } from './platform'
 import { getSolanaKeypair } from '../main/wallet-core'
 import { alchemyRpcUrl } from '../main/api-proxy'
 
@@ -100,7 +103,7 @@ const _proposals = new Map<number, SignClientTypes.EventArguments['session_propo
 const _requests  = new Map<number, SignClientTypes.EventArguments['session_request']>()
 
 function pushAll(channel: string, data: unknown) {
-  chrome.runtime.sendMessage({ type: channel, data }).catch(() => {})
+  pushToUi(channel, data)
 }
 
 // ── Serialisers ───────────────────────────────────────────────────────────────
@@ -180,29 +183,6 @@ function serRequest(r: SignClientTypes.EventArguments['session_request']): WcReq
   }
 }
 
-// ── Chrome storage adapter for WC sessions ────────────────────────────────────
-
-class ChromeStorage {
-  async getKeys(): Promise<string[]> {
-    const all = await chrome.storage.local.get(null)
-    return Object.keys(all).filter(k => k.startsWith('wc@'))
-  }
-  async getEntries<T = unknown>(): Promise<[string, T][]> {
-    const all = await chrome.storage.local.get(null)
-    return Object.entries(all).filter(([k]) => k.startsWith('wc@')) as [string, T][]
-  }
-  async getItem<T = unknown>(key: string): Promise<T | undefined> {
-    const r = await chrome.storage.local.get(key)
-    return r[key] as T | undefined
-  }
-  async setItem<T = unknown>(key: string, value: T): Promise<void> {
-    await chrome.storage.local.set({ [key]: value })
-  }
-  async removeItem(key: string): Promise<void> {
-    await chrome.storage.local.remove(key)
-  }
-}
-
 // ── Key derivation ────────────────────────────────────────────────────────────
 
 function toHex(bytes: Uint8Array): string {
@@ -225,7 +205,7 @@ async function _doInit(): Promise<void> {
   const config = await loadConfig()
   _client = await SignClient.init({
     projectId: config.walletConnectProjectId,
-    storage: new ChromeStorage(),
+    storage: wcKv,
     metadata: {
       name: 'MagicMoney Wallet',
       description: 'Multi-chain self-custody wallet by ChainLens',

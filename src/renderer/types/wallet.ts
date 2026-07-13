@@ -279,12 +279,15 @@ declare global {
       onLocked(cb: () => void): void
       offLocked(cb: () => void): void
       reportActivity?(): void
-      // Biometric unlock — Windows Hello / Touch ID (optional; desktop only).
-      // Absent on the extension bridge.
-      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | null }>
+      // Biometric unlock — Windows Hello / Touch ID / Android BiometricPrompt
+      // (optional; absent on the extension bridge).
+      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null }>
       helloEnroll?(): Promise<boolean>
       helloUnlock?(): Promise<boolean>
       helloRemove?(): Promise<boolean>
+      // Camera QR scan (optional; Android only). Resolves the decoded text, or
+      // null if the user cancelled / no camera permission.
+      scanQr?(): Promise<string | null>
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
       revealSeed(password: string): Promise<string[]>

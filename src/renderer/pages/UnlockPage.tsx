@@ -29,7 +29,7 @@ export function UnlockPage({ onUnlocked }: Props) {
       .then(s => {
         if (!alive) return
         setHelloOn(s.enrolled && s.supported)
-        setBioName(s.method === 'touch-id' ? 'Touch ID' : 'Windows Hello')
+        setBioName(s.method === 'touch-id' ? 'Touch ID' : s.method === 'android-biometric' ? 'Biometric' : 'Windows Hello')
       })
       .catch(() => { /* leave the button hidden */ })
     return () => { alive = false }

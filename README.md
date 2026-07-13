@@ -284,13 +284,42 @@ Edit the source file (`ChainLens_Files/app-hub-data.js`) to add or remove apps; 
 
 ---
 
+## Android (Capacitor)
+
+The Android app is a third build target beside Electron and the MV3 extension: the same
+React UI and pure-JS chain core run in a Capacitor WebView, with `src/capacitor/` providing
+the platform layer (Preferences-backed vault storage, in-process wallet router, biometric
+unlock, ML Kit QR scanning, `wc:` deep links) and a native `DappBrowser` plugin hosting
+dApp pages in **separate** WebViews with `document_start` provider injection — untrusted
+content never shares a realm with the wallet.
+
+```bash
+npm run build:capacitor   # web bundle + dapp-inject + cap sync
+npm run android           # build, then deploy to a connected device/AVD
+npm run android:apk       # signed release APK (needs android/keystore.properties)
+```
+
+**Sideload install:** download `magicmoney-android-vX.Y.Z.apk` from GitHub Releases, allow
+"install unknown apps" for your browser/file manager, and open the APK. Updates install
+over the existing app (data intact) as long as every APK is signed with the **same key** —
+back up `android/magicmoney-release.keystore` + `android/keystore.properties` (both
+gitignored) somewhere safe; losing them means users must uninstall/reinstall. CI signs
+releases when the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` /
+`ANDROID_KEY_PASSWORD` repo secrets are set (base64 of the keystore + its credentials);
+without them the workflow attaches a debug-signed APK for testing only.
+
+The in-app **Software Update** row checks GitHub Releases and opens the newer APK's
+download page. Play Store distribution is future work.
+
+---
+
 ## Roadmap
 
 - **Chrome Web Store** — public extension listing for the first stable release.
 - **Cardano tx chaining** (`supportsTxChaining`) — track submitted-but-unconfirmed UTXOs locally so dApps can chain transactions without waiting for confirmation.
 - **Cardano DEX execution** — wire the stubbed on-chain swap path (MuesliSwap).
 - **Fiat on/off-ramp** — Transak integration (planned).
-- **Android APK** - Mobile version available to sideload and hopefully Google Play Store
+- **Google Play** — the Android APK ships via GitHub Releases today; a Play listing is planned.
 
 ---
 

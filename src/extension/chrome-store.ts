@@ -72,7 +72,7 @@ type StoredEncryptedWallet = {
 
 // ── WebCrypto helpers ─────────────────────────────────────────────────────────
 
-async function deriveKey(password: string, salt: Uint8Array, iterations = ACTIVE_PBKDF2_ITERATIONS): Promise<CryptoKey> {
+async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>, iterations = ACTIVE_PBKDF2_ITERATIONS): Promise<CryptoKey> {
   const raw = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']
   )
@@ -249,7 +249,9 @@ export async function loadAddresses(): Promise<WalletAddresses | null> {
   const r = await chrome.storage.local.get('wallet.addresses')
   const a = r['wallet.addresses']
   if (!a) return null
-  return { accountIndex: 0, ...(a as WalletAddresses) }
+  // Wallets saved before accountIndex existed lack the field — default to 0.
+  const addrs = a as WalletAddresses
+  return { ...addrs, accountIndex: addrs.accountIndex ?? 0 }
 }
 
 // ── Config (plain JSON) ───────────────────────────────────────────────────────
@@ -335,7 +337,7 @@ export async function setCurrentChain(hex: string): Promise<void> {
 
 export async function getApprovedOrigins(): Promise<string[]> {
   const r = await chrome.storage.local.get('wallet.approved_origins')
-  return r['wallet.approved_origins'] ?? []
+  return (r['wallet.approved_origins'] as string[] | undefined) ?? []
 }
 
 export async function addApprovedOrigin(origin: string): Promise<void> {
