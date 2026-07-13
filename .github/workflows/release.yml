@@ -85,7 +85,19 @@ jobs:
           # release for the same tag (the v0.2.0-beta.1 maiden-run bug).
           RELEASE_TYPE: ${{ contains(github.ref_name, '-') && 'prerelease' || 'release' }}
         shell: bash
-        run: npm run build && npx electron-builder --publish always --config.publish.releaseType="$RELEASE_TYPE"
+        # Publish retry: the three matrix legs race to CREATE the release for
+        # the tag. The slowest leg (macOS dmg) can list-releases before any
+        # exist, then hit 422 "already exists" on its own create once a faster
+        # leg wins (the v0.2.0-beta.2 failure). On retry electron-builder finds
+        # the now-existing release by tag and just uploads into it.
+        run: |
+          npm run build
+          for attempt in 1 2 3; do
+            npx electron-builder --publish always --config.publish.releaseType="$RELEASE_TYPE" && exit 0
+            echo "::warning::electron-builder publish failed (attempt $attempt) — retrying in 30s"
+            sleep 30
+          done
+          exit 1
 
   # ── Build Android APK (sideload) ───────────────────────────────────────────
   # Same invariant as the extension job: electron-builder owns creating the
