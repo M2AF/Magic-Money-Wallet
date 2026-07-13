@@ -129,6 +129,9 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           cd android
+          # The android/ project is maintained from Windows — make sure the
+          # wrapper is executable even if a future commit drops the mode bit.
+          chmod +x ./gradlew
           if [ -n "$ANDROID_KEYSTORE_B64" ]; then
             echo "$ANDROID_KEYSTORE_B64" | base64 -d > magicmoney-release.keystore
             export ANDROID_KEYSTORE_PATH="$GITHUB_WORKSPACE/android/magicmoney-release.keystore"
