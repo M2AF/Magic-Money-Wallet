@@ -147,9 +147,12 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_B64" ]; then
             echo "$ANDROID_KEYSTORE_B64" | base64 -d > magicmoney-release.keystore
             export ANDROID_KEYSTORE_PATH="$GITHUB_WORKSPACE/android/magicmoney-release.keystore"
-            ./gradlew assembleRelease --no-daemon
+            ./gradlew assembleRelease bundleRelease --no-daemon
             cp app/build/outputs/apk/release/app-release.apk \
                "$GITHUB_WORKSPACE/magicmoney-android-${{ github.ref_name }}.apk"
+            # AAB (upload-key signed) — what Google Play Console accepts.
+            cp app/build/outputs/bundle/release/app-release.aab \
+               "$GITHUB_WORKSPACE/magicmoney-android-${{ github.ref_name }}.aab"
           else
             echo "::warning::ANDROID_KEYSTORE_B64 secret not set — building debug-signed APK (updates will require uninstall/reinstall)"
             ./gradlew assembleDebug --no-daemon
@@ -160,7 +163,9 @@ jobs:
       - name: Upload APK to release
         uses: softprops/action-gh-release@v2
         with:
-          files: magicmoney-android-*.apk
+          files: |
+            magicmoney-android-*.apk
+            magicmoney-android-*.aab
           # Keep the flag electron-builder set — a '-' in the tag means beta.
           prerelease: ${{ contains(github.ref_name, '-') }}
         env:

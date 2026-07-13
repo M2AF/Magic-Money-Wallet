@@ -16,7 +16,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { helloStatus, helloEnroll, helloUnlock, helloRemove } from './biometric'
-import { updateCheck, updateGetState, updateInstall } from './update-check'
+import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
 import { scanQr } from './qr-scan'
 import { DappBrowser } from './dapp-browser'
 import { HOME_URL } from './BrowserOverlay'
@@ -44,6 +44,23 @@ function normalizeWebUrl(input: string): string | null {
 // ── window.wallet implementation ──────────────────────────────────────────────
 
 export function createCapacitorWallet() {
+  const wallet = buildWallet()
+  // Play installs must not self-update (store policy) — strip the update
+  // surface so SettingsModal's `typeof updateCheck === 'function'` gate hides
+  // the whole Software Update section. Async, but resolves long before the
+  // user can open Settings; the same binary keeps the updater when sideloaded.
+  isPlayStoreInstall().then(play => {
+    if (!play) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = wallet as any
+    delete w.updateCheck
+    delete w.updateGetState
+    delete w.updateInstall
+  }).catch(() => {})
+  return wallet
+}
+
+function buildWallet() {
   return {
     // Lifecycle
     isSetup:        ()                      => send<boolean>('wallet:is-setup'),

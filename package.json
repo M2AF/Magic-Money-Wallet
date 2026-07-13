@@ -31,6 +31,7 @@
     "build:capacitor": "vite build --config vite.capacitor.config.ts && npx esbuild src/capacitor/dapp-inject.ts --bundle --format=iife --minify --outfile=dist-capacitor/dapp-inject.js && npx cap sync android",
     "android": "npm run build:capacitor && npx cap run android",
     "android:apk": "npm run build:capacitor && cd android && gradlew assembleRelease",
+    "android:aab": "npm run build:capacitor && cd android && gradlew bundleRelease",
     "android:dev": "vite --config vite.capacitor.config.ts --port 5183 --host",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",

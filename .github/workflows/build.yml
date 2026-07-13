@@ -99,18 +99,22 @@ jobs:
           if [ -n "$ANDROID_KEYSTORE_B64" ]; then
             echo "$ANDROID_KEYSTORE_B64" | base64 -d > magicmoney-release.keystore
             export ANDROID_KEYSTORE_PATH="$GITHUB_WORKSPACE/android/magicmoney-release.keystore"
-            ./gradlew assembleRelease --no-daemon
+            ./gradlew assembleRelease bundleRelease --no-daemon
             cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/magicmoney-android.apk"
+            # AAB (upload-key signed) — what Google Play Console accepts.
+            cp app/build/outputs/bundle/release/app-release.aab "$GITHUB_WORKSPACE/magicmoney-android.aab"
           else
             echo "::warning::ANDROID_KEYSTORE_B64 secret not set — building debug-signed APK"
             ./gradlew assembleDebug --no-daemon
             cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/magicmoney-android-debugsigned.apk"
           fi
 
-      - name: Upload APK
+      - name: Upload APK + AAB
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: magicmoney-Android
-          path: magicmoney-android*.apk
+          path: |
+            magicmoney-android*.apk
+            magicmoney-android*.aab
           if-no-files-found: warn

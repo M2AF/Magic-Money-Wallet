@@ -11,9 +11,30 @@
  * project ships, same as electron-updater's prerelease releaseType.
  */
 
+import { registerPlugin } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import type { UpdateStatus } from '../renderer/types/wallet'
+
+interface AppInfoPlugin {
+  getInstallSource(): Promise<{ installer: string | null }>
+}
+const AppInfo = registerPlugin<AppInfoPlugin>('AppInfo')
+
+/**
+ * True when this install came from Google Play. Play policy forbids apps
+ * self-updating outside the store, so the whole Software Update surface is
+ * removed for Play installs (Play delivers updates itself). Sideload installs
+ * (null installer / package installer) keep the GitHub-Releases updater.
+ */
+export async function isPlayStoreInstall(): Promise<boolean> {
+  try {
+    const { installer } = await AppInfo.getInstallSource()
+    return installer === 'com.android.vending'
+  } catch {
+    return false
+  }
+}
 
 const RELEASES_API = 'https://api.github.com/repos/M2AF/Magic-Money-Wallet/releases?per_page=5'
 
