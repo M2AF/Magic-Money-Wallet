@@ -24,6 +24,9 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
       - name: E2E tests
-        run: npm run test:e2e
+        # xvfb: the real-extension specs need a HEADED Chromium (unpacked MV3
+        # extensions don't load in classic headless), and Linux runners have no
+        # display server — give them a virtual one.
+        run: xvfb-run --auto-servernum -- npm run test:e2e
       - name: Build
         run: npm run build
