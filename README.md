@@ -380,13 +380,8 @@ npm run android:apk       # signed release APK (needs android/keystore.propertie
 ```
 
 **Sideload install:** download `magicmoney-android-vX.Y.Z.apk` from GitHub Releases, allow
-"install unknown apps" for your browser/file manager, and open the APK. Updates install
-over the existing app (data intact) as long as every APK is signed with the **same key** —
-back up `android/magicmoney-release.keystore` + `android/keystore.properties` (both
-gitignored) somewhere safe; losing them means users must uninstall/reinstall. CI signs
-releases when the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` /
-`ANDROID_KEY_PASSWORD` repo secrets are set (base64 of the keystore + its credentials);
-without them the workflow attaches a debug-signed APK for testing only.
+"install unknown apps" for your browser/file manager, and open the APK. 
+Updates install over the existing app (data intact). 
 
 The in-app **Software Update** row checks GitHub Releases and opens the newer APK's
 download page. Play Store distribution is future work.
