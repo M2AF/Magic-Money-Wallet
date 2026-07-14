@@ -65,7 +65,7 @@ test.describe('extension privacy mode (real extension)', () => {
       await expect(vis('Monero').first()).toBeVisible({ timeout: 30_000 })
       await expect(vis('Zcash').first()).toBeVisible()
       await expect(vis('Midnight').first()).toBeVisible()
-      await expect(vis('Ethereum')).toHaveCount(0)
+      await expect(page.locator('.chain-name', { hasText: /^Ethereum$/ })).toHaveCount(0)
 
       // Midnight's unshielded address label proves the ledger-v9 WASM ran in
       // the offscreen document (derivation is impossible in the SW itself).
@@ -79,7 +79,7 @@ test.describe('extension privacy mode (real extension)', () => {
       await page.locator('button[title="Settings"]').first().click()
       await expect(page.getByText('Privacy Mode — On')).toBeVisible({ timeout: 15_000 })
       await page.getByText('Privacy Mode — On').click()
-      await expect(vis('Ethereum').first()).toBeVisible({ timeout: 60_000 })
+      await expect(page.locator('.chain-name', { hasText: /^Ethereum$/ }).first()).toBeVisible({ timeout: 60_000 })
     } finally {
       await ctx.close()
     }

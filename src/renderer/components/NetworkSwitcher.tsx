@@ -59,7 +59,9 @@ function fallbackChains(chainId: number): EvmChainOption[] {
 }
 
 function normalizeChains(chains: EvmChainOption[]): EvmChainOption[] {
-  return chains.filter(c => Number.isFinite(c.chainId) && c.name && c.color)
+  return chains
+    .map(c => ({ ...c, chainId: Number(c.chainId) }))
+    .filter(c => Number.isFinite(c.chainId) && c.name && c.color)
 }
 
 export function NetworkSwitcher() {
@@ -80,7 +82,7 @@ export function NetworkSwitcher() {
   }, [])
 
   const numId = parseInt(chainId, 16)
-  const displayedChains = chains.length > 0 ? chains : fallbackChains(numId)
+  const displayedChains = chains.some(c => c.chainId === numId) ? chains : fallbackChains(numId)
   const current = displayedChains.find(c => c.chainId === numId)
   const color = current?.color ?? '#22c55e'
   const label = current?.name ?? (Number.isFinite(numId) ? `Chain ${numId}` : 'Network')
