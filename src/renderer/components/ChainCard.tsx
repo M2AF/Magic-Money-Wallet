@@ -49,7 +49,11 @@ const CHAIN_META: Record<string, ChainMeta> = {
   tron:       { name: 'Tron',         networks: 'Mainnet',                    color: '#EB0029', colorRgb: '235, 0, 41'     },
   dogecoin:   { name: 'Dogecoin',     networks: 'Mainnet',                    color: '#C2A633', colorRgb: '194, 166, 51'   },
   // Testnet Mode only — the second Bitcoin network entry (same tb1 addresses).
-  'bitcoin-testnet4': { name: 'Bitcoin', networks: 'Testnet4',                color: '#F7931A', colorRgb: '247, 147, 26'   }
+  'bitcoin-testnet4': { name: 'Bitcoin', networks: 'Testnet4',                color: '#F7931A', colorRgb: '247, 147, 26'   },
+  // Privacy Mode chains.
+  monero:     { name: 'Monero',       networks: 'Mainnet',                    color: '#FF6600', colorRgb: '255, 102, 0'    },
+  zcash:      { name: 'Zcash',        networks: 'Transparent pool',           color: '#F4B728', colorRgb: '244, 183, 40'   },
+  midnight:   { name: 'Midnight',     networks: 'Mainnet',                    color: '#7C3AED', colorRgb: '124, 58, 237'   }
 }
 
 // Testnet Mode network subtitles (per chain id). Chains absent here keep their
@@ -142,6 +146,9 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
             <div style={{ width: 60, height: 18, background: 'var(--border)', borderRadius: 4, animation: 'pulse 1.4s ease infinite' }} />
           ) : balance?.error === 'coming-soon' ? (
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--chain-color-rgb), 0.7)', background: 'rgba(var(--chain-color-rgb), 0.1)', border: '1px solid rgba(var(--chain-color-rgb), 0.2)', borderRadius: 4, padding: '2px 7px' }}>Soon</div>
+          ) : balance?.error?.startsWith('Syncing') ? (
+            // Monero view-wallet catching up — busy, not broken.
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--chain-color-rgb), 0.85)', background: 'rgba(var(--chain-color-rgb), 0.1)', border: '1px solid rgba(var(--chain-color-rgb), 0.2)', borderRadius: 4, padding: '2px 7px' }}>{balance.error}</div>
           ) : balance?.error ? (
             <div className="chain-error">Unavailable</div>
           ) : (

@@ -11,12 +11,14 @@ interface Props {
 
 type Step = 'form' | 'confirm' | 'sending' | 'success' | 'error'
 
-function getChainType(chainId: string): 'evm' | 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin' {
+function getChainType(chainId: string): 'evm' | 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin' | 'monero' | 'zcash' {
   if (chainId === 'solana') return 'solana'
   if (chainId === 'cardano') return 'cardano'
   if (chainId === 'tron') return 'tron'
   if (chainId === 'dogecoin') return 'dogecoin'
   if (chainId === 'bitcoin') return 'bitcoin'
+  if (chainId === 'monero') return 'monero'
+  if (chainId === 'zcash') return 'zcash'
   return 'evm'
 }
 
@@ -26,6 +28,8 @@ function getAddressPlaceholder(chainId: string): string {
   if (chainId === 'tron') return 'T...'
   if (chainId === 'dogecoin') return 'D...'
   if (chainId === 'bitcoin') return 'bc1q… / bc1p… / 3…'
+  if (chainId === 'monero') return '4… / 8…'
+  if (chainId === 'zcash') return 't1… / t3…'
   return '0x...'
 }
 
@@ -36,7 +40,8 @@ function getChainLabel(chainId: string, symbol: string): string {
     blast: 'Blast', gnosis: 'Gnosis', monad: 'Monad', abstract: 'Abstract',
     apechain: 'ApeChain', ronin: 'Ronin', soneium: 'Soneium',
     worldchain: 'WorldChain', zora: 'Zora', hyperevm: 'HyperEVM',
-    solana: 'Solana', cardano: 'Cardano', tron: 'Tron', dogecoin: 'Dogecoin'
+    solana: 'Solana', cardano: 'Cardano', tron: 'Tron', dogecoin: 'Dogecoin',
+    monero: 'Monero', zcash: 'Zcash', midnight: 'Midnight'
   }
   return labels[chainId] ?? `${symbol} Network`
 }
@@ -141,6 +146,8 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
       else if (chainType === 'tron')     res = await window.wallet.sendTron(to.trim(), amount.trim())
       else if (chainType === 'dogecoin') res = await window.wallet.sendDogecoin(to.trim(), amount.trim())
       else if (chainType === 'bitcoin')  res = await window.wallet.sendBitcoin(to.trim(), amount.trim())
+      else if (chainType === 'monero')   res = await window.wallet.sendMonero(to.trim(), amount.trim())
+      else if (chainType === 'zcash')    res = await window.wallet.sendZcash(to.trim(), amount.trim())
       else                               res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim())
       setResult(res)
       setStep('success')

@@ -1,5 +1,5 @@
 import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry } from './secure-store'
-import { isTestnet } from './chain-config'
+import { isTestnet, isPrivacy } from './chain-config'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
@@ -854,6 +854,9 @@ export async function fetchAllTokens(
   config: WalletConfig
 ): Promise<TokensResult> {
   try {
+    // Privacy Mode: the privacy chains have no fungible-token support yet, and
+    // the hidden mainnet chains' tokens must not leak into the filtered view.
+    if (isPrivacy(config)) return { tokens: [], fetchedAt: Date.now(), error: null }
     const testnet = isTestnet(config)
     // The AGW address is resolved by the caller (override ?? on-chain link). We
     // never derive a counterfactual address here — only fetch what was resolved.
@@ -1695,6 +1698,9 @@ export async function fetchAllCollectibles(
 ): Promise<CollectiblesResult> {
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
+    // Privacy Mode: no NFT support on the privacy chains; hidden chains' NFTs
+    // must not leak into the filtered view.
+    if (isPrivacy(config)) return { items: [], fetchedAt: Date.now(), error: null, chainResults: {} }
     const testnet = isTestnet(config)
     // AGW resolved by the caller (override ?? on-chain link); no counterfactual derive.
     const agwAddress = testnet ? null : (agw ?? null)

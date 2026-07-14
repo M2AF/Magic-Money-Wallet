@@ -21,6 +21,8 @@ import { isAddress } from 'viem'
 import { base58, bech32 } from '@scure/base'
 import { sha256 } from '@noble/hashes/sha256'
 import * as btc from '@scure/btc-signer'
+import { validateMoneroAddress } from './monero-pure'
+import { validateZcashTransparent } from './zcash'
 
 export interface AddressValidation {
   valid: boolean
@@ -111,6 +113,22 @@ function validateTron(address: string): AddressValidation {
   return ok
 }
 
+function validateMonero(address: string): AddressValidation {
+  // Real decode: CryptoNote block-base58 + keccak checksum + mainnet prefix
+  // (standard 4…, subaddress 8…, integrated) — see monero-pure.ts.
+  return validateMoneroAddress(address)
+    ? ok
+    : bad('Not a valid Monero address (4… or 8…)')
+}
+
+function validateZcash(address: string): AddressValidation {
+  if (validateZcashTransparent(address)) return ok
+  // Shielded/unified recipients exist but the sender can't pay them yet —
+  // give a precise reason instead of "invalid".
+  if (/^(zs1|u1)/.test(address)) return bad('Shielded Zcash recipients aren’t supported yet — use a transparent (t1…/t3…) address')
+  return bad('Not a valid Zcash transparent address (t1…/t3…)')
+}
+
 /**
  * Validate a recipient for a Send-form chain id ('ethereum'…'hyperevm' → EVM,
  * or 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin').
@@ -125,6 +143,8 @@ export function validateAddress(chainId: string, address: string, testnet = fals
     case 'bitcoin':  return validateBitcoin(a, testnet)
     case 'dogecoin': return validateDogecoin(a)
     case 'tron':     return validateTron(a)
+    case 'monero':   return validateMonero(a)
+    case 'zcash':    return validateZcash(a)
     default:
       // Every other Send-form chain is EVM. isAddress enforces the EIP-55
       // checksum when the input is mixed-case (catches real typos).

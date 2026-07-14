@@ -56,6 +56,10 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:send-tron', to, amount, token),
   sendDogecoin:  (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-dogecoin', to, amount),
+  sendMonero:    (to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-monero', to, amount),
+  sendZcash:     (to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-zcash', to, amount),
 
   // ── Phase 3: History + multi-account ─────────────────────────────────
   getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),
@@ -65,6 +69,10 @@ contextBridge.exposeInMainWorld('wallet', {
   // ── Testnet Mode ──────────────────────────────────────────────────────
   getTestnetMode:  ()                  => ipcRenderer.invoke('wallet:get-testnet-mode'),
   setTestnetMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-testnet-mode', enabled),
+
+  // ── Privacy Mode ──────────────────────────────────────────────────────
+  getPrivacyMode:  ()                  => ipcRenderer.invoke('wallet:get-privacy-mode'),
+  setPrivacyMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-privacy-mode', enabled),
   setAgw:          (accountIndex: number, address: string | null) =>
     ipcRenderer.invoke('wallet:set-agw', accountIndex, address),
 

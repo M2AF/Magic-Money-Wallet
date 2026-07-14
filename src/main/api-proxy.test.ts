@@ -19,6 +19,8 @@ const config: WalletConfig = {
   clientToken: 'magicmoney-wallet-v1',
   simpleSwapApiKey: '',
   testnetMode: false,
+  privacyMode: false,
+  moneroRestoreHeight: 0,
 }
 
 describe('api proxy client gate', () => {

@@ -13,8 +13,13 @@ import {
   EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE,
   TESTNET_EVM_CHAINS, TESTNET_CHAIN_MAP, TESTNET_PUBLIC_RPCS, TESTNET_SOLANA_RPCS,
   TESTNET_BITCOIN_ESPLORA, TESTNET4_BITCOIN_ESPLORA, TESTNET_KOIOS_URL, isTestnet,
+  PRIVACY_CHAINS, PRIVACY_CHAIN_MAP, isPrivacy,
   type ChainDef
 } from './chain-config'
+import { fetchZcashBalance } from './zcash'
+import { fetchMoneroBalance } from './monero'
+import { fetchMidnightBalance } from './midnight'
+import type { PrivacyAddresses } from './wallet-core'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
@@ -479,13 +484,66 @@ async function fetchAllBalancesTestnet(
   return { chains, fetchedAt: Date.now(), portfolioSparkline: null }
 }
 
+// ─── Privacy Mode orchestrator ────────────────────────────────────────────────
+// Privacy chains are mainnets, so unlike the testnet path, prices ARE fetched.
+// Every target has a real Monero backend now ('./monero' is per-target: Electron
+// main / extension offscreen document / Capacitor WebView worker).
+
+async function fetchAllBalancesPrivacy(
+  privacy: PrivacyAddresses | undefined,
+  config: WalletConfig
+): Promise<AllBalances> {
+  const allIds = PRIVACY_CHAINS.map(c => c.coingeckoId)
+
+  const [prices, moneroRaw, zcashRaw, midnightRaw] = await Promise.all([
+    fetchMarketData(allIds),
+    fetchMoneroBalance(privacy, config),
+    privacy?.zcashTransparent
+      ? fetchZcashBalance(privacy.zcashTransparent)
+      : Promise.resolve({ native: 0, error: 'No address' }),
+    // NIGHT is unshielded — public balance by address via the indexer. Falls
+    // back to the Coming-Soon card state when the address isn't derived yet
+    // (browser targets, until ledger-v9 loads there).
+    fetchMidnightBalance(privacy?.midnight),
+  ])
+
+  const marketMap = prices as Record<string, MarketData>
+  seedNativeUsd(Object.fromEntries(Object.entries(marketMap).map(([id, m]) => [id, m.price] as [string, number])))
+
+  const toBalance = (chain: ChainDef, raw: { native: number; error: string | null }, decimals = 6): ChainBalance => {
+    const market = marketMap[chain.coingeckoId]
+    if (raw.error) {
+      return { native: '—', symbol: chain.nativeSymbol, usdValue: null, tokenCount: 0, error: raw.error, priceChange24h: null, sparkline: null }
+    }
+    const price = market?.price ?? 0
+    return {
+      native: raw.native.toFixed(decimals),
+      symbol: chain.nativeSymbol,
+      usdValue: price > 0 ? usd(raw.native, price) : null,
+      tokenCount: 0,
+      error: null,
+      priceChange24h: market?.change24h ?? null,
+      sparkline: market?.sparkline ?? null
+    }
+  }
+
+  const chains: Record<string, ChainBalance> = {
+    monero: toBalance(PRIVACY_CHAIN_MAP['monero'], moneroRaw, 8),
+    zcash: toBalance(PRIVACY_CHAIN_MAP['zcash'], zcashRaw, 8),
+    midnight: toBalance(PRIVACY_CHAIN_MAP['midnight'], midnightRaw, 6),
+  }
+
+  return { chains, fetchedAt: Date.now(), portfolioSparkline: null }
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string; privacy?: PrivacyAddresses },
   config: WalletConfig
 ): Promise<AllBalances> {
   if (isTestnet(config)) return fetchAllBalancesTestnet(addresses, config)
+  if (isPrivacy(config)) return fetchAllBalancesPrivacy(addresses.privacy, config)
 
   const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot', 'tron', 'dogecoin']
 

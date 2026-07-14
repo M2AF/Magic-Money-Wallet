@@ -84,6 +84,10 @@ export interface FeeEstimate {
 export { sendTronTransaction, estimateTronFee } from './tron'
 export { sendDogecoinTransaction, estimateDogecoinFee } from './dogecoin'
 export { sendBitcoinTransaction, estimateBitcoinFee } from './bitcoin'
+// Privacy Mode chains. './monero' lazy-imports the ~10 MB monero-ts WASM
+// internally, so these re-exports cost nothing until a Monero call happens.
+export { sendMoneroTransaction, estimateMoneroFee } from './monero'
+export { sendZcashTransaction, estimateZcashFee } from './zcash'
 
 // ─── EVM ──────────────────────────────────────────────────────────────────────
 

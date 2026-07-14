@@ -446,6 +446,11 @@ export interface WalletConfig {
   clientToken: string         // Public client tag sent to the Worker as x-mm-client/mm_client
   simpleSwapApiKey: string
   testnetMode: boolean       // Testnet Mode: whole wallet flips to testnets (chain-config selectors)
+  privacyMode: boolean       // Privacy Mode: portfolio shows ONLY privacy chains (XMR/ZEC/NIGHT) — mutually exclusive with testnetMode
+  // Monero wallet birthday (mainnet block height at first Privacy Mode enable).
+  // monero-ts scans from here instead of the genesis block; 0 = unknown → full
+  // scan. Persisted so re-enabling the mode never rescans history it already saw.
+  moneroRestoreHeight: number
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -472,7 +477,9 @@ const DEFAULT_CONFIG: WalletConfig = {
   swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
   clientToken: 'magicmoney-wallet-v1',
   simpleSwapApiKey: '',
-  testnetMode: false
+  testnetMode: false,
+  privacyMode: false,
+  moneroRestoreHeight: 0
 }
 
 let configCache: WalletConfig | null = null

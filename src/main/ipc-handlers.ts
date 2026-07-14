@@ -16,6 +16,7 @@ import {
   validateMnemonic,
   deriveAddresses,
   deriveTestnetAddresses,
+  derivePrivacyAddresses,
   getSolanaKeypair,
   getBitcoinKey,
   getBitcoinTaprootKey
@@ -84,7 +85,7 @@ import {
   browserToggleMaximize,
   setChromeHeight
 } from './browser-manager'
-import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet } from './chain-config'
+import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
 import { openseaFetch, heliusRpcUrl, canOpensea, tatumRpcUrl } from './api-proxy'
@@ -116,7 +117,11 @@ import {
   sendCardanoTransaction,
   sendTronTransaction,
   sendDogecoinTransaction,
-  sendBitcoinTransaction
+  sendBitcoinTransaction,
+  estimateMoneroFee,
+  estimateZcashFee,
+  sendMoneroTransaction,
+  sendZcashTransaction
 } from './tx-sender'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
@@ -266,6 +271,13 @@ async function getFullAddresses() {
   // the Settings toggle derives it eagerly, this covers pre-existing configs.
   if (isTestnet(config) && !stored.testnet && isUnlocked()) {
     stored = { ...stored, testnet: await deriveTestnetAddresses(loadMnemonic(), stored.accountIndex ?? 0) }
+    saveAddresses(stored)
+  }
+  // Privacy Mode: same lazy backfill for the privacy chain set (XMR/ZEC/NIGHT).
+  // Also re-derives when a pre-Midnight cache lacks the midnight fields —
+  // Electron main always derives them (ledger-v9 WASM is available here).
+  if (isPrivacy(config) && (!stored.privacy || !stored.privacy.midnight) && isUnlocked()) {
+    stored = { ...stored, privacy: await derivePrivacyAddresses(loadMnemonic(), stored.accountIndex ?? 0) }
     saveAddresses(stored)
   }
   // In Testnet Mode callers receive the testnet-substituted set (and no AGW).
@@ -567,6 +579,11 @@ export function registerIpcHandlers(): void {
       if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
       return estimateBitcoinFee(addresses.bitcoin, to, amount, loadMnemonic(), addresses.accountIndex ?? 0)
     }
+    if (chainId === 'monero') return estimateMoneroFee(to, config)
+    if (chainId === 'zcash') {
+      if (!addresses.privacy?.zcashTransparent) throw new Error('No Zcash address found')
+      return estimateZcashFee(addresses.privacy.zcashTransparent, to, amount)
+    }
     return estimateEvmFee(addresses.evm, to, amount, config, chainId)
   })
 
@@ -642,6 +659,25 @@ export function registerIpcHandlers(): void {
     return sendBitcoinTransaction(mnemonic, addresses.bitcoin, to, amountBtc, addresses.accountIndex ?? 0)
   })
 
+  // ── Send Monero (Privacy Mode; full-wallet WASM sync + relay) ─────────────
+  ipcMain.handle('wallet:send-monero', async (_event, to: string, amountXmr: string) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    if (!isPrivacy(config)) throw new Error('Monero sends are only available in Privacy Mode')
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    return sendMoneroTransaction(mnemonic, to, amountXmr, config, accountIndex)
+  })
+
+  // ── Send Zcash (Privacy Mode; transparent pool) ───────────────────────────
+  ipcMain.handle('wallet:send-zcash', async (_event, to: string, amountZec: string) => {
+    const mnemonic = loadMnemonic()
+    const config = loadConfig()
+    if (!isPrivacy(config)) throw new Error('Zcash sends are only available in Privacy Mode')
+    const addresses = await getFullAddresses()
+    if (!addresses.privacy?.zcashTransparent) throw new Error('No Zcash address found')
+    return sendZcashTransaction(mnemonic, addresses.privacy.zcashTransparent, to, amountZec, addresses.accountIndex ?? 0)
+  })
+
   // ── Phase 3: Transaction history ──────────────────────────────────────
   ipcMain.handle('wallet:get-history', async () => {
     const config = loadConfig()
@@ -649,6 +685,10 @@ export function registerIpcHandlers(): void {
     // their MAINNET networks; since the EVM address is the same on testnets, the
     // result would be mainnet activity mislabeled as testnet. Show none instead.
     if (isTestnet(config)) return {}
+    // No history providers for the privacy chains yet (and XMR history is
+    // inherently non-queryable without a scan) — show none rather than the
+    // hidden mainnet chains' history.
+    if (isPrivacy(config)) return {}
     const addresses = await getFullAddresses()
     return fetchAllHistory(addresses, config)
   })
@@ -665,6 +705,10 @@ export function registerIpcHandlers(): void {
     // Keep the testnet-encoded set in step with the account while the mode is on.
     if (isTestnet(config)) {
       newAddresses = { ...newAddresses, testnet: await deriveTestnetAddresses(mnemonic, accountIndex) }
+    }
+    // Same for the privacy chain set while Privacy Mode is on.
+    if (isPrivacy(config)) {
+      newAddresses = { ...newAddresses, privacy: await derivePrivacyAddresses(mnemonic, accountIndex) }
     }
     saveAddresses(newAddresses)
     return effectiveAddresses(newAddresses, config)
@@ -687,7 +731,8 @@ export function registerIpcHandlers(): void {
         saveAddresses({ ...stored, testnet })
       }
     }
-    saveConfig({ testnetMode: on })
+    // Testnet and Privacy modes are mutually exclusive — enabling one clears the other.
+    saveConfig(on ? { testnetMode: true, privacyMode: false } : { testnetMode: false })
     const config = loadConfig()
 
     // Reset the dApp browser to the mode's default chain (Sepolia ⟷ Ethereum) and
@@ -701,6 +746,49 @@ export function registerIpcHandlers(): void {
     const addresses = loadAddresses()
     return {
       testnet: on,
+      addresses: addresses ? effectiveAddresses(addresses, config) : null,
+    }
+  })
+
+  // ── Privacy Mode ──────────────────────────────────────────────────────────
+  // Filters the portfolio down to the privacy chains (XMR/ZEC/NIGHT — see
+  // PRIVACY_CHAINS). Mutually exclusive with Testnet Mode: enabling either turns
+  // the other off. Enabling requires the unlocked seed once, to derive + cache
+  // the privacy address set (and stamp the Monero wallet birthday so scanning
+  // starts near the chain tip instead of from genesis).
+  ipcMain.handle('wallet:get-privacy-mode', () => isPrivacy(loadConfig()))
+
+  ipcMain.handle('wallet:set-privacy-mode', async (_event, enabled: boolean) => {
+    const on = !!enabled
+    if (on) {
+      if (!isUnlocked()) throw new Error('Unlock the wallet to enable Privacy Mode')
+      const stored = loadAddresses()
+      if (stored && (!stored.privacy || !stored.privacy.midnight)) {
+        const privacy = await derivePrivacyAddresses(loadMnemonic(), stored.accountIndex ?? 0)
+        saveAddresses({ ...stored, privacy })
+      }
+      saveConfig({ privacyMode: true, testnetMode: false })
+      // Wallet birthday for Monero scanning — set once, never moved backward.
+      // Stamped in the BACKGROUND: a node round-trip must not delay the
+      // toggle's renderer reload. Until it lands, monero-impl falls back to
+      // near-tip, so the first scan still starts at the right place.
+      if (!loadConfig().moneroRestoreHeight) {
+        void (async () => {
+          try {
+            const { fetchMoneroHeight } = await import('./monero')
+            saveConfig({ moneroRestoreHeight: await fetchMoneroHeight() })
+          } catch { /* height stays 0 → near-tip fallback */ }
+        })()
+      }
+    } else {
+      saveConfig({ privacyMode: false })
+      // Stop the background Monero view-wallet scanner when leaving the mode.
+      try { const { stopMoneroSync } = await import('./monero'); await stopMoneroSync() } catch { /* not started */ }
+    }
+    const config = loadConfig()
+    const addresses = loadAddresses()
+    return {
+      privacy: isPrivacy(config),
       addresses: addresses ? effectiveAddresses(addresses, config) : null,
     }
   })

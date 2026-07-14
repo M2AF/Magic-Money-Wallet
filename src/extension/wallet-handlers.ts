@@ -11,7 +11,7 @@
  * vite-aliased per build target. Private keys and mnemonics never leave this file.
  */
 
-import { generateMnemonic, validateMnemonic, deriveAddresses, deriveTestnetAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
+import { generateMnemonic, validateMnemonic, deriveAddresses, deriveTestnetAddresses, derivePrivacyAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
 import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTransaction as sendBtc, type PsbtSignRequest } from '../main/bitcoin'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
@@ -23,7 +23,7 @@ import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteReque
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, estimateZcashFee, estimateMoneroFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction, sendZcashTransaction, sendMoneroTransaction } from '../main/tx-sender'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -177,6 +177,9 @@ async function resolveAgw(addresses: any): Promise<any> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// One-shot guard for the Midnight address backfill in loadFullAddresses.
+let _midnightBackfillTried = false
+
 async function loadFullAddresses(): Promise<any> {
   const loaded = await store.loadAddresses()
   if (!loaded) throw new Error('No wallet')
@@ -196,6 +199,16 @@ async function loadFullAddresses(): Promise<any> {
   // derives it eagerly, so this only covers stale stores.
   if (config.testnetMode && !stored.testnet && (await store.isUnlocked())) {
     stored = { ...stored, testnet: await deriveTestnetAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0) }
+    await store.saveAddresses(stored)
+  }
+  // Privacy Mode: same lazy backfill for the privacy chain set (XMR/ZEC/NIGHT).
+  // Also re-derives when a pre-Midnight cache lacks the midnight fields — the
+  // extension derives them via its offscreen document, Android in-page. The
+  // one-shot flag prevents a re-derive loop if this runtime's ledger loader
+  // is genuinely broken (derivation succeeds but leaves midnight unset).
+  if (config.privacyMode && !config.testnetMode && (!stored.privacy || (!stored.privacy.midnight && !_midnightBackfillTried)) && (await store.isUnlocked())) {
+    _midnightBackfillTried = true
+    stored = { ...stored, privacy: await derivePrivacyAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0) }
     await store.saveAddresses(stored)
   }
   return store.effectiveAddresses(stored, config)
@@ -372,6 +385,10 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (config.testnetMode) {
         addresses = { ...addresses, testnet: await deriveTestnetAddresses(mnemonic, idx) }
       }
+      // Same for the privacy chain set while Privacy Mode is on.
+      if (config.privacyMode && !config.testnetMode) {
+        addresses = { ...addresses, privacy: await derivePrivacyAddresses(mnemonic, idx) }
+      }
       await store.saveAddresses(addresses)
       return store.effectiveAddresses(addresses, config)
     }
@@ -403,6 +420,44 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return { testnet: on, addresses: addresses ? store.effectiveAddresses(addresses, config) : null }
     }
 
+    // ── Privacy Mode (mirrors the Electron wallet:get/set-privacy-mode IPC) ──
+
+    case 'wallet:get-privacy-mode': {
+      const config = await store.loadConfig()
+      return !!config.privacyMode && !config.testnetMode
+    }
+
+    case 'wallet:set-privacy-mode': {
+      const on = !!a0
+      if (on) {
+        if (!(await store.isUnlocked())) throw new Error('Unlock the wallet to enable Privacy Mode')
+        const stored = await store.loadAddresses()
+        if (stored && (!stored.privacy || !stored.privacy.midnight)) {
+          const privacy = await derivePrivacyAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
+          await store.saveAddresses({ ...stored, privacy })
+        }
+        // Testnet and Privacy modes are mutually exclusive.
+        await store.saveConfig({ privacyMode: true, testnetMode: false })
+        // Monero wallet birthday — set once, never moved backward. Stamped in
+        // the BACKGROUND (not awaited): a node round-trip must not delay the
+        // toggle's renderer reload. Until it lands, monero-impl falls back to
+        // near-tip, so scanning still starts correctly on the first balance.
+        if (!(await store.loadConfig()).moneroRestoreHeight) {
+          void (async () => {
+            try {
+              const { fetchMoneroHeight } = await import('../main/monero')
+              await store.saveConfig({ moneroRestoreHeight: await fetchMoneroHeight() })
+            } catch { /* height stays 0 → near-tip fallback */ }
+          })()
+        }
+      } else {
+        await store.saveConfig({ privacyMode: false })
+      }
+      const config = await store.loadConfig()
+      const addresses = await store.loadAddresses()
+      return { privacy: !!config.privacyMode, addresses: addresses ? store.effectiveAddresses(addresses, config) : null }
+    }
+
     // ── Send transactions ──────────────────────────────────────────────────
 
     // H-3: mirrors the Electron wallet:validate-address handler.
@@ -428,6 +483,11 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
         return estimateBitcoinFee(addresses.bitcoin, to, amount, await store.loadMnemonic(), addresses.accountIndex ?? 0)
       }
+      if (chain === 'zcash') {
+        if (!addresses.privacy?.zcashTransparent) throw new Error('No Zcash address found')
+        return estimateZcashFee(addresses.privacy.zcashTransparent, to, amount)
+      }
+      if (chain === 'monero') return estimateMoneroFee(to, config)
       return estimateEvmFee(addresses.evm, to, amount, config, chain)
     }
 
@@ -473,6 +533,23 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!addresses.bitcoin) throw new Error('No Bitcoin address found')
       const mnemonic = await store.loadMnemonic()
       return sendBitcoinTransaction(mnemonic, addresses.bitcoin, String(a0), String(a1), addresses.accountIndex ?? 0)
+    }
+
+    case 'wallet:send-zcash': {
+      const addresses = await loadFullAddresses()
+      if (!addresses.privacy?.zcashTransparent) throw new Error('No Zcash address found')
+      const mnemonic = await store.loadMnemonic()
+      return sendZcashTransaction(mnemonic, addresses.privacy.zcashTransparent, String(a0), String(a1), addresses.accountIndex ?? 0)
+    }
+
+    case 'wallet:send-monero': {
+      // Runs in the per-target Monero backend ('./monero' alias): the
+      // extension proxies to its offscreen document; Android runs in-page.
+      const config = await store.loadConfig()
+      if (!config.privacyMode) throw new Error('Monero sends are only available in Privacy Mode')
+      const mnemonic = await store.loadMnemonic()
+      const addresses = await store.loadAddresses()
+      return sendMoneroTransaction(mnemonic, String(a0), String(a1), config, addresses?.accountIndex ?? 0)
     }
 
     // ── Abstract Global Wallet: send + manual address override ──────────────

@@ -21,6 +21,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
   const [testnetError, setTestnetError] = useState<string | null>(null)
+  const [privacy, setPrivacy] = useState<boolean | null>(null)
+  const [privacyBusy, setPrivacyBusy] = useState(false)
+  const [privacyError, setPrivacyError] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
 
@@ -67,6 +70,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   useEffect(refreshHello, [])
 
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => setTestnet(null)) }, [])
+  useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacy).catch(() => setPrivacy(null)) }, [])
 
   // Flipping the mode changes chains, addresses (BTC/ADA), balances, the swap
   // availability and the dApp network list at once — a full renderer reload is the
@@ -81,6 +85,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       const msg = e instanceof Error ? e.message : String(e)
       setTestnetError(msg.replace(/^Error:\s*/, ''))
       setTestnetBusy(false)
+    }
+  }
+
+  // Privacy Mode — same reload doctrine as Testnet Mode. The two are mutually
+  // exclusive: main clears the other flag, so no client-side coordination needed.
+  const togglePrivacy = async () => {
+    if (privacy === null || privacyBusy) return
+    setPrivacyBusy(true); setPrivacyError(null)
+    try {
+      await window.wallet.setPrivacyMode(!privacy)
+      window.location.reload()
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setPrivacyError(msg.replace(/^Error:\s*/, ''))
+      setPrivacyBusy(false)
     }
   }
 
@@ -170,6 +189,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
           {testnetError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{testnetError}</div>
+          )}
+          {privacy !== null && (
+            <SettingsRow
+              icon="🕶️"
+              label={privacyBusy ? 'Switching networks…' : `Privacy Mode — ${privacy ? 'On' : 'Off'}`}
+              sublabel={privacy
+                ? 'Monero · Zcash · Midnight. Tap to return to the full portfolio.'
+                : 'Show only privacy-focused networks (XMR, ZEC, NIGHT).'}
+              onClick={togglePrivacy}
+              disabled={privacyBusy}
+              noChevron
+            />
+          )}
+          {privacyError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{privacyError}</div>
           )}
         </SettingsSection>
 

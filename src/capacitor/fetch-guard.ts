@@ -44,6 +44,13 @@ const BROWSER_HOSTS = new Set([
   'apilist.tronscanapi.com',    // *
   'api.blockcypher.com',        // *
   'api-mainnet.magiceden.dev',  // reflects origin (NFT floors)
+  // Monero (Privacy Mode): the wallet2 sync protocol uses BINARY RPC bodies/
+  // responses, which the string-only native bridge would corrupt — Monero
+  // traffic MUST stay on browser fetch, so only CORS-enabled nodes belong in
+  // MONERO_NODES' front position. Verified 2026-07-13: reflects origin.
+  'xmr-node.cakewallet.com:18081',
+  // Zcash lightwalletd gRPC-web proxy (binary frames — same constraint).
+  'zcash-mainnet.chainsafe.dev',
   // api.koios.rest sends NO ACAO — stays on the native path.
 ])
 

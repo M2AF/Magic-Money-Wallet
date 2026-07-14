@@ -23,6 +23,9 @@ initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message: Msg, rawSender, sendResponse) => {
+  // Offscreen-document RPC (the monero/midnight WASM host) — those messages
+  // are answered by the offscreen page's own listener, not the wallet router.
+  if ((message as { target?: string })?.target === 'mm-offscreen') return false
   const senderOrigin = rawSender.origin
     ?? (rawSender.url ? (() => { try { return new URL(rawSender.url!).origin } catch { return 'unknown' } })() : 'extension')
   // Classify by origin, not by tab presence: our own pages also live in tabs

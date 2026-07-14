@@ -1,27 +1,32 @@
 # Magic Money Wallet
 
-A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as both a **desktop app** (Electron, Windows/macOS/Linux) and a **Chrome browser extension** (Manifest V3).
+A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as a **desktop app** (Electron, Windows/macOS/Linux), **Chrome browser extension** (Manifest V3), and **Android app** (Capacitor).
 
-It manages **22 networks** across six ecosystems from a single seed phrase, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, and never lets your keys leave your device.
+It manages **22 default mainnet networks** from a single seed phrase, adds focused **Privacy Mode** and **Testnet Mode** network sets, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, and never lets your keys leave your device.
 
-> **Ecosystems:** EVM · Solana · Cardano · Bitcoin · Polkadot · Tron · Dogecoin
+> **Ecosystems:** EVM · Solana · Cardano · Bitcoin · Polkadot · Tron · Dogecoin · Monero · Zcash · Midnight
 
 ---
 
 ## Highlights
 
-- **One seed, 22 chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
+- **One seed, 22 default chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
+- **Privacy Mode** — a focused portfolio for Monero (XMR), Zcash transparent (ZEC), and Midnight (NIGHT), derived lazily from the same mnemonic and kept mutually exclusive with Testnet Mode.
+- **Testnet Mode** — flips the wallet to Sepolia / devnet / preprod / Bitcoin testnet / Shasta networks for no-real-funds testing, with testnet-safe address substitution where encodings differ.
 - **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
 - **No API keys to configure** — keyed providers are proxied through a hosted Cloudflare Worker, so the app works out of the box with **zero secrets shipped in the bundle**.
 - **dApp ready** — injects `window.ethereum` (EIP-1193 / EIP-6963), `window.solana` (Wallet Standard), and `window.cardano.magicmoney` (CIP-30), plus WalletConnect v2.
 - **Built-in swaps** — same-chain DEX aggregation and cross-chain bridging/exchange in one Swap page.
 - **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
 - **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
-- **One-click updates** — a **Software Update** button in Settings pulls new versions straight from GitHub Releases (Windows/Linux apply silently; macOS opens the download). The extension also has a **side-panel mode** (Phantom-style dock).
+- **Platform-native unlocks** — Windows Hello, Touch ID, and Android biometrics can unlock an enrolled wallet while the password remains the backup.
+- **One-click updates** — a **Software Update** button in Settings pulls new versions straight from GitHub Releases (Windows/Linux apply silently; macOS opens the download; Android opens the newest APK page). The extension also has a **side-panel mode** (Phantom-style dock).
 
 ---
 
 ## Supported Networks
+
+### Default portfolio
 
 | Network | Ecosystem | Native | Primary provider |
 |---|---|---|---|
@@ -50,6 +55,47 @@ It manages **22 networks** across six ecosystems from a single seed phrase, conn
 
 Every chain has a multi-RPC fallback chain: the primary endpoint is always tried first, and keyless public mirrors only engage on transport errors, so the normal path is unchanged.
 
+### Privacy Mode
+
+Privacy Mode is a filtered mainnet portfolio, not a testnet substitute. It shows only privacy-focused chains, derives their addresses the first time the mode is enabled, and turns off Testnet Mode automatically.
+
+| Network | Native | Notes |
+|---|---|---|
+| Monero | XMR | Full Monero address + private view key derived from the seed; balance scanning uses keyless remote nodes with a restore-height wallet birthday. |
+| Zcash | ZEC | Transparent `t1...` address, balance, fee estimate, and sends. Shielded receivers are intentionally withheld until shielded scanning is supported. |
+| Midnight | NIGHT | Lace-compatible unshielded and shielded address derivation. Receive/balance support is present; sends wait on DUST/proof-server support. |
+
+Swaps are disabled while Privacy Mode is on because the swap providers do not support these routes, and routing privacy assets through a hosted swap provider would undercut the point of the mode.
+
+### Testnet Mode
+
+Testnet Mode swaps the active network set for no-real-funds testing. Prices, NFT floors, swaps, and AGW are disabled or hidden where testnet data would be misleading.
+
+| Mainnet slot | Testnet used |
+|---|---|
+| Ethereum | Sepolia |
+| Arbitrum | Sepolia |
+| Optimism | OP Sepolia |
+| Base | Sepolia |
+| Polygon | Amoy |
+| Avalanche | Fuji |
+| Blast | Sepolia |
+| Gnosis | Chiado |
+| Monad | Monad Testnet |
+| Abstract | Abstract Testnet |
+| ApeChain | Curtis |
+| Ronin | Saigon |
+| Soneium | Minato |
+| WorldChain | Sepolia |
+| Zora | Sepolia |
+| HyperEVM | HyperEVM Testnet |
+| Solana | Devnet |
+| Cardano | Preprod |
+| Bitcoin | Testnet3 + Testnet4 |
+| Tron | Shasta |
+
+Polkadot and Dogecoin stay hidden in Testnet Mode until reliable testnet data providers are wired in.
+
 ---
 
 ## Install
@@ -76,6 +122,11 @@ Shipping a new version to everyone is just a release (below) — users get it fr
 
 > Chrome Web Store submission is planned for the first public release.
 
+### Android App
+Download `magicmoney-android-vX.Y.Z.apk` from [GitHub Releases](../../releases), allow "install unknown apps" for your browser/file manager, and open the APK.
+
+Android releases are update-over-install compatible as long as they are signed with the same release key. The in-app **Software Update** row checks GitHub Releases and opens the newest APK download page. Google Play distribution is planned; APK sideloading is the current public path.
+
 ---
 
 ## Quick Start (Development)
@@ -91,12 +142,17 @@ npm run dev
 # Chrome extension build → dist-extension/
 npm run build:extension
 # then load dist-extension/ as an unpacked extension in chrome://extensions
+
+# Android web bundle + native sync
+npm run build:capacitor
+# deploy to a connected Android device or emulator
+npm run android
 ```
 
 Useful checks:
 
 ```bash
-npm run typecheck     # tsc on both node + web tsconfigs
+npm run typecheck     # tsc on node + web + extension + capacitor tsconfigs
 npm test              # vitest (wallet-core, crypto-vault, tx-describe, secure-store)
 ```
 
@@ -104,15 +160,16 @@ npm test              # vitest (wallet-core, crypto-vault, tx-describe, secure-s
 
 ## Architecture
 
-MagicMoney is **one codebase with two runtime surfaces**. All wallet logic — key derivation, balance/token/NFT fetching, transaction building, swap routing, dApp request handling — is shared. Only the platform primitives differ, and they're swapped at build time via Vite aliases:
+MagicMoney is **one codebase with three runtime surfaces**. All wallet logic — key derivation, balance/token/NFT fetching, transaction building, swap routing, dApp request handling — is shared. Only the platform primitives differ, and they're swapped at build time via Vite aliases:
 
-| Concern | Desktop (Electron) | Extension (Chrome MV3) |
-|---|---|---|
-| Privileged runtime | Main process (`ipc-handlers.ts`) | Service worker (`background.ts`) |
-| Encrypted key storage | `safeStorage` (OS keychain) | `chrome.storage.local` + AES-256 (`crypto-vault.ts`) |
-| Storage adapter | `secure-store.ts` | `chrome-store.ts` |
-| Renderer ↔ core bridge | `contextBridge` / IPC | `chrome.runtime.sendMessage` (`bridge.ts`) |
-| dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs |
+| Concern | Desktop (Electron) | Extension (Chrome MV3) | Android (Capacitor) |
+|---|---|---|---|
+| Privileged runtime | Main process (`ipc-handlers.ts`) | Service worker (`background.ts`) | In-process wallet router (`wallet-local.ts`) |
+| Encrypted key storage | `safeStorage` (OS keychain) | `chrome.storage.local` + AES-256 (`crypto-vault.ts`) | Capacitor Preferences + AES-256 vault (`capacitor-store.ts`) |
+| Storage adapter | `secure-store.ts` | `chrome-store.ts` | `capacitor-store.ts` |
+| Renderer ↔ core bridge | `contextBridge` / IPC | `chrome.runtime.sendMessage` (`bridge.ts`) | Local bridge (`platform-capacitor.ts`, `wallet-local.ts`) |
+| dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs | Native `DappBrowser` plugin with separate WebViews |
+| Native security | Windows Hello / Touch ID | Password unlock | Android biometric unlock, app foreground re-lock, hardware back handling |
 
 ### API proxy — no keys in the client
 
@@ -127,10 +184,10 @@ The Worker (`read.js`, `swap-proxy.js`, `lib.js`, `db.js`, `auth.js`) also adds 
 ### Security model
 
 ```
-Renderer / Popup (React)              Main Process / Service Worker
+Renderer / Popup / WebView (React)    Privileged runtime
 ──────────────────────────            ──────────────────────────────────
 UI, balances, addresses           ←── Cloudflare Worker → Alchemy / Helius / …
-window.wallet.getBalances()       ──► IPC / sendMessage → balance-fetcher.ts
+window.wallet.getBalances()       ──► IPC / message / local router → balance-fetcher.ts
 window.wallet.generate()          ──► wallet-core.ts → returns word[] only
 window.wallet.confirmBackup()     ──► wallet-core.ts → derive → encrypted storage
 
@@ -143,10 +200,11 @@ WalletConnect v2 URI              ──► @walletconnect/sign-client
 ```
 
 **Guarantees:**
-- Mnemonic encrypted at rest — OS keychain (`safeStorage`) on desktop, AES-256 behind a user password in the extension.
+- Mnemonic encrypted at rest — OS keychain (`safeStorage`) on desktop, AES-256 behind a user password in the extension and Android app.
 - Private keys are derived transiently for signing and never persisted in the clear; the renderer/popup only ever receives public addresses and balance strings.
 - Desktop hardening: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`.
 - The extension's `MAIN`-world inject script provides the dApp APIs but has **no access** to wallet storage — every privileged action crosses the message bridge.
+- Android dApp pages run in separate native WebViews from the trusted wallet UI, with provider requests validated and routed back through the same approval flow.
 
 ---
 
@@ -159,7 +217,7 @@ MagicMoney is a fully-fledged signer for EVM, Solana, and Cardano dApps.
 - **Cardano (CIP-30)** — exposed at `window.cardano.magicmoney`, so any CIP-30 dApp or library ([weld](https://github.com/Cardano-Forge/weld), [Lucid](https://lucid.spacebudz.io/), [Mesh.js](https://meshjs.dev/)) can connect. MagicMoney is registered in the **weld** registry as `magicmoney`. Implemented methods: `getNetworkId`, `getBalance`, `getUtxos`, `getCollateral`, `getUsedAddresses`, `getUnusedAddresses`, `getChangeAddress`, `getRewardAddresses`, `signTx`, `signData`, `submitTx`.
 - **WalletConnect v2** — pair via URI for dApps that prefer it.
 
-On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script.
+On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script. On **Android**, dApps run in native plugin-owned WebViews with `document_start` provider injection, tab controls, WalletConnect `wc:` deep links, and approval overlays rendered by the wallet WebView.
 
 ---
 
@@ -186,11 +244,15 @@ MagicMoney can display your **Abstract Global Wallet** (a zkSync smart account o
 # Development
 npm run dev                    # Electron + hot reload (regenerates App Hub, builds injects)
 npm run build:extension        # Chrome extension → dist-extension/
+npm run build:capacitor        # Android web bundle → dist-capacitor/ + cap sync
+npm run android                # Build and deploy to a connected device/AVD
 
 # Production builds
 npm run build                  # Electron build → out/
 npm run package                # Electron installer → dist/
 npm run package:publish        # Build + publish to GitHub Releases (requires GH_TOKEN)
+npm run android:apk            # Android release APK (requires android/keystore.properties)
+npm run android:aab            # Android release AAB for Play Console
 
 # Release (bump version + tag + push → GitHub Actions builds everything)
 npm run release:patch          # 0.1.1 → 0.1.2
@@ -205,11 +267,14 @@ npm run release:major          # 0.1.1 → 1.0.0
 Pushing a version tag triggers `.github/workflows/release.yml`, which:
 1. Builds the Electron app on Windows, macOS, and Linux in parallel.
 2. Publishes installers to GitHub Releases via `electron-builder --publish always`.
-3. Builds the Chrome extension and uploads the `.zip` to the same release.
+3. Builds the Android APK/AAB and uploads them to the same release.
+4. Builds the Chrome extension and uploads the `.zip` to the same release.
 
 The release scripts handle the whole flow — bump, commit, tag, push. `electron-builder --publish always` also uploads the `latest.yml` / `latest-mac.yml` / `latest-linux.yml` update feeds that the in-app **Software Update** button reads, so publishing a release is all it takes for existing installs to update themselves.
 
 > **Signing note.** Builds are currently unsigned (`CSC_IDENTITY_AUTO_DISCOVERY: false`). Windows NSIS and Linux AppImage auto-*apply* updates fine unsigned; a first-time Windows install may show a SmartScreen warning. **macOS is different** — Squirrel.Mac refuses to apply an unsigned update, so macOS uses the assisted-download fallback until an Apple Developer ID cert + notarization secrets (`CSC_LINK` / `CSC_KEY_PASSWORD` + notarize creds) are added, at which point macOS can be flipped to silent auto-update with a build-config change.
+
+> **Android signing note.** Update-over-install only works when every APK is signed with the same keystore. CI produces release-signed APK/AAB artifacts when `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` are set; otherwise it attaches a debug-signed APK for testing.
 
 ---
 
@@ -221,7 +286,7 @@ src/
 │   ├── index.ts             ← App entry, BrowserWindow, startup update check
 │   ├── update-manager.ts    ← electron-updater state machine (in-app Update button)
 │   ├── wallet-core.ts       ← BIP-39/32/44 derivation — keys never leave here
-│   ├── chain-config.ts      ← All 22 networks, RPC endpoints, fallback lists
+│   ├── chain-config.ts      ← Default, Privacy Mode, and Testnet Mode network sets
 │   ├── api-proxy.ts         ← Proxy-first URL/header rewriting to the Worker
 │   ├── balance-fetcher.ts   ← Native balances across every chain
 │   ├── token-fetcher.ts     ← ERC-20 / SPL / Cardano assets + NFTs
@@ -262,12 +327,27 @@ src/
 │   ├── ExtApp.tsx           ← Popup wrapper (lock screen, password setup)
 │   ├── popup.* / sidepanel.*← Popup and side-panel entries
 │   └── manifest.json        ← MV3 manifest
-└── renderer/                ← React UI (shared across desktop + extension)
+├── capacitor/               ← Android/Capacitor adapters
+│   ├── CapApp.tsx           ← Android app shell, lifecycle, biometric lock screen
+│   ├── wallet-local.ts      ← Local wallet bridge/router for the WebView runtime
+│   ├── capacitor-store.ts   ← Preferences-backed encrypted storage
+│   ├── dapp-browser.ts      ← Typed bridge to the native DappBrowser plugin
+│   ├── dapp-inject.ts       ← Android dApp provider injection bundle
+│   ├── monero-browser.ts    ← Browser-compatible Monero backend
+│   ├── qr-scan.ts           ← ML Kit QR scanner wrapper
+│   └── update-check.ts      ← GitHub Releases APK update helper
+└── renderer/                ← React UI (shared across desktop, extension, and Android)
     ├── App.tsx / main.tsx   ← Router + entry
     ├── BrowserApp.tsx       ← Desktop dApp-browser chrome
     ├── pages/               ← Dashboard, Market, Swap, AppHub, Profile, Settings, onboarding…
     ├── components/          ← SendModal, swap widgets, AgwPanel, ChainCard, TxList…
     └── data/app-hub.ts      ← Auto-generated dApp directory (do not edit by hand)
+
+android/
+└── app/src/main/java/info/chainlens/magicmoney/
+    ├── MainActivity.java       ← Capacitor activity + plugin registration
+    ├── DappBrowserPlugin.java  ← Isolated native WebView dApp browser
+    └── AppInfoPlugin.java      ← Installer/source metadata for update checks
 ```
 
 ---

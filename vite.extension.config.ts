@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import wasm from 'vite-plugin-wasm'
+import { moneroCspPatch } from './build/monero-csp-patch'
 import path from 'path'
 import { copyFileSync, mkdirSync, existsSync, renameSync, rmSync, readFileSync, writeFileSync } from 'fs'
 
@@ -27,6 +29,11 @@ export default defineConfig({
       globals: { Buffer: true, process: true, global: true },
       protocolImports: true
     }),
+    // ledger-v9 (Midnight) ships ESM-integrated WASM — only the offscreen
+    // document's lazy chunk loads it (the SW proxies via offscreen-rpc; real
+    // top-level await is fine in page-context chunks with target esnext).
+    wasm(),
+    moneroCspPatch(),
     react(),
     {
       name: 'generate-wallet-icon',
@@ -48,6 +55,7 @@ export default defineConfig({
         const htmlFiles = [
           { nested: 'popup.html',     js: 'popup.js',     css: 'popup.css' },
           { nested: 'sidepanel.html', js: 'sidepanel.js', css: 'sidepanel.css' },
+          { nested: 'offscreen.html', js: 'offscreen.js', css: 'offscreen.css' },
         ]
         for (const f of htmlFiles) {
           const src = `${nestedDir}/${f.nested}`
@@ -83,19 +91,42 @@ export default defineConfig({
         find: /^\.\.\/main\/supabase-sync(\.ts)?$/,
         replacement: r('src/extension/stubs/supabase-sync-stub.ts')
       },
+      // Privacy-chain WASM backends: the MV3 service worker can't run Workers
+      // or dynamic import(), so Monero + Midnight route through the offscreen
+      // document (which imports the real browser backends directly).
+      {
+        find: /^\.\/monero(\.ts)?$/,
+        replacement: r('src/extension/monero-sw.ts')
+      },
+      {
+        find: /^\.\/midnight-ledger(\.ts)?$/,
+        replacement: r('src/extension/midnight-ledger.ts')
+      },
     ]
+  },
+
+  worker: {
+    // The ?worker bundle (monero.worker.js) is a separate rollup pass — the
+    // CSP patch must run there too (the worker embeds its own GenUtils copy).
+    format: 'es',
+    plugins: () => [moneroCspPatch()],
   },
 
   base: './',
 
   build: {
     outDir: 'dist-extension',
+    // Modern-Chrome-only target: required for native top-level await in the
+    // wasm-init chunks (ledger-v9) — those chunks only load in page contexts
+    // (offscreen document / WebView), never in the service worker.
+    target: 'esnext',
     emptyOutDir: true,
     minify: false,
     rollupOptions: {
       input: {
         popup:      r('src/extension/popup.html'),
         sidepanel:  r('src/extension/sidepanel.html'),
+        offscreen:  r('src/extension/offscreen.html'),
         background: r('src/extension/background.ts'),
         content:    r('src/extension/content.ts'),
         inject:     r('src/extension/inject.ts'),

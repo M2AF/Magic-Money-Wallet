@@ -15,6 +15,13 @@ import { derivePath } from 'ed25519-hd-key'
 import { Keypair } from '@solana/web3.js'
 import { privateKeyToAccount } from 'viem/accounts'
 import { deriveCardanoAddress, deriveCardanoStakeAddress } from './cardano-pure'
+import { deriveMoneroKeys, type MoneroKeys } from './monero-pure'
+// Midnight derivation (wallet-sdk-hd role keys + ledger-v9 address crypto) is
+// entirely behind this per-target loader — wallet-core imports NEITHER the
+// ESM-only wallet-sdk-hd nor the WASM ledger, so it stays loadable in the
+// extension MV3 service worker (where a runtime import() of a bare package is
+// forbidden). We only hand it the seed.
+import { deriveMidnightAddresses } from './midnight'
 import { sha256 } from '@noble/hashes/sha256'
 import { ripemd160 } from '@noble/hashes/ripemd160'
 import { blake2b } from '@noble/hashes/blake2b'
@@ -48,6 +55,10 @@ export interface WalletAddresses {
   // enabled (wallet unlocked) and cached here so testnet balances render from
   // addresses.json even while locked. EVM/Solana/Tron reuse the mainnet address.
   testnet?: TestnetAddresses
+  // Privacy Mode: the privacy chains (XMR/ZEC/NIGHT) are NEW chains, not testnet
+  // substitutes. Derived once when Privacy Mode is first enabled (wallet unlocked)
+  // and cached here — same doctrine as `testnet` above.
+  privacy?: PrivacyAddresses
 }
 
 export interface TestnetAddresses {
@@ -56,6 +67,27 @@ export interface TestnetAddresses {
   bitcoinTaproot: string // tb1p…  (m/86'/1'/{account}'/0/0)
   cardano: string        // addr_test1…
   cardanoStake: string   // stake_test1…
+}
+
+export interface PrivacyAddresses {
+  monero: string             // mainnet standard address (4…) — see monero-pure.ts scheme
+  // Monero's balance is only computable by scanning the chain with the private
+  // VIEW key (there is no address-indexed API by design). Caching it here plays
+  // the role addresses.json plays for transparent chains: balances render while
+  // locked. It can SEE incoming funds but can never spend (spend key stays
+  // behind the unlock, derived transiently at send time).
+  moneroViewKey: string
+  zcashTransparent: string   // t1… P2PKH (m/44'/133'/{account}'/0/0)
+  // Zcash unified/shielded address arrives with the WebZjs WASM integration —
+  // deliberately NOT derived until the wallet can also SCAN the shielded pool
+  // (advertising a shielded receiver we cannot see would make funds invisible).
+  zcashUnified?: string
+  // Midnight — derivation verified byte-for-byte against Lace (2026-07-13).
+  // `midnight` is the UNSHIELDED address (mn_addr…) where NIGHT lives (public
+  // balance); `midnightShielded` (mn_shield-addr…) is the shielded receiver.
+  // Optional: derivation needs the ledger-v9 WASM, Electron main only for now.
+  midnight?: string
+  midnightShielded?: string
 }
 
 // ─── Mnemonic helpers ────────────────────────────────────────────────────────
@@ -144,6 +176,16 @@ function deriveTronAddress(privateKey: Uint8Array): string {
 function deriveDogecoinAddress(compressedPubkey: Uint8Array): string {
   const hash160 = ripemd160(sha256(compressedPubkey))
   return base58check(new Uint8Array([0x1e, ...hash160]))
+}
+
+// ─── Zcash transparent P2PKH (t1…) ────────────────────────────────────────────
+// Bitcoin-style HASH160 of the compressed pubkey with Zcash's TWO-byte version
+// [0x1C, 0xB8], base58check. BIP-44 coin type 133. The shielded pools (Sapling/
+// Orchard) use entirely different crypto — see PrivacyAddresses.zcashUnified.
+
+function deriveZcashTransparentAddress(compressedPubkey: Uint8Array): string {
+  const hash160 = ripemd160(sha256(compressedPubkey))
+  return base58check(new Uint8Array([0x1c, 0xb8, ...hash160]))
 }
 
 // ─── Address derivation ───────────────────────────────────────────────────────
@@ -237,6 +279,45 @@ export async function deriveTestnetAddresses(mnemonic: string, accountIndex = 0)
   }
 }
 
+/**
+ * Privacy Mode addresses (Monero / Zcash / Midnight) — derived once when the
+ * mode is first enabled and cached in addresses.json (mirrors
+ * deriveTestnetAddresses). All three come from the same single mnemonic.
+ */
+export async function derivePrivacyAddresses(mnemonic: string, accountIndex = 0): Promise<PrivacyAddresses> {
+  const cleaned = normalizeMnemonic(mnemonic)
+  if (!validateMnemonic(cleaned)) {
+    throw new Error('Invalid BIP-39 mnemonic phrase')
+  }
+
+  const seed = await bip39.mnemonicToSeed(cleaned)
+  const root = HDKey.fromMasterSeed(seed)
+
+  // ── Monero — m/44'/128'/{account}'/0/0 → monero-pure scheme ──────────────
+  const xmrNode = root.derive(`m/44'/128'/${accountIndex}'/0/0`)
+  if (!xmrNode.privateKey) throw new Error('Monero derivation failed')
+  const xmrKeys = deriveMoneroKeys(xmrNode.privateKey)
+
+  // ── Zcash transparent — m/44'/133'/{account}'/0/0 (t1…) ──────────────────
+  const zecNode = root.derive(`m/44'/133'/${accountIndex}'/0/0`)
+  if (!zecNode.publicKey) throw new Error('Zcash derivation failed')
+  const zcashTransparent = deriveZcashTransparentAddress(zecNode.publicKey)
+
+  const out: PrivacyAddresses = { monero: xmrKeys.address, moneroViewKey: xmrKeys.privateViewKey, zcashTransparent }
+
+  // ── Midnight (Lace-compatible; via the per-target loader) ────────────────
+  // Best-effort: if this runtime's loader fails (WASM/ESM missing or broken),
+  // the midnight fields simply stay unset (card shows the Coming-Soon state)
+  // instead of failing the whole privacy derivation.
+  try {
+    const mn = await deriveMidnightAddresses(seed, accountIndex)
+    out.midnight = mn.unshielded
+    out.midnightShielded = mn.shielded
+  } catch { /* loader unavailable in this runtime — midnight fields stay unset */ }
+
+  return out
+}
+
 // ─── Signing helpers (Phase 2) ───────────────────────────────────────────────
 
 export async function getEvmPrivateKey(mnemonic: string, accountIndex = 0): Promise<`0x${string}`> {
@@ -294,4 +375,20 @@ export async function getDogecoinKey(mnemonic: string, accountIndex = 0): Promis
   const node = HDKey.fromMasterSeed(seed).derive(`m/44'/3'/${accountIndex}'/0/0`)
   if (!node.privateKey || !node.publicKey) throw new Error('Dogecoin key derivation failed')
   return { privateKey: node.privateKey, publicKey: node.publicKey, address: deriveDogecoinAddress(node.publicKey) }
+}
+
+/** Full Monero key set (spend/view scalars + address) — feeds monero-ts in monero.ts. */
+export async function getMoneroKeys(mnemonic: string, accountIndex = 0): Promise<MoneroKeys> {
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
+  const node = HDKey.fromMasterSeed(seed).derive(`m/44'/128'/${accountIndex}'/0/0`)
+  if (!node.privateKey) throw new Error('Monero key derivation failed')
+  return deriveMoneroKeys(node.privateKey)
+}
+
+/** Zcash transparent-pool signing key (m/44'/133'/{account}'/0/0). */
+export async function getZcashKey(mnemonic: string, accountIndex = 0): Promise<{ privateKey: Uint8Array; publicKey: Uint8Array; address: string }> {
+  const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
+  const node = HDKey.fromMasterSeed(seed).derive(`m/44'/133'/${accountIndex}'/0/0`)
+  if (!node.privateKey || !node.publicKey) throw new Error('Zcash key derivation failed')
+  return { privateKey: node.privateKey, publicKey: node.publicKey, address: deriveZcashTransparentAddress(node.publicKey) }
 }

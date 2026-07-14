@@ -36,6 +36,10 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
   // create a real mainnet exchange.
   const [testnet, setTestnet] = useState(false)
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => {}) }, [])
+  // Privacy Mode hides Swap too — no aggregator supports the privacy chains, and
+  // routing XMR/ZEC through a swap provider would defeat the point of the mode.
+  const [privacyMode, setPrivacyMode] = useState(false)
+  useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
   const switchMode = (m: SwapMode) => { if (m !== mode) { setMode(m); setEpoch(e => e + 1) } }
 
@@ -61,19 +65,21 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
         {/* Centered, max-width column so the layout is identical across popup (400px),
             docked sidebar (fluid), and the resizable Electron window. */}
         <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {testnet ? (
+          {testnet || privacyMode ? (
             <div style={{
               marginTop: 24, padding: '22px 18px', textAlign: 'center',
-              background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.3)',
+              background: testnet ? 'rgba(245, 158, 11, 0.06)' : 'rgba(124, 58, 237, 0.06)',
+              border: `1px solid ${testnet ? 'rgba(245, 158, 11, 0.3)' : 'rgba(124, 58, 237, 0.35)'}`,
               borderRadius: 'var(--radius-md)',
             }}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>🧪</div>
+              <div style={{ fontSize: 22, marginBottom: 8 }}>{testnet ? '🧪' : '🕶️'}</div>
               <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
-                Not available in Testnet Mode
+                {testnet ? 'Not available in Testnet Mode' : 'Not available in Privacy Mode'}
               </div>
               <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                Swap providers only operate on mainnets. Turn Testnet Mode off in
-                Settings to swap with real funds.
+                {testnet
+                  ? 'Swap providers only operate on mainnets. Turn Testnet Mode off in Settings to swap with real funds.'
+                  : 'Swap providers don’t support the privacy networks. Turn Privacy Mode off in Settings to swap.'}
               </div>
             </div>
           ) : (

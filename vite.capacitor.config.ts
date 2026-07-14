@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import wasm from 'vite-plugin-wasm'
+import { moneroCspPatch } from './build/monero-csp-patch'
 import path from 'path'
 import { writeFileSync } from 'fs'
 
@@ -37,6 +39,10 @@ export default defineConfig({
       globals: { Buffer: true, process: true, global: true },
       protocolImports: true
     }),
+    // ledger-v9 (Midnight) ships ESM-integrated WASM, loaded as a lazy chunk
+    // (top-level await in it is fine with target esnext).
+    wasm(),
+    moneroCspPatch(),
     react(),
     {
       name: 'generate-wallet-icon',
@@ -70,13 +76,34 @@ export default defineConfig({
       // real module is Worker-proxied + EIP-191 signature-gated with no client
       // keys, and its store reads are await-normalized, so ChainLens profile
       // sync works on Android.
+      // Privacy-chain WASM backends: the WebView runs them in-page (monero-ts
+      // in a Web Worker; ledger-v9 as a lazy WASM chunk).
+      {
+        find: /^\.\/monero(\.ts)?$/,
+        replacement: r('src/capacitor/monero-browser.ts')
+      },
+      {
+        find: /^\.\/midnight-ledger(\.ts)?$/,
+        replacement: r('src/capacitor/midnight-ledger.ts')
+      },
     ]
+  },
+
+  worker: {
+    // The ?worker bundle (monero.worker.js) is a separate rollup pass — the
+    // CSP patch must run there too (the worker embeds its own GenUtils copy).
+    format: 'es',
+    plugins: () => [moneroCspPatch()],
   },
 
   base: './',
 
   build: {
     outDir: r('dist-capacitor'),
+    // Modern-Chrome-only target: required for native top-level await in the
+    // wasm-init chunks (ledger-v9) — those chunks only load in page contexts
+    // (offscreen document / WebView), never in the service worker.
+    target: 'esnext',
     emptyOutDir: true,
     // No store-review readability constraint (the extension ships un-minified
     // for CWS review); minify to keep the APK size down.

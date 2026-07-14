@@ -35,6 +35,19 @@ export interface WalletAddresses {
     cardano: string
     cardanoStake: string
   }
+  // Privacy Mode: cached privacy-chain addresses (new chains, not substitutes —
+  // the renderer reads these directly via getAddress()).
+  privacy?: {
+    monero: string
+    // Private VIEW key (watch-only — can see incoming funds, can never spend).
+    // Cached alongside the address so balances scan while locked; the spend key
+    // never leaves the main process.
+    moneroViewKey?: string
+    zcashTransparent: string
+    zcashUnified?: string
+    midnight?: string          // unshielded mn_addr… — where NIGHT lives
+    midnightShielded?: string  // mn_shield-addr… receiver
+  }
 }
 
 export interface ChainBalance {
@@ -301,6 +314,8 @@ declare global {
       sendBitcoin(to: string, amount: string): Promise<SendResult>
       sendTron(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
       sendDogecoin(to: string, amount: string): Promise<SendResult>
+      sendMonero(to: string, amount: string): Promise<SendResult>
+      sendZcash(to: string, amount: string): Promise<SendResult>
       // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>
@@ -308,6 +323,9 @@ declare global {
       // Testnet Mode
       getTestnetMode(): Promise<boolean>
       setTestnetMode(enabled: boolean): Promise<{ testnet: boolean; addresses: WalletAddresses | null }>
+      // Privacy Mode
+      getPrivacyMode(): Promise<boolean>
+      setPrivacyMode(enabled: boolean): Promise<{ privacy: boolean; addresses: WalletAddresses | null }>
       setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
       // Connected sites (revoke dApp access)
       getConnectedSites(): Promise<string[]>

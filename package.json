@@ -47,6 +47,8 @@
     "@capacitor/preferences": "^7.0.4",
     "@capacitor/status-bar": "^7.0.6",
     "@capgo/capacitor-native-biometric": "^7.6.0",
+    "@midnight-ntwrk/wallet-sdk-hd": "^3.0.2",
+    "@midnightntwrk/ledger-v9": "1.0.0-rc.3",
     "@noble/curves": "^1.4.0",
     "@noble/hashes": "^1.4.0",
     "@scure/base": "^1.1.6",
@@ -59,6 +61,7 @@
     "@walletconnect/utils": "^2.23.9",
     "ed25519-hd-key": "^1.3.0",
     "electron-updater": "^6.8.9",
+    "monero-ts": "^0.11.10",
     "qrcode": "^1.5.4",
     "viem": "^2.37.0"
   },
@@ -81,6 +84,7 @@
     "typescript": "^5.5.4",
     "vite": "^7.3.6",
     "vite-plugin-node-polyfills": "^0.28.0",
+    "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.9"
   },
   "overrides": {

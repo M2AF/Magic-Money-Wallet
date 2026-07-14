@@ -35,6 +35,8 @@ export interface WalletConfig {
   clientToken: string
   simpleSwapApiKey: string
   testnetMode: boolean
+  privacyMode: boolean       // Privacy Mode: portfolio shows ONLY XMR/ZEC/NIGHT — mutually exclusive with testnetMode
+  moneroRestoreHeight: number // Monero wallet birthday (block height at first Privacy Mode enable)
 }
 
 // Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
@@ -56,7 +58,9 @@ const DEFAULT_CONFIG: WalletConfig = {
   swapProxyUrl:           'https://magicmoney-swap-proxy.guildfordking.workers.dev',
   clientToken:            'magicmoney-wallet-v1',
   simpleSwapApiKey:       '',
-  testnetMode:            false
+  testnetMode:            false,
+  privacyMode:            false,
+  moneroRestoreHeight:    0
 }
 
 const AUTO_LOCK_MS = 15 * 60_000

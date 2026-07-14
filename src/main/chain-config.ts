@@ -11,7 +11,7 @@ import { alchemyRpcUrl, heliusRpcUrl, tronApiUrl } from './api-proxy'
 export interface ChainDef {
   id: string
   name: string
-  type: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | 'tron' | 'dogecoin'
+  type: 'evm' | 'solana' | 'cardano' | 'bitcoin' | 'polkadot' | 'tron' | 'dogecoin' | 'monero' | 'zcash' | 'midnight'
   chainId?: number          // EVM only
   nativeSymbol: string
   coingeckoId: string       // for price batch lookup
@@ -395,6 +395,83 @@ export const DOGE_API_BASE = 'https://api.blockcypher.com/v1/doge/main'
 // Different request/response shape than Blockfrost, so it's normalized in cardano-koios.ts.
 export const KOIOS_URL = 'https://api.koios.rest/api/v1'
 
+// ═══ Privacy Mode ═════════════════════════════════════════════════════════════
+// Privacy Mode is a FILTER, not a substitution: when on, the portfolio shows ONLY
+// these privacy-focused chains (all mainnet — prices ARE fetched, unlike testnet
+// mode). Their addresses are new optional WalletAddresses fields derived lazily
+// the first time the mode is enabled. Privacy Mode and Testnet Mode are mutually
+// exclusive (enforced in the set-mode IPC handlers). The dApp browser's EVM
+// plumbing is intentionally untouched by this mode — only portfolio surfaces
+// (dashboard, balance/token fetch, send) switch to the privacy set.
+
+export const PRIVACY_CHAINS: ChainDef[] = [
+  {
+    id: 'monero',
+    name: 'Monero',
+    type: 'monero',
+    nativeSymbol: 'XMR',
+    coingeckoId: 'monero',
+    // Monero speaks its own JSON-RPC (get_info, /sendrawtransaction …) served by
+    // the keyless community nodes in MONERO_NODES; this is the documentary base.
+    rpcUrl: () => MONERO_NODES[0],
+    explorerTx: 'https://xmrchain.net/tx',
+    color: '#FF6600',
+    colorRgb: '255, 102, 0'
+  },
+  {
+    id: 'zcash',
+    name: 'Zcash',
+    type: 'zcash',
+    nativeSymbol: 'ZEC',
+    coingeckoId: 'zcash',
+    // Transparent-pool reads/broadcast come from the keyless providers in
+    // ZCASH_APIS (Blockchair dashboards + push). Shielded (Orchard/Sapling)
+    // support arrives with a vendored WebZjs WASM build — see zcash.ts.
+    rpcUrl: () => 'https://api.blockchair.com/zcash',
+    explorerTx: 'https://blockchair.com/zcash/transaction',
+    color: '#F4B728',
+    colorRgb: '244, 183, 40'
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight',
+    type: 'midnight',
+    nativeSymbol: 'NIGHT',
+    // 'midnight-3' is the REAL Midnight Network token on CoinGecko (rank ~105);
+    // the bare 'midnight' id is an unrelated dead token squatting the name.
+    coingeckoId: 'midnight-3',
+    // Balance reads use the public mainnet indexer (see midnight.ts); this is
+    // the documentary node RPC (same one Lace points at).
+    rpcUrl: () => 'https://rpc.mainnet.midnight.network',
+    explorerTx: 'https://midnightscan.io/tx',
+    color: '#7C3AED',
+    colorRgb: '124, 58, 237'
+    // Receive + balances only for now — sends need DUST fees + a proof server
+    // (the dashboard renders no Send button for this chain).
+  }
+]
+
+export const PRIVACY_CHAIN_MAP: Record<string, ChainDef> = Object.fromEntries(
+  PRIVACY_CHAINS.map(c => [c.id, c])
+)
+
+// Keyless public Monero remote nodes (CORS-free from Node/Electron main; the
+// extension/Android targets need host permissions / the Capacitor fetch router
+// before they can scan — until then they render the address with a note).
+// Order = priority; monero.ts fails over down the list.
+export const MONERO_NODES: string[] = [
+  'https://xmr-node.cakewallet.com:18081',
+  'https://node.sethforprivacy.com:18089',
+  'https://xmr.stormycloud.org:18089',
+]
+
+// Keyless Zcash transparent-pool providers. Blockchair serves balance + UTXOs +
+// broadcast from one API (same role BlockCypher plays for Dogecoin). The Zcash
+// insight-style explorer is a balance-display fallback (different shape,
+// normalized in zcash.ts).
+export const ZCASH_API_BASE = 'https://api.blockchair.com/zcash'
+export const ZCASH_EXPLORER_API = 'https://mainnet.zcashexplorer.app/api'
+
 // ═══ Testnet Mode ═════════════════════════════════════════════════════════════
 // Testnet counterparts reuse the SAME `id` as their mainnet chain (renderer keys,
 // colors, and fetch plumbing stay unchanged); only `bitcoin-testnet4` is a new id.
@@ -614,15 +691,24 @@ export const TESTNET_DEFAULT_EVM_CHAIN_ID = 11155111
 
 export const isTestnet = (cfg: WalletConfig): boolean => !!cfg.testnetMode
 
+// Privacy Mode — mutually exclusive with Testnet Mode (the set-mode handlers turn
+// the other one off), but isPrivacy still guards on !testnetMode as defense in
+// depth against a hand-edited config.json carrying both flags.
+export const isPrivacy = (cfg: WalletConfig): boolean => !!cfg.privacyMode && !cfg.testnetMode
+
 export function activeEvmChains(cfg: WalletConfig): ChainDef[] {
+  // Privacy Mode does not alter the EVM set — the dApp browser keeps working on
+  // EVM networks; only portfolio surfaces switch to PRIVACY_CHAINS.
   return isTestnet(cfg) ? TESTNET_EVM_CHAINS : EVM_CHAINS
 }
 
 export function activeChains(cfg: WalletConfig): ChainDef[] {
+  if (isPrivacy(cfg)) return PRIVACY_CHAINS
   return isTestnet(cfg) ? TESTNET_ALL_CHAINS : ALL_CHAINS
 }
 
 export function activeChainMap(cfg: WalletConfig): Record<string, ChainDef> {
+  if (isPrivacy(cfg)) return PRIVACY_CHAIN_MAP
   return isTestnet(cfg) ? TESTNET_CHAIN_MAP : CHAIN_MAP
 }
 

@@ -59,3 +59,72 @@ describe('wallet-core deriveAddresses', () => {
     expect(clean.evm).toBe('0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
   })
 })
+
+// ── Privacy Mode derivation (Monero / Zcash transparent) ─────────────────────
+// The Monero vector was cross-checked against monero-ts (createWalletKeys from
+// the same spend key reproduces this exact view key + address), so a regression
+// here means the wallet no longer matches what monero-wallet-cli would restore
+// from an exported spend key.
+describe('wallet-core derivePrivacyAddresses', () => {
+  it('derives the known Monero account #0 (verified against monero-ts)', async () => {
+    const { getMoneroKeys } = await import('./wallet-core')
+    const k = await getMoneroKeys(FOUNDRY, 0)
+    expect(k.privateSpendKey).toBe('a32c2cb1eacc5ab4c7a83935ec5447cff500f7a5c43b4104259f36babfed9105')
+    expect(k.privateViewKey).toBe('a92226dfdb87cc49ffcc5d9ae27a82591afdd3d039f537758df6ee8cd4590f06')
+    expect(k.address).toBe('48Xucn75vn7aEEPSksVh3VY1SZEToLh56gbiHKEybgkAMgxr4ehqxaeSF7HzX9e1rAbCXV4Snr8Vwicae6kgX58fHnidf65')
+  })
+
+  it('produces correctly-formatted privacy addresses and caches the view key', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const p = await derivePrivacyAddresses(FOUNDRY, 0)
+    expect(p.monero.startsWith('4')).toBe(true)
+    expect(p.monero).toHaveLength(95)
+    expect(p.moneroViewKey).toMatch(/^[0-9a-f]{64}$/)
+    expect(p.zcashTransparent.startsWith('t1')).toBe(true)
+  })
+
+  it('is deterministic and sensitive to the account index', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const p0 = await derivePrivacyAddresses(FOUNDRY, 0)
+    const p0again = await derivePrivacyAddresses(FOUNDRY, 0)
+    const p1 = await derivePrivacyAddresses(FOUNDRY, 1)
+    expect(p0).toEqual(p0again)
+    expect(p1.monero).not.toBe(p0.monero)
+    expect(p1.zcashTransparent).not.toBe(p0.zcashTransparent)
+  })
+
+  it('round-trips its own Monero address through the validator', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const { validateMoneroAddress } = await import('./monero-pure')
+    const p = await derivePrivacyAddresses(FOUNDRY, 0)
+    expect(validateMoneroAddress(p.monero)).toBe(true)
+    // checksum sensitivity: flipping one character must fail
+    const corrupted = p.monero.slice(0, 94) + (p.monero[94] === 'a' ? 'b' : 'a')
+    expect(validateMoneroAddress(corrupted)).toBe(false)
+  })
+})
+
+// ── Midnight derivation — pinned against Lace (mainnet, 2026-07-13) ──────────
+// A throwaway 24-word wallet was created in Lace and its exported Zswap keys +
+// receive addresses matched these derivations byte-for-byte (see midnight.ts
+// header for the recipe). If this regresses, NIGHT sent to our address would
+// not appear in a Lace restore of the same phrase.
+describe('wallet-core Midnight derivation (Lace-verified)', () => {
+  const LACE_PHRASE = 'fan crew offer depart cream maple scrap gallery guard chief exile foil pyramid live they march pilot bottom tuna inhale paddle glue across chimney'
+
+  it('reproduces the Lace test wallet addresses exactly', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const p = await derivePrivacyAddresses(LACE_PHRASE, 0)
+    expect(p.midnight).toBe('mn_addr1m2vkj22w9r7g37yry7cawdj0pnsvyvryc6l0afw69vctellddrqq0gl5g2')
+    expect(p.midnightShielded).toBe('mn_shield-addr1l6xvefgt4w0m24ujr7rhydzj2tw5vmfm74ens9uu5ynj0kfhwn7n2ujd43n9wlnutvzpejzwp9wzzppm2wqfxc790kh9llyn772zrcq8t4qr4')
+  })
+
+  it('derives midnight fields for the Foundry account too (format check)', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const p = await derivePrivacyAddresses(FOUNDRY, 0)
+    expect(p.midnight?.startsWith('mn_addr1')).toBe(true)
+    expect(p.midnightShielded?.startsWith('mn_shield-addr1')).toBe(true)
+    const p1 = await derivePrivacyAddresses(FOUNDRY, 1)
+    expect(p1.midnight).not.toBe(p.midnight)
+  })
+})

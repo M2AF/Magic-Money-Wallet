@@ -147,6 +147,8 @@ export function createExtensionWallet() {
     sendTron:       (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-tron', t, a, token),
     sendDogecoin:   (t: string, a: string)            => send('wallet:send-dogecoin', t, a),
     sendBitcoin:    (t: string, a: string)            => send('wallet:send-bitcoin', t, a),
+    sendMonero:     (t: string, a: string)            => send('wallet:send-monero', t, a),
+    sendZcash:      (t: string, a: string)            => send('wallet:send-zcash', t, a),
 
     // Market
     getMarket:      ()                      => send('wallet:get-market'),
@@ -222,6 +224,10 @@ export function createExtensionWallet() {
     // shared SettingsModal toggle works in both.
     getTestnetMode: () => send<boolean>('wallet:get-testnet-mode'),
     setTestnetMode: (enabled: boolean) => send('wallet:set-testnet-mode', enabled),
+
+    // Privacy Mode — same contract as the Electron window.wallet API.
+    getPrivacyMode: () => send<boolean>('wallet:get-privacy-mode'),
+    setPrivacyMode: (enabled: boolean) => send('wallet:set-privacy-mode', enabled),
 
     // Background floor-valuation push (Collectibles tab renders before values).
     onCollectiblesUpdated:  (cb: (r: unknown) => void) => on('collectibles:updated', cb as (d: unknown) => void),

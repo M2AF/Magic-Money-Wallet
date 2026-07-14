@@ -60,3 +60,35 @@ describe('address-validate', () => {
     expect(validateAddress('tron', 'TXYZa9zzzzzzzzzzzzzzzzzzzzzzzzzzzz').valid).toBe(false)             // bad base58check
   })
 })
+
+describe('privacy chain addresses (Monero / Zcash)', () => {
+  it('accepts the wallet\'s own derived privacy addresses', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const p = await derivePrivacyAddresses(FOUNDRY, 0)
+    expect(validateAddress('monero', p.monero).valid).toBe(true)
+    expect(validateAddress('zcash', p.zcashTransparent).valid).toBe(true)
+  })
+
+  it('rejects cross-chain pastes on the privacy chains', async () => {
+    const { derivePrivacyAddresses } = await import('./wallet-core')
+    const a = await deriveAddresses(FOUNDRY, 0)
+    const p = await derivePrivacyAddresses(FOUNDRY, 0)
+    expect(validateAddress('monero', a.evm).valid).toBe(false)
+    expect(validateAddress('monero', p.zcashTransparent).valid).toBe(false)
+    expect(validateAddress('zcash', p.monero).valid).toBe(false)
+    expect(validateAddress('zcash', a.bitcoin).valid).toBe(false)
+    expect(validateAddress('zcash', a.dogecoin).valid).toBe(false)  // also base58check but wrong version bytes
+  })
+
+  it('rejects shielded Zcash recipients with a helpful reason', () => {
+    const res = validateAddress('zcash', 'zs1z7rejlpsa98s2rrrfkwmaxu53e4ue0ulcrw0h4x5g8jl04tak0d3mm47vdtpepqu9jc8ruqavzs')
+    expect(res.valid).toBe(false)
+    expect(res.reason).toMatch(/transparent/i)
+  })
+
+  it('accepts a known-good mainnet Monero donation address', () => {
+    // The Monero project's published donation address (getmonero.org).
+    const donation = '44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A'
+    expect(validateAddress('monero', donation).valid).toBe(true)
+  })
+})

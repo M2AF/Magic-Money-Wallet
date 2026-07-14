@@ -738,6 +738,10 @@ const TESTNET_CHAINS = [
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
+// Privacy Mode: ONLY the privacy-focused chains (mirrors PRIVACY_CHAINS in
+// chain-config). Midnight renders as Coming Soon until its integration lands.
+const PRIVACY_CHAINS = ['monero', 'zcash', 'midnight']
+
 function sortedChains(balances: AllBalances | null, chains: string[]): string[] {
   if (!balances) return chains
   return [...chains].sort((a, b) => {
@@ -758,6 +762,9 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   if (chainId === 'polkadot') return addresses.polkadot || null
   if (chainId === 'tron')     return addresses.tron     || null
   if (chainId === 'dogecoin') return addresses.dogecoin || null
+  if (chainId === 'monero')   return addresses.privacy?.monero || null
+  if (chainId === 'zcash')    return addresses.privacy?.zcashTransparent || null
+  if (chainId === 'midnight') return addresses.privacy?.midnight || null
   return addresses.evm
 }
 
@@ -774,6 +781,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // only needs to be read once on mount.
   const [testnet, setTestnet] = useState(false)
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => {}) }, [])
+  // Privacy Mode — same reload-on-toggle doctrine as Testnet Mode.
+  const [privacyMode, setPrivacyMode] = useState(false)
+  useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
@@ -921,6 +931,16 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     return () => clearInterval(id)
   }, [fetchBalances, fetchHistory, fetchTokens, fetchCollectibles])
 
+  // Privacy-chain sync can take a few passes, especially Monero's view-wallet
+  // scanner on extension/Android. While any visible chain reports "Syncing...",
+  // poll balances quietly so the card can flip to the real value as soon as the
+  // worker catches up instead of waiting for the normal 5-minute refresh.
+  useEffect(() => {
+    if (!balances || !Object.values(balances.chains).some(b => b.error?.startsWith('Syncing'))) return
+    const id = setInterval(() => fetchBalances(true), 10_000)
+    return () => clearInterval(id)
+  }, [balances, fetchBalances])
+
   const switchAccount = async (newIndex: number) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return
     setAccountSwitching(true)
@@ -1008,6 +1028,15 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                 border: '1px solid rgba(245, 158, 11, 0.35)',
               }}>
                 TESTNET
+              </span>
+            )}
+            {privacyMode && (
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px',
+                borderRadius: 6, color: '#a78bfa', background: 'rgba(124, 58, 237, 0.14)',
+                border: '1px solid rgba(124, 58, 237, 0.4)',
+              }}>
+                PRIVACY
               </span>
             )}
           </h1>
@@ -1106,7 +1135,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         // its value comes from the synthetic 'abstract-agw' balance entry.
         const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
         const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
-        const rows = sortedChains(balances, testnet ? TESTNET_CHAINS : ALL_CHAINS).map(chainId => ({
+        const rows = sortedChains(balances, privacyMode ? PRIVACY_CHAINS : testnet ? TESTNET_CHAINS : ALL_CHAINS).map(chainId => ({
           usd: usdOf(chainId),
           nat: natOf(chainId),
           node: (
@@ -1120,17 +1149,22 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                 { label: 'Native SegWit · Payment', address: localAddresses.bitcoin },
                 { label: 'Nested SegWit', address: localAddresses.bitcoinNested },
                 { label: 'Taproot · Ordinals', address: localAddresses.bitcoinTaproot },
+              ] : chainId === 'midnight' && localAddresses.privacy?.midnight ? [
+                { label: 'Unshielded · NIGHT', address: localAddresses.privacy.midnight },
+                ...(localAddresses.privacy.midnightShielded ? [{ label: 'Shielded', address: localAddresses.privacy.midnightShielded }] : []),
               ] : undefined}
               loading={loading}
               // Testnet4 is display-only (sends/PSBTs operate on Testnet3 while
-              // the mode is on) — no Send button on that card.
-              onSend={chainId === 'bitcoin-testnet4' ? undefined : () => setSendChain(chainId)}
+              // the mode is on); Midnight sends need DUST + a proof server —
+              // no Send button on those cards.
+              onSend={chainId === 'bitcoin-testnet4' || chainId === 'midnight' ? undefined : () => setSendChain(chainId)}
               history={historyFor(chainId)}
             />
           )
         }))
-        // AGW is a mainnet Abstract smart account — hidden in Testnet Mode.
-        if (!testnet) {
+        // AGW is a mainnet Abstract smart account — hidden in Testnet Mode, and
+        // in Privacy Mode (Abstract is not a privacy chain).
+        if (!testnet && !privacyMode) {
           rows.push({
             usd: usdOf('abstract-agw'),
             nat: natOf('abstract-agw'),
