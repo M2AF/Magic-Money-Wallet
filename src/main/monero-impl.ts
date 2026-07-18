@@ -36,7 +36,33 @@ export interface MoneroModule {
   stopMoneroSync(): Promise<void>
 }
 
-export function createMoneroModule(loadMoneroTs: () => Promise<MoneroTs>): MoneroModule {
+export interface MoneroBackendOpts {
+  /**
+   * monero-ts spawns a Web Worker for wallet ops by default. That works on
+   * Electron's Node main thread but hangs indefinitely inside the extension's
+   * offscreen document and the Android WebView — createWalletFull never
+   * resolves, so the balance is stuck "Syncing…" before a single block is
+   * scanned. The browser backends pass false to run wallet2 on the calling
+   * thread instead (the offscreen doc is a background context; the WebView
+   * tolerates it for a short near-tip scan). Electron keeps the worker.
+   */
+  proxyToWorker?: boolean
+}
+
+// Hard ceiling on wallet CREATION (WASM init + handshake). A worker/WASM that
+// never initializes must surface as a visible error, not an eternal "Syncing…"
+// (the exact silent-hang the browser targets showed). Scanning itself is
+// separately time-boxed by monero-ts's own sync loop.
+const WALLET_CREATE_TIMEOUT_MS = 90_000
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`)), ms)),
+  ])
+}
+
+export function createMoneroModule(loadMoneroTs: () => Promise<MoneroTs>, opts: MoneroBackendOpts = {}): MoneroModule {
   let view: ViewState | null = null
 
   async function ensureViewWallet(privacy: PrivacyAddresses, config: WalletConfig): Promise<ViewState> {
@@ -51,7 +77,7 @@ export function createMoneroModule(loadMoneroTs: () => Promise<MoneroTs>): Moner
       try {
         const ts = await loadMoneroTs()
         const { uri, height } = await pickNode()
-        const wallet = await ts.createWalletFull({
+        const wallet = await withTimeout(ts.createWalletFull({
           networkType: ts.MoneroNetworkType.MAINNET,
           password: 'view',                    // in-memory wallet — never written to disk
           primaryAddress: privacy.monero,
@@ -61,17 +87,23 @@ export function createMoneroModule(loadMoneroTs: () => Promise<MoneroTs>): Moner
           // so nothing exists before the mode was first enabled; scanning from
           // genesis would take hours for a guaranteed-empty history.
           restoreHeight: config.moneroRestoreHeight || Math.max(height - 720, 0),
-          server: { uri }
-        })
+          server: { uri },
+          proxyToWorker: opts.proxyToWorker,
+        }), WALLET_CREATE_TIMEOUT_MS, 'Monero wallet init')
         if (view !== state) { await wallet.close(); return }  // superseded meanwhile
         state.wallet = wallet
         state.status = 'syncing'
-        await wallet.sync(new class extends ts.MoneroWalletListener {
-          async onSyncProgress(_h: number, _s: number, _e: number, percentDone: number) {
-            state.progress = Math.round(percentDone * 100)
-          }
-        }())
-        await wallet.startSyncing(20_000)
+        // Drive the scan on a bounded loop instead of one open-ended sync():
+        // poll progress + balance each pass, so the card shows advancing % and a
+        // node that goes quiet is caught (monero-ts sync resolves per-batch).
+        await wallet.startSyncing(10_000)
+        for (let pass = 0; pass < 120; pass++) {   // ~20 min ceiling for a near-tip scan
+          if (view !== state) { await wallet.close(); return }
+          const [walletH, chainH] = await Promise.all([wallet.getHeight(), wallet.getDaemonHeight()])
+          state.progress = chainH > 0 ? Math.min(100, Math.round((walletH / chainH) * 100)) : 0
+          if (walletH >= chainH) break
+          await new Promise(r => setTimeout(r, 10_000))
+        }
         state.status = 'ready'
       } catch (err) {
         state.status = 'error'

@@ -64,7 +64,7 @@ function normalizeChains(chains: EvmChainOption[]): EvmChainOption[] {
     .filter(c => Number.isFinite(c.chainId) && c.name && c.color)
 }
 
-export function NetworkSwitcher() {
+export function NetworkSwitcher({ compact = false }: { compact?: boolean } = {}) {
   const [chains, setChains] = useState<EvmChainOption[]>([])
   const [chainId, setChainId] = useState('0x1')
 
@@ -82,25 +82,35 @@ export function NetworkSwitcher() {
   }, [])
 
   const numId = parseInt(chainId, 16)
-  const displayedChains = chains.some(c => c.chainId === numId) ? chains : fallbackChains(numId)
+  // The bridge's active list (web3GetChains) is authoritative for the current
+  // mode — always use it when present. Only fall back to the id-based heuristic
+  // when the bridge gave us nothing (a failed call). Previously this keyed off
+  // "does the list contain the current id", so a STALE current id (e.g. a
+  // leftover testnet chain after leaving Testnet/Privacy mode) flipped the whole
+  // dropdown to the testnet list while in mainnet.
+  const displayedChains = chains.length > 0 ? chains : fallbackChains(numId)
   const current = displayedChains.find(c => c.chainId === numId)
   const color = current?.color ?? '#22c55e'
   const label = current?.name ?? (Number.isFinite(numId) ? `Chain ${numId}` : 'Network')
 
   return (
     <div
-      title="Switch network"
+      title={`Network: ${label}`}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
-        height: 34, padding: '0 8px', background: 'transparent',
+        height: 34, padding: compact ? '0 7px' : '0 8px', background: 'transparent',
         border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-        flexShrink: 0, maxWidth: 180
+        flexShrink: 0, maxWidth: compact ? undefined : 180
       }}
     >
       <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {label}
-      </span>
+      {/* Compact mode (in-browser toolbar): dot + chevron only, so the tab row
+          below keeps its full width for scrollable, closable tabs. */}
+      {!compact && (
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {label}
+        </span>
+      )}
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
         <polyline points="6 9 12 15 18 9" />
       </svg>

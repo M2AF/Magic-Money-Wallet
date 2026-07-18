@@ -149,6 +149,10 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
           ) : balance?.error?.startsWith('Syncing') ? (
             // Monero view-wallet catching up — busy, not broken.
             <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--chain-color-rgb), 0.85)', background: 'rgba(var(--chain-color-rgb), 0.1)', border: '1px solid rgba(var(--chain-color-rgb), 0.2)', borderRadius: 4, padding: '2px 7px' }}>{balance.error}</div>
+          ) : balance?.error === 'receive-only' ? (
+            // Monero on browser targets — address works, balance needs the
+            // desktop app (or the native Android build / a future LWS).
+            <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(var(--chain-color-rgb), 0.7)', background: 'rgba(var(--chain-color-rgb), 0.1)', border: '1px solid rgba(var(--chain-color-rgb), 0.2)', borderRadius: 4, padding: '2px 7px' }}>Receive only</div>
           ) : balance?.error ? (
             <div className="chain-error">Unavailable</div>
           ) : (

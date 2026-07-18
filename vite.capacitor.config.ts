@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from 'vite-plugin-wasm'
-import { moneroCspPatch } from './build/monero-csp-patch'
 import path from 'path'
 import { writeFileSync } from 'fs'
 
@@ -42,7 +41,6 @@ export default defineConfig({
     // ledger-v9 (Midnight) ships ESM-integrated WASM, loaded as a lazy chunk
     // (top-level await in it is fine with target esnext).
     wasm(),
-    moneroCspPatch(),
     react(),
     {
       name: 'generate-wallet-icon',
@@ -87,13 +85,6 @@ export default defineConfig({
         replacement: r('src/capacitor/midnight-ledger.ts')
       },
     ]
-  },
-
-  worker: {
-    // The ?worker bundle (monero.worker.js) is a separate rollup pass — the
-    // CSP patch must run there too (the worker embeds its own GenUtils copy).
-    format: 'es',
-    plugins: () => [moneroCspPatch()],
   },
 
   base: './',

@@ -117,6 +117,9 @@ describe('wallet-core Midnight derivation (Lace-verified)', () => {
     const p = await derivePrivacyAddresses(LACE_PHRASE, 0)
     expect(p.midnight).toBe('mn_addr1m2vkj22w9r7g37yry7cawdj0pnsvyvryc6l0afw69vctellddrqq0gl5g2')
     expect(p.midnightShielded).toBe('mn_shield-addr1l6xvefgt4w0m24ujr7rhydzj2tw5vmfm74ens9uu5ynj0kfhwn7n2ujd43n9wlnutvzpejzwp9wzzppm2wqfxc790kh9llyn772zrcq8t4qr4')
+    // DUST fee address — matched byte-for-byte to Lace AND to Midnight's official
+    // DustAddress.encodePublicKey codec. Guards the 0x73-prefixed LE encoding.
+    expect(p.midnightDust).toBe('mn_dust1ww32942he5x9em6tf9eknvc2a379ch3da7k0sykzfjwms6hxvr49wrfl2vk')
   })
 
   it('derives midnight fields for the Foundry account too (format check)', async () => {

@@ -34,13 +34,17 @@ export function HeaderToolbar({
   const sidebarFn = (window as any).__EXT_SIDEBAR_FN__
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const isSidePanel = (window as any).__SIDE_PANEL__
+  // Android (Capacitor) has no separate browser chrome to host the switcher (its
+  // in-app browser toolbar carries its own), so surface it in the header too.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-      {/* EVM network switcher — extension only (Electron has its own in browser
-          chrome). Sits ABOVE the button row so it doesn't widen the row off-screen
-          and push the sparkline out of view. */}
-      {!!sidebarFn && <NetworkSwitcher />}
+      {/* EVM network switcher — extension + Android (Electron has its own in the
+          browser chrome). Sits ABOVE the button row so it doesn't widen the row
+          off-screen and push the sparkline out of view. */}
+      {(!!sidebarFn || isCapacitor) && <NetworkSwitcher />}
 
       <div style={{ display: 'flex', gap: 5 }}>
       {/* Sidebar toggle — extension only */}

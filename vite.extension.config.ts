@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from 'vite-plugin-wasm'
-import { moneroCspPatch } from './build/monero-csp-patch'
 import path from 'path'
 import { copyFileSync, mkdirSync, existsSync, renameSync, rmSync, readFileSync, writeFileSync } from 'fs'
 
@@ -33,7 +32,6 @@ export default defineConfig({
     // document's lazy chunk loads it (the SW proxies via offscreen-rpc; real
     // top-level await is fine in page-context chunks with target esnext).
     wasm(),
-    moneroCspPatch(),
     react(),
     {
       name: 'generate-wallet-icon',
@@ -103,13 +101,6 @@ export default defineConfig({
         replacement: r('src/extension/midnight-ledger.ts')
       },
     ]
-  },
-
-  worker: {
-    // The ?worker bundle (monero.worker.js) is a separate rollup pass — the
-    // CSP patch must run there too (the worker embeds its own GenUtils copy).
-    format: 'es',
-    plugins: () => [moneroCspPatch()],
   },
 
   base: './',

@@ -47,6 +47,7 @@ export interface WalletAddresses {
     zcashUnified?: string
     midnight?: string          // unshielded mn_addr… — where NIGHT lives
     midnightShielded?: string  // mn_shield-addr… receiver
+    midnightDust?: string      // mn_dust… — DUST fee identity (point DUST generation here)
   }
 }
 
@@ -398,6 +399,14 @@ declare global {
       offBrowserTabs(cb: (s: { activeTabId: number; tabs: BrowserTab[] }) => void): void
       onBrowserClosed(cb: () => void): void
       offBrowserClosed(cb: () => void): void
+      // Capacitor persistent-tabs browser (optional — absent on Electron/extension)
+      showBrowser?(): void
+      hideBrowser?(): void
+      openBrowserInNewTab?(url: string): void
+      onBrowserHidden?(cb: () => void): void
+      offBrowserHidden?(cb: () => void): void
+      onBrowserTabCount?(cb: (n: number) => void): void
+      offBrowserTabCount?(cb: (n: number) => void): void
       // dApp browser: active EVM network (toolbar switcher + awareness)
       web3GetChain(): Promise<string>
       web3GetChains(): Promise<Array<{ chainId: number; id: string; name: string; color: string }>>

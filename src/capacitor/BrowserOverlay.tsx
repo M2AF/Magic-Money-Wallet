@@ -11,13 +11,23 @@
 import { useEffect, useRef, useState } from 'react'
 import { DappBrowser, type DappBrowserState } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
+import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
+
+// Height of the wallet's bottom nav (index.css .bottom-nav is 54px) — the
+// browser overlay stops above it so the Portfolio|Market|Swap|Apps|Browser bar
+// stays visible and tappable while browsing (the native dApp WebView fills the
+// area above it). Matches the nav's own box; adjust here if the nav height or
+// safe-area handling changes.
+const NAV_STRIP = '54px'
 
 /** CapApp's hardware-back handler consults this to route back-presses here. */
 export const browserUiState = { open: false }
 
-type Session = 'closed' | 'opening' | 'open'
+// 'open' = session alive + shown; 'hidden' = session alive but tucked behind the
+// wallet (native WebViews hidden, TABS PRESERVED); 'closed' = no tabs.
+type Session = 'closed' | 'opening' | 'open' | 'hidden'
 
 export function BrowserOverlay() {
   const [visible, setVisible] = useState(false)
@@ -44,20 +54,51 @@ export function BrowserOverlay() {
     return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) }
   }
 
+  // Fully tear down the session (destroys native tab WebViews). Only reached by
+  // closing the LAST tab — never by leaving the browser view.
   const close = () => {
     sessionRef.current = 'closed'
     setVisible(false)
     setTabs([])
     setUrl(''); setUrlInput('')
     DappBrowser.close().catch(() => {})
+    emitUiEvent('cap:browser:tabs', 0)
     emitUiEvent('cap:browser:closed', null)
   }
 
-  // Bus commands from wallet-local (openBrowser / browserNavigate / close / back)
+  // Leave the browser view but KEEP the tabs (hide native WebViews). This is the
+  // path for tapping a wallet nav tab, the toolbar ✕, or hardware-back at the
+  // root of history. The session stays alive; showing it again is instant.
+  const hide = () => {
+    if (sessionRef.current !== 'open') return
+    sessionRef.current = 'hidden'
+    setVisible(false)
+    DappBrowser.hide().catch(() => {})
+    emitUiEvent('cap:browser:hidden', null)
+  }
+
+  // Reveal a hidden (or already-open) session: re-show native WebViews + re-measure.
+  const show = () => {
+    sessionRef.current = 'open'
+    setVisible(true)
+    requestAnimationFrame(() => {
+      DappBrowser.show().catch(() => {})
+      DappBrowser.setBounds(measureBounds()).catch(() => {})
+    })
+  }
+
+  // Bus commands from wallet-local (open / navigate / show / hide / close / back)
   useEffect(() => {
+    // Open (or navigate to) a specific URL — from the App Hub or a deep link.
     const onOpen = (d: unknown) => {
       const target = (d as { url?: string })?.url || HOME_URL
       if (sessionRef.current === 'open') {
+        DappBrowser.navigate({ url: target }).catch(() => {})
+        return
+      }
+      if (sessionRef.current === 'hidden') {
+        // Reveal, then point the active tab at the requested URL.
+        show()
         DappBrowser.navigate({ url: target }).catch(() => {})
         return
       }
@@ -67,19 +108,52 @@ export function BrowserOverlay() {
         setVisible(true)   // the open effect below fires after layout
       }
     }
+    // Show the existing session (Browser nav tap). Opens home if none yet.
+    const onShow = () => {
+      if (sessionRef.current === 'hidden' || sessionRef.current === 'open') { show(); return }
+      pendingUrlRef.current = HOME_URL
+      sessionRef.current = 'opening'
+      setVisible(true)
+    }
+    // Open a URL as a NEW tab (App Hub "Open in New Tab").
+    const onNewTab = (d: unknown) => {
+      const target = (d as { url?: string })?.url || HOME_URL
+      if (sessionRef.current === 'open') {
+        DappBrowser.newTab({ url: target }).catch(() => {})
+        return
+      }
+      if (sessionRef.current === 'hidden') {
+        DappBrowser.newTab({ url: target }).catch(() => {})
+        show()
+        return
+      }
+      // No session yet → start the browser with this URL as its first tab.
+      pendingUrlRef.current = target
+      sessionRef.current = 'opening'
+      setVisible(true)
+    }
+    const onHide = () => hide()
     const onClose = () => { if (sessionRef.current !== 'closed') close() }
+    // Hardware back: page history first; at the root, hide (keep tabs).
     const onBack = () => {
       if (canBackRef.current) DappBrowser.goBack().catch(() => {})
-      else close()
+      else hide()
     }
     onUiEvent('cap:browser:open', onOpen)
+    onUiEvent('cap:browser:newtab', onNewTab)
+    onUiEvent('cap:browser:show', onShow)
+    onUiEvent('cap:browser:hide', onHide)
     onUiEvent('cap:browser:close', onClose)
     onUiEvent('cap:browser:back', onBack)
     return () => {
       offUiEvent('cap:browser:open', onOpen)
+      offUiEvent('cap:browser:newtab', onNewTab)
+      offUiEvent('cap:browser:show', onShow)
+      offUiEvent('cap:browser:hide', onHide)
       offUiEvent('cap:browser:close', onClose)
       offUiEvent('cap:browser:back', onBack)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Open the native WebView once the overlay has laid out (bounds need the DOM)
@@ -111,7 +185,12 @@ export function BrowserOverlay() {
       DappBrowser.addListener('urlChanged', e => { setUrl(e.url); if (!inputFocusedRef.current) setUrlInput(e.url) }),
       DappBrowser.addListener('loadingChanged', e => setLoading(e.loading)),
       DappBrowser.addListener('navState', e => { setCanBack(e.canBack); setCanForward(e.canForward) }),
-      DappBrowser.addListener('tabsChanged', e => { setTabs(e.tabs); setActiveTabId(e.activeTabId) }),
+      DappBrowser.addListener('tabsChanged', e => {
+        setTabs(e.tabs); setActiveTabId(e.activeTabId)
+        emitUiEvent('cap:browser:tabs', e.tabs.length)   // drives the App's saved-tabs dot
+        // Closing the last tab exits the browser entirely (nothing left to show).
+        if (e.tabs.length === 0 && sessionRef.current !== 'closed') close()
+      }),
       DappBrowser.addListener('closed', () => {
         if (sessionRef.current !== 'closed') {
           sessionRef.current = 'closed'
@@ -144,7 +223,10 @@ export function BrowserOverlay() {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 5000, display: 'flex', flexDirection: 'column',
+      // Stops above the wallet's bottom nav (NAV_STRIP) so that bar stays visible
+      // and tappable — the native dApp WebView renders in the area above it.
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_STRIP,
+      zIndex: 5000, display: 'flex', flexDirection: 'column',
       background: 'var(--bg-dark, #0d0d0d)', paddingTop: 'env(safe-area-inset-top)'
     }}>
       {/* Toolbar row */}
@@ -170,10 +252,14 @@ export function BrowserOverlay() {
             }}
           />
         </form>
-        <button type="button" aria-label="Close browser" onClick={close} style={navBtn}>✕</button>
+        {/* Compact chain switcher — a dot in the toolbar so the tab row below
+            keeps full width for scrollable, closable tabs. */}
+        <NetworkSwitcher compact />
+        {/* Hide (back to wallet) — tabs are preserved; only per-tab ✕ closes tabs. */}
+        <button type="button" aria-label="Back to wallet" onClick={hide} style={navBtn}>✕</button>
       </div>
 
-      {/* Tab pills */}
+      {/* Tab pills — full-width, horizontally scrollable */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 8px', overflowX: 'auto' }}>
         {tabs.map(t => (
           <div key={t.id}

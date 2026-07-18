@@ -88,6 +88,9 @@ export interface PrivacyAddresses {
   // Optional: derivation needs the ledger-v9 WASM, Electron main only for now.
   midnight?: string
   midnightShielded?: string
+  // Midnight DUST fee identity (mn_dust…) — where DUST generation deposits the
+  // fee token; the wallet spends it to pay Midnight transaction fees.
+  midnightDust?: string
 }
 
 // ─── Mnemonic helpers ────────────────────────────────────────────────────────
@@ -313,6 +316,7 @@ export async function derivePrivacyAddresses(mnemonic: string, accountIndex = 0)
     const mn = await deriveMidnightAddresses(seed, accountIndex)
     out.midnight = mn.unshielded
     out.midnightShielded = mn.shielded
+    out.midnightDust = mn.dust
   } catch { /* loader unavailable in this runtime — midnight fields stay unset */ }
 
   return out

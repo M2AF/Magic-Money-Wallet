@@ -33,6 +33,7 @@ const NIGHT_TOKEN_TYPE = '000000000000000000000000000000000000000000000000000000
 export interface MidnightAddresses {
   unshielded: string   // mn_addr1… — where NIGHT lives (public balance)
   shielded: string     // mn_shield-addr1… — shielded receive
+  dust: string         // mn_dust1… — the DUST fee identity (point DUST generation here)
 }
 
 // Per-target loader (the WASM + the ESM-only wallet-sdk-hd cannot load the same

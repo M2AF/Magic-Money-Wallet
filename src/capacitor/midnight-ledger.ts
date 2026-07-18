@@ -28,5 +28,5 @@ export async function deriveWithLedger(seed: Uint8Array, accountIndex: number): 
   const hd = await loadHd()
   const keys = deriveMidnightRoleKeys(hd, seed, accountIndex)
   if (!keys) throw new Error('Midnight HD key derivation out of bounds')
-  return computeMidnightAddresses(await loadLedger(), keys.nightKey, keys.zswapKey)
+  return computeMidnightAddresses(await loadLedger(), keys)
 }

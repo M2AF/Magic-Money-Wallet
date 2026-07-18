@@ -128,6 +128,25 @@ function buildWallet() {
     // to the cap:browser:* bus events these methods emit.
     openBrowser:     () => { emitUiEvent('cap:browser:open', { url: HOME_URL }) },
     closeBrowser:    () => { emitUiEvent('cap:browser:close', null) },
+    // Persistent-tabs model (Android): the Browser is a first-class tab. showBrowser
+    // reveals the existing session (or opens home if none); hideBrowser tucks it
+    // away WITHOUT destroying tabs (the native WebViews are just hidden). The
+    // wallet's bottom nav stays visible over the browser, so switching tabs is a
+    // hide/show, not an open/close.
+    showBrowser:     () => { emitUiEvent('cap:browser:show', null) },
+    hideBrowser:     () => { emitUiEvent('cap:browser:hide', null) },
+    // Open a URL as a NEW tab (App Hub long-press → "Open in New Tab"): adds a
+    // tab to the existing session (revealing it if hidden), or starts the
+    // browser with this URL if nothing is open yet.
+    openBrowserInNewTab: (url: string) => {
+      const safeUrl = normalizeWebUrl(url)
+      if (safeUrl) emitUiEvent('cap:browser:newtab', { url: safeUrl })
+    },
+    onBrowserHidden: (cb: () => void) => onUiEvent('cap:browser:hidden', cb as (d: unknown) => void),
+    offBrowserHidden:(cb: () => void) => offUiEvent('cap:browser:hidden', cb as (d: unknown) => void),
+    // Live open-tab count → App shows a "saved tabs" dot on the Browser nav button.
+    onBrowserTabCount:  (cb: (n: number) => void) => onUiEvent('cap:browser:tabs', cb as (d: unknown) => void),
+    offBrowserTabCount: (cb: (n: number) => void) => offUiEvent('cap:browser:tabs', cb as (d: unknown) => void),
     browserBack:     () => { DappBrowser.goBack().catch(() => {}) },
     browserForward:  () => { DappBrowser.goForward().catch(() => {}) },
     browserReload:   () => { DappBrowser.reload().catch(() => {}) },

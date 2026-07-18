@@ -276,7 +276,7 @@ async function getFullAddresses() {
   // Privacy Mode: same lazy backfill for the privacy chain set (XMR/ZEC/NIGHT).
   // Also re-derives when a pre-Midnight cache lacks the midnight fields —
   // Electron main always derives them (ledger-v9 WASM is available here).
-  if (isPrivacy(config) && (!stored.privacy || !stored.privacy.midnight) && isUnlocked()) {
+  if (isPrivacy(config) && (!stored.privacy || !stored.privacy.midnight || !stored.privacy.midnightDust) && isUnlocked()) {
     stored = { ...stored, privacy: await derivePrivacyAddresses(loadMnemonic(), stored.accountIndex ?? 0) }
     saveAddresses(stored)
   }
@@ -763,7 +763,7 @@ export function registerIpcHandlers(): void {
     if (on) {
       if (!isUnlocked()) throw new Error('Unlock the wallet to enable Privacy Mode')
       const stored = loadAddresses()
-      if (stored && (!stored.privacy || !stored.privacy.midnight)) {
+      if (stored && (!stored.privacy || !stored.privacy.midnight || !stored.privacy.midnightDust)) {
         const privacy = await derivePrivacyAddresses(loadMnemonic(), stored.accountIndex ?? 0)
         saveAddresses({ ...stored, privacy })
       }
@@ -786,6 +786,18 @@ export function registerIpcHandlers(): void {
       try { const { stopMoneroSync } = await import('./monero'); await stopMoneroSync() } catch { /* not started */ }
     }
     const config = loadConfig()
+
+    // Reset the dApp chain to the mode's default, exactly like the Testnet
+    // toggle. Enabling Privacy clears testnetMode, so if the user was on a
+    // testnet chain (e.g. Sepolia 11155111) the id would otherwise stay stale
+    // and mismatch the mainnet set — which made the NetworkSwitcher fall back
+    // to showing the TESTNET list while in mainnet.
+    const def = defaultDappChainId(config)
+    setDappChainId(def)
+    const hex = `0x${def.toString(16)}`
+    emitDappEvent('eth', 'chainChanged', hex)
+    notifyBrowserChrome('web3:chain-changed', hex)
+
     const addresses = loadAddresses()
     return {
       privacy: isPrivacy(config),

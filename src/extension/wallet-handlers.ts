@@ -18,12 +18,21 @@ import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
 import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
 import { validateAddress } from '../main/address-validate'
-import { isTestnet } from '../main/chain-config'
+// STATIC import — the MV3 service worker forbids dynamic import(), and after
+// the privacy-chain refactor chain-config lives in a lazily-loaded shared chunk,
+// so `await import('../main/chain-config')` throws
+// "import() is disallowed on ServiceWorkerGlobalScope". Pulling every symbol the
+// SW needs into this static import keeps chain-config in the eager background
+// bundle. (This was the "network switcher shows only Chain 1" regression.)
+import { isTestnet, activeEvmChains, defaultDappChainId, EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from '../main/chain-config'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from '../main/swap-proxy'
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, estimateZcashFee, estimateMoneroFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction, sendZcashTransaction, sendMoneroTransaction } from '../main/tx-sender'
+// Monero wallet-birthday probe — plain fetch (monero-rpc), safe to static-import
+// in the SW; avoids a forbidden dynamic import (see the chain-config note above).
+import { fetchMoneroHeight } from '../main/monero'
 import { resolveAccountAgw } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
@@ -144,7 +153,6 @@ function applyChainSwitch(hex: string): string {
 // dynamic import is module-cached, so repeated calls are cheap. Mode-aware:
 // only the active network set (mainnet ⟷ testnet) validates.
 async function isSupportedEvmChain(chainNum: number): Promise<boolean> {
-  const { activeEvmChains } = await import('../main/chain-config')
   const config = await store.loadConfig()
   return activeEvmChains(config).some(c => c.chainId === chainNum)
 }
@@ -206,7 +214,7 @@ async function loadFullAddresses(): Promise<any> {
   // extension derives them via its offscreen document, Android in-page. The
   // one-shot flag prevents a re-derive loop if this runtime's ledger loader
   // is genuinely broken (derivation succeeds but leaves midnight unset).
-  if (config.privacyMode && !config.testnetMode && (!stored.privacy || (!stored.privacy.midnight && !_midnightBackfillTried)) && (await store.isUnlocked())) {
+  if (config.privacyMode && !config.testnetMode && (!stored.privacy || ((!stored.privacy.midnight || !stored.privacy.midnightDust) && !_midnightBackfillTried)) && (await store.isUnlocked())) {
     _midnightBackfillTried = true
     stored = { ...stored, privacy: await derivePrivacyAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0) }
     await store.saveAddresses(stored)
@@ -413,7 +421,6 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       await store.saveConfig({ testnetMode: on })
       // Reset the active chain to the mode's default (Sepolia ⟷ Ethereum) and
       // notify dApp tabs + the extension UI, exactly like a manual switch.
-      const { defaultDappChainId } = await import('../main/chain-config')
       const config = await store.loadConfig()
       applyChainSwitch(`0x${defaultDappChainId(config).toString(16)}`)
       const addresses = await store.loadAddresses()
@@ -432,7 +439,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (on) {
         if (!(await store.isUnlocked())) throw new Error('Unlock the wallet to enable Privacy Mode')
         const stored = await store.loadAddresses()
-        if (stored && (!stored.privacy || !stored.privacy.midnight)) {
+        if (stored && (!stored.privacy || !stored.privacy.midnight || !stored.privacy.midnightDust)) {
           const privacy = await derivePrivacyAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
           await store.saveAddresses({ ...stored, privacy })
         }
@@ -445,7 +452,6 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         if (!(await store.loadConfig()).moneroRestoreHeight) {
           void (async () => {
             try {
-              const { fetchMoneroHeight } = await import('../main/monero')
               await store.saveConfig({ moneroRestoreHeight: await fetchMoneroHeight() })
             } catch { /* height stays 0 → near-tip fallback */ }
           })()
@@ -454,6 +460,11 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         await store.saveConfig({ privacyMode: false })
       }
       const config = await store.loadConfig()
+      // Reset the active dApp chain to the mode's default — mirrors the Testnet
+      // toggle. Without this, enabling Privacy (which clears testnetMode) leaves
+      // a stale testnet chain id, and the NetworkSwitcher shows the testnet list
+      // while in mainnet.
+      applyChainSwitch(`0x${defaultDappChainId(config).toString(16)}`)
       const addresses = await store.loadAddresses()
       return { privacy: !!config.privacyMode, addresses: addresses ? store.effectiveAddresses(addresses, config) : null }
     }
@@ -712,7 +723,6 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return _currentChainId
 
     case 'web3:get-chains': {
-      const { activeEvmChains } = await import('../main/chain-config')
       const config = await store.loadConfig()
       return activeEvmChains(config).map(c => ({ chainId: c.chainId, id: c.id, name: c.name, color: c.color }))
     }
@@ -889,9 +899,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         // one endpoint throttling; other chains use their single URL.
         default: {
           const chainNum = parseInt(_currentChainId, 16) || 1
-          const { EVM_CHAINS: evmCfg, MONAD_RPCS, PUBLIC_RPCS } = await import('../main/chain-config')
           const rpcCfg = await store.loadConfig()
-          const chainDef = evmCfg.find(c => c.chainId === chainNum)
+          const chainDef = EVM_CHAINS.find(c => c.chainId === chainNum)
           // Monad rotates its public set; every other chain tries its primary first
           // then the keyless PUBLIC_RPCS fallbacks (loop fails over on transport errors).
           const urls = chainNum === 143

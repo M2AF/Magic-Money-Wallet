@@ -1152,12 +1152,20 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               ] : chainId === 'midnight' && localAddresses.privacy?.midnight ? [
                 { label: 'Unshielded · NIGHT', address: localAddresses.privacy.midnight },
                 ...(localAddresses.privacy.midnightShielded ? [{ label: 'Shielded', address: localAddresses.privacy.midnightShielded }] : []),
+                ...(localAddresses.privacy.midnightDust ? [{ label: 'DUST · fees', address: localAddresses.privacy.midnightDust }] : []),
               ] : undefined}
               loading={loading}
-              // Testnet4 is display-only (sends/PSBTs operate on Testnet3 while
-              // the mode is on); Midnight sends need DUST + a proof server —
-              // no Send button on those cards.
-              onSend={chainId === 'bitcoin-testnet4' || chainId === 'midnight' ? undefined : () => setSendChain(chainId)}
+              // No Send button when: Testnet4 (display-only, sends go via
+              // Testnet3), Midnight (needs DUST + proof server), or a
+              // receive-only Monero card (browser targets — send needs the
+              // desktop/native backend).
+              onSend={
+                chainId === 'bitcoin-testnet4' ||
+                chainId === 'midnight' ||
+                (chainId === 'monero' && balances?.chains['monero']?.error === 'receive-only')
+                  ? undefined
+                  : () => setSendChain(chainId)
+              }
               history={historyFor(chainId)}
             />
           )

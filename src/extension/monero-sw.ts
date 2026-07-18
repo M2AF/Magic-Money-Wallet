@@ -2,18 +2,15 @@
  * monero-sw.ts — EXTENSION (service worker) Monero backend. Aliased over
  * src/main/monero.ts by vite.extension.config.ts.
  *
- * The MV3 service worker can't spawn the Web Worker monero-ts needs, so the
- * WASM wallet runs in the offscreen document (src/extension/offscreen.ts) and
- * this module forwards balance/send/stop over the offscreen RPC. Fee/height
- * are plain fetch (monero-rpc.ts) and run right here in the SW — extension
- * host permissions exempt those calls from CORS.
+ * RECEIVE-ONLY (see src/capacitor/monero-browser.ts for the full rationale):
+ * the extension can't run local wallet2 scanning — MV3 service workers can't
+ * spawn Workers, and the offscreen document's monero-ts WASM worker never
+ * initializes. Balance/send therefore require the desktop app (or a future
+ * self-hosted LWS). Fee/height are plain fetch and stay available.
  *
- * NOTE on sends: the mnemonic crosses into the offscreen document. That page
- * is part of the same extension trust zone (same origin, same CSP) — the same
- * boundary the popup already crosses when revealing the seed.
+ * The address itself is derived and shown; only balance + send are gated.
  */
 
-import { callOffscreen } from './offscreen-rpc'
 import type { WalletConfig } from '../main/secure-store'
 import type { SendResult } from '../main/tx-sender'
 import type { PrivacyAddresses } from '../main/wallet-core'
@@ -22,27 +19,16 @@ export { estimateMoneroFee, fetchMoneroHeight } from '../main/monero-rpc'
 
 export async function fetchMoneroBalance(
   privacy: PrivacyAddresses | undefined,
-  config: WalletConfig
+  _config: WalletConfig
 ): Promise<{ native: number; error: string | null }> {
-  if (!privacy?.monero || !privacy.moneroViewKey) return { native: 0, error: 'No address' }
-  try {
-    return await callOffscreen('xmr:balance', { privacy, config })
-  } catch (err) {
-    return { native: 0, error: String(err instanceof Error ? err.message : err) }
-  }
+  if (!privacy?.monero) return { native: 0, error: 'No address' }
+  return { native: 0, error: 'receive-only' }
 }
 
-export async function sendMoneroTransaction(
-  mnemonic: string,
-  to: string,
-  amountXmr: string,
-  config: WalletConfig,
-  accountIndex = 0
-): Promise<SendResult> {
-  return callOffscreen<SendResult>('xmr:send', { mnemonic, to, amountXmr, config, accountIndex })
+export async function sendMoneroTransaction(): Promise<SendResult> {
+  throw new Error('Monero sending isn’t available in the extension yet — use the desktop app')
 }
 
 export async function stopMoneroSync(): Promise<void> {
-  // If the offscreen document doesn't exist there's nothing to stop.
-  try { await callOffscreen('xmr:stop', {}) } catch { /* not running */ }
+  /* no local scanner in the extension */
 }

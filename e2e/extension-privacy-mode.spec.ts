@@ -71,9 +71,10 @@ test.describe('extension privacy mode (real extension)', () => {
       // the offscreen document (derivation is impossible in the SW itself).
       await expect(vis('Unshielded · NIGHT').first()).toBeVisible({ timeout: 60_000 })
 
-      // Monero card: either a live sync status or a balance — NOT a module
-      // failure like "not a function"/"Offscreen document did not respond".
-      await expect(page.getByText(/not a function|did not respond|Unknown offscreen/i)).toHaveCount(0)
+      // Monero is receive-only in the extension: the card shows "Receive only"
+      // (never a hang, a "Syncing…" that never ends, or a module failure).
+      await expect(vis('Receive only').first()).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText(/not a function|did not respond|Unknown offscreen|Syncing/i)).toHaveCount(0)
 
       // ── Round-trip off ───────────────────────────────────────────────────
       await page.locator('button[title="Settings"]').first().click()

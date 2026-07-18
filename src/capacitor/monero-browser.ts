@@ -1,44 +1,48 @@
 /**
  * monero-browser.ts — BROWSER Monero backend (Capacitor WebView + the
- * extension's offscreen document). Same export surface as src/main/monero.ts;
- * the Capacitor build aliases './monero' here.
+ * extension's offscreen document). Aliased over src/main/monero.ts by the
+ * Capacitor build. Same export surface as src/main/monero.ts.
  *
- * Environment setup unique to browser runtimes:
- *   - monero-ts loads as a lazy Vite chunk (nothing at app startup);
- *   - wallet ops run in a real Web Worker (monero.worker.js bundled via Vite's
- *     `?worker` import) so scanning never blocks the UI thread;
- *   - axios (monero-ts's HTTP transport) is forced onto its fetch adapter —
- *     on Android the fetch-guard router can then route node traffic, and
- *     Monero's CORS-enabled nodes (cakewallet) are in BROWSER_HOSTS so the
- *     binary sync RPC stays on the real browser fetch path.
+ * RECEIVE-ONLY. monero-ts scans every block locally with the view key, which
+ * needs real threads: it works on Electron's Node main thread but its WASM
+ * worker never reliably initializes inside a Capacitor WebView or the
+ * extension's offscreen document (createWalletFull hangs before any block is
+ * scanned — the "Syncing… forever" bug). Local scanning would also be slow and
+ * battery-heavy on a phone even if it did init.
+ *
+ * The chosen architecture (2026-07-14) instead is:
+ *   - Android  → a NATIVE wallet2 Capacitor plugin (JNI); see the MoneroNative
+ *     bridge. Until that lands, Android is receive-only like the extension.
+ *   - Extension → receive-only now; an optional self-hosted LWS (view-key
+ *     server-side scanning) can add balance/send later.
+ *   - Electron  → keeps the monero-ts backend (src/main/monero.ts).
+ *
+ * So this module no longer imports monero-ts — that keeps ~3.6 MB of WASM out
+ * of the extension and Capacitor bundles. It reports a `receive-only` state the
+ * dashboard renders as an address-only card, and refuses sends with a clear
+ * pointer to the desktop app.
  */
 
-import { createMoneroModule, type MoneroTs } from '../main/monero-impl'
+import type { WalletConfig } from '../main/secure-store'
+import type { SendResult } from '../main/tx-sender'
+import type { PrivacyAddresses } from '../main/wallet-core'
 
+// Fee/height stay available (plain fetch, no WASM) for parity of the API surface.
 export { estimateMoneroFee, fetchMoneroHeight } from '../main/monero-rpc'
 
-let _moneroTs: Promise<MoneroTs> | null = null
-function loadMoneroTs(): Promise<MoneroTs> {
-  if (!_moneroTs) {
-    _moneroTs = (async () => {
-      const [mod, workerMod, axiosMod] = await Promise.all([
-        import('monero-ts'),
-        import('monero-ts/dist/monero.worker.js?worker'),
-        import('axios'),
-      ])
-      const ts = ((mod as unknown as { default?: MoneroTs }).default ?? mod) as MoneroTs
-      // Route monero-ts's HTTP through fetch (Android fetch-guard compatible).
-      axiosMod.default.defaults.adapter = 'fetch'
-      const WorkerCtor = workerMod.default as unknown as { new (): Worker }
-      ts.LibraryUtils.setWorkerLoader(() => new WorkerCtor())
-      return ts
-    })()
-  }
-  return _moneroTs
+export async function fetchMoneroBalance(
+  privacy: PrivacyAddresses | undefined,
+  _config: WalletConfig
+): Promise<{ native: number; error: string | null }> {
+  if (!privacy?.monero) return { native: 0, error: 'No address' }
+  // Address is shown; balance requires a scanning backend (native/desktop/LWS).
+  return { native: 0, error: 'receive-only' }
 }
 
-const backend = createMoneroModule(loadMoneroTs)
+export async function sendMoneroTransaction(): Promise<SendResult> {
+  throw new Error('Monero sending isn’t available in this build yet — use the desktop app')
+}
 
-export const fetchMoneroBalance = backend.fetchMoneroBalance
-export const sendMoneroTransaction = backend.sendMoneroTransaction
-export const stopMoneroSync = backend.stopMoneroSync
+export async function stopMoneroSync(): Promise<void> {
+  /* nothing to stop — no local scanner runs here */
+}

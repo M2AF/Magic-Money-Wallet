@@ -23,6 +23,9 @@ export function App() {
   const [addresses, setAddresses] = useState<WalletAddresses | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('portfolio')
   const [browserOpen, setBrowserOpen] = useState(false)
+  // Android persistent-tabs browser: true while the browser has open tabs even
+  // when it's hidden behind the wallet — drives the "saved tabs" dot.
+  const [browserHasTabs, setBrowserHasTabs] = useState(false)
   const [wcPanelOpen, setWcPanelOpen] = useState(false)
   const [wcActiveSessions, setWcActiveSessions] = useState(0)
   const [wcPending, setWcPending] = useState(false)
@@ -64,9 +67,19 @@ export function App() {
   // effects below: effects still run when the bridge is missing and the render
   // bailed to the B-1 fallback screen — an unguarded call would throw there.
   useEffect(() => {
-    const onClosed = () => setBrowserOpen(false)
+    const onClosed = () => { setBrowserOpen(false); setBrowserHasTabs(false) }
     window.wallet?.onBrowserClosed?.(onClosed)
-    return () => window.wallet?.offBrowserClosed?.(onClosed)
+    // Android: hiding the browser (back to wallet, tabs kept) clears the active
+    // highlight but NOT the saved-tabs dot; the tab-count drives that dot.
+    const onHidden = () => setBrowserOpen(false)
+    const onTabCount = (n: number) => setBrowserHasTabs(n > 0)
+    window.wallet?.onBrowserHidden?.(onHidden)
+    window.wallet?.onBrowserTabCount?.(onTabCount)
+    return () => {
+      window.wallet?.offBrowserClosed?.(onClosed)
+      window.wallet?.offBrowserHidden?.(onHidden)
+      window.wallet?.offBrowserTabCount?.(onTabCount)
+    }
   }, [])
 
   // Idle auto-lock: main broadcasts 'wallet:locked' → return to the unlock screen.
@@ -112,8 +125,19 @@ export function App() {
   }
 
   const handleBrowserBtn = () => {
-    window.wallet.openBrowser()
+    // Android: reveal the persistent session (keeps existing tabs). Elsewhere
+    // (Electron detached window / extension new tab), open as before.
+    if (window.wallet.showBrowser) window.wallet.showBrowser()
+    else window.wallet.openBrowser()
     setBrowserOpen(true)
+  }
+
+  // Switch to a wallet tab. On Android this also tucks the browser away (keeping
+  // its tabs) so the wallet page shows through with the bottom nav still pinned.
+  const goToWalletTab = (tab: MainTab) => {
+    if (browserOpen && window.wallet.hideBrowser) window.wallet.hideBrowser()
+    setBrowserOpen(false)
+    setActiveTab(tab)
   }
 
   const inDashboard = page === 'dashboard'
@@ -210,8 +234,8 @@ export function App() {
         <nav className="bottom-nav">
           <button
             type="button"
-            className={`bottom-nav-btn${activeTab === 'portfolio' ? ' active' : ''}`}
-            onClick={() => setActiveTab('portfolio')}
+            className={`bottom-nav-btn${activeTab === 'portfolio' && !browserOpen ? ' active' : ''}`}
+            onClick={() => goToWalletTab('portfolio')}
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
               <rect x="2" y="3" width="6" height="10" rx="1.5"/>
@@ -224,8 +248,8 @@ export function App() {
 
           <button
             type="button"
-            className={`bottom-nav-btn${activeTab === 'market' ? ' active' : ''}`}
-            onClick={() => setActiveTab('market')}
+            className={`bottom-nav-btn${activeTab === 'market' && !browserOpen ? ' active' : ''}`}
+            onClick={() => goToWalletTab('market')}
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -235,8 +259,8 @@ export function App() {
 
           <button
             type="button"
-            className={`bottom-nav-btn${activeTab === 'swap' ? ' active' : ''}`}
-            onClick={() => setActiveTab('swap')}
+            className={`bottom-nav-btn${activeTab === 'swap' && !browserOpen ? ' active' : ''}`}
+            onClick={() => goToWalletTab('swap')}
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
               <polyline points="17 1 21 5 17 9"/>
@@ -249,8 +273,8 @@ export function App() {
 
           <button
             type="button"
-            className={`bottom-nav-btn${activeTab === 'apphub' ? ' active' : ''}`}
-            onClick={() => setActiveTab('apphub')}
+            className={`bottom-nav-btn${activeTab === 'apphub' && !browserOpen ? ' active' : ''}`}
+            onClick={() => goToWalletTab('apphub')}
           >
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
               <rect x="3" y="3" width="7" height="7" rx="1.5"/>
@@ -268,7 +292,7 @@ export function App() {
             onClick={handleBrowserBtn}
             style={{ position: 'relative' }}
           >
-            {browserOpen && (
+            {(browserOpen || browserHasTabs) && (
               <span style={{
                 position: 'absolute', top: 6, right: 14,
                 width: 6, height: 6, borderRadius: '50%',

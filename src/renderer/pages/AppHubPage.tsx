@@ -96,11 +96,23 @@ export function AppHubPage({
     setTimeout(() => window.wallet.browserNavigate(url), 400)
   }
 
+  // Android has a persistent-tabs browser: "Open in New Tab" works even when the
+  // browser isn't currently visible (it reveals the session and adds the tab).
+  function canOpenInNewTab() {
+    return hasChromeTabs() || !!window.wallet.openBrowserInNewTab || browserOpen
+  }
+
   function openAppInNewTab(url: string) {
     setContextMenu(null)
     if (hasChromeTabs()) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(globalThis as any).chrome.tabs.create({ url })
+      return
+    }
+    // Android persistent browser — add a tab (revealing the browser if hidden).
+    if (window.wallet.openBrowserInNewTab) {
+      window.wallet.openBrowserInNewTab(url)
+      onBrowserOpened?.()
       return
     }
     if (browserOpen) {
@@ -227,11 +239,11 @@ export function AppHubPage({
           className="apphub-context-menu"
           style={{
             left: Math.max(8, Math.min(contextMenu.x, window.innerWidth - 180)),
-            top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - (browserOpen || hasChromeTabs() ? 92 : 50))),
+            top: Math.max(8, Math.min(contextMenu.y, window.innerHeight - (canOpenInNewTab() ? 92 : 50))),
           }}
           onMouseDown={e => e.stopPropagation()}
         >
-          {(browserOpen || hasChromeTabs()) && (
+          {canOpenInNewTab() && (
             <button
               type="button"
               className="apphub-context-item"

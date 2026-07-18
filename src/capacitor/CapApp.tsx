@@ -149,7 +149,10 @@ export function CapApp() {
   const approvalPending = !!(connRequest || txRequest || signRequest)
   useEffect(() => {
     if (approvalPending) DappBrowser.hide().catch(() => {})
-    else DappBrowser.show().catch(() => {})
+    // Only re-show the native WebViews if the browser is actually the visible
+    // view — otherwise a passing approval would un-hide a browser the user had
+    // tucked away behind the wallet (persistent-tabs hide state).
+    else if (browserUiState.open) DappBrowser.show().catch(() => {})
   }, [approvalPending])
 
   // Deep links: wc: URIs (intent-filter in AndroidManifest) → WalletConnect
