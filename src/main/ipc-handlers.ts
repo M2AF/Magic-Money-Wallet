@@ -842,7 +842,7 @@ export function registerIpcHandlers(): void {
     const addresses = await getFullAddresses()
     const config = loadConfig()
     return fetchAllTokens(
-      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
+      { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, cardanoStake: addresses.cardanoStake, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
       config
     )
   })

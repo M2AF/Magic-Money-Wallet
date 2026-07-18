@@ -58,6 +58,64 @@ export async function deriveMidnightAddresses(
   return deriveWithLedger(seed, accountIndex)
 }
 
+// ── DUST generation status (fee-resource balance) ─────────────────────────────
+// DUST accrues to the wallet's mn_dust identity while the PAIRED Cardano wallet
+// holds NIGHT (the Cardano-side registration made in the official DUST dApp).
+// The indexer exposes the whole status keyed by the Cardano REWARD (stake)
+// address — the same query the Nethermind DUST dashboard runs. Plain HTTPS
+// GraphQL → safe in every runtime.
+
+const INDEXER_HTTP = 'https://indexer.mainnet.midnight.network/api/v3/graphql'
+const SPECKS = 1e15   // 1 DUST = 10^15 Specks (atomic unit)
+
+export interface DustStatus {
+  registered: boolean
+  dust: number            // current DUST balance (currentCapacity)
+  capacity: number        // max DUST this NIGHT holding can accrue
+  nightOnCardano: number  // the paired Cardano wallet's NIGHT balance
+  dustAddress: string | null
+}
+
+/**
+ * DUST status for a Cardano stake address (bech32 stake1… ONLY — the indexer
+ * bech32-decodes every entry and a non-bech32 string fails the WHOLE query
+ * with "invalid Cardano reward address", verified live 2026-07-18).
+ * Returns null when unregistered/unreachable.
+ */
+export async function fetchDustStatus(cardanoStake: string | null | undefined): Promise<DustStatus | null> {
+  if (!cardanoStake?.startsWith('stake1')) return null
+  const variants = [cardanoStake]
+
+  try {
+    const res = await fetch(INDEXER_HTTP, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        query: `query($a: [String!]!) { dustGenerationStatus(cardanoRewardAddresses: $a) {
+          registered nightBalance generationRate currentCapacity maxCapacity dustAddress } }`,
+        variables: { a: variants },
+      }),
+      signal: AbortSignal.timeout(12_000),
+    })
+    if (!res.ok) return null
+    const json = await res.json() as {
+      data?: { dustGenerationStatus?: Array<{ registered: boolean; nightBalance: string; currentCapacity: string; maxCapacity: string; dustAddress: string | null }> }
+    }
+    const entries = json.data?.dustGenerationStatus ?? []
+    const hit = entries.find(e => e.registered) ?? null
+    if (!hit) return null
+    return {
+      registered: true,
+      dust: Number(hit.currentCapacity) / SPECKS,
+      capacity: Number(hit.maxCapacity) / SPECKS,
+      nightOnCardano: Number(hit.nightBalance) / STARS,
+      dustAddress: hit.dustAddress,
+    }
+  } catch {
+    return null
+  }
+}
+
 // ── Unshielded NIGHT balance via indexer subscription ─────────────────────────
 
 interface UnshieldedUtxoMsg { tokenType: string; value: string; intentHash: string; outputIndex: number }

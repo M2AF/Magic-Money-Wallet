@@ -1,5 +1,6 @@
 import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry } from './secure-store'
 import { isTestnet, isPrivacy } from './chain-config'
+import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
@@ -770,6 +771,7 @@ export interface AllAddresses {
   evm: string
   solana?: string
   cardano?: string
+  cardanoStake?: string     // stake1… — keys the Midnight DUST-generation status lookup
   tron?: string
   agw?: string   // resolved Abstract Global Wallet (override ?? auto-derive); null/absent = derive
   bitcoinTaproot?: string   // Ordinals/Runes/BRC-20 live on the Taproot (bc1p) address
@@ -854,9 +856,31 @@ export async function fetchAllTokens(
   config: WalletConfig
 ): Promise<TokensResult> {
   try {
-    // Privacy Mode: the privacy chains have no fungible-token support yet, and
-    // the hidden mainnet chains' tokens must not leak into the filtered view.
-    if (isPrivacy(config)) return { tokens: [], fetchedAt: Date.now(), error: null }
+    // Privacy Mode: the hidden mainnet chains' tokens must not leak into the
+    // filtered view. The one asset shown is the wallet's Midnight DUST — the
+    // fee resource accruing to its mn_dust identity (non-transferable, so no
+    // USD value; balance mirrors the official DUST dashboard's currentCapacity).
+    if (isPrivacy(config)) {
+      const dust = await fetchDustStatus(addresses.cardanoStake).catch(() => null)
+      const tokens: WalletToken[] = dust ? [{
+        contractAddress: 'midnight-dust',
+        name: 'DUST · Midnight fee resource',
+        symbol: 'DUST',
+        decimals: 15,
+        balance: dust.dust.toLocaleString('en-US', { maximumFractionDigits: 3 }),
+        usdValue: null,             // non-transferable — has no market price
+        nativeEquivalent: null,
+        nativeSymbol: 'NIGHT',
+        // Official DUST mark (from the Midnight DUST dashboard), inlined as a
+        // data URI — the source URL is a hashed Next.js asset that churns on
+        // their deploys, and inlining works offline on every target.
+        logoUri: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDIiIGhlaWdodD0iNDMiIHZpZXdCb3g9IjAgMCA0MiA0MyIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTIwLjk5OTcgNDJDOS42Nzc4NiA0MiAwLjUgMzIuODIyMyAwLjUgMjEuNUMwLjUgMTAuMTc3NyA5LjY3Nzg2IDEgMjAuOTk5NyAxQzMyLjMyMTQgMSA0MS41IDEwLjE3ODQgNDEuNSAyMS41QzQxLjUgMzIuODIxNiAzMi4zMjE0IDQyIDIwLjk5OTcgNDJaTTIwLjk5OTcgNC43ODAzMUMxMS43OCA0Ljc4MDMxIDQuMjc5NzMgMTIuMjgwNSA0LjI3OTczIDIxLjVDNC4yNzk3MyAzMC43MTk1IDExLjc4IDM4LjIxOTYgMjAuOTk5NyAzOC4yMTk2QzMwLjIxOTMgMzguMjE5NiAzNy43MTk2IDMwLjcxOTUgMzcuNzE5NiAyMS41QzM3LjcxOTYgMTIuMjgwNSAzMC4yMTkzIDQuNzgwMzEgMjAuOTk5NyA0Ljc4MDMxWiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTI5LjIyOTIgMjQuODg5QzI4Ljc5NjkgMjUuODc2OCAyOC4xOTA4IDI2LjczNjkgMjcuNDExNCAyNy40N0MyNi42MzIxIDI4LjIwMzEgMjUuNzIxNCAyOC43NjY1IDI0LjY3OTUgMjkuMTU5NkMyMy42Mzc2IDI5LjU1MzUgMjIuNDk5MSAyOS43NSAyMS4yNjQ4IDI5Ljc1SDIwLjg5NjVWMjUuODE5M0gyMS44MjkxQzIyLjY1NzMgMjUuODE5MyAyMy4zODQxIDI1LjY1MTggMjQuMDA4OCAyNS4zMTYxQzI0LjYzMzQgMjQuOTgwNSAyNS4xMjAzIDI0LjQ5NDQgMjUuNDY4OCAyMy44NTY1QzI1LjgxNzMgMjMuMjE4NSAyNS45OTE5IDIyLjQ2NjMgMjUuOTkxOSAyMS41OTgzQzI1Ljk5MTkgMjAuNzMwNSAyNS44MjA5IDE5Ljk1NzYgMjUuNDc4OCAxOS4zMjA0QzI1LjEzNjYgMTguNjgyNCAyNC42NTMzIDE4LjE5MjcgMjQuMDI4NiAxNy44NTA3QzIzLjQwNDEgMTcuNTA4NiAyMi42NzA5IDE3LjMzNzYgMjEuODI5MSAxNy4zMzc2SDIwLjg5NjVWMTMuNDA2OUgyMS4zMTA5QzIyLjUzMDQgMTMuNDA2OSAyMy42NjEgMTMuNjA3MSAyNC43MDI5IDE0LjAwODZDMjUuNzQ0OSAxNC40MDk2IDI2LjY1MTMgMTQuOTc3NCAyNy40MjM1IDE1LjcxMDRDMjguMTk1IDE2LjQ0MzUgMjguNzk2OSAxNy4zMDc4IDI5LjIyOTIgMTguMzAyOEMyOS42NjE1IDE5LjI5ODQgMjkuODc3MiAyMC4zODk4IDI5Ljg3NzIgMjEuNTc4NEMyOS44NzcyIDIyLjc2NzEgMjkuNjYwNyAyMy45MDEyIDI5LjIyOTIgMjQuODg5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE4LjYyMSAxNy4zMzg5SDE0LjY4OTVWMTMuNDA4MUgxOC42MjFWMTcuMzM4OVoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0xOC42MjEgMjMuNTQ0OUgxNC42ODk1VjE5LjYxNDJIMTguNjIxVjIzLjU0NDlaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjAuOTk4IDI5Ljc1MkgxNC42ODk1VjI1LjgyMTNIMjAuOTk4VjI5Ljc1MloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=',
+        chain: 'midnight',
+        chainLabel: 'Midnight',
+        chainColor: '#7C3AED',
+      }] : []
+      return { tokens, fetchedAt: Date.now(), error: null }
+    }
     const testnet = isTestnet(config)
     // The AGW address is resolved by the caller (override ?? on-chain link). We
     // never derive a counterfactual address here — only fetch what was resolved.

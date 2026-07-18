@@ -611,7 +611,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await loadFullAddresses()
       const config = await store.loadConfig()
       return fetchAllTokens(
-        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
+        { evm: addresses.evm, solana: addresses.solana, cardano: addresses.cardano, cardanoStake: addresses.cardanoStake, tron: addresses.tron, agw: addresses.agw, bitcoinTaproot: addresses.bitcoinTaproot },
         config
       )
     }
