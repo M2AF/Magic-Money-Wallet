@@ -36,6 +36,8 @@ export interface WalletConfig {
   simpleSwapApiKey: string
   testnetMode: boolean
   privacyMode: boolean       // Privacy Mode: portfolio shows ONLY XMR/ZEC/NIGHT — mutually exclusive with testnetMode
+  torBrowserEnabled: boolean
+  torBrowserPort: number
   moneroRestoreHeight: number // Monero wallet birthday (block height at first Privacy Mode enable)
 }
 
@@ -60,6 +62,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   simpleSwapApiKey:       '',
   testnetMode:            false,
   privacyMode:            false,
+  torBrowserEnabled:      false,
+  torBrowserPort:         9050,
   moneroRestoreHeight:    0
 }
 

@@ -3,6 +3,8 @@ package info.chainlens.magicmoney;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebChromeClient;
@@ -13,7 +15,10 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.webkit.JavaScriptReplyProxy;
+import androidx.webkit.ProxyConfig;
+import androidx.webkit.ProxyController;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
@@ -25,15 +30,29 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONObject;
+import org.torproject.arti.ArtiProxy;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
+import java.net.Socket;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /**
  * DappBrowser — native WebViews for untrusted dApp content.
@@ -76,11 +95,21 @@ public class DappBrowserPlugin extends Plugin {
     private int activeTabId = -1;
     private String injectJs = null;
     private boolean docStartSupported = false;
+    // ArtiProxy.start() spawns its native runtime and returns immediately;
+    // bootstrap/verification continue on separate executor workers.
+    private final ExecutorService torExecutor = Executors.newCachedThreadPool();
+    private volatile boolean torEnabled = false;
+    private volatile String torStatus = "off";
+    private volatile String torMessage = "Tor Mode is off";
+    private volatile int torPort = 19050;
+    private volatile ArtiProxy artiProxy;
+    private volatile CountDownLatch artiBootstrapLatch;
+    private final AtomicInteger torGeneration = new AtomicInteger();
+    private boolean browserShown = false;
     // Last bounds in CSS px, reapplied on setBounds
     private int bx = 0, by = 0, bw = 0, bh = 0;
 
     private static final int MAX_TABS = 5;
-
     @Override
     public void load() {
         injectJs = readAsset("public/dapp-inject.js");
@@ -111,6 +140,7 @@ public class DappBrowserPlugin extends Plugin {
         JSObject bounds = call.getObject("bounds", new JSObject());
         getActivity().runOnUiThread(() -> {
             ensureContainer();
+            browserShown = true;
             applyBounds(bounds);
             Tab tab = createTab(url);
             selectTabInternal(tab.id);
@@ -129,6 +159,7 @@ public class DappBrowserPlugin extends Plugin {
             }
             tabs.clear();
             activeTabId = -1;
+            browserShown = false;
             if (container != null) container.setVisibility(View.GONE);
             notifyListeners("closed", new JSObject());
             call.resolve();
@@ -176,7 +207,8 @@ public class DappBrowserPlugin extends Plugin {
                 if (next != null) selectTabInternal(next);
                 else {
                     activeTabId = -1;
-                    container.setVisibility(View.GONE);
+                    browserShown = false;
+                    syncContainerVisibility();
                     notifyListeners("closed", new JSObject());
                 }
             }
@@ -248,7 +280,8 @@ public class DappBrowserPlugin extends Plugin {
     @PluginMethod
     public void hide(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (container != null) container.setVisibility(View.GONE);
+            browserShown = false;
+            syncContainerVisibility();
             call.resolve();
         });
     }
@@ -256,7 +289,8 @@ public class DappBrowserPlugin extends Plugin {
     @PluginMethod
     public void show(PluginCall call) {
         getActivity().runOnUiThread(() -> {
-            if (container != null && activeTabId != -1) container.setVisibility(View.VISIBLE);
+            browserShown = true;
+            syncContainerVisibility();
             call.resolve();
         });
     }
@@ -274,6 +308,67 @@ public class DappBrowserPlugin extends Plugin {
             ret.put("tabs", tabsArray());
             call.resolve(ret);
         });
+    }
+
+    // ── Tor browser proxy ────────────────────────────────────────────────────
+
+    @PluginMethod
+    public void getTorState(PluginCall call) {
+        call.resolve(torStateJson());
+    }
+
+    @PluginMethod
+    public void setTorMode(PluginCall call) {
+        boolean enabled = call.getBoolean("enabled", false);
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            torEnabled = false;
+            torStatus = "unsupported";
+            torMessage = "Update Android System WebView to use Tor Mode";
+            pushTorState();
+            call.resolve(torStateJson());
+            return;
+        }
+
+        if (!enabled) {
+            torGeneration.incrementAndGet();
+            CountDownLatch pendingBootstrap = artiBootstrapLatch;
+            if (pendingBootstrap != null) pendingBootstrap.countDown();
+            torEnabled = false;
+            torStatus = "connecting";
+            torMessage = "Disconnecting from Tor…";
+            pushTorState();
+            ProxyController.getInstance().clearProxyOverride(
+                    ContextCompat.getMainExecutor(getContext()),
+                    () -> {
+                        stopArtiRuntime();
+                        torStatus = "off";
+                        torMessage = "Tor Mode is off";
+                        reloadAllTabs();
+                        pushTorState();
+                        call.resolve(torStateJson());
+                    });
+            return;
+        }
+
+        final int generation = torGeneration.incrementAndGet();
+        torEnabled = true;
+        torStatus = "connecting";
+        torMessage = "Starting embedded Tor… first connection can take up to a minute";
+        torPort = 19050;
+        pushTorState();
+
+        // Fail closed before starting Tor: WebView is hidden and every subsequent
+        // request is pinned to the embedded SOCKS endpoint, even during bootstrap.
+        ProxyConfig torProxy = new ProxyConfig.Builder()
+                .addProxyRule("socks://127.0.0.1:" + torPort)
+                .build();
+        ProxyController.getInstance().setProxyOverride(
+                torProxy,
+                ContextCompat.getMainExecutor(getContext()),
+                () -> {
+                    stopLoadingAllTabs();
+                    startEmbeddedTor(generation, call);
+                });
     }
 
     // ── Wallet-side pipe ─────────────────────────────────────────────────────
@@ -314,11 +409,188 @@ public class DappBrowserPlugin extends Plugin {
         return tabs.get(activeTabId);
     }
 
+    private synchronized ArtiProxy ensureArtiProxy() {
+        if (artiProxy == null) {
+            artiProxy = ArtiProxy.Builder(getContext())
+                    // App-specific ports avoid collisions with Orbot's standard
+                    // 9050/9150 listeners while remaining loopback-only.
+                    .setSocksPort(19050)
+                    .setDnsPort(19051)
+                    .setLogListener(this::handleArtiLog)
+                    .build();
+        }
+        return artiProxy;
+    }
+
+    private void startEmbeddedTor(int generation, PluginCall call) {
+        CountDownLatch bootstrap = new CountDownLatch(1);
+        artiBootstrapLatch = bootstrap;
+        AtomicBoolean settled = new AtomicBoolean(false);
+        ArtiProxy proxy = ensureArtiProxy();
+
+        torExecutor.execute(() -> {
+            try {
+                if (generation != torGeneration.get() || !torEnabled) return;
+                // A live listener can survive an Activity/plugin recreation. In
+                // that case, reuse it instead of asking Arti to start twice.
+                if (!localPortOpen(torPort, 500)) proxy.start();
+            } catch (Throwable ignored) {
+                finishTorAttempt(generation, call, settled, false,
+                        "Embedded Tor could not start. Traffic remains blocked.");
+            }
+        });
+
+        torExecutor.execute(() -> {
+            try {
+                long deadline = System.currentTimeMillis() + 120_000;
+                while (System.currentTimeMillis() < deadline) {
+                    if (generation != torGeneration.get() || !torEnabled) {
+                        finishTorAttempt(generation, call, settled, false, "");
+                        return;
+                    }
+                    if (localPortOpen(torPort, 700) && verifyTorExit(torPort)) {
+                        finishTorAttempt(generation, call, settled, true,
+                                "Connected and verified through embedded Tor");
+                        return;
+                    }
+                    bootstrap.await(2, TimeUnit.SECONDS);
+                }
+                if (generation == torGeneration.get() && torEnabled) stopArtiRuntime();
+                finishTorAttempt(generation, call, settled, false,
+                        "Tor could not connect within two minutes. Traffic remains blocked.");
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                finishTorAttempt(generation, call, settled, false,
+                        "Tor connection was interrupted. Traffic remains blocked.");
+            }
+        });
+    }
+
+    private void handleArtiLog(String line) {
+        if (line == null) return;
+        Log.i("MagicMoneyTor", line.trim());
+        if (line.contains("Sufficiently bootstrapped")) {
+            CountDownLatch latch = artiBootstrapLatch;
+            if (latch != null) latch.countDown();
+        }
+        // Arti ignores stop() while it is still Starting. If the user switched
+        // Tor off during bootstrap, stop it as soon as it reaches Running.
+        if (!torEnabled && line.contains("state changed to Running")) stopArtiRuntime();
+    }
+
+    private boolean localPortOpen(int port, int timeoutMs) {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", port), timeoutMs);
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private void finishTorAttempt(int generation, PluginCall call, AtomicBoolean settled,
+                                  boolean connected, String message) {
+        if (generation != torGeneration.get() || !torEnabled) {
+            if (settled.compareAndSet(false, true)) call.resolve(torStateJson());
+            return;
+        }
+        if (!settled.compareAndSet(false, true)) return;
+        getActivity().runOnUiThread(() -> {
+            if (generation != torGeneration.get() || !torEnabled) {
+                call.resolve(torStateJson());
+                return;
+            }
+            torStatus = connected ? "connected" : "error";
+            torMessage = message;
+            if (connected) reloadAllTabs();
+            pushTorState();
+            call.resolve(torStateJson());
+        });
+    }
+
+    private void stopArtiRuntime() {
+        ArtiProxy proxy = artiProxy;
+        if (proxy == null) return;
+        try { proxy.stop(); } catch (Throwable ignored) { }
+    }
+
+    private boolean verifyTorExit(int port) {
+        HttpsURLConnection connection = null;
+        try {
+            Proxy proxy = new Proxy(Proxy.Type.SOCKS,
+                    InetSocketAddress.createUnresolved("127.0.0.1", port));
+            connection = (HttpsURLConnection) new URL("https://check.torproject.org/api/ip")
+                    .openConnection(proxy);
+            connection.setConnectTimeout(12000);
+            connection.setReadTimeout(12000);
+            connection.setRequestProperty("Cache-Control", "no-store");
+            try (InputStream stream = connection.getInputStream();
+                 BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+                StringBuilder body = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+                return new JSONObject(body.toString()).optBoolean("IsTor", false);
+            }
+        } catch (Exception ignored) {
+            return false;
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private JSObject torStateJson() {
+        JSObject state = new JSObject();
+        state.put("enabled", torEnabled);
+        state.put("status", torStatus);
+        state.put("host", "127.0.0.1");
+        state.put("port", torPort);
+        state.put("isTor", torEnabled && "connected".equals(torStatus));
+        state.put("message", torMessage);
+        return state;
+    }
+
+    private void pushTorState() {
+        Runnable push = () -> {
+            syncContainerVisibility();
+            notifyListeners("torStateChanged", torStateJson());
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) push.run();
+        else getActivity().runOnUiThread(push);
+    }
+
+    private void syncContainerVisibility() {
+        if (container == null) return;
+        boolean torAllowsPage = (!torEnabled && !"connecting".equals(torStatus))
+                || "connected".equals(torStatus);
+        boolean showPage = browserShown && activeTabId != -1 && torAllowsPage;
+        container.setVisibility(showPage ? View.VISIBLE : View.GONE);
+    }
+
+    private void stopLoadingAllTabs() {
+        for (Tab tab : tabs.values()) {
+            try { tab.webView.stopLoading(); } catch (Exception ignored) { }
+        }
+    }
+
+    private void reloadAllTabs() {
+        for (Tab tab : tabs.values()) {
+            try { tab.webView.reload(); } catch (Exception ignored) { }
+        }
+    }
+
     private void ensureContainer() {
         if (container != null) return;
         container = new FrameLayout(getContext());
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(0, 0);
         getActivity().addContentView(container, lp);
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        torGeneration.incrementAndGet();
+        torEnabled = false;
+        stopArtiRuntime();
+        torExecutor.shutdownNow();
+        super.handleOnDestroy();
     }
 
     private void applyBounds(JSObject bounds) {
@@ -345,7 +617,7 @@ public class DappBrowserPlugin extends Plugin {
         for (Tab t : tabs.values()) {
             t.webView.setVisibility(t.id == id ? View.VISIBLE : View.GONE);
         }
-        container.setVisibility(View.VISIBLE);
+        syncContainerVisibility();
         Tab t = tabs.get(id);
         if (t != null) {
             pushUrl(t);

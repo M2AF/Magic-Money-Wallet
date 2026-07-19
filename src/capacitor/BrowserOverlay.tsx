@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DappBrowser, type DappBrowserState } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
+import type { TorBrowserState } from '../renderer/types/wallet'
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
 
@@ -39,6 +40,10 @@ export function BrowserOverlay() {
   const [loading, setLoading] = useState(false)
   const [tabs, setTabs] = useState<DappBrowserState['tabs']>([])
   const [activeTabId, setActiveTabId] = useState(-1)
+  const [tor, setTor] = useState<TorBrowserState>({
+    enabled: false, status: 'off', host: '127.0.0.1', port: 19050,
+    isTor: false, message: 'Tor Mode is off',
+  })
 
   const sessionRef = useRef<Session>('closed')
   const pendingUrlRef = useRef<string>(HOME_URL)
@@ -181,6 +186,7 @@ export function BrowserOverlay() {
 
   // Native plugin state events
   useEffect(() => {
+    DappBrowser.getTorState().then(setTor).catch(() => {})
     const handles = [
       DappBrowser.addListener('urlChanged', e => { setUrl(e.url); if (!inputFocusedRef.current) setUrlInput(e.url) }),
       DappBrowser.addListener('loadingChanged', e => setLoading(e.loading)),
@@ -198,6 +204,7 @@ export function BrowserOverlay() {
           emitUiEvent('cap:browser:closed', null)
         }
       }),
+      DappBrowser.addListener('torStateChanged', setTor),
     ]
     return () => { handles.forEach(h => h.then(x => x.remove()).catch(() => {})) }
   }, [])
@@ -217,6 +224,29 @@ export function BrowserOverlay() {
     DappBrowser.navigate({ url: target }).catch(() => {})
     setInputFocused(false)
     ;(document.activeElement as HTMLElement | null)?.blur?.()
+  }
+
+  const changeTor = (enabled: boolean) => {
+    if (tor.status === 'unsupported') return
+    setTor(current => ({
+      ...current,
+      enabled,
+      status: 'connecting',
+      message: enabled ? 'Starting embedded Tor… first connection can take up to a minute' : 'Disconnecting from Tor…',
+    }))
+    DappBrowser.setTorMode({ enabled })
+      .then(setTor)
+      .catch(() => setTor(current => ({
+        ...current,
+        enabled,
+        status: 'error',
+        message: 'Could not change the Android WebView proxy. Traffic remains blocked.',
+      })))
+  }
+
+  const toggleTor = () => {
+    if (tor.status === 'connecting' || tor.status === 'unsupported') return
+    changeTor(!tor.enabled)
   }
 
   if (!visible) return null
@@ -252,45 +282,107 @@ export function BrowserOverlay() {
             }}
           />
         </form>
-        {/* Compact chain switcher — a dot in the toolbar so the tab row below
-            keeps full width for scrollable, closable tabs. */}
-        <NetworkSwitcher compact />
         {/* Hide (back to wallet) — tabs are preserved; only per-tab ✕ closes tabs. */}
         <button type="button" aria-label="Back to wallet" onClick={hide} style={navBtn}>✕</button>
       </div>
 
-      {/* Tab pills — full-width, horizontally scrollable */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 8px', overflowX: 'auto' }}>
-        {tabs.map(t => (
-          <div key={t.id}
-            onClick={() => DappBrowser.selectTab({ tabId: t.id }).catch(() => {})}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, maxWidth: 140, flexShrink: 0,
-              padding: '4px 8px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
-              background: t.id === activeTabId ? 'var(--accent-dim, rgba(124,58,237,0.18))' : 'var(--bg-card, #161616)',
-              border: `1px solid ${t.id === activeTabId ? 'var(--border-active, #7c3aed)' : 'var(--border, #2a2a2a)'}`,
-              color: 'var(--text, #fff)'
-            }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t.title || t.url.replace(/^https?:\/\//, '') || 'New tab'}
-            </span>
-            {tabs.length > 1 && (
-              <span
-                aria-label="Close tab"
-                onClick={e => { e.stopPropagation(); DappBrowser.closeTab({ tabId: t.id }).catch(() => {}) }}
-                style={{ opacity: 0.6, flexShrink: 0 }}>✕</span>
-            )}
-          </div>
-        ))}
-        {tabs.length < 5 && (
-          <button type="button" aria-label="New tab"
-            onClick={() => DappBrowser.newTab({ url: HOME_URL }).catch(() => {})}
-            style={{ ...navBtn, flexShrink: 0 }}>＋</button>
-        )}
+      {/* Tab row — tabs scroll in the left region; Tor + chain switcher stay
+          pinned on the right (outside the scroller) so they're always visible. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflowX: 'auto' }}>
+          {tabs.map(t => (
+            <div key={t.id}
+              onClick={() => DappBrowser.selectTab({ tabId: t.id }).catch(() => {})}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, maxWidth: 140, flexShrink: 0,
+                padding: '4px 8px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
+                background: t.id === activeTabId ? 'var(--accent-dim, rgba(124,58,237,0.18))' : 'var(--bg-card, #161616)',
+                border: `1px solid ${t.id === activeTabId ? 'var(--border-active, #7c3aed)' : 'var(--border, #2a2a2a)'}`,
+                color: 'var(--text, #fff)'
+              }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t.title || t.url.replace(/^https?:\/\//, '') || 'New tab'}
+              </span>
+              {tabs.length > 1 && (
+                <span
+                  aria-label="Close tab"
+                  onClick={e => { e.stopPropagation(); DappBrowser.closeTab({ tabId: t.id }).catch(() => {}) }}
+                  style={{ opacity: 0.6, flexShrink: 0 }}>✕</span>
+              )}
+            </div>
+          ))}
+          {tabs.length < 5 && (
+            <button type="button" aria-label="New tab"
+              onClick={() => DappBrowser.newTab({ url: HOME_URL }).catch(() => {})}
+              style={{ ...navBtn, flexShrink: 0 }}>＋</button>
+          )}
+        </div>
+        <button
+          type="button"
+          aria-label={tor.enabled ? 'Disable Tor Mode' : 'Enable Tor Mode'}
+          aria-pressed={tor.enabled}
+          title={`${tor.message} Embedded SOCKS5 ${tor.host}:${tor.port}. On Android, WebView proxy settings apply to all app WebViews.`}
+          onClick={toggleTor}
+          disabled={tor.status === 'connecting' || tor.status === 'unsupported'}
+          style={{
+            ...navBtn, width: 42, gap: 3, fontSize: 14, flexShrink: 0,
+            borderColor: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : 'var(--border, #2a2a2a)',
+            opacity: tor.status === 'unsupported' ? 0.35 : 1,
+          }}
+        >
+          <span aria-hidden="true">🧅</span>
+          <span aria-hidden="true" style={{
+            width: 6, height: 6, borderRadius: '50%',
+            background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
+          }} />
+        </button>
+        <NetworkSwitcher compact />
       </div>
 
+      {tor.enabled && tor.status === 'connected' && (
+        <div style={{
+          margin: '0 10px 6px', padding: '5px 8px', borderRadius: 8,
+          border: '1px solid #166534', background: 'rgba(34,197,94,0.10)',
+          color: 'var(--text, #fff)',
+          fontSize: 10, lineHeight: 1.35,
+        }}>
+          {tor.message} · {tor.host}:{tor.port}
+        </div>
+      )}
+
       {/* Native WebView renders into this area (bounds tracked via ResizeObserver) */}
-      <div ref={contentRef} style={{ flex: 1 }} />
+      <div ref={contentRef} style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+        {tor.enabled && tor.status !== 'connected' && (
+          <div style={{
+            position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24, background: 'var(--bg-dark, #0d0d0d)', color: 'var(--text, #fff)',
+          }}>
+            <div style={{ width: '100%', maxWidth: 390, textAlign: 'center' }}>
+              <div aria-hidden="true" style={{ fontSize: 44, marginBottom: 12 }}>🧅</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
+                {tor.status === 'connecting' ? 'Connecting to Tor' : 'Tor connection blocked'}
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.5, opacity: 0.8, marginBottom: 18 }}>
+                {tor.message}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+                {tor.status === 'error' && (
+                  <button type="button" onClick={() => changeTor(true)} style={panelPrimaryBtn}>
+                    Retry Tor
+                  </button>
+                )}
+                <button type="button" onClick={() => changeTor(false)} style={panelSecondaryBtn}>
+                  Turn Off Tor
+                </button>
+              </div>
+              <div style={{ fontSize: 10, lineHeight: 1.45, opacity: 0.55, marginTop: 18 }}>
+                Tor is built into Magic Money on Android. No Orbot installation is required.
+                Browser traffic stays blocked until the Tor exit is verified.
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -300,4 +392,14 @@ const navBtn: React.CSSProperties = {
   width: 34, height: 34, borderRadius: 10, fontSize: 16, cursor: 'pointer',
   border: '1px solid var(--border, #2a2a2a)', background: 'var(--bg-card, #161616)',
   color: 'var(--text, #fff)'
+}
+
+const panelPrimaryBtn: React.CSSProperties = {
+  padding: '9px 14px', borderRadius: 9, border: '1px solid #7c3aed',
+  background: '#7c3aed', color: '#fff', fontSize: 12, fontWeight: 600,
+}
+
+const panelSecondaryBtn: React.CSSProperties = {
+  ...panelPrimaryBtn, border: '1px solid var(--border, #2a2a2a)',
+  background: 'var(--bg-card, #161616)', color: 'var(--text, #fff)',
 }

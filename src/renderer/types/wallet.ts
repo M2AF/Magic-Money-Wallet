@@ -276,6 +276,15 @@ export interface BrowserTab {
   loading: boolean
 }
 
+export interface TorBrowserState {
+  enabled: boolean
+  status: 'off' | 'connecting' | 'connected' | 'error' | 'unsupported'
+  host: string
+  port: number
+  isTor: boolean
+  message: string
+}
+
 declare global {
   interface Window {
     wallet: {
@@ -382,6 +391,10 @@ declare global {
       browserHome(): void
       browserNavigate(url: string): Promise<void>
       browserGetState(): Promise<{ url: string; canBack: boolean; canForward: boolean; loading: boolean; tabs: BrowserTab[]; activeTabId: number }>
+      browserGetTorState?(): Promise<TorBrowserState>
+      browserSetTorMode?(enabled: boolean): Promise<TorBrowserState>
+      onBrowserTorState?(cb: (state: TorBrowserState) => void): void
+      offBrowserTorState?(cb: (state: TorBrowserState) => void): void
       browserNewTab(url?: string): void
       browserSetActiveTab(id: number): void
       browserCloseTab(id: number): void

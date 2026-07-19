@@ -3,6 +3,7 @@ import { FullScreenButton, SnapButtons } from './components/WindowLayout'
 import APP_HUB, { type AppEntry } from './data/app-hub'
 import wordmarkUrl from './assets/wordmark.png'
 import logoUrl from './assets/logo.png'
+import type { TorBrowserState } from './types/wallet'
 
 const HOME = 'https://chainlensnft.info'
 
@@ -32,6 +33,10 @@ export function BrowserApp() {
   const [snapshot, setSnapshot] = useState<string | null>(null)
   const [sugOpen, setSugOpen]   = useState(false)
   const [typed, setTyped]       = useState(false)
+  const [tor, setTor] = useState<TorBrowserState>({
+    enabled: false, status: 'off', host: '127.0.0.1', port: 9050,
+    isTor: false, message: 'Tor Mode is off',
+  })
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -66,6 +71,13 @@ export function BrowserApp() {
       window.wallet.offBrowserTitle(onTitle)
       window.wallet.offBrowserTabs(onTabs)
     }
+  }, [])
+
+  useEffect(() => {
+    const onTor = (state: TorBrowserState) => setTor(state)
+    window.wallet.browserGetTorState?.().then(onTor).catch(() => {})
+    window.wallet.onBrowserTorState?.(onTor)
+    return () => window.wallet.offBrowserTorState?.(onTor)
   }, [])
 
   const navigate = useCallback((target: string) => {
@@ -257,6 +269,8 @@ export function BrowserApp() {
           )}
         </form>
 
+        <TorControl state={tor} onChange={setTor} />
+
         {/* Snap the wallet + browser side by side — left of the tabs button */}
         <SnapButtons />
 
@@ -286,13 +300,107 @@ export function BrowserApp() {
           the snapshot captured on open here to keep the dApp visible behind it. */}
       <div ref={contentRef} style={{
         flex: 1,
+        position: 'relative',
         background: 'transparent',
         ...(snapshot ? {
           backgroundImage: `url(${snapshot})`,
           backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat',
         } : {}),
-      }} />
+      }}>
+        {tor.enabled && tor.status !== 'connected' && (
+          <TorStatusPanel state={tor} onChange={setTor} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TorControl({ state, onChange }: { state: TorBrowserState; onChange: (state: TorBrowserState) => void }) {
+  const busy = state.status === 'connecting'
+  const color = state.status === 'connected'
+    ? '#22c55e'
+    : state.status === 'error'
+      ? '#ef4444'
+      : 'var(--text-muted)'
+
+  const toggle = async () => {
+    if (busy || !window.wallet.browserSetTorMode) return
+    onChange({ ...state, enabled: !state.enabled, status: 'connecting', message: state.enabled ? 'Disconnecting from Tor…' : 'Connecting to local Tor…' })
+    try {
+      onChange(await window.wallet.browserSetTorMode(!state.enabled))
+    } catch {
+      onChange({ ...state, status: 'error', message: 'Could not change the browser proxy. Reload the app before browsing.' })
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={busy}
+      aria-pressed={state.enabled}
+      aria-label={`Tor Mode. ${state.message}`}
+      style={{
+        height: 28, padding: '0 8px', flexShrink: 0,
+        display: 'flex', alignItems: 'center', gap: 5,
+        borderRadius: 12, border: `1px solid ${state.enabled ? color : 'var(--border)'}`,
+        background: state.enabled ? 'rgba(124, 58, 237, 0.12)' : 'var(--surface-raised)',
+        color: state.enabled ? 'var(--text-primary)' : 'var(--text-secondary)',
+        cursor: busy ? 'wait' : 'pointer', fontSize: 10, fontWeight: 700,
+      }}
+    >
+      <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1 }}>🧅</span>
+      <span>{busy ? 'Connecting' : state.status === 'error' ? 'Tor blocked' : state.enabled ? 'Tor' : 'Tor off'}</span>
+      <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+    </button>
+  )
+}
+
+function TorStatusPanel({ state, onChange }: { state: TorBrowserState; onChange: (state: TorBrowserState) => void }) {
+  const busy = state.status === 'connecting'
+  const changeMode = async (enabled: boolean) => {
+    if (!window.wallet.browserSetTorMode) return
+    onChange({ ...state, enabled, status: 'connecting', message: enabled ? 'Preparing Tor…' : 'Turning Tor Mode off…' })
+    try {
+      onChange(await window.wallet.browserSetTorMode(enabled))
+    } catch {
+      onChange({ ...state, status: 'error', message: 'Tor could not be started. Direct browsing remains blocked.' })
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 24, background: 'var(--bg)', color: 'var(--text-primary)',
+    }}>
+      <div style={{
+        width: 'min(460px, 100%)', padding: 24, borderRadius: 16,
+        border: `1px solid ${state.status === 'error' ? '#7f1d1d' : 'var(--border-active)'}`,
+        background: 'var(--bg-surface)', boxShadow: '0 18px 50px rgba(0,0,0,0.32)',
+        textAlign: 'center',
+      }}>
+        <div aria-hidden="true" style={{ fontSize: 36, marginBottom: 10 }}>🧅</div>
+        <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 8 }}>
+          {busy ? 'Starting Tor…' : 'Tor is unavailable'}
+        </div>
+        <div style={{ fontSize: 12, lineHeight: 1.55, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          {state.message}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 18 }}>
+          Browser traffic is blocked—MagicMoney will never fall back to your direct connection while Tor Mode is on.
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
+          {!busy && (
+            <button type="button" className="btn btn-secondary" onClick={() => changeMode(true)}>
+              Retry Tor
+            </button>
+          )}
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => changeMode(false)}>
+            Turn Off Tor Mode
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

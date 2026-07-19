@@ -17,6 +17,7 @@
     "test": "vitest run",
     "test:e2e": "npm run build:extension && playwright test",
     "test:e2e:app": "npm run build && playwright test e2e/electron-smoke.spec.ts",
+    "test:tor": "esbuild src/main/tor-manager.ts --bundle --platform=node --format=cjs --external:electron --outfile=out/tor-smoke-manager.cjs && electron scripts/tor-smoke.cjs",
     "test:watch": "vitest",
     "predev": "node scripts/convert-apphub.js",
     "dev": "npm run build:inject && electron-vite dev",

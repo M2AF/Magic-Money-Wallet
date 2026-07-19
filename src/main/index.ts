@@ -5,10 +5,14 @@ import { setSwapFetch } from './swap-proxy'
 import { setMainWindow } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
+import { stopManagedTor } from './tor-manager'
 
 // Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
 // when loading IPFS gateway images in Electron's Chromium engine
 app.commandLine.appendSwitch('disable-quic')
+// Prevent WebRTC from sending UDP outside the configured browser SOCKS proxy.
+// This is process-wide because Chromium exposes the policy only as a startup flag.
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp')
 
 // Force hardware-accelerated rendering for canvas/WebGL-heavy dApps in the built-in
 // browser (e.g. nad.fun's TradingView charts). Chromium frequently blocklists the
@@ -183,6 +187,8 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
+
+app.on('before-quit', () => stopManagedTor())
 
 app.on('second-instance', () => {
   if (mainWindow) {

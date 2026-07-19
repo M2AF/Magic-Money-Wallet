@@ -20,6 +20,8 @@ const config: WalletConfig = {
   simpleSwapApiKey: '',
   testnetMode: false,
   privacyMode: false,
+  torBrowserEnabled: false,
+  torBrowserPort: 9050,
   moneroRestoreHeight: 0,
 }
 

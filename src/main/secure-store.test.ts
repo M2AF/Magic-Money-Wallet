@@ -121,4 +121,13 @@ describe('secure-store · swap proxy pinning (H-3)', () => {
     saveConfig({ swapProxyUrl: '' })
     expect(loadConfig().swapProxyUrl).toBe('')                    // explicit "no proxy" → allowed
   })
+
+  it('sanitizes the persisted local Tor browser port', () => {
+    saveConfig({ torBrowserEnabled: true, torBrowserPort: 70_000 })
+    expect(loadConfig().torBrowserEnabled).toBe(true)
+    expect(loadConfig().torBrowserPort).toBe(9050)
+
+    saveConfig({ torBrowserPort: 9150 })
+    expect(loadConfig().torBrowserPort).toBe(9150)
+  })
 })

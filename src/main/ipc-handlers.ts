@@ -74,6 +74,8 @@ import {
   browserSuspendTabsMenu,
   browserResumeTabsMenu,
   getBrowserState,
+  getTorBrowserState,
+  setTorBrowserMode,
   getMainWin,
   showApprovalWindow,
   emitDappEvent,
@@ -958,6 +960,8 @@ export function registerIpcHandlers(): void {
   ipcMain.on('browser:resume-tabs-menu', () => browserResumeTabsMenu())
   ipcMain.handle('browser:navigate', (_event, url: string) => { browserNavigate(url) })
   ipcMain.handle('browser:get-state', () => getBrowserState())
+  ipcMain.handle('browser:tor:get-state', () => getTorBrowserState())
+  ipcMain.handle('browser:tor:set-mode', (_event, enabled: boolean) => setTorBrowserMode(enabled === true))
 
   // ── Side-by-side window layout (Full Screen Mode) ─────────────────────────
   ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))

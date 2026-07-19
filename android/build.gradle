@@ -21,6 +21,12 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // Guardian Project publishes the official experimental Arti Mobile AAR
+        // here. Restrict the repository to that one artifact group.
+        maven {
+            url "https://raw.githubusercontent.com/guardianproject/gpmaven/master"
+            content { includeGroup "org.torproject" }
+        }
     }
 }
 

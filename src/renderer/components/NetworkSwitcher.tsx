@@ -52,6 +52,16 @@ const TESTNET_EVM_CHAINS: EvmChainOption[] = [
   { chainId: 998, id: 'hyperevm', name: 'HyperEVM Testnet', color: '#00BF7D' },
 ]
 
+// Ticker-style labels for the compact pill (Android browser tab row) — the
+// color dot alone isn't recognizable enough. Keyed by chain `id`; testnets
+// share their mainnet family's ticker (full name still in title/dropdown).
+const SHORT_LABELS: Record<string, string> = {
+  ethereum: 'ETH', arbitrum: 'ARB', optimism: 'OP', base: 'BASE',
+  polygon: 'POL', avalanche: 'AVAX', blast: 'BLAST', gnosis: 'GNO',
+  monad: 'MON', abstract: 'ABS', apechain: 'APE', ronin: 'RON',
+  soneium: 'SONE', worldchain: 'WLD', zora: 'ZORA', hyperevm: 'HYPE',
+}
+
 function fallbackChains(chainId: number): EvmChainOption[] {
   return TESTNET_EVM_CHAINS.some(c => c.chainId === chainId && chainId !== 998)
     ? TESTNET_EVM_CHAINS
@@ -92,6 +102,9 @@ export function NetworkSwitcher({ compact = false }: { compact?: boolean } = {})
   const current = displayedChains.find(c => c.chainId === numId)
   const color = current?.color ?? '#22c55e'
   const label = current?.name ?? (Number.isFinite(numId) ? `Chain ${numId}` : 'Network')
+  const short = current
+    ? (SHORT_LABELS[current.id] ?? current.name.split(' ')[0].slice(0, 5).toUpperCase())
+    : (Number.isFinite(numId) ? String(numId) : '—')
 
   return (
     <div
@@ -104,9 +117,13 @@ export function NetworkSwitcher({ compact = false }: { compact?: boolean } = {})
       }}
     >
       <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-      {/* Compact mode (in-browser toolbar): dot + chevron only, so the tab row
-          below keeps its full width for scrollable, closable tabs. */}
-      {!compact && (
+      {/* Compact mode (Android browser tab row): dot + short ticker + chevron —
+          the dot alone was too subtle to identify the active chain. */}
+      {compact ? (
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+          {short}
+        </span>
+      ) : (
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {label}
         </span>

@@ -447,6 +447,10 @@ export interface WalletConfig {
   simpleSwapApiKey: string
   testnetMode: boolean       // Testnet Mode: whole wallet flips to testnets (chain-config selectors)
   privacyMode: boolean       // Privacy Mode: portfolio shows ONLY privacy chains (XMR/ZEC/NIGHT) — mutually exclusive with testnetMode
+  // Built-in dApp browser only. Electron restores this as a fail-closed SOCKS5
+  // proxy before the first page loads; the proxy must be a local Tor service.
+  torBrowserEnabled: boolean
+  torBrowserPort: number
   // Monero wallet birthday (mainnet block height at first Privacy Mode enable).
   // monero-ts scans from here instead of the genesis block; 0 = unknown → full
   // scan. Persisted so re-enabling the mode never rescans history it already saw.
@@ -479,6 +483,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   simpleSwapApiKey: '',
   testnetMode: false,
   privacyMode: false,
+  torBrowserEnabled: false,
+  torBrowserPort: 9050,
   moneroRestoreHeight: 0
 }
 
@@ -507,7 +513,13 @@ function sanitizeProxyUrl(url: string | undefined): string {
 }
 
 function sanitizeConfig(cfg: WalletConfig): WalletConfig {
-  return { ...cfg, swapProxyUrl: sanitizeProxyUrl(cfg.swapProxyUrl) }
+  const torPort = Number(cfg.torBrowserPort)
+  return {
+    ...cfg,
+    swapProxyUrl: sanitizeProxyUrl(cfg.swapProxyUrl),
+    torBrowserEnabled: cfg.torBrowserEnabled === true,
+    torBrowserPort: Number.isInteger(torPort) && torPort > 0 && torPort <= 65535 ? torPort : 9050,
+  }
 }
 
 export function loadConfig(): WalletConfig {

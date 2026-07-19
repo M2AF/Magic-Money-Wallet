@@ -38,6 +38,12 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Debug builds install beside the release wallet. This prevents a
+            // local debug key from colliding with or replacing real wallet data.
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
         release {
             // minify off: the bundle is JS; R8 on the thin native shell saves
             // little and risks stripping plugin reflection paths.
@@ -63,6 +69,8 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     // DappBrowserPlugin: addDocumentStartJavaScript + addWebMessageListener
     implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    // Embedded Tor runtime for Android. Users do not need to install Orbot.
+    implementation "org.torproject:arti-mobile:1.7.0.1"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"

@@ -4,6 +4,7 @@
  */
 
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
+import type { TorBrowserState } from '../renderer/types/wallet'
 
 export interface Bounds { x: number; y: number; width: number; height: number }  // CSS px
 
@@ -38,6 +39,8 @@ export interface DappBrowserPlugin {
   hide(): Promise<void>
   show(): Promise<void>
   getState(): Promise<DappBrowserState>
+  getTorState(): Promise<TorBrowserState>
+  setTorMode(o: { enabled: boolean }): Promise<TorBrowserState>
   respond(o: { requestId: string; json: string }): Promise<void>
   emitEvent(o: { origin?: string; json: string }): Promise<void>
   addListener(event: 'pageRequest', cb: (e: PageRequestEvent) => void): Promise<PluginListenerHandle>
@@ -47,6 +50,7 @@ export interface DappBrowserPlugin {
   addListener(event: 'titleChanged', cb: (e: { title: string }) => void): Promise<PluginListenerHandle>
   addListener(event: 'tabsChanged', cb: (e: { activeTabId: number; tabs: DappBrowserState['tabs'] }) => void): Promise<PluginListenerHandle>
   addListener(event: 'closed', cb: () => void): Promise<PluginListenerHandle>
+  addListener(event: 'torStateChanged', cb: (state: TorBrowserState) => void): Promise<PluginListenerHandle>
 }
 
 export const DappBrowser = registerPlugin<DappBrowserPlugin>('DappBrowser')

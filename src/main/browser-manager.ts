@@ -19,15 +19,29 @@
  * the MAIN wallet window so the user sees them inside the wallet UI.
  */
 
-import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen } from 'electron'
-import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle } from 'electron'
+import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen, session } from 'electron'
+import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle, Session } from 'electron'
 import { join } from 'path'
+import { Socket } from 'net'
 import { WALLET_ICON } from '../preload/wallet-icon'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { defaultDappChainId } from './chain-config'
-import { loadConfig } from './secure-store'
+import { loadConfig, saveConfig } from './secure-store'
+import { ensureManagedTor, stopManagedTor } from './tor-manager'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
+const DAPP_SESSION_PARTITION = 'persist:mm-dapp-browser'
+const TOR_HOST = '127.0.0.1'
+const TOR_PORTS = [9050, 9150] as const
+
+export interface TorBrowserState {
+  enabled: boolean
+  status: 'off' | 'connecting' | 'connected' | 'error'
+  host: string
+  port: number
+  isTor: boolean
+  message: string
+}
 
 // Height (px) reserved above the dApp view for the browser chrome (titlebar +
 // address bar). The exact height depends on CSS/layout, so the chrome renderer
@@ -53,6 +67,14 @@ let mainWin: BrowserWindow | null = null
 let tabs: Tab[] = []
 let activeTabId = 0
 let nextTabId = 1
+let torState: TorBrowserState = {
+  enabled: false,
+  status: 'off',
+  host: TOR_HOST,
+  port: 9050,
+  isTor: false,
+  message: 'Tor Mode is off',
+}
 
 // ── Side-by-side window layout ───────────────────────────────────────────────
 // The wallet (mainWin) and dApp browser (popupWin) are two independent OS windows.
@@ -91,6 +113,209 @@ function sendToChrome(channel: string, payload: unknown): void {
       popupWin.webContents.send(channel, payload)
     }
   } catch { /* window torn down mid-send — safe to ignore */ }
+}
+
+function dappSession(): Session {
+  // Never change the wallet renderer's default session proxy. All untrusted dApp
+  // tabs and their auth popups share this isolated, browser-only session instead.
+  return session.fromPartition(DAPP_SESSION_PARTITION)
+}
+
+function publishTorState(): void {
+  sendToChrome('browser:tor-state', torState)
+}
+
+function torPageAllowed(): boolean {
+  return !torState.enabled || torState.status === 'connected'
+}
+
+function syncTorViewVisibility(): void {
+  const cur = activeTab()
+  if (!cur || !popupWin || popupWin.isDestroyed()) return
+  if (!torPageAllowed() || tabsMenuOpen) {
+    try { popupWin.contentView.removeChildView(cur.view) } catch { /* not attached */ }
+    return
+  }
+  try { popupWin.contentView.addChildView(cur.view) } catch { /* already attached */ }
+  layoutActiveView()
+}
+
+function setTorState(next: TorBrowserState): TorBrowserState {
+  torState = next
+  syncTorViewVisibility()
+  publishTorState()
+  return torState
+}
+
+function localPortOpen(port: number, timeoutMs = 700): Promise<boolean> {
+  return new Promise(resolve => {
+    const socket = new Socket()
+    let settled = false
+    const finish = (open: boolean) => {
+      if (settled) return
+      settled = true
+      socket.destroy()
+      resolve(open)
+    }
+    socket.setTimeout(timeoutMs)
+    socket.once('connect', () => finish(true))
+    socket.once('timeout', () => finish(false))
+    socket.once('error', () => finish(false))
+    socket.connect(port, TOR_HOST)
+  })
+}
+
+async function discoverTorPort(preferred: number): Promise<number | null> {
+  const candidates = [preferred, ...TOR_PORTS.filter(p => p !== preferred)]
+  for (const port of candidates) {
+    if (await localPortOpen(port)) return port
+  }
+  return null
+}
+
+async function ensureTorPort(preferred: number): Promise<number | null> {
+  const existing = await discoverTorPort(preferred)
+  if (existing) return existing
+  await ensureManagedTor(preferred, message => {
+    setTorState({ enabled: true, status: 'connecting', host: TOR_HOST, port: preferred, isTor: false, message })
+  })
+  return discoverTorPort(preferred)
+}
+
+function torErrorMessage(error: unknown): string {
+  return error instanceof Error && error.message ? error.message : 'Tor could not be started'
+}
+
+async function verifyTorExit(ses: Session): Promise<boolean> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 12_000)
+  try {
+    const response = await ses.fetch('https://check.torproject.org/api/ip', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    if (!response.ok) return false
+    const body = await response.json() as { IsTor?: boolean }
+    return body.IsTor === true
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+async function applyTorProxy(port: number): Promise<void> {
+  const ses = dappSession()
+  await ses.setProxy({
+    mode: 'fixed_servers',
+    proxyRules: `socks5://${TOR_HOST}:${port}`,
+    // Chromium normally bypasses proxies for loopback destinations. Removing the
+    // implicit bypass prevents a dApp from using localhost as a proxy escape hatch.
+    proxyBypassRules: '<-loopback>',
+  })
+  await ses.closeAllConnections()
+}
+
+async function applyDirectConnection(): Promise<void> {
+  const ses = dappSession()
+  await ses.setProxy({ mode: 'direct' })
+  await ses.closeAllConnections()
+}
+
+function reloadAllTabs(): void {
+  for (const tab of tabs) {
+    try { tab.view.webContents.reload() } catch { /* tab closed mid-toggle */ }
+  }
+}
+
+/** Restore the persisted fail-closed proxy before the browser's first page loads. */
+async function prepareTorSession(): Promise<void> {
+  const cfg = loadConfig()
+  if (!cfg.torBrowserEnabled) {
+    await applyDirectConnection()
+    setTorState({ enabled: false, status: 'off', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: 'Tor Mode is off' })
+    return
+  }
+
+  setTorState({ enabled: true, status: 'connecting', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: 'Connecting to local Tor…' })
+  await applyTorProxy(cfg.torBrowserPort)
+  let discovered: number | null = null
+  try {
+    discovered = await ensureTorPort(cfg.torBrowserPort)
+  } catch (error) {
+    setTorState({ enabled: true, status: 'error', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: `${torErrorMessage(error)}. Traffic is blocked.` })
+    return
+  }
+  const port = discovered ?? cfg.torBrowserPort
+  if (port !== cfg.torBrowserPort) await applyTorProxy(port)
+  if (port !== cfg.torBrowserPort) saveConfig({ torBrowserPort: port })
+
+  if (!discovered) {
+    setTorState({ enabled: true, status: 'error', host: TOR_HOST, port, isTor: false, message: 'Tor is not running on ports 9050 or 9150. Traffic is blocked.' })
+    return
+  }
+
+  try {
+    const isTor = await verifyTorExit(dappSession())
+    setTorState({
+      enabled: true,
+      status: isTor ? 'connected' : 'error',
+      host: TOR_HOST,
+      port,
+      isTor,
+      message: isTor ? 'Connected and verified through Tor' : 'The proxy responded, but the exit was not verified as Tor. Traffic remains proxied.',
+    })
+  } catch {
+    setTorState({ enabled: true, status: 'error', host: TOR_HOST, port, isTor: false, message: 'Could not verify the Tor exit. Traffic remains fail-closed through the proxy.' })
+  }
+}
+
+export function getTorBrowserState(): TorBrowserState {
+  return torState
+}
+
+export async function setTorBrowserMode(enabled: boolean): Promise<TorBrowserState> {
+  const cfg = loadConfig()
+  if (!enabled) {
+    saveConfig({ torBrowserEnabled: false })
+    await applyDirectConnection()
+    stopManagedTor()
+    reloadAllTabs()
+    return setTorState({ enabled: false, status: 'off', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: 'Tor Mode is off' })
+  }
+
+  saveConfig({ torBrowserEnabled: true })
+  setTorState({ enabled: true, status: 'connecting', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: 'Connecting to local Tor…' })
+  // Apply the configured SOCKS endpoint first so the switch is fail-closed from
+  // this point onward; discovery of an alternate standard port happens behind it.
+  await applyTorProxy(cfg.torBrowserPort)
+  let discovered: number | null = null
+  try {
+    discovered = await ensureTorPort(cfg.torBrowserPort)
+  } catch (error) {
+    reloadAllTabs()
+    return setTorState({ enabled: true, status: 'error', host: TOR_HOST, port: cfg.torBrowserPort, isTor: false, message: `${torErrorMessage(error)}. Traffic is blocked.` })
+  }
+  const port = discovered ?? cfg.torBrowserPort
+  if (port !== cfg.torBrowserPort) await applyTorProxy(port)
+  if (port !== cfg.torBrowserPort) saveConfig({ torBrowserPort: port })
+  reloadAllTabs()
+
+  if (!discovered) {
+    return setTorState({ enabled: true, status: 'error', host: TOR_HOST, port, isTor: false, message: 'Tor is not running on ports 9050 or 9150. Traffic is blocked.' })
+  }
+
+  try {
+    const isTor = await verifyTorExit(dappSession())
+    return setTorState({
+      enabled: true,
+      status: isTor ? 'connected' : 'error',
+      host: TOR_HOST,
+      port,
+      isTor,
+      message: isTor ? 'Connected and verified through Tor' : 'The proxy responded, but the exit was not verified as Tor. Traffic remains proxied.',
+    })
+  } catch {
+    return setTorState({ enabled: true, status: 'error', host: TOR_HOST, port, isTor: false, message: 'Could not verify the Tor exit. Traffic remains fail-closed through the proxy.' })
+  }
 }
 
 /** Push the tab list + active id so the chrome can render the tab button/count and menu. */
@@ -238,14 +463,28 @@ export function openBrowserWindow(): void {
 
   popupWin.once('ready-to-show', () => {
     popupWin?.show()
-    createTab(BROWSER_HOME, true)
-    // If the browser was opened as part of an "Enter Full Screen Mode" action,
-    // tile the two windows now that the popup exists and is visible.
-    if (pendingSnap) {
-      const side = pendingSnap
-      pendingSnap = null
-      applySnap(side)
-    }
+    // Proxy configuration must finish before the first dApp request. A persisted
+    // Tor preference therefore fails closed even when Tor is not currently running.
+    void prepareTorSession().then(() => {
+      if (!popupWin || popupWin.isDestroyed()) return
+      createTab(BROWSER_HOME, true)
+      // If the browser was opened as part of an "Enter Full Screen Mode" action,
+      // tile the two windows now that the popup exists and is visible.
+      if (pendingSnap) {
+        const side = pendingSnap
+        pendingSnap = null
+        applySnap(side)
+      }
+    }).catch(() => {
+      setTorState({
+        enabled: true,
+        status: 'error',
+        host: TOR_HOST,
+        port: loadConfig().torBrowserPort,
+        isTor: false,
+        message: 'The Tor proxy could not be applied, so no browser page was opened.',
+      })
+    })
   })
 
   popupWin.on('close', () => {
@@ -412,6 +651,7 @@ function popupResult(): WindowOpenHandlerResponse {
         // Titlebar + full web3 provider, so AGW/Privy "Login with Wallet" and
         // other in-popup wallet flows can detect MagicMoney and sign here.
         preload: popupConnectPath(),
+        partition: DAPP_SESSION_PARTITION,
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
@@ -561,6 +801,7 @@ function createTab(url: string, activate = true): number {
   const view = new WebContentsView({
     webPreferences: {
       preload: web3InjectPath(),
+      partition: DAPP_SESSION_PARTITION,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -587,7 +828,7 @@ function setActiveTab(id: number): void {
   activeTabId = id
   // While the tab-overview dropdown is open the active view stays detached so it
   // doesn't hide the dropdown; browserResumeTabsMenu re-attaches it on close.
-  if (!tabsMenuOpen) {
+  if (!tabsMenuOpen && torPageAllowed()) {
     try { popupWin.contentView.addChildView(next.view) } catch { /* already attached */ }
     layoutActiveView()
   }
@@ -640,7 +881,7 @@ export async function browserSuspendTabsMenu(): Promise<string> {
   if (tabsMenuOpen) return ''
   const cur = activeTab()
   let snapshot = ''
-  if (cur && popupWin && !popupWin.isDestroyed()) {
+  if (cur && popupWin && !popupWin.isDestroyed() && torPageAllowed()) {
     try {
       const img = await cur.view.webContents.capturePage()
       if (!img.isEmpty()) snapshot = `data:image/jpeg;base64,${img.toJPEG(85).toString('base64')}`
@@ -657,7 +898,7 @@ export function browserResumeTabsMenu(): void {
   if (!tabsMenuOpen) return
   tabsMenuOpen = false
   const cur = activeTab()
-  if (cur && popupWin && !popupWin.isDestroyed()) {
+  if (cur && popupWin && !popupWin.isDestroyed() && torPageAllowed()) {
     try { popupWin.contentView.addChildView(cur.view) } catch { /* already attached */ }
     layoutActiveView()
   }
