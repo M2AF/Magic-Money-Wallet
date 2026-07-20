@@ -15,7 +15,7 @@ It manages **22 default mainnet networks** from a single seed phrase, adds focus
 - **Testnet Mode** — flips the wallet to Sepolia / devnet / preprod / Bitcoin testnet / Shasta networks for no-real-funds testing, with testnet-safe address substitution where encodings differ.
 - **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
 - **No API keys to configure** — keyed providers are proxied through a hosted Cloudflare Worker, so the app works out of the box with **zero secrets shipped in the bundle**.
-- **dApp ready** — injects `window.ethereum` (EIP-1193 / EIP-6963), `window.solana` (Wallet Standard), and `window.cardano.magicmoney` (CIP-30), plus WalletConnect v2.
+- **dApp ready** — injects `window.ethereum` (EIP-1193 / EIP-6963), `window.solana` (Wallet Standard), and `window.cardano.magicmoney` (CIP-30), plus the VESPR-authorized `window.cardano.vespr` compatibility key and WalletConnect v2.
 - **Built-in swaps** — same-chain DEX aggregation and cross-chain bridging/exchange in one Swap page.
 - **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
 - **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
@@ -196,7 +196,7 @@ dApp page (injected provider)         Privileged runtime (signing)
 ──────────────────────────            ──────────────────────────────────
 window.ethereum (EIP-1193/6963)   ──► per-origin approval → tx-sender.ts
 window.solana   (Wallet Standard) ──► sign with ed25519 (@noble) → broadcast
-window.cardano.magicmoney (CIP-30)──► cardano-cip30.ts → witness → submit
+window.cardano.magicmoney / vespr──► cardano-cip30.ts → witness → submit
 WalletConnect v2 URI              ──► @walletconnect/sign-client
 ```
 
@@ -215,7 +215,7 @@ MagicMoney is a fully-fledged signer for EVM, Solana, and Cardano dApps.
 
 - **EVM** — injects `window.ethereum` with EIP-1193 + EIP-6963 (multi-wallet discovery), per-origin approvals, chain switching (`wallet_switchEthereumChain` / `wallet_addEthereumChain`), and `eth_signTypedData_v4`. dApps see "MagicMoney Wallet" alongside other wallets.
 - **Solana** — Wallet Standard + legacy `window.solana`: `connect`, `signMessage` (e.g. OpenSea SIWS), `signTransaction`, and `signAndSendTransaction`.
-- **Cardano (CIP-30)** — exposed at `window.cardano.magicmoney`, so any CIP-30 dApp or library ([weld](https://github.com/Cardano-Forge/weld), [Lucid](https://lucid.spacebudz.io/), [Mesh.js](https://meshjs.dev/)) can connect. MagicMoney is registered in the **weld** registry as `magicmoney`. Implemented methods: `getNetworkId`, `getBalance`, `getUtxos`, `getCollateral`, `getUsedAddresses`, `getUnusedAddresses`, `getChangeAddress`, `getRewardAddresses`, `signTx`, `signData`, `submitTx`.
+- **Cardano (CIP-30)** — exposed canonically at `window.cardano.magicmoney` and, with VESPR's permission, at the `window.cardano.vespr` compatibility key for dApps that whitelist it. Both keys reference the same MagicMoney-branded provider and use the same approval-gated signer. MagicMoney is registered in the **weld** registry as `magicmoney`. Implemented methods: `getNetworkId`, `getBalance`, `getUtxos`, `getCollateral`, `getUsedAddresses`, `getUnusedAddresses`, `getChangeAddress`, `getRewardAddresses`, `signTx`, `signData`, `submitTx`.
 - **WalletConnect v2** — pair via URI for dApps that prefer it.
 
 On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script. On **Android**, dApps run in native plugin-owned WebViews with `document_start` provider injection, tab controls, WalletConnect `wc:` deep links, and approval overlays rendered by the wallet WebView.

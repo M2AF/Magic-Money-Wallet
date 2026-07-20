@@ -3,7 +3,8 @@
  *
  * Everything that runs in a dApp page's MAIN-world context: EIP-1193 +
  * EIP-6963 window.ethereum, window.solana + Wallet Standard, CIP-30
- * window.cardano.magicmoney, window.unisat / sats-connect, window.injectedWeb3.
+ * window.cardano.magicmoney (plus the VESPR-authorized `vespr` compatibility
+ * key), window.unisat / sats-connect, window.injectedWeb3.
  *
  * Extracted from inject.ts so two shells can install it:
  *  - Extension: inject.ts (window.postMessage ↔ content.ts ↔ service worker)
@@ -147,7 +148,7 @@ if (typeof (window as unknown as Record<string, unknown>).solana === 'undefined'
   try { (window as unknown as Record<string, unknown>).solana = mmSolana } catch { /* locked by another wallet */ }
 }
 
-// ── CIP-30 window.cardano.magicmoney ─────────────────────────────────────────
+// ── CIP-30 window.cardano.magicmoney + VESPR compatibility key ───────────────
 
 function makeCardanoFullApi() {
   return {
@@ -171,13 +172,19 @@ function makeCardanoFullApi() {
 try {
   const w = window as unknown as Record<string, unknown>
   if (!w.cardano || typeof w.cardano !== 'object') w.cardano = {}
-  ;(w.cardano as Record<string, unknown>).magicmoney = {
+  const cardano = w.cardano as Record<string, unknown>
+  const mmWallet = {
     apiVersion: '0.1.0',
     name:       'MagicMoney Wallet',
     icon:       WALLET_ICON,
     isEnabled:  () => send<boolean>('cardano:is-enabled', []).catch(() => false),
     enable:     () => send('cardano:enable', []).then(() => makeCardanoFullApi()),
   }
+  cardano.magicmoney = mmWallet
+  // VESPR authorized this compatibility key for dApps that whitelist only
+  // `window.cardano.vespr`. Keep MagicMoney's identity and security flow, and
+  // never replace the genuine VESPR provider when its extension is installed.
+  if (typeof cardano.vespr === 'undefined') cardano.vespr = mmWallet
 } catch (e) {
   console.warn('[MagicMoney] CIP-30 injection error:', e)
 }

@@ -267,6 +267,18 @@ webFrame.executeJavaScript(`(function () {
         value: mmWallet, writable: true, configurable: true, enumerable: true
       });
     }
+    // VESPR authorized this compatibility key for dApps that whitelist only
+    // window.cardano.vespr. Preserve MagicMoney branding and the same guarded
+    // IPC routes, and do not replace a genuine VESPR provider if one is present.
+    if (typeof window.cardano.vespr === 'undefined') {
+      try {
+        window.cardano.vespr = mmWallet;
+      } catch (_) {
+        Object.defineProperty(window.cardano, 'vespr', {
+          value: mmWallet, writable: true, configurable: true, enumerable: true
+        });
+      }
+    }
     // Trigger CIP-30 wallet scanners (e.g. Weld) that listen on focus/visibilitychange
     // to re-scan window.cardano after our injection. Weld sets up these listeners on
     // store init and uses them to refresh the wallet list.

@@ -75,6 +75,10 @@ export function cborText(s: string): Uint8Array {
   return out
 }
 
+export function cborBool(value: boolean): Uint8Array {
+  return new Uint8Array([value ? 0xf5 : 0xf4])
+}
+
 export function cborArray(items: Uint8Array[]): Uint8Array {
   const len = items.length
   const prefix = len < 24 ? new Uint8Array([0x80 + len]) : new Uint8Array([0x98, len])
@@ -377,10 +381,13 @@ export async function cip30SignData(
   const addrBytes = addrToBytes(address)
 
   const protectedHdrMap = cborMap([
-    [cborInt(1),      cborInt(-8)],
-    [cborInt(-66001), cborBytes(addrBytes)],
+    [cborInt(1),          cborInt(-8)],
+    [cborText('address'), cborBytes(addrBytes)],
   ])
   const protectedHdrBstr = cborBytes(protectedHdrMap)
+  const unprotectedHdrMap = cborMap([
+    [cborText('hashed'), cborBool(false)],
+  ])
 
   const sigStructure = cborArray([
     cborText('Signature1'),
@@ -389,10 +396,12 @@ export async function cip30SignData(
     cborBytes(payload)
   ])
 
-  const hash = blake2b(sigStructure, { dkLen: 32 })
-  const sig  = cardanoSign(hash, spendKey.kL, spendKey.kR)
+  // CIP-30 requires the raw payload (inside the COSE Sig_structure) to be
+  // signed directly. Hashing Sig_structure here produces a valid Ed25519
+  // signature over the wrong message, which strict ownership verifiers reject.
+  const sig = cardanoSign(sigStructure, spendKey.kL, spendKey.kR)
 
-  const coseSign1 = cborArray([protectedHdrBstr, cborMap([]), cborBytes(payload), cborBytes(sig)])
+  const coseSign1 = cborArray([protectedHdrBstr, unprotectedHdrMap, cborBytes(payload), cborBytes(sig)])
   const coseKey   = cborMap([
     [cborInt(1),  cborInt(1)],
     [cborInt(3),  cborInt(-8)],
