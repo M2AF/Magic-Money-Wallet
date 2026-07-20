@@ -16,6 +16,14 @@
  * mainnet post-NU6. The consensus branch ID is fetched live from lightwalletd
  * (GetLightdInfo) so a future network upgrade doesn't brick sends.
  *
+ * ⚠ NU6.3 "Ironwood" activates mainnet at height 3,428,143 (~28 Jul 2026,
+ * counterfeit-bug remediation for the Orchard pool) — the branch id changes
+ * again. The live fetch above should track it automatically; FALLBACK_BRANCH_ID
+ * below does not and will be stale after that date (safe failure mode: a wrong
+ * branch id produces an invalid ZIP-243 sighash, so the network rejects the tx
+ * rather than accepting something wrong — but re-verify a real transparent send
+ * still works shortly after activation, and refresh the fallback constant then).
+ *
  * Data providers (keyless): Blockchair dashboards (balance + UTXOs + push) with
  * the ChainSafe lightwalletd gRPC-web proxy for chain info.
  */
