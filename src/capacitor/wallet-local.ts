@@ -17,6 +17,7 @@ import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { helloStatus, helloEnroll, helloUnlock, helloRemove } from './biometric'
 import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
+import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
 import { DappBrowser } from './dapp-browser'
 import { HOME_URL } from './BrowserOverlay'
@@ -198,6 +199,10 @@ function buildWallet() {
 
     // Camera QR scan (WalletConnect pairing, send-address entry)
     scanQr,
+
+    // FLAG_SECURE while a seed phrase is on screen (blocks screenshots and
+    // blanks the Recents preview) — Android-only optional capability.
+    setSecureScreen,
 
     // WalletConnect
     wcGetSessions:          () => send('wc:get-sessions'),

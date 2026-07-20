@@ -1,6 +1,7 @@
 package info.chainlens.magicmoney;
 
 import android.os.Build;
+import android.view.WindowManager;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -37,5 +38,23 @@ public class AppInfoPlugin extends Plugin {
         JSObject ret = new JSObject();
         ret.put("installer", installer);
         call.resolve(ret);
+    }
+
+    /**
+     * FLAG_SECURE toggle for seed-phrase screens: while on, Android blocks
+     * screenshots/screen recording and blanks the app preview in Recents.
+     * Scoped to seed display only — users still screenshot receive QRs etc.
+     */
+    @PluginMethod
+    public void setSecureScreen(PluginCall call) {
+        boolean on = Boolean.TRUE.equals(call.getBoolean("on", false));
+        getActivity().runOnUiThread(() -> {
+            if (on) {
+                getActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            } else {
+                getActivity().getWindow().clearFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
+            call.resolve();
+        });
     }
 }

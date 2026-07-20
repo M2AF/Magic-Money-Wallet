@@ -29,6 +29,12 @@ export function CreatePage({ onNavigate }: Props) {
     return () => { cancelled = true }
   }, [retryKey])
 
+  // Android: block screenshots/recents preview while the seed is on screen.
+  useEffect(() => {
+    window.wallet.setSecureScreen?.(true)
+    return () => { window.wallet.setSecureScreen?.(false) }
+  }, [])
+
   return (
     <div className="page fade-in" style={{ gap: 20 }}>
       <div>

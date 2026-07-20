@@ -311,6 +311,9 @@ declare global {
       // Camera QR scan (optional; Android only). Resolves the decoded text, or
       // null if the user cancelled / no camera permission.
       scanQr?(): Promise<string | null>
+      // Screenshot/recents protection while a seed phrase is on screen
+      // (optional; Android only — FLAG_SECURE on the activity window).
+      setSecureScreen?(on: boolean): Promise<void>
       getAddresses(): Promise<WalletAddresses | null>
       getBalances(): Promise<AllBalances>
       revealSeed(password: string): Promise<string[]>

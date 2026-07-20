@@ -42,9 +42,42 @@ jobs:
       - name: Critical production dependency audit
         run: npm audit --omit=dev --audit-level=critical
 
+  # ── Create the draft release every builder uploads into ────────────────────
+  # Exactly ONE job creates the release, before any builder runs. This kills
+  # two failure modes at once:
+  #   • v0.2.0-beta.2: the three electron-builder legs raced to CREATE the
+  #     release; the slowest leg 422'd on its own create after a faster leg won.
+  #   • Stable-tag landmine (never yet hit): electron-builder only uploads into
+  #     draft/prerelease releases. On a stable tag the slower legs would find
+  #     the already-PUBLISHED release and silently SKIP their uploads — green
+  #     CI, missing installers.
+  # The release stays a DRAFT (invisible to watchers, electron-updater, and the
+  # Android update check) until publish-release flips it at the very end, after
+  # verifying every expected asset is present.
+  prepare-release:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: Prepare Release (draft)
+
+    steps:
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        # Idempotent: a full re-run finds the existing release and moves on.
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — reusing it."
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft --verify-tag --generate-notes \
+              --title "$TAG"
+          fi
+
   # ── Build Electron app for all three platforms ─────────────────────────────
   electron:
-    needs: validate
+    needs: [validate, prepare-release]
     strategy:
       fail-fast: false
       matrix:
@@ -74,42 +107,37 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # No Apple Developer cert configured → skip identity auto-discovery so the
-          # macOS build doesn't fail looking for one (it ad-hoc signs instead). When
-          # you add real signing later, set CSC_LINK / CSC_KEY_PASSWORD secrets and
-          # drop this line.
+          # macOS build doesn't fail looking for one (it ad-hoc signs instead).
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          # Prerelease tags (v0.2.0-beta.1) publish as a visible GitHub Pre-release;
-          # stable tags publish as a normal release. electron-builder's default
-          # (draft) is incompatible with the extension job appending its zip — a
-          # draft can't be found by tag, so the zip upload would fork a second
-          # release for the same tag (the v0.2.0-beta.1 maiden-run bug).
-          RELEASE_TYPE: ${{ contains(github.ref_name, '-') && 'prerelease' || 'release' }}
         shell: bash
-        # Publish retry: the three matrix legs race to CREATE the release for
-        # the tag. The slowest leg (macOS dmg) can list-releases before any
-        # exist, then hit 422 "already exists" on its own create once a faster
-        # leg wins (the v0.2.0-beta.2 failure). On retry electron-builder finds
-        # the now-existing release by tag and just uploads into it.
+        # releaseType=draft: prepare-release already created the draft for this
+        # tag; electron-builder finds it by tag and uploads into it (drafts
+        # always accept uploads — published stable releases don't). Do NOT
+        # switch this to prerelease/release: that reintroduces the silent-skip
+        # landmine on stable tags. publish-release owns the final flags.
+        # Retry: covers transient upload failures (the creation race is gone).
         run: |
           npm run build
           for attempt in 1 2 3; do
-            npx electron-builder --publish always --config.publish.releaseType="$RELEASE_TYPE" && exit 0
+            npx electron-builder --publish always --config.publish.releaseType=draft && exit 0
             echo "::warning::electron-builder publish failed (attempt $attempt) — retrying in 30s"
             sleep 30
           done
           exit 1
 
-  # ── Build Android APK (sideload) ───────────────────────────────────────────
-  # Same invariant as the extension job: electron-builder owns creating the
-  # GitHub release; this job only appends the APK to it, so it MUST run after
-  # the electron matrix (the v0.2.0-beta.1 maiden-run bug).
+  # ── Build Android APK + AAB ─────────────────────────────────────────────────
+  # Uploads into the draft created by prepare-release (gh CLI resolves draft
+  # releases by tag — the softprops action could not, which is why the old
+  # workflow had to run after the electron matrix; that ordering is now gone).
   # Signing: with the ANDROID_KEYSTORE_* secrets set, produces a release-signed
   # APK (REQUIRED for update-over-install to keep working between versions).
   # Without them it falls back to a debug-signed APK marked "-debugsigned"
   # (installable for testing, but each CI run signs with a throwaway key, so
-  # updates need uninstall/reinstall — add the secrets before real releases).
+  # updates need uninstall/reinstall). Note: the debug fallback produces no
+  # AAB, so publish-release's completeness gate will fail and the release
+  # stays draft — a debug-signed build must never publish.
   android:
-    needs: [validate, electron]
+    needs: [validate, prepare-release]
     runs-on: ubuntu-latest
     name: Android APK
 
@@ -160,24 +188,18 @@ jobs:
                "$GITHUB_WORKSPACE/magicmoney-android-${{ github.ref_name }}-debugsigned.apk"
           fi
 
-      - name: Upload APK to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            magicmoney-android-*.apk
-            magicmoney-android-*.aab
-          # Keep the flag electron-builder set — a '-' in the tag means beta.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+      - name: Upload to release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          files=(magicmoney-android-*.apk magicmoney-android-*.aab)
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
 
   # ── Build Chrome extension zip (runs once on Linux) ────────────────────────
-  # MUST run after the electron matrix: electron-builder owns creating the
-  # GitHub release; this job only appends the zip to it. When this ran in
-  # parallel it created the release first and electron-builder refused to
-  # upload the installers into it (exit 0, empty release).
   extension:
-    needs: [validate, electron]
+    needs: [validate, prepare-release]
     runs-on: ubuntu-latest
     name: Chrome Extension
 
@@ -200,11 +222,61 @@ jobs:
           cd dist-extension
           zip -r ../magicmoney-extension-${{ github.ref_name }}.zip .
 
-      - name: Upload extension zip to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: magicmoney-extension-${{ github.ref_name }}.zip
-          # Keep the flag electron-builder set — a '-' in the tag means beta.
-          prerelease: ${{ contains(github.ref_name, '-') }}
+      - name: Upload to release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" "magicmoney-extension-$TAG.zip" --clobber --repo "$GITHUB_REPOSITORY"
+
+  # ── Verify completeness, then publish atomically ───────────────────────────
+  # Runs only if EVERY build job succeeded. Checks that all expected assets
+  # actually landed on the draft (a leg can succeed while an upload silently
+  # didn't stick), then flips draft → published. Auto-update clients never see
+  # a half-uploaded release. If this job fails or is skipped, the release
+  # stays draft — fix and use "Re-run failed jobs" to resume.
+  publish-release:
+    needs: [prepare-release, electron, android, extension]
+    runs-on: ubuntu-latest
+    name: Publish Release
+
+    steps:
+      - name: Verify assets and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          assets=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          echo "Assets on $TAG:"
+          echo "$assets"
+          missing=0
+          for pattern in \
+            'Setup.*\.exe$' \
+            '\.dmg$' \
+            '-mac\.zip$' \
+            '\.AppImage$' \
+            '\.deb$' \
+            '^latest\.yml$' \
+            '^latest-mac\.yml$' \
+            '^latest-linux\.yml$' \
+            '^magicmoney-android-.*\.apk$' \
+            '^magicmoney-android-.*\.aab$' \
+            '^magicmoney-extension-.*\.zip$'
+          do
+            if ! echo "$assets" | grep -qE "$pattern"; then
+              echo "::error::Missing release asset matching: $pattern"
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Release stays DRAFT — asset set incomplete."
+            exit 1
+          fi
+          # A '-' in the tag means beta → GitHub Pre-release; otherwise it's a
+          # stable release and becomes the repo's Latest.
+          if [[ "$TAG" == *-* ]]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi
+          echo "Published $TAG"

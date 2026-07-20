@@ -11,15 +11,10 @@
  * project ships, same as electron-updater's prerelease releaseType.
  */
 
-import { registerPlugin } from '@capacitor/core'
 import { App as CapacitorApp } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
 import type { UpdateStatus } from '../renderer/types/wallet'
-
-interface AppInfoPlugin {
-  getInstallSource(): Promise<{ installer: string | null }>
-}
-const AppInfo = registerPlugin<AppInfoPlugin>('AppInfo')
+import { AppInfo } from './app-info'
 
 /**
  * True when this install came from Google Play. Play policy forbids apps

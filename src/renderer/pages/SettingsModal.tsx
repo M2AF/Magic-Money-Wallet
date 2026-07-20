@@ -406,6 +406,12 @@ function RevealSeedModal({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
+  // Android: block screenshots/recents preview while the modal is open.
+  useEffect(() => {
+    window.wallet.setSecureScreen?.(true)
+    return () => { window.wallet.setSecureScreen?.(false) }
+  }, [])
+
   const reveal = async () => {
     if (!password) return
     setBusy(true); setError(null)

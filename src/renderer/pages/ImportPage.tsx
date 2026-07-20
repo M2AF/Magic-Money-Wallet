@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { AppPage, WalletAddresses } from '../types/wallet'
 
 interface Props {
@@ -12,6 +12,12 @@ export function ImportPage({ onNavigate, onComplete }: Props) {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Android: block screenshots/recents preview while the seed is on screen.
+  useEffect(() => {
+    window.wallet.setSecureScreen?.(true)
+    return () => { window.wallet.setSecureScreen?.(false) }
+  }, [])
 
   const setWord = (i: number, val: string) => {
     // Handle paste of full phrase
