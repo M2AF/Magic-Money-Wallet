@@ -59,6 +59,73 @@ function requestViaPageMessage(page: import('@playwright/test').Page, type: stri
 }
 
 test.describe('extension page boundary', () => {
+  test('rebrands Strike\'s VESPR compatibility row as MagicMoney', async ({ page }) => {
+    await installMockRuntime(page)
+    await page.route('https://app.strikefinance.org/brand-test', route => route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html><body>
+        <button id="vespr-row">
+          <div><img alt="Vespr" src="/images/vespr.webp"><span>Vespr</span></div>
+        </button>
+      </body></html>`,
+    }))
+    await page.goto('https://app.strikefinance.org/brand-test')
+    await page.addScriptTag({ path: extensionFile('inject.js') })
+
+    await expect(page.locator('#vespr-row')).toContainText('MagicMoney Wallet')
+    await expect(page.locator('#vespr-row img')).toHaveAttribute('alt', 'MagicMoney Wallet')
+    await expect(page.locator('#vespr-row img')).toHaveAttribute('src', /^data:image\/png;base64,/)
+    await expect(page.evaluate(() => {
+      const cardano = (window as typeof window & {
+        cardano: Record<string, unknown>
+      }).cardano
+      return cardano.magicmoney === cardano.vespr
+    })).resolves.toBe(true)
+  })
+
+  test('rebrands DexHunter\'s VESPR compatibility tile as MagicMoney', async ({ page }) => {
+    await installMockRuntime(page)
+    await page.route('https://app.dexhunter.io/brand-test', route => route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html><body>
+        <div id="vespr-tile">
+          <div><img alt="Vespr wallet" src="https://storage.googleapis.com/dexhunter-images/public/vespr.svg"></div>
+          <div><span>Vespr</span></div>
+        </div>
+      </body></html>`,
+    }))
+    await page.goto('https://app.dexhunter.io/brand-test')
+    await page.addScriptTag({ path: extensionFile('inject.js') })
+
+    await expect(page.locator('#vespr-tile')).toContainText('MagicMoney Wallet')
+    await expect(page.locator('#vespr-tile img')).toHaveAttribute('alt', 'MagicMoney Wallet')
+    await expect(page.locator('#vespr-tile img')).toHaveAttribute('src', /^data:image\/png;base64,/)
+  })
+
+  test('leaves VESPR branding alone when a genuine provider owns the key', async ({ page }) => {
+    await installMockRuntime(page)
+    await page.addInitScript(() => {
+      ;(window as typeof window & { cardano: Record<string, unknown> }).cardano = {
+        vespr: { name: 'Vespr' },
+      }
+    })
+    await page.route('https://app.dexhunter.io/genuine-vespr-test', route => route.fulfill({
+      contentType: 'text/html',
+      body: `<!doctype html><html><body>
+        <div id="vespr-tile">
+          <div><img alt="Vespr wallet" src="https://storage.googleapis.com/dexhunter-images/public/vespr.svg"></div>
+          <div><span>Vespr</span></div>
+        </div>
+      </body></html>`,
+    }))
+    await page.goto('https://app.dexhunter.io/genuine-vespr-test')
+    await page.addScriptTag({ path: extensionFile('inject.js') })
+
+    await expect(page.locator('#vespr-tile')).toContainText('Vespr')
+    await expect(page.locator('#vespr-tile img')).toHaveAttribute('alt', 'Vespr wallet')
+    await expect(page.locator('#vespr-tile img')).toHaveAttribute('src', /\/vespr\.svg$/)
+  })
+
   test('blocks direct page attempts to call internal wallet methods', async ({ page }) => {
     await loadExtensionPageScripts(page, ['content.js'])
 

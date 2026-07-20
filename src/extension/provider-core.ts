@@ -169,6 +169,47 @@ function makeCardanoFullApi() {
   }
 }
 
+function installVesprCompatibilityBranding(cardano: Record<string, unknown>, mmWallet: object) {
+  const hostname = window.location?.hostname
+  if (hostname !== 'app.strikefinance.org' && hostname !== 'app.dexhunter.io') return
+  if (cardano.vespr !== mmWallet || typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+
+  const applyBranding = () => {
+    // Stop touching the page if a genuine VESPR extension takes ownership of
+    // its provider key after MagicMoney was injected.
+    if (cardano.vespr !== mmWallet) return
+
+    for (const image of document.querySelectorAll<HTMLImageElement>('img[alt="Vespr"], img[alt="Vespr wallet"]')) {
+      const source = `${image.getAttribute('src') ?? ''} ${image.getAttribute('srcset') ?? ''}`
+      if (!source.toLowerCase().includes('vespr')) continue
+
+      image.alt = 'MagicMoney Wallet'
+      image.removeAttribute('srcset')
+      image.src = WALLET_ICON
+      image.dataset.magicMoneyVesprBrand = 'true'
+
+      const scope = hostname === 'app.dexhunter.io'
+        ? image.parentElement?.parentElement
+        : image.closest('button, [role="dialog"]') ?? image.parentElement?.parentElement
+      if (!scope) continue
+      for (const element of scope.querySelectorAll<HTMLElement>('span, p, div, h1, h2, h3')) {
+        if (element.children.length > 0) continue
+        const text = element.textContent?.trim()
+        if (text === 'Vespr') element.textContent = 'MagicMoney Wallet'
+        else if (/^Connecting to Vespr(?:\.{3}|…)?$/i.test(text ?? '')) {
+          element.textContent = 'Connecting to MagicMoney Wallet...'
+        }
+      }
+    }
+  }
+
+  applyBranding()
+  new MutationObserver(applyBranding).observe(document.documentElement ?? document, {
+    childList: true,
+    subtree: true,
+  })
+}
+
 try {
   const w = window as unknown as Record<string, unknown>
   if (!w.cardano || typeof w.cardano !== 'object') w.cardano = {}
@@ -185,6 +226,7 @@ try {
   // `window.cardano.vespr`. Keep MagicMoney's identity and security flow, and
   // never replace the genuine VESPR provider when its extension is installed.
   if (typeof cardano.vespr === 'undefined') cardano.vespr = mmWallet
+  installVesprCompatibilityBranding(cardano, mmWallet)
 } catch (e) {
   console.warn('[MagicMoney] CIP-30 injection error:', e)
 }

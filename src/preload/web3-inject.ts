@@ -279,6 +279,38 @@ webFrame.executeJavaScript(`(function () {
         });
       }
     }
+    if (window.cardano.vespr === mmWallet &&
+        (window.location.hostname === 'app.strikefinance.org' || window.location.hostname === 'app.dexhunter.io')) {
+      const applyVesprCompatibilityBranding = function() {
+        // Stop touching the page if a genuine VESPR extension takes ownership
+        // of its provider key after MagicMoney was injected.
+        if (window.cardano.vespr !== mmWallet) return;
+        for (const image of document.querySelectorAll('img[alt="Vespr"], img[alt="Vespr wallet"]')) {
+          const source = (image.getAttribute('src') || '') + ' ' + (image.getAttribute('srcset') || '');
+          if (!source.toLowerCase().includes('vespr')) continue;
+          image.alt = 'MagicMoney Wallet';
+          image.removeAttribute('srcset');
+          image.src = ${_ICON_JSON};
+          image.dataset.magicMoneyVesprBrand = 'true';
+          const scope = window.location.hostname === 'app.dexhunter.io'
+            ? image.parentElement && image.parentElement.parentElement
+            : image.closest('button, [role="dialog"]') || (image.parentElement && image.parentElement.parentElement);
+          if (!scope) continue;
+          for (const element of scope.querySelectorAll('span, p, div, h1, h2, h3')) {
+            if (element.children.length > 0) continue;
+            const text = (element.textContent || '').trim();
+            if (text === 'Vespr') element.textContent = 'MagicMoney Wallet';
+            else if (/^Connecting to Vespr(?:\\.{3}|…)?$/i.test(text)) {
+              element.textContent = 'Connecting to MagicMoney Wallet...';
+            }
+          }
+        }
+      };
+      applyVesprCompatibilityBranding();
+      new MutationObserver(applyVesprCompatibilityBranding).observe(document.documentElement || document, {
+        childList: true, subtree: true
+      });
+    }
     // Trigger CIP-30 wallet scanners (e.g. Weld) that listen on focus/visibilitychange
     // to re-scan window.cardano after our injection. Weld sets up these listeners on
     // store init and uses them to refresh the wallet list.
