@@ -68,6 +68,12 @@ export interface CollectiblesResult {
   chainResults: Record<string, { count: number; error: string | null }>
 }
 
+export interface NftFloorResult {
+  floor: string | null
+  currency: string
+  floorUsd: string | null
+}
+
 // All EVM chains with Alchemy token support
 const TOKEN_CHAINS = [
   { id: 'ethereum',   label: 'Ethereum',   network: 'eth-mainnet',       color: '#627EEA' },
@@ -1517,6 +1523,38 @@ async function osEvmContractFloor(osChain: string, contract: string, config: Wal
   const value = json?.collection ? await osCollectionFloor(json.collection, config) : null
   floorCache.set(cacheKey, { value, exp: Date.now() + FLOOR_TTL })
   return value
+}
+
+/**
+ * Per-collection fallback used by every app shell when an NFT was opened before
+ * the background enrichment pass completed. This intentionally shares the same
+ * OpenSea chain map, cache, and native-USD conversion as eager portfolio pricing
+ * so Electron, extension, and Android cannot drift from one another.
+ */
+export async function fetchNftFloor(
+  chain: string,
+  contractAddress: string,
+  config: WalletConfig
+): Promise<NftFloorResult> {
+  const defaultCurrency = NATIVE_SYMBOL[chain] ?? 'ETH'
+  const osChain = OPENSEA_NFT_CHAIN[chain]
+  if (!osChain || !contractAddress || !canOpensea(config)) {
+    return { floor: null, currency: defaultCurrency, floorUsd: null }
+  }
+
+  const entry = await osEvmContractFloor(osChain, contractAddress, config)
+  if (!entry || entry.floor <= 0) {
+    return { floor: null, currency: defaultCurrency, floorUsd: null }
+  }
+
+  const cg = FLOOR_SYMBOL_CG[entry.symbol.toUpperCase()] ?? NATIVE_CG[chain]
+  const prices = cg ? await fetchNativePrices([chain]) : {}
+  const usd = cg ? prices[cg] ?? 0 : 0
+  return {
+    floor: entry.floor.toFixed(4),
+    currency: entry.symbol,
+    floorUsd: usd > 0 ? `$${(entry.floor * usd).toFixed(2)}` : null,
+  }
 }
 
 /** Solana: contract→slug is unreliable, so map each owned NFT's mint → slug via account/nfts. */

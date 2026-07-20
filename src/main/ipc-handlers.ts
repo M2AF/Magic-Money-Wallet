@@ -90,11 +90,11 @@ import {
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
-import { openseaFetch, heliusRpcUrl, canOpensea, tatumRpcUrl } from './api-proxy'
+import { heliusRpcUrl, tatumRpcUrl } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
-import { fetchAllTokens, fetchAllCollectibles } from './token-fetcher'
+import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor } from './token-fetcher'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from './swap-proxy'
 import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
@@ -909,41 +909,9 @@ export function registerIpcHandlers(): void {
     return xGetStatus(provider, id, loadConfig())
   })
 
-  // ── NFT floor price via OpenSea (EVM) ─────────────────────────────────────
-  // Chain slug mapping: wallet chain id → OpenSea chain slug
-  const OPENSEA_CHAIN: Record<string, string> = {
-    ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism',
-    base: 'base', polygon: 'matic', avalanche: 'avalanche',
-    blast: 'blast', zora: 'zora', abstract: 'abstract'
-  }
-
+  // ── NFT floor price via the shared OpenSea valuation path ─────────────────
   ipcMain.handle('wallet:get-nft-floor', async (_e, chain: string, contractAddress: string) => {
-    const config = loadConfig()
-    const osChain = OPENSEA_CHAIN[chain]
-    if (!osChain || !canOpensea(config) || !contractAddress) {
-      return { floor: null, currency: 'ETH', floorUsd: null }
-    }
-    try {
-      // Step 1: get collection slug from contract
-      const contractRes = await openseaFetch(`chain/${osChain}/contract/${contractAddress}`, config, 8_000)
-      if (!contractRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
-      const contractJson = await contractRes.json() as { collection?: string }
-      const slug = contractJson.collection
-      if (!slug) return { floor: null, currency: 'ETH', floorUsd: null }
-
-      // Step 2: get floor price from collection stats
-      const statsRes = await openseaFetch(`collections/${slug}/stats`, config, 8_000)
-      if (!statsRes.ok) return { floor: null, currency: 'ETH', floorUsd: null }
-      const statsJson = await statsRes.json() as {
-        total?: { floor_price?: number; floor_price_symbol?: string }
-      }
-      const floor = statsJson.total?.floor_price
-      const symbol = statsJson.total?.floor_price_symbol ?? 'ETH'
-      if (floor == null) return { floor: null, currency: symbol, floorUsd: null }
-      return { floor: floor.toFixed(4), currency: symbol, floorUsd: null }
-    } catch {
-      return { floor: null, currency: 'ETH', floorUsd: null }
-    }
+    return fetchNftFloor(chain, contractAddress, loadConfig())
   })
 
   // ── Phase 6: Built-in browser controls ───────────────────────────────────

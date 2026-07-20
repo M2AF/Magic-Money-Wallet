@@ -449,7 +449,7 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
             {/* Fallback: per-NFT IPC lookup, only when the object had no floor. */}
             {nft.floorPrice == null && floor?.floor != null && (
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                Floor: {floor.floor} {floor.currency}
+                Floor: {floor.floor} {floor.currency}{floor.floorUsd ? ` · ${floor.floorUsd}` : ''}
               </span>
             )}
           </div>

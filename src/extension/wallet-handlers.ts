@@ -16,7 +16,7 @@ import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTrans
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
-import { fetchAllTokens, fetchAllCollectibles } from '../main/token-fetcher'
+import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor } from '../main/token-fetcher'
 import { validateAddress } from '../main/address-validate'
 // STATIC import — the MV3 service worker forbids dynamic import(), and after
 // the privacy-chain refactor chain-config lives in a lazily-loaded shared chunk,
@@ -671,7 +671,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return xGetStatus(a0 as ExchangeProvider, String(a1), await store.loadConfig())
 
     case 'wallet:get-nft-floor':
-      return { floor: null, currency: 'ETH', floorUsd: null }
+      return fetchNftFloor(String(a0), String(a1), await store.loadConfig())
 
     // ── ChainLens profile ──────────────────────────────────────────────────
 

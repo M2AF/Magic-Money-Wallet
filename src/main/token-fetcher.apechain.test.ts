@@ -8,7 +8,13 @@ vi.mock('./secure-store', () => ({
   saveTokenBalanceCache: vi.fn(),
 }))
 
-import { fetchAllCollectibles, fetchAllTokens } from './token-fetcher'
+vi.mock('./native-prices', () => ({
+  getNativeUsd: vi.fn(async (ids: string[]) => Object.fromEntries(
+    ids.map(id => [id, id === 'apecoin' ? 2 : 1])
+  )),
+}))
+
+import { fetchAllCollectibles, fetchAllTokens, fetchNftFloor } from './token-fetcher'
 
 const config: WalletConfig = {
   alchemyKey: '',
@@ -171,5 +177,29 @@ describe('ApeChain portfolio assets', () => {
         contractType: 'ERC1155',
       }),
     ])
+  })
+
+  it('uses the OpenSea ape_chain floor and converts APE to USD', async () => {
+    const paths: string[] = []
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input))
+      paths.push(url.pathname)
+      if (url.pathname.includes(`/opensea/chain/ape_chain/contract/${NFT_CONTRACT}`)) {
+        return json({ collection: 'ape-collection' })
+      }
+      if (url.pathname.includes('/opensea/collections/ape-collection/stats')) {
+        return json({ total: { floor_price: 2.65, floor_price_symbol: 'APE' } })
+      }
+      throw new Error(`Unexpected request: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await fetchNftFloor('apechain', NFT_CONTRACT, config)
+
+    expect(paths).toEqual([
+      `/opensea/chain/ape_chain/contract/${NFT_CONTRACT}`,
+      '/opensea/collections/ape-collection/stats',
+    ])
+    expect(result).toEqual({ floor: '2.6500', currency: 'APE', floorUsd: '$5.30' })
   })
 })
