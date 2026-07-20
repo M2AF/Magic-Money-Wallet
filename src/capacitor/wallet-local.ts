@@ -33,7 +33,8 @@ function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
 function normalizeWebUrl(input: string): string | null {
   const trimmed = input.trim()
   if (!trimmed) return null
-  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`
+  const scheme = /\.onion(?:[/?#]|$)/i.test(trimmed) ? 'http' : 'https'
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `${scheme}://${trimmed}`
   try {
     const u = new URL(candidate)
     return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null

@@ -2,7 +2,10 @@ ext {
     // 26+: sane Keystore/BiometricPrompt behavior and a modern WebView baseline
     // (addDocumentStartJavaScript is still feature-checked at runtime in Phase 3).
     minSdkVersion = 26
-    compileSdkVersion = 35
+    // Compile against API 37 so the current embedded Tor Android runtime can
+    // be consumed. targetSdk remains 35, so this does not opt the wallet into
+    // Android 16/17 behavior changes.
+    compileSdkVersion = 37
     targetSdkVersion = 35
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'

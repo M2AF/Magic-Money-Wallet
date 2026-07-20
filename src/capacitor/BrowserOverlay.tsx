@@ -217,7 +217,8 @@ export function BrowserOverlay() {
     if (!raw) return
     let target: string | null = null
     try {
-      const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`)
+      const scheme = /\.onion(?:[/?#]|$)/i.test(raw) ? 'http' : 'https'
+      const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `${scheme}://${raw}`)
       if (u.protocol === 'http:' || u.protocol === 'https:') target = u.toString()
     } catch { /* not a URL */ }
     if (!target) target = `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`

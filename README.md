@@ -20,7 +20,7 @@ It manages **22 default mainnet networks** from a single seed phrase, adds focus
 - **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
 - **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
 - **Platform-native unlocks** — Windows Hello, Touch ID, and Android biometrics can unlock an enrolled wallet while the password remains the backup.
-- **Tor Mode for the built-in browser** — desktop downloads, verifies, and starts a private Tor runtime on first use; Android bundles the Arti Tor runtime directly. Both verify the exit with the Tor Project and fail closed when Tor is unavailable.
+- **Tor Mode for the built-in browser** — desktop downloads, verifies, and starts a private Tor runtime on first use; Android bundles Tor Android directly. Both verify the exit with the Tor Project and fail closed when Tor is unavailable; Android also verifies v3 onion access before reporting ready.
 - **One-click updates** — a **Software Update** button in Settings pulls new versions straight from GitHub Releases (Windows/Linux apply silently; macOS opens the download; Android opens the newest APK page). The extension also has a **side-panel mode** (Phantom-style dock).
 
 ---
@@ -220,7 +220,7 @@ MagicMoney is a fully-fledged signer for EVM, Solana, and Cardano dApps.
 
 On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script. On **Android**, dApps run in native plugin-owned WebViews with `document_start` provider injection, tab controls, WalletConnect `wc:` deep links, and approval overlays rendered by the wallet WebView.
 
-The onion button in the desktop and Android browser toolbars enables **Tor Mode**. On 64-bit Windows, desktop first use downloads the Tor Project Expert Bundle from the official archive, verifies its pinned SHA-256, installs it under Electron's user-data directory, and starts it privately; an already-running service on `127.0.0.1:9050` or `127.0.0.1:9150` is reused. Android starts the bundled Guardian Project Arti Mobile runtime on the app-specific loopback endpoint `127.0.0.1:19050`, so users do not need Orbot or another app. A green state means `check.torproject.org` verified the exit. A red **Tor blocked** panel keeps the proxy configured so browser requests cannot silently fall back to the direct connection, while offering Retry and Turn Off controls. Electron persists the preference and restores the proxy before its first dApp request. Android's WebView proxy API is app-wide, so enabling it applies to every WebView owned by the Android app. The Chrome extension does not expose this switch because its “browser” is the user's ordinary Chrome tabs and a wallet extension cannot safely make them a private per-wallet Tor session.
+The onion button in the desktop and Android browser toolbars enables **Tor Mode**. On 64-bit Windows, desktop first use downloads the Tor Project Expert Bundle from the official archive, verifies its pinned SHA-256, installs it under Electron's user-data directory, and starts it privately; an already-running service on `127.0.0.1:9050` or `127.0.0.1:9150` is reused. Android starts the bundled Guardian Project Tor Android runtime on a loopback SOCKS endpoint, so users do not need Orbot or another app. A green Android state means both `check.torproject.org` verified the exit and a v3 onion connection succeeded. Bare `.onion` addresses default to `http://` because Tor already authenticates and encrypts onion traffic. A red **Tor blocked** panel keeps the proxy configured so browser requests cannot silently fall back to the direct connection, while offering Retry and Turn Off controls. Electron persists the preference and restores the proxy before its first dApp request. Android's WebView proxy API is app-wide, so enabling it applies to every WebView owned by the Android app. The Chrome extension does not expose this switch because its “browser” is the user's ordinary Chrome tabs and a wallet extension cannot safely make them a private per-wallet Tor session.
 
 This is Tor routing, not a claim of Tor Browser anonymity: the embedded Chromium/WebView engines do not reproduce Tor Browser's fingerprint normalization or security patches.
 
@@ -377,6 +377,8 @@ the platform layer (Preferences-backed vault storage, in-process wallet router, 
 unlock, ML Kit QR scanning, `wc:` deep links) and a native `DappBrowser` plugin hosting
 dApp pages in **separate** WebViews with `document_start` provider injection — untrusted
 content never shares a realm with the wallet.
+
+Android builds require JDK 24, Android SDK Platform 37, and Build Tools 37.0.0.
 
 ```bash
 npm run build:capacitor   # web bundle + dapp-inject + cap sync

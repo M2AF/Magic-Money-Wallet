@@ -1,8 +1,12 @@
 package info.chainlens.magicmoney;
 
 import android.annotation.SuppressLint;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.net.Uri;
+import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
@@ -30,11 +34,14 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import org.json.JSONObject;
-import org.torproject.arti.ArtiProxy;
+import org.torproject.jni.TorService;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.Socket;
@@ -95,15 +102,15 @@ public class DappBrowserPlugin extends Plugin {
     private int activeTabId = -1;
     private String injectJs = null;
     private boolean docStartSupported = false;
-    // ArtiProxy.start() spawns its native runtime and returns immediately;
-    // bootstrap/verification continue on separate executor workers.
+    // The embedded Tor service starts asynchronously; bootstrap/verification
+    // continue on separate executor workers while WebView remains fail-closed.
     private final ExecutorService torExecutor = Executors.newCachedThreadPool();
     private volatile boolean torEnabled = false;
     private volatile String torStatus = "off";
     private volatile String torMessage = "Tor Mode is off";
     private volatile int torPort = 19050;
-    private volatile ArtiProxy artiProxy;
-    private volatile CountDownLatch artiBootstrapLatch;
+    private volatile TorService torService;
+    private volatile ServiceConnection torServiceConnection;
     private final AtomicInteger torGeneration = new AtomicInteger();
     private boolean browserShown = false;
     // Last bounds in CSS px, reapplied on setBounds
@@ -331,8 +338,6 @@ public class DappBrowserPlugin extends Plugin {
 
         if (!enabled) {
             torGeneration.incrementAndGet();
-            CountDownLatch pendingBootstrap = artiBootstrapLatch;
-            if (pendingBootstrap != null) pendingBootstrap.countDown();
             torEnabled = false;
             torStatus = "connecting";
             torMessage = "Disconnecting from Tor…";
@@ -340,7 +345,7 @@ public class DappBrowserPlugin extends Plugin {
             ProxyController.getInstance().clearProxyOverride(
                     ContextCompat.getMainExecutor(getContext()),
                     () -> {
-                        stopArtiRuntime();
+                        stopEmbeddedTorRuntime();
                         torStatus = "off";
                         torMessage = "Tor Mode is off";
                         reloadAllTabs();
@@ -359,16 +364,10 @@ public class DappBrowserPlugin extends Plugin {
 
         // Fail closed before starting Tor: WebView is hidden and every subsequent
         // request is pinned to the embedded SOCKS endpoint, even during bootstrap.
-        ProxyConfig torProxy = new ProxyConfig.Builder()
-                .addProxyRule("socks://127.0.0.1:" + torPort)
-                .build();
-        ProxyController.getInstance().setProxyOverride(
-                torProxy,
-                ContextCompat.getMainExecutor(getContext()),
-                () -> {
-                    stopLoadingAllTabs();
-                    startEmbeddedTor(generation, call);
-                });
+        applyTorProxy(torPort, () -> {
+            stopLoadingAllTabs();
+            startEmbeddedTor(generation, call);
+        });
     }
 
     // ── Wallet-side pipe ─────────────────────────────────────────────────────
@@ -409,73 +408,112 @@ public class DappBrowserPlugin extends Plugin {
         return tabs.get(activeTabId);
     }
 
-    private synchronized ArtiProxy ensureArtiProxy() {
-        if (artiProxy == null) {
-            artiProxy = ArtiProxy.Builder(getContext())
-                    // App-specific ports avoid collisions with Orbot's standard
-                    // 9050/9150 listeners while remaining loopback-only.
-                    .setSocksPort(19050)
-                    .setDnsPort(19051)
-                    .setLogListener(this::handleArtiLog)
-                    .build();
+    private void applyTorProxy(int port, Runnable applied) {
+        ProxyConfig torProxy = new ProxyConfig.Builder()
+                .addProxyRule("socks://127.0.0.1:" + port)
+                .build();
+        ProxyController.getInstance().setProxyOverride(
+                torProxy,
+                ContextCompat.getMainExecutor(getContext()),
+                applied);
+    }
+
+    private boolean applyTorProxyAndWait(int port) throws InterruptedException {
+        CountDownLatch applied = new CountDownLatch(1);
+        applyTorProxy(port, applied::countDown);
+        return applied.await(8, TimeUnit.SECONDS);
+    }
+
+    private synchronized boolean bindEmbeddedTor() {
+        if (torService != null || torServiceConnection != null) return true;
+
+        ServiceConnection connection = new ServiceConnection() {
+            @Override
+            public void onServiceConnected(ComponentName name, IBinder binder) {
+                synchronized (DappBrowserPlugin.this) {
+                    if (torServiceConnection != this || !torEnabled) return;
+                    torService = ((TorService.LocalBinder) binder).getService();
+                }
+                Log.i("MagicMoneyTor", "Embedded Tor service connected");
+            }
+
+            @Override
+            public void onServiceDisconnected(ComponentName name) {
+                synchronized (DappBrowserPlugin.this) {
+                    if (torServiceConnection == this) torService = null;
+                }
+                Log.w("MagicMoneyTor", "Embedded Tor service disconnected");
+            }
+        };
+        torServiceConnection = connection;
+        try {
+            boolean bound = getContext().getApplicationContext().bindService(
+                    new Intent(getContext(), TorService.class),
+                    connection,
+                    Context.BIND_AUTO_CREATE);
+            if (!bound) torServiceConnection = null;
+            return bound;
+        } catch (Throwable error) {
+            torServiceConnection = null;
+            Log.e("MagicMoneyTor", "Could not bind embedded Tor service", error);
+            return false;
         }
-        return artiProxy;
     }
 
     private void startEmbeddedTor(int generation, PluginCall call) {
-        CountDownLatch bootstrap = new CountDownLatch(1);
-        artiBootstrapLatch = bootstrap;
         AtomicBoolean settled = new AtomicBoolean(false);
-        ArtiProxy proxy = ensureArtiProxy();
-
-        torExecutor.execute(() -> {
-            try {
-                if (generation != torGeneration.get() || !torEnabled) return;
-                // A live listener can survive an Activity/plugin recreation. In
-                // that case, reuse it instead of asking Arti to start twice.
-                if (!localPortOpen(torPort, 500)) proxy.start();
-            } catch (Throwable ignored) {
-                finishTorAttempt(generation, call, settled, false,
-                        "Embedded Tor could not start. Traffic remains blocked.");
-            }
-        });
+        if (!bindEmbeddedTor()) {
+            finishTorAttempt(generation, call, settled, false,
+                    "Embedded Tor could not start. Traffic remains blocked.");
+            return;
+        }
 
         torExecutor.execute(() -> {
             try {
                 long deadline = System.currentTimeMillis() + 120_000;
+                int appliedPort = torPort;
+                boolean exitVerified = false;
                 while (System.currentTimeMillis() < deadline) {
                     if (generation != torGeneration.get() || !torEnabled) {
                         finishTorAttempt(generation, call, settled, false, "");
                         return;
                     }
-                    if (localPortOpen(torPort, 700) && verifyTorExit(torPort)) {
-                        finishTorAttempt(generation, call, settled, true,
-                                "Connected and verified through embedded Tor");
-                        return;
+
+                    TorService service = torService;
+                    int servicePort = service == null ? -1 : service.getSocksPort();
+                    if (servicePort > 0 && servicePort != appliedPort) {
+                        if (!applyTorProxyAndWait(servicePort)) {
+                            throw new IllegalStateException("WebView did not apply the Tor proxy");
+                        }
+                        torPort = servicePort;
+                        appliedPort = servicePort;
+                        exitVerified = false;
                     }
-                    bootstrap.await(2, TimeUnit.SECONDS);
+
+                    if (servicePort > 0 && localPortOpen(servicePort, 700)) {
+                        if (!exitVerified) exitVerified = verifyTorExit(servicePort);
+                        if (exitVerified && verifyOnionAccess(servicePort)) {
+                            finishTorAttempt(generation, call, settled, true,
+                                    "Connected; Tor exit and onion service verified");
+                            return;
+                        }
+                    }
+                    TimeUnit.SECONDS.sleep(2);
                 }
-                if (generation == torGeneration.get() && torEnabled) stopArtiRuntime();
+                if (generation == torGeneration.get() && torEnabled) stopEmbeddedTorRuntime();
                 finishTorAttempt(generation, call, settled, false,
                         "Tor could not connect within two minutes. Traffic remains blocked.");
-            } catch (InterruptedException ignored) {
+            } catch (InterruptedException interrupted) {
                 Thread.currentThread().interrupt();
                 finishTorAttempt(generation, call, settled, false,
                         "Tor connection was interrupted. Traffic remains blocked.");
+            } catch (Throwable error) {
+                Log.e("MagicMoneyTor", "Embedded Tor startup failed", error);
+                stopEmbeddedTorRuntime();
+                finishTorAttempt(generation, call, settled, false,
+                        "Embedded Tor could not start. Traffic remains blocked.");
             }
         });
-    }
-
-    private void handleArtiLog(String line) {
-        if (line == null) return;
-        Log.i("MagicMoneyTor", line.trim());
-        if (line.contains("Sufficiently bootstrapped")) {
-            CountDownLatch latch = artiBootstrapLatch;
-            if (latch != null) latch.countDown();
-        }
-        // Arti ignores stop() while it is still Starting. If the user switched
-        // Tor off during bootstrap, stop it as soon as it reaches Running.
-        if (!torEnabled && line.contains("state changed to Running")) stopArtiRuntime();
     }
 
     private boolean localPortOpen(int port, int timeoutMs) {
@@ -507,10 +545,15 @@ public class DappBrowserPlugin extends Plugin {
         });
     }
 
-    private void stopArtiRuntime() {
-        ArtiProxy proxy = artiProxy;
-        if (proxy == null) return;
-        try { proxy.stop(); } catch (Throwable ignored) { }
+    private synchronized void stopEmbeddedTorRuntime() {
+        Context context = getContext().getApplicationContext();
+        ServiceConnection connection = torServiceConnection;
+        torServiceConnection = null;
+        torService = null;
+        if (connection != null) {
+            try { context.unbindService(connection); } catch (Throwable ignored) { }
+        }
+        try { context.stopService(new Intent(context, TorService.class)); } catch (Throwable ignored) { }
     }
 
     private boolean verifyTorExit(int port) {
@@ -535,6 +578,41 @@ public class DappBrowserPlugin extends Plugin {
         } finally {
             if (connection != null) connection.disconnect();
         }
+    }
+
+    private boolean verifyOnionAccess(int port) {
+        // Use an onion service operated by the Tor Project for the readiness
+        // check. Third-party onions (including search providers) can be
+        // temporarily unavailable even when this client is working correctly.
+        String host = "xao2lxsmia2edq2n5zxg6uahx6xox2t7bfjw6b5vdzsxi7ezmqob6qid.onion";
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress("127.0.0.1", port), 2_000);
+            socket.setSoTimeout(45_000);
+            InputStream input = socket.getInputStream();
+            OutputStream output = socket.getOutputStream();
+
+            output.write(new byte[]{0x05, 0x01, 0x00});
+            output.flush();
+            if (readSocksByte(input) != 0x05 || readSocksByte(input) != 0x00) return false;
+
+            byte[] hostname = host.getBytes(StandardCharsets.US_ASCII);
+            ByteArrayOutputStream request = new ByteArrayOutputStream();
+            request.write(new byte[]{0x05, 0x01, 0x00, 0x03, (byte) hostname.length});
+            request.write(hostname);
+            request.write(new byte[]{0x00, 0x50}); // port 80; onions are encrypted by Tor itself
+            output.write(request.toByteArray());
+            output.flush();
+
+            return readSocksByte(input) == 0x05 && readSocksByte(input) == 0x00;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private int readSocksByte(InputStream input) throws IOException {
+        int value = input.read();
+        if (value < 0) throw new IOException("Unexpected end of SOCKS5 response");
+        return value;
     }
 
     private JSObject torStateJson() {
@@ -588,7 +666,7 @@ public class DappBrowserPlugin extends Plugin {
     protected void handleOnDestroy() {
         torGeneration.incrementAndGet();
         torEnabled = false;
-        stopArtiRuntime();
+        stopEmbeddedTorRuntime();
         torExecutor.shutdownNow();
         super.handleOnDestroy();
     }
