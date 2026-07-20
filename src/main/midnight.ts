@@ -25,7 +25,7 @@
  * Sends are NOT implemented yet (need DUST fees + proof server + v2 tx build).
  */
 
-const INDEXER_WS = 'wss://indexer.mainnet.midnight.network/api/v3/graphql/ws'
+const INDEXER_WS = 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws'
 const STARS = 1e6                       // 1 NIGHT = 10^6 Stars
 // nativeToken().raw from ledger-v9 — NIGHT's unshielded token type.
 const NIGHT_TOKEN_TYPE = '0000000000000000000000000000000000000000000000000000000000000000'
@@ -65,7 +65,7 @@ export async function deriveMidnightAddresses(
 // address — the same query the Nethermind DUST dashboard runs. Plain HTTPS
 // GraphQL → safe in every runtime.
 
-const INDEXER_HTTP = 'https://indexer.mainnet.midnight.network/api/v3/graphql'
+const INDEXER_HTTP = 'https://indexer.mainnet.midnight.network/api/v4/graphql'
 const SPECKS = 1e15   // 1 DUST = 10^15 Specks (atomic unit)
 
 export interface DustStatus {
