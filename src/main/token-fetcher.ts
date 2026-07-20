@@ -86,11 +86,14 @@ const TOKEN_CHAINS = [
   { id: 'zora',       label: 'Zora',       network: 'zora-mainnet',      color: '#2B5DF0' },
 ]
 
-// eth, arb, base, polygon, optimism + abstract (Alchemy supports NFTs on abstract-mainnet)
-const NFT_CHAINS = [
-  ...TOKEN_CHAINS.slice(0, 5),
-  TOKEN_CHAINS.find(c => c.id === 'abstract')!,
-].filter(Boolean)
+// Alchemy NFT API coverage. Keep this explicit instead of relying on array
+// positions in TOKEN_CHAINS: token support and NFT support are separate product
+// matrices, and positional selection previously left ApeChain out entirely.
+const ALCHEMY_NFT_CHAIN_IDS = new Set([
+  'ethereum', 'arbitrum', 'base', 'polygon', 'optimism', 'abstract', 'apechain',
+])
+
+const NFT_CHAINS = TOKEN_CHAINS.filter(c => ALCHEMY_NFT_CHAIN_IDS.has(c.id))
 
 // Testnet Mode counterparts — same ids as mainnet (labels/colors match the
 // TESTNET_EVM_CHAINS in chain-config.ts), Alchemy testnet slugs. Gnosis Chiado is
@@ -112,10 +115,7 @@ const TESTNET_TOKEN_CHAINS: typeof TOKEN_CHAINS = [
   { id: 'zora',       label: 'Zora Sepolia',        network: 'zora-sepolia',       color: '#2B5DF0' },
 ]
 
-const TESTNET_NFT_CHAINS = [
-  ...TESTNET_TOKEN_CHAINS.slice(0, 5),
-  TESTNET_TOKEN_CHAINS.find(c => c.id === 'abstract')!,
-].filter(Boolean)
+const TESTNET_NFT_CHAINS = TESTNET_TOKEN_CHAINS.filter(c => ALCHEMY_NFT_CHAIN_IDS.has(c.id))
 
 // CoinGecko ID for each chain's native token
 const NATIVE_CG: Record<string, string> = {
@@ -326,11 +326,18 @@ async function fetchTokensForChain(
       body: JSON.stringify(metaPayload),
       signal: AbortSignal.timeout(15_000)
     })
-    const metaJson: Array<{ result?: { name: string | null; symbol: string | null; decimals: number | null; logo: string | null } }> =
+    const metaJson: Array<{ id?: number; result?: { name: string | null; symbol: string | null; decimals: number | null; logo: string | null } }> =
       metaRes.ok ? await metaRes.json() : []
+    // JSON-RPC batch responses may arrive in any order. Match on the request id
+    // so balances never inherit another contract's symbol/decimals/logo.
+    const metadataById = new Map(
+      (Array.isArray(metaJson) ? metaJson : [])
+        .filter(m => typeof m.id === 'number')
+        .map(m => [m.id as number, m.result] as const)
+    )
 
     return nonZero.map((t, i) => {
-      const meta = (Array.isArray(metaJson) ? metaJson[i]?.result : null) ?? null
+      const meta = metadataById.get(i + 1) ?? null
       const decimals = meta?.decimals ?? 18
       const balance  = humanBalance(t.tokenBalance, decimals)
       // Only the REAL metadata logo here. The TrustWallet fallback is a guessed
@@ -1114,60 +1121,113 @@ interface ChainNftResult {
   error: string | null
 }
 
+interface AlchemyOwnedNft {
+  tokenId: string
+  contract: {
+    address: string
+    name: string | null
+    tokenType: string
+    openSeaMetadata?: { floorPrice?: number | null }
+  }
+  name: string | null
+  description: string | null
+  image?: {
+    cachedUrl: string | null
+    thumbnailUrl: string | null
+    originalUrl: string | null
+    pngUrl: string | null
+  }
+  animation?: {
+    cachedUrl?: string | null
+    originalUrl?: string | null
+  }
+  collection?: { name: string | null }
+  raw?: {
+    metadata?: {
+      name?: string
+      description?: string
+      image?: string
+      animation_url?: string
+      attributes?: Array<{ trait_type?: string; value?: unknown }>
+    }
+  }
+}
+
+interface AlchemyOwnedNftsPage {
+  ownedNfts?: AlchemyOwnedNft[]
+  pageKey?: string
+  error?: string
+}
+
+const ALCHEMY_NFT_PAGE_SIZE = 100
+const ALCHEMY_NFT_MAX_PAGES = 10
+
+function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): WalletCollectible {
+  const raw = nft.raw?.metadata
+  return {
+    id: `${chain.id}:${nft.contract.address}:${nft.tokenId}`,
+    name: nft.name ?? raw?.name ?? `#${nft.tokenId}`,
+    description: nft.description ?? raw?.description ?? null,
+    image: normalizeImageUrl(
+      nft.image?.cachedUrl ?? nft.image?.pngUrl ?? nft.image?.thumbnailUrl ??
+      nft.image?.originalUrl ?? raw?.image ?? null
+    ),
+    animationUrl: normalizeImageUrl(
+      nft.animation?.cachedUrl ?? nft.animation?.originalUrl ?? raw?.animation_url ?? null
+    ),
+    collectionName: nft.collection?.name ?? nft.contract.name ?? null,
+    chain: chain.id, chainLabel: chain.label, chainColor: chain.color,
+    tokenId: nft.tokenId,
+    contractAddress: nft.contract.address,
+    contractType: nft.contract.tokenType,
+    // Spam/malformed NFTs sometimes return `attributes` as an object or string
+    // instead of an array. Guard with Array.isArray — without it, .filter throws
+    // and the whole chain's .map aborts, dropping every NFT on that chain.
+    traits: (Array.isArray(raw?.attributes) ? raw.attributes : [])
+      .filter(a => a.trait_type != null && a.value != null)
+      .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) })),
+    // Alchemy returns collection floor (native unit) inline — free, no extra call.
+    floorPrice: nft.contract.openSeaMetadata?.floorPrice ?? null
+  }
+}
+
 async function fetchNftsForChain(
   address: string,
   chain: typeof NFT_CHAINS[0],
   config: WalletConfig
 ): Promise<ChainNftResult> {
-  const url = nftUrl(chain.network, config)(`getNFTsForOwner?owner=${encodeURIComponent(address)}&withMetadata=true`)
   console.log(`[NFT] Fetching ${chain.label} for ${address.slice(0, 10)}…`)
+  const items: WalletCollectible[] = []
+  let pageKey: string | undefined
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      const msg = `HTTP ${res.status}: ${body.slice(0, 200)}`
-      console.error(`[NFT] ${chain.label} error: ${msg}`)
-      return { chain, items: [], error: msg }
-    }
+    for (let page = 0; page < ALCHEMY_NFT_MAX_PAGES; page++) {
+      const params = new URLSearchParams({
+        owner: address,
+        withMetadata: 'true',
+        pageSize: String(ALCHEMY_NFT_PAGE_SIZE),
+      })
+      if (pageKey) params.set('pageKey', pageKey)
+      const url = nftUrl(chain.network, config)(`getNFTsForOwner?${params.toString()}`)
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        const msg = `HTTP ${res.status}: ${body.slice(0, 200)}`
+        console.error(`[NFT] ${chain.label} error: ${msg}`)
+        // Preserve already fetched pages if a later page is temporarily
+        // throttled; a partial wallet is preferable to blanking the chain.
+        return { chain, items, error: msg }
+      }
 
-    const json = await res.json() as {
-      ownedNfts?: Array<{
-        tokenId: string
-        contract: { address: string; name: string | null; tokenType: string; openSeaMetadata?: { floorPrice?: number | null } }
-        name: string | null
-        description: string | null
-        image?: { cachedUrl: string | null; thumbnailUrl: string | null; originalUrl: string | null; pngUrl: string | null }
-        collection?: { name: string | null }
-        raw?: { metadata?: { attributes?: Array<{ trait_type?: string; value?: unknown }>; animation_url?: string } }
-      }>
-      error?: string
-    }
+      const json = await res.json() as AlchemyOwnedNftsPage
+      if (json.error) {
+        console.error(`[NFT] ${chain.label} API error: ${json.error}`)
+        return { chain, items, error: json.error }
+      }
 
-    if (json.error) {
-      console.error(`[NFT] ${chain.label} API error: ${json.error}`)
-      return { chain, items: [], error: json.error }
+      items.push(...(json.ownedNfts ?? []).map(nft => mapAlchemyNft(nft, chain)))
+      pageKey = json.pageKey || undefined
+      if (!pageKey) break
     }
-
-    const items = (json.ownedNfts ?? []).map(nft => ({
-      id: `${chain.id}:${nft.contract.address}:${nft.tokenId}`,
-      name: nft.name ?? `#${nft.tokenId}`,
-      description: nft.description ?? null,
-      image: normalizeImageUrl(nft.image?.cachedUrl ?? nft.image?.pngUrl ?? nft.image?.thumbnailUrl ?? nft.image?.originalUrl ?? null),
-      animationUrl: nft.raw?.metadata?.animation_url ? normalizeImageUrl(nft.raw.metadata.animation_url) : null,
-      collectionName: nft.collection?.name ?? nft.contract.name ?? null,
-      chain: chain.id, chainLabel: chain.label, chainColor: chain.color,
-      tokenId: nft.tokenId,
-      contractAddress: nft.contract.address,
-      contractType: nft.contract.tokenType,
-      // Spam/malformed NFTs sometimes return `attributes` as an object or string
-      // instead of an array. Guard with Array.isArray — without it, .filter throws
-      // and the whole chain's .map aborts, dropping every NFT on that chain.
-      traits: (Array.isArray(nft.raw?.metadata?.attributes) ? nft.raw!.metadata!.attributes! : [])
-        .filter(a => a.trait_type != null && a.value != null)
-        .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) })),
-      // Alchemy returns collection floor (native unit) inline — free, no extra call.
-      floorPrice: nft.contract.openSeaMetadata?.floorPrice ?? null
-    }))
 
     console.log(`[NFT] ${chain.label}: found ${items.length} NFTs`)
     return { chain, items, error: null }

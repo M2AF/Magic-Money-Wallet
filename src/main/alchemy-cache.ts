@@ -118,8 +118,11 @@ interface PortfolioToken {
   tokenBalance: string          // hex
 }
 
+const PORTFOLIO_MAX_PAGES = 10
+
 /**
- * One live attempt (+1 retry on 429/5xx). `undefined` = failure — NOT "no tokens".
+ * Each page gets one live attempt (+1 retry on 429/5xx). `undefined` = failure
+ * before any page was recovered — NOT "no tokens".
  *
  * Uses the Portfolio Data API instead of the JSON-RPC `alchemy_getTokenBalances`
  * method: the RPC method is aggressively shed on the shared tier ("unusually high
@@ -128,25 +131,49 @@ interface PortfolioToken {
  * chain we serve, so it survives the throttle that was blanking the token list.
  */
 async function fetchTokenBalances(network: string, address: string, config: WalletConfig): Promise<RawTokenBalance[] | undefined> {
-  const body = { addresses: [{ address, networks: [network] }], withMetadata: false, withPrices: false }
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const res = await alchemyDataFetch('assets/tokens/by-address', body, config, 12_000)
-      if (res.ok) {
-        const json = await res.json() as { data?: { tokens?: PortfolioToken[] }; error?: { message?: string } }
-        if (json.error) {
-          console.warn(`[TOKEN] ${network} portfolio API error: ${json.error.message ?? ''}`)
-        } else {
-          return (json.data?.tokens ?? [])
-            .filter(t => t.tokenAddress != null && nonZero(t.tokenBalance))
-            .map(t => ({ contractAddress: t.tokenAddress as string, tokenBalance: t.tokenBalance }))
+  const balances: RawTokenBalance[] = []
+  let pageKey: string | undefined
+
+  for (let page = 0; page < PORTFOLIO_MAX_PAGES; page++) {
+    const body = {
+      addresses: [{ address, networks: [network] }],
+      withMetadata: false,
+      withPrices: false,
+      ...(pageKey ? { pageKey } : {}),
+    }
+    let pageLoaded = false
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await alchemyDataFetch('assets/tokens/by-address', body, config, 12_000)
+        if (res.ok) {
+          const json = await res.json() as {
+            data?: { tokens?: PortfolioToken[]; pageKey?: string }
+            error?: { message?: string }
+          }
+          if (json.error) {
+            console.warn(`[TOKEN] ${network} portfolio API error: ${json.error.message ?? ''}`)
+          } else {
+            balances.push(...(json.data?.tokens ?? [])
+              .filter(t => t.tokenAddress != null && nonZero(t.tokenBalance))
+              .map(t => ({ contractAddress: t.tokenAddress as string, tokenBalance: t.tokenBalance })))
+            pageKey = json.data?.pageKey || undefined
+            pageLoaded = true
+            break
+          }
+        } else if (res.status !== 429 && res.status < 500) {
+          console.warn(`[TOKEN] ${network} portfolio API HTTP ${res.status}`)
+          return balances.length ? balances : undefined
         }
-      } else if (res.status !== 429 && res.status < 500) {
-        console.warn(`[TOKEN] ${network} portfolio API HTTP ${res.status}`)
-        return undefined  // non-retryable client error
-      }
-    } catch { /* timeout/network — retryable */ }
-    if (attempt === 0) await new Promise(r => setTimeout(r, 1_500))
+      } catch { /* timeout/network — retryable */ }
+      if (attempt === 0) await new Promise(r => setTimeout(r, 1_500))
+    }
+
+    if (!pageLoaded) return balances.length ? balances : undefined
+    if (!pageKey) break
   }
-  return undefined
+
+  // A defensive de-duplication protects against a provider page boundary
+  // repeating the last item while balances are changing during pagination.
+  return [...new Map(balances.map(t => [t.contractAddress.toLowerCase(), t])).values()]
 }
