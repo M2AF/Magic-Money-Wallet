@@ -76,7 +76,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
+          # 24, not 21: tor-android 0.4.9.11's classes are compiled for Java 24
+          # (class file version 68) — app/build.gradle overrides Capacitor's
+          # generated compileOptions to VERSION_24 to match.
+          java-version: 24
 
       - name: Install dependencies
         run: npm ci
