@@ -263,7 +263,9 @@ jobs:
             '^magicmoney-android-.*\.aab$' \
             '^magicmoney-extension-.*\.zip$'
           do
-            if ! echo "$assets" | grep -qE "$pattern"; then
+            # '--': some patterns start with '-' (e.g. -mac\.zip$) and grep
+            # would otherwise parse them as options.
+            if ! echo "$assets" | grep -qE -- "$pattern"; then
               echo "::error::Missing release asset matching: $pattern"
               missing=1
             fi
