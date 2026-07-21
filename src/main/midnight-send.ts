@@ -17,27 +17,79 @@
  * explicitly into WalletFacade.init — the default is a REMOTE proof server
  * (DefaultProvingConfiguration = ServerProvingConfiguration in
  * wallet-sdk-capabilities), which would leak witness data. Never omit this.
+ *
+ * DUST first-sync cost: the DUST wallet walks a NETWORK-WIDE merkle tree (not
+ * scoped to our address) — 2026-07-20 measurement: default batchUpdates
+ * (size:10/spacing:4) sustains ~185 events/s; {size:200,spacing:0} sustains
+ * ~600 events/s (~3.3x) with no correctness or memory difference observed.
+ * At that rate Mainnet's ~144k events ≈ 4 minutes, Preprod's ~1.3M ≈ 36
+ * minutes (desktop; unverified on constrained mobile hardware — real device
+ * numbers are the actual gate for shipping this to Mainnet, per the 1.0
+ * roadmap). There is no checkpoint/start-index API — a fresh wallet always
+ * walks from zero. `restoreDustState`/`onDustStateSerialized` below exist so
+ * a multi-minute (or, unoptimized, multi-hour) sync survives an app restart
+ * instead of restarting from scratch — inventing our own tree-skip logic
+ * instead would risk building invalid witnesses; only use the SDK's own
+ * serializeState()/restore().
  */
 
 import { deriveMidnightRoleKeys } from './midnight-crypto'
+import { makeLocalKeyMaterialProvider } from './midnight-proving-keys'
 
 const PREPROD_INDEXER_HTTP = 'https://indexer.preprod.midnight.network/api/v4/graphql'
 const PREPROD_INDEXER_WS = 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws'
 const PREPROD_NODE_RPC = 'https://rpc.preprod.midnight.network'
 const NETWORK_ID = 'preprod'
-const STARS = 1e6
+
+// Measured 2026-07-20 as the sweet spot — size:1000 was only marginally
+// faster than size:200 (diminishing returns), and a smaller batch keeps peak
+// memory/main-thread pauses lower for constrained targets (Android WebView).
+const DUST_BATCH_UPDATES = { size: 200, spacing: 0 }
+// How often to snapshot dust sync progress to disk via serializeState().
+const PERSIST_INTERVAL_MS = 15_000
+
+export interface DustSyncProgress {
+  appliedIndex: number
+  highestRelevantWalletIndex: number
+  isConnected: boolean
+}
+
+export interface OpenMidnightSendWalletOptions {
+  /** Previously persisted DustWallet.serializeState() output, if any. */
+  restoreDustState?: string
+  /** Fired periodically (every PERSIST_INTERVAL_MS) with a fresh serialized snapshot. */
+  onDustStateSerialized?: (serialized: string) => void
+  /** Fired on every dust sync state tick — drive a "Preparing transaction fees — X%" UI from this. */
+  onDustProgress?: (progress: DustSyncProgress) => void
+}
 
 export interface MidnightSendHandle {
   facade: import('@midnightntwrk/wallet-sdk-facade').WalletFacade
+  unshieldedWallet: import('@midnightntwrk/wallet-sdk-unshielded-wallet').UnshieldedWallet
+  dustWallet: import('@midnightntwrk/wallet-sdk-dust-wallet').DustWallet
   unshieldedAddress: string
   ledger: typeof import('@midnight-ntwrk/ledger-v8')
+  dustSecretKey: import('@midnight-ntwrk/ledger-v8').DustSecretKey
+  shieldedSecretKeys: import('@midnight-ntwrk/ledger-v8').ZswapSecretKeys
+  nightVerifyingKey: import('@midnight-ntwrk/ledger-v8').SignatureVerifyingKey
+  signNightSegment: (data: Uint8Array) => import('@midnight-ntwrk/ledger-v8').Signature
+  /** Resolves once BOTH unshielded and dust are synced (not just the facade). */
+  waitForSendReady: () => Promise<void>
+  stopDustPersistence: () => void
 }
 
 /**
- * Builds and starts a WalletFacade against Preprod for the given raw BIP-39
- * seed. Waits for the unshielded + dust wallets to sync before returning.
+ * Builds a WalletFacade against Preprod for the given raw BIP-39 seed. Starts
+ * unshielded (fast) and dust (slow — see file doc) syncing but does NOT block
+ * on dust sync completing; call waitForSendReady() when the caller actually
+ * needs to send/register (mirrors the "show NIGHT balance now, fees syncing
+ * in background" product design).
  */
-export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: number): Promise<MidnightSendHandle> {
+export async function openMidnightSendWallet(
+  seed: Uint8Array,
+  accountIndex: number,
+  options: OpenMidnightSendWalletOptions = {}
+): Promise<MidnightSendHandle> {
   const hdMod = await import(/* @vite-ignore */ '@midnight-ntwrk/wallet-sdk-hd')
   const keys = deriveMidnightRoleKeys(hdMod, seed, accountIndex)
   if (!keys) throw new Error('Midnight HD key derivation out of bounds')
@@ -51,7 +103,6 @@ export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: num
   const { WalletEntrySchema, mergeWalletEntries } = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-facade')
   const addrFmt = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-address-format')
   const provingCaps = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-capabilities/proving')
-  const wasmProverEffect = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-prover-client/effect')
 
   // TotalCostParameters: wallet-side fee-safety margin (the report observed
   // the SDK's own default 5-block margin on live Preprod/Mainnet).
@@ -65,14 +116,13 @@ export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: num
 
   const unshieldedKeystore = createKeystore(keys.nightKey, NETWORK_ID)
   const unshieldedPublicKey = PublicKey.fromKeyStore(unshieldedKeystore)
+  const nightVerifyingKey = unshieldedKeystore.getPublicKey()
 
   const unshieldedConfig = { networkId: NETWORK_ID, indexerClientConnection, costParameters, txHistoryStorage: newTxHistory() }
   const unshieldedWallet = UnshieldedWallet(unshieldedConfig).startWithPublicKey(unshieldedPublicKey)
   await unshieldedWallet.start()
-  console.error('[midnight-send] unshielded .start() resolved')
 
   const dustSecretKey = ledger.DustSecretKey.fromSeed(keys.dustKey)
-  const dustConfig = { networkId: NETWORK_ID, indexerClientConnection, costParameters, txHistoryStorage: newTxHistory() }
   // dustParameters come from the chain's live ledger parameters, not a
   // hardcoded constant (they can change on a network upgrade).
   const paramsRes = await fetch(PREPROD_INDEXER_HTTP, {
@@ -86,9 +136,38 @@ export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: num
   const rawParams = Buffer.from(rawParamsHex, 'hex')
   const dustParameters = ledger.LedgerParameters.deserialize(rawParams).dust
 
-  const dustWallet = DustWallet(dustConfig).startWithSecretKey(dustSecretKey, dustParameters)
+  const dustConfig = {
+    networkId: NETWORK_ID,
+    indexerClientConnection,
+    costParameters,
+    txHistoryStorage: newTxHistory(),
+    // Not on DustWallet's public .d.ts, but DustWallet() forwards the whole
+    // configuration object into makeDefaultSyncService() at runtime (see
+    // v1/V1Builder.js) — measured effective 2026-07-20.
+    batchUpdates: DUST_BATCH_UPDATES,
+  }
+  const dustWallet = options.restoreDustState
+    ? DustWallet(dustConfig).restore(options.restoreDustState)
+    : DustWallet(dustConfig).startWithSecretKey(dustSecretKey, dustParameters)
   await dustWallet.start(dustSecretKey)
-  console.error('[midnight-send] dust .start() resolved')
+
+  let persistTimer: ReturnType<typeof setInterval> | null = null
+  const dustSub = dustWallet.state.subscribe((state) => {
+    options.onDustProgress?.({
+      appliedIndex: Number(state.state.progress.appliedIndex),
+      highestRelevantWalletIndex: Number(state.state.progress.highestRelevantWalletIndex),
+      isConnected: state.state.progress.isConnected,
+    })
+  })
+  if (options.onDustStateSerialized) {
+    persistTimer = setInterval(() => {
+      dustWallet.serializeState().then(options.onDustStateSerialized).catch(() => { /* best-effort */ })
+    }, PERSIST_INTERVAL_MS)
+  }
+  const stopDustPersistence = () => {
+    dustSub.unsubscribe()
+    if (persistTimer) clearInterval(persistTimer)
+  }
 
   const shieldedSecretKeys = ledger.ZswapSecretKeys.fromSeed(keys.zswapKey)
   const shieldedConfig = {
@@ -101,9 +180,8 @@ export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: num
   }
   const shieldedWallet = ShieldedWallet(shieldedConfig).startWithSecretKeys(shieldedSecretKeys)
   await shieldedWallet.start(shieldedSecretKeys)
-  console.error('[midnight-send] shielded .start() resolved')
 
-  const keyMaterialProvider = wasmProverEffect.WasmProver.makeDefaultKeyMaterialProvider()
+  const keyMaterialProvider = makeLocalKeyMaterialProvider()
   const provingService = () => provingCaps.makeWasmProvingService({ keyMaterialProvider })
   const relayURL = new URL(PREPROD_NODE_RPC.replace(/^http/, 'ws'))
 
@@ -123,17 +201,73 @@ export async function openMidnightSendWallet(seed: Uint8Array, accountIndex: num
     dust: () => dustWallet,
     provingService,
   })
-  console.error('[midnight-send] facade.init() resolved')
   await facade.start(shieldedSecretKeys, dustSecretKey)
-  console.error('[midnight-send] facade.start() resolved')
-  // Wait on unshielded + dust directly, not facade.waitForSyncedState() (which
-  // also blocks on the shielded sub-wallet — unused for an unshielded-only
-  // NIGHT send, and not something we've validated syncs correctly yet).
-  await Promise.all([unshieldedWallet.waitForSyncedState(), dustWallet.waitForSyncedState()])
-  console.error('[midnight-send] unshielded + dust synced')
 
-  const unshieldedAddressInstance = new addrFmt.UnshieldedAddress(Buffer.from(ledger.addressFromKey(unshieldedKeystore.getPublicKey()), 'hex'))
+  const unshieldedAddressInstance = new addrFmt.UnshieldedAddress(Buffer.from(ledger.addressFromKey(nightVerifyingKey), 'hex'))
   const unshieldedAddress = addrFmt.UnshieldedAddress.codec.encode(NETWORK_ID, unshieldedAddressInstance).asString()
 
-  return { facade, unshieldedAddress, ledger }
+  return {
+    facade,
+    unshieldedWallet,
+    dustWallet,
+    unshieldedAddress,
+    ledger,
+    dustSecretKey,
+    shieldedSecretKeys,
+    nightVerifyingKey,
+    signNightSegment: (data: Uint8Array) => unshieldedKeystore.signData(data),
+    // Not facade.waitForSyncedState() — that also blocks on the shielded
+    // sub-wallet, which is required by WalletFacade.init but unused here.
+    waitForSendReady: () => Promise.all([unshieldedWallet.waitForSyncedState(), dustWallet.waitForSyncedState()]).then(() => undefined),
+    stopDustPersistence,
+  }
+}
+
+/**
+ * Registers every currently-available NIGHT UTXO for DUST generation (pays
+ * for its own fee out of any DUST already accrued — waitForGeneratedDust
+ * blocks until that's true). Idempotent-ish: UTXOs already registered are
+ * harmless to pass again (the facade tracks registeredForDustGeneration per
+ * UTXO), but callers should generally only call this once per fresh UTXO.
+ */
+export async function registerForDustGeneration(handle: MidnightSendHandle): Promise<string> {
+  const unshieldedState = await handle.unshieldedWallet.waitForSyncedState()
+  const nightUtxos = unshieldedState.availableCoins.filter((u) => !u.meta.registeredForDustGeneration)
+  if (nightUtxos.length === 0) throw new Error('No unregistered NIGHT UTXOs to register for DUST generation')
+
+  const { fee } = await handle.facade.estimateRegistration(nightUtxos)
+  await handle.facade.waitForGeneratedDust(nightUtxos, fee, { timeoutMs: 5 * 60_000 })
+
+  const recipe = await handle.facade.registerNightUtxosForDustGeneration(
+    nightUtxos,
+    handle.nightVerifyingKey,
+    handle.signNightSegment,
+  )
+  const signed = await handle.facade.signRecipe(recipe, handle.signNightSegment)
+  const finalized = await handle.facade.finalizeRecipe(signed)
+  return handle.facade.submitTransaction(finalized)
+}
+
+/**
+ * Sends `amountStars` of native NIGHT (1 NIGHT = 1e6 Stars) to a Preprod
+ * mn_addr_preprod... address. Requires DUST to already be generated (call
+ * registerForDustGeneration + wait first) — payFees:true has the facade pull
+ * from the synced dust wallet automatically.
+ */
+export async function sendNight(handle: MidnightSendHandle, toAddress: string, amountStars: bigint): Promise<string> {
+  const addrFmt = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-address-format')
+  const parsed = addrFmt.MidnightBech32m.parse(toAddress)
+  const receiverAddress = addrFmt.UnshieldedAddress.codec.decode(NETWORK_ID, parsed)
+
+  const recipe = await handle.facade.transferTransaction(
+    [{
+      type: 'unshielded',
+      outputs: [{ type: handle.ledger.nativeToken().raw, receiverAddress, amount: amountStars }],
+    }],
+    { shieldedSecretKeys: handle.shieldedSecretKeys, dustSecretKey: handle.dustSecretKey },
+    { ttl: new Date(Date.now() + 30 * 60_000), payFees: true },
+  )
+  const signed = await handle.facade.signRecipe(recipe, handle.signNightSegment)
+  const finalized = await handle.facade.finalizeRecipe(signed)
+  return handle.facade.submitTransaction(finalized)
 }
