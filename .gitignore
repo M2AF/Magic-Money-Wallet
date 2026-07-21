@@ -30,6 +30,8 @@ android/app/src/main/assets/capacitor.plugins.json
 *.enc
 # Test-only Midnight Preprod wallet seed (dev tooling, never real funds)
 .midnight-preprod-test-wallet.json
+.midnight-preprod-dust-state.json
+.midnight-sync-complete.flag
 
 # ── Claude Code (keep shared settings.json; ignore personal) ──
 .claude/settings.local.json
