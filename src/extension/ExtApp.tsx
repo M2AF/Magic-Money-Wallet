@@ -250,12 +250,37 @@ export function ExtApp() {
     }
   }
 
+  // After resolving one request, immediately check for another already queued
+  // in the background (e.g. a dApp that called enable() twice while probing
+  // for wallets) — otherwise it sits unhandled until the user reopens the
+  // popup, and the dApp's own promise for it just hangs.
+  async function refreshPendingConnection() {
+    try {
+      const reqs = await (window.wallet as any).web3GetPendingConnections?.()
+      setConnRequest(reqs?.length > 0 ? reqs[0] : null)
+    } catch { setConnRequest(null) }
+  }
+
+  async function refreshPendingTx() {
+    try {
+      const reqs = await (window.wallet as any).web3GetPendingTx?.()
+      setTxRequest(reqs?.length > 0 ? reqs[0] : null)
+    } catch { setTxRequest(null) }
+  }
+
+  async function refreshPendingSign() {
+    try {
+      const reqs = await (window.wallet as any).web3GetPendingSign?.()
+      setSignRequest(reqs?.length > 0 ? reqs[0] : null)
+    } catch { setSignRequest(null) }
+  }
+
   async function doApproveConnection() {
     if (!connRequest) return
     try {
       await (window.wallet as any).web3ApproveConnection(connRequest.id)
     } catch { /* background may have already resolved */ }
-    setConnRequest(null)
+    await refreshPendingConnection()
   }
 
   async function doRejectConnection() {
@@ -263,7 +288,7 @@ export function ExtApp() {
     try {
       await (window.wallet as any).web3RejectConnection(connRequest.id)
     } catch { /* already gone */ }
-    setConnRequest(null)
+    await refreshPendingConnection()
   }
 
   async function doApproveTx() {
@@ -271,7 +296,7 @@ export function ExtApp() {
     try {
       await (window.wallet as any).web3ApproveTx(txRequest.id, txRequest.chainId)
     } catch { /* background may have already resolved */ }
-    setTxRequest(null)
+    await refreshPendingTx()
   }
 
   async function doRejectTx() {
@@ -279,7 +304,7 @@ export function ExtApp() {
     try {
       await (window.wallet as any).web3RejectTx(txRequest.id)
     } catch { /* already gone */ }
-    setTxRequest(null)
+    await refreshPendingTx()
   }
 
   async function doApproveSign() {
@@ -287,7 +312,7 @@ export function ExtApp() {
     try {
       await (window.wallet as any).web3ApproveSign(signRequest.id)
     } catch { /* background may have already resolved */ }
-    setSignRequest(null)
+    await refreshPendingSign()
   }
 
   async function doRejectSign() {
@@ -295,7 +320,7 @@ export function ExtApp() {
     try {
       await (window.wallet as any).web3RejectSign(signRequest.id)
     } catch { /* already gone */ }
-    setSignRequest(null)
+    await refreshPendingSign()
   }
 }
 

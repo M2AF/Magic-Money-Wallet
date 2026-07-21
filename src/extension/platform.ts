@@ -10,26 +10,49 @@
 
 // ── Approval popup (works from service worker — no user gesture required) ────
 // chrome.action.openPopup() requires a user gesture and silently fails in MV3
-// service workers. chrome.windows.create() has no such restriction.
+// service workers. chrome.windows.create() has no such restriction, and it's
+// the only way to surface a locked-wallet unlock prompt AND the pending
+// request without the user manually finding the toolbar icon first — a badge
+// alone leaves the dApp waiting until they notice it themselves, which isn't
+// good enough when the wallet is locked (they need to unlock before they can
+// even see what they're approving). This does mean the window carries Chrome's
+// native title bar (drag/minimize/maximize/close) — there's no frameless
+// option for extension-created windows — but the alternative (no popup at all)
+// is worse for a wallet that has to be unlocked before it can show anything.
 
 let _approvalWindowId: number | null = null
+// chrome.windows.create() is async — two approval requests firing close together
+// (common: CIP-30 dApps often call enable() more than once while probing for
+// wallets, or connect immediately followed by a signData verification step)
+// would otherwise both see _approvalWindowId still null and both spawn a
+// window. This guards the gap between "create started" and "id assigned".
+let _creatingWindow = false
 
 function openApprovalPopup(): void {
   if (_approvalWindowId !== null) {
-    // Popup already open — just focus it
+    // Popup already open — just focus it (the popup itself re-fetches all
+    // pending queues on mount, and after each approve/reject, so a second
+    // request queued while it's open still surfaces without reopening).
     chrome.windows.update(_approvalWindowId, { focused: true }).catch(() => {
       _approvalWindowId = null
       openApprovalPopup()  // window was closed, open a new one
     })
     return
   }
+  if (_creatingWindow) return
+  _creatingWindow = true
   chrome.windows.create({
-    url: chrome.runtime.getURL('popup.html'),
+    // ?windowed=1 tells popup.tsx to self-correct its size on load (see
+    // there for why: OS title bar / border overhead varies by system, so a
+    // static width/height here is either too small — clipping popup.css's
+    // fixed 400×600 content — or too big, leaving a visible margin).
+    url: chrome.runtime.getURL('popup.html?windowed=1'),
     type: 'popup',
-    width: 380,
-    height: 620,
+    width: 420,
+    height: 660,
     focused: true
   }, (win) => {
+    _creatingWindow = false
     if (!win?.id) return
     _approvalWindowId = win.id
     chrome.windows.onRemoved.addListener(function onClosed(id) {
@@ -50,7 +73,8 @@ export function pushToUi(type: string, data: unknown): void {
 
 /**
  * Surface a pending approval to the user: push it to any open wallet UI, and
- * if none is listening, open the windowed approval popup.
+ * if none is listening, open the windowed approval popup so they can unlock
+ * and see it immediately, even if the wallet was closed or locked.
  */
 export function requestApproval(type: string, data: unknown): void {
   chrome.runtime.sendMessage({ type, data }).catch(() => openApprovalPopup())
