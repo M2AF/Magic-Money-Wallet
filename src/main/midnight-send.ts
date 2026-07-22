@@ -243,12 +243,75 @@ export async function openMidnightSendWallet(
   }
 }
 
+type UnprovenTransactionRecipe = Awaited<ReturnType<import('@midnightntwrk/wallet-sdk-facade').WalletFacade['registerNightUtxosForDustGeneration']>>
+
 /**
- * Registers every currently-available NIGHT UTXO for DUST generation (pays
- * for its own fee out of any DUST already accrued — waitForGeneratedDust
- * blocks until that's true). Idempotent-ish: UTXOs already registered are
- * harmless to pass again (the facade tracks registeredForDustGeneration per
- * UTXO), but callers should generally only call this once per fresh UTXO.
+ * Sanity check before submission: every guaranteed/fallible unshielded offer
+ * must have exactly as many signatures as inputs. Catches double-signing
+ * (or any other signature-count bug) locally instead of learning about it
+ * from an opaque on-chain rejection — see the 2026-07-21 incident below.
+ */
+function assertOffersFullySigned(recipe: UnprovenTransactionRecipe): void {
+  if (recipe.type !== 'UNPROVEN_TRANSACTION') return
+  for (const intent of recipe.transaction.intents?.values() ?? []) {
+    for (const offer of [intent.guaranteedUnshieldedOffer, intent.fallibleUnshieldedOffer]) {
+      if (!offer) continue
+      if (offer.inputs.length !== offer.signatures.length) {
+        throw new Error(`Unshielded offer signature mismatch: ${offer.inputs.length} inputs, ${offer.signatures.length} signatures (expected equal)`)
+      }
+    }
+  }
+}
+
+const utxoKey = (u: { intentHash: string; outputNo: number }) => `${u.intentHash}:${u.outputNo}`
+
+/**
+ * Waits for the wallet's OWN synced state to observe the given NIGHT UTXOs
+ * as registeredForDustGeneration — submitTransaction() resolving only means
+ * the RPC accepted the extrinsic for broadcast, not that it landed. Checks
+ * totalCoins (not availableCoins): rotateUtxos books the UTXOs out of
+ * available while the registration is in flight, so availableCoins can stay
+ * empty of them until well after confirmation.
+ */
+async function waitForRegistrationObserved(
+  handle: MidnightSendHandle,
+  nightUtxos: readonly { utxo: { intentHash: string; outputNo: number } }[],
+  timeoutMs: number
+): Promise<void> {
+  const targetKeys = new Set(nightUtxos.map((u) => utxoKey(u.utxo)))
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      sub.unsubscribe()
+      reject(new Error('Timed out waiting for the indexer/wallet to observe the DUST registration'))
+    }, timeoutMs)
+    const sub = handle.unshieldedWallet.state.subscribe((state) => {
+      const matches = state.totalCoins.filter((u) => targetKeys.has(utxoKey(u.utxo)))
+      if (matches.length > 0 && matches.every((u) => u.meta.registeredForDustGeneration)) {
+        clearTimeout(timer)
+        sub.unsubscribe()
+        resolve()
+      }
+    })
+  })
+}
+
+/**
+ * Registers every currently-unregistered NIGHT UTXO for DUST generation
+ * (pays for its own fee out of any DUST already accrued —
+ * waitForGeneratedDust blocks until that's true), waits for the wallet to
+ * observe the registration land, then returns the tx id.
+ *
+ * ⚠ registerNightUtxosForDustGeneration() SIGNS INTERNALLY (see
+ * createDustActionTransaction's "Step 5" in wallet-sdk-facade's source: it
+ * calls this.signRecipe(...) itself using the signDustRegistration callback
+ * passed in below) — do NOT call facade.signRecipe() again on its result.
+ * 2026-07-21 incident: an earlier version of this function did call
+ * signRecipe() a second time, appending a second set of signatures onto
+ * offers that were already fully signed. The chain rejected it with
+ * `1010: Invalid Transaction: Custom error: 192` — InputsSignaturesLengthMismatch
+ * per Midnight's node source (more signatures than inputs). Root-caused by
+ * Codex from https://github.com/midnightntwrk/midnight-node (types.rs) and
+ * https://github.com/midnightntwrk/midnight-wallet (facade/src/index.ts).
  */
 export async function registerForDustGeneration(handle: MidnightSendHandle): Promise<string> {
   const unshieldedState = await handle.unshieldedWallet.waitForSyncedState()
@@ -258,14 +321,17 @@ export async function registerForDustGeneration(handle: MidnightSendHandle): Pro
   const { fee } = await handle.facade.estimateRegistration(nightUtxos)
   await handle.facade.waitForGeneratedDust(nightUtxos, fee, { timeoutMs: 5 * 60_000 })
 
-  const recipe = await handle.facade.registerNightUtxosForDustGeneration(
+  const signedRecipe = await handle.facade.registerNightUtxosForDustGeneration(
     nightUtxos,
     handle.nightVerifyingKey,
     handle.signNightSegment,
   )
-  const signed = await handle.facade.signRecipe(recipe, handle.signNightSegment)
-  const finalized = await handle.facade.finalizeRecipe(signed)
-  return handle.facade.submitTransaction(finalized)
+  assertOffersFullySigned(signedRecipe)
+
+  const finalized = await handle.facade.finalizeRecipe(signedRecipe)
+  const txId = await handle.facade.submitTransaction(finalized)
+  await waitForRegistrationObserved(handle, nightUtxos, 5 * 60_000)
+  return txId
 }
 
 /**
