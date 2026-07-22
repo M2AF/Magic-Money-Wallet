@@ -491,6 +491,9 @@ export interface WalletConfig {
   // monero-ts scans from here instead of the genesis block; 0 = unknown → full
   // scan. Persisted so re-enabling the mode never rescans history it already saw.
   moneroRestoreHeight: number
+  // Magic Guard: global on/off for the built-in dApp browser's privacy filtering.
+  // Per-site exceptions live outside this file (magic-guard.ts, browser-only data).
+  magicGuardEnabled: boolean
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -521,7 +524,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   privacyMode: false,
   torBrowserEnabled: false,
   torBrowserPort: 9050,
-  moneroRestoreHeight: 0
+  moneroRestoreHeight: 0,
+  magicGuardEnabled: true
 }
 
 let configCache: WalletConfig | null = null
@@ -555,6 +559,7 @@ function sanitizeConfig(cfg: WalletConfig): WalletConfig {
     swapProxyUrl: sanitizeProxyUrl(cfg.swapProxyUrl),
     torBrowserEnabled: cfg.torBrowserEnabled === true,
     torBrowserPort: Number.isInteger(torPort) && torPort > 0 && torPort <= 65535 ? torPort : 9050,
+    magicGuardEnabled: cfg.magicGuardEnabled !== false,
   }
 }
 

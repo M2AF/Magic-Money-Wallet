@@ -18,6 +18,7 @@
     "test:e2e": "npm run build:extension && playwright test",
     "test:e2e:app": "npm run build && playwright test e2e/electron-smoke.spec.ts",
     "test:tor": "esbuild src/main/tor-manager.ts --bundle --platform=node --format=cjs --external:electron --outfile=out/tor-smoke-manager.cjs && electron scripts/tor-smoke.cjs",
+    "test:magic-guard-engine": "electron scripts/magic-guard-engine-smoke.cjs",
     "test:watch": "vitest",
     "postinstall": "patch-package",
     "predev": "node scripts/convert-apphub.js",
@@ -68,6 +69,7 @@
     "@walletconnect/sign-client": "^2.23.9",
     "@walletconnect/types": "^2.23.9",
     "@walletconnect/utils": "^2.23.9",
+    "adblock-rs": "0.13.2",
     "ed25519-hd-key": "^1.3.0",
     "electron-updater": "^6.8.9",
     "monero-ts": "^0.11.10",
@@ -112,7 +114,12 @@
     },
     "files": [
       "out/**/*",
-      "resources/**/*"
+      "resources/**/*",
+      "!node_modules/adblock-rs/target/**",
+      "!node_modules/adblock-rs/src/**",
+      "!node_modules/adblock-rs/benches/**",
+      "!node_modules/adblock-rs/fuzz/**",
+      "!node_modules/adblock-rs/js/test/**"
     ],
     "publish": {
       "provider": "github"

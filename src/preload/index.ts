@@ -146,6 +146,9 @@ contextBridge.exposeInMainWorld('wallet', {
   browserGetState: ()               => ipcRenderer.invoke('browser:get-state'),
   browserGetTorState: ()            => ipcRenderer.invoke('browser:tor:get-state'),
   browserSetTorMode: (enabled: boolean) => ipcRenderer.invoke('browser:tor:set-mode', enabled),
+  browserGetMagicGuardState: ()               => ipcRenderer.invoke('browser:guard:get-state'),
+  browserSetMagicGuardEnabled: (enabled: boolean)     => ipcRenderer.invoke('browser:guard:set-enabled', enabled),
+  browserSetMagicGuardForSite: (enabled: boolean)     => ipcRenderer.invoke('browser:guard:set-site-enabled', enabled),
   browserNewTab:      (url?: string) => ipcRenderer.send('browser:new-tab', url),
   browserSetActiveTab: (id: number)  => ipcRenderer.send('browser:set-active-tab', id),
   browserCloseTab:     (id: number)  => ipcRenderer.send('browser:close-tab', id),
@@ -158,6 +161,7 @@ contextBridge.exposeInMainWorld('wallet', {
   onBrowserTitle:    (cb: (title: string) => void)                                  => ipcRenderer.on('browser:title',     (_e, v) => cb(v)),
   onBrowserTabs:     (cb: (s: { activeTabId: number; tabs: Array<{ id: number; title: string; url: string; loading: boolean }> }) => void) => ipcRenderer.on('browser:tabs', (_e, v) => cb(v)),
   onBrowserTorState: (cb: (s: unknown) => void) => ipcRenderer.on('browser:tor-state', (_e, v) => cb(v)),
+  onBrowserGuardState: (cb: (s: unknown) => void) => ipcRenderer.on('browser:guard-state', (_e, v) => cb(v)),
 
   offBrowserUrl:      (cb: (url: string) => void)                                   => ipcRenderer.removeListener('browser:url',       cb as never),
   offBrowserLoading:  (cb: (loading: boolean) => void)                              => ipcRenderer.removeListener('browser:loading',   cb as never),
@@ -165,6 +169,7 @@ contextBridge.exposeInMainWorld('wallet', {
   offBrowserTitle:    (cb: (title: string) => void)                                 => ipcRenderer.removeListener('browser:title',     cb as never),
   offBrowserTabs:     (cb: (s: { activeTabId: number; tabs: Array<{ id: number; title: string; url: string; loading: boolean }> }) => void) => ipcRenderer.removeListener('browser:tabs', cb as never),
   offBrowserTorState: (cb: (s: unknown) => void) => ipcRenderer.removeListener('browser:tor-state', cb as never),
+  offBrowserGuardState: (cb: (s: unknown) => void) => ipcRenderer.removeListener('browser:guard-state', cb as never),
 
   // Fired when the popup is closed (so the wallet can update the Browser button state)
   onBrowserClosed:    (cb: () => void)  => ipcRenderer.on('browser:closed',  () => cb()),

@@ -1,9 +1,10 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
-import { FullScreenButton, SnapButtons } from './components/WindowLayout'
+import { FullScreenButton, SnapMenu } from './components/WindowLayout'
+import { MagicGuardControl } from './components/MagicGuardControl'
 import APP_HUB, { type AppEntry } from './data/app-hub'
 import wordmarkUrl from './assets/wordmark.png'
 import logoUrl from './assets/logo.png'
-import type { TorBrowserState } from './types/wallet'
+import type { TorBrowserState, MagicGuardState } from './types/wallet'
 
 const HOME = 'https://chainlensnft.info'
 
@@ -29,13 +30,26 @@ export function BrowserApp() {
   const [title, setTitle]       = useState('MagicMoney Browser')
   const [tabs, setTabs]         = useState<TabInfo[]>([])
   const [activeTabId, setActiveTabId] = useState(0)
-  const [menuOpen, setMenuOpen] = useState(false)
+  // The tab overview, address-bar suggestions, wallet-snap menu, and Magic Guard
+  // panel are all floating dropdowns that extend into the area the active dApp
+  // WebContentsView covers, so at most one may be open at a time — opening any of
+  // them detaches that view and paints a snapshot behind the dropdown (see
+  // openOverlay), and closing re-attaches it.
+  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard'
+  const [overlay, setOverlay]   = useState<OverlayKind | null>(null)
   const [snapshot, setSnapshot] = useState<string | null>(null)
-  const [sugOpen, setSugOpen]   = useState(false)
   const [typed, setTyped]       = useState(false)
+  const menuOpen     = overlay === 'tabs'
+  const sugOpen      = overlay === 'suggest'
+  const snapMenuOpen = overlay === 'snap'
+  const guardOpen    = overlay === 'guard'
   const [tor, setTor] = useState<TorBrowserState>({
     enabled: false, status: 'off', host: '127.0.0.1', port: 9050,
     isTor: false, message: 'Tor Mode is off',
+  })
+  const [guard, setGuard] = useState<MagicGuardState>({
+    enabled: true, siteEnabled: true, effectiveEnabled: false, status: 'loading',
+    hostname: null, blockedThisPage: 0, blockedThisTab: 0,
   })
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -80,45 +94,50 @@ export function BrowserApp() {
     return () => window.wallet.offBrowserTorState?.(onTor)
   }, [])
 
+  useEffect(() => {
+    const onGuard = (state: MagicGuardState) => setGuard(state)
+    window.wallet.browserGetMagicGuardState?.().then(onGuard).catch(() => {})
+    window.wallet.onBrowserGuardState?.(onGuard)
+    return () => window.wallet.offBrowserGuardState?.(onGuard)
+  }, [])
+
   const navigate = useCallback((target: string) => {
     window.wallet.browserNavigate(target)
     inputRef.current?.blur()
   }, [])
 
-  // Tab overview: snapshot the live page (returned by suspend) and paint it behind
-  // the dropdown so the dApp stays visible while the overlay is open.
-  const openTabsMenu = useCallback(async () => {
+  // Open any one overlay: snapshot the live page (returned by suspend) and paint it
+  // behind the dropdown so the dApp stays visible while the overlay is open.
+  const openOverlay = useCallback(async (kind: OverlayKind) => {
+    if (overlay) return // another overlay owns the detached view right now
     const img = await window.wallet.browserSuspendTabsMenu()
     setSnapshot(img || null)
-    setMenuOpen(true)
-  }, [])
-  const closeTabsMenu = useCallback(() => {
-    setMenuOpen(false)
+    setOverlay(kind)
+  }, [overlay])
+
+  const closeOverlay = useCallback(() => {
+    setOverlay(null)
     setSnapshot(null)
     window.wallet.browserResumeTabsMenu()
   }, [])
 
-  // Address-bar App Hub suggestions. The dropdown extends below the chrome into
-  // the area covered by the dApp WebContentsView, so while it is open it reuses
-  // the exact suspend/snapshot machinery the tab overview uses: detach the live
-  // view, paint its snapshot behind the dropdown, re-attach on close.
+  const openTabsMenu = useCallback(() => openOverlay('tabs'), [openOverlay])
+
+  // Address-bar App Hub suggestions reuse the same suspend/snapshot machinery, but
+  // need an extra focus recheck: focus may have moved on while the snapshot was
+  // being captured (the fetch is async), so bail out without opening if so.
   const openSuggest = useCallback(async () => {
-    if (menuOpen) return // tab overview owns the overlay right now
+    if (overlay) return
     const img = await window.wallet.browserSuspendTabsMenu()
-    // Focus may have moved on while the snapshot was being captured.
     if (document.activeElement !== inputRef.current) {
       window.wallet.browserResumeTabsMenu()
       return
     }
     setSnapshot(img || null)
-    setSugOpen(true)
-  }, [menuOpen])
+    setOverlay('suggest')
+  }, [overlay])
 
-  const closeSuggest = useCallback(() => {
-    setSugOpen(false)
-    setSnapshot(null)
-    window.wallet.browserResumeTabsMenu()
-  }, [])
+  const closeSuggest = closeOverlay
 
   // Nothing typed yet → App Hub "Featured" (popular); typing narrows exactly
   // like the App Hub search. Always current: the data is regenerated from
@@ -213,6 +232,15 @@ export function BrowserApp() {
           </svg>
         </NavBtn>
 
+        {/* Magic Guard — privacy filtering for this dApp tab */}
+        <MagicGuardControl
+          state={guard}
+          onChange={setGuard}
+          open={guardOpen}
+          onOpen={() => openOverlay('guard')}
+          onClose={closeOverlay}
+        />
+
         {/* URL bar + App Hub suggestions */}
         <form onSubmit={onSubmit} style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <input
@@ -272,7 +300,11 @@ export function BrowserApp() {
         <TorControl state={tor} onChange={setTor} />
 
         {/* Snap the wallet + browser side by side — left of the tabs button */}
-        <SnapButtons />
+        <SnapMenu
+          open={snapMenuOpen}
+          onOpen={() => openOverlay('snap')}
+          onClose={closeOverlay}
+        />
 
         {/* Open tabs */}
         <TabsMenu
@@ -280,7 +312,7 @@ export function BrowserApp() {
           activeTabId={activeTabId}
           open={menuOpen}
           onOpen={openTabsMenu}
-          onClose={closeTabsMenu}
+          onClose={closeOverlay}
         />
 
         {/* Network switcher (active EVM network + manual switch) */}

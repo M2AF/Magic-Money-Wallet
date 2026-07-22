@@ -76,6 +76,9 @@ import {
   getBrowserState,
   getTorBrowserState,
   setTorBrowserMode,
+  browserGetMagicGuardState,
+  browserSetMagicGuardEnabled,
+  browserSetMagicGuardForSite,
   getMainWin,
   showApprovalWindow,
   emitDappEvent,
@@ -974,6 +977,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('browser:get-state', () => getBrowserState())
   ipcMain.handle('browser:tor:get-state', () => getTorBrowserState())
   ipcMain.handle('browser:tor:set-mode', (_event, enabled: boolean) => setTorBrowserMode(enabled === true))
+  ipcMain.handle('browser:guard:get-state', () => browserGetMagicGuardState())
+  ipcMain.handle('browser:guard:set-enabled', (_event, enabled: boolean) => browserSetMagicGuardEnabled(enabled === true))
+  ipcMain.handle('browser:guard:set-site-enabled', (_event, enabled: boolean) => browserSetMagicGuardForSite(enabled === true))
 
   // ── Side-by-side window layout (Full Screen Mode) ─────────────────────────
   ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))

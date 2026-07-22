@@ -16,6 +16,10 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # adblock-rs (Magic Guard) has no prebuilt binaries — it compiles from Rust
+      # source on install, so every job that runs npm ci needs a pinned toolchain
+      # first (matching node_modules/adblock-rs's own rust-toolchain.toml channel).
+      - uses: dtolnay/rust-toolchain@1.97
       - run: npm ci
       - name: Type check (main + renderer)
         run: npm run typecheck

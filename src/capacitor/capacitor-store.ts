@@ -39,6 +39,7 @@ export interface WalletConfig {
   torBrowserEnabled: boolean
   torBrowserPort: number
   moneroRestoreHeight: number // Monero wallet birthday (block height at first Privacy Mode enable)
+  magicGuardEnabled: boolean // Shape parity only; the Android native WebView adapter ships in a later batch
 }
 
 // Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
@@ -64,7 +65,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   privacyMode:            false,
   torBrowserEnabled:      false,
   torBrowserPort:         9050,
-  moneroRestoreHeight:    0
+  moneroRestoreHeight:    0,
+  magicGuardEnabled:      true
 }
 
 const AUTO_LOCK_MS = 15 * 60_000

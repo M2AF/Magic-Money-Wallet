@@ -28,6 +28,13 @@ import { getDappChainId, setDappChainId } from './dapp-chain'
 import { defaultDappChainId } from './chain-config'
 import { loadConfig, saveConfig } from './secure-store'
 import { ensureManagedTor, stopManagedTor } from './tor-manager'
+import {
+  getMagicGuardState,
+  setMagicGuardEnabled,
+  setMagicGuardForSite,
+  hostnameFromUrl,
+  type MagicGuardState
+} from './magic-guard'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
 const DAPP_SESSION_PARTITION = 'persist:mm-dapp-browser'
@@ -318,6 +325,27 @@ export async function setTorBrowserMode(enabled: boolean): Promise<TorBrowserSta
   }
 }
 
+// ── Magic Guard (privacy filtering for the dApp browser) ────────────────────
+// Main derives the hostname from the active tab itself — never from a value the
+// renderer passes in — so a compromised dApp page cannot spoof which site its
+// on/off toggle applies to.
+
+export function browserGetMagicGuardState(): MagicGuardState {
+  return getMagicGuardState(hostnameFromUrl(activeTab()?.url ?? null))
+}
+
+export function browserSetMagicGuardEnabled(enabled: boolean): MagicGuardState {
+  const state = setMagicGuardEnabled(enabled, hostnameFromUrl(activeTab()?.url ?? null))
+  publishGuardState()
+  return state
+}
+
+export function browserSetMagicGuardForSite(protect: boolean): MagicGuardState {
+  const state = setMagicGuardForSite(hostnameFromUrl(activeTab()?.url ?? null), protect)
+  publishGuardState()
+  return state
+}
+
 /** Push the tab list + active id so the chrome can render the tab button/count and menu. */
 function pushTabs(): void {
   sendToChrome('browser:tabs', {
@@ -334,6 +362,12 @@ function pushActive(): void {
   sendToChrome('browser:title', t.title)
   sendToChrome('browser:loading', t.loading)
   sendToChrome('browser:nav-state', { canBack: t.canBack, canForward: t.canForward })
+  publishGuardState()
+}
+
+/** Push the Magic Guard state for the currently active tab's hostname to the chrome. */
+function publishGuardState(): void {
+  sendToChrome('browser:guard-state', getMagicGuardState(hostnameFromUrl(activeTab()?.url ?? null)))
 }
 
 function layoutActiveView(): void {
@@ -706,6 +740,7 @@ function wireTab(tab: Tab): void {
     if (isActive()) {
       sendToChrome('browser:url', url)
       sendToChrome('browser:nav-state', { canBack: tab.canBack, canForward: tab.canForward })
+      publishGuardState()
 
       // Reset the active EVM network to the mode default (Ethereum, or Sepolia in
       // Testnet Mode) when moving to a NEW dApp origin so a prior dApp's chain

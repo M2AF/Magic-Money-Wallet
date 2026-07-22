@@ -290,6 +290,25 @@ export interface TorBrowserState {
   message: string
 }
 
+// Magic Guard — privacy filtering for the built-in dApp browser. v1 ships the
+// on/off toggle + per-site exception UI; `effectiveEnabled` stays false and
+// `status` stays 'degraded' (with `error` explaining why) until the filtering
+// engine itself is wired in behind this same state shape.
+export type MagicGuardStatus = 'loading' | 'ready' | 'degraded' | 'disabled'
+
+export interface MagicGuardState {
+  enabled: boolean
+  siteEnabled: boolean
+  effectiveEnabled: boolean
+  status: MagicGuardStatus
+  hostname: string | null
+  blockedThisPage: number
+  blockedThisTab: number
+  listVersion?: string
+  lastUpdatedAt?: number
+  error?: string
+}
+
 declare global {
   interface Window {
     wallet: {
@@ -409,6 +428,12 @@ declare global {
       browserSetTorMode?(enabled: boolean): Promise<TorBrowserState>
       onBrowserTorState?(cb: (state: TorBrowserState) => void): void
       offBrowserTorState?(cb: (state: TorBrowserState) => void): void
+      // Magic Guard — Electron only for now (extension/Capacitor adapters ship later).
+      browserGetMagicGuardState?(): Promise<MagicGuardState>
+      browserSetMagicGuardEnabled?(enabled: boolean): Promise<MagicGuardState>
+      browserSetMagicGuardForSite?(enabled: boolean): Promise<MagicGuardState>
+      onBrowserGuardState?(cb: (state: MagicGuardState) => void): void
+      offBrowserGuardState?(cb: (state: MagicGuardState) => void): void
       browserNewTab(url?: string): void
       browserSetActiveTab(id: number): void
       browserCloseTab(id: number): void
