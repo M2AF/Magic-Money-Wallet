@@ -24,6 +24,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [privacy, setPrivacy] = useState<boolean | null>(null)
   const [privacyBusy, setPrivacyBusy] = useState(false)
   const [privacyError, setPrivacyError] = useState<string | null>(null)
+  const [midnightNetwork, setMidnightNetwork] = useState<'mainnet' | 'preprod' | null>(null)
+  const [midnightNetworkBusy, setMidnightNetworkBusy] = useState(false)
+  const [midnightNetworkError, setMidnightNetworkError] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
 
@@ -71,6 +74,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => setTestnet(null)) }, [])
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacy).catch(() => setPrivacy(null)) }, [])
+  useEffect(() => { window.wallet.getMidnightNetwork?.().then(setMidnightNetwork).catch(() => setMidnightNetwork(null)) }, [])
 
   // Flipping the mode changes chains, addresses (BTC/ADA), balances, the swap
   // availability and the dApp network list at once — a full renderer reload is the
@@ -100,6 +104,26 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       const msg = e instanceof Error ? e.message : String(e)
       setPrivacyError(msg.replace(/^Error:\s*/, ''))
       setPrivacyBusy(false)
+    }
+  }
+
+  // Midnight's OWN network switch — independent of Testnet Mode (mutually
+  // exclusive with Privacy Mode, so it can't carry Midnight's testnet state;
+  // Midnight only exists as a Privacy Mode chain). No reload needed: nothing
+  // else on screen depends on this besides the Midnight card/send flow, which
+  // re-reads it on demand.
+  const toggleMidnightNetwork = async () => {
+    if (midnightNetwork === null || midnightNetworkBusy) return
+    setMidnightNetworkBusy(true); setMidnightNetworkError(null)
+    try {
+      const next = midnightNetwork === 'mainnet' ? 'preprod' : 'mainnet'
+      await window.wallet.setMidnightNetwork?.(next)
+      setMidnightNetwork(next)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setMidnightNetworkError(msg.replace(/^Error:\s*/, ''))
+    } finally {
+      setMidnightNetworkBusy(false)
     }
   }
 
@@ -204,6 +228,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
           {privacyError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{privacyError}</div>
+          )}
+          {privacy && midnightNetwork !== null && (
+            <SettingsRow
+              icon="🌘"
+              label={midnightNetworkBusy ? 'Switching…' : `Midnight Network — ${midnightNetwork === 'mainnet' ? 'Mainnet' : 'Preprod (testing)'}`}
+              sublabel={midnightNetwork === 'mainnet'
+                ? 'Real NIGHT. Tap to switch to Preprod for testing with no real funds.'
+                : 'Test network — tNIGHT has no value. Tap to return to Mainnet.'}
+              onClick={toggleMidnightNetwork}
+              disabled={midnightNetworkBusy}
+              noChevron
+            />
+          )}
+          {midnightNetworkError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{midnightNetworkError}</div>
           )}
         </SettingsSection>
 

@@ -81,9 +81,16 @@ interface Props {
   history?: ChainHistory | null
   /** Testnet Mode: swaps the network subtitle for the chain's testnet label. */
   testnet?: boolean
+  /**
+   * When set alongside onSend, the Send button renders disabled with this
+   * text instead of "Send {symbol}" — e.g. Midnight's DUST-sync progress
+   * ("Preparing transaction fees — 42%"). Balance still shows normally;
+   * only the send ACTION is gated, not the whole card.
+   */
+  sendDisabledReason?: string
 }
 
-export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false }: Props) {
+export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false, sendDisabledReason }: Props) {
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const baseMeta = CHAIN_META[chainId] ?? FALLBACK_META
@@ -198,23 +205,28 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
       {onSend && !loading && address && !balance?.error && (
         <button
           type="button"
-          onClick={onSend}
+          onClick={sendDisabledReason ? undefined : onSend}
+          disabled={!!sendDisabledReason}
+          title={sendDisabledReason}
           style={{
             marginTop: 10, width: '100%', padding: '8px 12px',
-            background: 'var(--accent-dim)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-sm)', color: 'var(--accent)',
+            background: sendDisabledReason ? 'var(--surface-2)' : 'var(--accent-dim)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)', color: sendDisabledReason ? 'var(--text-muted)' : 'var(--accent)',
             fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 12,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 6, transition: 'all var(--transition)'
+            cursor: sendDisabledReason ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, transition: 'all var(--transition)', textAlign: 'center'
           }}
-          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border-active)')}
-          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+          onMouseEnter={e => { if (!sendDisabledReason) e.currentTarget.style.borderColor = 'var(--border-active)' }}
+          onMouseLeave={e => { if (!sendDisabledReason) e.currentTarget.style.borderColor = 'var(--border)' }}
         >
-          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <line x1="22" y1="2" x2="11" y2="13"/>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-          </svg>
-          Send {balance?.symbol ?? ''}
+          {!sendDisabledReason && (
+            <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          )}
+          {sendDisabledReason ?? `Send ${balance?.symbol ?? ''}`}
         </button>
       )}
 

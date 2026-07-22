@@ -785,6 +785,27 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [privacyMode, setPrivacyMode] = useState(false)
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
+  // Midnight DUST-sync status — polled (not pushed) while Privacy Mode is on
+  // and the bridge supports it (Electron only). Kicks off/reuses the
+  // background sync on the main-process side on every call; drives the Send
+  // NIGHT button's disabled reason without hiding the NIGHT balance itself
+  // (that stays visible immediately — only the send ACTION is gated).
+  const [midnightDust, setMidnightDust] = useState<{ ready: boolean; percent: number; error: string | null } | null>(null)
+  useEffect(() => {
+    if (!privacyMode || typeof window.wallet.getMidnightDustStatus !== 'function') { setMidnightDust(null); return }
+    let cancelled = false
+    const poll = () => {
+      window.wallet.getMidnightDustStatus!().then(s => { if (!cancelled) setMidnightDust(s) }).catch(() => {})
+    }
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [privacyMode])
+  const midnightSendDisabledReason = !midnightDust ? undefined
+    : midnightDust.error ? 'Fees unavailable — see Settings'
+    : !midnightDust.ready ? `Preparing transaction fees — ${midnightDust.percent.toFixed(0)}%`
+    : undefined
+
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
   const hiddenKey  = `mmw_hidden_${acctIdx}`
@@ -1156,16 +1177,18 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               ] : undefined}
               loading={loading}
               // No Send button when: Testnet4 (display-only, sends go via
-              // Testnet3), Midnight (needs DUST + proof server), or a
+              // Testnet3), Midnight without the Electron-only send bridge
+              // (extension/Capacitor — see midnight-send.ts's doctrine), or a
               // receive-only Monero card (browser targets — send needs the
               // desktop/native backend).
               onSend={
                 chainId === 'bitcoin-testnet4' ||
-                chainId === 'midnight' ||
+                (chainId === 'midnight' && typeof window.wallet.sendMidnight !== 'function') ||
                 (chainId === 'monero' && balances?.chains['monero']?.error === 'receive-only')
                   ? undefined
                   : () => setSendChain(chainId)
               }
+              sendDisabledReason={chainId === 'midnight' ? midnightSendDisabledReason : undefined}
               history={historyFor(chainId)}
             />
           )
