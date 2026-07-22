@@ -635,6 +635,16 @@ export const TESTNET_NON_EVM_CHAINS: ChainDef[] = [
     rpcUrl: () => 'https://api.shasta.trongrid.io',
     explorerTx: 'https://shasta.tronscan.org/#/transaction',
     color: '#EB0029', colorRgb: '235, 0, 41'
+  },
+  {
+    id: 'midnight', name: 'Midnight Preprod', type: 'midnight',
+    nativeSymbol: 'NIGHT', coingeckoId: 'midnight-3',
+    rpcUrl: () => 'https://rpc.preprod.midnight.network',
+    // No confirmed public Preprod block explorer yet — left blank rather than
+    // guessed; unused by anything today (see midnight-send.ts's own explorer
+    // URL handling, which already returns '' for preprod sends).
+    explorerTx: '',
+    color: '#7C3AED', colorRgb: '124, 58, 237'
   }
 ]
 
@@ -695,6 +705,15 @@ export const isTestnet = (cfg: WalletConfig): boolean => !!cfg.testnetMode
 // the other one off), but isPrivacy still guards on !testnetMode as defense in
 // depth against a hand-edited config.json carrying both flags.
 export const isPrivacy = (cfg: WalletConfig): boolean => !!cfg.privacyMode && !cfg.testnetMode
+
+// Midnight has no manual network switcher — it rides the two existing global
+// modes instead: Testnet Mode -> Preprod, Privacy Mode -> Mainnet. Null means
+// neither mode is on, so Midnight isn't shown at all (unchanged from before).
+export function midnightNetworkFor(cfg: WalletConfig): 'mainnet' | 'preprod' | null {
+  if (isTestnet(cfg)) return 'preprod'
+  if (isPrivacy(cfg)) return 'mainnet'
+  return null
+}
 
 export function activeEvmChains(cfg: WalletConfig): ChainDef[] {
   // Privacy Mode does not alter the EVM set — the dApp browser keeps working on

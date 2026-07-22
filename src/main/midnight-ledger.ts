@@ -34,9 +34,13 @@ function loadHd(): Promise<WalletSdkHdLike> {
   return _hd
 }
 
-export async function deriveWithLedger(seed: Uint8Array, accountIndex: number): Promise<MidnightAddresses> {
+export async function deriveWithLedger(
+  seed: Uint8Array,
+  accountIndex: number,
+  network: 'mainnet' | 'preprod' = 'mainnet'
+): Promise<MidnightAddresses> {
   const hd = await loadHd()
   const keys = deriveMidnightRoleKeys(hd, seed, accountIndex)
   if (!keys) throw new Error('Midnight HD key derivation out of bounds')
-  return computeMidnightAddresses(await loadLedger(), keys)
+  return computeMidnightAddresses(await loadLedger(), keys, network)
 }

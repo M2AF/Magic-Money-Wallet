@@ -64,6 +64,22 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
   const [error, setError]           = useState<string | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
 
+  // Midnight only: live DUST-sync/registration progress, polled ONLY while
+  // this modal is actually in the 'registering' step (bounded, user-initiated
+  // — never fires just because Privacy/Testnet Mode is on, which used to
+  // freeze the app by opening the whole Midnight wallet on every login).
+  const [dustStatus, setDustStatus] = useState<{ ready: boolean; percent: number; error: string | null } | null>(null)
+  useEffect(() => {
+    if (step !== 'registering' || typeof window.wallet.getMidnightDustStatus !== 'function') return
+    let cancelled = false
+    const poll = () => {
+      window.wallet.getMidnightDustStatus!().then(s => { if (!cancelled) setDustStatus(s) }).catch(() => {})
+    }
+    poll()
+    const id = setInterval(poll, 1500)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [step])
+
   const chainType = getChainType(chainId)
 
   // While broadcasting (or, for Midnight, registering), ignore dismissal —
@@ -146,12 +162,13 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
   const handleSend = async () => {
     setError(null)
     try {
-      // Midnight: DUST is already guaranteed synced by the time this modal
-      // is reachable (the ChainCard's Send button stays disabled until
-      // wallet:get-midnight-dust-status reports ready) — the only thing
-      // that can still take real time here is a one-time-per-wallet DUST
-      // registration transaction, shown as its own phase rather than being
-      // silently folded into "Broadcasting transaction…".
+      // Midnight: the Send button has no pre-check — DUST may still need to
+      // finish its first sync (a background wallet-open only starts here,
+      // on explicit send intent, never eagerly on login) plus a one-time
+      // registration transaction. Both happen inside registerMidnightDust,
+      // shown as its own phase rather than silently folded into
+      // "Broadcasting transaction…"; dustStatus (polled above) drives the
+      // live percentage once the sync is underway.
       if (chainType === 'midnight') {
         setStep('registering')
         await window.wallet.registerMidnightDust?.()
@@ -372,8 +389,12 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
         {step === 'registering' && (
           <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <div className="spinner" />
-            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Registering wallet for Midnight fees…</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>One-time setup — this can take a minute.</div>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+              {dustStatus && !dustStatus.ready && !dustStatus.error
+                ? `Preparing Midnight fees — ${dustStatus.percent.toFixed(0)}%`
+                : 'Preparing Midnight fees…'}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>First time can take a few minutes — this only happens once.</div>
           </div>
         )}
 

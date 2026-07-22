@@ -3,11 +3,13 @@
  * MidnightSendHandle (facade + unshielded + dust wallets) for NIGHT sends.
  *
  * Electron main only (see midnight-send.ts's own doctrine). Lazily opens on
- * first use, keyed by account+network — only one handle open at a time;
- * switching account or network tears down the old one (resetMidnightSendManager,
- * called from ipc-handlers.ts's wallet:set-midnight-network and wallet:set-account).
- * Persists the DUST checkpoint to disk (gated on caught-up inside
- * midnight-send.ts) so a first sync survives an app restart.
+ * first use, keyed by account+network — only one handle open at a time.
+ * Network has no manual switcher: it's derived from Testnet/Privacy Mode
+ * (midnightNetworkFor in chain-config.ts), so switching either mode changes
+ * the key; getOrOpen notices the mismatch and self-heals by tearing down the
+ * old handle before opening the new one. Persists the DUST checkpoint to disk
+ * (gated on caught-up inside midnight-send.ts) so a first sync survives an
+ * app restart.
  */
 
 import * as bip39 from '@scure/bip39'

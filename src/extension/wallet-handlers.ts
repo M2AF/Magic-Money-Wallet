@@ -185,8 +185,9 @@ async function resolveAgw(addresses: any): Promise<any> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-// One-shot guard for the Midnight address backfill in loadFullAddresses.
+// One-shot guards for the Midnight address backfill in loadFullAddresses.
 let _midnightBackfillTried = false
+let _midnightTestnetBackfillTried = false
 
 async function loadFullAddresses(): Promise<any> {
   const loaded = await store.loadAddresses()
@@ -204,8 +205,11 @@ async function loadFullAddresses(): Promise<any> {
   const config = await store.loadConfig()
   // Testnet Mode: backfill + substitute the testnet-encoded set (mirrors the
   // Electron getFullAddresses). Needs the unlocked seed; the Settings toggle
-  // derives it eagerly, so this only covers stale stores.
-  if (config.testnetMode && !stored.testnet && (await store.isUnlocked())) {
+  // derives it eagerly, so this only covers stale stores. Also re-derives when
+  // a pre-Midnight-Preprod cache lacks the midnight field (one-shot guarded,
+  // same doctrine as the privacy backfill below).
+  if (config.testnetMode && (!stored.testnet || (!stored.testnet.midnight && !_midnightTestnetBackfillTried)) && (await store.isUnlocked())) {
+    _midnightTestnetBackfillTried = true
     stored = { ...stored, testnet: await deriveTestnetAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0) }
     await store.saveAddresses(stored)
   }
@@ -413,7 +417,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (on) {
         if (!(await store.isUnlocked())) throw new Error('Unlock the wallet to enable Testnet Mode')
         const stored = await store.loadAddresses()
-        if (stored && !stored.testnet) {
+        if (stored && (!stored.testnet || !stored.testnet.midnight)) {
           const testnet = await deriveTestnetAddresses(await store.loadMnemonic(), stored.accountIndex ?? 0)
           await store.saveAddresses({ ...stored, testnet })
         }

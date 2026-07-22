@@ -731,15 +731,17 @@ const ALL_CHAINS = [
 
 // Testnet Mode: Polkadot + Dogecoin have no testnet data provider (hidden), and
 // Bitcoin appears twice — Testnet3 + Testnet4 share the same tb1 addresses.
+// Midnight (Preprod) rides this toggle too — its own network selector was
+// removed; Testnet Mode -> preprod, Privacy Mode -> mainnet (see chain-config).
 const TESTNET_CHAINS = [
-  'cardano', 'solana', 'bitcoin', 'bitcoin-testnet4', 'tron',
+  'cardano', 'solana', 'bitcoin', 'bitcoin-testnet4', 'tron', 'midnight',
   'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche',
   'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'ronin',
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
 // Privacy Mode: ONLY the privacy-focused chains (mirrors PRIVACY_CHAINS in
-// chain-config). Midnight renders as Coming Soon until its integration lands.
+// chain-config).
 const PRIVACY_CHAINS = ['monero', 'zcash', 'midnight']
 
 function sortedChains(balances: AllBalances | null, chains: string[]): string[] {
@@ -754,7 +756,7 @@ function sortedChains(balances: AllBalances | null, chains: string[]): string[] 
   })
 }
 
-function getAddress(chainId: string, addresses: WalletAddresses): string | null {
+function getAddress(chainId: string, addresses: WalletAddresses, testnet = false): string | null {
   if (chainId === 'solana')   return addresses.solana   || null
   if (chainId === 'cardano')  return addresses.cardano  || null
   if (chainId === 'bitcoin')  return addresses.bitcoin  || null
@@ -764,7 +766,9 @@ function getAddress(chainId: string, addresses: WalletAddresses): string | null 
   if (chainId === 'dogecoin') return addresses.dogecoin || null
   if (chainId === 'monero')   return addresses.privacy?.monero || null
   if (chainId === 'zcash')    return addresses.privacy?.zcashTransparent || null
-  if (chainId === 'midnight') return addresses.privacy?.midnight || null
+  // Midnight rides both modes: Preprod under Testnet Mode, Mainnet under
+  // Privacy Mode — same account, different bech32 HRP (see wallet-core.ts).
+  if (chainId === 'midnight') return (testnet ? addresses.testnet?.midnight : addresses.privacy?.midnight) || null
   return addresses.evm
 }
 
@@ -784,27 +788,6 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // Privacy Mode — same reload-on-toggle doctrine as Testnet Mode.
   const [privacyMode, setPrivacyMode] = useState(false)
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
-
-  // Midnight DUST-sync status — polled (not pushed) while Privacy Mode is on
-  // and the bridge supports it (Electron only). Kicks off/reuses the
-  // background sync on the main-process side on every call; drives the Send
-  // NIGHT button's disabled reason without hiding the NIGHT balance itself
-  // (that stays visible immediately — only the send ACTION is gated).
-  const [midnightDust, setMidnightDust] = useState<{ ready: boolean; percent: number; error: string | null } | null>(null)
-  useEffect(() => {
-    if (!privacyMode || typeof window.wallet.getMidnightDustStatus !== 'function') { setMidnightDust(null); return }
-    let cancelled = false
-    const poll = () => {
-      window.wallet.getMidnightDustStatus!().then(s => { if (!cancelled) setMidnightDust(s) }).catch(() => {})
-    }
-    poll()
-    const id = setInterval(poll, 2000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [privacyMode])
-  const midnightSendDisabledReason = !midnightDust ? undefined
-    : midnightDust.error ? 'Fees unavailable — see Settings'
-    : !midnightDust.ready ? `Preparing transaction fees — ${midnightDust.percent.toFixed(0)}%`
-    : undefined
 
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
@@ -1165,16 +1148,28 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               chainId={chainId}
               testnet={testnet}
               balance={balances?.chains[chainId] ?? null}
-              address={getAddress(chainId, localAddresses)}
-              altAddresses={(chainId === 'bitcoin' || chainId === 'bitcoin-testnet4') && localAddresses ? [
-                { label: 'Native SegWit · Payment', address: localAddresses.bitcoin },
-                { label: 'Nested SegWit', address: localAddresses.bitcoinNested },
-                { label: 'Taproot · Ordinals', address: localAddresses.bitcoinTaproot },
-              ] : chainId === 'midnight' && localAddresses.privacy?.midnight ? [
-                { label: 'Unshielded · NIGHT', address: localAddresses.privacy.midnight },
-                ...(localAddresses.privacy.midnightShielded ? [{ label: 'Shielded', address: localAddresses.privacy.midnightShielded }] : []),
-                ...(localAddresses.privacy.midnightDust ? [{ label: 'DUST · fees', address: localAddresses.privacy.midnightDust }] : []),
-              ] : undefined}
+              address={getAddress(chainId, localAddresses, testnet)}
+              altAddresses={(() => {
+                if ((chainId === 'bitcoin' || chainId === 'bitcoin-testnet4') && localAddresses) {
+                  return [
+                    { label: 'Native SegWit · Payment', address: localAddresses.bitcoin },
+                    { label: 'Nested SegWit', address: localAddresses.bitcoinNested },
+                    { label: 'Taproot · Ordinals', address: localAddresses.bitcoinTaproot },
+                  ]
+                }
+                if (chainId === 'midnight') {
+                  // Preprod under Testnet Mode, Mainnet under Privacy Mode — same
+                  // account, different bech32 HRP (see wallet-core.ts).
+                  const mn = testnet ? localAddresses.testnet : localAddresses.privacy
+                  if (!mn?.midnight) return undefined
+                  return [
+                    { label: 'Unshielded · NIGHT', address: mn.midnight },
+                    ...(mn.midnightShielded ? [{ label: 'Shielded', address: mn.midnightShielded }] : []),
+                    ...(mn.midnightDust ? [{ label: 'DUST · fees', address: mn.midnightDust }] : []),
+                  ]
+                }
+                return undefined
+              })()}
               loading={loading}
               // No Send button when: Testnet4 (display-only, sends go via
               // Testnet3), Midnight without the Electron-only send bridge
@@ -1188,7 +1183,6 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                   ? undefined
                   : () => setSendChain(chainId)
               }
-              sendDisabledReason={chainId === 'midnight' ? midnightSendDisabledReason : undefined}
               history={historyFor(chainId)}
             />
           )

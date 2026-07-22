@@ -67,6 +67,13 @@ export interface TestnetAddresses {
   bitcoinTaproot: string // tb1p…  (m/86'/1'/{account}'/0/0)
   cardano: string        // addr_test1…
   cardanoStake: string   // stake_test1…
+  // Midnight Preprod — same keys as the mainnet mn_addr… derived for Privacy
+  // Mode, just re-encoded with the _preprod bech32 HRP segment (see
+  // midnight-crypto.ts). Best-effort like Privacy Mode's fields: unset if
+  // this runtime's loader is unavailable.
+  midnight?: string
+  midnightShielded?: string
+  midnightDust?: string
 }
 
 export interface PrivacyAddresses {
@@ -273,13 +280,24 @@ export async function deriveTestnetAddresses(mnemonic: string, accountIndex = 0)
 
   const entropy = bip39.mnemonicToEntropy(cleaned, wordlist)
 
-  return {
+  const out: TestnetAddresses = {
     bitcoin: btcNativeSegwit(nativeNode.publicKey, btc.TEST_NETWORK),
     bitcoinNested: btcNestedSegwit(nestedNode.publicKey, btc.TEST_NETWORK),
     bitcoinTaproot: btcTaproot(taprootNode.publicKey, btc.TEST_NETWORK),
     cardano: deriveCardanoAddress(entropy, accountIndex, true),
     cardanoStake: deriveCardanoStakeAddress(entropy, accountIndex, true),
   }
+
+  // Midnight Preprod — best-effort, same doctrine as derivePrivacyAddresses
+  // below (loader unavailable in this runtime just leaves the fields unset).
+  try {
+    const mn = await deriveMidnightAddresses(seed, accountIndex, 'preprod')
+    out.midnight = mn.unshielded
+    out.midnightShielded = mn.shielded
+    out.midnightDust = mn.dust
+  } catch { /* loader unavailable in this runtime — midnight fields stay unset */ }
+
+  return out
 }
 
 /**
@@ -313,7 +331,7 @@ export async function derivePrivacyAddresses(mnemonic: string, accountIndex = 0)
   // the midnight fields simply stay unset (card shows the Coming-Soon state)
   // instead of failing the whole privacy derivation.
   try {
-    const mn = await deriveMidnightAddresses(seed, accountIndex)
+    const mn = await deriveMidnightAddresses(seed, accountIndex, 'mainnet')
     out.midnight = mn.unshielded
     out.midnightShielded = mn.shielded
     out.midnightDust = mn.dust

@@ -6,9 +6,12 @@
  * with real funds as of this writing.
  *
  * ELECTRON MAIN ONLY for now (same doctrine as monero.ts/midnight-ledger.ts —
- * WASM-heavy, per-target porting is a later phase). Not yet wired into
- * wallet-handlers.ts or any UI; this is the validated core, exercised against
- * a real funded Preprod test wallet before it's trusted with anything else.
+ * WASM-heavy, per-target porting is a later phase). Wired into ipc-handlers.ts
+ * (wallet:get-midnight-dust-status / register-midnight-dust / send-midnight)
+ * and SendModal's 'registering' step — extension/Capacitor simply omit the
+ * WalletBridge methods (see wallet.ts's optional-method convention), so the
+ * Send button never renders there. Network is never a manual choice: it's
+ * derived from Testnet/Privacy Mode (midnightNetworkFor in chain-config.ts).
  *
  * Uses the STABLE wallet-sdk line (1.2.0 + facade/unshielded-wallet/dust-wallet/
  * prover-client + ledger-v8), NOT the 2.0.0-beta.2/ledger-v9 line — that beta

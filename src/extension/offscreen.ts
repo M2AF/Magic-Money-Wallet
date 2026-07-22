@@ -22,7 +22,7 @@ chrome.runtime.onMessage.addListener((msg: OffscreenMsg, _sender, sendResponse) 
     const a = msg.args ?? {}
     switch (msg.op) {
       case 'mn:derive':
-        return deriveWithLedger(fromHex(String(a.seed)), Number(a.accountIndex ?? 0))
+        return deriveWithLedger(fromHex(String(a.seed)), Number(a.accountIndex ?? 0), a.network === 'preprod' ? 'preprod' : 'mainnet')
       default:
         throw new Error(`Unknown offscreen op: ${msg.op}`)
     }

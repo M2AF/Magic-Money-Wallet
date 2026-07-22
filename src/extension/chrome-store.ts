@@ -34,7 +34,6 @@ export interface WalletConfig {
   torBrowserEnabled: boolean // Shape parity only; Chrome tabs cannot use the in-app Tor proxy
   torBrowserPort: number
   moneroRestoreHeight: number // Monero wallet birthday (block height at first Privacy Mode enable)
-  midnightNetwork: 'mainnet' | 'preprod' // Shape parity only; Midnight sends are Electron-only
 }
 
 // Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
@@ -62,8 +61,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   privacyMode:            false,
   torBrowserEnabled:      false,
   torBrowserPort:         9050,
-  moneroRestoreHeight:    0,
-  midnightNetwork:        'mainnet'
+  moneroRestoreHeight:    0
 }
 
 const AUTO_LOCK_MS = 15 * 60_000

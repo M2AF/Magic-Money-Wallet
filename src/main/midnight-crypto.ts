@@ -76,31 +76,42 @@ export function deriveMidnightRoleKeys(
 // AND a real Lace-generated dust address — see wallet-core.test.ts vectors).
 const DUST_ADDR_TAG = 0x73
 
-function encodeDustAddress(pubkey: bigint): string {
+// HRP network segment: '' for mainnet, '_<network>' otherwise — verified
+// against @midnightntwrk/wallet-sdk-address-format's actual MidnightBech32m
+// implementation (asString(): `mn_${type}${network == mainnet ? '' : '_' + network}`),
+// not guessed. 'mainnet' | 'preprod' matches midnight-send.ts's MidnightNetwork.
+function networkSegment(network: 'mainnet' | 'preprod'): string {
+  return network === 'mainnet' ? '' : `_${network}`
+}
+
+function encodeDustAddress(pubkey: bigint, network: 'mainnet' | 'preprod'): string {
   const be = Buffer.from(pubkey.toString(16).padStart(64, '0'), 'hex')   // 32-byte big-endian
   const le = Buffer.from(be).reverse()
-  return encode('mn_dust', Buffer.concat([Buffer.from([DUST_ADDR_TAG]), le]))
+  return encode(`mn_dust${networkSegment(network)}`, Buffer.concat([Buffer.from([DUST_ADDR_TAG]), le]))
 }
 
 export function computeMidnightAddresses(
   v9: LedgerV9Like,
-  keys: MidnightRoleKeys
+  keys: MidnightRoleKeys,
+  network: 'mainnet' | 'preprod' = 'mainnet'
 ): MidnightAddresses {
+  const seg = networkSegment(network)
+
   // Unshielded (NIGHT) — Schnorr/BIP-340 signature key → verifying-key hash.
   const signingKey = v9.signingKeyFromBip340(keys.nightKey)
   const verifyingKey = v9.signatureVerifyingKey(signingKey)
   const userAddress = v9.addressFromKey(verifyingKey)             // 32-byte hex
-  const unshielded = encode('mn_addr', Buffer.from(userAddress, 'hex'))
+  const unshielded = encode(`mn_addr${seg}`, Buffer.from(userAddress, 'hex'))
 
   // Shielded — Zswap key pair; address payload is coinPub || encPub.
   const sk = v9.ZswapSecretKeys.fromSeed(keys.zswapKey)
   const coinPub = Buffer.from(sk.coinPublicKey as string, 'hex')
   const encPub = Buffer.from(sk.encryptionPublicKey as string, 'hex')
-  const shielded = encode('mn_shield-addr', Buffer.concat([coinPub, encPub]))
+  const shielded = encode(`mn_shield-addr${seg}`, Buffer.concat([coinPub, encPub]))
 
   // Dust — the fee identity DUST generation pays to (mn_dust…).
   const dsk = v9.DustSecretKey.fromSeed(keys.dustKey)
-  const dust = encodeDustAddress(dsk.publicKey)
+  const dust = encodeDustAddress(dsk.publicKey, network)
   dsk.clear?.()
 
   return { unshielded, shielded, dust }

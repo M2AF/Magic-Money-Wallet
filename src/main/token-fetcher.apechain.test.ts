@@ -37,7 +37,6 @@ const config: WalletConfig = {
   torBrowserEnabled: false,
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
-  midnightNetwork: 'mainnet',
 }
 
 const EVM_ADDRESS = '0x1111111111111111111111111111111111111111'

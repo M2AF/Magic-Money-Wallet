@@ -19,7 +19,7 @@ import {
 import { fetchZcashBalance } from './zcash'
 import { fetchMoneroBalance } from './monero'
 import { fetchMidnightBalance } from './midnight'
-import type { PrivacyAddresses } from './wallet-core'
+import type { PrivacyAddresses, TestnetAddresses } from './wallet-core'
 import { seedNativeUsd } from './native-prices'
 import { getTokenBalances } from './alchemy-cache'
 import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
@@ -448,7 +448,7 @@ async function fetchCardanoPreprod(
 // testnet-encoded ones.
 
 async function fetchAllBalancesTestnet(
-  addresses: { evm: string; solana: string; cardano: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; tron?: string },
+  addresses: { evm: string; solana: string; cardano: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; tron?: string; testnet?: TestnetAddresses },
   config: WalletConfig
 ): Promise<AllBalances> {
   const btcAddrs = { bitcoin: addresses.bitcoin, bitcoinNested: addresses.bitcoinNested, bitcoinTaproot: addresses.bitcoinTaproot }
@@ -461,6 +461,9 @@ async function fetchAllBalancesTestnet(
     addresses.bitcoin ? fetchBitcoinTotal(btcAddrs, TESTNET_BITCOIN_ESPLORA)  : Promise.resolve(NO_ADDR),
     addresses.bitcoin ? fetchBitcoinTotal(btcAddrs, TESTNET4_BITCOIN_ESPLORA) : Promise.resolve(NO_ADDR),
     fetchTronNative(addresses.tron, config),
+    // NIGHT is unshielded — same public-by-address indexer read as mainnet,
+    // just pointed at the Preprod indexer (see fetchMidnightBalance).
+    fetchMidnightBalance(addresses.testnet?.midnight, 'preprod').then(r => ({ ...r, tokenCount: 0 })),
   ])
 
   const toBalance = (chain: ChainDef, raw: { native: number; tokenCount: number; error: string | null }, decimals = 6): ChainBalance => {
@@ -480,6 +483,7 @@ async function fetchAllBalancesTestnet(
   chains['bitcoin']          = toBalance(TESTNET_CHAIN_MAP['bitcoin'],          rawResults[n + 2], 8)
   chains['bitcoin-testnet4'] = toBalance(TESTNET_CHAIN_MAP['bitcoin-testnet4'], rawResults[n + 3], 8)
   chains['tron']             = toBalance(TESTNET_CHAIN_MAP['tron'],             rawResults[n + 4])
+  chains['midnight']         = toBalance(TESTNET_CHAIN_MAP['midnight'],         rawResults[n + 5])
 
   return { chains, fetchedAt: Date.now(), portfolioSparkline: null }
 }
@@ -539,7 +543,7 @@ async function fetchAllBalancesPrivacy(
 // ─── Orchestrator ─────────────────────────────────────────────────────────────
 
 export async function fetchAllBalances(
-  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string; privacy?: PrivacyAddresses },
+  addresses: { evm: string; solana: string; cardano: string | null; cardanoStake?: string | null; bitcoin?: string; bitcoinNested?: string; bitcoinTaproot?: string; polkadot?: string; tron?: string; dogecoin?: string; agw?: string; privacy?: PrivacyAddresses; testnet?: TestnetAddresses },
   config: WalletConfig
 ): Promise<AllBalances> {
   if (isTestnet(config)) return fetchAllBalancesTestnet(addresses, config)

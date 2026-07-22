@@ -491,11 +491,6 @@ export interface WalletConfig {
   // monero-ts scans from here instead of the genesis block; 0 = unknown → full
   // scan. Persisted so re-enabling the mode never rescans history it already saw.
   moneroRestoreHeight: number
-  // Which Midnight network NIGHT sends/DUST registration target. Independent
-  // of the app-wide testnetMode toggle (mutually exclusive with privacyMode,
-  // and Midnight only exists as a Privacy Mode chain) — this is Midnight's
-  // own network switch, defaulting to mainnet.
-  midnightNetwork: 'mainnet' | 'preprod'
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -526,8 +521,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   privacyMode: false,
   torBrowserEnabled: false,
   torBrowserPort: 9050,
-  moneroRestoreHeight: 0,
-  midnightNetwork: 'mainnet'
+  moneroRestoreHeight: 0
 }
 
 let configCache: WalletConfig | null = null

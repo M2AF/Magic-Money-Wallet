@@ -14,6 +14,10 @@ import type { MidnightAddresses } from '../main/midnight'
 
 const hex = (b: Uint8Array) => Buffer.from(b).toString('hex')
 
-export async function deriveWithLedger(seed: Uint8Array, accountIndex: number): Promise<MidnightAddresses> {
-  return callOffscreen<MidnightAddresses>('mn:derive', { seed: hex(seed), accountIndex })
+export async function deriveWithLedger(
+  seed: Uint8Array,
+  accountIndex: number,
+  network: 'mainnet' | 'preprod' = 'mainnet'
+): Promise<MidnightAddresses> {
+  return callOffscreen<MidnightAddresses>('mn:derive', { seed: hex(seed), accountIndex, network })
 }

@@ -34,6 +34,11 @@ export interface WalletAddresses {
     bitcoinTaproot: string
     cardano: string
     cardanoStake: string
+    // Midnight Preprod — same keys as Privacy Mode's mainnet set, re-encoded
+    // with the _preprod bech32 HRP. Rides Testnet Mode; no separate switcher.
+    midnight?: string
+    midnightShielded?: string
+    midnightDust?: string
   }
   // Privacy Mode: cached privacy-chain addresses (new chains, not substitutes —
   // the renderer reads these directly via getAddress()).
@@ -335,8 +340,6 @@ declare global {
       sendMidnight?(to: string, amount: string): Promise<SendResult>
       getMidnightDustStatus?(): Promise<{ ready: boolean; percent: number; isConnected: boolean; error: string | null }>
       registerMidnightDust?(): Promise<{ registered: boolean; txId: string | null }>
-      getMidnightNetwork?(): Promise<'mainnet' | 'preprod'>
-      setMidnightNetwork?(network: 'mainnet' | 'preprod'): Promise<'mainnet' | 'preprod'>
       // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>

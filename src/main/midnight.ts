@@ -25,7 +25,10 @@
  * Sends are NOT implemented yet (need DUST fees + proof server + v2 tx build).
  */
 
-const INDEXER_WS = 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws'
+const INDEXER_WS: Record<'mainnet' | 'preprod', string> = {
+  mainnet: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
+  preprod: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
+}
 const STARS = 1e6                       // 1 NIGHT = 10^6 Stars
 // nativeToken().raw from ledger-v9 — NIGHT's unshielded token type.
 const NIGHT_TOKEN_TYPE = '0000000000000000000000000000000000000000000000000000000000000000'
@@ -53,9 +56,10 @@ import { deriveWithLedger } from './midnight-ledger'
  */
 export async function deriveMidnightAddresses(
   seed: Uint8Array,
-  accountIndex: number
+  accountIndex: number,
+  network: 'mainnet' | 'preprod' = 'mainnet'
 ): Promise<MidnightAddresses> {
-  return deriveWithLedger(seed, accountIndex)
+  return deriveWithLedger(seed, accountIndex, network)
 }
 
 // ── DUST generation status (fee-resource balance) ─────────────────────────────
@@ -136,37 +140,63 @@ interface SubMsg {
 }
 
 /**
- * Fold the address's transaction stream into a NIGHT balance. The indexer
- * replays history and then emits a progress marker — that marker is our
- * "caught up" signal, so a fresh address resolves in one round-trip.
+ * Fold the address's transaction stream into a NIGHT balance.
+ *
+ * ⚠ The FIRST `UnshieldedTransactionsProgress` marker is NOT a "caught up"
+ * signal — verified live against the Preprod indexer (2026-07-22): it arrives
+ * BEFORE the address's `UnshieldedTransaction` events, announcing the current
+ * global tip id, not confirming replay of THIS address is done. A second,
+ * repeat-value progress marker eventually confirms real catch-up, but only on
+ * a ~30s server heartbeat — far past any balance-read UX budget. The actual
+ * relevant transaction events consistently arrive within milliseconds of the
+ * first progress marker, so instead of waiting for the (slow) confirming
+ * marker, this debounces: resolve after a short QUIET_MS gap with no new
+ * messages, which reliably lands right after the immediate event burst for
+ * both funded and zero-history addresses. The original code resolved on the
+ * FIRST progress marker and silently returned 0 for every funded address —
+ * found by cross-checking against the wallet-sdk's own synced balance, which
+ * showed a real nonzero balance this function was reporting as empty.
  */
 export async function fetchMidnightBalance(
-  unshieldedAddress: string | undefined
+  unshieldedAddress: string | undefined,
+  network: 'mainnet' | 'preprod' = 'mainnet'
 ): Promise<{ native: number; error: string | null }> {
   if (!unshieldedAddress) return { native: 0, error: 'coming-soon' }
+
+  const QUIET_MS = 1_500
 
   return new Promise((resolve) => {
     let settled = false
     const utxos = new Map<string, bigint>()   // intentHash:outputIndex → Stars
+    let quietTimer: ReturnType<typeof setTimeout> | null = null
     const finish = (result: { native: number; error: string | null }) => {
       if (settled) return
       settled = true
+      if (quietTimer) clearTimeout(quietTimer)
+      clearTimeout(timeoutTimer)
       try { ws.close() } catch { /* already closed */ }
       resolve(result)
     }
     const balance = () => Number([...utxos.values()].reduce((a, v) => a + v, 0n)) / STARS
+    // Reset on every message after the first progress marker: as long as
+    // events keep arriving, we're still mid-burst; QUIET_MS of silence means
+    // the burst is over and the accumulated balance is final.
+    const armQuiet = () => {
+      if (quietTimer) clearTimeout(quietTimer)
+      quietTimer = setTimeout(() => finish({ native: balance(), error: null }), QUIET_MS)
+    }
 
     let ws: WebSocket
     try {
-      ws = new WebSocket(INDEXER_WS, 'graphql-transport-ws')
+      ws = new WebSocket(INDEXER_WS[network], 'graphql-transport-ws')
     } catch {
       resolve({ native: 0, error: 'Indexer unreachable' })
       return
     }
-    const timer = setTimeout(() => finish({ native: 0, error: 'Timed out' }), 20_000)
+    const timeoutTimer = setTimeout(() => finish({ native: 0, error: 'Timed out' }), 20_000)
 
     ws.onopen = () => ws.send(JSON.stringify({ type: 'connection_init' }))
-    ws.onerror = () => { clearTimeout(timer); finish({ native: 0, error: 'Indexer unreachable' }) }
+    ws.onerror = () => { finish({ native: 0, error: 'Indexer unreachable' }) }
     ws.onmessage = (ev: MessageEvent) => {
       let msg: SubMsg
       try { msg = JSON.parse(String(ev.data)) } catch { return }
@@ -186,7 +216,6 @@ export async function fetchMidnightBalance(
         return
       }
       if (msg.type === 'error') {
-        clearTimeout(timer)
         finish({ native: 0, error: msg.payload?.errors?.[0]?.message ?? 'Indexer error' })
         return
       }
@@ -202,11 +231,12 @@ export async function fetchMidnightBalance(
         for (const u of event.spentUtxos ?? []) {
           utxos.delete(`${u.intentHash}:${u.outputIndex}`)
         }
+        armQuiet()
         return
       }
-      // Progress marker → history replay is caught up; snapshot the balance.
-      clearTimeout(timer)
-      finish({ native: balance(), error: null })
+      // Progress marker (first OR the slow confirming repeat) — either way,
+      // arm/reset the quiet window rather than resolving immediately.
+      armQuiet()
     }
   })
 }
