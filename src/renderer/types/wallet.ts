@@ -329,6 +329,14 @@ declare global {
       sendDogecoin(to: string, amount: string): Promise<SendResult>
       sendMonero(to: string, amount: string): Promise<SendResult>
       sendZcash(to: string, amount: string): Promise<SendResult>
+      // Midnight (NIGHT) — optional: Electron-only (WASM proving, per midnight-send.ts).
+      // Absent on the extension/Capacitor bridges; gate UI with a typeof check,
+      // same convention as helloStatus?/scanQr?.
+      sendMidnight?(to: string, amount: string): Promise<SendResult>
+      getMidnightDustStatus?(): Promise<{ ready: boolean; percent: number; isConnected: boolean; error: string | null }>
+      registerMidnightDust?(): Promise<{ registered: boolean; txId: string | null }>
+      getMidnightNetwork?(): Promise<'mainnet' | 'preprod'>
+      setMidnightNetwork?(network: 'mainnet' | 'preprod'): Promise<'mainnet' | 'preprod'>
       // Phase 3
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>

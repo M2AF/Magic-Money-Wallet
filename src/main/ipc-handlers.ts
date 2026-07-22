@@ -123,7 +123,8 @@ import {
   estimateMoneroFee,
   estimateZcashFee,
   sendMoneroTransaction,
-  sendZcashTransaction
+  sendZcashTransaction,
+  type SendResult
 } from './tx-sender'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
@@ -680,6 +681,43 @@ export function registerIpcHandlers(): void {
     return sendZcashTransaction(mnemonic, addresses.privacy.zcashTransparent, to, amountZec, addresses.accountIndex ?? 0)
   })
 
+  // ── Send NIGHT / DUST registration (Privacy Mode; Midnight) ────────────────
+  // Electron-only (see midnight-send.ts) — extension/Capacitor bridges simply
+  // don't implement these, matching the optional-method WalletBridge pattern.
+  // Network (mainnet vs Preprod) is config.midnightNetwork, independent of
+  // the app-wide Testnet Mode toggle (Midnight is Privacy-Mode-only).
+  ipcMain.handle('wallet:get-midnight-dust-status', async () => {
+    const config = loadConfig()
+    if (!isPrivacy(config)) throw new Error('Midnight sends are only available in Privacy Mode')
+    const mnemonic = loadMnemonic()
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const { getMidnightDustStatus } = await import('./midnight-send-manager')
+    return getMidnightDustStatus(mnemonic, accountIndex, config.midnightNetwork)
+  })
+
+  ipcMain.handle('wallet:register-midnight-dust', async () => {
+    const config = loadConfig()
+    if (!isPrivacy(config)) throw new Error('Midnight sends are only available in Privacy Mode')
+    const mnemonic = loadMnemonic()
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const { registerMidnightDustIfNeeded } = await import('./midnight-send-manager')
+    return registerMidnightDustIfNeeded(mnemonic, accountIndex, config.midnightNetwork)
+  })
+
+  ipcMain.handle('wallet:send-midnight', async (_event, to: string, amountNight: string) => {
+    const config = loadConfig()
+    if (!isPrivacy(config)) throw new Error('Midnight sends are only available in Privacy Mode')
+    const stars = BigInt(Math.round(parseFloat(amountNight) * 1e6))
+    if (stars <= 0n) throw new Error('Amount must be greater than 0')
+    const mnemonic = loadMnemonic()
+    const accountIndex = loadAddresses()?.accountIndex ?? 0
+    const { sendMidnightNight } = await import('./midnight-send-manager')
+    const txId = await sendMidnightNight(mnemonic, accountIndex, config.midnightNetwork, to, stars)
+    // No confirmed Preprod explorer URL — only link out for mainnet.
+    const explorerUrl = config.midnightNetwork === 'mainnet' ? `https://midnightscan.io/tx/${txId}` : ''
+    return { txHash: txId, explorerUrl } satisfies SendResult
+  })
+
   // ── Phase 3: Transaction history ──────────────────────────────────────
   ipcMain.handle('wallet:get-history', async () => {
     const config = loadConfig()
@@ -805,6 +843,24 @@ export function registerIpcHandlers(): void {
       privacy: isPrivacy(config),
       addresses: addresses ? effectiveAddresses(addresses, config) : null,
     }
+  })
+
+  // ── Midnight network (mainnet vs Preprod) ───────────────────────────────────
+  // Independent of the app-wide Testnet Mode toggle: Midnight only exists as a
+  // Privacy Mode chain (Testnet Mode force-disables Privacy Mode, so Midnight
+  // wouldn't even be shown there). This is Midnight's own network switch,
+  // scoped to DUST/NIGHT-send state only — the receive address shown on the
+  // Dashboard is unaffected (mn_addr1... is always derived, matching Lace).
+  ipcMain.handle('wallet:get-midnight-network', () => loadConfig().midnightNetwork)
+
+  ipcMain.handle('wallet:set-midnight-network', async (_event, network: 'mainnet' | 'preprod') => {
+    if (network !== 'mainnet' && network !== 'preprod') throw new Error('Invalid Midnight network')
+    if (loadConfig().midnightNetwork === network) return network
+    saveConfig({ midnightNetwork: network })
+    // The open DUST/facade handle (if any) is for the OLD network — tear it
+    // down so the next send/registration call opens fresh against the new one.
+    try { const { resetMidnightSendManager } = await import('./midnight-send-manager'); resetMidnightSendManager() } catch { /* not started */ }
+    return network
   })
 
   // ── Abstract Global Wallet: set/clear the manual address override ──────────

@@ -1,5 +1,9 @@
 /**
- * midnight-send.ts — NIGHT (unshielded) send + native DUST registration, Preprod only.
+ * midnight-send.ts — NIGHT (unshielded) send + native DUST registration.
+ * Supports both `mainnet` and `preprod` (see MidnightNetwork below) — all
+ * live-fund verification (2026-07-21) was done against Preprod; Mainnet uses
+ * the identical code path with different endpoints/networkId, unverified
+ * with real funds as of this writing.
  *
  * ELECTRON MAIN ONLY for now (same doctrine as monero.ts/midnight-ledger.ts —
  * WASM-heavy, per-target porting is a later phase). Not yet wired into
@@ -45,10 +49,22 @@
 import { deriveMidnightRoleKeys } from './midnight-crypto'
 import { makeLocalKeyMaterialProvider } from './midnight-proving-keys'
 
-const PREPROD_INDEXER_HTTP = 'https://indexer.preprod.midnight.network/api/v4/graphql'
-const PREPROD_INDEXER_WS = 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws'
-const PREPROD_NODE_RPC = 'https://rpc.preprod.midnight.network'
-const NETWORK_ID = 'preprod'
+export type MidnightNetwork = 'mainnet' | 'preprod'
+
+const NETWORKS: Record<MidnightNetwork, { indexerHttp: string; indexerWs: string; nodeRpc: string; networkId: MidnightNetwork }> = {
+  mainnet: {
+    indexerHttp: 'https://indexer.mainnet.midnight.network/api/v4/graphql',
+    indexerWs: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
+    nodeRpc: 'https://rpc.mainnet.midnight.network',
+    networkId: 'mainnet',
+  },
+  preprod: {
+    indexerHttp: 'https://indexer.preprod.midnight.network/api/v4/graphql',
+    indexerWs: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
+    nodeRpc: 'https://rpc.preprod.midnight.network',
+    networkId: 'preprod',
+  },
+}
 
 // Measured 2026-07-20 as the sweet spot — size:1000 was only marginally
 // faster than size:200 (diminishing returns), and a smaller batch keeps peak
@@ -73,6 +89,7 @@ export interface OpenMidnightSendWalletOptions {
 }
 
 export interface MidnightSendHandle {
+  network: MidnightNetwork
   facade: import('@midnightntwrk/wallet-sdk-facade').WalletFacade
   unshieldedWallet: import('@midnightntwrk/wallet-sdk-unshielded-wallet').UnshieldedWallet
   dustWallet: import('@midnightntwrk/wallet-sdk-dust-wallet').DustWallet
@@ -88,17 +105,19 @@ export interface MidnightSendHandle {
 }
 
 /**
- * Builds a WalletFacade against Preprod for the given raw BIP-39 seed. Starts
- * unshielded (fast) and dust (slow — see file doc) syncing but does NOT block
- * on dust sync completing; call waitForSendReady() when the caller actually
- * needs to send/register (mirrors the "show NIGHT balance now, fees syncing
- * in background" product design).
+ * Builds a WalletFacade against the given Midnight network for the given raw
+ * BIP-39 seed. Starts unshielded (fast) and dust (slow — see file doc)
+ * syncing but does NOT block on dust sync completing; call waitForSendReady()
+ * when the caller actually needs to send/register (mirrors the "show NIGHT
+ * balance now, fees syncing in background" product design).
  */
 export async function openMidnightSendWallet(
   seed: Uint8Array,
   accountIndex: number,
+  network: MidnightNetwork,
   options: OpenMidnightSendWalletOptions = {}
 ): Promise<MidnightSendHandle> {
+  const net = NETWORKS[network]
   const hdMod = await import(/* @vite-ignore */ '@midnight-ntwrk/wallet-sdk-hd')
   const keys = deriveMidnightRoleKeys(hdMod, seed, accountIndex)
   if (!keys) throw new Error('Midnight HD key derivation out of bounds')
@@ -119,34 +138,34 @@ export async function openMidnightSendWallet(
   const newTxHistory = () => new InMemoryTransactionHistoryStorage(WalletEntrySchema, mergeWalletEntries)
 
   const indexerClientConnection = {
-    indexerHttpUrl: PREPROD_INDEXER_HTTP,
-    indexerWsUrl: PREPROD_INDEXER_WS,
+    indexerHttpUrl: net.indexerHttp,
+    indexerWsUrl: net.indexerWs,
   }
 
-  const unshieldedKeystore = createKeystore(keys.nightKey, NETWORK_ID)
+  const unshieldedKeystore = createKeystore(keys.nightKey, net.networkId)
   const unshieldedPublicKey = PublicKey.fromKeyStore(unshieldedKeystore)
   const nightVerifyingKey = unshieldedKeystore.getPublicKey()
 
-  const unshieldedConfig = { networkId: NETWORK_ID, indexerClientConnection, costParameters, txHistoryStorage: newTxHistory() }
+  const unshieldedConfig = { networkId: net.networkId, indexerClientConnection, costParameters, txHistoryStorage: newTxHistory() }
   const unshieldedWallet = UnshieldedWallet(unshieldedConfig).startWithPublicKey(unshieldedPublicKey)
   await unshieldedWallet.start()
 
   const dustSecretKey = ledger.DustSecretKey.fromSeed(keys.dustKey)
   // dustParameters come from the chain's live ledger parameters, not a
   // hardcoded constant (they can change on a network upgrade).
-  const paramsRes = await fetch(PREPROD_INDEXER_HTTP, {
+  const paramsRes = await fetch(net.indexerHttp, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ query: '{ block { ledgerParameters } }' }),
   })
   const paramsJson = await paramsRes.json() as { data?: { block?: { ledgerParameters?: string } } }
   const rawParamsHex = paramsJson.data?.block?.ledgerParameters
-  if (!rawParamsHex) throw new Error('Could not fetch live ledger parameters from the Preprod indexer')
+  if (!rawParamsHex) throw new Error(`Could not fetch live ledger parameters from the ${network} indexer`)
   const rawParams = Buffer.from(rawParamsHex, 'hex')
   const dustParameters = ledger.LedgerParameters.deserialize(rawParams).dust
 
   const dustConfig = {
-    networkId: NETWORK_ID,
+    networkId: net.networkId,
     indexerClientConnection,
     costParameters,
     txHistoryStorage: newTxHistory(),
@@ -191,9 +210,9 @@ export async function openMidnightSendWallet(
 
   const shieldedSecretKeys = ledger.ZswapSecretKeys.fromSeed(keys.zswapKey)
   const shieldedConfig = {
-    networkId: NETWORK_ID,
+    networkId: net.networkId,
     provingServerUrl: new URL('http://127.0.0.1:6300'), // unused: WASM proving overrides this
-    relayURL: new URL(PREPROD_NODE_RPC.replace(/^http/, 'ws')),
+    relayURL: new URL(net.nodeRpc.replace(/^http/, 'ws')),
     indexerClientConnection,
     costParameters,
     txHistoryStorage: newTxHistory(),
@@ -203,10 +222,10 @@ export async function openMidnightSendWallet(
 
   const keyMaterialProvider = makeLocalKeyMaterialProvider()
   const provingService = () => provingCaps.makeWasmProvingService({ keyMaterialProvider })
-  const relayURL = new URL(PREPROD_NODE_RPC.replace(/^http/, 'ws'))
+  const relayURL = new URL(net.nodeRpc.replace(/^http/, 'ws'))
 
   const facadeConfiguration = {
-    networkId: NETWORK_ID,
+    networkId: net.networkId,
     indexerClientConnection,
     costParameters,
     txHistoryStorage: newTxHistory(),
@@ -224,9 +243,10 @@ export async function openMidnightSendWallet(
   await facade.start(shieldedSecretKeys, dustSecretKey)
 
   const unshieldedAddressInstance = new addrFmt.UnshieldedAddress(Buffer.from(ledger.addressFromKey(nightVerifyingKey), 'hex'))
-  const unshieldedAddress = addrFmt.UnshieldedAddress.codec.encode(NETWORK_ID, unshieldedAddressInstance).asString()
+  const unshieldedAddress = addrFmt.UnshieldedAddress.codec.encode(net.networkId, unshieldedAddressInstance).asString()
 
   return {
+    network,
     facade,
     unshieldedWallet,
     dustWallet,
@@ -343,15 +363,17 @@ export async function registerForDustGeneration(handle: MidnightSendHandle): Pro
 }
 
 /**
- * Sends `amountStars` of native NIGHT (1 NIGHT = 1e6 Stars) to a Preprod
- * mn_addr_preprod... address. Requires DUST to already be generated (call
- * registerForDustGeneration + wait first) — payFees:true has the facade pull
- * from the synced dust wallet automatically.
+ * Sends `amountStars` of native NIGHT (1 NIGHT = 1e6 Stars) to a
+ * `toAddress` on the SAME network as `handle` (mn_addr1... for mainnet,
+ * mn_addr_preprod1... for preprod — decode fails closed on a mismatch, since
+ * MidnightBech32m.decode checks the network segment). Requires DUST to
+ * already be generated (call registerForDustGeneration + wait first) —
+ * payFees:true has the facade pull from the synced dust wallet automatically.
  */
 export async function sendNight(handle: MidnightSendHandle, toAddress: string, amountStars: bigint): Promise<string> {
   const addrFmt = await import(/* @vite-ignore */ '@midnightntwrk/wallet-sdk-address-format')
   const parsed = addrFmt.MidnightBech32m.parse(toAddress)
-  const receiverAddress = addrFmt.UnshieldedAddress.codec.decode(NETWORK_ID, parsed)
+  const receiverAddress = addrFmt.UnshieldedAddress.codec.decode(NETWORKS[handle.network].networkId, parsed)
 
   const recipe = await handle.facade.transferTransaction(
     [{

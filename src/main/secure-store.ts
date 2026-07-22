@@ -24,6 +24,9 @@ const walletHelloPath = () => join(userData(), 'wallet.hello.enc')
 const configPath = () => join(userData(), 'config.json')
 const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
 const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
+const midnightDustCheckpointsDir = () => join(userData(), 'midnight-dust-checkpoints')
+const midnightDustCheckpointPath = (accountIndex: number, network: string) =>
+  join(midnightDustCheckpointsDir(), `${accountIndex}-${network}.txt`)
 
 // ─── Mnemonic (password-encrypted, layered over OS safeStorage) ──────────────
 //
@@ -427,6 +430,39 @@ export function saveAgwOverride(accountIndex: number, address: string | null): v
   agwOverridesCache = current
 }
 
+// ─── Midnight DUST wallet checkpoint (per account + network) ─────────────────
+//
+// DustWallet.serializeState() output — can be several MB for a wallet synced
+// against a large network history. One file per account+network (not folded
+// into a single JSON like agw-overrides.json — these blobs are too large to
+// read/write as a whole on every unrelated access). Plain text, same trust
+// level as addresses.json/config.json: this is synced public chain state
+// (UTXOs, tree position), not secret key material.
+//
+// ⚠ Only ever write a checkpoint captured while the DUST wallet was caught up
+// to the tip (see midnight-send.ts's onDustStateSerialized gate) — a
+// checkpoint captured mid-backlog cannot be read back (verified 2026-07-21).
+
+export function loadMidnightDustCheckpoint(accountIndex: number, network: string): string | null {
+  const p = midnightDustCheckpointPath(accountIndex, network)
+  if (!existsSync(p)) return null
+  try {
+    return readFileSync(p, 'utf-8')
+  } catch {
+    return null
+  }
+}
+
+export function saveMidnightDustCheckpoint(accountIndex: number, network: string, serialized: string): void {
+  mkdirSync(midnightDustCheckpointsDir(), { recursive: true })
+  writeFileSync(midnightDustCheckpointPath(accountIndex, network), serialized)
+}
+
+export function clearMidnightDustCheckpoint(accountIndex: number, network: string): void {
+  const p = midnightDustCheckpointPath(accountIndex, network)
+  try { if (existsSync(p)) unlinkSync(p) } catch { /* already gone */ }
+}
+
 // ─── API config (plain JSON) ─────────────────────────────────────────────────
 
 export interface WalletConfig {
@@ -455,6 +491,11 @@ export interface WalletConfig {
   // monero-ts scans from here instead of the genesis block; 0 = unknown → full
   // scan. Persisted so re-enabling the mode never rescans history it already saw.
   moneroRestoreHeight: number
+  // Which Midnight network NIGHT sends/DUST registration target. Independent
+  // of the app-wide testnetMode toggle (mutually exclusive with privacyMode,
+  // and Midnight only exists as a Privacy Mode chain) — this is Midnight's
+  // own network switch, defaulting to mainnet.
+  midnightNetwork: 'mainnet' | 'preprod'
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -485,7 +526,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   privacyMode: false,
   torBrowserEnabled: false,
   torBrowserPort: 9050,
-  moneroRestoreHeight: 0
+  moneroRestoreHeight: 0,
+  midnightNetwork: 'mainnet'
 }
 
 let configCache: WalletConfig | null = null

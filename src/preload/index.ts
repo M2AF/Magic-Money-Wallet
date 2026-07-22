@@ -60,6 +60,12 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:send-monero', to, amount),
   sendZcash:     (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-zcash', to, amount),
+  sendMidnight:  (to: string, amount: string) =>
+    ipcRenderer.invoke('wallet:send-midnight', to, amount),
+  getMidnightDustStatus:   () => ipcRenderer.invoke('wallet:get-midnight-dust-status'),
+  registerMidnightDust:    () => ipcRenderer.invoke('wallet:register-midnight-dust'),
+  getMidnightNetwork:      () => ipcRenderer.invoke('wallet:get-midnight-network'),
+  setMidnightNetwork:      (network: 'mainnet' | 'preprod') => ipcRenderer.invoke('wallet:set-midnight-network', network),
 
   // ── Phase 3: History + multi-account ─────────────────────────────────
   getHistory:      ()                  => ipcRenderer.invoke('wallet:get-history'),

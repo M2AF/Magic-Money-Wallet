@@ -23,6 +23,7 @@ const config: WalletConfig = {
   torBrowserEnabled: false,
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
+  midnightNetwork: 'mainnet',
 }
 
 describe('api proxy client gate', () => {
