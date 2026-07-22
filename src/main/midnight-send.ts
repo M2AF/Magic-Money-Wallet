@@ -263,30 +263,34 @@ function assertOffersFullySigned(recipe: UnprovenTransactionRecipe): void {
   }
 }
 
-const utxoKey = (u: { intentHash: string; outputNo: number }) => `${u.intentHash}:${u.outputNo}`
-
 /**
- * Waits for the wallet's OWN synced state to observe the given NIGHT UTXOs
- * as registeredForDustGeneration — submitTransaction() resolving only means
- * the RPC accepted the extrinsic for broadcast, not that it landed. Checks
- * totalCoins (not availableCoins): rotateUtxos books the UTXOs out of
- * available while the registration is in flight, so availableCoins can stay
- * empty of them until well after confirmation.
+ * Waits for the wallet's OWN synced state to observe the submitted NIGHT
+ * UTXOs as registered — submitTransaction() resolving only means the RPC
+ * accepted the extrinsic for broadcast, not that it landed. Tracks by VALUE
+ * conservation, not UTXO identity: registerNightUtxosForDustGeneration()
+ * registers via rotateUtxos (spends the input UTXO, creates a new one with
+ * the SAME value but a DIFFERENT intentHash/outputNo) — matching on the
+ * original intentHash never resolves. Checks totalCoins (not
+ * availableCoins): the UTXOs are booked out of available while the
+ * registration is in flight.
  */
 async function waitForRegistrationObserved(
   handle: MidnightSendHandle,
-  nightUtxos: readonly { utxo: { intentHash: string; outputNo: number } }[],
+  nightUtxos: readonly { utxo: { value: bigint } }[],
   timeoutMs: number
 ): Promise<void> {
-  const targetKeys = new Set(nightUtxos.map((u) => utxoKey(u.utxo)))
+  const submittedValue = nightUtxos.reduce((sum, u) => sum + u.utxo.value, 0n)
+  const registeredValue = (coins: readonly { utxo: { value: bigint }; meta: { registeredForDustGeneration: boolean } }[]) =>
+    coins.filter((c) => c.meta.registeredForDustGeneration).reduce((sum, c) => sum + c.utxo.value, 0n)
+  const baseline = registeredValue((await handle.unshieldedWallet.waitForSyncedState()).totalCoins)
+
   await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       sub.unsubscribe()
       reject(new Error('Timed out waiting for the indexer/wallet to observe the DUST registration'))
     }, timeoutMs)
     const sub = handle.unshieldedWallet.state.subscribe((state) => {
-      const matches = state.totalCoins.filter((u) => targetKeys.has(utxoKey(u.utxo)))
-      if (matches.length > 0 && matches.every((u) => u.meta.registeredForDustGeneration)) {
+      if (registeredValue(state.totalCoins) >= baseline + submittedValue) {
         clearTimeout(timer)
         sub.unsubscribe()
         resolve()
@@ -330,6 +334,10 @@ export async function registerForDustGeneration(handle: MidnightSendHandle): Pro
 
   const finalized = await handle.facade.finalizeRecipe(signedRecipe)
   const txId = await handle.facade.submitTransaction(finalized)
+  // Log before the confirmation wait, not after -- if the wait times out
+  // (indexer lag, not necessarily a failure) the tx id would otherwise be
+  // lost since it's only returned on the success path below.
+  console.error(`[midnight-send] registration submitted, tx id: ${txId}`)
   await waitForRegistrationObserved(handle, nightUtxos, 5 * 60_000)
   return txId
 }
