@@ -31,6 +31,15 @@
  * instead of restarting from scratch — inventing our own tree-skip logic
  * instead would risk building invalid witnesses; only use the SDK's own
  * serializeState()/restore().
+ *
+ * ⚠ serializeState() is ONLY safe to call once caught up to the tip
+ * (appliedIndex >= highestRelevantWalletIndex). Verified 2026-07-21: a
+ * checkpoint captured mid-backlog (blind interval, no catch-up gate) could
+ * not be read back by either the direct ledger.DustLocalState.deserialize()
+ * or a full DustWallet.restore() — both failed with "out of range for u64".
+ * A controlled test — same wallet, fully caught up, 60s idle, single
+ * serializeState() call — round-tripped cleanly on both paths. The persist
+ * timer below gates on that condition; don't remove the gate.
  */
 
 import { deriveMidnightRoleKeys } from './midnight-crypto'
@@ -151,16 +160,27 @@ export async function openMidnightSendWallet(
     : DustWallet(dustConfig).startWithSecretKey(dustSecretKey, dustParameters)
   await dustWallet.start(dustSecretKey)
 
+  // Only ever serializeState() when caught up to the tip (appliedIndex >=
+  // highestRelevantWalletIndex). Measured 2026-07-21: checkpoints captured
+  // WHILE actively processing a large batched backlog produce a state that
+  // ledger.DustLocalState.deserialize() cannot read back ("out of range for
+  // u64") on either the direct WASM call or the full DustWallet.restore()
+  // path — a controlled quiescent-only test (same wallet, same code) round
+  // tripped cleanly. This is a real correctness requirement, not caution.
+  let caughtUp = false
   let persistTimer: ReturnType<typeof setInterval> | null = null
   const dustSub = dustWallet.state.subscribe((state) => {
+    const { appliedIndex, highestRelevantWalletIndex, isConnected } = state.state.progress
+    caughtUp = isConnected && appliedIndex >= highestRelevantWalletIndex
     options.onDustProgress?.({
-      appliedIndex: Number(state.state.progress.appliedIndex),
-      highestRelevantWalletIndex: Number(state.state.progress.highestRelevantWalletIndex),
-      isConnected: state.state.progress.isConnected,
+      appliedIndex: Number(appliedIndex),
+      highestRelevantWalletIndex: Number(highestRelevantWalletIndex),
+      isConnected,
     })
   })
   if (options.onDustStateSerialized) {
     persistTimer = setInterval(() => {
+      if (!caughtUp) return
       dustWallet.serializeState().then(options.onDustStateSerialized).catch(() => { /* best-effort */ })
     }, PERSIST_INTERVAL_MS)
   }
