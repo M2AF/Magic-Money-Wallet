@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell, session, net } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setSwapFetch } from './swap-proxy'
-import { setMainWindow } from './browser-manager'
+import { setMainWindow, initMagicGuard } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
@@ -171,6 +171,10 @@ app.whenReady().then(() => {
   // Harden the renderer with a strict CSP in packaged builds (see WALLET_CSP).
   if (app.isPackaged) installRendererCsp()
   registerIpcHandlers()
+  // Before the browser can open, per MAGIC_GUARD_IMPLEMENTATION_PLAN.md's Batch B
+  // initialization-point guidance — attaches the dApp-session request listener
+  // and starts loading the bundled filter lists (deferred; see initMagicGuard doc).
+  initMagicGuard()
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 

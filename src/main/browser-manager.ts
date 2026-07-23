@@ -33,7 +33,14 @@ import {
   setMagicGuardEnabled,
   setMagicGuardForSite,
   hostnameFromUrl,
-  type MagicGuardState
+  initMagicGuardEngine,
+  magicGuardDecide,
+  registerTab as registerGuardTab,
+  unregisterTab as unregisterGuardTab,
+  resetPageCounter as resetGuardPageCounter,
+  noteBlocked as noteGuardBlocked,
+  type MagicGuardState,
+  type ElectronResourceType
 } from './magic-guard'
 
 export const BROWSER_HOME = 'https://chainlensnft.info'
@@ -331,19 +338,52 @@ export async function setTorBrowserMode(enabled: boolean): Promise<TorBrowserSta
 // on/off toggle applies to.
 
 export function browserGetMagicGuardState(): MagicGuardState {
-  return getMagicGuardState(hostnameFromUrl(activeTab()?.url ?? null))
+  const t = activeTab()
+  return getMagicGuardState(hostnameFromUrl(t?.url ?? null), t?.view.webContents.id)
 }
 
 export function browserSetMagicGuardEnabled(enabled: boolean): MagicGuardState {
-  const state = setMagicGuardEnabled(enabled, hostnameFromUrl(activeTab()?.url ?? null))
+  const t = activeTab()
+  const state = setMagicGuardEnabled(enabled, hostnameFromUrl(t?.url ?? null), t?.view.webContents.id)
   publishGuardState()
   return state
 }
 
 export function browserSetMagicGuardForSite(protect: boolean): MagicGuardState {
-  const state = setMagicGuardForSite(hostnameFromUrl(activeTab()?.url ?? null), protect)
+  const t = activeTab()
+  const state = setMagicGuardForSite(hostnameFromUrl(t?.url ?? null), protect, t?.view.webContents.id)
   publishGuardState()
   return state
+}
+
+/**
+ * Attach the ONE onBeforeRequest listener on dappSession() (Electron only honors
+ * the last listener registered per session/event, so this must never be called
+ * more than once) and kick off the engine load. Called once from index.ts's
+ * app.whenReady() — before the browser can open, per the plan's Batch B
+ * initialization-point guidance.
+ */
+export function initMagicGuard(): void {
+  dappSession().webRequest.onBeforeRequest((details, callback) => {
+    const tab = tabs.find(t => t.view.webContents.id === details.webContentsId)
+    const response = magicGuardDecide({
+      url: details.url,
+      method: details.method,
+      resourceType: details.resourceType as ElectronResourceType,
+      frameUrl: details.frame?.url ?? null,
+      referrer: details.referrer || null,
+      tabUrl: tab?.url ?? null,
+    })
+    if (response.cancel && tab) {
+      noteGuardBlocked(tab.view.webContents.id)
+      scheduleGuardPublish()
+    }
+    callback(response)
+  })
+  // Deferred so this never runs inline with startup's synchronous module-eval
+  // path; parsing ~3.6MB of bundled filter lists is still a blocking native
+  // call when it runs (see magic-guard.ts's initMagicGuardEngine doc comment).
+  setImmediate(() => { initMagicGuardEngine().catch(e => console.error('[magic-guard] init failed:', e)) })
 }
 
 /** Push the tab list + active id so the chrome can render the tab button/count and menu. */
@@ -367,7 +407,19 @@ function pushActive(): void {
 
 /** Push the Magic Guard state for the currently active tab's hostname to the chrome. */
 function publishGuardState(): void {
-  sendToChrome('browser:guard-state', getMagicGuardState(hostnameFromUrl(activeTab()?.url ?? null)))
+  const t = activeTab()
+  sendToChrome('browser:guard-state', getMagicGuardState(hostnameFromUrl(t?.url ?? null), t?.view.webContents.id))
+}
+
+// Blocked-request counts can arrive many times a second on a busy page; batching
+// to at most once per 100ms (plan section 8 "Counter semantics") keeps the IPC
+// channel from turning into an event storm. Nav/tab-switch state changes stay
+// on the unthrottled publishGuardState() path above — only the block-counter
+// path uses this.
+let guardPublishTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleGuardPublish(): void {
+  if (guardPublishTimer) return
+  guardPublishTimer = setTimeout(() => { guardPublishTimer = null; publishGuardState() }, 100)
 }
 
 function layoutActiveView(): void {
@@ -732,6 +784,16 @@ function wireTab(tab: Tab): void {
   const wc = tab.view.webContents
   const isActive = () => tab.id === activeTabId
 
+  // Magic Guard: blockedThisPage resets at the start of a top-level navigation,
+  // before subresources begin loading (plan section 8 "Counter semantics").
+  // blockedThisTab is untouched here — it persists until the tab closes.
+  wc.on('did-start-navigation', (_e, _url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) {
+      resetGuardPageCounter(wc.id)
+      if (isActive()) publishGuardState()
+    }
+  })
+
   wc.on('did-navigate', (_e, url) => {
     tab.url = url
     const nav = navCanGo(wc)
@@ -845,6 +907,7 @@ function createTab(url: string, activate = true): number {
   })
   const tab: Tab = { id: nextTabId++, view, url, title: 'New Tab', loading: true, canBack: false, canForward: false }
   tabs.push(tab)
+  registerGuardTab(view.webContents.id)
   wireTab(tab)
   view.webContents.loadURL(url)
   if (activate) setActiveTab(tab.id)
@@ -886,6 +949,7 @@ function closeTab(id: number): void {
   try {
     if (popupWin && !popupWin.isDestroyed()) popupWin.contentView.removeChildView(tab.view)
     const wc = tab.view.webContents
+    unregisterGuardTab(wc.id)
     if (wc && !wc.isDestroyed()) { wc.stop(); wc.close() }
   } catch { /* already torn down */ }
 
@@ -957,6 +1021,7 @@ function destroyAllTabs(): void {
     try {
       if (popupWin && !popupWin.isDestroyed()) popupWin.contentView.removeChildView(t.view)
       const wc = t.view.webContents
+      unregisterGuardTab(wc.id)
       if (wc && !wc.isDestroyed()) { wc.stop(); wc.close() }
     } catch { /* already torn down — safe to ignore */ }
   }

@@ -23,10 +23,25 @@ declare module 'adblock-rs' {
     }
   }
 
+  /**
+   * Runtime values are the Rust enum variant names verbatim (plain serde
+   * derive, no rename) — transcribed from node_modules/adblock-rs/src/lists.rs
+   * RuleTypes + js/src/lib.rs build_rule_types_enum, not guessed.
+   */
+  export const RuleTypes: {
+    ALL: 'All'
+    NETWORK_ONLY: 'NetworkOnly'
+    COSMETIC_ONLY: 'CosmeticOnly'
+  }
+
+  export interface AddFiltersOptions {
+    rule_types?: 'All' | 'NetworkOnly' | 'CosmeticOnly'
+  }
+
   export class FilterSet {
     constructor(debug?: boolean)
     /** `rules` is a single newline-separated filter list string (ABP/uBlock syntax). */
-    addFilters(rules: string): AddedFiltersRecord
+    addFilters(rules: string, options?: AddFiltersOptions): AddedFiltersRecord
   }
 
   export class Engine {
