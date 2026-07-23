@@ -1,0 +1,5 @@
+# Magic Guard filter lists must stay LF-only. adblock-rust parses these line by
+# line; a CRLF checkout (autocrlf on Windows) would leave a trailing \r on every
+# rule and silently break matching. Force LF everywhere, on every platform.
+resources/magic-guard/*.txt text eol=lf
+android/app/src/main/assets/magic-guard/*.txt text eol=lf

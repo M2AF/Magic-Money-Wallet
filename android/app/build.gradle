@@ -62,6 +62,76 @@ repositories {
     }
 }
 
+// ── Magic Guard native engine (native/magic-guard-core, Rust → JNI) ──────────
+// Cross-compiles the adblock engine cdylib into src/main/jniLibs before every
+// build. Requires rustup targets aarch64-linux-android + x86_64-linux-android,
+// cargo-ndk, and NDK 27.3.13750724 (see .github/workflows for the CI setup).
+// If cargo is unavailable but the .so files already exist (e.g. a machine that
+// only touches Java/JS), the build proceeds with the existing binaries.
+def magicGuardCrateDir = file("$rootDir/../native/magic-guard-core")
+def magicGuardJniLibs = file("$projectDir/src/main/jniLibs")
+def magicGuardNdkVersion = '27.3.13750724'
+
+def isWindows = System.getProperty('os.name').toLowerCase().contains('win')
+
+def findCargo = {
+    def candidates = []
+    if (System.getenv('CARGO') != null) candidates << new File(System.getenv('CARGO'))
+    def home = System.getProperty('user.home')
+    candidates << new File(home, isWindows ? '.cargo\\bin\\cargo.exe' : '.cargo/bin/cargo')
+    def found = candidates.find { it.exists() }
+    if (found != null) return found.absolutePath
+    return isWindows ? 'cargo.exe' : 'cargo' // hope it's on PATH
+}
+
+// Resolve the SDK dir without android.sdkDirectory (removed in newer AGP):
+// local.properties sdk.dir → ANDROID_HOME → ANDROID_SDK_ROOT.
+def resolveSdkDir = {
+    def lp = rootProject.file('local.properties')
+    if (lp.exists()) {
+        def props = new Properties()
+        lp.withInputStream { props.load(it) }
+        def dir = props.getProperty('sdk.dir')
+        if (dir != null && !dir.isEmpty()) return dir
+    }
+    return System.getenv('ANDROID_HOME') ?: System.getenv('ANDROID_SDK_ROOT')
+}
+
+tasks.register('buildMagicGuardCore', Exec) {
+    workingDir magicGuardCrateDir
+    // Resolve NDK lazily (execution time), so a stale/absent SDK config can't
+    // break configuration of unrelated tasks.
+    doFirst {
+        def sdkDir = resolveSdkDir()
+        if (sdkDir != null) environment 'ANDROID_HOME', sdkDir
+        // Prefer an NDK path from the environment (CI's setup-ndk action);
+        // otherwise fall back to the pinned r27 under the local SDK dir.
+        def ndkHome = System.getenv('ANDROID_NDK_HOME')
+        if ((ndkHome == null || ndkHome.isEmpty()) && sdkDir != null) {
+            ndkHome = "$sdkDir/ndk/$magicGuardNdkVersion"
+        }
+        if (ndkHome != null) environment 'ANDROID_NDK_HOME', ndkHome
+    }
+    commandLine findCargo(), 'ndk',
+            '-t', 'arm64-v8a', '-t', 'x86_64',
+            '-o', magicGuardJniLibs.absolutePath,
+            'build', '--release'
+    onlyIf {
+        def cargoPath = findCargo()
+        def cargoExists = new File(cargoPath).isAbsolute() ? new File(cargoPath).exists() : true
+        def soExists = new File(magicGuardJniLibs, 'arm64-v8a/libmagic_guard_core.so').exists()
+        if (!cargoExists && soExists) {
+            logger.warn('cargo not found — reusing existing prebuilt libmagic_guard_core.so')
+            return false
+        }
+        if (!cargoExists) {
+            throw new org.gradle.api.GradleException('cargo not found and no prebuilt libmagic_guard_core.so — install the Rust toolchain (see native/magic-guard-core)')
+        }
+        return true
+    }
+}
+preBuild.dependsOn 'buildMagicGuardCore'
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"

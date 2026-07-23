@@ -5,7 +5,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
@@ -13,6 +15,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -33,10 +36,12 @@ import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.torproject.jni.TorService;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,7 +54,9 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -90,9 +97,14 @@ public class DappBrowserPlugin extends Plugin {
         WebView webView;
         JavaScriptReplyProxy replyProxy;
         String origin = "";
-        String url = "";
+        // volatile: written on the UI thread (onPageStarted), read from WebView
+        // IO threads inside shouldInterceptRequest (Magic Guard source URL).
+        volatile String url = "";
         String title = "";
         boolean loading = false;
+        // Magic Guard counters — mutated on IO threads, read on the UI thread.
+        final AtomicInteger blockedPage = new AtomicInteger();
+        final AtomicInteger blockedTab = new AtomicInteger();
     }
 
     private FrameLayout container;
@@ -116,11 +128,29 @@ public class DappBrowserPlugin extends Plugin {
     // Last bounds in CSS px, reapplied on setBounds
     private int bx = 0, by = 0, bw = 0, bh = 0;
 
+    // ── Magic Guard state ────────────────────────────────────────────────────
+    // Enabled flag + exact-hostname site exceptions live in this plugin's own
+    // SharedPreferences (Android's analog of the desktop's userData/magic-guard
+    // store) — the WalletConfig.magicGuardEnabled field in capacitor-store stays
+    // a shape-parity field, as documented there. Reads happen on WebView IO
+    // threads inside shouldInterceptRequest, so both are lock-free/concurrent.
+    private static final String GUARD_PREFS = "magicguard";
+    private volatile boolean guardEnabled = true;
+    private final Set<String> guardExceptions = ConcurrentHashMap.newKeySet();
+    private final Handler guardHandler = new Handler(Looper.getMainLooper());
+    private final AtomicBoolean guardPushPending = new AtomicBoolean(false);
+
     private static final int MAX_TABS = 5;
     @Override
     public void load() {
         injectJs = readAsset("public/dapp-inject.js");
         docStartSupported = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT);
+        loadGuardPrefs();
+        // Engine construction parses ~3.6MB of bundled filter lists — never on
+        // the UI thread. Until it finishes, isReady() is false and every request
+        // is allowed through (fail-open), status reports 'loading'.
+        Context appContext = getContext().getApplicationContext();
+        new Thread(() -> MagicGuardNative.init(appContext), "magic-guard-init").start();
     }
 
     private String readAsset(String path) {
@@ -368,6 +398,170 @@ public class DappBrowserPlugin extends Plugin {
             stopLoadingAllTabs();
             startEmbeddedTor(generation, call);
         });
+    }
+
+    // ── Magic Guard (privacy filtering for dApp WebViews) ────────────────────
+    // The hostname a toggle applies to is always derived from the ACTIVE tab's
+    // own top-level URL on the Java side — never from a value the JS layer
+    // passes in — mirroring the desktop's browser-manager.ts invariant.
+
+    @PluginMethod
+    public void getMagicGuardState(PluginCall call) {
+        getActivity().runOnUiThread(() -> call.resolve(guardStateJson()));
+    }
+
+    @PluginMethod
+    public void setMagicGuardEnabled(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        getActivity().runOnUiThread(() -> {
+            guardEnabled = enabled;
+            persistGuardPrefs();
+            JSObject state = guardStateJson();
+            notifyListeners("magicGuardStateChanged", state);
+            call.resolve(state);
+        });
+    }
+
+    /** enabled=false excepts the active tab's site (guard off there); true un-excepts. */
+    @PluginMethod
+    public void setMagicGuardForSite(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        getActivity().runOnUiThread(() -> {
+            Tab t = active();
+            String host = t == null ? null : hostOf(t.url);
+            if (host != null) {
+                if (enabled) guardExceptions.remove(host);
+                else guardExceptions.add(host);
+                persistGuardPrefs();
+            }
+            JSObject state = guardStateJson();
+            notifyListeners("magicGuardStateChanged", state);
+            call.resolve(state);
+        });
+    }
+
+    private void loadGuardPrefs() {
+        SharedPreferences prefs = getContext().getSharedPreferences(GUARD_PREFS, Context.MODE_PRIVATE);
+        guardEnabled = prefs.getBoolean("enabled", true);
+        try {
+            JSONArray arr = new JSONArray(prefs.getString("exceptions", "[]"));
+            for (int i = 0; i < arr.length(); i++) guardExceptions.add(arr.getString(i));
+        } catch (Exception ignored) {
+            // Corrupt store → ignore it and default to protection ON everywhere.
+        }
+    }
+
+    private void persistGuardPrefs() {
+        getContext().getSharedPreferences(GUARD_PREFS, Context.MODE_PRIVATE).edit()
+                .putBoolean("enabled", guardEnabled)
+                .putString("exceptions", new JSONArray(guardExceptions).toString())
+                .apply();
+    }
+
+    private static String hostOf(String url) {
+        if (url == null || url.isEmpty()) return null;
+        try {
+            String host = Uri.parse(url).getHost();
+            return host == null || host.isEmpty() ? null : host.toLowerCase(Locale.ROOT);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** Must run on the UI thread (reads the tab registry). */
+    private JSObject guardStateJson() {
+        Tab t = active();
+        String host = t == null ? null : hostOf(t.url);
+        boolean siteEnabled = host == null || !guardExceptions.contains(host);
+        JSObject state = new JSObject();
+        state.put("enabled", guardEnabled);
+        state.put("siteEnabled", siteEnabled);
+        state.put("effectiveEnabled", guardEnabled && siteEnabled && MagicGuardNative.isReady());
+        state.put("status", !guardEnabled ? "disabled" : MagicGuardNative.status());
+        if (host == null) state.put("hostname", JSONObject.NULL);
+        else state.put("hostname", host);
+        state.put("blockedThisPage", t == null ? 0 : t.blockedPage.get());
+        state.put("blockedThisTab", t == null ? 0 : t.blockedTab.get());
+        return state;
+    }
+
+    /**
+     * Coalesced per-block state push: blocked requests can arrive many times a
+     * second on an ad-heavy page, so batch to one event per 150ms (trailing
+     * edge, so the final counts always land). Nav/tab-switch pushes stay
+     * immediate on their own paths.
+     */
+    private void scheduleGuardPush() {
+        if (!guardPushPending.compareAndSet(false, true)) return;
+        guardHandler.postDelayed(() -> {
+            guardPushPending.set(false);
+            notifyListeners("magicGuardStateChanged", guardStateJson());
+        }, 150);
+    }
+
+    private static WebResourceResponse blockedResponse() {
+        WebResourceResponse response = new WebResourceResponse(
+                "text/plain", "utf-8", new ByteArrayInputStream(new byte[0]));
+        try {
+            response.setStatusCodeAndReasonPhrase(204, "No Content");
+        } catch (Exception ignored) { /* keep default 200 with an empty body */ }
+        return response;
+    }
+
+    /**
+     * Classify an Android WebResourceRequest into an adblock-rust request-type
+     * alias. Android exposes no Chromium resource type here, so this is the
+     * plan's tested best-effort ladder: Sec-Fetch-Dest → Accept header →
+     * conservative URL-extension hints → 'other'. Cannot match Electron's
+     * precision — documented Android limitation.
+     */
+    private static String classifyResource(WebResourceRequest request) {
+        String dest = null;
+        String accept = null;
+        Map<String, String> headers = request.getRequestHeaders();
+        if (headers != null) {
+            for (Map.Entry<String, String> e : headers.entrySet()) {
+                if ("sec-fetch-dest".equalsIgnoreCase(e.getKey())) dest = e.getValue();
+                else if ("accept".equalsIgnoreCase(e.getKey())) accept = e.getValue();
+            }
+        }
+        if (dest != null) {
+            switch (dest.toLowerCase(Locale.ROOT)) {
+                case "iframe":
+                case "frame": return "subdocument";
+                case "script":
+                case "worker":
+                case "sharedworker":
+                case "serviceworker": return "script";
+                case "style": return "stylesheet";
+                case "image": return "image";
+                case "font": return "font";
+                case "audio":
+                case "video":
+                case "track": return "media";
+                case "object":
+                case "embed": return "object";
+                case "empty": return "xmlhttprequest"; // fetch()/XHR
+                default: break;
+            }
+        }
+        if (accept != null) {
+            String a = accept.toLowerCase(Locale.ROOT);
+            if (a.startsWith("text/css")) return "stylesheet";
+            if (a.startsWith("image/")) return "image";
+            if (a.startsWith("video/") || a.startsWith("audio/")) return "media";
+        }
+        String path = request.getUrl().getPath();
+        if (path != null) {
+            String p = path.toLowerCase(Locale.ROOT);
+            if (p.endsWith(".js") || p.endsWith(".mjs")) return "script";
+            if (p.endsWith(".css")) return "stylesheet";
+            if (p.endsWith(".png") || p.endsWith(".jpg") || p.endsWith(".jpeg") || p.endsWith(".gif")
+                    || p.endsWith(".webp") || p.endsWith(".svg") || p.endsWith(".ico") || p.endsWith(".avif")) return "image";
+            if (p.endsWith(".woff") || p.endsWith(".woff2") || p.endsWith(".ttf") || p.endsWith(".otf")) return "font";
+            if (p.endsWith(".mp4") || p.endsWith(".webm") || p.endsWith(".mp3") || p.endsWith(".m3u8") || p.endsWith(".ogg")) return "media";
+        }
+        return "other";
     }
 
     // ── Wallet-side pipe ─────────────────────────────────────────────────────
@@ -701,6 +895,7 @@ public class DappBrowserPlugin extends Plugin {
             pushUrl(t);
             pushNavState(t);
             pushLoading(t);
+            notifyListeners("magicGuardStateChanged", guardStateJson());
         }
         pushTabsChanged();
     }
@@ -761,9 +956,46 @@ public class DappBrowserPlugin extends Plugin {
                 tab.url = u;
                 tab.loading = true;
                 tab.replyProxy = null;  // stale after navigation until the new page says hello
+                // Magic Guard: onPageStarted only fires for top-level navigations —
+                // blockedThisPage resets here, before subresources begin loading;
+                // blockedThisTab persists until the tab closes.
+                tab.blockedPage.set(0);
                 if (!docStartSupported && injectJs != null) view.evaluateJavascript(injectJs, null);
-                if (tab.id == activeTabId) { pushUrl(tab); pushLoading(tab); pushNavState(tab); }
+                if (tab.id == activeTabId) {
+                    pushUrl(tab); pushLoading(tab); pushNavState(tab);
+                    notifyListeners("magicGuardStateChanged", guardStateJson());
+                }
                 pushTabsChanged();
+            }
+
+            // ── Magic Guard subresource filtering ────────────────────────────
+            // Runs OFF the UI thread, possibly concurrently across WebViews.
+            // Policy per plan section 11: non-http(s) → bypass; main frame →
+            // bypass (top-level phishing/navigation guard is separate); guard
+            // disabled / engine not ready / site excepted → bypass; otherwise a
+            // synchronous JNI check. Blocked → empty 204; allowed → null (let
+            // the WebView continue normally — through the Tor proxy when it is
+            // on; a guard failure never touches Tor's fail-closed state). No
+            // disk I/O, list parsing, network, or Capacitor callbacks in here.
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri uri = request.getUrl();
+                String scheme = uri.getScheme();
+                if (!"http".equals(scheme) && !"https".equals(scheme)) return null;
+                if (request.isForMainFrame()) return null;
+                if (!guardEnabled || !MagicGuardNative.isReady()) return null;
+                String topUrl = tab.url;
+                String topHost = hostOf(topUrl);
+                if (topHost != null && guardExceptions.contains(topHost)) return null;
+                boolean blocked = MagicGuardNative.check(
+                        uri.toString(),
+                        topUrl == null ? "" : topUrl,
+                        classifyResource(request));
+                if (!blocked) return null;
+                tab.blockedPage.incrementAndGet();
+                tab.blockedTab.incrementAndGet();
+                scheduleGuardPush();
+                return blockedResponse();
             }
 
             @Override

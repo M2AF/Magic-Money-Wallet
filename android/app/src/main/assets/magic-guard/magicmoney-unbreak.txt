@@ -1,0 +1,7 @@
+[Adblock Plus 2.0]
+! Title: Magic Money compatibility/allow list
+! Description: Narrow, hand-written exceptions for cases where EasyList/EasyPrivacy
+!   break a real dApp inside the Magic Money browser. Empty until a specific,
+!   reproduced breakage is found — do not add a rule here speculatively. Every
+!   entry must explain WHY (which dApp, which request, what broke) in a comment
+!   directly above it, per MAGIC_GUARD_IMPLEMENTATION_PLAN.md section 15.

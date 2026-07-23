@@ -4,7 +4,7 @@
  */
 
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
-import type { TorBrowserState } from '../renderer/types/wallet'
+import type { TorBrowserState, MagicGuardState } from '../renderer/types/wallet'
 
 export interface Bounds { x: number; y: number; width: number; height: number }  // CSS px
 
@@ -41,6 +41,11 @@ export interface DappBrowserPlugin {
   getState(): Promise<DappBrowserState>
   getTorState(): Promise<TorBrowserState>
   setTorMode(o: { enabled: boolean }): Promise<TorBrowserState>
+  // Magic Guard — the active tab's hostname is derived on the Java side, never
+  // passed from here (same invariant as the desktop IPC contract).
+  getMagicGuardState(): Promise<MagicGuardState>
+  setMagicGuardEnabled(o: { enabled: boolean }): Promise<MagicGuardState>
+  setMagicGuardForSite(o: { enabled: boolean }): Promise<MagicGuardState>
   respond(o: { requestId: string; json: string }): Promise<void>
   emitEvent(o: { origin?: string; json: string }): Promise<void>
   addListener(event: 'pageRequest', cb: (e: PageRequestEvent) => void): Promise<PluginListenerHandle>
@@ -51,6 +56,7 @@ export interface DappBrowserPlugin {
   addListener(event: 'tabsChanged', cb: (e: { activeTabId: number; tabs: DappBrowserState['tabs'] }) => void): Promise<PluginListenerHandle>
   addListener(event: 'closed', cb: () => void): Promise<PluginListenerHandle>
   addListener(event: 'torStateChanged', cb: (state: TorBrowserState) => void): Promise<PluginListenerHandle>
+  addListener(event: 'magicGuardStateChanged', cb: (state: MagicGuardState) => void): Promise<PluginListenerHandle>
 }
 
 export const DappBrowser = registerPlugin<DappBrowserPlugin>('DappBrowser')

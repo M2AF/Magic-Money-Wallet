@@ -1,0 +1,27 @@
+{
+  "generatedBy": "manual fetch (Batch B) — scripts/update-magic-guard-lists.mjs lands in Batch D",
+  "lists": [
+    {
+      "id": "easylist",
+      "file": "easylist.txt",
+      "sourceUrl": "https://easylist.to/easylist/easylist.txt",
+      "upstreamVersion": "202607230025",
+      "upstreamCommit": "1eb62a18afece603eb3ced854e35b668e6f81a1c",
+      "sha256": "115747855a9d5cc26d020bd4824bf895126cea43f726ade89dd503a1d035a751",
+      "byteLength": 2168711,
+      "downloadedAt": "2026-07-23T00:37:42Z",
+      "licenseUrl": "https://easylist.to/pages/licence.html"
+    },
+    {
+      "id": "easyprivacy",
+      "file": "easyprivacy.txt",
+      "sourceUrl": "https://easylist.to/easylist/easyprivacy.txt",
+      "upstreamVersion": "202607230025",
+      "upstreamCommit": "1eb62a18afece603eb3ced854e35b668e6f81a1c",
+      "sha256": "c43f7a726d2e6dfb7d91c0a19e21024d60b317df7a4765c758ce6a6a106dfd19",
+      "byteLength": 1489918,
+      "downloadedAt": "2026-07-23T00:37:42Z",
+      "licenseUrl": "https://easylist.to/pages/licence.html"
+    }
+  ]
+}

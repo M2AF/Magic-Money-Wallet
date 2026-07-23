@@ -12,7 +12,8 @@ import { useEffect, useRef, useState } from 'react'
 import { DappBrowser, type DappBrowserState } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
-import type { TorBrowserState } from '../renderer/types/wallet'
+import mascotUrl from '../renderer/assets/magic-guard.png'
+import type { TorBrowserState, MagicGuardState } from '../renderer/types/wallet'
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
 
@@ -44,6 +45,15 @@ export function BrowserOverlay() {
     enabled: false, status: 'off', host: '127.0.0.1', port: 19050,
     isTor: false, message: 'Tor Mode is off',
   })
+  const [guard, setGuard] = useState<MagicGuardState>({
+    enabled: true, siteEnabled: true, effectiveEnabled: false, status: 'loading',
+    hostname: null, blockedThisPage: 0, blockedThisTab: 0,
+  })
+  // Inline expandable panel (a row between the tab row and the content area) —
+  // NOT a floating dropdown: the native dApp WebView is layered above this
+  // WebView, so a dropdown would be hidden behind it. An inline row shrinks
+  // contentRef, and the bounds ResizeObserver moves the native view down with it.
+  const [guardOpen, setGuardOpen] = useState(false)
 
   const sessionRef = useRef<Session>('closed')
   const pendingUrlRef = useRef<string>(HOME_URL)
@@ -187,7 +197,9 @@ export function BrowserOverlay() {
   // Native plugin state events
   useEffect(() => {
     DappBrowser.getTorState().then(setTor).catch(() => {})
+    DappBrowser.getMagicGuardState().then(setGuard).catch(() => {})
     const handles = [
+      DappBrowser.addListener('magicGuardStateChanged', setGuard),
       DappBrowser.addListener('urlChanged', e => { setUrl(e.url); if (!inputFocusedRef.current) setUrlInput(e.url) }),
       DappBrowser.addListener('loadingChanged', e => setLoading(e.loading)),
       DappBrowser.addListener('navState', e => { setCanBack(e.canBack); setCanForward(e.canForward) }),
@@ -248,6 +260,13 @@ export function BrowserOverlay() {
   const toggleTor = () => {
     if (tor.status === 'connecting' || tor.status === 'unsupported') return
     changeTor(!tor.enabled)
+  }
+
+  const setGuardEnabled = (enabled: boolean) => {
+    DappBrowser.setMagicGuardEnabled({ enabled }).then(setGuard).catch(() => {})
+  }
+  const setGuardSite = (enabled: boolean) => {
+    DappBrowser.setMagicGuardForSite({ enabled }).then(setGuard).catch(() => {})
   }
 
   if (!visible) return null
@@ -320,6 +339,24 @@ export function BrowserOverlay() {
         </div>
         <button
           type="button"
+          aria-label="Magic Guard"
+          aria-pressed={guardOpen}
+          onClick={() => setGuardOpen(v => !v)}
+          style={{
+            ...navBtn, width: 42, gap: 3, flexShrink: 0,
+            borderColor: guardOpen ? '#48c8e8' : 'var(--border, #2a2a2a)',
+            color: guard.enabled && guard.siteEnabled ? '#48c8e8' : 'var(--text-muted, #737373)',
+          }}
+        >
+          <ShieldIcon active={guard.effectiveEnabled} />
+          {guard.blockedThisPage > 0 && (
+            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text, #fff)' }}>
+              {guard.blockedThisPage > 99 ? '99+' : guard.blockedThisPage}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
           aria-label={tor.enabled ? 'Disable Tor Mode' : 'Enable Tor Mode'}
           aria-pressed={tor.enabled}
           title={`${tor.message} Embedded SOCKS5 ${tor.host}:${tor.port}. On Android, WebView proxy settings apply to all app WebViews.`}
@@ -348,6 +385,47 @@ export function BrowserOverlay() {
           fontSize: 10, lineHeight: 1.35,
         }}>
           {tor.message} · {tor.host}:{tor.port}
+        </div>
+      )}
+
+      {guardOpen && (
+        <div style={{
+          margin: '0 10px 8px', padding: 12, borderRadius: 12,
+          border: '1px solid var(--border-active, #48c8e8)', background: 'var(--bg-card, #161616)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <img src={mascotUrl} alt="" width={38} height={38} style={{ borderRadius: 9, flexShrink: 0, objectFit: 'cover' }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text, #fff)' }}>Magic Guard</div>
+              <div style={{ fontSize: 11, color: 'var(--text-muted, #737373)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {guard.hostname ?? 'No site loaded'}
+              </div>
+            </div>
+          </div>
+
+          <GuardToggleRow label="Protection for this site" checked={guard.siteEnabled}
+            disabled={!guard.hostname} onChange={setGuardSite} />
+          <GuardToggleRow label="Magic Guard (global)" checked={guard.enabled}
+            onChange={setGuardEnabled} />
+
+          <div style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
+            <GuardCountTile label="Blocked this page" value={guard.blockedThisPage} />
+            <GuardCountTile label="Blocked this tab" value={guard.blockedThisTab} />
+          </div>
+
+          <div style={{
+            fontSize: 10.5, lineHeight: 1.5, color: 'var(--text-muted, #737373)',
+            padding: '8px 9px', borderRadius: 8, background: 'var(--bg-dark, #0d0d0d)',
+            border: '1px solid var(--border, #2a2a2a)',
+          }}>
+            {!guard.enabled
+              ? 'Magic Guard is off. Turn it on to filter ads and trackers in the dApp browser.'
+              : guard.status === 'ready'
+                ? 'Protection is active for this site.'
+                : guard.status === 'loading'
+                  ? 'Filter lists are loading…'
+                  : 'Magic Guard is temporarily inactive — requests are allowed through.'}
+          </div>
         </div>
       )}
 
@@ -403,4 +481,60 @@ const panelPrimaryBtn: React.CSSProperties = {
 const panelSecondaryBtn: React.CSSProperties = {
   ...panelPrimaryBtn, border: '1px solid var(--border, #2a2a2a)',
   background: 'var(--bg-card, #161616)', color: 'var(--text, #fff)',
+}
+
+// Neon rim glow in the Magic Money logo's own gradient (blue → cyan → mint),
+// matching the desktop MagicGuardControl shield.
+const LOGO_GLOW = [
+  'drop-shadow(0 0 1.5px #2868f8)',
+  'drop-shadow(0 0 3px #2868f8)',
+  'drop-shadow(0 0 6px #48c8e8)',
+  'drop-shadow(0 0 9px #68f8d0)',
+].join(' ')
+
+function ShieldIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'}
+      stroke="currentColor" strokeWidth="2" strokeLinejoin="round" style={{ filter: LOGO_GLOW }} aria-hidden="true">
+      <path d="M12 2.5l7.5 3.2v5.1c0 5.1-3.2 8.9-7.5 10.2-4.3-1.3-7.5-5.1-7.5-10.2V5.7L12 2.5z"
+        fillOpacity={active ? 0.18 : 0} />
+    </svg>
+  )
+}
+
+function GuardToggleRow({ label, checked, disabled, onChange }: {
+  label: string; checked: boolean; disabled?: boolean; onChange: (next: boolean) => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 2px' }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #b3b3b3)' }}>{label}</span>
+      <button
+        type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled}
+        onClick={() => onChange(!checked)}
+        style={{
+          position: 'relative', width: 40, height: 22, flexShrink: 0, padding: 0,
+          borderRadius: 999, border: 'none', cursor: disabled ? 'default' : 'pointer',
+          background: checked ? '#48c8e8' : 'var(--border, #2a2a2a)',
+          opacity: disabled ? 0.5 : 1, transition: 'background 0.15s',
+        }}
+      >
+        <span style={{
+          position: 'absolute', top: 2, left: checked ? 20 : 2,
+          width: 18, height: 18, borderRadius: '50%', background: '#000', transition: 'left 0.15s',
+        }} />
+      </button>
+    </div>
+  )
+}
+
+function GuardCountTile({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{
+      flex: 1, padding: '7px 8px', borderRadius: 8,
+      background: 'var(--bg-dark, #0d0d0d)', border: '1px solid var(--border, #2a2a2a)',
+    }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text, #fff)' }}>{value > 99 ? '99+' : value}</div>
+      <div style={{ fontSize: 9.5, color: 'var(--text-muted, #737373)' }}>{label}</div>
+    </div>
+  )
 }

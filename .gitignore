@@ -61,3 +61,7 @@ ChainLens_Files/DESIGN.md
 ChainLens_Files/index.html
 ChainLens_Files/README.md
 ChainLens_Files/stlyes.css
+
+# ── Magic Guard native (generated build outputs) ─────────────
+native/magic-guard-core/target/
+android/app/src/main/jniLibs/

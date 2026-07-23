@@ -171,18 +171,37 @@ jobs:
       # adblock-rs (Magic Guard) has no prebuilt binaries — it compiles from Rust
       # source on install, so npm ci needs a pinned toolchain first even though
       # this job only builds the Capacitor bundle (npm ci installs ALL declared
-      # dependencies, not just the ones a given build script touches).
+      # dependencies, not just the ones a given build script touches). The same
+      # toolchain also cross-compiles the Android Magic Guard native engine
+      # (native/magic-guard-core → jniLibs) via the Gradle buildMagicGuardCore task.
       - uses: dtolnay/rust-toolchain@1.97
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      # Android NDK for the Magic Guard cdylib cross-compile. Pin r27 (LTS) to
+      # match the local dev toolchain in android/app/build.gradle.
+      - uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+        id: setup-ndk
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --version 4.1.2 --locked
 
       - name: Install dependencies
         run: npm ci
 
       - name: Build web bundle + sync
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: npm run build:capacitor
 
       - name: Build APK
         shell: bash
         env:
+          # buildMagicGuardCore (android/app/build.gradle) cross-compiles the
+          # native engine during assemble — cargo-ndk needs the NDK path here.
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

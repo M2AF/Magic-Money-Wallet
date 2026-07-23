@@ -1,0 +1,25 @@
+[package]
+name = "magic-guard-core"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+publish = false
+
+[lib]
+name = "magic_guard_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+# Same engine version as the desktop adblock-rs binding (package.json pins
+# adblock-rs 0.13.2, which ships this exact crate). `single-thread` is
+# deliberately NOT enabled: Android's shouldInterceptRequest runs off the UI
+# thread and multiple WebViews call it concurrently — without that feature,
+# Engine is Send + Sync and concurrent &self checks are the supported contract.
+adblock = { version = "=0.13.2", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
+jni = "0.21"
+
+[profile.release]
+lto = true
+# Debug-symbol strip only — the dynamic export table (Java_* JNI symbols) is
+# always preserved for cdylibs.
+strip = "symbols"
