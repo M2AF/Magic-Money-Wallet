@@ -306,7 +306,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
                   : 'Make MagicMoney my default browser'}
               sublabel={defaultBrowser.isDefault
                 ? 'Links from other apps open in the MagicMoney browser.'
-                : 'Opens your system settings — only you can confirm the change there.'}
+                : 'Opens system settings — only you can confirm it.'}
               onClick={onDefaultBrowserClick}
               disabled={defaultBrowserBusy || defaultBrowser.isDefault}
               noChevron
