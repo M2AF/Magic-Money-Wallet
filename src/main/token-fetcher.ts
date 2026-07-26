@@ -86,6 +86,7 @@ const TOKEN_CHAINS = [
   { id: 'gnosis',     label: 'Gnosis',     network: 'gnosis-mainnet',    color: '#04795B' },
   { id: 'abstract',   label: 'Abstract',   network: 'abstract-mainnet',  color: '#6B7280' },
   { id: 'apechain',   label: 'ApeChain',   network: 'apechain-mainnet',  color: '#0066FF' },
+  { id: 'robinhood',  label: 'Robinhood',  network: 'robinhood-mainnet', color: '#00C805' },
   { id: 'ronin',      label: 'Ronin',      network: 'ronin-mainnet',     color: '#1273EA' },
   { id: 'soneium',    label: 'Soneium',    network: 'soneium-mainnet',   color: '#5B5EA6' },
   { id: 'worldchain', label: 'WorldChain', network: 'worldchain-mainnet',color: '#5A64C8' },
@@ -96,7 +97,7 @@ const TOKEN_CHAINS = [
 // positions in TOKEN_CHAINS: token support and NFT support are separate product
 // matrices, and positional selection previously left ApeChain out entirely.
 const ALCHEMY_NFT_CHAIN_IDS = new Set([
-  'ethereum', 'arbitrum', 'base', 'polygon', 'optimism', 'abstract', 'apechain',
+  'ethereum', 'arbitrum', 'base', 'polygon', 'optimism', 'abstract', 'apechain', 'robinhood',
 ])
 
 const NFT_CHAINS = TOKEN_CHAINS.filter(c => ALCHEMY_NFT_CHAIN_IDS.has(c.id))
@@ -115,6 +116,7 @@ const TESTNET_TOKEN_CHAINS: typeof TOKEN_CHAINS = [
   { id: 'blast',      label: 'Blast Sepolia',       network: 'blast-sepolia',      color: '#FCFC03' },
   { id: 'abstract',   label: 'Abstract Testnet',    network: 'abstract-testnet',   color: '#6B7280' },
   { id: 'apechain',   label: 'ApeChain Curtis',     network: 'apechain-curtis',    color: '#0066FF' },
+  { id: 'robinhood',  label: 'Robinhood Testnet',   network: 'robinhood-testnet',  color: '#00C805' },
   { id: 'ronin',      label: 'Ronin Saigon',        network: 'ronin-saigon',       color: '#1273EA' },
   { id: 'soneium',    label: 'Soneium Minato',      network: 'soneium-minato',     color: '#5B5EA6' },
   { id: 'worldchain', label: 'World Chain Sepolia', network: 'worldchain-sepolia', color: '#5A64C8' },
@@ -128,6 +130,7 @@ const NATIVE_CG: Record<string, string> = {
   ethereum: 'ethereum',    arbitrum: 'ethereum',    optimism: 'ethereum',
   base: 'ethereum',        blast: 'ethereum',       abstract: 'ethereum',
   soneium: 'ethereum',     worldchain: 'ethereum',  zora: 'ethereum',
+  robinhood: 'ethereum',
   polygon: 'polygon-ecosystem-token', avalanche: 'avalanche-2',
   gnosis: 'xdai',          apechain: 'apecoin',     ronin: 'ronin',
   monad: 'monad',
@@ -139,6 +142,7 @@ const NATIVE_CG: Record<string, string> = {
 const NATIVE_SYMBOL: Record<string, string> = {
   ethereum: 'ETH',  arbitrum: 'ETH',  optimism: 'ETH', base: 'ETH',
   blast: 'ETH',     abstract: 'ETH',  soneium: 'ETH',  worldchain: 'ETH', zora: 'ETH',
+  robinhood: 'ETH',
   polygon: 'POL',   avalanche: 'AVAX', gnosis: 'xDAI',
   apechain: 'APE',  ronin: 'RON',     monad: 'MON',
   solana: 'SOL',    cardano: 'ADA',   tron: 'TRX',

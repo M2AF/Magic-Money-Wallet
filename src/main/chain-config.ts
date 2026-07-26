@@ -185,6 +185,19 @@ export const EVM_CHAINS: ChainDef[] = [
     alchemyNetwork: 'apechain-mainnet'
   },
   {
+    id: 'robinhood',
+    name: 'Robinhood Chain',
+    type: 'evm',
+    chainId: 4663,
+    nativeSymbol: 'ETH',
+    coingeckoId: 'ethereum',
+    rpcUrl: (cfg) => alchemyRpcUrl('robinhood-mainnet', cfg),
+    explorerTx: 'https://robinhoodchain.blockscout.com/tx',
+    color: '#00C805',
+    colorRgb: '0, 200, 5',
+    alchemyNetwork: 'robinhood-mainnet'
+  },
+  {
     id: 'ronin',
     name: 'Ronin',
     type: 'evm',
@@ -357,6 +370,7 @@ export const PUBLIC_RPCS: Record<string, string[]> = {
   gnosis:     ['https://rpc.gnosischain.com', 'https://gnosis.public-rpc.com'],
   abstract:   ['https://api.mainnet.abs.xyz', 'https://2741.rpc.thirdweb.com'],
   apechain:   ['https://rpc.apechain.com/http', 'https://apechain.calderachain.xyz/http'],
+  robinhood:  ['https://rpc.mainnet.chain.robinhood.com'],
   ronin:      ['https://api.roninchain.com/rpc', 'https://ronin.rpc.thirdweb.com'],
   soneium:    ['https://rpc.soneium.org', 'https://soneium.rpc.thirdweb.com'],
   worldchain: ['https://worldchain-mainnet.g.alchemy.com/public', 'https://worldchain.rpc.thirdweb.com'],
@@ -559,6 +573,13 @@ export const TESTNET_EVM_CHAINS: ChainDef[] = [
     color: '#0066FF', colorRgb: '0, 102, 255', alchemyNetwork: 'apechain-curtis'
   },
   {
+    id: 'robinhood', name: 'Robinhood Chain Testnet', type: 'evm', chainId: 46630,
+    nativeSymbol: 'ETH', coingeckoId: 'ethereum',
+    rpcUrl: (cfg) => alchemyRpcUrl('robinhood-testnet', cfg),
+    explorerTx: 'https://explorer.testnet.chain.robinhood.com/tx',
+    color: '#00C805', colorRgb: '0, 200, 5', alchemyNetwork: 'robinhood-testnet'
+  },
+  {
     id: 'ronin', name: 'Ronin Saigon', type: 'evm', chainId: 2021,
     nativeSymbol: 'RON', coingeckoId: 'ronin',
     rpcUrl: (cfg) => alchemyRpcUrl('ronin-saigon', cfg),
@@ -669,6 +690,7 @@ export const TESTNET_PUBLIC_RPCS: Record<string, string[]> = {
   monad:      ['https://testnet-rpc.monad.xyz'],
   abstract:   ['https://api.testnet.abs.xyz'],
   apechain:   ['https://curtis.rpc.caldera.xyz/http'],
+  robinhood:  ['https://rpc.testnet.chain.robinhood.com'],
   ronin:      ['https://saigon-testnet.roninchain.com/rpc'],
   soneium:    ['https://rpc.minato.soneium.org'],
   worldchain: ['https://worldchain-sepolia.g.alchemy.com/public'],

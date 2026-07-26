@@ -95,6 +95,7 @@ export { sendZcashTransaction, estimateZcashFee } from './zcash'
 const monad = defineChain({ id: 143, name: 'Monad', nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.monad.xyz'] } } })
 const abstractChain = defineChain({ id: 2741, name: 'Abstract', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://api.mainnet.abs.xyz'] } } })
 const apeChain = defineChain({ id: 33139, name: 'ApeChain', nativeCurrency: { name: 'ApeCoin', symbol: 'APE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.apechain.com/http'] } } })
+const robinhood = defineChain({ id: 4663, name: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com'] } } })
 const soneium = defineChain({ id: 1868, name: 'Soneium', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.soneium.org'] } } })
 const worldchain = defineChain({ id: 480, name: 'WorldChain', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } } })
 const hyperEvm = defineChain({ id: 998, name: 'HyperEVM', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid.xyz/evm'] } } })
@@ -125,6 +126,7 @@ export const EVM_CHAINS: Record<string, EvmChainEntry> = {
   monad:      { chain: monad,         rpcUrl: () => 'https://rpc.monad.xyz',                                        explorer: 'https://monadexplorer.com/tx',                          nativeSymbol: 'MON'  },
   abstract:   { chain: abstractChain, rpcUrl: () => 'https://api.mainnet.abs.xyz',                                  explorer: 'https://abscan.org/tx',                                 nativeSymbol: 'ETH'  },
   apechain:   { chain: apeChain,      rpcUrl: () => 'https://rpc.apechain.com/http',                                explorer: 'https://apescan.io/tx',                                 nativeSymbol: 'APE'  },
+  robinhood:  { chain: robinhood,     rpcUrl: cfg => alchemyRpcUrl('robinhood-mainnet', cfg), explorer: 'https://robinhoodchain.blockscout.com/tx',              nativeSymbol: 'ETH'  },
   ronin:      { chain: ronin,         rpcUrl: () => 'https://api.roninchain.com/rpc',                               explorer: 'https://app.roninchain.com/tx',                         nativeSymbol: 'RON'  },
   soneium:    { chain: soneium,       rpcUrl: () => 'https://rpc.soneium.org',                                      explorer: 'https://soneium.blockscout.com/tx',                     nativeSymbol: 'ETH'  },
   worldchain: { chain: worldchain,    rpcUrl: () => 'https://worldchain-mainnet.g.alchemy.com/public',              explorer: 'https://worldchain-mainnet.explorer.alchemy.com/tx',    nativeSymbol: 'WLD'  },
@@ -138,6 +140,7 @@ export const EVM_CHAINS: Record<string, EvmChainEntry> = {
 const monadTestnet = defineChain({ id: 10143, name: 'Monad Testnet', nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 }, rpcUrls: { default: { http: ['https://testnet-rpc.monad.xyz'] } }, testnet: true })
 const abstractTestnet = defineChain({ id: 11124, name: 'Abstract Testnet', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://api.testnet.abs.xyz'] } }, testnet: true })
 const apeChainCurtis = defineChain({ id: 33111, name: 'ApeChain Curtis', nativeCurrency: { name: 'ApeCoin', symbol: 'APE', decimals: 18 }, rpcUrls: { default: { http: ['https://curtis.rpc.caldera.xyz/http'] } }, testnet: true })
+const robinhoodTestnet = defineChain({ id: 46630, name: 'Robinhood Chain Testnet', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.testnet.chain.robinhood.com'] } }, testnet: true })
 const roninSaigon = defineChain({ id: 2021, name: 'Ronin Saigon', nativeCurrency: { name: 'Ronin', symbol: 'RON', decimals: 18 }, rpcUrls: { default: { http: ['https://saigon-testnet.roninchain.com/rpc'] } }, testnet: true })
 const soneiumMinato = defineChain({ id: 1946, name: 'Soneium Minato', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.minato.soneium.org'] } }, testnet: true })
 const worldchainSepolia = defineChain({ id: 4801, name: 'World Chain Sepolia', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-sepolia.g.alchemy.com/public'] } }, testnet: true })
@@ -155,6 +158,7 @@ export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
   monad:      { chain: monadTestnet,      rpcUrl: () => 'https://testnet-rpc.monad.xyz',           explorer: 'https://testnet.monadexplorer.com/tx',                  nativeSymbol: 'MON'  },
   abstract:   { chain: abstractTestnet,   rpcUrl: () => 'https://api.testnet.abs.xyz',             explorer: 'https://sepolia.abscan.org/tx',                         nativeSymbol: 'ETH'  },
   apechain:   { chain: apeChainCurtis,    rpcUrl: () => 'https://curtis.rpc.caldera.xyz/http',     explorer: 'https://curtis.explorer.caldera.xyz/tx',                nativeSymbol: 'APE'  },
+  robinhood:  { chain: robinhoodTestnet,  rpcUrl: cfg => alchemyRpcUrl('robinhood-testnet', cfg),  explorer: 'https://explorer.testnet.chain.robinhood.com/tx',       nativeSymbol: 'ETH'  },
   ronin:      { chain: roninSaigon,       rpcUrl: () => 'https://saigon-testnet.roninchain.com/rpc', explorer: 'https://saigon-app.roninchain.com/tx',                nativeSymbol: 'RON'  },
   soneium:    { chain: soneiumMinato,     rpcUrl: () => 'https://rpc.minato.soneium.org',          explorer: 'https://soneium-minato.blockscout.com/tx',              nativeSymbol: 'ETH'  },
   worldchain: { chain: worldchainSepolia, rpcUrl: () => 'https://worldchain-sepolia.g.alchemy.com/public', explorer: 'https://worldchain-sepolia.explorer.alchemy.com/tx', nativeSymbol: 'WLD' },
@@ -252,6 +256,7 @@ function getCoingeckoId(chainId: string): string {
   const map: Record<string, string> = {
     ethereum: 'ethereum', arbitrum: 'ethereum', optimism: 'ethereum',
     base: 'ethereum', blast: 'ethereum', soneium: 'ethereum', zora: 'ethereum', abstract: 'ethereum',
+    robinhood: 'ethereum',
     polygon: 'matic-network', avalanche: 'avalanche-2', gnosis: 'xdai',
     monad: 'monad-token', apechain: 'apecoin', ronin: 'ronin',
     worldchain: 'worldcoin-wld', hyperevm: 'hyperliquid'

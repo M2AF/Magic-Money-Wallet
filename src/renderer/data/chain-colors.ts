@@ -24,6 +24,7 @@ export const CHAIN_COLORS: Record<string, ChainColor> = {
   monad:      { hex: '#836EF9', rgb: '131, 110, 249' },
   optimism:   { hex: '#FF0420', rgb: '255, 4, 32'    },
   polygon:    { hex: '#8247E5', rgb: '130, 71, 229'  },
+  robinhood:  { hex: '#00C805', rgb: '0, 200, 5'     },
   ronin:      { hex: '#1273EA', rgb: '18, 115, 234'  },
   solana:     { hex: '#9945FF', rgb: '153, 69, 255'  },
   soneium:    { hex: '#5B5EA6', rgb: '91, 94, 166'   },

@@ -349,7 +349,7 @@ function NftImage({ src, alt }: { src: string; alt: string }) {
 // Native unit per chain, for showing a collection floor (e.g. "14500 MON").
 const NFT_NATIVE_SYMBOL: Record<string, string> = {
   ethereum: 'ETH', arbitrum: 'ETH', optimism: 'ETH', base: 'ETH', blast: 'ETH',
-  abstract: 'ETH', soneium: 'ETH', worldchain: 'ETH', zora: 'ETH',
+  abstract: 'ETH', soneium: 'ETH', worldchain: 'ETH', zora: 'ETH', robinhood: 'ETH',
   polygon: 'POL', avalanche: 'AVAX', gnosis: 'xDAI', apechain: 'APE', ronin: 'RON',
   monad: 'MON', solana: 'SOL', cardano: 'ADA', tron: 'TRX', dogecoin: 'DOGE',
 }
@@ -725,7 +725,7 @@ interface Props {
 const ALL_CHAINS = [
   'cardano', 'solana', 'bitcoin', 'polkadot', 'tron', 'dogecoin',
   'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche',
-  'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'ronin',
+  'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'robinhood', 'ronin',
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
@@ -736,7 +736,7 @@ const ALL_CHAINS = [
 const TESTNET_CHAINS = [
   'cardano', 'solana', 'bitcoin', 'bitcoin-testnet4', 'tron', 'midnight',
   'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche',
-  'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'ronin',
+  'blast', 'gnosis', 'monad', 'abstract', 'apechain', 'robinhood', 'ronin',
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
@@ -1002,7 +1002,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // All chains with a supported history API
   const HISTORY_CHAINS = new Set([
     'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'blast',
-    'gnosis', 'monad', 'abstract', 'apechain', 'ronin', 'soneium', 'worldchain', 'zora', 'hyperevm',
+    'gnosis', 'monad', 'abstract', 'apechain', 'robinhood', 'ronin', 'soneium', 'worldchain', 'zora', 'hyperevm',
     'solana', 'cardano', 'bitcoin', 'polkadot'
   ])
 

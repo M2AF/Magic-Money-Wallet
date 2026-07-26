@@ -26,6 +26,7 @@ const MAINNET_EVM_CHAINS: EvmChainOption[] = [
   { chainId: 143, id: 'monad', name: 'Monad', color: '#836EF9' },
   { chainId: 2741, id: 'abstract', name: 'Abstract', color: '#6B7280' },
   { chainId: 33139, id: 'apechain', name: 'ApeChain', color: '#0066FF' },
+  { chainId: 4663, id: 'robinhood', name: 'Robinhood Chain', color: '#00C805' },
   { chainId: 2020, id: 'ronin', name: 'Ronin', color: '#1273EA' },
   { chainId: 1868, id: 'soneium', name: 'Soneium', color: '#5B5EA6' },
   { chainId: 480, id: 'worldchain', name: 'WorldChain', color: '#1A1B1F' },
@@ -45,6 +46,7 @@ const TESTNET_EVM_CHAINS: EvmChainOption[] = [
   { chainId: 10143, id: 'monad', name: 'Monad Testnet', color: '#836EF9' },
   { chainId: 11124, id: 'abstract', name: 'Abstract Testnet', color: '#6B7280' },
   { chainId: 33111, id: 'apechain', name: 'ApeChain Curtis', color: '#0066FF' },
+  { chainId: 46630, id: 'robinhood', name: 'Robinhood Chain Testnet', color: '#00C805' },
   { chainId: 2021, id: 'ronin', name: 'Ronin Saigon', color: '#1273EA' },
   { chainId: 1946, id: 'soneium', name: 'Soneium Minato', color: '#5B5EA6' },
   { chainId: 4801, id: 'worldchain', name: 'World Chain Sepolia', color: '#1A1B1F' },
@@ -58,7 +60,7 @@ const TESTNET_EVM_CHAINS: EvmChainOption[] = [
 const SHORT_LABELS: Record<string, string> = {
   ethereum: 'ETH', arbitrum: 'ARB', optimism: 'OP', base: 'BASE',
   polygon: 'POL', avalanche: 'AVAX', blast: 'BLAST', gnosis: 'GNO',
-  monad: 'MON', abstract: 'ABS', apechain: 'APE', ronin: 'RON',
+  monad: 'MON', abstract: 'ABS', apechain: 'APE', robinhood: 'RHC', ronin: 'RON',
   soneium: 'SONE', worldchain: 'WLD', zora: 'ZORA', hyperevm: 'HYPE',
 }
 
