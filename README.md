@@ -2,7 +2,7 @@
 
 A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as a **desktop app** (Electron, Windows/macOS/Linux), **Chrome browser extension** (Manifest V3), and **Android app** (Capacitor).
 
-It manages **22 default mainnet networks** from a single seed phrase, adds focused **Privacy Mode** and **Testnet Mode** network sets, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, and never lets your keys leave your device.
+It manages **22 default mainnet networks** from a single seed phrase (plus any **custom EVM network** you add yourself), adds focused **Privacy Mode** and **Testnet Mode** network sets, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, doubles as your **system default browser** on Windows and Android, and never lets your keys leave your device.
 
 > **Ecosystems:** EVM · Solana · Cardano · Bitcoin · Polkadot · Tron · Dogecoin · Monero · Zcash · Midnight
 
@@ -11,6 +11,8 @@ It manages **22 default mainnet networks** from a single seed phrase, adds focus
 ## Highlights
 
 - **One seed, 22 default chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
+- **Custom networks** — add any EVM-compatible chain (name, RPC URL, chain ID, symbol, explorer) from the **+** button next to the account switcher. The RPC is verified via `eth_chainId` before the chain is saved, and custom chains get balances, sends, and dApp chain-switching like built-ins (desktop).
+- **Portfolio search** — a search bar on the Dashboard filters networks, tokens, or collectibles in whichever portfolio tab is active.
 - **Privacy Mode** — a focused portfolio for Monero (XMR), Zcash transparent (ZEC), and Midnight (NIGHT), derived lazily from the same mnemonic and kept mutually exclusive with Testnet Mode.
 - **Testnet Mode** — flips the wallet to Sepolia / devnet / preprod / Bitcoin testnet / Shasta networks for no-real-funds testing, with testnet-safe address substitution where encodings differ.
 - **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
@@ -22,6 +24,9 @@ It manages **22 default mainnet networks** from a single seed phrase, adds focus
 - **Platform-native unlocks** — Windows Hello, Touch ID, and Android biometrics can unlock an enrolled wallet while the password remains the backup.
 - **Tor Mode for the built-in browser** — desktop downloads, verifies, and starts a private Tor runtime on first use; Android bundles Tor Android directly. Both verify the exit with the Tor Project and fail closed when Tor is unavailable; Android also verifies v3 onion access before reporting ready.
 - **One-click updates** — a **Software Update** button in Settings pulls new versions straight from GitHub Releases (Windows/Linux apply silently; macOS opens the download; Android opens the newest APK page). The extension also has a **side-panel mode** (Phantom-style dock).
+- **Usable as your default browser** — Settings can register MagicMoney as the system default browser on Windows and Android, so every link you click anywhere opens in the wallet's private dApp browser (with optional Tor Mode). Links clicked inside the wallet UI open in-app too — the wallet never bounces you out to Chrome/Brave/Edge.
+- **Native downloads** — files downloaded in the built-in browser (including NFT image saves) are handled natively with a slim progress bar across the top of the window, on both desktop and Android.
+- **Runs in the background** — closing the desktop wallet minimizes it to the system tray instead of quitting. The tray menu can open the **Wallet** or the **Browser** independently, and **Exit MagicMoney** actually quits.
 
 ---
 
@@ -55,6 +60,10 @@ It manages **22 default mainnet networks** from a single seed phrase, adds focus
 | Dogecoin | UTXO | DOGE | BlockCypher |
 
 Every chain has a multi-RPC fallback chain: the primary endpoint is always tried first, and keyless public mirrors only engage on transport errors, so the normal path is unchanged.
+
+### Custom networks (user-added)
+
+Any EVM-compatible chain can be added from the **+** button beside the account switcher on the desktop Dashboard: name, RPC URL, chain ID, currency symbol, and optional block-explorer URL. The RPC endpoint is verified live (`eth_chainId` must match the entered chain ID) before the network is saved. Custom chains show up as normal portfolio cards with native balances, support sending, and participate in dApp `wallet_switchEthereumChain` / `wallet_addEthereumChain` routing. They are stored per-device and can be removed from their chain card.
 
 ### Privacy Mode
 
@@ -221,6 +230,18 @@ MagicMoney is a fully-fledged signer for EVM, Solana, and Cardano dApps.
 
 On **desktop**, dApps run in a built-in pop-out browser with a native network switcher in the toolbar. In the **extension**, the providers are injected into every page via a `document_start` content script. On **Android**, dApps run in native plugin-owned WebViews with `document_start` provider injection, tab controls, WalletConnect `wc:` deep links, and approval overlays rendered by the wallet WebView.
 
+### Default browser & background running
+
+The built-in browser can be promoted to your **system default browser**:
+
+- **Windows** — Settings registers MagicMoney under `HKCU` (ProgId + Default Programs entries, with a dedicated `browser-icon.ico` shipped outside the asar so the OS chooser shows the proper name and icon) and opens the Windows default-apps page for the final switch. Once set, links from any app cold-start or reuse the running wallet (single-instance lock) and open in the dApp browser — no unlock required to browse; wallet access still goes through the normal per-origin approvals.
+- **Android** — a Settings row uses `RoleManager` to request the browser role, and the manifest handles `http(s)` VIEW intents in the native DappBrowser.
+- The Chrome extension intentionally has no default-browser mode — its "browser" is Chrome itself.
+
+Downloads started in the browser (files, NFT images) are saved **natively** with a neon progress bar across the top of the window on desktop, and via a native `Downloader` plugin into the Downloads folder on Android.
+
+On desktop the app **minimizes to the system tray on close** and keeps running in the background. The tray icon's menu offers **Open Wallet**, **Open Browser** (each opens independently — the browser works without the wallet window being visible), and **Exit MagicMoney**; left-clicking the tray icon reopens the wallet. Closing the browser window still tears down its dApp tabs so background tabs can't drain resources.
+
 The onion button in the desktop and Android browser toolbars enables **Tor Mode**. On 64-bit Windows, desktop first use downloads the Tor Project Expert Bundle from the official archive, verifies its pinned SHA-256, installs it under Electron's user-data directory, and starts it privately; an already-running service on `127.0.0.1:9050` or `127.0.0.1:9150` is reused. Android starts the bundled Guardian Project Tor Android runtime on a loopback SOCKS endpoint, so users do not need Orbot or another app. A green Android state means both `check.torproject.org` verified the exit and a v3 onion connection succeeded. Bare `.onion` addresses default to `http://` because Tor already authenticates and encrypts onion traffic. A red **Tor blocked** panel keeps the proxy configured so browser requests cannot silently fall back to the direct connection, while offering Retry and Turn Off controls. Electron persists the preference and restores the proxy before its first dApp request. Android's WebView proxy API is app-wide, so enabling it applies to every WebView owned by the Android app. The Chrome extension does not expose this switch because its “browser” is the user's ordinary Chrome tabs and a wallet extension cannot safely make them a private per-wallet Tor session.
 
 This is Tor routing, not a claim of Tor Browser anonymity: the embedded Chromium/WebView engines do not reproduce Tor Browser's fingerprint normalization or security patches.
@@ -289,7 +310,9 @@ The release scripts handle the whole flow — bump, commit, tag, push. `electron
 ```
 src/
 ├── main/                    ← Privileged logic (Electron main + shared core)
-│   ├── index.ts             ← App entry, BrowserWindow, startup update check
+│   ├── index.ts             ← App entry, BrowserWindow, system tray (close-to-tray), startup update check
+│   ├── default-browser.ts   ← Register as system default browser (Windows HKCU / macOS best-effort)
+│   ├── downloads.ts         ← Native download handling + progress events for the dApp browser
 │   ├── update-manager.ts    ← electron-updater state machine (in-app Update button)
 │   ├── wallet-core.ts       ← BIP-39/32/44 derivation — keys never leave here
 │   ├── chain-config.ts      ← Default, Privacy Mode, and Testnet Mode network sets
@@ -346,14 +369,16 @@ src/
     ├── App.tsx / main.tsx   ← Router + entry
     ├── BrowserApp.tsx       ← Desktop dApp-browser chrome
     ├── pages/               ← Dashboard, Market, Swap, AppHub, Profile, Settings, onboarding…
-    ├── components/          ← SendModal, swap widgets, AgwPanel, ChainCard, TxList…
+    ├── components/          ← SendModal, swap widgets, AgwPanel, ChainCard, AddChainModal, DownloadProgressBar, TxList…
     └── data/app-hub.ts      ← Auto-generated dApp directory (do not edit by hand)
 
 android/
 └── app/src/main/java/info/chainlens/magicmoney/
-    ├── MainActivity.java       ← Capacitor activity + plugin registration
-    ├── DappBrowserPlugin.java  ← Isolated native WebView dApp browser
-    └── AppInfoPlugin.java      ← Installer/source metadata for update checks
+    ├── MainActivity.java          ← Capacitor activity + plugin registration
+    ├── DappBrowserPlugin.java     ← Isolated native WebView dApp browser
+    ├── DefaultBrowserPlugin.java  ← RoleManager browser-role request (set as default)
+    ├── DownloaderPlugin.java      ← Native downloads into the Downloads folder
+    └── AppInfoPlugin.java         ← Installer/source metadata for update checks
 ```
 
 ---
