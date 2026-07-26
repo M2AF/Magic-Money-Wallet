@@ -108,6 +108,16 @@ contextBridge.exposeInMainWorld('wallet', {
   revokeSite:    (origin: string)    => ipcRenderer.invoke('wallet:revoke-site', origin),
   revokeAllSites:()                  => ipcRenderer.invoke('wallet:revoke-all-sites'),
 
+  // ── Downloads (NFT media → OS Downloads folder) ───────────────────────
+  downloadFile:  (url: string, suggestedName: string) =>
+    ipcRenderer.invoke('wallet:download-file', url, suggestedName),
+  onDownloadProgress:  (cb: (p: unknown) => void) => ipcRenderer.on('download:progress', (_e, v) => cb(v)),
+  offDownloadProgress: (cb: (p: unknown) => void) => ipcRenderer.removeListener('download:progress', cb as never),
+
+  // ── Default browser (Windows: register + open Settings to confirm) ────
+  defaultBrowserGetState: ()         => ipcRenderer.invoke('default-browser:get-state'),
+  defaultBrowserRequest:  ()         => ipcRenderer.invoke('default-browser:request'),
+
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
 
@@ -137,6 +147,8 @@ contextBridge.exposeInMainWorld('wallet', {
 
   // ── Phase 6: Built-in dApp browser (popup) ───────────────────────────
   openBrowser:     ()               => ipcRenderer.send('browser:open'),
+  // Open a URL from the wallet UI in the built-in browser (opens/focuses it).
+  openInAppBrowser: (url: string)   => ipcRenderer.send('browser:open-url', url),
   closeBrowser:    ()               => ipcRenderer.send('browser:close'),
   browserBack:     ()               => ipcRenderer.send('browser:back'),
   browserForward:  ()               => ipcRenderer.send('browser:forward'),

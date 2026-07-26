@@ -72,6 +72,11 @@ const TESTNET_NETWORKS: Record<string, string> = {
 
 const FALLBACK_META: ChainMeta = { name: 'Unknown', networks: '', color: '#6B7280', colorRgb: '107, 114, 128' }
 
+/** Human-readable chain name, e.g. for the Networks tab search filter. */
+export function getChainName(chainId: string): string {
+  return (CHAIN_META[chainId] ?? FALLBACK_META).name
+}
+
 interface Props {
   chainId: string
   balance: ChainBalance | null

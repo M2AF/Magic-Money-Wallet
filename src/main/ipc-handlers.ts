@@ -88,8 +88,11 @@ import {
   layoutToggle,
   getLayoutState,
   browserToggleMaximize,
-  setChromeHeight
+  setChromeHeight,
+  openBrowserWithUrl
 } from './browser-manager'
+import { downloadAsset } from './downloads'
+import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
@@ -980,6 +983,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('browser:guard:get-state', () => browserGetMagicGuardState())
   ipcMain.handle('browser:guard:set-enabled', (_event, enabled: boolean) => browserSetMagicGuardEnabled(enabled === true))
   ipcMain.handle('browser:guard:set-site-enabled', (_event, enabled: boolean) => browserSetMagicGuardForSite(enabled === true))
+  // Open a URL from the WALLET UI in the built-in browser (never the OS one).
+  ipcMain.on('browser:open-url', (_event, url: string) => openBrowserWithUrl(String(url ?? '')))
+
+  // ── Downloads (NFT media) ─────────────────────────────────────────────────
+  // Saves straight to the OS Downloads folder from main. The renderer cannot do
+  // this itself: <a download> is ignored cross-origin, and the resulting
+  // navigation used to escape to the system default browser.
+  // Progress is pushed back to the CALLING window only, so the wallet's top-edge
+  // bar animates while the bytes arrive.
+  ipcMain.handle('wallet:download-file', (event, url: string, suggestedName: string) =>
+    downloadAsset(String(url ?? ''), String(suggestedName ?? 'download'), p => {
+      if (!event.sender.isDestroyed()) event.sender.send('download:progress', p)
+    }))
+
+  // ── Default browser (Windows) ─────────────────────────────────────────────
+  ipcMain.handle('default-browser:get-state', () => getDefaultBrowserState())
+  ipcMain.handle('default-browser:request', () => requestDefaultBrowser())
 
   // ── Side-by-side window layout (Full Screen Mode) ─────────────────────────
   ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))

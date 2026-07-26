@@ -48,6 +48,11 @@ export function CapApp() {
   const [signRequest, setSignRequest] = useState<SignApprovalRequest | null>(null)
   const [connAddress, setConnAddress] = useState<string>('')
 
+  // Web link handed to us by another app (MagicMoney set as the default browser).
+  // Held here until `page === 'app'`, because the in-app browser renders inside
+  // this WebView and has nowhere to go while the lock screen is up.
+  const [pendingLink, setPendingLink] = useState<string | null>(null)
+
   useEffect(() => {
     async function check() {
       const exists = await window.wallet.isSetup?.() ?? false
@@ -155,16 +160,38 @@ export function CapApp() {
     else if (browserUiState.open) DappBrowser.show().catch(() => {})
   }, [approvalPending])
 
-  // Deep links: wc: URIs (intent-filter in AndroidManifest) → WalletConnect
-  // pairing. The proposal modal then arrives via the wc:proposal push.
+  // Deep links (intent-filters in AndroidManifest):
+  //   wc:…        → WalletConnect pairing; the proposal modal arrives via wc:proposal.
+  //   http(s)://… → another app handed us a web link because MagicMoney is the
+  //                 default browser. It opens as a NEW tab so an existing browsing
+  //                 session is preserved.
+  //
+  // The browser lives inside this WebView (unlike Electron, where it's its own
+  // window), so a link that lands while the wallet is locked has nowhere to
+  // render — hold it and replay it after unlock rather than dropping it.
   useEffect(() => {
-    const sub = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-      if (url?.startsWith('wc:')) {
+    const handleUrl = (url: string | null | undefined) => {
+      if (!url) return
+      if (url.startsWith('wc:')) {
         window.wallet.wcPair(url).catch(e => console.error('[WC] deep-link pair failed:', e))
+      } else if (/^https?:\/\//i.test(url)) {
+        setPendingLink(url)   // delivered by the effect below, once unlocked
       }
-    })
+    }
+    const sub = CapacitorApp.addListener('appUrlOpen', ({ url }) => handleUrl(url))
+    // Cold start: the launch intent predates this listener, so read it directly.
+    // Mount-only, so a later warm-start link can't be replayed from here twice.
+    CapacitorApp.getLaunchUrl().then(r => handleUrl(r?.url)).catch(() => {})
     return () => { sub.then(s => s.remove()).catch(() => {}) }
   }, [])
+
+  // Deliver the queued link as soon as the wallet is usable (immediately when it
+  // already was). Clearing first keeps a re-render from opening a second tab.
+  useEffect(() => {
+    if (page !== 'app' || !pendingLink) return
+    setPendingLink(null)
+    window.wallet.openBrowserInNewTab?.(pendingLink)
+  }, [page, pendingLink])
 
   // Replace wallet methods so Create/Import pages route to password setup
   useEffect(() => {

@@ -22,6 +22,8 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <!-- Marks the app as a web browser for Android's launcher/defaults UI -->
+                <category android:name="android.intent.category.APP_BROWSER" />
             </intent-filter>
 
             <!-- WalletConnect deep links: wc:… URIs pair directly (CapApp appUrlOpen) -->
@@ -30,6 +32,21 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="wc" />
+            </intent-filter>
+
+            <!--
+              Web links. Scheme-only data entries (NO host) are what makes Android
+              treat MagicMoney as a general-purpose browser: RoleManager's
+              ROLE_BROWSER eligibility check queries exactly this shape, and it is
+              also what puts the app in the "Open with" chooser for any link.
+              CapApp routes the resulting appUrlOpen into the in-app dApp browser.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="http" />
+                <data android:scheme="https" />
             </intent-filter>
 
         </activity>
@@ -44,6 +61,19 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
     </application>
+
+    <!--
+      Package visibility (Android 11+): without this, resolveActivity() for a web
+      link returns nothing and the "am I the default browser?" check would always
+      read false on devices below API 29 (where RoleManager isn't available).
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
     <!-- Permissions -->
 

@@ -20,7 +20,10 @@ import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from '
 import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
 import { DappBrowser } from './dapp-browser'
+import { DefaultBrowser } from './default-browser'
+import { Downloader } from './downloader'
 import { HOME_URL } from './BrowserOverlay'
+import type { DefaultBrowserState, DownloadProgress, DownloadResult } from '../renderer/types/wallet'
 
 // Our own UI is the privileged caller — same classification the extension gives
 // its popup pages, so the PAGE_RPC_TYPES gate stays closed to dApp content only.
@@ -41,6 +44,22 @@ function normalizeWebUrl(input: string): string | null {
   } catch {
     return null
   }
+}
+
+// Download progress fan-out. The native plugin gets exactly ONE listener, wired
+// lazily on the first subscriber (nothing heavy runs at module load), and the
+// renderer's DownloadProgressBar subscribes/unsubscribes through this set.
+const downloadProgressListeners = new Set<(p: DownloadProgress) => void>()
+let downloadProgressWired = false
+
+function ensureDownloadProgressWired(): void {
+  if (downloadProgressWired) return
+  downloadProgressWired = true
+  Downloader.addListener('progress', p => {
+    for (const cb of downloadProgressListeners) {
+      try { cb(p) } catch { /* one bad subscriber must not stop the rest */ }
+    }
+  }).catch(() => { downloadProgressWired = false })
 }
 
 // ── window.wallet implementation ──────────────────────────────────────────────
@@ -124,6 +143,23 @@ function buildWallet() {
     // Window controls (no-op on Android)
     minimize: () => {},
     close:    () => {},
+
+    // NFT media → the phone's Downloads folder. The WebView ignores <a download>,
+    // so this goes through the native Downloader plugin (MediaStore on API 29+).
+    downloadFile: (url: string, filename: string): Promise<DownloadResult> =>
+      Downloader.downloadFile({ url, filename })
+        .catch((e: unknown) => ({ ok: false, error: e instanceof Error ? e.message : 'Download failed.' })),
+    onDownloadProgress:  (cb: (p: DownloadProgress) => void) => { ensureDownloadProgressWired(); downloadProgressListeners.add(cb) },
+    offDownloadProgress: (cb: (p: DownloadProgress) => void) => { downloadProgressListeners.delete(cb) },
+
+    // Default browser — the manifest already declares the http/https filter, so
+    // this is purely "ask Android to hand us the browser role".
+    defaultBrowserGetState: (): Promise<DefaultBrowserState> =>
+      DefaultBrowser.getStatus()
+        .catch(() => ({ supported: false, registered: false, isDefault: false })),
+    defaultBrowserRequest:  (): Promise<DefaultBrowserState> =>
+      DefaultBrowser.requestDefault()
+        .catch(() => ({ supported: false, registered: false, isDefault: false })),
 
     // In-app dApp browser — native WebViews via the DappBrowser plugin; the
     // BrowserOverlay component (mounted by CapApp) owns the chrome and reacts

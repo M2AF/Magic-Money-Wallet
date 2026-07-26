@@ -113,6 +113,12 @@ let tabsMenuOpen = false
 // user navigates to a DIFFERENT dApp, so a prior dApp's chain doesn't leak forward.
 let _lastDappOrigin: string | null = null
 
+// URL that should become the browser's FIRST tab instead of BROWSER_HOME. Set when
+// something asks for a specific page before the popup exists — a link clicked in the
+// wallet UI, or an http(s) URL handed to us by the OS because MagicMoney is the
+// default browser. Consumed once, on the popup's first tab creation.
+let pendingOpenUrl: string | null = null
+
 function activeTab(): Tab | undefined {
   return tabs.find(t => t.id === activeTabId)
 }
@@ -553,7 +559,9 @@ export function openBrowserWindow(): void {
     // Tor preference therefore fails closed even when Tor is not currently running.
     void prepareTorSession().then(() => {
       if (!popupWin || popupWin.isDestroyed()) return
-      createTab(BROWSER_HOME, true)
+      const first = pendingOpenUrl ?? BROWSER_HOME
+      pendingOpenUrl = null
+      createTab(first, true)
       // If the browser was opened as part of an "Enter Full Screen Mode" action,
       // tile the two windows now that the popup exists and is visible.
       if (pendingSnap) {
@@ -562,6 +570,7 @@ export function openBrowserWindow(): void {
         applySnap(side)
       }
     }).catch(() => {
+      pendingOpenUrl = null   // no tab was opened — don't leak it into the next session
       setTorState({
         enabled: true,
         status: 'error',
@@ -1049,6 +1058,37 @@ export function browserHome(): void    { activeView()?.webContents.loadURL(BROWS
 
 /** Open a new tab (used by the tab menu's "New tab" and by IPC). */
 export function browserNewTab(url?: string): void { createTab(url || BROWSER_HOME, true) }
+
+/**
+ * Show `rawUrl` in the MagicMoney browser, opening/focusing the popup as needed.
+ *
+ * This is the single entry point for "a link happened outside the dApp browser":
+ *   • a link in the wallet UI (index.ts's window-open handler), and
+ *   • a URL handed to the app by Windows when MagicMoney is the default browser
+ *     (index.ts's argv / second-instance / open-url paths).
+ *
+ * Deliberately independent of the wallet's lock state: a browser that refuses to
+ * show a page until you type your password is not usable as a system browser, and
+ * the page gets no wallet access anyway — every web3 request still goes through
+ * the per-origin approval + unlocked-wallet checks.
+ */
+export function openBrowserWithUrl(rawUrl: string): void {
+  const url = normalizeWebUrl(rawUrl)
+  if (!url || !isSafe(url)) return
+
+  if (!popupWin || popupWin.isDestroyed()) {
+    pendingOpenUrl = url          // becomes the first tab once the popup is ready
+    openBrowserWindow()
+    return
+  }
+  if (popupWin.isMinimized()) popupWin.restore()
+  popupWin.focus()
+  // The window exists but its first tab hasn't been created yet (still awaiting
+  // the Tor/proxy setup) — hand the URL to that pending first tab instead of
+  // racing it with a second one.
+  if (tabs.length === 0) pendingOpenUrl = url
+  else createTab(url, true)
+}
 
 /**
  * Push a provider event (e.g. EIP-1193 `chainChanged` / `accountsChanged`) into

@@ -309,6 +309,34 @@ export interface MagicGuardState {
   error?: string
 }
 
+/** Result of saving an asset to the OS Downloads folder (main/downloads.ts). */
+export interface DownloadResult {
+  ok: boolean
+  path?: string
+  fileName?: string
+  error?: string
+}
+
+/**
+ * Live download progress driving the wallet's top-edge bar. `percent` is null
+ * when the source sends no Content-Length — the bar sweeps instead of lying.
+ */
+export interface DownloadProgress {
+  active: boolean
+  percent: number | null
+}
+
+/**
+ * Whether MagicMoney can be — and currently is — the system's default browser.
+ * `supported` is false wherever we can't verify or influence it (macOS/Linux,
+ * dev builds, the extension), and the Settings row hides rather than lie.
+ */
+export interface DefaultBrowserState {
+  supported: boolean
+  registered: boolean
+  isDefault: boolean
+}
+
 declare global {
   interface Window {
     wallet: {
@@ -415,8 +443,22 @@ declare global {
       updateInstall?(): void
       onUpdateStatus?(cb: (s: UpdateStatus) => void): void
       offUpdateStatus?(cb: (s: UpdateStatus) => void): void
+      // Save a remote/data: asset (NFT media) to the OS Downloads folder.
+      // Electron + Android only — the extension keeps its plain <a download>,
+      // which works there because extension pages aren't routed to the OS browser.
+      downloadFile?(url: string, suggestedName: string): Promise<DownloadResult>
+      // Drives the thin neon bar across the top of the wallet while bytes arrive.
+      onDownloadProgress?(cb: (p: DownloadProgress) => void): void
+      offDownloadProgress?(cb: (p: DownloadProgress) => void): void
+      // Register + hand off to the OS "default apps" screen so MagicMoney can be
+      // chosen as the system browser. Absent on the extension bridge.
+      defaultBrowserGetState?(): Promise<DefaultBrowserState>
+      defaultBrowserRequest?(): Promise<DefaultBrowserState>
       // Phase 6: popup dApp browser
       openBrowser(): void
+      // Open a specific URL in the built-in browser (Electron; Capacitor maps this
+      // onto its persistent-tabs browser).
+      openInAppBrowser?(url: string): void
       closeBrowser(): void
       browserBack(): void
       browserForward(): void

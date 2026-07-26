@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell, session, net } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setSwapFetch } from './swap-proxy'
-import { setMainWindow, initMagicGuard } from './browser-manager'
+import { setMainWindow, initMagicGuard, openBrowserWithUrl } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
@@ -61,15 +61,39 @@ function installRendererCsp(): void {
   )
 }
 
+/**
+ * Hand a link to the OS. Only reached for schemes the wallet genuinely cannot
+ * render itself (mailto:, tel:, …) — http(s) always goes to the BUILT-IN browser
+ * via openBrowserWithUrl, so no part of the wallet UI can bounce the user out to
+ * Brave/Edge/Chrome.
+ */
 function openExternalSafe(url: string): void {
   try {
     const parsed = new URL(url)
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+    if (parsed.protocol === 'mailto:' || parsed.protocol === 'tel:' || parsed.protocol === 'sms:') {
       shell.openExternal(parsed.toString())
     }
   } catch {
     // Ignore malformed or unsupported external URLs.
   }
+}
+
+/** Route a link opened from the wallet UI: web pages in-app, everything else to the OS. */
+function openLink(url: string): void {
+  if (/^https?:\/\//i.test(url)) openBrowserWithUrl(url)
+  else openExternalSafe(url)
+}
+
+/**
+ * First http(s) URL in a process argv. Windows appends it when it launches the
+ * registered default browser ("MagicMoney.exe" "https://…"); Chromium/Electron
+ * switches (--foo=…) and file paths are skipped.
+ */
+function urlFromArgv(argv: string[]): string | null {
+  for (const arg of argv.slice(1)) {
+    if (/^https?:\/\//i.test(arg)) return arg
+  }
+  return null
 }
 
 // Prevent multiple instances
@@ -108,10 +132,23 @@ function createWindow(): void {
   // Graceful show after paint
   mainWindow.once('ready-to-show', () => mainWindow?.show())
 
-  // Force external links to system browser, not Electron
+  // Links from the wallet UI open in MagicMoney's own browser — never the OS one.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    openExternalSafe(url)
+    openLink(url)
     return { action: 'deny' }
+  })
+
+  // Same rule for in-place navigations: an <a href> without target must never
+  // replace the wallet UI with a web page — send it to the browser instead.
+  // Same-origin is left alone so the dev server (http://localhost:5173) and its
+  // HMR navigations keep working; packaged the renderer is file:// anyway.
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!/^https?:\/\//i.test(url)) return
+    let sameOrigin = false
+    try { sameOrigin = new URL(url).origin === new URL(mainWindow!.webContents.getURL()).origin } catch { /* file:// → not same origin */ }
+    if (sameOrigin) return
+    event.preventDefault()
+    openBrowserWithUrl(url)
   })
 
   // Load the renderer
@@ -178,6 +215,12 @@ app.whenReady().then(() => {
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 
+  // Cold start as the system's default browser: Windows launched us with the URL
+  // in argv. Open it once the wallet window exists so the browser popup can be
+  // positioned/parented normally.
+  const launchUrl = urlFromArgv(process.argv)
+  if (launchUrl) openBrowserWithUrl(launchUrl)
+
   // Passive check on launch so Settings can show "update available" before the
   // user clicks. The in-app Settings button (update-manager) drives the actual
   // download + restart — no forced native dialog. No-op in dev (unpackaged).
@@ -194,9 +237,20 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => stopManagedTor())
 
-app.on('second-instance', () => {
+// Already running and Windows hands us another URL to open (single-instance lock
+// forwards the second process's argv here instead of starting a new app).
+app.on('second-instance', (_event, argv) => {
+  const url = urlFromArgv(argv)
+  if (url) { openBrowserWithUrl(url); return }
   if (mainWindow) {
     if (mainWindow.isMinimized()) mainWindow.restore()
     mainWindow.focus()
   }
+})
+
+// macOS delivers URLs as an event rather than argv. Registration there is
+// best-effort (see default-browser.ts), but honour the handoff if it happens.
+app.on('open-url', (event, url) => {
+  event.preventDefault()
+  openBrowserWithUrl(url)
 })

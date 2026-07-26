@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
-import { ChainCard } from '../components/ChainCard'
+import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar } from '../components/HeaderToolbar'
@@ -224,16 +224,19 @@ interface TokensViewProps {
   loading: boolean
   hiddenItems: Set<string>
   spamItems: Set<string>
+  search: string
   onHide: (id: string) => void
   onSpam: (id: string) => void
-  onShowManager: () => void
 }
 
-function TokensView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager }: TokensViewProps) {
+function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam }: TokensViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
-  const hiddenCount = result ? result.tokens.filter(t => hiddenItems.has(tokenKey(t)) || spamItems.has(tokenKey(t))).length : 0
-  const visible     = result ? result.tokens.filter(t => !hiddenItems.has(tokenKey(t)) && !spamItems.has(tokenKey(t))) : []
+  const q = search.trim().toLowerCase()
+  const baseVisible = result ? result.tokens.filter(t => !hiddenItems.has(tokenKey(t)) && !spamItems.has(tokenKey(t))) : []
+  const visible = q
+    ? baseVisible.filter(t => t.name.toLowerCase().includes(q) || t.symbol.toLowerCase().includes(q) || t.chainLabel.toLowerCase().includes(q))
+    : baseVisible
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -252,16 +255,11 @@ function TokensView({ result, loading, hiddenItems, spamItems, onHide, onSpam, o
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {hiddenCount > 0 && (
-        <button type="button" onClick={onShowManager}
-          style={{ alignSelf: 'flex-end', fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
-          Hidden ({hiddenCount})
-        </button>
-      )}
-
       {visible.length === 0 && (
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-          {result?.tokens.length ? 'All tokens are hidden.' : 'No tokens found across all chains.'}
+          {q
+            ? 'No tokens match your search.'
+            : result?.tokens.length ? 'All tokens are hidden.' : 'No tokens found across all chains.'}
         </div>
       )}
 
@@ -358,6 +356,7 @@ const formatFloor = (n: number) => Number(n.toFixed(4)).toLocaleString('en-US')
 function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () => void }) {
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
+  const [download, setDownload] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
 
   useEffect(() => {
     // The collectible already carries a precomputed floor (nft.floorPrice / nft.usdValue)
@@ -379,14 +378,39 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
     })
   }
 
-  function downloadImage() {
-    if (!nft.image) return
-    const a = document.createElement('a')
-    a.href = nft.image
-    a.download = `${nft.name.replace(/[^a-z0-9]/gi, '_')}.jpg`
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    a.click()
+  /**
+   * Save the artwork to the OS Downloads folder.
+   *
+   * Electron/Android hand this to the platform (main process / Android
+   * MediaStore) because an <a download> pointing at a cross-origin image is
+   * ignored by the browser engine: it degraded into a navigation, which the
+   * wallet's window-open handler then sent to the SYSTEM default browser — so
+   * clicking "Download Image" popped open Brave instead of saving anything.
+   * The extension keeps the anchor: extension pages download it normally.
+   */
+  async function downloadImage() {
+    if (!nft.image || download.state === 'saving') return
+    const base = nft.name.replace(/[^a-z0-9]/gi, '_') || 'nft'
+
+    if (typeof window.wallet.downloadFile !== 'function') {
+      const a = document.createElement('a')
+      a.href = nft.image
+      a.download = `${base}.jpg`
+      a.rel = 'noopener noreferrer'
+      a.click()
+      return
+    }
+
+    setDownload({ state: 'saving' })
+    try {
+      const result = await window.wallet.downloadFile(nft.image, base)
+      setDownload(result.ok
+        ? { state: 'saved', message: result.fileName ? `Saved ${result.fileName} to Downloads` : 'Saved to Downloads' }
+        : { state: 'error', message: result.error ?? 'Could not save the image.' })
+    } catch (e) {
+      setDownload({ state: 'error', message: e instanceof Error ? e.message : 'Could not save the image.' })
+    }
+    setTimeout(() => setDownload({ state: 'idle' }), 4000)
   }
 
   const short = (s: string, n = 10) => s.length <= n * 2 + 3 ? s : `${s.slice(0, n)}…${s.slice(-n)}`
@@ -501,12 +525,14 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
           <div style={{ display: 'flex', gap: 8 }}>
             {nft.image && (
               <button
-                type="button" onClick={downloadImage}
+                type="button" onClick={downloadImage} disabled={download.state === 'saving'}
                 style={{
                   flex: 1, padding: '8px 0', borderRadius: 8,
                   background: 'var(--accent-dim)', border: '1px solid var(--border-active)',
                   color: 'var(--accent-text)', fontSize: 12, fontWeight: 700,
-                  fontFamily: 'var(--font-body)', cursor: 'pointer',
+                  fontFamily: 'var(--font-body)',
+                  cursor: download.state === 'saving' ? 'default' : 'pointer',
+                  opacity: download.state === 'saving' ? 0.7 : 1,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
                 }}
               >
@@ -515,7 +541,7 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
                   <polyline points="7 10 12 15 17 10"/>
                   <line x1="12" y1="15" x2="12" y2="3"/>
                 </svg>
-                Download Image
+                {download.state === 'saving' ? 'Saving…' : download.state === 'saved' ? 'Saved' : 'Download Image'}
               </button>
             )}
             {nft.animationUrl && (
@@ -533,6 +559,15 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
               </button>
             )}
           </div>
+          {download.message && (
+            <div style={{
+              marginTop: 8, fontSize: 11, textAlign: 'center',
+              color: download.state === 'error' ? 'var(--error)' : 'var(--text-muted)',
+              wordBreak: 'break-word'
+            }}>
+              {download.message}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -546,17 +581,20 @@ interface CollectiblesViewProps {
   loading: boolean
   hiddenItems: Set<string>
   spamItems: Set<string>
+  search: string
   onHide: (id: string) => void
   onSpam: (id: string) => void
-  onShowManager: () => void
   onSelectNft: (nft: WalletCollectible) => void
 }
 
-function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onSpam, onShowManager, onSelectNft }: CollectiblesViewProps) {
+function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam, onSelectNft }: CollectiblesViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
-  const hiddenCount = result ? result.items.filter(n => hiddenItems.has(nftKey(n)) || spamItems.has(nftKey(n))).length : 0
-  const visible     = result ? result.items.filter(n => !hiddenItems.has(nftKey(n)) && !spamItems.has(nftKey(n))) : []
+  const q = search.trim().toLowerCase()
+  const baseVisible = result ? result.items.filter(n => !hiddenItems.has(nftKey(n)) && !spamItems.has(nftKey(n))) : []
+  const visible = q
+    ? baseVisible.filter(n => n.name.toLowerCase().includes(q) || (n.collectionName ?? '').toLowerCase().includes(q) || n.chainLabel.toLowerCase().includes(q))
+    : baseVisible
 
   if (loading) return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -574,19 +612,14 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, onHide, onS
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {hiddenCount > 0 && (
-        <button type="button" onClick={onShowManager}
-          style={{ alignSelf: 'flex-end', fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
-          Hidden ({hiddenCount})
-        </button>
-      )}
-
       {visible.length === 0 && (
         <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
-            {result?.items.length ? 'All collectibles are hidden.' : 'No collectibles found.'}
+            {q
+              ? 'No collectibles match your search.'
+              : result?.items.length ? 'All collectibles are hidden.' : 'No collectibles found.'}
           </div>
-          {result && Object.keys(result.chainResults ?? {}).length > 0 && (
+          {!q && result && Object.keys(result.chainResults ?? {}).length > 0 && (
             <div style={{ width: '100%', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>Chain Diagnostics</div>
               {Object.entries(result.chainResults).map(([chain, info]) => (
@@ -780,6 +813,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [history, setHistory]               = useState<AllHistory | null>(null)
   const [accountSwitching, setAccountSwitching] = useState(false)
   const [portfolioTab, setPortfolioTab]     = useState<PortfolioTab>('networks')
+  // Portfolio search — filters whichever sub-tab is active; cleared on tab switch
+  // so leftover text from "tokens" doesn't silently hide everything on "networks".
+  const [portfolioSearch, setPortfolioSearch] = useState('')
+  const changePortfolioTab = useCallback((tab: PortfolioTab) => {
+    setPortfolioTab(tab)
+    setPortfolioSearch('')
+  }, [])
   const [sendChain, setSendChain]           = useState<string | null>(null)
   // Testnet Mode — flipped from Settings (which reloads the renderer), so this
   // only needs to be read once on mount.
@@ -1016,10 +1056,22 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const activeSendBalance = sendChain ? balances?.chains[sendChain]?.native ?? null : null
   const activeSendSymbol  = sendChain ? balances?.chains[sendChain]?.symbol ?? sendChain.toUpperCase() : ''
 
+  // "Hidden (n)" count for whichever sub-tab is active — lives in the fixed
+  // tab bar/search row now, so it needs computing up here instead of inside
+  // TokensView/CollectiblesView.
+  const portfolioHiddenCount =
+    portfolioTab === 'tokens'
+      ? (tokensResult ? tokensResult.tokens.filter(t => hiddenItems.has(tokenKey(t)) || effectiveSpamItems.has(tokenKey(t))).length : 0)
+      : portfolioTab === 'collectibles'
+      ? (collectibles ? collectibles.items.filter(n => hiddenItems.has(nftKey(n)) || spamItems.has(nftKey(n))).length : 0)
+      : 0
+
   return (
     <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', position: 'relative', display: hidden ? 'none' : 'flex' }}>
-      {/* Fixed header + divider — keeps the titlebar logo clear of scrolling content */}
-      <div style={{ padding: '24px 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)' }}>
+      {/* Fixed header — keeps the titlebar logo clear of scrolling content. The
+          divider sits below the tab bar/search row (see next block) so those
+          stay pinned above the scrolling list too. */}
+      <div style={{ padding: '24px 20px 12px', flexShrink: 0 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
@@ -1106,31 +1158,60 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       </div>
       </div>{/* end fixed header */}
 
+      {/* Fixed tab bar + search row — the divider that used to sit above these
+          now sits below them, so Networks/Tokens/Collectibles (and the search
+          box) stay pinned while the list underneath scrolls. */}
+      <div style={{ padding: '0 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Portfolio sub-tab bar */}
+        <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
+          {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => changePortfolioTab(tab)}
+              style={{
+                flex: 1, padding: '6px 0', borderRadius: 6,
+                border: `1px solid ${portfolioTab === tab ? 'var(--border-active)' : 'transparent'}`,
+                background: portfolioTab === tab ? 'var(--accent-dim)' : 'transparent',
+                color: portfolioTab === tab ? 'var(--accent)' : 'var(--text-muted)',
+                fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                letterSpacing: '0.04em', transition: 'all var(--transition)',
+                textTransform: 'capitalize'
+              }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Search — stretches to just before the Hidden button (tokens/collectibles only) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            value={portfolioSearch}
+            onChange={e => setPortfolioSearch(e.target.value)}
+            placeholder={
+              portfolioTab === 'networks' ? 'Search networks…' :
+              portfolioTab === 'tokens' ? 'Search tokens…' : 'Search collectibles…'
+            }
+            style={{
+              flex: 1, minWidth: 0, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
+              fontFamily: 'var(--font-body)', fontSize: 12, padding: '7px 10px', outline: 'none'
+            }}
+            onFocus={e => (e.target.style.borderColor = 'var(--border-active)')}
+            onBlur={e => (e.target.style.borderColor = 'var(--border)')}
+          />
+          {portfolioHiddenCount > 0 && (
+            <button type="button" onClick={() => setShowManager(true)}
+              style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
+              Hidden ({portfolioHiddenCount})
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '14px 20px 16px', display: 'flex', flexDirection: 'column', gap: 16, position: 'relative' }}>
-
-
-      {/* Portfolio sub-tab bar */}
-      <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
-        {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setPortfolioTab(tab)}
-            style={{
-              flex: 1, padding: '6px 0', borderRadius: 6,
-              border: `1px solid ${portfolioTab === tab ? 'var(--border-active)' : 'transparent'}`,
-              background: portfolioTab === tab ? 'var(--accent-dim)' : 'transparent',
-              color: portfolioTab === tab ? 'var(--accent)' : 'var(--text-muted)',
-              fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)',
-              letterSpacing: '0.04em', transition: 'all var(--transition)',
-              textTransform: 'capitalize'
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
 
       {/* Tab content */}
       {portfolioTab === 'networks' && (() => {
@@ -1140,6 +1221,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
         const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
         const rows = sortedChains(balances, privacyMode ? PRIVACY_CHAINS : testnet ? TESTNET_CHAINS : ALL_CHAINS).map(chainId => ({
+          label: getChainName(chainId),
           usd: usdOf(chainId),
           nat: natOf(chainId),
           node: (
@@ -1191,6 +1273,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         // in Privacy Mode (Abstract is not a privacy chain).
         if (!testnet && !privacyMode) {
           rows.push({
+            label: 'Abstract Smart Wallet',
             usd: usdOf('abstract-agw'),
             nat: natOf('abstract-agw'),
             node: (
@@ -1205,7 +1288,16 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           })
         }
         rows.sort((a, b) => (b.usd - a.usd) || (b.nat - a.nat))
-        return rows.map(r => r.node)
+        const q = portfolioSearch.trim().toLowerCase()
+        const filtered = q ? rows.filter(r => r.label.toLowerCase().includes(q)) : rows
+        if (filtered.length === 0) {
+          return (
+            <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+              No networks match your search.
+            </div>
+          )
+        }
+        return filtered.map(r => r.node)
       })()}
       {portfolioTab === 'tokens' && (
         <TokensView
@@ -1213,9 +1305,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           loading={tokensLoading}
           hiddenItems={hiddenItems}
           spamItems={effectiveSpamItems}
+          search={portfolioSearch}
           onHide={hideItem}
           onSpam={markSpam}
-          onShowManager={() => setShowManager(true)}
         />
       )}
       {portfolioTab === 'collectibles' && (
@@ -1224,9 +1316,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           loading={collectiblesLoading}
           hiddenItems={hiddenItems}
           spamItems={spamItems}
+          search={portfolioSearch}
           onHide={hideItem}
           onSpam={markSpam}
-          onShowManager={() => setShowManager(true)}
           onSelectNft={setSelectedNft}
         />
       )}

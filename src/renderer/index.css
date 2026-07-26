@@ -41,6 +41,9 @@
   --border-active:  rgba(var(--accent-rgb), 0.45);
 
   --success:        #22c55e;
+  /* Channel form of --success, for glows/fades that need an alpha (same idiom
+     as --accent-rgb). Keep the two in sync if the green ever changes. */
+  --success-rgb:    34, 197, 94;
   --warning:        #f59e0b;
   --error:          #ef4444;
 
@@ -1512,3 +1515,50 @@ h1, h2, h3 { font-family: var(--font-display); }
 .settings-row.danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.08); }
 .settings-row.danger .settings-icon { background: rgba(239, 68, 68, 0.12); color: var(--error); }
 .settings-row.danger .settings-row-label { color: var(--error); }
+
+/* ── Download progress bar ───────────────────────────────────────────────────
+   A 2px neon-green line across the very top edge of the WALLET window while an
+   NFT image saves (DownloadProgressBar.tsx). Fixed rather than in flow so it
+   overlays the titlebar without shifting any layout, and pointer-events:none so
+   it never steals the titlebar's drag region. Green is deliberate — it reads as
+   "succeeding" against every theme's accent, so it does not use --accent-rgb. */
+.download-bar-track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 2000;
+  pointer-events: none;
+  overflow: hidden;
+  background: rgba(var(--success-rgb), 0.10);
+}
+
+.download-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 0 2px 2px 0;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--success-rgb), 0.55) 0%,
+    var(--success) 55%,
+    #6ef7a0 100%
+  );
+  box-shadow:
+    0 0 6px rgba(var(--success-rgb), 0.9),
+    0 0 14px rgba(var(--success-rgb), 0.55);
+  transition: width 180ms ease-out;
+}
+
+/* No Content-Length from the source → sweep a short segment instead of faking
+   a percentage. transform-only so it stays on the compositor. */
+.download-bar-fill.indeterminate {
+  width: 34%;
+  transition: none;
+  animation: download-bar-sweep 1.1s ease-in-out infinite;
+}
+
+@keyframes download-bar-sweep {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(394%); }
+}

@@ -10,6 +10,8 @@ public class MainActivity extends BridgeActivity {
         // Local plugins must register before the bridge initializes.
         registerPlugin(DappBrowserPlugin.class);
         registerPlugin(AppInfoPlugin.class);
+        registerPlugin(DefaultBrowserPlugin.class);
+        registerPlugin(DownloaderPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

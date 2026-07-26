@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { UpdateStatus } from '../types/wallet'
+import type { DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 
 interface Props {
@@ -26,6 +26,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [privacyError, setPrivacyError] = useState<string | null>(null)
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
+  const [defaultBrowser, setDefaultBrowser] = useState<DefaultBrowserState | null>(null)
+  const [defaultBrowserBusy, setDefaultBrowserBusy] = useState(false)
 
   // Software update is Electron-only — the extension bridge omits these methods
   // (extensions self-update via the Chrome store), so the whole section hides.
@@ -39,6 +41,36 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
     window.wallet.onUpdateStatus?.(onStatus)
     return () => window.wallet.offUpdateStatus?.(onStatus)
   }, [updateSupported])
+
+  // Default browser — Electron on Windows and Android expose this; the extension
+  // bridge omits it (a Chrome extension can't be the system browser), and the
+  // main process reports supported:false on macOS/Linux and in dev, so the row
+  // only appears where the action can actually do something.
+  const defaultBrowserSupported = typeof window.wallet.defaultBrowserGetState === 'function'
+  const refreshDefaultBrowser = () => {
+    window.wallet.defaultBrowserGetState?.().then(setDefaultBrowser).catch(() => setDefaultBrowser(null))
+  }
+  useEffect(() => {
+    if (!defaultBrowserSupported) return
+    refreshDefaultBrowser()
+    // Picking the default happens OUTSIDE the app (Windows Settings / the Android
+    // role dialog), so re-read the state whenever the wallet regains focus.
+    window.addEventListener('focus', refreshDefaultBrowser)
+    return () => window.removeEventListener('focus', refreshDefaultBrowser)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultBrowserSupported])
+
+  const onDefaultBrowserClick = async () => {
+    if (defaultBrowserBusy || defaultBrowser?.isDefault) return
+    setDefaultBrowserBusy(true)
+    try {
+      setDefaultBrowser(await window.wallet.defaultBrowserRequest?.() ?? null)
+    } catch {
+      refreshDefaultBrowser()
+    } finally {
+      setDefaultBrowserBusy(false)
+    }
+  }
 
   // One adaptive button: a real terminal state (downloaded / mac-available)
   // applies the update; anything idle re-checks; busy states are non-interactive.
@@ -262,6 +294,25 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{helloError}</div>
           )}
         </SettingsSection>
+
+        {defaultBrowser?.supported && (
+          <SettingsSection label="Browser">
+            <SettingsRow
+              icon="🌐"
+              label={defaultBrowserBusy
+                ? 'Opening system settings…'
+                : defaultBrowser.isDefault
+                  ? 'Default browser — MagicMoney'
+                  : 'Make MagicMoney my default browser'}
+              sublabel={defaultBrowser.isDefault
+                ? 'Links from other apps open in the MagicMoney browser.'
+                : 'Opens your system settings — only you can confirm the change there.'}
+              onClick={onDefaultBrowserClick}
+              disabled={defaultBrowserBusy || defaultBrowser.isDefault}
+              noChevron
+            />
+          </SettingsSection>
+        )}
 
         {updateSupported && (
           <SettingsSection label="Software Update">

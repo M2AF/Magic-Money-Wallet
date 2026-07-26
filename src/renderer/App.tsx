@@ -17,6 +17,7 @@ import { AppHubPage } from './pages/AppHubPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
+import { DownloadProgressBar } from './components/DownloadProgressBar'
 
 export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
@@ -160,6 +161,11 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {/* Thin neon-green download line pinned to the window's top edge. Mounted
+          at the shell so it keeps running across tab switches and after the NFT
+          sheet is closed mid-download. Self-hides when nothing is downloading. */}
+      <DownloadProgressBar />
+
       {/* Custom titlebar — logo only, no text, no divider */}
       <div className="titlebar">
         <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
