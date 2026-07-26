@@ -13,6 +13,17 @@ import { normalizeMnemonic, type WalletAddresses } from '../main/wallet-core'
 
 // ── WalletConfig — identical shape to secure-store.ts so aliased imports work ─
 
+// User-added EVM network — shape parity with secure-store.ts (chain-config
+// imports this type through the secure-store alias).
+export interface CustomChain {
+  id: string
+  name: string
+  chainId: number
+  nativeSymbol: string
+  rpcUrl: string
+  explorerTx: string
+}
+
 export interface WalletConfig {
   alchemyKey: string
   ankrKey: string
@@ -35,6 +46,7 @@ export interface WalletConfig {
   torBrowserPort: number
   moneroRestoreHeight: number // Monero wallet birthday (block height at first Privacy Mode enable)
   magicGuardEnabled: boolean // Shape parity only; the extension has no Magic Guard adapter yet
+  customChains: CustomChain[] // Shape parity only; the extension has no add-network UI yet
 }
 
 // Provider keys are EMPTY — they live only as Cloudflare Worker secrets and are
@@ -63,7 +75,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   torBrowserEnabled:      false,
   torBrowserPort:         9050,
   moneroRestoreHeight:    0,
-  magicGuardEnabled:      true
+  magicGuardEnabled:      true,
+  customChains:           []
 }
 
 const AUTO_LOCK_MS = 15 * 60_000

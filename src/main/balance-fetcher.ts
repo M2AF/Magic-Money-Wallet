@@ -13,7 +13,7 @@ import {
   EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE,
   TESTNET_EVM_CHAINS, TESTNET_CHAIN_MAP, TESTNET_PUBLIC_RPCS, TESTNET_SOLANA_RPCS,
   TESTNET_BITCOIN_ESPLORA, TESTNET4_BITCOIN_ESPLORA, TESTNET_KOIOS_URL, isTestnet,
-  PRIVACY_CHAINS, PRIVACY_CHAIN_MAP, isPrivacy,
+  PRIVACY_CHAINS, PRIVACY_CHAIN_MAP, isPrivacy, customChainDefs,
   type ChainDef
 } from './chain-config'
 import { fetchZcashBalance } from './zcash'
@@ -549,6 +549,10 @@ export async function fetchAllBalances(
   if (isTestnet(config)) return fetchAllBalancesTestnet(addresses, config)
   if (isPrivacy(config)) return fetchAllBalancesPrivacy(addresses.privacy, config)
 
+  // User-added networks ride the same EVM pipeline (their own RPC, no
+  // coingeckoId → balance shows without a USD value).
+  const evmChains = [...EVM_CHAINS, ...customChainDefs(config)]
+
   const allIds = [...EVM_CHAINS.map(c => c.coingeckoId), 'solana', 'cardano', 'bitcoin', 'polkadot', 'tron', 'dogecoin']
 
   const COMING_SOON = { native: 0, tokenCount: 0, error: 'coming-soon' }
@@ -573,7 +577,7 @@ export async function fetchAllBalances(
   const t0 = Date.now()
   const [prices, ...rawResults] = await Promise.all([
     timed('market', fetchMarketData(allIds)),
-    ...EVM_CHAINS.map(chain =>
+    ...evmChains.map(chain =>
       chain.comingSoon ? Promise.resolve(COMING_SOON) : timed(chain.id, fetchEvmNative(chain, addresses.evm, config))
     ),
     timed('solana', fetchSolanaNative(addresses.solana, config)),
@@ -597,14 +601,14 @@ export async function fetchAllBalances(
   // Share these native prices with the token + NFT-floor valuation paths so they
   // reuse them instead of each firing their own (keyless, 429-prone) CoinGecko call.
   seedNativeUsd(Object.fromEntries(Object.entries(marketMap).map(([id, m]) => [id, m.price] as [string, number])))
-  const evmRaw    = rawResults.slice(0, EVM_CHAINS.length) as Array<{ native: number; tokenCount: number; error: string | null }>
-  const solanaRaw = rawResults[EVM_CHAINS.length]     as { native: number; tokenCount: number; error: string | null }
-  const cardanoRaw= rawResults[EVM_CHAINS.length + 1] as { native: number; tokenCount: number; error: string | null }
-  const bitcoinRaw= rawResults[EVM_CHAINS.length + 2] as { native: number; tokenCount: number; error: string | null }
-  const polkadotRaw=rawResults[EVM_CHAINS.length + 3] as { native: number; tokenCount: number; error: string | null }
-  const agwRaw    = rawResults[EVM_CHAINS.length + 4] as { native: number; tokenCount: number; error: string | null }
-  const tronRaw   = rawResults[EVM_CHAINS.length + 5] as { native: number; tokenCount: number; error: string | null }
-  const dogecoinRaw=rawResults[EVM_CHAINS.length + 6] as { native: number; tokenCount: number; error: string | null }
+  const evmRaw    = rawResults.slice(0, evmChains.length) as Array<{ native: number; tokenCount: number; error: string | null }>
+  const solanaRaw = rawResults[evmChains.length]     as { native: number; tokenCount: number; error: string | null }
+  const cardanoRaw= rawResults[evmChains.length + 1] as { native: number; tokenCount: number; error: string | null }
+  const bitcoinRaw= rawResults[evmChains.length + 2] as { native: number; tokenCount: number; error: string | null }
+  const polkadotRaw=rawResults[evmChains.length + 3] as { native: number; tokenCount: number; error: string | null }
+  const agwRaw    = rawResults[evmChains.length + 4] as { native: number; tokenCount: number; error: string | null }
+  const tronRaw   = rawResults[evmChains.length + 5] as { native: number; tokenCount: number; error: string | null }
+  const dogecoinRaw=rawResults[evmChains.length + 6] as { native: number; tokenCount: number; error: string | null }
 
   const toBalance = (chain: ChainDef, raw: typeof solanaRaw, decimals = 6): ChainBalance => {
     const market = marketMap[chain.coingeckoId]
@@ -625,7 +629,7 @@ export async function fetchAllBalances(
 
   const chains: Record<string, ChainBalance> = {}
 
-  EVM_CHAINS.forEach((chain, i) => {
+  evmChains.forEach((chain, i) => {
     chains[chain.id] = toBalance(chain, evmRaw[i])
   })
 

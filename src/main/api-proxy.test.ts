@@ -24,6 +24,7 @@ const config: WalletConfig = {
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
   magicGuardEnabled: true,
+  customChains: [],
 }
 
 describe('api proxy client gate', () => {

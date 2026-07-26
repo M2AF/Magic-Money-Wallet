@@ -9,6 +9,16 @@ export interface UpdateStatus {
   error?: string
 }
 
+// User-added EVM network (MetaMask-style manual add). Mirrors secure-store.ts.
+export interface CustomChain {
+  id: string            // 'custom-<chainId>'
+  name: string
+  chainId: number
+  nativeSymbol: string
+  rpcUrl: string
+  explorerTx: string
+}
+
 export interface WalletAddresses {
   evm: string
   solana: string
@@ -391,6 +401,11 @@ declare global {
       getHistory(): Promise<AllHistory>
       getAccountIndex(): Promise<number>
       setAccount(index: number): Promise<WalletAddresses>
+      // Custom chains — user-added EVM networks (optional: Electron-only for
+      // now; absent on the extension/Capacitor bridges — gate UI with typeof).
+      getCustomChains?(): Promise<CustomChain[]>
+      addCustomChain?(chain: { name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerTx?: string }): Promise<CustomChain[]>
+      removeCustomChain?(id: string): Promise<CustomChain[]>
       // Testnet Mode
       getTestnetMode(): Promise<boolean>
       setTestnetMode(enabled: boolean): Promise<{ testnet: boolean; addresses: WalletAddresses | null }>

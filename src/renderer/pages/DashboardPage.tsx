@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain } from '../types/wallet'
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
+import { AddChainModal } from '../components/AddChainModal'
 import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 
@@ -829,6 +830,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [privacyMode, setPrivacyMode] = useState(false)
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
+  // Custom (user-added) EVM networks — Electron-only bridge for now; the "+"
+  // button and the extra network cards only appear when the bridge exists.
+  const canCustomChains = typeof window.wallet.getCustomChains === 'function'
+  const [customChains, setCustomChains] = useState<CustomChain[]>([])
+  const [showAddChain, setShowAddChain] = useState(false)
+  useEffect(() => { window.wallet.getCustomChains?.().then(setCustomChains).catch(() => {}) }, [])
+
   // Spam filter state — persisted per account
   const acctIdx = addresses.accountIndex ?? 0
   const hiddenKey  = `mmw_hidden_${acctIdx}`
@@ -1138,6 +1146,24 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               disabled={localAddresses.accountIndex >= 9 || accountSwitching}
               style={{ background: 'none', border: 'none', padding: '2px 6px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, lineHeight: 1, opacity: localAddresses.accountIndex >= 9 ? 0.3 : 1 }}
             >›</button>
+            {/* Add a custom network — mainnet portfolio only (Testnet Mode swaps
+                the whole set; Privacy Mode is a filter), Electron bridge only. */}
+            {canCustomChains && !testnet && !privacyMode && (
+              <button
+                type="button"
+                onClick={() => setShowAddChain(true)}
+                title="Add a custom network"
+                aria-label="Add a custom network"
+                style={{
+                  marginLeft: 6, width: 20, height: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'var(--accent-dim)', border: '1px solid var(--border)', borderRadius: 6,
+                  color: 'var(--accent)', fontSize: 14, lineHeight: 1, cursor: 'pointer', padding: 0,
+                  transition: 'all var(--transition)'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-active)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)' }}
+              >+</button>
+            )}
           </div>
         </div>
 
@@ -1220,14 +1246,24 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         // its value comes from the synthetic 'abstract-agw' balance entry.
         const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
         const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
-        const rows = sortedChains(balances, privacyMode ? PRIVACY_CHAINS : testnet ? TESTNET_CHAINS : ALL_CHAINS).map(chainId => ({
-          label: getChainName(chainId),
+        // User-added networks join the mainnet set only — white placeholder
+        // accent until the chain is supported natively with its brand color.
+        const chainIds = privacyMode ? PRIVACY_CHAINS
+          : testnet ? TESTNET_CHAINS
+          : [...ALL_CHAINS, ...customChains.map(c => c.id)]
+        const customById = new Map(customChains.map(c => [c.id, c]))
+        const rows = sortedChains(balances, chainIds).map(chainId => ({
+          label: customById.get(chainId)?.name ?? getChainName(chainId),
           usd: usdOf(chainId),
           nat: natOf(chainId),
           node: (
             <ChainCard
               key={chainId}
               chainId={chainId}
+              meta={(() => {
+                const c = customById.get(chainId)
+                return c ? { name: c.name, networks: 'Custom Network', color: '#FFFFFF', colorRgb: '255, 255, 255' } : undefined
+              })()}
               testnet={testnet}
               balance={balances?.chains[chainId] ?? null}
               address={getAddress(chainId, localAddresses, testnet)}
@@ -1337,6 +1373,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           balance={activeSendBalance}
           symbol={activeSendSymbol}
           onClose={() => setSendChain(null)}
+        />
+      )}
+
+      {/* Add custom network modal */}
+      {showAddChain && (
+        <AddChainModal
+          onClose={() => setShowAddChain(false)}
+          onChanged={(chains) => { setCustomChains(chains); fetchBalances(true) }}
         />
       )}
 

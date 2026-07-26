@@ -465,6 +465,17 @@ export function clearMidnightDustCheckpoint(accountIndex: number, network: strin
 
 // ─── API config (plain JSON) ─────────────────────────────────────────────────
 
+// User-added EVM network (MetaMask-style "Add a custom network"). Stored in
+// config.json; chain-config's selectors merge these into the mainnet chain set.
+export interface CustomChain {
+  id: string            // 'custom-<chainId>' — stable renderer/sender key
+  name: string
+  chainId: number       // numeric EVM chain id
+  nativeSymbol: string  // e.g. 'MON'
+  rpcUrl: string
+  explorerTx: string    // base tx URL ('' when the user gave no explorer)
+}
+
 export interface WalletConfig {
   alchemyKey: string
   ankrKey: string
@@ -494,6 +505,8 @@ export interface WalletConfig {
   // Magic Guard: global on/off for the built-in dApp browser's privacy filtering.
   // Per-site exceptions live outside this file (magic-guard.ts, browser-only data).
   magicGuardEnabled: boolean
+  // User-added EVM networks (mainnet mode only — hidden under Testnet/Privacy).
+  customChains: CustomChain[]
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -525,7 +538,8 @@ const DEFAULT_CONFIG: WalletConfig = {
   torBrowserEnabled: false,
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
-  magicGuardEnabled: true
+  magicGuardEnabled: true,
+  customChains: []
 }
 
 let configCache: WalletConfig | null = null
@@ -560,6 +574,16 @@ function sanitizeConfig(cfg: WalletConfig): WalletConfig {
     torBrowserEnabled: cfg.torBrowserEnabled === true,
     torBrowserPort: Number.isInteger(torPort) && torPort > 0 && torPort <= 65535 ? torPort : 9050,
     magicGuardEnabled: cfg.magicGuardEnabled !== false,
+    // Guard against a hand-edited config.json: keep only well-formed entries so a
+    // malformed row can't crash the chain selectors or the balance orchestrator.
+    customChains: (Array.isArray(cfg.customChains) ? cfg.customChains : []).filter(c =>
+      c && typeof c.id === 'string' && c.id.length > 0 &&
+      typeof c.name === 'string' && c.name.length > 0 &&
+      Number.isInteger(c.chainId) && c.chainId > 0 &&
+      typeof c.nativeSymbol === 'string' && c.nativeSymbol.length > 0 &&
+      typeof c.rpcUrl === 'string' && /^https?:\/\//.test(c.rpcUrl) &&
+      typeof c.explorerTx === 'string'
+    ),
   }
 }
 

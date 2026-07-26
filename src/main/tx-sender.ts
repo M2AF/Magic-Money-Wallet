@@ -166,9 +166,33 @@ export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
   hyperevm:   { chain: hyperEvmTestnet,   rpcUrl: () => 'https://rpc.hyperliquid-testnet.xyz/evm', explorer: 'https://testnet.purrsec.com/tx',                        nativeSymbol: 'HYPE' }
 }
 
+// User-added networks (config.customChains) get a sender entry built on the fly,
+// so estimate/send resolve them instead of silently falling back to the
+// `entries.ethereum` default (which would broadcast on the wrong chain).
+function customEvmSenders(config: WalletConfig): Record<string, EvmChainEntry> {
+  const out: Record<string, EvmChainEntry> = {}
+  for (const c of config.customChains ?? []) {
+    out[c.id] = {
+      chain: defineChain({
+        id: c.chainId,
+        name: c.name,
+        nativeCurrency: { name: c.nativeSymbol, symbol: c.nativeSymbol, decimals: 18 },
+        rpcUrls: { default: { http: [c.rpcUrl] } }
+      }),
+      rpcUrl: () => c.rpcUrl,
+      explorer: c.explorerTx,
+      nativeSymbol: c.nativeSymbol
+    }
+  }
+  return out
+}
+
 /** Sender entries for the active mode — every lookup below goes through this. */
 function evmEntries(config: WalletConfig): Record<string, EvmChainEntry> {
-  return isTestnet(config) ? TESTNET_EVM_SENDERS : EVM_CHAINS
+  if (isTestnet(config)) return TESTNET_EVM_SENDERS
+  const custom = customEvmSenders(config)
+  // Built-ins spread last so a custom entry can never shadow a supported chain.
+  return Object.keys(custom).length === 0 ? EVM_CHAINS : { ...custom, ...EVM_CHAINS }
 }
 
 // Keyless public fallbacks keyed by numeric EVM chain id (derived from chain-config
@@ -237,7 +261,9 @@ export async function estimateEvmFee(
   const feeSymbol = entry.nativeSymbol
 
   let feeUsd: string | null = null
-  if (!isTestnet(config)) {
+  // Custom chains have no known CoinGecko id — the 'ethereum' fallback in
+  // getCoingeckoId would price their native token as ETH, so skip USD entirely.
+  if (!isTestnet(config) && !chainId.startsWith('custom-')) {
     try {
       const priceRes = await fetch(
         `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(getCoingeckoId(chainId))}&vs_currencies=usd`,
@@ -284,7 +310,9 @@ export async function sendEvmTransaction(
     value: parseEther(amountEth)
   })
 
-  return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
+  // Custom chains may have no explorer — '' hides the link (SendModal guards on
+  // truthiness, and '/0xhash' would otherwise be a broken relative link).
+  return { txHash: hash, explorerUrl: entry.explorer ? `${entry.explorer}/${hash}` : '' }
 }
 
 // Reverse lookup: numeric EVM chain id → chain entry (for raw/swap txs)

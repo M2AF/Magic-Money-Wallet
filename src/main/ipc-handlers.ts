@@ -56,7 +56,8 @@ import {
   removeHello,
   bioSupported,
   bioMethod,
-  type WalletConfig
+  type WalletConfig,
+  type CustomChain
 } from './secure-store'
 import { resolveAccountAgw } from './agw'
 import type { WalletAddresses } from './wallet-core'
@@ -93,7 +94,7 @@ import {
 } from './browser-manager'
 import { downloadAsset } from './downloads'
 import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
-import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
+import { MONAD_RPCS, EVM_CHAINS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
 import { heliusRpcUrl, tatumRpcUrl } from './api-proxy'
@@ -770,6 +771,63 @@ export function registerIpcHandlers(): void {
   // read config.testnetMode on every call). Enabling requires the unlocked seed
   // once, to derive + cache the testnet-encoded addresses (Bitcoin tb1…, Cardano
   // addr_test…) so later reads work from addresses.json even while locked.
+  // ── Custom chains — user-added EVM networks (MetaMask-style manual add) ────
+  ipcMain.handle('wallet:get-custom-chains', () => loadConfig().customChains ?? [])
+
+  ipcMain.handle('wallet:add-custom-chain', async (_event, input: {
+    name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerTx?: string
+  }) => {
+    const name = String(input?.name ?? '').trim()
+    const nativeSymbol = String(input?.nativeSymbol ?? '').trim().toUpperCase()
+    const rpcUrl = String(input?.rpcUrl ?? '').trim()
+    const explorerTx = String(input?.explorerTx ?? '').trim().replace(/\/+$/, '')
+    const chainId = Number(input?.chainId)
+
+    if (!name) throw new Error('Enter a network name')
+    if (!Number.isInteger(chainId) || chainId <= 0) throw new Error('Chain ID must be a positive whole number')
+    if (!/^https?:\/\/.+/.test(rpcUrl)) throw new Error('RPC URL must start with http:// or https://')
+    if (!nativeSymbol || nativeSymbol.length > 12) throw new Error('Enter a currency symbol (e.g. MON)')
+    if (explorerTx && !/^https?:\/\/.+/.test(explorerTx)) throw new Error('Block explorer must be a http(s) URL')
+
+    const config = loadConfig()
+    if (EVM_CHAINS.some(c => c.chainId === chainId)) {
+      throw new Error(`Chain ID ${chainId} is already supported natively`)
+    }
+    if ((config.customChains ?? []).some(c => c.chainId === chainId)) {
+      throw new Error(`A custom network with chain ID ${chainId} already exists`)
+    }
+
+    // Probe the RPC and require its eth_chainId to match what the user typed —
+    // a mismatch here means every future send would target the wrong chain.
+    let reported: number
+    try {
+      const res = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }),
+        signal: AbortSignal.timeout(10_000)
+      })
+      const json = await res.json() as { result?: string }
+      reported = parseInt(json.result ?? '', 16)
+    } catch {
+      throw new Error('Could not reach the RPC URL — check the address and your connection')
+    }
+    if (!Number.isInteger(reported)) throw new Error('The RPC did not answer like an EVM node (eth_chainId failed)')
+    if (reported !== chainId) {
+      throw new Error(`The RPC reports chain ID ${reported}, not ${chainId} — double-check both fields`)
+    }
+
+    const chain: CustomChain = { id: `custom-${chainId}`, name, chainId, nativeSymbol, rpcUrl, explorerTx }
+    saveConfig({ customChains: [...(config.customChains ?? []), chain] })
+    return loadConfig().customChains
+  })
+
+  ipcMain.handle('wallet:remove-custom-chain', (_event, id: string) => {
+    const config = loadConfig()
+    saveConfig({ customChains: (config.customChains ?? []).filter(c => c.id !== String(id)) })
+    return loadConfig().customChains
+  })
+
   ipcMain.handle('wallet:get-testnet-mode', () => isTestnet(loadConfig()))
 
   ipcMain.handle('wallet:set-testnet-mode', async (_event, enabled: boolean) => {

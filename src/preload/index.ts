@@ -71,6 +71,11 @@ contextBridge.exposeInMainWorld('wallet', {
   setAccount:      (index: number)     => ipcRenderer.invoke('wallet:set-account', index),
 
   // ── Testnet Mode ──────────────────────────────────────────────────────
+  // Custom chains — user-added EVM networks
+  getCustomChains:   ()                => ipcRenderer.invoke('wallet:get-custom-chains'),
+  addCustomChain:    (chain: unknown)  => ipcRenderer.invoke('wallet:add-custom-chain', chain),
+  removeCustomChain: (id: string)      => ipcRenderer.invoke('wallet:remove-custom-chain', id),
+
   getTestnetMode:  ()                  => ipcRenderer.invoke('wallet:get-testnet-mode'),
   setTestnetMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-testnet-mode', enabled),
 

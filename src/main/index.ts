@@ -1,8 +1,8 @@
-import { app, BrowserWindow, shell, session, net } from 'electron'
+import { app, BrowserWindow, shell, session, net, Tray, Menu, nativeImage } from 'electron'
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setSwapFetch } from './swap-proxy'
-import { setMainWindow, initMagicGuard, openBrowserWithUrl } from './browser-manager'
+import { setMainWindow, initMagicGuard, openBrowserWithUrl, openBrowserWindow } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
@@ -101,6 +101,36 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
+// Closing the wallet window hides it to the tray so the app keeps running in the
+// background. This flag flips when the user actually chooses to exit (tray menu,
+// auto-update restart, macOS Cmd+Q) so the close is allowed through.
+let isQuitting = false
+
+/** Show the wallet window, recreating it if it was somehow destroyed. */
+function showWallet(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.show()
+    mainWindow.focus()
+  } else {
+    createWindow()
+  }
+}
+
+function createTray(): void {
+  const icon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
+  tray = new Tray(process.platform === 'darwin' ? icon.resize({ width: 18, height: 18 }) : icon)
+  tray.setToolTip('MagicMoney Wallet')
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Wallet', click: () => showWallet() },
+    { label: 'Open Browser', click: () => openBrowserWindow() },
+    { type: 'separator' },
+    { label: 'Exit MagicMoney', click: () => { isQuitting = true; app.quit() } }
+  ]))
+  // Left-click (Windows/Linux) brings the wallet back; macOS opens the menu itself.
+  tray.on('click', () => { if (process.platform !== 'darwin') showWallet() })
+}
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -163,6 +193,16 @@ function createWindow(): void {
     if (mainWindow) setMainWindow(mainWindow)
   })
 
+  // Hide to the system tray instead of closing — the wallet keeps running in the
+  // background until "Exit MagicMoney" is chosen from the tray (or the app quits
+  // for an update). The browser popup is unaffected: closing it still tears down
+  // its dApp tabs (see browser-manager) and it can be reopened from the tray.
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return
+    event.preventDefault()
+    mainWindow?.hide()
+  })
+
   // Window controls via IPC — target the sender window so the popup
   // browser closes itself rather than closing the main wallet window
   const { ipcMain } = require('electron')
@@ -212,6 +252,7 @@ app.whenReady().then(() => {
   // initialization-point guidance — attaches the dApp-session request listener
   // and starts loading the bundled filter lists (deferred; see initMagicGuard doc).
   initMagicGuard()
+  createTray()
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 
@@ -226,26 +267,27 @@ app.whenReady().then(() => {
   // download + restart — no forced native dialog. No-op in dev (unpackaged).
   startUpdateCheck({ silent: true })
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  app.on('activate', () => showWallet())
 })
 
+// The tray keeps the app alive in the background — closing every window no longer
+// exits. Quitting happens only via the tray's "Exit MagicMoney", Cmd+Q, or the
+// auto-updater's restart, all of which go through before-quit.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  /* stay resident in the tray */
 })
 
-app.on('before-quit', () => stopManagedTor())
+app.on('before-quit', () => {
+  isQuitting = true   // let the wallet window's close-to-tray interceptor through
+  stopManagedTor()
+})
 
 // Already running and Windows hands us another URL to open (single-instance lock
 // forwards the second process's argv here instead of starting a new app).
 app.on('second-instance', (_event, argv) => {
   const url = urlFromArgv(argv)
   if (url) { openBrowserWithUrl(url); return }
-  if (mainWindow) {
-    if (mainWindow.isMinimized()) mainWindow.restore()
-    mainWindow.focus()
-  }
+  showWallet()
 })
 
 // macOS delivers URLs as an event rather than argv. Registration there is

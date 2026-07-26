@@ -5,7 +5,7 @@
  * Shared between balance-fetcher, tx-sender, and ipc-handlers.
  */
 
-import type { WalletConfig } from './secure-store'
+import type { WalletConfig, CustomChain } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, tronApiUrl } from './api-proxy'
 
 export interface ChainDef {
@@ -716,6 +716,33 @@ export const TESTNET_KOIOS_URL = 'https://preprod.koios.rest/api/v1'
 // Sepolia — the reset/default EVM chain for the dApp browser in testnet mode.
 export const TESTNET_DEFAULT_EVM_CHAIN_ID = 11155111
 
+// ─── Custom chains (user-added EVM networks) ──────────────────────────────────
+// MetaMask-style manual adds, persisted in config.customChains. Mainnet mode
+// only — Testnet Mode swaps the whole set and Privacy Mode is a filter, so both
+// hide them. White is the placeholder accent until a chain is supported
+// natively with its real brand color.
+
+export const CUSTOM_CHAIN_COLOR = '#FFFFFF'
+export const CUSTOM_CHAIN_COLOR_RGB = '255, 255, 255'
+
+export function customChainDefs(cfg: WalletConfig): ChainDef[] {
+  const builtinIds = new Set(EVM_CHAINS.map(c => c.chainId))
+  return (cfg.customChains ?? [])
+    .filter(c => !builtinIds.has(c.chainId))   // never shadow a built-in chain
+    .map((c: CustomChain): ChainDef => ({
+      id: c.id,
+      name: c.name,
+      type: 'evm',
+      chainId: c.chainId,
+      nativeSymbol: c.nativeSymbol,
+      coingeckoId: '',                          // unknown token → no USD price
+      rpcUrl: () => c.rpcUrl,
+      explorerTx: c.explorerTx,
+      color: CUSTOM_CHAIN_COLOR,
+      colorRgb: CUSTOM_CHAIN_COLOR_RGB
+    }))
+}
+
 // ─── Mode-aware selectors ─────────────────────────────────────────────────────
 // Every consumer that needs the active network set goes through these with a
 // freshly-loaded WalletConfig, so flipping `testnetMode` takes effect on the
@@ -740,17 +767,21 @@ export function midnightNetworkFor(cfg: WalletConfig): 'mainnet' | 'preprod' | n
 export function activeEvmChains(cfg: WalletConfig): ChainDef[] {
   // Privacy Mode does not alter the EVM set — the dApp browser keeps working on
   // EVM networks; only portfolio surfaces switch to PRIVACY_CHAINS.
-  return isTestnet(cfg) ? TESTNET_EVM_CHAINS : EVM_CHAINS
+  return isTestnet(cfg) ? TESTNET_EVM_CHAINS : [...EVM_CHAINS, ...customChainDefs(cfg)]
 }
 
 export function activeChains(cfg: WalletConfig): ChainDef[] {
   if (isPrivacy(cfg)) return PRIVACY_CHAINS
-  return isTestnet(cfg) ? TESTNET_ALL_CHAINS : ALL_CHAINS
+  return isTestnet(cfg) ? TESTNET_ALL_CHAINS : [...ALL_CHAINS, ...customChainDefs(cfg)]
 }
 
 export function activeChainMap(cfg: WalletConfig): Record<string, ChainDef> {
   if (isPrivacy(cfg)) return PRIVACY_CHAIN_MAP
-  return isTestnet(cfg) ? TESTNET_CHAIN_MAP : CHAIN_MAP
+  if (isTestnet(cfg)) return TESTNET_CHAIN_MAP
+  const custom = customChainDefs(cfg)
+  return custom.length === 0
+    ? CHAIN_MAP
+    : { ...CHAIN_MAP, ...Object.fromEntries(custom.map(c => [c.id, c])) }
 }
 
 export function activePublicRpcs(cfg: WalletConfig): Record<string, string[]> {

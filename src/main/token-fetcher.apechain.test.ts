@@ -38,6 +38,7 @@ const config: WalletConfig = {
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
   magicGuardEnabled: true,
+  customChains: [],
 }
 
 const EVM_ADDRESS = '0x1111111111111111111111111111111111111111'

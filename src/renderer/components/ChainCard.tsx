@@ -18,7 +18,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   )
 }
 
-interface ChainMeta {
+export interface ChainMeta {
   name: string
   networks: string
   color: string
@@ -88,12 +88,14 @@ interface Props {
   history?: ChainHistory | null
   /** Testnet Mode: swaps the network subtitle for the chain's testnet label. */
   testnet?: boolean
+  /** Custom (user-added) chains have no CHAIN_META entry — pass theirs here. */
+  meta?: ChainMeta
 }
 
-export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false }: Props) {
+export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false, meta: metaOverride }: Props) {
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const baseMeta = CHAIN_META[chainId] ?? FALLBACK_META
+  const baseMeta = metaOverride ?? CHAIN_META[chainId] ?? FALLBACK_META
   const meta = testnet ? { ...baseMeta, networks: TESTNET_NETWORKS[chainId] ?? baseMeta.networks } : baseMeta
 
   const truncate = (addr: string) => addr.length > 16 ? `${addr.slice(0, 8)}…${addr.slice(-6)}` : addr
