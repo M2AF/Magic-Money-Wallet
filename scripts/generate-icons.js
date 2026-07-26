@@ -94,7 +94,14 @@ async function main() {
   console.log(`Wrote  resources/icon.png  (512x512)`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// The .ico assembly is shared with scripts/generate-browser-icon.js (the Windows
+// default-apps registration needs its own icon file outside the asar), so only
+// run the generator when this file is the entry point.
+module.exports = { buildIco, pngBuffer, ICO_SIZES };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

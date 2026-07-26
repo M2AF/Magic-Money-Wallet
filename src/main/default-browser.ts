@@ -21,6 +21,8 @@
  * changed for other users of the machine. Registration only happens when the
  * user explicitly asks (Settings row) and only in a packaged build — pointing
  * the system browser at an unpackaged `electron.exe` dev binary would be wrong.
+ * `MM_FORCE_DEFAULT_BROWSER_UI=1` lifts the packaged gate for local testing of
+ * the Settings row; it still writes a dev exe path, so never set it casually.
  *
  * macOS/Linux: `app.setAsDefaultProtocolClient` is the whole story there and is
  * a no-op-ish best effort, so those platforms report `supported: false` and the
@@ -29,6 +31,8 @@
 
 import { app, shell } from 'electron'
 import { execFile } from 'child_process'
+import { existsSync } from 'fs'
+import { join } from 'path'
 import { promisify } from 'util'
 
 const execFileAsync = promisify(execFile)
@@ -37,7 +41,34 @@ const execFileAsync = promisify(execFile)
 const APP_KEY = 'MagicMoney'
 const PROG_ID = 'MagicMoneyHTML'
 const APP_NAME = 'MagicMoney Wallet'
+const APP_COMPANY = 'ChainLens'
 const APP_DESCRIPTION = 'Multi-chain crypto wallet with a built-in dApp browser'
+
+/**
+ * Icon Windows shows in Settings → Default apps and in the "Select a default
+ * app for HTTP links" flyout.
+ *
+ * It must be a real file on disk — an .ico inside app.asar is unreadable to
+ * Explorer — so the packaged copy is placed next to the app by the
+ * `extraResources` entry in package.json. Generated from logo_variant2.png by
+ * scripts/generate-browser-icon.js.
+ *
+ * Falling back to `<exe>,0` is deliberately last: in an unpackaged dev run that
+ * resolves to Electron's own binary, which is exactly why the listing showed
+ * "Electron" with the Electron logo before this file pinned it down.
+ */
+function iconSpec(): string {
+  const candidates = app.isPackaged
+    ? [join(process.resourcesPath, 'browser-icon.ico')]
+    // __dirname is out/main in dev, so ../../resources is the repo's resources/ —
+    // the same anchor index.ts uses for the BrowserWindow icon. app.getAppPath()
+    // is NOT equivalent: it follows the entry script's directory.
+    : [join(__dirname, '..', '..', 'resources', 'browser-icon.ico')]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return `${candidate},0`
+  }
+  return `${process.execPath},0`
+}
 
 export interface DefaultBrowserState {
   /** False on non-Windows or in dev — the renderer hides the row entirely. */
@@ -86,13 +117,23 @@ const PROG_ID_KEY = `HKCU\\Software\\Classes\\${PROG_ID}`
 /** Writes every key Windows needs to list MagicMoney as a browser candidate. */
 async function register(): Promise<void> {
   const exe = process.execPath
-  const icon = `${exe},0`
+  const icon = iconSpec()
   const openCommand = `"${exe}" "%1"`
 
   // 1 — the document type our URLs open with
   await regAdd(PROG_ID_KEY, null, `${APP_NAME} HTML Document`)
+  await regAdd(PROG_ID_KEY, 'FriendlyTypeName', `${APP_NAME} HTML Document`)
   await regAdd(`${PROG_ID_KEY}\\DefaultIcon`, null, icon)
   await regAdd(`${PROG_ID_KEY}\\shell\\open\\command`, null, openCommand)
+
+  // 1b — the ProgId's own app identity. WITHOUT these, the "Select a default app
+  // for HTTP links" flyout falls back to the exe's version resource + embedded
+  // icon, which is how the entry ended up reading "Electron" with the Electron
+  // logo. These keys pin the name and artwork regardless of the host binary.
+  await regAdd(`${PROG_ID_KEY}\\Application`, 'ApplicationName', APP_NAME)
+  await regAdd(`${PROG_ID_KEY}\\Application`, 'ApplicationIcon', icon)
+  await regAdd(`${PROG_ID_KEY}\\Application`, 'ApplicationDescription', APP_DESCRIPTION)
+  await regAdd(`${PROG_ID_KEY}\\Application`, 'ApplicationCompany', APP_COMPANY)
 
   // 2 — the "internet client" entry Settings enumerates
   await regAdd(CLIENT_KEY, null, APP_NAME)

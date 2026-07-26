@@ -121,6 +121,12 @@
       "!node_modules/adblock-rs/fuzz/**",
       "!node_modules/adblock-rs/js/test/**"
     ],
+    "extraResources": [
+      {
+        "from": "resources/browser-icon.ico",
+        "to": "browser-icon.ico"
+      }
+    ],
     "publish": {
       "provider": "github"
     },
