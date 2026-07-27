@@ -25,6 +25,8 @@ const config: WalletConfig = {
   moneroRestoreHeight: 0,
   magicGuardEnabled: true,
   customChains: [],
+  customTokens: [],
+  customNfts: [],
 }
 
 describe('api proxy client gate', () => {

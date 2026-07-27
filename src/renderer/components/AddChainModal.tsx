@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CustomChain } from '../types/wallet'
+import { ipcErrorMessage } from '../ipc-error'
 
 interface Props {
   onClose: () => void
@@ -43,13 +44,13 @@ export function AddChainModal({ onClose, onChanged }: Props) {
         chainId: Number(chainId.trim()),
         nativeSymbol: symbol.trim(),
         rpcUrl: rpcUrl.trim(),
-        explorerTx: explorer.trim() || undefined
+        explorerUrl: explorer.trim() || undefined
       })
       setExisting(updated)
       onChanged(updated)
       onClose()
     } catch (err) {
-      setError(String(err).replace(/^Error:\s*/, '').replace(/^Error invoking remote method '[^']+':\s*/, '').replace(/^Error:\s*/, ''))
+      setError(ipcErrorMessage(err))
     } finally {
       setBusy(false)
     }

@@ -39,6 +39,8 @@ const config: WalletConfig = {
   moneroRestoreHeight: 0,
   magicGuardEnabled: true,
   customChains: [],
+  customTokens: [],
+  customNfts: [],
 }
 
 const EVM_ADDRESS = '0x1111111111111111111111111111111111111111'

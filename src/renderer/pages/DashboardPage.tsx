@@ -3,6 +3,8 @@ import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, T
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AddChainModal } from '../components/AddChainModal'
+import { ImportTokenModal } from '../components/ImportTokenModal'
+import { ImportNftModal } from '../components/ImportNftModal'
 import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 
@@ -670,12 +672,16 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onH
                     <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flexShrink: 0 }}>{nft.usdValue}</div>
                   )}
                 </div>
-                {nft.collectionName && (
-                  <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{nft.collectionName}</div>
-                )}
-                <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }}>{nft.chainLabel}</span>
-                  {nft.source === 'agw' && <AgwBadge />}
+                {/* Collection name shares the last line with the chain tag, which
+                    is pinned to the card's bottom-right corner. */}
+                <div style={{ marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                    {nft.collectionName ?? ''}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 'auto' }}>
+                    <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 99, background: `${nft.chainColor}22`, color: nft.chainColor, fontWeight: 600 }}>{nft.chainLabel}</span>
+                    {nft.source === 'agw' && <AgwBadge />}
+                  </div>
                 </div>
               </div>
             </div>
@@ -835,6 +841,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const canCustomChains = typeof window.wallet.getCustomChains === 'function'
   const [customChains, setCustomChains] = useState<CustomChain[]>([])
   const [showAddChain, setShowAddChain] = useState(false)
+  const [showImportToken, setShowImportToken] = useState(false)
+  const [showImportNft, setShowImportNft] = useState(false)
   useEffect(() => { window.wallet.getCustomChains?.().then(setCustomChains).catch(() => {}) }, [])
 
   // Spam filter state — persisted per account
@@ -899,29 +907,46 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     }
   }, [hiddenKey, spamKey, allowedKey, tokensResult])
 
+  // Request sequence per fetcher. A portfolio fetch fans out over ~20 chains, so
+  // one triggered by a user action (importing a token/NFT, adding a network)
+  // routinely resolves BEFORE the slower load already in flight — and without
+  // this guard that older response overwrites the newer one, making the
+  // just-added asset vanish until the next 5-minute refresh.
+  const balancesReq    = useRef(0)
+  const tokensReq      = useRef(0)
+  const collectiblesReq = useRef(0)
+
   const fetchCollectibles = useCallback(async (quiet = false) => {
+    const seq = ++collectiblesReq.current
     if (!quiet) setCollectiblesLoading(true)
     try {
       const result = await window.wallet.getCollectibles(excludeRef.current)
+      if (seq !== collectiblesReq.current) return   // superseded
       setCollectibles(result)
     } catch (err) {
       console.error('Collectibles fetch failed', err)
     } finally {
-      setCollectiblesLoading(false)
+      // Leave the flag to whichever request is still current, so a superseded
+      // one can't clear it while the newer fetch is still running.
+      if (seq === collectiblesReq.current) setCollectiblesLoading(false)
     }
   }, [])
 
   const fetchBalances = useCallback(async (quiet = false) => {
+    const seq = ++balancesReq.current
     if (!quiet) setLoading(true)
     else setRefreshing(true)
     try {
       const result = await window.wallet.getBalances()
+      if (seq !== balancesReq.current) return
       setBalances(result)
     } catch (err) {
       console.error('Balance fetch failed', err)
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (seq === balancesReq.current) {
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
   }, [])
 
@@ -935,14 +960,16 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   }, [])
 
   const fetchTokens = useCallback(async (quiet = false) => {
+    const seq = ++tokensReq.current
     if (!quiet) setTokensLoading(true)
     try {
       const result = await window.wallet.getTokens()
+      if (seq !== tokensReq.current) return
       setTokensResult(result)
     } catch (err) {
       console.error('Token fetch failed', err)
     } finally {
-      setTokensLoading(false)
+      if (seq === tokensReq.current) setTokensLoading(false)
     }
   }, [])
 
@@ -1227,6 +1254,16 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             onFocus={e => (e.target.style.borderColor = 'var(--border-active)')}
             onBlur={e => (e.target.style.borderColor = 'var(--border)')}
           />
+          {/* Import a token / NFT — only meaningful with a custom network present,
+              since every supported chain's assets are already auto-detected. */}
+          {(portfolioTab === 'tokens' || portfolioTab === 'collectibles') && customChains.length > 0 && !testnet && !privacyMode && (
+            <button type="button"
+              onClick={() => portfolioTab === 'tokens' ? setShowImportToken(true) : setShowImportNft(true)}
+              title={`Import ${portfolioTab === 'tokens' ? 'a token' : 'an NFT'} on a custom network`}
+              style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'var(--accent-dim)', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>
+              + Import
+            </button>
+          )}
           {portfolioHiddenCount > 0 && (
             <button type="button" onClick={() => setShowManager(true)}
               style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
@@ -1262,7 +1299,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               chainId={chainId}
               meta={(() => {
                 const c = customById.get(chainId)
-                return c ? { name: c.name, networks: 'Custom Network', color: '#FFFFFF', colorRgb: '255, 255, 255' } : undefined
+                if (!c) return undefined
+                // No bundled logomark for a network we've never seen — fall back
+                // to its explorer's favicon (the same host we already query for
+                // tokens), and to the colour dot if that 404s.
+                let iconUrl: string | undefined
+                try { if (c.explorerUrl) iconUrl = new URL('/favicon.ico', c.explorerUrl).href } catch { /* bad URL — dot it is */ }
+                return { name: c.name, networks: 'Custom Network', color: '#FFFFFF', colorRgb: '255, 255, 255', iconUrl }
               })()}
               testnet={testnet}
               balance={balances?.chains[chainId] ?? null}
@@ -1380,7 +1423,30 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {showAddChain && (
         <AddChainModal
           onClose={() => setShowAddChain(false)}
-          onChanged={(chains) => { setCustomChains(chains); fetchBalances(true) }}
+          onChanged={(chains) => {
+            setCustomChains(chains)
+            // A new network can carry balances, tokens and NFTs — refresh all
+            // three quietly so its assets appear without a manual refresh.
+            fetchBalances(true); fetchTokens(true); fetchCollectibles(true)
+          }}
+        />
+      )}
+
+      {/* Import token modal (custom networks) */}
+      {showImportToken && (
+        <ImportTokenModal
+          chains={customChains}
+          onClose={() => setShowImportToken(false)}
+          onChanged={() => fetchTokens(true)}
+        />
+      )}
+
+      {/* Import NFT modal (custom networks) */}
+      {showImportNft && (
+        <ImportNftModal
+          chains={customChains}
+          onClose={() => setShowImportNft(false)}
+          onChanged={() => fetchCollectibles(true)}
         />
       )}
 

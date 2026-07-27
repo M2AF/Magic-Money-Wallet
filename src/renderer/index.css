@@ -665,12 +665,17 @@ h1, h2, h3 { font-family: var(--font-display); }
 
 .chain-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 14px;
 }
 
-.chain-info { display: flex; align-items: center; gap: 10px; }
+/* Top-aligned so the logo sits level with the chain name rather than drifting
+   to the middle of the name/network/sparkline stack. Takes the free space in
+   the header so the sparkline underneath has room to centre itself. */
+.chain-info { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+.chain-info > div:last-child { flex: 1; min-width: 0; }
 
 .chain-dot {
   width: 8px; height: 8px;
@@ -678,7 +683,54 @@ h1, h2, h3 { font-family: var(--font-display); }
   background: var(--chain-color, var(--accent));
   box-shadow: 0 0 8px var(--chain-color, var(--accent));
   flex-shrink: 0;
+  /* .chain-info is top-aligned — nudge the dot onto the name's baseline. */
+  margin-top: 6px;
 }
+
+/* Chain logomark — replaces the dot wherever a brand icon is bundled. The
+   chain-coloured ring keeps the glow the dot used to provide. */
+.chain-logo {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: rgba(var(--chain-color-rgb, 96, 165, 250), 0.12);
+  border: 1px solid rgba(var(--chain-color-rgb, 96, 165, 250), 0.3);
+  box-shadow: 0 0 10px rgba(var(--chain-color-rgb, 96, 165, 250), 0.28);
+}
+
+/* Sparkline, tucked under the network name and centred in the column.
+   Nudge knobs — the only two values to touch when fine-tuning its position:
+     --spark-x  positive = right, negative = left
+     --spark-y  positive = down,  negative = up
+   (Its size lives in the Sparkline W/H constants in ChainCard.tsx.) */
+.chain-spark-row {
+  --spark-x: 40px;
+  --spark-y: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+  transform: translate(var(--spark-x), var(--spark-y));
+}
+
+/* 24h change + USD value, right-aligned under the native balance. */
+.chain-price-line {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 2px;
+}
+.chain-price-line .chain-usd { margin-top: 0; }
+
+.chain-change {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+.chain-change.up { color: #22c55e; }
+.chain-change.down { color: #ef4444; }
 
 .chain-name {
   font-family: var(--font-display);

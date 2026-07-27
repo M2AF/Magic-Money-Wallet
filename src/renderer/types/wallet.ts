@@ -16,7 +16,32 @@ export interface CustomChain {
   chainId: number
   nativeSymbol: string
   rpcUrl: string
-  explorerTx: string
+  explorerUrl: string   // explorer origin ('' when none)
+}
+
+// A manually imported ERC-20 on a custom chain. Mirrors secure-store.ts.
+export interface CustomToken {
+  chain: string
+  contractAddress: string
+  name: string
+  symbol: string
+  decimals: number
+}
+
+// A manually imported NFT on a custom chain. Mirrors secure-store.ts — only the
+// identity is stored; artwork/traits are re-resolved on each portfolio fetch.
+export interface CustomNft {
+  chain: string
+  contractAddress: string
+  tokenId: string
+  type: 'ERC-721' | 'ERC-1155'
+}
+
+/** What the NFT import form gets back before saving. */
+export interface CustomNftPreview {
+  type: 'ERC-721' | 'ERC-1155'
+  collectionName: string | null
+  owned: Array<{ tokenId: string; name: string; image: string | null }>
 }
 
 export interface WalletAddresses {
@@ -404,8 +429,20 @@ declare global {
       // Custom chains — user-added EVM networks (optional: Electron-only for
       // now; absent on the extension/Capacitor bridges — gate UI with typeof).
       getCustomChains?(): Promise<CustomChain[]>
-      addCustomChain?(chain: { name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerTx?: string }): Promise<CustomChain[]>
+      addCustomChain?(chain: { name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerUrl?: string }): Promise<CustomChain[]>
       removeCustomChain?(id: string): Promise<CustomChain[]>
+      // Imported ERC-20s on custom chains (Blockscout explorers auto-detect;
+      // this is the manual fallback). resolve* reads metadata without saving.
+      getCustomTokens?(): Promise<CustomToken[]>
+      resolveCustomToken?(chain: string, contractAddress: string): Promise<{ name: string; symbol: string; decimals: number; balance: string }>
+      importCustomToken?(chain: string, contractAddress: string): Promise<CustomToken[]>
+      removeCustomToken?(chain: string, contractAddress: string): Promise<CustomToken[]>
+      // Imported NFTs on custom chains. resolveCustomNft previews without saving;
+      // omit tokenId to list this wallet's tokens from an Enumerable ERC-721.
+      getCustomNfts?(): Promise<CustomNft[]>
+      resolveCustomNft?(chain: string, contractAddress: string, tokenId?: string): Promise<CustomNftPreview>
+      importCustomNft?(chain: string, contractAddress: string, tokenId: string): Promise<CustomNft[]>
+      removeCustomNft?(chain: string, contractAddress: string, tokenId: string): Promise<CustomNft[]>
       // Testnet Mode
       getTestnetMode(): Promise<boolean>
       setTestnetMode(enabled: boolean): Promise<{ testnet: boolean; addresses: WalletAddresses | null }>

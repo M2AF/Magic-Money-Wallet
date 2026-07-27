@@ -473,7 +473,31 @@ export interface CustomChain {
   chainId: number       // numeric EVM chain id
   nativeSymbol: string  // e.g. 'MON'
   rpcUrl: string
-  explorerTx: string    // base tx URL ('' when the user gave no explorer)
+  // Explorer ORIGIN as the user typed it, e.g. 'https://monadvision.com' ('' when
+  // none). chain-config appends '/tx' for links; the token/NFT fetchers probe
+  // '<origin>/api/v2/...' in case it's a Blockscout instance.
+  explorerUrl: string
+}
+
+// A manually imported ERC-20 on a custom chain (MetaMask's "Import tokens").
+// Metadata is resolved once at import time so each refresh only needs balanceOf.
+export interface CustomToken {
+  chain: string           // CustomChain.id, e.g. 'custom-143'
+  contractAddress: string // lowercase
+  name: string
+  symbol: string
+  decimals: number
+}
+
+// A manually imported NFT on a custom chain. Only the IDENTITY is persisted —
+// image/name/traits are re-resolved on each portfolio fetch so a reveal or
+// metadata update shows up, and so an NFT that's been sold disappears (the
+// fetch re-checks ownership).
+export interface CustomNft {
+  chain: string           // CustomChain.id
+  contractAddress: string // lowercase
+  tokenId: string         // decimal string (uint256 — too big for number)
+  type: 'ERC-721' | 'ERC-1155'
 }
 
 export interface WalletConfig {
@@ -507,6 +531,11 @@ export interface WalletConfig {
   magicGuardEnabled: boolean
   // User-added EVM networks (mainnet mode only — hidden under Testnet/Privacy).
   customChains: CustomChain[]
+  // Manually imported ERC-20s on those networks (auto-detect covers Blockscout
+  // explorers; this is the fallback for chains without one).
+  customTokens: CustomToken[]
+  // Same, for NFTs (ERC-721/1155).
+  customNfts: CustomNft[]
 }
 
 // All provider keys are EMPTY by default — they live only as Cloudflare Worker
@@ -539,7 +568,9 @@ const DEFAULT_CONFIG: WalletConfig = {
   torBrowserPort: 9050,
   moneroRestoreHeight: 0,
   magicGuardEnabled: true,
-  customChains: []
+  customChains: [],
+  customTokens: [],
+  customNfts: []
 }
 
 let configCache: WalletConfig | null = null
@@ -582,7 +613,19 @@ function sanitizeConfig(cfg: WalletConfig): WalletConfig {
       Number.isInteger(c.chainId) && c.chainId > 0 &&
       typeof c.nativeSymbol === 'string' && c.nativeSymbol.length > 0 &&
       typeof c.rpcUrl === 'string' && /^https?:\/\//.test(c.rpcUrl) &&
-      typeof c.explorerTx === 'string'
+      typeof c.explorerUrl === 'string'
+    ),
+    customTokens: (Array.isArray(cfg.customTokens) ? cfg.customTokens : []).filter(t =>
+      t && typeof t.chain === 'string' && t.chain.length > 0 &&
+      typeof t.contractAddress === 'string' && /^0x[0-9a-fA-F]{40}$/.test(t.contractAddress) &&
+      typeof t.name === 'string' && typeof t.symbol === 'string' &&
+      Number.isInteger(t.decimals) && t.decimals >= 0 && t.decimals <= 36
+    ),
+    customNfts: (Array.isArray(cfg.customNfts) ? cfg.customNfts : []).filter(n =>
+      n && typeof n.chain === 'string' && n.chain.length > 0 &&
+      typeof n.contractAddress === 'string' && /^0x[0-9a-fA-F]{40}$/.test(n.contractAddress) &&
+      typeof n.tokenId === 'string' && /^[0-9]{1,78}$/.test(n.tokenId) &&
+      (n.type === 'ERC-721' || n.type === 'ERC-1155')
     ),
   }
 }

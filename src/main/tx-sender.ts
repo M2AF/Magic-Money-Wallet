@@ -180,7 +180,8 @@ function customEvmSenders(config: WalletConfig): Record<string, EvmChainEntry> {
         rpcUrls: { default: { http: [c.rpcUrl] } }
       }),
       rpcUrl: () => c.rpcUrl,
-      explorer: c.explorerTx,
+      // Stored value is the explorer origin; transactions live under /tx/<hash>.
+      explorer: c.explorerUrl ? `${c.explorerUrl}/tx` : '',
       nativeSymbol: c.nativeSymbol
     }
   }

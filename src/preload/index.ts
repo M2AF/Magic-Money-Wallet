@@ -75,6 +75,16 @@ contextBridge.exposeInMainWorld('wallet', {
   getCustomChains:   ()                => ipcRenderer.invoke('wallet:get-custom-chains'),
   addCustomChain:    (chain: unknown)  => ipcRenderer.invoke('wallet:add-custom-chain', chain),
   removeCustomChain: (id: string)      => ipcRenderer.invoke('wallet:remove-custom-chain', id),
+  // Imported ERC-20s on those networks
+  getCustomTokens:    ()                            => ipcRenderer.invoke('wallet:get-custom-tokens'),
+  resolveCustomToken: (chain: string, addr: string) => ipcRenderer.invoke('wallet:resolve-custom-token', chain, addr),
+  importCustomToken:  (chain: string, addr: string) => ipcRenderer.invoke('wallet:import-custom-token', chain, addr),
+  removeCustomToken:  (chain: string, addr: string) => ipcRenderer.invoke('wallet:remove-custom-token', chain, addr),
+  // Imported NFTs on those networks
+  getCustomNfts:    ()                                             => ipcRenderer.invoke('wallet:get-custom-nfts'),
+  resolveCustomNft: (chain: string, addr: string, id?: string)      => ipcRenderer.invoke('wallet:resolve-custom-nft', chain, addr, id),
+  importCustomNft:  (chain: string, addr: string, id: string)       => ipcRenderer.invoke('wallet:import-custom-nft', chain, addr, id),
+  removeCustomNft:  (chain: string, addr: string, id: string)       => ipcRenderer.invoke('wallet:remove-custom-nft', chain, addr, id),
 
   getTestnetMode:  ()                  => ipcRenderer.invoke('wallet:get-testnet-mode'),
   setTestnetMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-testnet-mode', enabled),

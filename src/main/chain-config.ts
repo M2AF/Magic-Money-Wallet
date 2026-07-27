@@ -737,9 +737,14 @@ export function customChainDefs(cfg: WalletConfig): ChainDef[] {
       nativeSymbol: c.nativeSymbol,
       coingeckoId: '',                          // unknown token → no USD price
       rpcUrl: () => c.rpcUrl,
-      explorerTx: c.explorerTx,
+      // Explorers put transactions under /tx/<hash>; the stored value is the origin.
+      explorerTx: c.explorerUrl ? `${c.explorerUrl}/tx` : '',
       color: CUSTOM_CHAIN_COLOR,
-      colorRgb: CUSTOM_CHAIN_COLOR_RGB
+      colorRgb: CUSTOM_CHAIN_COLOR_RGB,
+      // Most new-chain explorers ARE Blockscout, and every consumer of this field
+      // (token counts, token/NFT lists) already degrades silently when the
+      // /api/v2 probe fails — so setting it optimistically costs nothing.
+      blockscoutUrl: c.explorerUrl || undefined
     }))
 }
 

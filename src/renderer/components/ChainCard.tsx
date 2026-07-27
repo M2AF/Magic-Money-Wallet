@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { ChainBalance, ChainHistory } from '../types/wallet'
+import { CHAIN_ICONS } from '../data/chain-icons'
 import { TxList } from './TxList'
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const W = 80, H = 28
+  const W = 300, H = 50
   const min = Math.min(...data)
   const max = Math.max(...data)
   const range = max - min || 1
@@ -18,11 +19,35 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
   )
 }
 
+/**
+ * Chain logomark. Bundled brand marks come from CHAIN_ICONS; custom (user-added)
+ * networks can supply their explorer's favicon via `iconUrl`. Anything without
+ * an icon — or whose icon fails to load — keeps the original glowing dot, so the
+ * row never renders a broken image.
+ */
+function ChainLogo({ chainId, iconUrl }: { chainId: string; iconUrl?: string }) {
+  const [failed, setFailed] = useState(false)
+  const src = CHAIN_ICONS[chainId] ?? iconUrl
+  if (!src || failed) return <div className="chain-dot" />
+  return (
+    <img
+      className="chain-logo"
+      src={src}
+      alt=""
+      width={26}
+      height={26}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 export interface ChainMeta {
   name: string
   networks: string
   color: string
   colorRgb: string
+  /** Custom networks only — favicon of the chain's explorer, if it has one. */
+  iconUrl?: string
 }
 
 const CHAIN_META: Record<string, ChainMeta> = {
@@ -132,22 +157,22 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
         ['--chain-color-rgb' as string]: meta.colorRgb
       }}
     >
-      {/* Header row: [name] [sparkline] [balance + USD + 24h] */}
+      {/* Header row: [logo + name + sparkline/24h] [balance + USD] */}
       <div className="chain-header">
         <div className="chain-info">
-          <div className="chain-dot" />
+          <ChainLogo chainId={chainId} iconUrl={meta.iconUrl} />
           <div>
             <div className="chain-name">{meta.name}</div>
             <div className="chain-networks">{meta.networks}</div>
+            {/* Sparkline sits under the network name, centred in the gap
+                between the logo and the balance column. */}
+            {!loading && !balance?.error && (balance?.sparkline?.length ?? 0) > 1 && (
+              <div className="chain-spark-row">
+                <Sparkline data={balance!.sparkline!} color={meta.color} />
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Sparkline — centre column */}
-        {!loading && !balance?.error && balance?.sparkline && balance.sparkline.length > 1 && (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 8px' }}>
-            <Sparkline data={balance.sparkline} color={meta.color} />
-          </div>
-        )}
 
         {/* Balance */}
         <div className="chain-balance">
@@ -169,16 +194,14 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
               <div className="chain-amount">
                 {balance?.native ?? '—'} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{balance?.symbol}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div className="chain-usd">{balance?.usdValue ?? '$0.00'}</div>
+              {/* 24h change sits to the left of the USD value. */}
+              <div className="chain-price-line">
                 {balance?.priceChange24h != null && (
-                  <div style={{
-                    fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-mono)',
-                    color: balance.priceChange24h >= 0 ? '#22c55e' : '#ef4444'
-                  }}>
+                  <div className={`chain-change ${balance.priceChange24h >= 0 ? 'up' : 'down'}`}>
                     {balance.priceChange24h >= 0 ? '▲' : '▼'} {Math.abs(balance.priceChange24h).toFixed(2)}%
                   </div>
                 )}
+                <div className="chain-usd">{balance?.usdValue ?? '$0.00'}</div>
               </div>
             </>
           )}

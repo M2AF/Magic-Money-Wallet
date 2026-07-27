@@ -57,7 +57,9 @@ import {
   bioSupported,
   bioMethod,
   type WalletConfig,
-  type CustomChain
+  type CustomChain,
+  type CustomToken,
+  type CustomNft
 } from './secure-store'
 import { resolveAccountAgw } from './agw'
 import type { WalletAddresses } from './wallet-core'
@@ -101,7 +103,7 @@ import { heliusRpcUrl, tatumRpcUrl } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
-import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor } from './token-fetcher'
+import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor, resolveCustomToken, resolveCustomNft } from './token-fetcher'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from './swap-proxy'
 import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
@@ -775,19 +777,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:get-custom-chains', () => loadConfig().customChains ?? [])
 
   ipcMain.handle('wallet:add-custom-chain', async (_event, input: {
-    name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerTx?: string
+    name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerUrl?: string
   }) => {
     const name = String(input?.name ?? '').trim()
     const nativeSymbol = String(input?.nativeSymbol ?? '').trim().toUpperCase()
     const rpcUrl = String(input?.rpcUrl ?? '').trim()
-    const explorerTx = String(input?.explorerTx ?? '').trim().replace(/\/+$/, '')
+    // Store the explorer ORIGIN (strip a trailing /tx a user might paste, plus any
+    // trailing slashes) — chain-config appends '/tx' for links and '/api/v2' for
+    // the Blockscout token/NFT probes.
+    const explorerUrl = String(input?.explorerUrl ?? '').trim()
+      .replace(/\/+$/, '').replace(/\/tx$/i, '').replace(/\/+$/, '')
     const chainId = Number(input?.chainId)
 
     if (!name) throw new Error('Enter a network name')
     if (!Number.isInteger(chainId) || chainId <= 0) throw new Error('Chain ID must be a positive whole number')
     if (!/^https?:\/\/.+/.test(rpcUrl)) throw new Error('RPC URL must start with http:// or https://')
     if (!nativeSymbol || nativeSymbol.length > 12) throw new Error('Enter a currency symbol (e.g. MON)')
-    if (explorerTx && !/^https?:\/\/.+/.test(explorerTx)) throw new Error('Block explorer must be a http(s) URL')
+    if (explorerUrl && !/^https?:\/\/.+/.test(explorerUrl)) throw new Error('Block explorer must be a http(s) URL')
 
     const config = loadConfig()
     if (EVM_CHAINS.some(c => c.chainId === chainId)) {
@@ -817,15 +823,115 @@ export function registerIpcHandlers(): void {
       throw new Error(`The RPC reports chain ID ${reported}, not ${chainId} — double-check both fields`)
     }
 
-    const chain: CustomChain = { id: `custom-${chainId}`, name, chainId, nativeSymbol, rpcUrl, explorerTx }
+    const chain: CustomChain = { id: `custom-${chainId}`, name, chainId, nativeSymbol, rpcUrl, explorerUrl }
     saveConfig({ customChains: [...(config.customChains ?? []), chain] })
     return loadConfig().customChains
   })
 
   ipcMain.handle('wallet:remove-custom-chain', (_event, id: string) => {
     const config = loadConfig()
-    saveConfig({ customChains: (config.customChains ?? []).filter(c => c.id !== String(id)) })
+    saveConfig({
+      customChains: (config.customChains ?? []).filter(c => c.id !== String(id)),
+      // Drop that network's imported tokens too, or they linger as orphans that
+      // no chain can resolve (and would reappear if the chain is re-added).
+      customTokens: (config.customTokens ?? []).filter(t => t.chain !== String(id)),
+      customNfts: (config.customNfts ?? []).filter(n => n.chain !== String(id))
+    })
     return loadConfig().customChains
+  })
+
+  // ── Imported ERC-20s on custom chains ("Import tokens") ───────────────────
+  // Blockscout explorers are auto-detected in the token fetcher; this is the
+  // manual fallback for custom chains whose explorer has no usable API.
+  ipcMain.handle('wallet:get-custom-tokens', () => loadConfig().customTokens ?? [])
+
+  // Read a contract's name/symbol/decimals + this wallet's balance, WITHOUT
+  // saving — lets the import form show what it found before the user commits.
+  ipcMain.handle('wallet:resolve-custom-token', async (_event, chainId: string, contractAddress: string) => {
+    const addr = String(contractAddress ?? '').trim()
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
+    const addresses = await getFullAddresses()
+    return resolveCustomToken(String(chainId), addr, addresses.evm, loadConfig())
+  })
+
+  ipcMain.handle('wallet:import-custom-token', async (_event, chainId: string, contractAddress: string) => {
+    const chain = String(chainId)
+    const addr = String(contractAddress ?? '').trim().toLowerCase()
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
+
+    const config = loadConfig()
+    if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
+    if ((config.customTokens ?? []).some(t => t.chain === chain && t.contractAddress === addr)) {
+      throw new Error('That token is already imported')
+    }
+
+    // Resolving doubles as validation — a non-ERC-20 address throws here.
+    const addresses = await getFullAddresses()
+    const meta = await resolveCustomToken(chain, addr, addresses.evm, config)
+    const token: CustomToken = {
+      chain, contractAddress: addr,
+      name: meta.name, symbol: meta.symbol, decimals: meta.decimals
+    }
+    saveConfig({ customTokens: [...(config.customTokens ?? []), token] })
+    return loadConfig().customTokens
+  })
+
+  ipcMain.handle('wallet:remove-custom-token', (_event, chainId: string, contractAddress: string) => {
+    const chain = String(chainId)
+    const addr = String(contractAddress ?? '').trim().toLowerCase()
+    const config = loadConfig()
+    saveConfig({
+      customTokens: (config.customTokens ?? []).filter(t => !(t.chain === chain && t.contractAddress === addr))
+    })
+    return loadConfig().customTokens
+  })
+
+  // ── Imported NFTs on custom chains ────────────────────────────────────────
+  ipcMain.handle('wallet:get-custom-nfts', () => loadConfig().customNfts ?? [])
+
+  // Preview without saving: detect 721/1155, verify ownership, resolve artwork.
+  // Omitting tokenId lists this wallet's tokens from an Enumerable ERC-721.
+  ipcMain.handle('wallet:resolve-custom-nft', async (_event, chainId: string, contractAddress: string, tokenId?: string) => {
+    const addr = String(contractAddress ?? '').trim()
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
+    const id = tokenId == null || String(tokenId).trim() === '' ? undefined : String(tokenId).trim()
+    const addresses = await getFullAddresses()
+    return resolveCustomNft(String(chainId), addr, id, addresses.evm, loadConfig())
+  })
+
+  ipcMain.handle('wallet:import-custom-nft', async (_event, chainId: string, contractAddress: string, tokenId: string) => {
+    const chain = String(chainId)
+    const addr = String(contractAddress ?? '').trim().toLowerCase()
+    const id = String(tokenId ?? '').trim()
+    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
+    if (!/^[0-9]{1,78}$/.test(id)) throw new Error('Token ID must be a whole number')
+
+    const config = loadConfig()
+    if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
+    if ((config.customNfts ?? []).some(n => n.chain === chain && n.contractAddress === addr && n.tokenId === id)) {
+      throw new Error('That NFT is already imported')
+    }
+
+    // Resolving doubles as validation: wrong contract, wrong id, or an NFT this
+    // wallet doesn't own all throw here rather than being saved.
+    const addresses = await getFullAddresses()
+    const info = await resolveCustomNft(chain, addr, id, addresses.evm, config)
+    const nft: CustomNft = { chain, contractAddress: addr, tokenId: id, type: info.type }
+    saveConfig({ customNfts: [...(config.customNfts ?? []), nft] })
+    return loadConfig().customNfts
+  })
+
+  ipcMain.handle('wallet:remove-custom-nft', (_event, chainId: string, contractAddress: string, tokenId: string) => {
+    const chain = String(chainId)
+    const addr = String(contractAddress ?? '').trim().toLowerCase()
+    const id = String(tokenId ?? '').trim()
+    const config = loadConfig()
+    saveConfig({
+      customNfts: (config.customNfts ?? []).filter(
+        n => !(n.chain === chain && n.contractAddress === addr && n.tokenId === id)
+      )
+    })
+    return loadConfig().customNfts
   })
 
   ipcMain.handle('wallet:get-testnet-mode', () => isTestnet(loadConfig()))

@@ -1,5 +1,5 @@
-import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry } from './secure-store'
-import { isTestnet, isPrivacy } from './chain-config'
+import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft } from './secure-store'
+import { isTestnet, isPrivacy, customChainDefs, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
@@ -622,10 +622,18 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
     const nativeEq  = nativePriceUsd > 0 ? totalUsd / nativePriceUsd : 0
     const sym = NATIVE_SYMBOL[t.chain] ?? ''
 
+    // Custom (user-added) chains have NO price source — no CoinGecko native id
+    // and no DexScreener slug — so "$0.00" there would read as "worthless"
+    // instead of "unknown", and nativeEquivalent would render a bare number with
+    // no symbol. Leave both null for those chains (the token list and the
+    // portfolio total already handle null — that's what Testnet Mode produces).
+    // Supported chains keep their existing "$0.00"-when-unpriced behaviour.
+    const hasPriceSource = !!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain]
+
     return {
       ...t,
-      usdValue: `$${totalUsd.toFixed(2)}`,
-      nativeEquivalent: `${nativeEq.toFixed(4)} ${sym}`,
+      usdValue: hasPriceSource ? `$${totalUsd.toFixed(2)}` : null,
+      nativeEquivalent: hasPriceSource ? `${nativeEq.toFixed(4)} ${sym}` : null,
       // Logo priority: real metadata logo (Alchemy/Cardano registry) → DexScreener
       // image (verified to exist) → TrustWallet (a guessed path that 404s for most
       // tokens, so it's the last resort). Preferring the guess over DexScreener is
@@ -713,6 +721,532 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
     console.error('[Monad] token fetch error:', e)
   }
   return tokens
+}
+
+// ─── Custom (user-added) chains ───────────────────────────────────────────────
+// Two complementary sources, because arbitrary chains have no Alchemy/Moralis
+// coverage:
+//   1. Blockscout auto-detect — most new-chain explorers are Blockscout, and its
+//      /api/v2 token-balances + nft endpoints need no key. Probed optimistically;
+//      a non-Blockscout explorer just fails the fetch and yields nothing.
+//   2. Manual ERC-20 imports (config.customTokens) — the universal fallback,
+//      read with balanceOf against the chain's own RPC.
+// The native coin is deliberately NOT listed as a token row: it already shows on
+// the Networks tab, and the portfolio total sums networks + tokens + NFTs.
+
+const ERC20_BALANCE_OF = '0x70a08231'
+
+async function customRpcCall(rpcUrl: string, method: string, params: unknown[], timeoutMs = 10_000): Promise<unknown> {
+  const res = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(timeoutMs)
+  })
+  if (!res.ok) throw new Error(`RPC HTTP ${res.status}`)
+  const json = await res.json() as { result?: unknown; error?: { message?: string } }
+  if (json.error) throw new Error(json.error.message ?? 'RPC error')
+  return json.result
+}
+
+/** ERC-20 balanceOf via eth_call — the one call each imported token needs. */
+async function erc20Balance(rpcUrl: string, contract: string, holder: string): Promise<bigint> {
+  const padded = holder.toLowerCase().replace('0x', '').padStart(64, '0')
+  const hex = await customRpcCall(rpcUrl, 'eth_call', [{ to: contract, data: `${ERC20_BALANCE_OF}${padded}` }, 'latest']) as string | null
+  if (!hex || hex === '0x') return 0n
+  return BigInt(hex)
+}
+
+interface BlockscoutTokenBalance {
+  value: string
+  token?: {
+    address?: string
+    name?: string | null
+    symbol?: string | null
+    decimals?: string | null
+    type?: string | null
+    icon_url?: string | null
+  }
+}
+
+/** Blockscout ERC-20 balances. Returns [] for any non-Blockscout explorer. */
+async function fetchBlockscoutTokens(chain: ChainDef, address: string): Promise<WalletToken[]> {
+  if (!chain.blockscoutUrl) return []
+  try {
+    const res = await fetch(`${chain.blockscoutUrl}/api/v2/addresses/${address}/token-balances`, {
+      signal: AbortSignal.timeout(12_000)
+    })
+    if (!res.ok) return []
+    const json = await res.json() as BlockscoutTokenBalance[]
+    if (!Array.isArray(json)) return []
+    return json.flatMap(entry => {
+      const t = entry.token
+      // ERC-20 only — 721/1155 holdings surface on the Collectibles tab instead.
+      if (!t?.address || (t.type && t.type !== 'ERC-20')) return []
+      const decimals = Number(t.decimals ?? 18)
+      if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) return []
+      let raw: bigint
+      try { raw = BigInt(entry.value) } catch { return [] }
+      if (raw === 0n) return []
+      const symbol = (t.symbol ?? '').trim()
+      if (!symbol) return []
+      return [{
+        contractAddress: t.address.toLowerCase(),
+        name: (t.name ?? '').trim() || symbol,
+        symbol,
+        decimals,
+        balance: humanBalance(`0x${raw.toString(16)}`, decimals),
+        usdValue: null,
+        nativeEquivalent: null,
+        nativeSymbol: chain.nativeSymbol,
+        logoUri: normalizeImageUrl(t.icon_url ?? null),
+        chain: chain.id,
+        chainLabel: chain.name,
+        chainColor: chain.color
+      } satisfies WalletToken]
+    })
+  } catch {
+    return []
+  }
+}
+
+/** Manually imported ERC-20s for one custom chain (metadata already persisted). */
+async function fetchImportedTokens(
+  chain: ChainDef,
+  address: string,
+  imports: CustomToken[],
+  config: WalletConfig
+): Promise<WalletToken[]> {
+  if (imports.length === 0) return []
+  const url = chain.rpcUrl(config)
+  const results = await Promise.all(imports.map(async (t): Promise<WalletToken | null> => {
+    try {
+      const raw = await erc20Balance(url, t.contractAddress, address)
+      if (raw === 0n) return null
+      return {
+        contractAddress: t.contractAddress,
+        name: t.name,
+        symbol: t.symbol,
+        decimals: t.decimals,
+        balance: humanBalance(`0x${raw.toString(16)}`, t.decimals),
+        usdValue: null,
+        nativeEquivalent: null,
+        nativeSymbol: chain.nativeSymbol,
+        logoUri: null,
+        chain: chain.id,
+        chainLabel: chain.name,
+        chainColor: chain.color
+      } satisfies WalletToken
+    } catch {
+      return null
+    }
+  }))
+  return results.filter((t): t is WalletToken => t !== null)
+}
+
+/** All tokens across every custom chain — auto-detected plus manually imported. */
+async function fetchCustomChainTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
+  const chains = customChainDefs(config)
+  if (chains.length === 0 || !address) return []
+  const imports = config.customTokens ?? []
+
+  const perChain = await Promise.all(chains.map(async chain => {
+    const mine = imports.filter(t => t.chain === chain.id)
+    const [auto, manual] = await Promise.all([
+      fetchBlockscoutTokens(chain, address),
+      fetchImportedTokens(chain, address, mine, config)
+    ])
+    // A manual import of a token Blockscout already found would render twice.
+    const seen = new Set(auto.map(t => t.contractAddress.toLowerCase()))
+    return [...auto, ...manual.filter(t => !seen.has(t.contractAddress.toLowerCase()))]
+  }))
+  return perChain.flat()
+}
+
+interface BlockscoutNftItem {
+  id?: string | null
+  token_type?: string | null
+  image_url?: string | null
+  animation_url?: string | null
+  metadata?: { name?: string; description?: string; image?: string; animation_url?: string; attributes?: unknown[] } | null
+  token?: { address?: string; name?: string | null; type?: string | null } | null
+}
+
+/** Blockscout NFT holdings for one custom chain. [] for non-Blockscout explorers. */
+async function fetchCustomChainNftsFor(chain: ChainDef, address: string): Promise<WalletCollectible[]> {
+  if (!chain.blockscoutUrl) return []
+  try {
+    const res = await fetch(
+      `${chain.blockscoutUrl}/api/v2/addresses/${address}/nft?type=ERC-721%2CERC-1155`,
+      { signal: AbortSignal.timeout(15_000) }
+    )
+    if (!res.ok) return []
+    const json = await res.json() as { items?: BlockscoutNftItem[] }
+    const items = Array.isArray(json.items) ? json.items : []
+    return items.flatMap(nft => {
+      const contract = nft.token?.address
+      const tokenId = nft.id
+      if (!contract || tokenId == null) return []
+      const meta = nft.metadata ?? {}
+      const attrs = Array.isArray(meta.attributes) ? meta.attributes : []
+      return [{
+        id: `${chain.id}:${contract.toLowerCase()}:${tokenId}`,
+        name: meta.name ?? `#${tokenId}`,
+        description: meta.description ?? null,
+        image: normalizeImageUrl(nft.image_url ?? meta.image ?? null),
+        animationUrl: normalizeImageUrl(nft.animation_url ?? meta.animation_url ?? null),
+        collectionName: nft.token?.name ?? null,
+        chain: chain.id,
+        chainLabel: chain.name,
+        chainColor: chain.color,
+        tokenId: String(tokenId),
+        contractAddress: contract.toLowerCase(),
+        contractType: nft.token_type ?? nft.token?.type ?? 'ERC-721',
+        traits: attrs
+          .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
+          .filter(a => a['trait_type'] != null && a['value'] != null)
+          .map(a => ({ trait_type: String(a['trait_type']), value: String(a['value']) }))
+      } satisfies WalletCollectible]
+    })
+  } catch {
+    return []
+  }
+}
+
+// ─── Manually imported NFTs on custom chains ──────────────────────────────────
+// The ERC-721/1155 equivalent of fetchImportedTokens: for explorers with no
+// usable API, the user pastes a contract (+ token id) and we read ownership and
+// metadata straight off the chain's RPC. Only the identity is persisted, so
+// metadata is re-resolved every fetch (reveals show up) and ownership is
+// re-checked (a sold NFT disappears).
+
+const SEL = {
+  supportsInterface:   '0x01ffc9a7',
+  ownerOf:             '0x6352211e',
+  tokenURI:            '0xc87b56dd',
+  uri:                 '0x0e89341c',
+  balanceOf1155:       '0x00fdd58e',  // balanceOf(address,uint256)
+  balanceOf721:        '0x70a08231',  // balanceOf(address)
+  tokenOfOwnerByIndex: '0x2f745c59',
+  name:                '0x06fdde03',
+} as const
+
+const IFACE_ERC721  = '80ac58cd'
+const IFACE_ERC1155 = 'd9b67a26'
+
+/** uint256 → a bare 32-byte hex word (no 0x), for hand-built calldata. */
+function hexWord(v: bigint): string {
+  return v.toString(16).padStart(64, '0')
+}
+
+/** address → a bare 32-byte hex word (no 0x). */
+function addrWord(a: string): string {
+  return a.toLowerCase().replace('0x', '').padStart(64, '0')
+}
+
+async function ethCall(rpcUrl: string, to: string, data: string, timeoutMs = 10_000): Promise<string> {
+  try {
+    const r = await customRpcCall(rpcUrl, 'eth_call', [{ to, data }, 'latest'], timeoutMs)
+    return typeof r === 'string' ? r : '0x'
+  } catch {
+    return '0x'
+  }
+}
+
+/** ERC-165 probe. Contracts predating it simply return '0x' → false. */
+async function supportsInterface(rpcUrl: string, contract: string, iface: string): Promise<boolean> {
+  const hex = await ethCall(rpcUrl, contract, `${SEL.supportsInterface}${iface.padEnd(64, '0')}`)
+  if (!hex || hex === '0x') return false
+  try { return BigInt(hex) === 1n } catch { return false }
+}
+
+/** Resolve a metadata URI to something fetchable (ipfs/ar/data/https). */
+function resolveMetadataUri(uri: string): string | null {
+  const u = uri.trim()
+  if (!u) return null
+  if (u.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${u.slice(7).replace(/^ipfs\//, '')}`
+  if (u.startsWith('ar://'))   return `https://arweave.net/${u.slice(5)}`
+  if (u.startsWith('data:'))   return u
+  if (u.startsWith('http'))    return u
+  return null
+}
+
+interface NftMetadata {
+  name?: string
+  description?: string
+  image?: string
+  image_url?: string
+  animation_url?: string
+  attributes?: unknown[]
+}
+
+/** Fetch + parse a token's metadata JSON. Handles data: URIs (incl. base64). */
+async function fetchNftMetadata(uri: string): Promise<NftMetadata | null> {
+  const resolved = resolveMetadataUri(uri)
+  if (!resolved) return null
+  try {
+    if (resolved.startsWith('data:')) {
+      const comma = resolved.indexOf(',')
+      if (comma < 0) return null
+      const payload = resolved.slice(comma + 1)
+      const isB64 = /;base64/i.test(resolved.slice(0, comma))
+      const text = isB64 ? Buffer.from(payload, 'base64').toString('utf8') : decodeURIComponent(payload)
+      return JSON.parse(text) as NftMetadata
+    }
+    const res = await fetch(resolved, { signal: AbortSignal.timeout(12_000) })
+    if (!res.ok) return null
+    return await res.json() as NftMetadata
+  } catch {
+    return null
+  }
+}
+
+/** Read a token's metadata URI (721 tokenURI / 1155 uri, with {id} expansion). */
+async function nftTokenUri(
+  rpcUrl: string, contract: string, tokenId: bigint, type: 'ERC-721' | 'ERC-1155'
+): Promise<string> {
+  const sel = type === 'ERC-1155' ? SEL.uri : SEL.tokenURI
+  const raw = decodeAbiString(await ethCall(rpcUrl, contract, `${sel}${hexWord(tokenId)}`))
+  // ERC-1155 URIs may embed the {id} placeholder — spec says 64-char lowercase hex.
+  return raw.replace(/\{id\}/g, hexWord(tokenId))
+}
+
+/** True when `holder` currently owns this token. */
+async function ownsNft(
+  rpcUrl: string, contract: string, tokenId: bigint, type: 'ERC-721' | 'ERC-1155', holder: string
+): Promise<boolean> {
+  if (type === 'ERC-1155') {
+    const hex = await ethCall(rpcUrl, contract, `${SEL.balanceOf1155}${addrWord(holder)}${hexWord(tokenId)}`)
+    if (!hex || hex === '0x') return false
+    try { return BigInt(hex) > 0n } catch { return false }
+  }
+  const hex = await ethCall(rpcUrl, contract, `${SEL.ownerOf}${hexWord(tokenId)}`)
+  if (!hex || hex === '0x') return false
+  try {
+    // ownerOf returns an address right-aligned in a 32-byte word.
+    return BigInt(hex) === BigInt(holder.toLowerCase())
+  } catch { return false }
+}
+
+/** Turn on-chain metadata into the shape the Collectibles tab renders. */
+function toCollectible(
+  chain: ChainDef, contract: string, tokenId: string,
+  type: 'ERC-721' | 'ERC-1155', meta: NftMetadata | null, collectionName: string | null
+): WalletCollectible {
+  const attrs = Array.isArray(meta?.attributes) ? meta!.attributes : []
+  return {
+    id: `${chain.id}:${contract.toLowerCase()}:${tokenId}`,
+    name: meta?.name ?? `#${tokenId}`,
+    description: meta?.description ?? null,
+    image: normalizeImageUrl(meta?.image ?? meta?.image_url ?? null),
+    animationUrl: normalizeImageUrl(meta?.animation_url ?? null),
+    collectionName,
+    chain: chain.id,
+    chainLabel: chain.name,
+    chainColor: chain.color,
+    tokenId,
+    contractAddress: contract.toLowerCase(),
+    contractType: type,
+    traits: attrs
+      .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
+      .filter(a => a['trait_type'] != null && a['value'] != null)
+      .map(a => ({ trait_type: String(a['trait_type']), value: String(a['value']) }))
+  }
+}
+
+/** Imported NFTs for one custom chain — ownership re-checked, metadata refreshed. */
+async function fetchImportedNfts(
+  chain: ChainDef, address: string, imports: CustomNft[], config: WalletConfig
+): Promise<WalletCollectible[]> {
+  if (imports.length === 0) return []
+  const url = chain.rpcUrl(config)
+  const results = await Promise.all(imports.map(async (n): Promise<WalletCollectible | null> => {
+    try {
+      const tokenId = BigInt(n.tokenId)
+      if (!(await ownsNft(url, n.contractAddress, tokenId, n.type, address))) return null
+      const [uri, collectionName] = await Promise.all([
+        nftTokenUri(url, n.contractAddress, tokenId, n.type),
+        ethCall(url, n.contractAddress, SEL.name).then(decodeAbiString).catch(() => ''),
+      ])
+      const meta = uri ? await fetchNftMetadata(uri) : null
+      return toCollectible(chain, n.contractAddress, n.tokenId, n.type, meta, collectionName || null)
+    } catch {
+      return null
+    }
+  }))
+  return results.filter((n): n is WalletCollectible => n !== null)
+}
+
+/**
+ * Preview an NFT for the import form WITHOUT saving: detect 721 vs 1155, verify
+ * this wallet owns it, and resolve the image so the user sees the actual artwork
+ * before committing. Throws with a readable reason when it can't.
+ *
+ * `tokenId` may be omitted for ERC-721 collections implementing the (optional)
+ * Enumerable extension — then the wallet's own tokens are listed for picking.
+ */
+export async function resolveCustomNft(
+  chainId: string, contractAddress: string, tokenId: string | undefined,
+  holder: string, config: WalletConfig
+): Promise<{
+  type: 'ERC-721' | 'ERC-1155'
+  collectionName: string | null
+  owned: Array<{ tokenId: string; name: string; image: string | null }>
+}> {
+  const chain = customChainDefs(config).find(c => c.id === chainId)
+  if (!chain) throw new Error('Unknown custom network')
+  const url = chain.rpcUrl(config)
+  const contract = contractAddress.toLowerCase()
+
+  const [is721, is1155] = await Promise.all([
+    supportsInterface(url, contract, IFACE_ERC721),
+    supportsInterface(url, contract, IFACE_ERC1155),
+  ])
+  // ERC-165 is optional on older 721s: fall back to probing tokenURI/ownerOf.
+  let type: 'ERC-721' | 'ERC-1155' | null = is1155 ? 'ERC-1155' : is721 ? 'ERC-721' : null
+  if (!type) {
+    const probe = await ethCall(url, contract, `${SEL.ownerOf}${hexWord(BigInt(tokenId ?? '1'))}`)
+    if (probe && probe !== '0x') type = 'ERC-721'
+  }
+  if (!type) throw new Error('That address does not look like an NFT collection on this network')
+
+  const collectionName = (await ethCall(url, contract, SEL.name).then(decodeAbiString).catch(() => '')) || null
+
+  const previewFor = async (id: string) => {
+    const uri = await nftTokenUri(url, contract, BigInt(id), type!)
+    const meta = uri ? await fetchNftMetadata(uri) : null
+    return {
+      tokenId: id,
+      name: meta?.name ?? `#${id}`,
+      image: normalizeImageUrl(meta?.image ?? meta?.image_url ?? null),
+    }
+  }
+
+  // Explicit token id — verify ownership and preview just that one.
+  if (tokenId != null && tokenId !== '') {
+    if (!/^[0-9]{1,78}$/.test(tokenId)) throw new Error('Token ID must be a whole number')
+    if (!(await ownsNft(url, contract, BigInt(tokenId), type, holder))) {
+      throw new Error('This wallet does not own that token ID')
+    }
+    return { type, collectionName, owned: [await previewFor(tokenId)] }
+  }
+
+  // No token id: ERC-1155 has no way to enumerate a holder's ids on-chain.
+  if (type === 'ERC-1155') throw new Error('Enter the token ID for an ERC-1155 NFT')
+
+  // ERC-721 Enumerable — list the wallet's own tokens so the user can pick.
+  const balHex = await ethCall(url, contract, `${SEL.balanceOf721}${addrWord(holder)}`)
+  let balance = 0n
+  try { balance = balHex && balHex !== '0x' ? BigInt(balHex) : 0n } catch { balance = 0n }
+  if (balance === 0n) throw new Error('This wallet holds nothing from that collection')
+
+  // Cap the scan — a whale wallet shouldn't fire hundreds of calls into the form.
+  const take = Number(balance > 20n ? 20n : balance)
+  const ids = await Promise.all(
+    Array.from({ length: take }, (_, i) =>
+      ethCall(url, contract, `${SEL.tokenOfOwnerByIndex}${addrWord(holder)}${hexWord(BigInt(i))}`)
+    )
+  )
+  const found = ids
+    .filter(h => h && h !== '0x')
+    .map(h => { try { return BigInt(h).toString() } catch { return null } })
+    .filter((s): s is string => s !== null)
+
+  if (found.length === 0) {
+    throw new Error('That collection can’t list your tokens — enter a token ID instead')
+  }
+  return { type, collectionName, owned: await Promise.all(found.map(previewFor)) }
+}
+
+/** NFTs across every custom chain — Blockscout auto-detect plus manual imports. */
+async function fetchCustomChainNfts(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
+  const chains = customChainDefs(config)
+  if (chains.length === 0 || !address) return []
+  const imports = config.customNfts ?? []
+
+  const perChain = await Promise.all(chains.map(async chain => {
+    const mine = imports.filter(n => n.chain === chain.id)
+    const [auto, manual] = await Promise.all([
+      fetchCustomChainNftsFor(chain, address),
+      fetchImportedNfts(chain, address, mine, config)
+    ])
+    // Blockscout may already list an imported NFT — don't render it twice.
+    const seen = new Set(auto.map(n => n.id))
+    return [...auto, ...manual.filter(n => !seen.has(n.id))]
+  }))
+  return perChain.flat()
+}
+
+/**
+ * Resolve an ERC-20's metadata for the import form: name/symbol/decimals via
+ * eth_call, plus the holder's balance so the user can confirm it's the right
+ * contract before saving. Throws when the address isn't an ERC-20 on this chain.
+ */
+export async function resolveCustomToken(
+  chainId: string,
+  contractAddress: string,
+  holder: string,
+  config: WalletConfig
+): Promise<{ name: string; symbol: string; decimals: number; balance: string }> {
+  const chain = customChainDefs(config).find(c => c.id === chainId)
+  if (!chain) throw new Error('Unknown custom network')
+  const url = chain.rpcUrl(config)
+  const contract = contractAddress.toLowerCase()
+
+  // name() / symbol() / decimals() selectors
+  const call = (data: string) => customRpcCall(url, 'eth_call', [{ to: contract, data }, 'latest'])
+    .then(r => (typeof r === 'string' ? r : '0x'))
+    .catch(() => '0x')
+  const [nameHex, symbolHex, decimalsHex] = await Promise.all([
+    call('0x06fdde03'), call('0x95d89b41'), call('0x313ce567')
+  ])
+
+  const decimals = decimalsHex && decimalsHex !== '0x' ? Number(BigInt(decimalsHex)) : NaN
+  const symbol = decodeAbiString(symbolHex)
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36 || !symbol) {
+    throw new Error('That address does not look like an ERC-20 token on this network')
+  }
+  const raw = await erc20Balance(url, contract, holder).catch(() => 0n)
+  return {
+    name: decodeAbiString(nameHex) || symbol,
+    symbol,
+    decimals,
+    balance: humanBalance(`0x${raw.toString(16)}`, decimals)
+  }
+}
+
+/**
+ * Decode an eth_call string return. Handles both the ABI-encoded dynamic string
+ * (offset + length + data) and the legacy fixed bytes32 some older tokens use.
+ */
+function decodeAbiString(hex: string): string {
+  if (!hex || hex === '0x') return ''
+  const body = hex.slice(2)
+  const toUtf8 = (h: string) => {
+    const bytes = h.match(/.{1,2}/g) ?? []
+    return Buffer.from(bytes.map(b => parseInt(b, 16))).toString('utf8')
+  }
+  // Trailing NULs are bytes32 padding; any OTHER control byte means the decode
+  // was wrong (e.g. we read length bytes as text), so reject the whole string.
+  const clean = (s: string) => {
+    const t = s.replace(/\u0000+$/, '').trim()
+    return [...t].some(ch => ch.charCodeAt(0) < 0x20) ? '' : t
+  }
+  // Dynamic string: [32-byte offset][32-byte length][data...]
+  if (body.length >= 128) {
+    try {
+      const len = Number(BigInt(`0x${body.slice(64, 128)}`))
+      // The real bound is the response itself (the body.length check below); this
+      // cap only rejects a bogus/hostile length field. It must stay generous:
+      // tokenURI often returns a long IPFS path or a fully on-chain base64 SVG
+      // of many KB, and a small cap silently drops the metadata.
+      if (len > 0 && len <= 2_000_000 && body.length >= 128 + len * 2) {
+        const s = clean(toUtf8(body.slice(128, 128 + len * 2)))
+        if (s) return s
+      }
+    } catch { /* fall through to bytes32 */ }
+  }
+  return clean(toUtf8(body.slice(0, 64)))
 }
 
 // ─── Tron TRC-20 tokens via the TRON HTTP API ─────────────────────────────────
@@ -915,13 +1449,15 @@ export async function fetchAllTokens(
       return p.finally(() => { timings.push([label, Date.now() - start]) })
     }
     const tTokens = Date.now()
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens] = await Promise.all([
       Promise.all(tokenChains.map(chain => timed(chain.id, fetchTokensForChain(addresses.evm, chain, config)))),
       (addresses.solana && !testnet)  ? timed('solana', fetchSolanaTokens(addresses.solana,   config)) : Promise.resolve([] as WalletToken[]),
       (addresses.cardano && !testnet) ? timed('cardano', fetchCardanoTokens(addresses.cardano, config)) : Promise.resolve([] as WalletToken[]),
       testnet ? Promise.resolve([] as WalletToken[]) : timed('monad', fetchMonadTokens(addresses.evm)),
       addresses.tron    ? timed('tron', fetchTronTokens(addresses.tron, config))        : Promise.resolve([] as WalletToken[]),
       testnet ? Promise.resolve([] as WalletToken[]) : timed('bitcoin', fetchBitcoinTokens(addresses.bitcoinTaproot, config)),
+      // User-added networks: Blockscout auto-detect + manual ERC-20 imports.
+      testnet ? Promise.resolve([] as WalletToken[]) : timed('custom', fetchCustomChainTokens(addresses.evm, config)),
     ])
     timings.sort((a, b) => b[1] - a[1])
     console.log(`[TOKEN] all sources in ${Date.now() - tTokens}ms — slowest: ${timings.slice(0, 6).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
@@ -933,7 +1469,7 @@ export async function fetchAllTokens(
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens]
+    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
     // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
     // mainnet contracts, so a testnet address could collide with an unrelated
     // mainnet token and show a bogus USD value.
@@ -941,8 +1477,15 @@ export async function fetchAllTokens(
     const enriched = testnet ? raw : await enrichWithPrices(raw)
     if (!testnet) console.log(`[TOKEN] price enrichment in ${Date.now() - tEnrich}ms (${raw.length} tokens)`)
     // Spam flagging runs AFTER price enrichment — a positive USD value is the
-    // false-positive guardrail (see spam-filter.ts).
-    const tokens = enriched.map(t => isSuspectedSpamToken(t) ? { ...t, suspectedSpam: true } : t)
+    // false-positive guardrail (see spam-filter.ts). Tokens the user imported by
+    // hand are exempt: they asked for them, and custom chains have no price
+    // source, so the guardrail can't save them from a false positive.
+    const imported = new Set((config.customTokens ?? []).map(t => `${t.chain}:${t.contractAddress.toLowerCase()}`))
+    const tokens = enriched.map(t =>
+      (!imported.has(`${t.chain}:${t.contractAddress.toLowerCase()}`) && isSuspectedSpamToken(t))
+        ? { ...t, suspectedSpam: true }
+        : t
+    )
     tokens.sort((a, b) => {
       const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
       const ub = parseFloat(b.usdValue?.replace('$', '') ?? '0') || 0
@@ -1836,7 +2379,7 @@ export async function fetchAllCollectibles(
     // Testnet Mode gates: Helius DAS (Solana), Blockfrost (Cardano), Moralis
     // Monad route, TronScan, and Ordiscan are mainnet-scoped — skipped. EVM NFTs
     // keep working via the Alchemy testnet slugs.
-    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals] = await Promise.all([
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals, customNfts] = await Promise.all([
       Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config))),
       (solanaAddress && !testnet)  ? fetchSolanaNFTs(solanaAddress, config)   : Promise.resolve([] as WalletCollectible[]),
       (cardanoAddress && !testnet) ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
@@ -1846,14 +2389,20 @@ export async function fetchAllCollectibles(
       testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config),
       (tronAddress && !testnet) ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
       testnet ? Promise.resolve([] as WalletCollectible[]) : fetchBitcoinOrdinals(bitcoinTaproot, config),
+      // User-added networks — Blockscout explorers only; no floor pricing exists
+      // for arbitrary chains, so these render without a USD value.
+      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchCustomChainNfts(evmAddress, config),
     ])
 
-    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals]
+    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals, ...customNfts]
     const chainResults: Record<string, { count: number; error: string | null }> = {}
     for (const r of evmResults) {
       chainResults[r.chain.id] = { count: r.items.length, error: r.error }
     }
     chainResults['monad']   = { count: monadNfts.length,  error: null }
+    for (const chain of customChainDefs(config)) {
+      chainResults[chain.id] = { count: customNfts.filter(n => n.chain === chain.id).length, error: null }
+    }
     if (solanaAddress) {
       chainResults['solana'] = { count: solanaNfts.length, error: null }
     }
