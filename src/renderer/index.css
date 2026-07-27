@@ -714,6 +714,17 @@ h1, h2, h3 { font-family: var(--font-display); }
   transform: translate(var(--spark-x), var(--spark-y));
 }
 
+/* Touch targets (Android) only — same idiom as COARSE_POINTER in DashboardPage.
+   The balance column is far wider relative to a phone viewport, so the name
+   column shrinks to ~104px and the fixed-width sparkline overflows it evenly
+   on both sides. At the desktop 40px nudge, the longest balances (Bitcoin,
+   Monad) still land their left edge on the card border; 60px clears it onto
+   the card's own 20px padding. Desktop columns are wide enough that the
+   overflow never reaches the edge, so they keep the 40px above. */
+@media (hover: none) {
+  .chain-spark-row { --spark-x: 60px; }
+}
+
 /* 24h change + USD value, right-aligned under the native balance. */
 .chain-price-line {
   display: flex;
