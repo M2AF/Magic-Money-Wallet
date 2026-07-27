@@ -37,16 +37,32 @@ const SLOW_TYPES = new Set([
   'wallet:search-market',
   'wallet:get-coin-chart',
   'wallet:get-nft-floor',
+  // Non-blocking, but the FIRST call spins up the offscreen document and loads
+  // the Midnight WASM before it can report progress.
+  'wallet:get-midnight-dust-status',
 ])
 
 // Swap execution can sign an approval, wait for it to mine, then sign the swap —
 // well beyond the heavy-fetch budget. Give it room (SW stays alive while active).
 const VERY_SLOW_TYPES = new Set(['swap:execute'])
 
+// Midnight's DUST wallet walks a NETWORK-WIDE merkle tree before it can pay a
+// fee — minutes on a first run (measured ~4 min mainnet / ~36 min preprod on
+// desktop), and these two block on it. Anything shorter would abort a sync that
+// is progressing perfectly well, so they get a deliberately huge budget; the
+// offscreen document does the work and the UI polls dust-status meanwhile.
+const MIDNIGHT_BLOCKING_TYPES = new Set([
+  'wallet:register-midnight-dust',
+  'wallet:send-midnight',
+])
+
 function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
   // Snappy calls keep a tight 8s budget so the popup never hangs on "Loading…"
   // if the SW is down; heavy data fetches get 45s; on-chain execution gets 180s.
-  const timeoutMs = VERY_SLOW_TYPES.has(type) ? 180_000 : SLOW_TYPES.has(type) ? 45_000 : 8_000
+  const timeoutMs = MIDNIGHT_BLOCKING_TYPES.has(type) ? 45 * 60_000
+    : VERY_SLOW_TYPES.has(type) ? 180_000
+    : SLOW_TYPES.has(type) ? 45_000
+    : 8_000
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Background not responding — try closing and reopening the extension')), timeoutMs)
 
@@ -149,6 +165,12 @@ export function createExtensionWallet() {
     sendBitcoin:    (t: string, a: string)            => send('wallet:send-bitcoin', t, a),
     sendMonero:     (t: string, a: string)            => send('wallet:send-monero', t, a),
     sendZcash:      (t: string, a: string)            => send('wallet:send-zcash', t, a),
+    // Midnight NIGHT send. Optional-method convention (see wallet.ts): the
+    // presence of sendMidnight is what makes the Send button render on the
+    // Midnight card, so these three must ship together.
+    sendMidnight:   (t: string, a: string)            => send('wallet:send-midnight', t, a),
+    getMidnightDustStatus: ()                         => send('wallet:get-midnight-dust-status'),
+    registerMidnightDust:  ()                         => send('wallet:register-midnight-dust'),
 
     // Market
     getMarket:      ()                      => send('wallet:get-market'),
@@ -219,6 +241,21 @@ export function createExtensionWallet() {
     web3GetPendingConnections: () => send('web3:get-pending-connections'),
     web3ApproveConnection:     (id: string) => send('web3:approve-connection', { id }),
     web3RejectConnection:      (id: string) => send('web3:reject-connection', { id }),
+
+    // Custom chains — same contract as the Electron window.wallet API, so the
+    // shared DashboardPage "+" button and import modals light up here too
+    // (they're gated on `typeof window.wallet.getCustomChains === 'function'`).
+    getCustomChains:    () => send('wallet:get-custom-chains'),
+    addCustomChain:     (chain: unknown) => send('wallet:add-custom-chain', chain),
+    removeCustomChain:  (id: string) => send('wallet:remove-custom-chain', id),
+    getCustomTokens:    () => send('wallet:get-custom-tokens'),
+    resolveCustomToken: (chain: string, addr: string) => send('wallet:resolve-custom-token', chain, addr),
+    importCustomToken:  (chain: string, addr: string) => send('wallet:import-custom-token', chain, addr),
+    removeCustomToken:  (chain: string, addr: string) => send('wallet:remove-custom-token', chain, addr),
+    getCustomNfts:      () => send('wallet:get-custom-nfts'),
+    resolveCustomNft:   (chain: string, addr: string, id?: string) => send('wallet:resolve-custom-nft', chain, addr, id),
+    importCustomNft:    (chain: string, addr: string, id: string) => send('wallet:import-custom-nft', chain, addr, id),
+    removeCustomNft:    (chain: string, addr: string, id: string) => send('wallet:remove-custom-nft', chain, addr, id),
 
     // Testnet Mode — same contract as the Electron window.wallet API so the
     // shared SettingsModal toggle works in both.

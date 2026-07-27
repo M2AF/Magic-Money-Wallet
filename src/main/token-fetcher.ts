@@ -2222,7 +2222,15 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const { solanaAddress, evmAddress, agw, exclude } = opts
   // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
   // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
-  const priced = exclude && exclude.size ? items.filter(i => !exclude.has(i.id)) : items
+  const visible = exclude && exclude.size ? items.filter(i => !exclude.has(i.id)) : items
+  // Resolve UNVALUED collections FIRST. applyCachedFloors sorts `items` by USD
+  // before this pass runs, so anything the disk cache couldn't price sinks to the
+  // bottom of the array — and since the OpenSea lane is serialized at ~3 req/s,
+  // the tail is what gets starved when a pass is cut short. That made the starving
+  // self-reinforcing: unpriced → queued last → starved → still unpriced next pass.
+  // Monad is the worst hit (Moralis NFTs carry no inline floor, so nothing there is
+  // ever pre-valued). Items already showing a cached value can afford to wait.
+  const priced = [...visible].sort((a, b) => (a.usdValue == null ? 0 : 1) - (b.usdValue == null ? 0 : 1))
 
   const hasSolana = priced.some(i => i.chain === 'solana')
   const evmChains = new Set(priced.filter(i => i.chain !== 'solana' && OPENSEA_NFT_CHAIN[i.chain]).map(i => OPENSEA_NFT_CHAIN[i.chain]))
@@ -2289,11 +2297,32 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
     me:    { batch: 2, gapMs: 500 },
     anvil: { batch: 4, gapMs: 250 },
   }
+  // Task key → the items it prices, so each batch can bank its result to the disk
+  // cache as it lands (below) instead of only at the end of the whole pass.
+  const itemsByTask = new Map<string, WalletCollectible[]>()
+  for (const [i, tk] of taskKeyOf) {
+    if (!tk) continue
+    const arr = itemsByTask.get(tk)
+    if (arr) arr.push(i); else itemsByTask.set(tk, [i])
+  }
+  // Loaded up front (already warm from applyCachedFloors) so partial progress can
+  // be written through mid-pass. A pass that never reaches its final loop — the
+  // normal case on Android, where backgrounding the app suspends the WebView and
+  // freezes osPace()'s timers — used to bank NOTHING, so every launch restarted
+  // the same starved queue from zero. That's why it took several restarts to
+  // settle: nothing was cumulative. Now each completed batch survives the close.
+  const lastGood = await lastGoodFloors()
   await Promise.all(Object.entries(LANES).map(async ([lane, { batch, gapMs }]) => {
     const laneEntries = entries.filter(([k]) => laneOf(k) === lane)
     for (let s = 0; s < laneEntries.length; s += batch) {
       const part = await Promise.all(laneEntries.slice(s, s + batch).map(async ([k, run]) => [k, await run()] as const))
-      for (const [k, r] of part) resolved.set(k, r)
+      const at = Date.now()
+      for (const [k, r] of part) {
+        resolved.set(k, r)
+        if (!r || r.floor <= 0) continue
+        for (const i of itemsByTask.get(k) ?? []) lastGood[floorKeyOf(i)] = { floor: r.floor, symbol: r.symbol, at }
+      }
+      scheduleFloorSave()
       if (gapMs && s + batch < laneEntries.length) await new Promise(r => setTimeout(r, gapMs))
     }
   }))
@@ -2305,7 +2334,6 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   // seed has landed (or the burst has cleared), so the cache answers reliably.
   const prices = await fetchNativePrices([...priced.map(i => i.chain), 'solana'])
 
-  const lastGood = await lastGoodFloors()
   const now = Date.now()
   for (const i of items) {
     const tk = taskKeyOf.get(i)
@@ -2338,7 +2366,17 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
 
 // Background floor pass: one at a time. A refresh that lands while a pass is
 // running just serves cached-applied values; the running pass's push follows.
-let _enriching = false
+//
+// The in-flight guard is a TIMESTAMP, not a boolean, because a pass is not
+// guaranteed to finish. On Android the whole fetcher runs inside the WebView, and
+// backgrounding the app suspends it — osPace()'s setTimeout chain (and even
+// AbortSignal.timeout) freezes mid-pass. A boolean latched `true` there stayed
+// latched for the life of the process, so every later refresh silently skipped
+// enrichment and only a cold start restored floor values. A pass that hasn't
+// finished within ENRICH_STALE_MS is treated as dead and may be superseded.
+const ENRICH_STALE_MS = 90_000
+let _enrichSeq = 0
+let _enrichingSince = 0
 
 function scheduleFloorEnrichment(
   result: CollectiblesResult,
@@ -2346,12 +2384,18 @@ function scheduleFloorEnrichment(
   opts: FloorOpts,
   onEnriched?: (r: CollectiblesResult) => void
 ): void {
-  if (_enriching) return
-  _enriching = true
+  const startedAt = Date.now()
+  if (_enrichingSince && startedAt - _enrichingSince < ENRICH_STALE_MS) return
+  const seq = ++_enrichSeq
+  _enrichingSince = startedAt
   void enrichNftFloors(result.items, config, opts)
-    .then(() => onEnriched?.({ ...result, fetchedAt: Date.now() }))
+    // A superseded (stalled, then resumed) pass must not push its stale list over
+    // the newer one — the UI applies collectibles:updated unconditionally.
+    .then(() => { if (seq === _enrichSeq) onEnriched?.({ ...result, fetchedAt: Date.now() }) })
     .catch(e => console.error('[NFT] floor enrichment failed:', e))
-    .finally(() => { _enriching = false })
+    // Only the CURRENT pass may clear the guard; a resurrected zombie must not
+    // release the mutex its successor is holding.
+    .finally(() => { if (seq === _enrichSeq) _enrichingSince = 0 })
 }
 
 export async function fetchAllCollectibles(

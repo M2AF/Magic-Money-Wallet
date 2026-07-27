@@ -96,14 +96,15 @@ test.describe('electron privacy mode', () => {
 
     // Derived receive addresses render on the cards (t1… for ZEC, 4… for XMR).
     await expect(vis(`text=${XMR_ADDR.slice(0, 8)}`).first()).toBeVisible({ timeout: 30_000 })
-    // Midnight renders its Lace-verified unshielded + shielded receive
-    // addresses, but no Send button (sends need DUST + a proof server).
+    // Midnight renders its Lace-verified unshielded + shielded receive addresses.
     await expect(vis('text=Unshielded · NIGHT').first()).toBeVisible({ timeout: 30_000 })
     // The AGW smart-wallet panel must not leak into the filtered view.
     await expect(vis('text=Abstract Smart Wallet')).toHaveCount(0)
-    // Zcash card has a live Send button; Midnight must not.
+    // Both Zcash and Midnight have live Send buttons on Electron. (Midnight's
+    // arrived with local-proving NIGHT sends in 2026-07; this assertion used to
+    // expect its absence and went stale when that shipped.)
     await expect(vis('button:has-text("Send ZEC")').first()).toBeVisible({ timeout: 60_000 })
-    await expect(vis('button:has-text("Send NIGHT")')).toHaveCount(0)
+    await expect(vis('button:has-text("Send NIGHT")').first()).toBeVisible({ timeout: 60_000 })
 
     // ── Zcash send-form validation uses the new validator ─────────────────
     await vis('button:has-text("Send ZEC")').first().click()

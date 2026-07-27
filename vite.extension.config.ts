@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from 'vite-plugin-wasm'
 import path from 'path'
-import { copyFileSync, mkdirSync, existsSync, renameSync, rmSync, readFileSync, writeFileSync } from 'fs'
+import { copyFileSync, mkdirSync, existsSync, renameSync, rmSync, readFileSync, writeFileSync, readdirSync } from 'fs'
 
 // __dirname is available in CJS context (Vite's Node API runs as CJS here)
 const r = (...p: string[]) => path.resolve(__dirname, ...p)
@@ -42,6 +42,16 @@ export default defineConfig({
       closeBundle() {
         mkdirSync(r('dist-extension'), { recursive: true })
         copyFileSync(r('src/extension/manifest.json'), r('dist-extension/manifest.json'))
+        // Midnight proving keys (~3.7 MB): the offscreen document fetches these
+        // via chrome.runtime.getURL to prove a NIGHT send locally. They must also
+        // be listed in the manifest's web_accessible_resources.
+        const keysSrc = r('resources/midnight-keys')
+        if (existsSync(keysSrc)) {
+          mkdirSync(r('dist-extension/midnight-keys'), { recursive: true })
+          for (const f of readdirSync(keysSrc)) {
+            copyFileSync(`${keysSrc}/${f}`, r(`dist-extension/midnight-keys/${f}`))
+          }
+        }
         const logo = r('src/renderer/assets/logo.png')
         if (existsSync(logo)) {
           for (const size of [16, 48, 128]) {

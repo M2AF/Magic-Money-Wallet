@@ -15,6 +15,7 @@
 import * as bip39 from '@scure/bip39'
 import { normalizeMnemonic } from './wallet-core'
 import { loadMidnightDustCheckpoint, saveMidnightDustCheckpoint } from './secure-store'
+import { makeLocalKeyMaterialProvider } from './midnight-proving-keys-node'
 import {
   openMidnightSendWallet,
   registerForDustGeneration,
@@ -58,6 +59,9 @@ function getOrOpen(mnemonic: string, accountIndex: number, network: MidnightNetw
     const seed = await bip39.mnemonicToSeed(normalizeMnemonic(mnemonic))
     const restoreDustState = loadMidnightDustCheckpoint(accountIndex, network) ?? undefined
     return openMidnightSendWallet(seed, accountIndex, network, {
+      // Electron reads the vendored keys off disk; browser targets pass their
+      // own fetch-backed provider (same integrity gate) — see midnight-send.ts.
+      keyMaterialProvider: makeLocalKeyMaterialProvider(),
       restoreDustState,
       onDustProgress: (p) => { if (current === state) state.progress = p },
       onDustStateSerialized: (serialized) => saveMidnightDustCheckpoint(accountIndex, network, serialized),

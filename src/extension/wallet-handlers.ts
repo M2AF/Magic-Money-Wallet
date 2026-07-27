@@ -16,7 +16,13 @@ import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTrans
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
-import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor } from '../main/token-fetcher'
+import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor, resolveCustomToken, resolveCustomNft } from '../main/token-fetcher'
+import {
+  buildCustomChain, chainRemovalPatch, assertTokenImportable, assertNftImportable,
+  removeTokenPatch, removeNftPatch, normalizeContractAddress, normalizeTokenId,
+  type CustomChainInput
+} from '../main/custom-chains'
+import type { CustomToken, CustomNft } from '../main/secure-store'
 import { validateAddress } from '../main/address-validate'
 // STATIC import — the MV3 service worker forbids dynamic import(), and after
 // the privacy-chain refactor chain-config lives in a lazily-loaded shared chunk,
@@ -24,7 +30,12 @@ import { validateAddress } from '../main/address-validate'
 // "import() is disallowed on ServiceWorkerGlobalScope". Pulling every symbol the
 // SW needs into this static import keeps chain-config in the eager background
 // bundle. (This was the "network switcher shows only Chain 1" regression.)
-import { isTestnet, activeEvmChains, defaultDappChainId, EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from '../main/chain-config'
+import { isTestnet, activeEvmChains, defaultDappChainId, midnightNetworkFor, EVM_CHAINS, MONAD_RPCS, PUBLIC_RPCS } from '../main/chain-config'
+// Per-target alias (see vite.extension/capacitor config): extension → offscreen
+// proxy, Android → the real in-WebView manager.
+import {
+  getMidnightDustStatus, registerMidnightDustIfNeeded, sendMidnightNight,
+} from './midnight-send-manager'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from '../main/swap-proxy'
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
@@ -403,6 +414,127 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       }
       await store.saveAddresses(addresses)
       return store.effectiveAddresses(addresses, config)
+    }
+
+    // ── Midnight NIGHT send (mirrors the Electron wallet:*-midnight IPC) ────
+    // The manager is aliased per target: the extension proxies to its offscreen
+    // document (the SW can't host the WASM or survive the multi-minute DUST
+    // sync); Android runs it directly in the WebView.
+
+    case 'wallet:get-midnight-dust-status': {
+      const config = await store.loadConfig()
+      const network = midnightNetworkFor(config)
+      if (!network) throw new Error('Midnight is only available in Privacy Mode or Testnet Mode')
+      const accountIndex = (await store.loadAddresses())?.accountIndex ?? 0
+      return getMidnightDustStatus(await store.loadMnemonic(), accountIndex, network)
+    }
+
+    case 'wallet:register-midnight-dust': {
+      const config = await store.loadConfig()
+      const network = midnightNetworkFor(config)
+      if (!network) throw new Error('Midnight is only available in Privacy Mode or Testnet Mode')
+      const accountIndex = (await store.loadAddresses())?.accountIndex ?? 0
+      return registerMidnightDustIfNeeded(await store.loadMnemonic(), accountIndex, network)
+    }
+
+    case 'wallet:send-midnight': {
+      const config = await store.loadConfig()
+      const network = midnightNetworkFor(config)
+      if (!network) throw new Error('Midnight is only available in Privacy Mode or Testnet Mode')
+      const stars = BigInt(Math.round(parseFloat(String(a1)) * 1e6))
+      if (stars <= 0n) throw new Error('Amount must be greater than 0')
+      const accountIndex = (await store.loadAddresses())?.accountIndex ?? 0
+      const txId = await sendMidnightNight(await store.loadMnemonic(), accountIndex, network, String(a0), stars)
+      // No confirmed Preprod explorer — only link out on mainnet.
+      return {
+        txHash: txId,
+        explorerUrl: network === 'mainnet' ? `https://midnightscan.io/tx/${txId}` : '',
+      }
+    }
+
+    // ── Custom chains — user-added EVM networks ─────────────────────────────
+    // Mirrors the Electron wallet:*-custom-chain/token/nft IPC. The rules live
+    // in custom-chains.ts so all three targets validate identically; the
+    // fetchers (balance/token/tx-sender) already read config.customChains, so
+    // assets and sends need no extra wiring here.
+
+    case 'wallet:get-custom-chains': {
+      return (await store.loadConfig()).customChains ?? []
+    }
+
+    case 'wallet:add-custom-chain': {
+      const config = await store.loadConfig()
+      const chain = await buildCustomChain(a0 as CustomChainInput, config.customChains ?? [])
+      await store.saveConfig({ customChains: [...(config.customChains ?? []), chain] })
+      return (await store.loadConfig()).customChains
+    }
+
+    case 'wallet:remove-custom-chain': {
+      await store.saveConfig(chainRemovalPatch(await store.loadConfig(), String(a0)))
+      return (await store.loadConfig()).customChains
+    }
+
+    case 'wallet:get-custom-tokens': {
+      return (await store.loadConfig()).customTokens ?? []
+    }
+
+    case 'wallet:resolve-custom-token': {
+      const addr = normalizeContractAddress(a1)
+      const addresses = await loadFullAddresses()
+      return resolveCustomToken(String(a0), addr, addresses.evm, await store.loadConfig())
+    }
+
+    case 'wallet:import-custom-token': {
+      const chain = String(a0)
+      const addr = normalizeContractAddress(a1)
+      const config = await store.loadConfig()
+      assertTokenImportable(config, chain, addr)
+      // Resolving doubles as validation — a non-ERC-20 address throws here.
+      const addresses = await loadFullAddresses()
+      const meta = await resolveCustomToken(chain, addr, addresses.evm, config)
+      const token: CustomToken = {
+        chain, contractAddress: addr,
+        name: meta.name, symbol: meta.symbol, decimals: meta.decimals
+      }
+      await store.saveConfig({ customTokens: [...(config.customTokens ?? []), token] })
+      return (await store.loadConfig()).customTokens
+    }
+
+    case 'wallet:remove-custom-token': {
+      const addr = String(a1 ?? '').trim().toLowerCase()
+      await store.saveConfig({ customTokens: removeTokenPatch(await store.loadConfig(), String(a0), addr) })
+      return (await store.loadConfig()).customTokens
+    }
+
+    case 'wallet:get-custom-nfts': {
+      return (await store.loadConfig()).customNfts ?? []
+    }
+
+    case 'wallet:resolve-custom-nft': {
+      const addr = normalizeContractAddress(a1)
+      const id = a2 == null || String(a2).trim() === '' ? undefined : String(a2).trim()
+      const addresses = await loadFullAddresses()
+      return resolveCustomNft(String(a0), addr, id, addresses.evm, await store.loadConfig())
+    }
+
+    case 'wallet:import-custom-nft': {
+      const chain = String(a0)
+      const addr = normalizeContractAddress(a1)
+      const id = normalizeTokenId(a2)
+      const config = await store.loadConfig()
+      assertNftImportable(config, chain, addr, id)
+      const addresses = await loadFullAddresses()
+      const info = await resolveCustomNft(chain, addr, id, addresses.evm, config)
+      const nft: CustomNft = { chain, contractAddress: addr, tokenId: id, type: info.type }
+      await store.saveConfig({ customNfts: [...(config.customNfts ?? []), nft] })
+      return (await store.loadConfig()).customNfts
+    }
+
+    case 'wallet:remove-custom-nft': {
+      const addr = String(a1 ?? '').trim().toLowerCase()
+      const id = String(a2 ?? '').trim()
+      await store.saveConfig({ customNfts: removeNftPatch(await store.loadConfig(), String(a0), addr, id) })
+      return (await store.loadConfig()).customNfts
     }
 
     // ── Testnet Mode (mirrors the Electron wallet:get/set-testnet-mode IPC) ──

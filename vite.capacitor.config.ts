@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import wasm from 'vite-plugin-wasm'
 import path from 'path'
-import { writeFileSync } from 'fs'
+import { writeFileSync, existsSync, mkdirSync, readdirSync, copyFileSync } from 'fs'
 
 // __dirname is available in CJS context (Vite's Node API runs as CJS here)
 const r = (...p: string[]) => path.resolve(__dirname, ...p)
@@ -46,6 +46,19 @@ export default defineConfig({
       name: 'generate-wallet-icon',
       async buildStart() { await generateWalletIcon() },
     },
+    {
+      // Midnight proving keys (~3.7 MB) ride along in the app bundle so the
+      // WebView can fetch them from its own origin and prove a NIGHT send
+      // locally (never from the SDK's dev S3 bucket).
+      name: 'copy-midnight-keys',
+      closeBundle() {
+        const src = path.resolve(__dirname, 'resources/midnight-keys')
+        if (!existsSync(src)) return
+        const dest = path.resolve(__dirname, 'dist-capacitor/midnight-keys')
+        mkdirSync(dest, { recursive: true })
+        for (const f of readdirSync(src)) copyFileSync(path.join(src, f), path.join(dest, f))
+      },
+    },
   ],
 
   resolve: {
@@ -83,6 +96,14 @@ export default defineConfig({
       {
         find: /^\.\/midnight-ledger(\.ts)?$/,
         replacement: r('src/capacitor/midnight-ledger.ts')
+      },
+      // wallet-handlers imports './midnight-send-manager', which resolves to the
+      // extension's OFFSCREEN PROXY by default. Android has no offscreen
+      // document — the WebView hosts the WASM itself — so point it at the real
+      // manager (the same module the extension's offscreen document loads).
+      {
+        find: /^\.\/midnight-send-manager(\.ts)?$/,
+        replacement: r('src/capacitor/midnight-send-manager.ts')
       },
     ]
   },

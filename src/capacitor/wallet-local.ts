@@ -121,6 +121,12 @@ function buildWallet() {
     sendBitcoin:    (t: string, a: string)            => send('wallet:send-bitcoin', t, a),
     sendMonero:     (t: string, a: string)            => send('wallet:send-monero', t, a),
     sendZcash:      (t: string, a: string)            => send('wallet:send-zcash', t, a),
+    // Midnight NIGHT send. Optional-method convention (see wallet.ts): the
+    // presence of sendMidnight is what makes the Send button render on the
+    // Midnight card, so these three must ship together.
+    sendMidnight:   (t: string, a: string)            => send('wallet:send-midnight', t, a),
+    getMidnightDustStatus: ()                         => send('wallet:get-midnight-dust-status'),
+    registerMidnightDust:  ()                         => send('wallet:register-midnight-dust'),
 
     // Market
     getMarket:      ()                      => send('wallet:get-market'),
@@ -256,6 +262,21 @@ function buildWallet() {
     web3GetPendingConnections: () => send('web3:get-pending-connections'),
     web3ApproveConnection:     (id: string) => send('web3:approve-connection', { id }),
     web3RejectConnection:      (id: string) => send('web3:reject-connection', { id }),
+
+    // Custom chains — same contract as Electron/extension, so the shared
+    // DashboardPage "+" button and the token/NFT import modals work here too.
+    // The handler cases come from the extension's switch (see `handle` above).
+    getCustomChains:    () => send('wallet:get-custom-chains'),
+    addCustomChain:     (chain: unknown) => send('wallet:add-custom-chain', chain),
+    removeCustomChain:  (id: string) => send('wallet:remove-custom-chain', id),
+    getCustomTokens:    () => send('wallet:get-custom-tokens'),
+    resolveCustomToken: (chain: string, addr: string) => send('wallet:resolve-custom-token', chain, addr),
+    importCustomToken:  (chain: string, addr: string) => send('wallet:import-custom-token', chain, addr),
+    removeCustomToken:  (chain: string, addr: string) => send('wallet:remove-custom-token', chain, addr),
+    getCustomNfts:      () => send('wallet:get-custom-nfts'),
+    resolveCustomNft:   (chain: string, addr: string, id?: string) => send('wallet:resolve-custom-nft', chain, addr, id),
+    importCustomNft:    (chain: string, addr: string, id: string) => send('wallet:import-custom-nft', chain, addr, id),
+    removeCustomNft:    (chain: string, addr: string, id: string) => send('wallet:remove-custom-nft', chain, addr, id),
 
     // Testnet Mode — same contract as Electron/extension so SettingsModal works.
     getTestnetMode: () => send<boolean>('wallet:get-testnet-mode'),

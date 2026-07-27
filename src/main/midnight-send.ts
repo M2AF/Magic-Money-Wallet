@@ -50,7 +50,7 @@
  */
 
 import { deriveMidnightRoleKeys } from './midnight-crypto'
-import { makeLocalKeyMaterialProvider } from './midnight-proving-keys'
+import type { KeyMaterialProvider } from './midnight-proving-keys'
 
 export type MidnightNetwork = 'mainnet' | 'preprod'
 
@@ -89,6 +89,14 @@ export interface OpenMidnightSendWalletOptions {
   onDustStateSerialized?: (serialized: string) => void
   /** Fired on every dust sync state tick — drive a "Preparing transaction fees — X%" UI from this. */
   onDustProgress?: (progress: DustSyncProgress) => void
+  /**
+   * Integrity-checked proving keys. Injected because the byte source differs
+   * per target (Electron reads disk, extension/Android fetch a packaged asset)
+   * and this module must stay node-free to run in all three. Never swap in the
+   * SDK's default provider — it fetches from a dev S3 bucket, and its REMOTE
+   * proving path would leak witness data (see the header note).
+   */
+  keyMaterialProvider: KeyMaterialProvider
 }
 
 export interface MidnightSendHandle {
@@ -118,7 +126,7 @@ export async function openMidnightSendWallet(
   seed: Uint8Array,
   accountIndex: number,
   network: MidnightNetwork,
-  options: OpenMidnightSendWalletOptions = {}
+  options: OpenMidnightSendWalletOptions
 ): Promise<MidnightSendHandle> {
   const net = NETWORKS[network]
   const hdMod = await import(/* @vite-ignore */ '@midnight-ntwrk/wallet-sdk-hd')
@@ -223,8 +231,7 @@ export async function openMidnightSendWallet(
   const shieldedWallet = ShieldedWallet(shieldedConfig).startWithSecretKeys(shieldedSecretKeys)
   await shieldedWallet.start(shieldedSecretKeys)
 
-  const keyMaterialProvider = makeLocalKeyMaterialProvider()
-  const provingService = () => provingCaps.makeWasmProvingService({ keyMaterialProvider })
+  const provingService = () => provingCaps.makeWasmProvingService({ keyMaterialProvider: options.keyMaterialProvider })
   const relayURL = new URL(net.nodeRpc.replace(/^http/, 'ws'))
 
   const facadeConfiguration = {

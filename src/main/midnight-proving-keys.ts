@@ -5,7 +5,8 @@
  * fetches these same files LIVE from a hardcoded `-dev-` S3 bucket on every
  * cold start: no CORS headers (breaks in a browser/WebView), no integrity
  * manifest, and an in-memory-only cache (re-fetches on every app restart).
- * This is the vendored replacement: files ship in resources/midnight-keys/
+ * This is the vendored replacement: files ship in resources/midnight-keys/ (and
+ * are copied into the extension/Android bundles)
  * (see manifest.json for provenance + hashes), verified against a pinned
  * SHA-256 before use, fails closed on any mismatch rather than silently
  * proving with untrusted bytes.
@@ -16,11 +17,12 @@
  * construct shielded transactions.
  */
 
-import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
-
-const KEYS_DIR = join(__dirname, '..', '..', 'resources', 'midnight-keys')
+/**
+ * Where the key bytes come from. Electron reads them off disk; the extension
+ * and Android fetch them from packaged assets (see midnight-proving-keys-web.ts).
+ * The integrity check below is shared, so no target can skip it.
+ */
+export type KeyByteSource = (filename: string) => Promise<Uint8Array>
 
 const MANIFEST: Record<string, { bytes: number; sha256: string }> = {
   'dust-9-spend.prover': { bytes: 2175671, sha256: '996602da7ca386284e656c78ea03e55bffdba29475e6a67965c50de05e13efc2' },
@@ -29,18 +31,27 @@ const MANIFEST: Record<string, { bytes: number; sha256: string }> = {
   'bls_midnight_2p13': { bytes: 1573252, sha256: 'd3324910969c4cc54143b8045b649e5c3a4bd5fb7b8f85fe1b770f640ce1c803' },
 }
 
-async function readPinned(filename: string): Promise<Uint8Array> {
+/**
+ * Size + SHA-256 gate, shared by every target. WebCrypto (not node:crypto) so
+ * the identical check runs in Electron main, the extension's offscreen
+ * document and the Android WebView — a proving key that fails here is never
+ * handed to the prover.
+ */
+async function verifyPinned(filename: string, buf: Uint8Array): Promise<Uint8Array> {
   const pinned = MANIFEST[filename]
   if (!pinned) throw new Error(`No pinned manifest entry for ${filename}`)
-  const buf = await readFile(join(KEYS_DIR, filename))
   if (buf.length !== pinned.bytes) {
     throw new Error(`Midnight proving key ${filename}: size mismatch (expected ${pinned.bytes}, got ${buf.length})`)
   }
-  const actualHash = createHash('sha256').update(buf).digest('hex')
+  // Copy into a fresh ArrayBuffer-backed view: WebCrypto's BufferSource type
+  // excludes SharedArrayBuffer-backed views, which a Node Buffer slice can be.
+  const bytes = Uint8Array.from(buf)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  const actualHash = Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('')
   if (actualHash !== pinned.sha256) {
     throw new Error(`Midnight proving key ${filename}: SHA-256 mismatch (expected ${pinned.sha256}, got ${actualHash})`)
   }
-  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+  return buf
 }
 
 export interface ProvingKeyMaterial {
@@ -54,8 +65,15 @@ export interface KeyMaterialProvider {
   getParams(k: number): Promise<Uint8Array>
 }
 
-/** Drop-in, integrity-checked replacement for wasmProverEffect's makeDefaultKeyMaterialProvider(). */
-export function makeLocalKeyMaterialProvider(): KeyMaterialProvider {
+/**
+ * Drop-in, integrity-checked replacement for wasmProverEffect's
+ * makeDefaultKeyMaterialProvider(). `read` supplies the raw bytes per target
+ * (Electron: disk — midnight-proving-keys-node.ts; extension/Android: fetch of
+ * a packaged asset — capacitor/midnight-proving-keys-web.ts). NOTE: this file
+ * must stay free of node: imports so browser bundles can include it.
+ */
+export function makeKeyMaterialProvider(read: KeyByteSource): KeyMaterialProvider {
+  const readPinned = async (filename: string) => verifyPinned(filename, await read(filename))
   const cache = new Map<string, ProvingKeyMaterial>()
   const paramsCache = new Map<number, Uint8Array>()
 

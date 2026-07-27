@@ -57,7 +57,6 @@ import {
   bioSupported,
   bioMethod,
   type WalletConfig,
-  type CustomChain,
   type CustomToken,
   type CustomNft
 } from './secure-store'
@@ -96,7 +95,11 @@ import {
 } from './browser-manager'
 import { downloadAsset } from './downloads'
 import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
-import { MONAD_RPCS, EVM_CHAINS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
+import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
+import {
+  buildCustomChain, chainRemovalPatch, assertTokenImportable, assertNftImportable,
+  removeTokenPatch, removeNftPatch, normalizeContractAddress, normalizeTokenId
+} from './custom-chains'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { startUpdateCheck, getUpdateState, installUpdate } from './update-manager'
 import { heliusRpcUrl, tatumRpcUrl } from './api-proxy'
@@ -779,64 +782,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:add-custom-chain', async (_event, input: {
     name: string; chainId: number; nativeSymbol: string; rpcUrl: string; explorerUrl?: string
   }) => {
-    const name = String(input?.name ?? '').trim()
-    const nativeSymbol = String(input?.nativeSymbol ?? '').trim().toUpperCase()
-    const rpcUrl = String(input?.rpcUrl ?? '').trim()
-    // Store the explorer ORIGIN (strip a trailing /tx a user might paste, plus any
-    // trailing slashes) — chain-config appends '/tx' for links and '/api/v2' for
-    // the Blockscout token/NFT probes.
-    const explorerUrl = String(input?.explorerUrl ?? '').trim()
-      .replace(/\/+$/, '').replace(/\/tx$/i, '').replace(/\/+$/, '')
-    const chainId = Number(input?.chainId)
-
-    if (!name) throw new Error('Enter a network name')
-    if (!Number.isInteger(chainId) || chainId <= 0) throw new Error('Chain ID must be a positive whole number')
-    if (!/^https?:\/\/.+/.test(rpcUrl)) throw new Error('RPC URL must start with http:// or https://')
-    if (!nativeSymbol || nativeSymbol.length > 12) throw new Error('Enter a currency symbol (e.g. MON)')
-    if (explorerUrl && !/^https?:\/\/.+/.test(explorerUrl)) throw new Error('Block explorer must be a http(s) URL')
-
+    // Validation, the duplicate checks and the RPC chain-id probe are shared with
+    // the extension/Android handlers (custom-chains.ts) so the rules can't drift.
     const config = loadConfig()
-    if (EVM_CHAINS.some(c => c.chainId === chainId)) {
-      throw new Error(`Chain ID ${chainId} is already supported natively`)
-    }
-    if ((config.customChains ?? []).some(c => c.chainId === chainId)) {
-      throw new Error(`A custom network with chain ID ${chainId} already exists`)
-    }
-
-    // Probe the RPC and require its eth_chainId to match what the user typed —
-    // a mismatch here means every future send would target the wrong chain.
-    let reported: number
-    try {
-      const res = await fetch(rpcUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'eth_chainId', params: [] }),
-        signal: AbortSignal.timeout(10_000)
-      })
-      const json = await res.json() as { result?: string }
-      reported = parseInt(json.result ?? '', 16)
-    } catch {
-      throw new Error('Could not reach the RPC URL — check the address and your connection')
-    }
-    if (!Number.isInteger(reported)) throw new Error('The RPC did not answer like an EVM node (eth_chainId failed)')
-    if (reported !== chainId) {
-      throw new Error(`The RPC reports chain ID ${reported}, not ${chainId} — double-check both fields`)
-    }
-
-    const chain: CustomChain = { id: `custom-${chainId}`, name, chainId, nativeSymbol, rpcUrl, explorerUrl }
+    const chain = await buildCustomChain(input, config.customChains ?? [])
     saveConfig({ customChains: [...(config.customChains ?? []), chain] })
     return loadConfig().customChains
   })
 
   ipcMain.handle('wallet:remove-custom-chain', (_event, id: string) => {
-    const config = loadConfig()
-    saveConfig({
-      customChains: (config.customChains ?? []).filter(c => c.id !== String(id)),
-      // Drop that network's imported tokens too, or they linger as orphans that
-      // no chain can resolve (and would reappear if the chain is re-added).
-      customTokens: (config.customTokens ?? []).filter(t => t.chain !== String(id)),
-      customNfts: (config.customNfts ?? []).filter(n => n.chain !== String(id))
-    })
+    saveConfig(chainRemovalPatch(loadConfig(), String(id)))
     return loadConfig().customChains
   })
 
@@ -856,14 +811,9 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('wallet:import-custom-token', async (_event, chainId: string, contractAddress: string) => {
     const chain = String(chainId)
-    const addr = String(contractAddress ?? '').trim().toLowerCase()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
-
+    const addr = normalizeContractAddress(contractAddress)
     const config = loadConfig()
-    if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
-    if ((config.customTokens ?? []).some(t => t.chain === chain && t.contractAddress === addr)) {
-      throw new Error('That token is already imported')
-    }
+    assertTokenImportable(config, chain, addr)
 
     // Resolving doubles as validation — a non-ERC-20 address throws here.
     const addresses = await getFullAddresses()
@@ -877,12 +827,8 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('wallet:remove-custom-token', (_event, chainId: string, contractAddress: string) => {
-    const chain = String(chainId)
     const addr = String(contractAddress ?? '').trim().toLowerCase()
-    const config = loadConfig()
-    saveConfig({
-      customTokens: (config.customTokens ?? []).filter(t => !(t.chain === chain && t.contractAddress === addr))
-    })
+    saveConfig({ customTokens: removeTokenPatch(loadConfig(), String(chainId), addr) })
     return loadConfig().customTokens
   })
 
@@ -901,16 +847,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('wallet:import-custom-nft', async (_event, chainId: string, contractAddress: string, tokenId: string) => {
     const chain = String(chainId)
-    const addr = String(contractAddress ?? '').trim().toLowerCase()
-    const id = String(tokenId ?? '').trim()
-    if (!/^0x[0-9a-fA-F]{40}$/.test(addr)) throw new Error('Enter a valid contract address (0x…)')
-    if (!/^[0-9]{1,78}$/.test(id)) throw new Error('Token ID must be a whole number')
-
+    const addr = normalizeContractAddress(contractAddress)
+    const id = normalizeTokenId(tokenId)
     const config = loadConfig()
-    if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
-    if ((config.customNfts ?? []).some(n => n.chain === chain && n.contractAddress === addr && n.tokenId === id)) {
-      throw new Error('That NFT is already imported')
-    }
+    assertNftImportable(config, chain, addr, id)
 
     // Resolving doubles as validation: wrong contract, wrong id, or an NFT this
     // wallet doesn't own all throw here rather than being saved.
@@ -922,15 +862,9 @@ export function registerIpcHandlers(): void {
   })
 
   ipcMain.handle('wallet:remove-custom-nft', (_event, chainId: string, contractAddress: string, tokenId: string) => {
-    const chain = String(chainId)
     const addr = String(contractAddress ?? '').trim().toLowerCase()
     const id = String(tokenId ?? '').trim()
-    const config = loadConfig()
-    saveConfig({
-      customNfts: (config.customNfts ?? []).filter(
-        n => !(n.chain === chain && n.contractAddress === addr && n.tokenId === id)
-      )
-    })
+    saveConfig({ customNfts: removeNftPatch(loadConfig(), String(chainId), addr, id) })
     return loadConfig().customNfts
   })
 

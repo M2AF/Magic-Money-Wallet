@@ -217,6 +217,15 @@ function createWindow(): void {
 // F12 opens a detached DevTools for whichever webContents has keyboard focus.
 // This covers both the wallet UI and any WebContentsView (dApp browser) windows.
 app.on('web-contents-created', (_event, contents) => {
+  // A dApp page's beforeunload handler must never veto an app-wide quit: the
+  // veto is silent, so the app would just stay alive and the auto-updater's
+  // NSIS installer would abort with "cannot be closed". preventDefault() here
+  // means "let the unload proceed". Normal browsing keeps the veto so a dApp
+  // can still warn before a single tab is closed.
+  contents.on('will-prevent-unload', (event) => {
+    if (isQuitting) event.preventDefault()
+  })
+
   contents.on('before-input-event', (_e, input) => {
     if (
       input.type === 'keyDown' &&

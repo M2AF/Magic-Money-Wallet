@@ -7,14 +7,16 @@
 //
 //   node scripts/fetch-chain-icons.mjs
 //
-// Chains absent from this map (e.g. midnight, user-added custom chains) fall
-// back to the glowing colour dot in ChainCard.
-import { mkdir, writeFile } from 'node:fs/promises'
+// Chains absent from this map (e.g. user-added custom chains) fall back to the
+// glowing colour dot in ChainCard.
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
-const OUT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../src/renderer/assets/chains')
+const HERE = dirname(fileURLToPath(import.meta.url))
+const OUT_DIR = resolve(HERE, '../src/renderer/assets/chains')
+const SRC_DIR = resolve(HERE, 'chain-icon-sources')
 const SIZE = 48 // rendered at 22px, so 48px covers 2x DPI
 
 // chainId -> DefiLlama chain-icon slug (mostly identical to our ids).
@@ -24,7 +26,17 @@ const SLUGS = {
   monad: 'monad', abstract: 'abstract', apechain: 'apechain', robinhood: 'robinhood',
   ronin: 'ronin', soneium: 'soneium', worldchain: 'world-chain', zora: 'zora',
   hyperevm: 'hyperevm', solana: 'solana', cardano: 'cardano', bitcoin: 'bitcoin',
-  polkadot: 'polkadot', tron: 'tron', dogecoin: 'doge', monero: 'monero', zcash: 'zcash'
+  polkadot: 'polkadot', tron: 'tron', dogecoin: 'doge', monero: 'monero', zcash: 'zcash',
+  // Not on DefiLlama — rasterized from the vendored brand SVG below.
+  midnight: null
+}
+
+// Chains whose mark comes from a file committed in scripts/chain-icon-sources/
+// instead of a URL. Midnight's official asset (midnight.network/brand-hub) sits
+// behind a bot checkpoint that refuses scripted fetches, so the SVG is vendored
+// to keep this script reproducible and offline.
+const LOCAL_SOURCES = {
+  midnight: 'midnight.svg'
 }
 
 // Chains whose DefiLlama asset is wrong/blank — pulled from the canonical
@@ -38,13 +50,22 @@ await mkdir(OUT_DIR, { recursive: true })
 
 let failures = 0
 for (const [chainId, slug] of Object.entries(SLUGS)) {
-  const url = OVERRIDES[chainId] ?? `https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`
   try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    const src = Buffer.from(await res.arrayBuffer())
-    const out = await sharp(src)
-      .resize(SIZE, SIZE, { fit: 'cover' })
+    let src
+    if (LOCAL_SOURCES[chainId]) {
+      src = await readFile(resolve(SRC_DIR, LOCAL_SOURCES[chainId]))
+    } else {
+      const url = OVERRIDES[chainId] ?? `https://icons.llamao.fi/icons/chains/rsz_${slug}.jpg`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      src = Buffer.from(await res.arrayBuffer())
+    }
+    // `contain` + a transparent pad keeps round/!square logomarks whole (the
+    // Llama tiles are already square, so this is a no-op for them), and alpha
+    // is preserved so a white-on-transparent brand mark sits on the card's
+    // own background instead of a white box.
+    const out = await sharp(src, { density: 384 })
+      .resize(SIZE, SIZE, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .webp({ quality: 88 })
       .toBuffer()
     await writeFile(resolve(OUT_DIR, `${chainId}.webp`), out)

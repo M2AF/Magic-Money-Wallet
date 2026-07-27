@@ -4,8 +4,8 @@
 //
 // Regenerate with: node scripts/fetch-chain-icons.mjs
 //
-// Chains missing from this map (midnight, user-added custom networks) fall back
-// to the glowing colour dot in ChainCard.
+// Chains missing from this map (user-added custom networks) fall back to the
+// glowing colour dot in ChainCard.
 import abstract from '../assets/chains/abstract.webp'
 import apechain from '../assets/chains/apechain.webp'
 import arbitrum from '../assets/chains/arbitrum.webp'
@@ -18,6 +18,7 @@ import dogecoin from '../assets/chains/dogecoin.webp'
 import ethereum from '../assets/chains/ethereum.webp'
 import gnosis from '../assets/chains/gnosis.webp'
 import hyperevm from '../assets/chains/hyperevm.webp'
+import midnight from '../assets/chains/midnight.webp'
 import monad from '../assets/chains/monad.webp'
 import monero from '../assets/chains/monero.webp'
 import optimism from '../assets/chains/optimism.webp'
@@ -34,8 +35,9 @@ import zora from '../assets/chains/zora.webp'
 
 export const CHAIN_ICONS: Record<string, string> = {
   abstract, apechain, arbitrum, avalanche, base, bitcoin, blast, cardano,
-  dogecoin, ethereum, gnosis, hyperevm, monad, monero, optimism, polkadot,
-  polygon, robinhood, ronin, solana, soneium, tron, worldchain, zcash, zora,
+  dogecoin, ethereum, gnosis, hyperevm, midnight, monad, monero, optimism,
+  polkadot, polygon, robinhood, ronin, solana, soneium, tron, worldchain,
+  zcash, zora,
   // Testnet Mode's second Bitcoin row shares the mainnet mark.
   'bitcoin-testnet4': bitcoin
 }
