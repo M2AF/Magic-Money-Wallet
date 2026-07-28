@@ -1,10 +1,13 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { FullScreenButton, SnapMenu } from './components/WindowLayout'
 import { MagicGuardControl } from './components/MagicGuardControl'
+import { AddressBarStar, ShareControl, BrowserMenu } from './components/BrowserMenu'
+import { BookmarksPanel } from './components/BookmarksPanel'
+import { PasswordManager } from './components/PasswordManager'
 import APP_HUB, { type AppEntry } from './data/app-hub'
 import wordmarkUrl from './assets/wordmark.png'
 import logoUrl from './assets/logo.png'
-import type { TorBrowserState, MagicGuardState } from './types/wallet'
+import type { TorBrowserState, MagicGuardState, BrowserPageState } from './types/wallet'
 
 const HOME = 'https://chainlensnft.info'
 
@@ -30,12 +33,13 @@ export function BrowserApp() {
   const [title, setTitle]       = useState('MagicMoney Browser')
   const [tabs, setTabs]         = useState<TabInfo[]>([])
   const [activeTabId, setActiveTabId] = useState(0)
-  // The tab overview, address-bar suggestions, wallet-snap menu, and Magic Guard
-  // panel are all floating dropdowns that extend into the area the active dApp
-  // WebContentsView covers, so at most one may be open at a time — opening any of
-  // them detaches that view and paints a snapshot behind the dropdown (see
-  // openOverlay), and closing re-attaches it.
-  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard'
+  // The tab overview, address-bar suggestions, wallet-snap menu, Magic Guard
+  // panel, hamburger/share dropdowns, and the bookmarks/password panels are all
+  // floating surfaces that extend into the area the active dApp WebContentsView
+  // covers, so at most one may be open at a time — opening any of them detaches
+  // that view and paints a snapshot behind it (see openOverlay), and closing
+  // re-attaches it.
+  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard' | 'menu' | 'share' | 'bookmarks' | 'passwords'
   const [overlay, setOverlay]   = useState<OverlayKind | null>(null)
   const [snapshot, setSnapshot] = useState<string | null>(null)
   const [typed, setTyped]       = useState(false)
@@ -43,6 +47,8 @@ export function BrowserApp() {
   const sugOpen      = overlay === 'suggest'
   const snapMenuOpen = overlay === 'snap'
   const guardOpen    = overlay === 'guard'
+  const appMenuOpen  = overlay === 'menu'
+  const shareOpen    = overlay === 'share'
   const [tor, setTor] = useState<TorBrowserState>({
     enabled: false, status: 'off', host: '127.0.0.1', port: 9050,
     isTor: false, message: 'Tor Mode is off',
@@ -51,6 +57,15 @@ export function BrowserApp() {
     enabled: true, siteEnabled: true, effectiveEnabled: false, status: 'loading',
     hostname: null, blockedThisPage: 0, blockedThisTab: 0,
   })
+  // Everything the chrome needs about the page in the active tab (bookmarked?
+  // installed as an app? any saved logins?). Re-read from main after every
+  // navigation — main derives it from the tab itself, never from `url` here.
+  const [page, setPage] = useState<BrowserPageState>({
+    url: HOME, title: '', host: '', bookmarked: false, installed: false,
+    savedLogins: [], passwordsUnlocked: false,
+  })
+  const [webAppsSupported, setWebAppsSupported] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -101,21 +116,88 @@ export function BrowserApp() {
     return () => window.wallet.offBrowserGuardState?.(onGuard)
   }, [])
 
+  // Bookmark/app/login state depends only on where the tab actually IS, so it is
+  // refreshed on every url change rather than pushed on its own channel.
+  const refreshPageState = useCallback(() => {
+    window.wallet.browserGetPageState?.().then(setPage).catch(() => {})
+  }, [])
+
+  useEffect(() => { refreshPageState() }, [url, refreshPageState])
+
+  useEffect(() => {
+    window.wallet.browserWebAppsSupported?.().then(setWebAppsSupported).catch(() => {})
+  }, [])
+
+  // Auto-fill confirmation: main filled a saved login into the page (exact-host
+  // match only, never submitted) — surface it so the fill is never silent.
+  useEffect(() => {
+    const onFilled = (s: { host: string; username: string; more: number }) => {
+      const who = s.username ? ` for ${s.username}` : ''
+      const more = s.more > 0 ? ` (+${s.more} more in the password manager)` : ''
+      setToast(`Filled saved login${who}${more}`)
+    }
+    window.wallet.onBrowserAutofill?.(onFilled)
+    return () => window.wallet.offBrowserAutofill?.(onFilled)
+  }, [])
+
+  // Transient confirmation ("Bookmark added", "Link copied"). One at a time; a
+  // newer message replaces the older one and restarts the timer.
+  const showToast = useCallback((message: string) => {
+    setToast(message)
+  }, [])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2600)
+    return () => clearTimeout(t)
+  }, [toast])
+
   const navigate = useCallback((target: string) => {
     window.wallet.browserNavigate(target)
     inputRef.current?.blur()
   }, [])
 
+  // Tor Mode now lives in the ☰ menu rather than its own toolbar pill, but the
+  // fail-closed contract is unchanged: flip to 'connecting' immediately so the
+  // blocking TorStatusPanel appears before any request can go out, and let main's
+  // reply settle the real state.
+  const setTorMode = useCallback(async (enabled: boolean) => {
+    if (!window.wallet.browserSetTorMode) return
+    setTor(prev => ({
+      ...prev, enabled, status: 'connecting',
+      message: enabled ? 'Connecting to local Tor…' : 'Turning Tor Mode off…',
+    }))
+    try {
+      setTor(await window.wallet.browserSetTorMode(enabled))
+    } catch {
+      setTor(prev => ({ ...prev, status: 'error', message: 'Could not change the browser proxy. Reload the app before browsing.' }))
+    }
+  }, [])
+
   // Open any one overlay: snapshot the live page (returned by suspend) and paint it
   // behind the dropdown so the dApp stays visible while the overlay is open.
+  //
+  // The owner is tracked in a ref as well as state because these transitions
+  // happen across separate native events (a blur that closes the suggestions,
+  // then the click that opens the share menu). Reading `overlay` from the render
+  // closure could still see the previous owner and drop the second interaction;
+  // the ref is always current. Handing over while one is already open just swaps
+  // which surface owns the already-detached view — no second suspend/snapshot.
+  const overlayRef = useRef<OverlayKind | null>(null)
   const openOverlay = useCallback(async (kind: OverlayKind) => {
-    if (overlay) return // another overlay owns the detached view right now
+    if (overlayRef.current === kind) return
+    if (overlayRef.current) {
+      overlayRef.current = kind
+      setOverlay(kind)
+      return
+    }
+    overlayRef.current = kind
     const img = await window.wallet.browserSuspendTabsMenu()
     setSnapshot(img || null)
     setOverlay(kind)
-  }, [overlay])
+  }, [])
 
   const closeOverlay = useCallback(() => {
+    overlayRef.current = null
     setOverlay(null)
     setSnapshot(null)
     window.wallet.browserResumeTabsMenu()
@@ -127,15 +209,17 @@ export function BrowserApp() {
   // need an extra focus recheck: focus may have moved on while the snapshot was
   // being captured (the fetch is async), so bail out without opening if so.
   const openSuggest = useCallback(async () => {
-    if (overlay) return
+    if (overlayRef.current) return
+    overlayRef.current = 'suggest'
     const img = await window.wallet.browserSuspendTabsMenu()
     if (document.activeElement !== inputRef.current) {
+      overlayRef.current = null
       window.wallet.browserResumeTabsMenu()
       return
     }
     setSnapshot(img || null)
     setOverlay('suggest')
-  }, [overlay])
+  }, [])
 
   const closeSuggest = closeOverlay
 
@@ -250,7 +334,7 @@ export function BrowserApp() {
             onChange={e => { setInputUrl(e.target.value); setTyped(true) }}
             spellCheck={false}
             style={{
-              width: '100%', padding: '5px 12px',
+              width: '100%', padding: '5px 62px 5px 12px',
               background: 'var(--bg)',
               border: '1px solid var(--border)',
               borderRadius: 20,
@@ -265,6 +349,31 @@ export function BrowserApp() {
             onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; if (sugOpen) closeSuggest() }}
             onKeyDown={e => { if (e.key === 'Escape') e.currentTarget.blur() }}
           />
+
+          {/* Bookmark star + share, at the end of the address bar (Brave's layout).
+              onMouseDown-preventDefault keeps the input from blurring underneath
+              them, which would otherwise close the suggestions and swallow the
+              first click. */}
+          <div
+            onMouseDown={e => e.preventDefault()}
+            style={{
+              // No transform here on purpose: a transformed ancestor would turn the
+              // dropdowns' `position: fixed` backdrop into an absolute one, so
+              // outside clicks would stop closing them.
+              position: 'absolute', right: 6, top: 0, bottom: 0,
+              display: 'flex', alignItems: 'center', gap: 2,
+            }}
+          >
+            <AddressBarStar page={page} onPageState={setPage} onToast={showToast} />
+            <ShareControl
+              page={page}
+              open={shareOpen}
+              onOpen={() => openOverlay('share')}
+              onClose={closeOverlay}
+              onPageState={setPage}
+              onToast={showToast}
+            />
+          </div>
 
           {sugOpen && (
             <div
@@ -297,8 +406,6 @@ export function BrowserApp() {
           )}
         </form>
 
-        <TorControl state={tor} onChange={setTor} />
-
         {/* Snap the wallet + browser side by side — left of the tabs button */}
         <SnapMenu
           open={snapMenuOpen}
@@ -325,6 +432,21 @@ export function BrowserApp() {
             animation: 'spin 0.7s linear infinite'
           }} />
         )}
+
+        {/* ☰ — password manager, bookmarks, Tor Mode, save and share */}
+        <BrowserMenu
+          page={page}
+          tor={tor}
+          open={appMenuOpen}
+          onOpen={() => openOverlay('menu')}
+          onClose={closeOverlay}
+          onPageState={setPage}
+          onToast={showToast}
+          onOpenBookmarks={() => openOverlay('bookmarks')}
+          onOpenPasswords={() => openOverlay('passwords')}
+          onSetTor={setTorMode}
+          webAppsSupported={webAppsSupported}
+        />
       </div>
 
       {/* ── Content area (filled by WebContentsView from main process) ─────
@@ -343,49 +465,49 @@ export function BrowserApp() {
         {tor.enabled && tor.status !== 'connected' && (
           <TorStatusPanel state={tor} onChange={setTor} />
         )}
+
+        {/* Full-area panels. They own the detached-view overlay slot, so they sit
+            over the page snapshot exactly like the Tor block screen above. */}
+        {overlay === 'bookmarks' && (
+          <BookmarksPanel onClose={closeOverlay} onNavigate={navigate} onToast={showToast} />
+        )}
+        {overlay === 'passwords' && (
+          <PasswordManager
+            currentHost={page.host}
+            currentUrl={page.url}
+            onClose={closeOverlay}
+            onToast={showToast}
+            onChanged={refreshPageState}
+          />
+        )}
+
+        {toast && <Toast message={toast} />}
       </div>
     </div>
   )
 }
 
-function TorControl({ state, onChange }: { state: TorBrowserState; onChange: (state: TorBrowserState) => void }) {
-  const busy = state.status === 'connecting'
-  const color = state.status === 'connected'
-    ? '#22c55e'
-    : state.status === 'error'
-      ? '#ef4444'
-      : 'var(--text-muted)'
-
-  const toggle = async () => {
-    if (busy || !window.wallet.browserSetTorMode) return
-    onChange({ ...state, enabled: !state.enabled, status: 'connecting', message: state.enabled ? 'Disconnecting from Tor…' : 'Connecting to local Tor…' })
-    try {
-      onChange(await window.wallet.browserSetTorMode(!state.enabled))
-    } catch {
-      onChange({ ...state, status: 'error', message: 'Could not change the browser proxy. Reload the app before browsing.' })
-    }
-  }
-
+/**
+ * Transient confirmation for actions with no other visible result — "Bookmark
+ * added", "Link copied", "Screenshot saved". Sits above the panels but is
+ * pointer-transparent so it can never swallow a click.
+ */
+function Toast({ message }: { message: string }) {
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={busy}
-      aria-pressed={state.enabled}
-      aria-label={`Tor Mode. ${state.message}`}
+    <div
+      role="status"
       style={{
-        height: 28, padding: '0 8px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 5,
-        borderRadius: 12, border: `1px solid ${state.enabled ? color : 'var(--border)'}`,
-        background: state.enabled ? 'rgba(124, 58, 237, 0.12)' : 'var(--surface-raised)',
-        color: state.enabled ? 'var(--text-primary)' : 'var(--text-secondary)',
-        cursor: busy ? 'wait' : 'pointer', fontSize: 10, fontWeight: 700,
+        position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)',
+        zIndex: 60, pointerEvents: 'none', maxWidth: '80%',
+        padding: '9px 16px', borderRadius: 999,
+        background: 'var(--bg-surface)', border: '1px solid var(--border-active)',
+        boxShadow: '0 10px 28px rgba(0, 0, 0, 0.45)',
+        color: 'var(--text-primary)', fontSize: 12, fontWeight: 600,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}
     >
-      <span aria-hidden="true" style={{ fontSize: 13, lineHeight: 1 }}>🧅</span>
-      <span>{busy ? 'Connecting' : state.status === 'error' ? 'Tor blocked' : state.enabled ? 'Tor' : 'Tor off'}</span>
-      <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
-    </button>
+      {message}
+    </div>
   )
 }
 

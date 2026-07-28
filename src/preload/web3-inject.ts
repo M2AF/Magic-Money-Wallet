@@ -512,3 +512,52 @@ webFrame.executeJavaScript(`(function () {
     } catch {}
   });
 })();`, false)
+
+// ── Saved-login autofill: report "a login form appeared" to main ─────────────
+// Runs in the ISOLATED preload world (full DOM access, invisible to page JS) and
+// only in the top frame (nodeIntegrationInSubFrames is off), so an embedded
+// iframe can never trigger it. The message carries no data — main re-derives the
+// host from the tab's own URL, checks the vault, and decides whether to fill
+// (exact-host matches only; see browser-manager's autofill handler). Reported at
+// most once per document; SPA logins that render later are caught by the
+// observer, which disconnects after the first hit.
+
+function _mmHasVisiblePasswordField(): boolean {
+  for (const el of Array.from(document.querySelectorAll('input[type="password"]'))) {
+    const r = (el as HTMLElement).getBoundingClientRect()
+    if (r.width > 0 && r.height > 0) return true
+  }
+  return false
+}
+
+let _mmLoginFormReported = false
+let _mmScanQueued = false
+let _mmLoginObserver: MutationObserver | null = null
+
+function _mmScanForLoginForm(): void {
+  _mmScanQueued = false
+  if (_mmLoginFormReported) return
+  if (!_mmHasVisiblePasswordField()) return
+  _mmLoginFormReported = true
+  _mmLoginObserver?.disconnect()
+  _mmLoginObserver = null
+  ipcRenderer.send('autofill:form-found')
+}
+
+// Coalesce mutation bursts into one scan per frame — pages mutate constantly and
+// the scan walks the DOM.
+function _mmQueueScan(): void {
+  if (_mmLoginFormReported || _mmScanQueued) return
+  _mmScanQueued = true
+  requestAnimationFrame(_mmScanForLoginForm)
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  _mmScanForLoginForm()
+  if (_mmLoginFormReported) return
+  _mmLoginObserver = new MutationObserver(_mmQueueScan)
+  _mmLoginObserver.observe(document.documentElement, {
+    childList: true, subtree: true,
+    attributes: true, attributeFilter: ['type', 'style', 'class', 'hidden'],
+  })
+})

@@ -1726,7 +1726,7 @@
     },
 
     // ========================================================
-    // Wallet (21 apps)
+    // Wallet (23 apps)
     // ========================================================
 
     {
@@ -1798,6 +1798,16 @@
       featured:    false,
       favicon:     "https://www.google.com/s2/favicons?domain=lace.io&sz=64",
       description: "IOG's light wallet for Cardano with staking and dApp connectivity.",
+    },
+    {
+      id:          "magicmoney-wallet",
+      name:        "MagicMoney Wallet",
+      website:     "https://github.com/M2AF/Magic-Money-Wallet",
+      category:    "Wallet",
+      chains:      ["abstract", "apechain", "arbitrum", "avalanche", "base", "bitcoin", "blast", "cardano", "ethereum", "gnosis", "hype", "monad", "optimism", "polygon", "ronin", "solana", "soneium", "worldchain", "zora"],
+      featured:    true,
+      favicon:     "https://raw.githubusercontent.com/M2AF/Magic-Money-Wallet/main/resources/icon.png",
+      description: "A self-custody multi-chain wallet for desktop, Chrome, and Android with dApp connectivity, swaps, and a built-in private browser.",
     },
     {
       id:          "metamask",

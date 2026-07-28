@@ -372,6 +372,93 @@ export interface DefaultBrowserState {
   isDefault: boolean
 }
 
+// ── Browser: bookmarks, installed web apps, saved passwords ─────────────────
+
+export interface Bookmark {
+  id: string
+  url: string
+  title: string
+  addedAt: number
+}
+
+export interface WebApp {
+  id: string
+  url: string
+  name: string
+  shortcutPath: string | null
+  installedAt: number
+}
+
+/** Metadata for one saved login — the password itself is never in this shape. */
+export interface PasswordSummary {
+  id: string
+  url: string
+  host: string
+  username: string
+  note?: string
+  updatedAt: number
+}
+
+export interface PasswordVaultStatus {
+  exists: boolean
+  unlocked: boolean
+  count: number
+  available: boolean
+}
+
+/** Everything the chrome needs about the page in the active tab, read from main. */
+export interface BrowserPageState {
+  url: string
+  title: string
+  host: string
+  bookmarked: boolean
+  installed: boolean
+  savedLogins: PasswordSummary[]
+  passwordsUnlocked: boolean
+}
+
+/** One importable Chromium profile found on this machine. */
+export interface ImportSource {
+  id: string
+  browser: string
+  profile: string
+  path: string
+  hasPasswords: boolean
+  hasBookmarks: boolean
+}
+
+export interface PasswordImportSummary {
+  added: number
+  skipped: number
+  total?: number
+  /** Rows that exist but could not be decrypted (Chrome 127+ app-bound blobs),
+   *  or CSV rows missing a URL/password. */
+  unreadable?: number
+  /** CSV import only: the user dismissed the file dialog. */
+  canceled?: boolean
+  error?: string
+}
+
+export interface BookmarkImportSummary {
+  added: number
+  skipped: number
+  error?: string
+  bookmarks: Bookmark[]
+}
+
+export interface WebAppInstallResult {
+  ok: boolean
+  path?: string
+  apps: WebApp[]
+  error?: string
+}
+
+export interface PageSaveResult {
+  ok: boolean
+  path?: string
+  error?: string
+}
+
 declare global {
   interface Window {
     wallet: {
@@ -533,6 +620,37 @@ declare global {
       browserCloseTab(id: number): void
       browserSuspendTabsMenu(): Promise<string>
       browserResumeTabsMenu(): void
+      // Bookmarks / save-and-share / password manager — Electron browser chrome
+      // only. Optional so the extension + Capacitor bridges (which have no
+      // WebContentsView and no OS shortcut story) keep type-checking unchanged.
+      browserGetPageState?(): Promise<BrowserPageState>
+      browserToggleBookmark?(): Promise<BrowserPageState>
+      browserListBookmarks?(): Promise<Bookmark[]>
+      browserRemoveBookmark?(id: string): Promise<Bookmark[]>
+      browserRenameBookmark?(id: string, title: string): Promise<Bookmark[]>
+      browserImportBookmarks?(sourceId: string): Promise<BookmarkImportSummary>
+      browserWebAppsSupported?(): Promise<boolean>
+      browserListWebApps?(): Promise<WebApp[]>
+      browserInstallWebApp?(): Promise<WebAppInstallResult>
+      browserUninstallWebApp?(id: string): Promise<WebApp[]>
+      browserSavePage?(): Promise<PageSaveResult>
+      browserCapturePage?(): Promise<PageSaveResult>
+      browserCopyLink?(): Promise<{ ok: boolean; url?: string; error?: string }>
+      browserShareByEmail?(): Promise<{ ok: boolean; error?: string }>
+      passwordsStatus?(): Promise<PasswordVaultStatus>
+      passwordsUnlock?(password: string): Promise<PasswordVaultStatus>
+      passwordsLock?(): Promise<PasswordVaultStatus>
+      passwordsList?(): Promise<PasswordSummary[]>
+      passwordsReveal?(id: string): Promise<string>
+      passwordsCopy?(id: string): Promise<{ ok: boolean }>
+      passwordsSave?(entry: { id?: string; url: string; username: string; password: string; note?: string }): Promise<PasswordSummary[]>
+      passwordsDelete?(id: string): Promise<PasswordSummary[]>
+      passwordsImportSources?(): Promise<ImportSource[]>
+      passwordsImport?(sourceId: string): Promise<PasswordImportSummary>
+      passwordsImportCsv?(): Promise<PasswordImportSummary>
+      browserFillPassword?(id: string): Promise<{ ok: boolean; error?: string }>
+      onBrowserAutofill?(cb: (s: { host: string; username: string; more: number }) => void): void
+      offBrowserAutofill?(cb: (s: { host: string; username: string; more: number }) => void): void
       onBrowserUrl(cb: (url: string) => void): void
       onBrowserLoading(cb: (loading: boolean) => void): void
       onBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void

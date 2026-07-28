@@ -182,6 +182,38 @@ contextBridge.exposeInMainWorld('wallet', {
   browserSuspendTabsMenu: ()         => ipcRenderer.invoke('browser:suspend-tabs-menu'),
   browserResumeTabsMenu:  ()         => ipcRenderer.send('browser:resume-tabs-menu'),
 
+  // ── Bookmarks + current-page state (address-bar star, bookmarks panel) ─
+  browserGetPageState:    ()                => ipcRenderer.invoke('browser:page-state'),
+  browserToggleBookmark:  ()                => ipcRenderer.invoke('browser:bookmarks:toggle'),
+  browserListBookmarks:   ()                => ipcRenderer.invoke('browser:bookmarks:list'),
+  browserRemoveBookmark:  (id: string)      => ipcRenderer.invoke('browser:bookmarks:remove', id),
+  browserRenameBookmark:  (id: string, title: string) => ipcRenderer.invoke('browser:bookmarks:rename', id, title),
+  browserImportBookmarks: (sourceId: string) => ipcRenderer.invoke('browser:bookmarks:import', sourceId),
+
+  // ── Save and share (install as app, save page, screenshot, copy, email) ─
+  browserWebAppsSupported: ()          => ipcRenderer.invoke('browser:apps:supported'),
+  browserListWebApps:      ()          => ipcRenderer.invoke('browser:apps:list'),
+  browserInstallWebApp:    ()          => ipcRenderer.invoke('browser:apps:install'),
+  browserUninstallWebApp:  (id: string) => ipcRenderer.invoke('browser:apps:uninstall', id),
+  browserSavePage:         ()          => ipcRenderer.invoke('browser:page:save'),
+  browserCapturePage:      ()          => ipcRenderer.invoke('browser:page:capture'),
+  browserCopyLink:         ()          => ipcRenderer.invoke('browser:page:copy-link'),
+  browserShareByEmail:     ()          => ipcRenderer.invoke('browser:page:share-email'),
+
+  // ── Password manager (browser logins; never the wallet seed) ───────────
+  passwordsStatus:        ()                 => ipcRenderer.invoke('passwords:status'),
+  passwordsUnlock:        (password: string) => ipcRenderer.invoke('passwords:unlock', password),
+  passwordsLock:          ()                 => ipcRenderer.invoke('passwords:lock'),
+  passwordsList:          ()                 => ipcRenderer.invoke('passwords:list'),
+  passwordsReveal:        (id: string)       => ipcRenderer.invoke('passwords:reveal', id),
+  passwordsCopy:          (id: string)       => ipcRenderer.invoke('passwords:copy', id),
+  passwordsSave:          (entry: unknown)   => ipcRenderer.invoke('passwords:save', entry),
+  passwordsDelete:        (id: string)       => ipcRenderer.invoke('passwords:delete', id),
+  passwordsImportSources: ()                 => ipcRenderer.invoke('passwords:import-sources'),
+  passwordsImport:        (sourceId: string) => ipcRenderer.invoke('passwords:import', sourceId),
+  passwordsImportCsv:     ()                 => ipcRenderer.invoke('passwords:import-csv'),
+  browserFillPassword:    (id: string)       => ipcRenderer.invoke('browser:passwords:fill', id),
+
   onBrowserUrl:      (cb: (url: string) => void)                                    => ipcRenderer.on('browser:url',       (_e, v) => cb(v)),
   onBrowserLoading:  (cb: (loading: boolean) => void)                               => ipcRenderer.on('browser:loading',   (_e, v) => cb(v)),
   onBrowserNavState: (cb: (s: { canBack: boolean; canForward: boolean }) => void)   => ipcRenderer.on('browser:nav-state', (_e, v) => cb(v)),
@@ -189,6 +221,9 @@ contextBridge.exposeInMainWorld('wallet', {
   onBrowserTabs:     (cb: (s: { activeTabId: number; tabs: Array<{ id: number; title: string; url: string; loading: boolean }> }) => void) => ipcRenderer.on('browser:tabs', (_e, v) => cb(v)),
   onBrowserTorState: (cb: (s: unknown) => void) => ipcRenderer.on('browser:tor-state', (_e, v) => cb(v)),
   onBrowserGuardState: (cb: (s: unknown) => void) => ipcRenderer.on('browser:guard-state', (_e, v) => cb(v)),
+  // Pushed after a saved login was auto-filled into the active page.
+  onBrowserAutofill:  (cb: (s: unknown) => void) => ipcRenderer.on('browser:autofill-filled', (_e, v) => cb(v)),
+  offBrowserAutofill: (cb: (s: unknown) => void) => ipcRenderer.removeListener('browser:autofill-filled', cb as never),
 
   offBrowserUrl:      (cb: (url: string) => void)                                   => ipcRenderer.removeListener('browser:url',       cb as never),
   offBrowserLoading:  (cb: (loading: boolean) => void)                              => ipcRenderer.removeListener('browser:loading',   cb as never),

@@ -6,7 +6,7 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain, BrowserWindow, dialog, app } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app, clipboard, shell } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -91,8 +91,32 @@ import {
   getLayoutState,
   browserToggleMaximize,
   setChromeHeight,
-  openBrowserWithUrl
+  openBrowserWithUrl,
+  browserGetPageState,
+  browserToggleBookmark,
+  browserInstallPageAsApp,
+  browserSavePage,
+  browserCapturePage,
+  browserActivePage,
+  browserFillCredentials,
+  browserAutofillFormFound,
+  browserTryAutofillActiveTab
 } from './browser-manager'
+import { getBookmarks, removeBookmark, renameBookmark, mergeBookmarks, getWebApps } from './browser-store'
+import { webAppsSupported, uninstallWebApp } from './web-apps'
+import {
+  passwordVaultStatus,
+  unlockPasswords,
+  lockPasswords,
+  listPasswords,
+  revealPassword,
+  savePassword,
+  deletePassword,
+  mergePasswords,
+  deletePasswordVault
+} from './password-vault'
+import { listImportSources, importPasswordsFrom, importBookmarksFrom, parsePasswordCsv } from './browser-import'
+import { readFileSync } from 'fs'
 import { downloadAsset } from './downloads'
 import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
@@ -239,10 +263,20 @@ function broadcastLocked(): void {
   }
 }
 
+/**
+ * Every path that clears the mnemonic must also clear the saved-password vault —
+ * otherwise the browser's password manager would stay open (and fillable) behind a
+ * locked wallet, which is exactly the state a walk-away attacker wants.
+ */
+function lockEverything(): void {
+  lock()
+  lockPasswords()
+}
+
 function touchActivity(): void {
   if (_lockTimer) { clearTimeout(_lockTimer); _lockTimer = null }
   if (!isUnlocked()) return
-  _lockTimer = setTimeout(() => { lock(); broadcastLocked() }, AUTO_LOCK_MS)
+  _lockTimer = setTimeout(() => { lockEverything(); broadcastLocked() }, AUTO_LOCK_MS)
 }
 
 /**
@@ -455,7 +489,7 @@ export function registerIpcHandlers(): void {
     return true
   })
   ipcMain.handle('wallet:lock', () => {
-    lock()
+    lockEverything()
     if (_lockTimer) { clearTimeout(_lockTimer); _lockTimer = null }
     return true
   })
@@ -514,6 +548,9 @@ export function registerIpcHandlers(): void {
   // ── Delete wallet (wipe all local data) ───────────────────────────────
   ipcMain.handle('wallet:delete', () => {
     deleteWallet()
+    // Saved site logins are encrypted under the wallet password, so wiping the
+    // wallet leaves them permanently unopenable — remove them with it.
+    deletePasswordVault()
     return true
   })
 
@@ -1083,6 +1120,121 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('browser:guard:set-site-enabled', (_event, enabled: boolean) => browserSetMagicGuardForSite(enabled === true))
   // Open a URL from the WALLET UI in the built-in browser (never the OS one).
   ipcMain.on('browser:open-url', (_event, url: string) => openBrowserWithUrl(String(url ?? '')))
+
+  // ── Bookmarks + page state (address-bar star, bookmarks panel) ────────────
+  // browser:page-state is the single read the chrome renderer makes after every
+  // navigation: is this page bookmarked, is it installed as an app, and do we
+  // hold logins for it. Main derives all of that from the ACTIVE TAB itself.
+  ipcMain.handle('browser:page-state', () => browserGetPageState())
+  ipcMain.handle('browser:bookmarks:list', () => getBookmarks())
+  ipcMain.handle('browser:bookmarks:toggle', () => browserToggleBookmark())
+  ipcMain.handle('browser:bookmarks:remove', (_event, id: string) => removeBookmark(String(id ?? '')))
+  ipcMain.handle('browser:bookmarks:rename', (_event, id: string, title: string) =>
+    renameBookmark(String(id ?? ''), String(title ?? '')))
+  ipcMain.handle('browser:bookmarks:import', (_event, sourceId: string) => {
+    const result = importBookmarksFrom(String(sourceId ?? ''))
+    if (result.error) return { added: 0, skipped: 0, error: result.error, bookmarks: getBookmarks() }
+    const merged = mergeBookmarks(result.bookmarks)
+    return { ...merged, bookmarks: getBookmarks() }
+  })
+
+  // ── Save and share (install as app, save page, screenshot, copy, QR) ──────
+  ipcMain.handle('browser:apps:supported', () => webAppsSupported())
+  ipcMain.handle('browser:apps:list', () => getWebApps())
+  ipcMain.handle('browser:apps:install', () => browserInstallPageAsApp())
+  ipcMain.handle('browser:apps:uninstall', (_event, id: string) => uninstallWebApp(String(id ?? '')))
+  ipcMain.handle('browser:page:save', () => browserSavePage())
+  ipcMain.handle('browser:page:capture', () => browserCapturePage())
+  // Clipboard write happens in main: the chrome renderer often doesn't hold focus
+  // (the dApp WebContentsView does), and navigator.clipboard silently fails there.
+  ipcMain.handle('browser:page:copy-link', () => {
+    const page = browserActivePage()
+    if (!page?.url) return { ok: false as const, error: 'There is no page to copy' }
+    clipboard.writeText(page.url)
+    return { ok: true as const, url: page.url }
+  })
+  ipcMain.handle('browser:page:share-email', () => {
+    const page = browserActivePage()
+    if (!page?.url) return { ok: false as const, error: 'There is no page to share' }
+    const mailto = `mailto:?subject=${encodeURIComponent(page.title || page.url)}&body=${encodeURIComponent(page.url)}`
+    shell.openExternal(mailto)
+    return { ok: true as const }
+  })
+
+  // ── Password manager (browser logins — NOT the wallet seed) ───────────────
+  // The vault is unlocked separately from the wallet with the same password, and
+  // every lock path (manual, idle, delete) clears it — see lockEverything().
+  ipcMain.handle('passwords:status', () => passwordVaultStatus())
+  ipcMain.handle('passwords:unlock', async (_event, password: string) => {
+    if (!isUnlocked()) throw new Error('Unlock your wallet first')
+    const status = await unlockPasswords(String(password ?? ''))
+    touchActivity()
+    // A login page may already be open — its preload's one-shot form report
+    // fired while the vault was locked, so re-check the active tab now.
+    void browserTryAutofillActiveTab()
+    return status
+  })
+  ipcMain.handle('passwords:lock', () => { lockPasswords(); return passwordVaultStatus() })
+  ipcMain.handle('passwords:list', () => listPasswords())
+  // Reveal/copy is an explicit user action on an already-unlocked vault, so it
+  // does not re-prompt — but it does count as activity against the idle timer.
+  ipcMain.handle('passwords:reveal', (_event, id: string) => {
+    touchActivity()
+    return revealPassword(String(id ?? ''))
+  })
+  ipcMain.handle('passwords:save', (_event, input: { id?: string; url: string; username: string; password: string; note?: string }) => {
+    touchActivity()
+    return savePassword({
+      id: typeof input?.id === 'string' ? input.id : undefined,
+      url: String(input?.url ?? ''),
+      username: String(input?.username ?? ''),
+      password: String(input?.password ?? ''),
+      note: typeof input?.note === 'string' ? input.note : undefined,
+    })
+  })
+  ipcMain.handle('passwords:delete', (_event, id: string) => deletePassword(String(id ?? '')))
+  ipcMain.handle('passwords:copy', (_event, id: string) => {
+    touchActivity()
+    clipboard.writeText(revealPassword(String(id ?? '')))
+    return { ok: true as const }
+  })
+  ipcMain.handle('passwords:import-sources', () => listImportSources())
+  // CSV import: main owns the file dialog AND the read, so the renderer never
+  // touches a path. Accepts the standard Chrome/Edge/Brave/Bitwarden/LastPass
+  // export shape (url,username,password with per-product column aliases).
+  ipcMain.handle('passwords:import-csv', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
+      title: 'Import passwords from CSV',
+      properties: ['openFile'],
+      filters: [{ name: 'CSV files', extensions: ['csv', 'txt'] }],
+    })
+    if (canceled || filePaths.length === 0) return { added: 0, skipped: 0, canceled: true }
+    let text: string
+    try {
+      text = readFileSync(filePaths[0], 'utf-8')
+    } catch {
+      return { added: 0, skipped: 0, error: 'The file could not be read' }
+    }
+    const parsed = parsePasswordCsv(text)
+    if (parsed.error) return { added: 0, skipped: parsed.skipped, total: parsed.total, error: parsed.error }
+    const merged = await mergePasswords(parsed.logins)
+    return { ...merged, total: parsed.total, unreadable: parsed.skipped }
+  })
+  ipcMain.handle('passwords:import', async (_event, sourceId: string) => {
+    const result = await importPasswordsFrom(String(sourceId ?? ''))
+    if (result.error) return { added: 0, skipped: result.skipped, total: result.total, error: result.error }
+    const merged = await mergePasswords(result.logins)
+    return { ...merged, total: result.total, unreadable: result.skipped }
+  })
+  // Fill a saved login into the current page. Host-checked in main against the
+  // ACTIVE TAB — only from a click in the password panel.
+  ipcMain.handle('browser:passwords:fill', (_event, id: string) => browserFillCredentials(String(id ?? '')))
+  // Auto-fill: a dApp tab's preload saw a visible password field appear. The
+  // event carries NOTHING — the tab comes from the sender id and the host from
+  // that tab's own URL, so a page cannot request another site's credential.
+  // Non-tab senders (wallet window, popups) simply don't resolve to a tab.
+  ipcMain.on('autofill:form-found', (event) => { void browserAutofillFormFound(event.sender.id) })
 
   // ── Downloads (NFT media) ─────────────────────────────────────────────────
   // Saves straight to the OS Downloads folder from main. The renderer cannot do

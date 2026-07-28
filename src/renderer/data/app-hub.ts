@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 430,
+  "totalApps": 431,
   "totalChains": 19,
   "chains": [
     {
@@ -157,7 +157,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "Wallet",
       "short": "Wallet",
-      "count": 22
+      "count": 23
     },
     {
       "name": "AI",
@@ -198,79 +198,79 @@ const APP_HUB: AppHubData = {
   "chainStats": [
     {
       "id": "abstract",
-      "count": 57
+      "count": 58
     },
     {
       "id": "apechain",
-      "count": 11
+      "count": 12
     },
     {
       "id": "arbitrum",
-      "count": 71
+      "count": 72
     },
     {
       "id": "avalanche",
-      "count": 55
+      "count": 56
     },
     {
       "id": "base",
-      "count": 76
+      "count": 77
     },
     {
       "id": "bitcoin",
-      "count": 8
+      "count": 9
     },
     {
       "id": "blast",
-      "count": 37
+      "count": 38
     },
     {
       "id": "cardano",
-      "count": 227
+      "count": 228
     },
     {
       "id": "ethereum",
-      "count": 113
+      "count": 114
     },
     {
       "id": "gnosis",
-      "count": 35
-    },
-    {
-      "id": "hype",
-      "count": 8
-    },
-    {
-      "id": "monad",
       "count": 36
     },
     {
+      "id": "hype",
+      "count": 9
+    },
+    {
+      "id": "monad",
+      "count": 37
+    },
+    {
       "id": "optimism",
-      "count": 67
+      "count": 68
     },
     {
       "id": "polygon",
-      "count": 73
+      "count": 74
     },
     {
       "id": "ronin",
-      "count": 13
+      "count": 14
     },
     {
       "id": "solana",
-      "count": 75
+      "count": 76
     },
     {
       "id": "soneium",
-      "count": 11
+      "count": 12
     },
     {
       "id": "worldchain",
-      "count": 10
+      "count": 11
     },
     {
       "id": "zora",
-      "count": 20
+      "count": 21
     }
   ],
   "apps": [
@@ -2967,6 +2967,38 @@ const APP_HUB: AppHubData = {
       "description": "IOG's light wallet for Cardano with staking and dApp connectivity.",
       "chainCount": 1,
       "coverage": 5
+    },
+    {
+      "id": "magicmoney-wallet",
+      "name": "MagicMoney Wallet",
+      "website": "https://github.com/M2AF/Magic-Money-Wallet",
+      "category": "Wallet",
+      "chains": [
+        "abstract",
+        "apechain",
+        "arbitrum",
+        "avalanche",
+        "base",
+        "bitcoin",
+        "blast",
+        "cardano",
+        "ethereum",
+        "gnosis",
+        "hype",
+        "monad",
+        "optimism",
+        "polygon",
+        "ronin",
+        "solana",
+        "soneium",
+        "worldchain",
+        "zora"
+      ],
+      "featured": true,
+      "favicon": "https://raw.githubusercontent.com/M2AF/Magic-Money-Wallet/main/resources/icon.png",
+      "description": "A self-custody multi-chain wallet for desktop, Chrome, and Android with dApp connectivity, swaps, and a built-in private browser.",
+      "chainCount": 19,
+      "coverage": 100
     },
     {
       "id": "metamask",

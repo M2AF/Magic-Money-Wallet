@@ -22,7 +22,16 @@
 import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen, session } from 'electron'
 import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle, Session } from 'electron'
 import { join } from 'path'
+import { writeFileSync } from 'fs'
 import { Socket } from 'net'
+import { addBookmark, isBookmarked, removeBookmarkByUrl, getWebApps } from './browser-store'
+import { installWebApp, isWebAppInstalled, type WebAppInstallResult } from './web-apps'
+import {
+  isPasswordVaultUnlocked,
+  matchPasswordsForHost,
+  revealPassword,
+  type PasswordSummary
+} from './password-vault'
 import { WALLET_ICON } from '../preload/wallet-icon'
 import { getDappChainId, setDappChainId } from './dapp-chain'
 import { defaultDappChainId } from './chain-config'
@@ -74,6 +83,8 @@ interface Tab {
   loading: boolean
   canBack: boolean
   canForward: boolean
+  /** Host already auto-filled in this document, so one page fills at most once. */
+  autofilledHost: string | null
 }
 
 let popupWin: BrowserWindow | null = null
@@ -805,6 +816,9 @@ function wireTab(tab: Tab): void {
 
   wc.on('did-navigate', (_e, url) => {
     tab.url = url
+    // New document ⇒ its preload will re-report any login form; allow one fresh
+    // auto-fill for it. In-page (SPA) navigations keep the guard.
+    tab.autofilledHost = null
     const nav = navCanGo(wc)
     tab.canBack = nav.canBack
     tab.canForward = nav.canForward
@@ -914,7 +928,7 @@ function createTab(url: string, activate = true): number {
       webSecurity: true,
     },
   })
-  const tab: Tab = { id: nextTabId++, view, url, title: 'New Tab', loading: true, canBack: false, canForward: false }
+  const tab: Tab = { id: nextTabId++, view, url, title: 'New Tab', loading: true, canBack: false, canForward: false, autofilledHost: null }
   tabs.push(tab)
   registerGuardTab(view.webContents.id)
   wireTab(tab)
@@ -1131,6 +1145,263 @@ export function getBrowserState() {
 }
 
 export function getMainWin(): BrowserWindow | null { return mainWin }
+
+// ── Page-level actions (address-bar star / share, "Save and share" menu) ─────
+//
+// Every one of these reads the URL and title from the ACTIVE TAB in main — never
+// from a value the chrome renderer passes in. The chrome renderer is trusted, but
+// keeping the page identity single-sourced here is what makes the password-fill
+// host check below meaningful: a tab that navigated a millisecond ago can't be
+// made to look like a different site.
+
+export interface BrowserPageState {
+  url: string
+  title: string
+  host: string
+  bookmarked: boolean
+  installed: boolean
+  /** Saved logins matching this host (metadata only — never the password). */
+  savedLogins: PasswordSummary[]
+  /** True when the password vault is open, so the menu can prompt instead of lying. */
+  passwordsUnlocked: boolean
+}
+
+/** The active tab's live URL + title, or null when no tab is open. */
+export function browserActivePage(): { url: string; title: string } | null {
+  const t = activeTab()
+  if (!t) return null
+  return { url: t.url, title: t.title }
+}
+
+export function browserGetPageState(): BrowserPageState {
+  const t = activeTab()
+  const url = t?.url ?? ''
+  const host = hostnameFromUrl(url) ?? ''
+  const web = /^https?:\/\//i.test(url)
+  return {
+    url,
+    title: t?.title ?? '',
+    host,
+    bookmarked: web ? isBookmarked(url) : false,
+    installed: web ? isWebAppInstalled(url) : false,
+    savedLogins: host && isPasswordVaultUnlocked() ? matchPasswordsForHost(host) : [],
+    passwordsUnlocked: isPasswordVaultUnlocked(),
+  }
+}
+
+/** Address-bar star: bookmark the current page, or un-bookmark it if already saved. */
+export function browserToggleBookmark(): BrowserPageState {
+  const t = activeTab()
+  if (t && /^https?:\/\//i.test(t.url)) {
+    if (isBookmarked(t.url)) removeBookmarkByUrl(t.url)
+    else addBookmark(t.url, t.title && t.title !== 'New Tab' ? t.title : t.url)
+  }
+  return browserGetPageState()
+}
+
+/** "Install this page as an app" — the shortcut name defaults to the page title. */
+export async function browserInstallPageAsApp(): Promise<WebAppInstallResult> {
+  const t = activeTab()
+  if (!t || !/^https?:\/\//i.test(t.url)) {
+    return { ok: false, apps: getWebApps(), error: 'There is no page to install' }
+  }
+  const name = t.title && t.title !== 'New Tab' && t.title !== 'Untitled'
+    ? t.title
+    : (hostnameFromUrl(t.url) ?? 'Web App')
+  return installWebApp(t.url, name)
+}
+
+export interface PageSaveResult { ok: boolean; path?: string; error?: string }
+
+/** "Save page as…" — a complete offline copy, via the OS save dialog. */
+export async function browserSavePage(): Promise<PageSaveResult> {
+  const t = activeTab()
+  if (!t || !popupWin || popupWin.isDestroyed()) return { ok: false, error: 'There is no page to save' }
+  const base = sanitizeFileBase(t.title || hostnameFromUrl(t.url) || 'page')
+
+  const { canceled, filePath } = await dialog.showSaveDialog(popupWin, {
+    title: 'Save page',
+    defaultPath: join(app.getPath('downloads'), `${base}.html`),
+    filters: [{ name: 'Web page, complete', extensions: ['html'] }],
+  })
+  if (canceled || !filePath) return { ok: false }
+
+  try {
+    // HTMLComplete writes the document plus a "<name>_files" folder of assets.
+    await t.view.webContents.savePage(filePath, 'HTMLComplete')
+    return { ok: true, path: filePath }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'The page could not be saved' }
+  }
+}
+
+/** "Screenshot" — capture the visible page straight into the Downloads folder. */
+export async function browserCapturePage(): Promise<PageSaveResult> {
+  const t = activeTab()
+  if (!t) return { ok: false, error: 'There is no page to capture' }
+  try {
+    const image = await t.view.webContents.capturePage()
+    if (image.isEmpty()) return { ok: false, error: 'The page could not be captured' }
+    const base = sanitizeFileBase(t.title || hostnameFromUrl(t.url) || 'screenshot')
+    const target = join(app.getPath('downloads'), `${base} ${Date.now()}.png`)
+    writeFileSync(target, image.toPNG())
+    return { ok: true, path: target }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'The page could not be captured' }
+  }
+}
+
+function sanitizeFileBase(name: string): string {
+  const cleaned = name
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^\.+/, '')
+    .trim()
+    .slice(0, 80)
+  return cleaned || 'page'
+}
+
+/**
+ * Type a saved login into the page's sign-in form.
+ *
+ * Only ever reached from an explicit click in the password panel — MagicMoney
+ * never fills automatically, so a hidden form on a hostile page cannot harvest a
+ * credential just by existing. Two further guards:
+ *   • the entry's host must match the ACTIVE TAB's host (read here, not passed in)
+ *   • values are embedded with JSON.stringify, so a password containing quotes or
+ *     newlines is data, never script
+ */
+export async function browserFillCredentials(id: string): Promise<{ ok: boolean; error?: string }> {
+  const t = activeTab()
+  if (!t) return { ok: false, error: 'There is no page to fill' }
+  return fillEntryIntoTab(t, id)
+}
+
+async function fillEntryIntoTab(t: Tab, id: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isPasswordVaultUnlocked()) return { ok: false, error: 'Unlock the password manager first' }
+
+  const host = hostnameFromUrl(t.url)
+  if (!host) return { ok: false, error: 'This page has no address to match' }
+  const match = matchPasswordsForHost(host).find(m => m.id === id)
+  if (!match) return { ok: false, error: 'That login is not saved for this site' }
+
+  let password: string
+  let username: string
+  try {
+    password = revealPassword(id)
+    username = match.username
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Could not read that saved password' }
+  }
+
+  const script = `(() => {
+    const user = ${JSON.stringify(username)};
+    const pass = ${JSON.stringify(password)};
+    const visible = el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
+    };
+    const setValue = (el, value) => {
+      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+      // React (and other controlled-input frameworks) track the last value on the
+      // node itself; assigning .value directly is silently reverted on re-render.
+      if (setter) setter.call(el, value); else el.value = value;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const passwords = Array.from(document.querySelectorAll('input[type="password"]')).filter(visible);
+    if (passwords.length === 0) return 'no-form';
+    const passField = passwords[0];
+    setValue(passField, pass);
+    if (user) {
+      const form = passField.form || document;
+      const candidates = Array.from(form.querySelectorAll('input')).filter(el =>
+        visible(el) && ['text', 'email', 'tel', ''].includes((el.type || '').toLowerCase())
+      );
+      // The username box is the last plain field BEFORE the password box.
+      const before = candidates.filter(el =>
+        passField.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING
+      );
+      const target = before[before.length - 1] || candidates[0];
+      if (target) setValue(target, user);
+    }
+    passField.focus();
+    return 'ok';
+  })()`
+
+  try {
+    const result = await t.view.webContents.executeJavaScript(script, true)
+    if (result === 'no-form') return { ok: false, error: 'No sign-in form was found on this page' }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'The page would not accept the fill' }
+  }
+}
+
+// ── Auto-fill ────────────────────────────────────────────────────────────────
+// The dApp tab's preload sends `autofill:form-found` (no payload) when a visible
+// password field appears in the TOP frame. Main then decides everything from its
+// own state: the tab is identified by the SENDER's webContents id, the host by
+// the tab's own URL, and a fill happens only when the vault is already unlocked
+// and a saved login matches that EXACT host — the same posture as Chrome/Brave.
+// Related-domain matches stay click-to-fill in the password panel, nothing is
+// ever auto-submitted, and each document auto-fills at most once.
+
+/** True for origins we'll auto-fill on: https, or plain-http loopback (dev). */
+function autofillOriginOk(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (u.protocol === 'https:') return true
+    return u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
+  } catch {
+    return false
+  }
+}
+
+export async function browserAutofillFormFound(senderWcId: number): Promise<void> {
+  const tab = tabs.find(t => t.view.webContents.id === senderWcId)
+  if (!tab || !isPasswordVaultUnlocked() || !autofillOriginOk(tab.url)) return
+  const host = hostnameFromUrl(tab.url)
+  if (!host || tab.autofilledHost === host) return
+  const exact = matchPasswordsForHost(host).filter(m => m.host === host)
+  if (exact.length === 0) return
+
+  // matchPasswordsForHost sorts deterministically; fill the first exact match.
+  tab.autofilledHost = host
+  const result = await fillEntryIntoTab(tab, exact[0].id)
+  if (result.ok) {
+    sendToChrome('browser:autofill-filled', {
+      host,
+      username: exact[0].username,
+      more: exact.length - 1,   // shown as "+n more in the password manager"
+    })
+  } else {
+    // The form vanished between detection and fill — let a later form retry.
+    tab.autofilledHost = null
+  }
+}
+
+/**
+ * Unlocking the password manager AFTER a login page already loaded would miss
+ * the preload's one-shot report, so the unlock handler calls this: re-check the
+ * ACTIVE tab for a visible password field and run the same auto-fill decision.
+ */
+export async function browserTryAutofillActiveTab(): Promise<void> {
+  const t = activeTab()
+  if (!t || !isPasswordVaultUnlocked() || !autofillOriginOk(t.url)) return
+  const probe = `(() => {
+    for (const el of document.querySelectorAll('input[type="password"]')) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return true;
+    }
+    return false;
+  })()`
+  try {
+    const hasForm = await t.view.webContents.executeJavaScript(probe, true)
+    if (hasForm === true) await browserAutofillFormFound(t.view.webContents.id)
+  } catch { /* page navigating — the next form-found report covers it */ }
+}
 
 // ── Branded approval / signing window ────────────────────────────────────────
 // Replaces the native dialog.showMessageBox() prompts with an in-house frameless
