@@ -651,6 +651,10 @@ declare global {
       browserFillPassword?(id: string): Promise<{ ok: boolean; error?: string }>
       onBrowserAutofill?(cb: (s: { host: string; username: string; more: number }) => void): void
       offBrowserAutofill?(cb: (s: { host: string; username: string; more: number }) => void): void
+      onBrowserToast?(cb: (message: string) => void): void
+      offBrowserToast?(cb: (message: string) => void): void
+      onBrowserFullscreen?(cb: (fullscreen: boolean) => void): void
+      offBrowserFullscreen?(cb: (fullscreen: boolean) => void): void
       onBrowserUrl(cb: (url: string) => void): void
       onBrowserLoading(cb: (loading: boolean) => void): void
       onBrowserNavState(cb: (s: { canBack: boolean; canForward: boolean }) => void): void

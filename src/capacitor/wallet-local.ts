@@ -23,11 +23,187 @@ import { DappBrowser } from './dapp-browser'
 import { DefaultBrowser } from './default-browser'
 import { Downloader } from './downloader'
 import { HOME_URL } from './BrowserOverlay'
+import * as Bm from './browser-data-local'
+import { registerLockListener } from './capacitor-store'
+import { buildFillScript } from '../main/password-fill'
+import { parsePasswordCsv } from '../main/password-csv'
 import type { DefaultBrowserState, DownloadProgress, DownloadResult } from '../renderer/types/wallet'
 
 // Our own UI is the privileged caller — same classification the extension gives
 // its popup pages, so the PAGE_RPC_TYPES gate stays closed to dApp content only.
 const UI_SENDER: Sender = { origin: 'wallet-ui', kind: 'extension' }
+
+// ── Browser extras: bookmarks, saved passwords, autofill ─────────────────────
+//
+// Android mirror of the desktop's browser-store/password-vault/autofill trio.
+// Two invariants carried over from the desktop implementation:
+//   • the page identity always comes from the ACTIVE TAB (DappBrowser.getState),
+//     never from a value a page or component passed in, and
+//   • a fill only ever happens for an EXACT host match on an unlocked vault.
+// The fill script itself is the shared one (password-fill.ts), so the desktop
+// and Android behaviours cannot drift.
+
+// Locking the wallet (explicit or idle expiry) must also close the saved-password
+// vault — otherwise the browser's password manager would stay open and fillable
+// behind a locked wallet. Desktop does this in ipc-handlers' lockEverything().
+registerLockListener(() => {
+  Bm.lockPasswords()
+  resetAutofillGuard()
+})
+
+const errText = (e: unknown, fallback: string): string =>
+  e instanceof Error && e.message ? e.message : fallback
+
+function hostLabel(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, '') } catch { return url }
+}
+
+/** The active tab's live URL + title, straight from the native plugin. */
+async function activePage(): Promise<{ url: string; title: string }> {
+  try {
+    const s = await DappBrowser.getState()
+    const tab = s.tabs.find(t => t.id === s.activeTabId)
+    return { url: s.url || tab?.url || '', title: tab?.title || '' }
+  } catch {
+    return { url: '', title: '' }
+  }
+}
+
+async function browserPageState() {
+  const page = await activePage()
+  const host = page.url ? Bm.hostOf(page.url) : ''
+  const web = /^https?:\/\//i.test(page.url)
+  const unlocked = Bm.isPasswordVaultUnlocked()
+  return {
+    url: page.url,
+    title: page.title,
+    host,
+    bookmarked: web ? await Bm.isBookmarked(page.url) : false,
+    installed: web ? await Bm.isWebAppInstalled(page.url) : false,
+    savedLogins: host && unlocked ? Bm.matchPasswordsForHost(host) : [],
+    passwordsUnlocked: unlocked,
+  }
+}
+
+/** Fill one saved login into the active tab, host-checked against that tab. */
+async function fillSavedLogin(id: string): Promise<{ ok: boolean; error?: string }> {
+  if (!Bm.isPasswordVaultUnlocked()) return { ok: false, error: 'Unlock the password manager first' }
+  const page = await activePage()
+  const host = page.url ? Bm.hostOf(page.url) : ''
+  if (!host) return { ok: false, error: 'This page has no address to match' }
+  const match = Bm.matchPasswordsForHost(host).find(m => m.id === id)
+  if (!match) return { ok: false, error: 'That login is not saved for this site' }
+
+  let password: string
+  try {
+    password = Bm.revealPassword(id)
+  } catch (e) {
+    return { ok: false, error: errText(e, 'Could not read that saved password') }
+  }
+
+  try {
+    const res = await DappBrowser.fillCredentials({ script: buildFillScript(match.username, password) })
+    if (!res.ok) return { ok: false, error: 'No sign-in form was found on this page' }
+    return { ok: true }
+  } catch {
+    return { ok: false, error: 'The page would not accept the fill' }
+  }
+}
+
+/** Only https (or loopback, for local dev) pages are eligible for auto-fill. */
+function autofillOriginOk(url: string): boolean {
+  try {
+    const u = new URL(url)
+    if (u.protocol === 'https:') return true
+    return u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
+  } catch {
+    return false
+  }
+}
+
+// Host already auto-filled for the current document, so a page fills at most
+// once; cleared when the active tab navigates (urlChanged).
+let _autofilledHost: string | null = null
+
+export function resetAutofillGuard(): void {
+  _autofilledHost = null
+}
+
+/**
+ * Decide whether to auto-fill the active tab. Exact-host matches only — a
+ * related-domain match stays click-to-fill in the password panel — and never
+ * auto-submits. Announced on the bus so the chrome can show a confirmation.
+ */
+export async function maybeAutofillActiveTab(): Promise<void> {
+  if (!Bm.isPasswordVaultUnlocked()) return
+  const page = await activePage()
+  if (!page.url || !autofillOriginOk(page.url)) return
+  const host = Bm.hostOf(page.url)
+  if (!host || _autofilledHost === host) return
+  const exact = Bm.matchPasswordsForHost(host).filter(m => m.host === host)
+  if (exact.length === 0) return
+
+  _autofilledHost = host
+  const result = await fillSavedLogin(exact[0].id)
+  if (result.ok) {
+    emitUiEvent('cap:browser:autofill', { host, username: exact[0].username, more: exact.length - 1 })
+  } else {
+    _autofilledHost = null   // form vanished mid-fill — let a later form retry
+  }
+}
+
+/** Re-probe the active tab (used after a late vault unlock). */
+async function tryAutofillActiveTab(): Promise<void> {
+  try {
+    const probe = await DappBrowser.hasLoginForm()
+    if (probe.hasForm) await maybeAutofillActiveTab()
+  } catch { /* no browser open */ }
+}
+
+/**
+ * CSV import. Android has no native file dialog exposed to the WebView, but the
+ * Capacitor WebView implements onShowFileChooser, so a transient
+ * <input type="file"> is the supported way to reach the system picker. The file
+ * is read and parsed in-process; nothing is written to disk.
+ */
+function importPasswordsFromCsvFile(): Promise<{ added: number; skipped: number; total?: number; unreadable?: number; canceled?: boolean; error?: string }> {
+  return new Promise(resolve => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.csv,text/csv,text/plain'
+    input.style.position = 'fixed'
+    input.style.left = '-10000px'
+    let settled = false
+    const finish = (v: { added: number; skipped: number; total?: number; unreadable?: number; canceled?: boolean; error?: string }) => {
+      if (settled) return
+      settled = true
+      input.remove()
+      resolve(v)
+    }
+    // A dismissed picker fires no event on Android, so treat the window regaining
+    // focus without a selection as a cancel rather than hanging the UI forever.
+    const onFocus = () => {
+      window.removeEventListener('focus', onFocus)
+      setTimeout(() => { if (!input.files || input.files.length === 0) finish({ added: 0, skipped: 0, canceled: true }) }, 1200)
+    }
+    input.onchange = async () => {
+      window.removeEventListener('focus', onFocus)
+      const file = input.files?.[0]
+      if (!file) { finish({ added: 0, skipped: 0, canceled: true }); return }
+      try {
+        const parsed = parsePasswordCsv(await file.text())
+        if (parsed.error) { finish({ added: 0, skipped: parsed.skipped, total: parsed.total, error: parsed.error }); return }
+        const merged = await Bm.mergePasswords(parsed.logins)
+        finish({ ...merged, total: parsed.total, unreadable: parsed.skipped })
+      } catch (e) {
+        finish({ added: 0, skipped: 0, error: errText(e, 'The file could not be read') })
+      }
+    }
+    document.body.appendChild(input)
+    window.addEventListener('focus', onFocus)
+    input.click()
+  })
+}
 
 function send<T = unknown>(type: string, ...args: unknown[]): Promise<T> {
   return handle({ type, args }, UI_SENDER) as Promise<T>
@@ -217,6 +393,104 @@ function buildWallet() {
     offBrowserTitle:     () => {},
     onBrowserClosed:     (cb: () => void) => onUiEvent('cap:browser:closed', cb as (d: unknown) => void),
     offBrowserClosed:    (cb: () => void) => offUiEvent('cap:browser:closed', cb as (d: unknown) => void),
+
+    // ── Bookmarks + page state ────────────────────────────────────────────
+    // Same method names the desktop preload exposes, so BookmarksPanel.tsx and
+    // PasswordManager.tsx are reused verbatim on Android.
+    browserGetPageState:   () => browserPageState(),
+    browserToggleBookmark: async () => {
+      const page = await activePage()
+      if (/^https?:\/\//i.test(page.url)) {
+        if (await Bm.isBookmarked(page.url)) await Bm.removeBookmarkByUrl(page.url)
+        else await Bm.addBookmark(page.url, page.title || page.url)
+      }
+      return browserPageState()
+    },
+    browserListBookmarks:  () => Bm.getBookmarks(),
+    browserRemoveBookmark: (id: string) => Bm.removeBookmark(id),
+    browserRenameBookmark: (id: string, title: string) => Bm.renameBookmark(id, title),
+    // Android apps are sandboxed: another browser's profile is unreadable, so
+    // there is no bookmark/password profile import here — CSV only.
+    browserImportBookmarks: async () => ({
+      added: 0, skipped: 0, bookmarks: await Bm.getBookmarks(),
+      error: 'Android apps cannot read another browser’s bookmarks. Export them to a file and import that instead.',
+    }),
+
+    // ── Save and share ────────────────────────────────────────────────────
+    browserWebAppsSupported: () => Promise.resolve(true),
+    browserListWebApps:      () => Bm.getWebApps(),
+    browserInstallWebApp:    async () => {
+      const page = await activePage()
+      if (!/^https?:\/\//i.test(page.url)) {
+        return { ok: false, apps: await Bm.getWebApps(), error: 'There is no page to install' }
+      }
+      const name = page.title || hostLabel(page.url)
+      try {
+        await DappBrowser.installShortcut({ url: page.url, name })
+      } catch (e) {
+        return { ok: false, apps: await Bm.getWebApps(), error: errText(e, 'Could not add the shortcut') }
+      }
+      return { ok: true, apps: await Bm.recordWebApp(page.url, name) }
+    },
+    // Removing the record only — Android gives no API to delete a shortcut the
+    // launcher already pinned, so the UI says to remove it from the home screen.
+    browserUninstallWebApp: (id: string) => Bm.forgetWebApp(id),
+    browserCopyLink: async () => {
+      const page = await activePage()
+      if (!page.url) return { ok: false, error: 'There is no page to copy' }
+      try {
+        await navigator.clipboard.writeText(page.url)
+        return { ok: true, url: page.url }
+      } catch {
+        return { ok: false, error: 'Could not copy the link' }
+      }
+    },
+    // The phone-native equivalent of the desktop's mailto: hand-off — Android's
+    // share sheet covers mail plus every other installed target.
+    browserShareByEmail: async () => {
+      const page = await activePage()
+      if (!page.url) return { ok: false, error: 'There is no page to share' }
+      try {
+        await DappBrowser.sharePage({ url: page.url, title: page.title })
+        return { ok: true }
+      } catch (e) {
+        return { ok: false, error: errText(e, 'Could not open the share sheet') }
+      }
+    },
+    // Saving a full offline copy and screenshotting the native WebView have no
+    // Android equivalent yet — reported rather than silently doing nothing.
+    browserSavePage:    () => Promise.resolve({ ok: false, error: 'Saving pages is not available on Android yet' }),
+    browserCapturePage: () => Promise.resolve({ ok: false, error: 'Screenshots are not available on Android yet' }),
+
+    // ── Password manager ──────────────────────────────────────────────────
+    passwordsStatus: () => Bm.passwordVaultStatus(),
+    passwordsUnlock: async (password: string) => {
+      const status = await Bm.unlockPasswords(password)
+      // A login page may already be open — its one-shot form report fired while
+      // the vault was locked, so re-check the active tab now (desktop parity).
+      void tryAutofillActiveTab()
+      return status
+    },
+    passwordsLock:   async () => { Bm.lockPasswords(); return Bm.passwordVaultStatus() },
+    passwordsList:   () => Promise.resolve(Bm.listPasswords()),
+    passwordsReveal: (id: string) => Promise.resolve(Bm.revealPassword(id)),
+    passwordsCopy:   async (id: string) => {
+      await navigator.clipboard.writeText(Bm.revealPassword(id))
+      return { ok: true }
+    },
+    passwordsSave:   (entry: { id?: string; url: string; username: string; password: string; note?: string }) =>
+      Bm.savePassword(entry),
+    passwordsDelete: (id: string) => Bm.deletePassword(id),
+    // No Chromium profiles are reachable from an Android sandbox.
+    passwordsImportSources: () => Promise.resolve([]),
+    passwordsImport:        () => Promise.resolve({
+      added: 0, skipped: 0,
+      error: 'Android apps cannot read another browser’s saved passwords. Export them to a CSV and import that instead.',
+    }),
+    passwordsImportCsv: () => importPasswordsFromCsvFile(),
+    browserFillPassword: (id: string) => fillSavedLogin(id),
+    onBrowserAutofill:  (cb: (s: unknown) => void) => onUiEvent('cap:browser:autofill', cb as (d: unknown) => void),
+    offBrowserAutofill: (cb: (s: unknown) => void) => offUiEvent('cap:browser:autofill', cb as (d: unknown) => void),
 
     // ChainLens profile (supabase-sync is stubbed on Android, like the extension)
     chainlensGetProfile:    ()              => send('chainlens:get-profile'),

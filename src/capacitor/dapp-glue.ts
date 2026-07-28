@@ -13,6 +13,7 @@
 import { handle, PAGE_RPC_TYPES, type Msg } from '../extension/wallet-handlers'
 import { setDappSink } from './platform-capacitor'
 import { DappBrowser, type PageRequestEvent } from './dapp-browser'
+import { maybeAutofillActiveTab, resetAutofillGuard } from './wallet-local'
 
 let _installed = false
 
@@ -22,6 +23,17 @@ export function initDappGlue(): void {
 
   DappBrowser.addListener('pageRequest', (e: PageRequestEvent) => { onPageRequest(e).catch(() => {}) })
     .catch(() => { /* web/dev context without the native plugin */ })
+
+  // Saved-login autofill. Native forwards the page's payload-free
+  // 'autofillFormFound' signal for the ACTIVE tab only; the decision (vault
+  // unlocked? exact host match? already filled this document?) is made in
+  // wallet-local against the tab's own URL — never against anything the page sent.
+  DappBrowser.addListener('autofillFormFound', () => { void maybeAutofillActiveTab() })
+    .catch(() => {})
+
+  // A real navigation starts a new document, so allow one fresh auto-fill for it.
+  DappBrowser.addListener('urlChanged', () => { resetAutofillGuard() })
+    .catch(() => {})
 
   // EIP-1193 event pushes from wallet-handlers (applyChainSwitch, revokes,
   // connection approvals) → native WebViews. Tab-targeted pushes fall back to

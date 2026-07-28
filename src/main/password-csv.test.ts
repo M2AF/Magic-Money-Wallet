@@ -1,17 +1,13 @@
 /**
- * browser-import.test.ts — CSV password-export parsing
+ * password-csv.test.ts — CSV password-export parsing
  *
  * The profile/DPAPI import paths need a real OS user and another browser's
- * files, so they stay manual; the CSV parser is pure and is covered here
- * against the real export shapes of the mainstream password managers.
+ * files, so they stay manual; the CSV parser is pure (and shared by the
+ * Electron and Android importers) so it is covered here against the real
+ * export shapes of the mainstream password managers.
  */
-import { describe, it, expect, vi } from 'vitest'
-
-// browser-import touches Electron only for app.getPath — stub it so the pure
-// CSV paths run under plain Node (same pattern as magic-guard.test.ts).
-vi.mock('electron', () => ({ app: { getPath: () => '/tmp' } }))
-
-import { parseCsv, parsePasswordCsv } from './browser-import'
+import { describe, it, expect } from 'vitest'
+import { parseCsv, parsePasswordCsv } from './password-csv'
 
 describe('parseCsv', () => {
   it('splits simple rows', () => {

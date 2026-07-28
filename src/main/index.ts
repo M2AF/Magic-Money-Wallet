@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell, session, net, Tray, Menu, nativeImage } from
 import { join } from 'path'
 import { registerIpcHandlers } from './ipc-handlers'
 import { setSwapFetch } from './swap-proxy'
-import { setMainWindow, initMagicGuard, openBrowserWithUrl, openBrowserWindow } from './browser-manager'
+import { setMainWindow, initMagicGuard, initBrowserDownloads, openBrowserWithUrl, openBrowserWindow } from './browser-manager'
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
@@ -261,6 +261,9 @@ app.whenReady().then(() => {
   // initialization-point guidance — attaches the dApp-session request listener
   // and starts loading the bundled filter lists (deferred; see initMagicGuard doc).
   initMagicGuard()
+  // Same one-listener-per-session rule as Magic Guard: register the dApp
+  // browser's download handler once, before any browser window can open.
+  initBrowserDownloads()
   createTray()
   createWindow()
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))

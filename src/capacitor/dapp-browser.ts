@@ -46,9 +46,19 @@ export interface DappBrowserPlugin {
   getMagicGuardState(): Promise<MagicGuardState>
   setMagicGuardEnabled(o: { enabled: boolean }): Promise<MagicGuardState>
   setMagicGuardForSite(o: { enabled: boolean }): Promise<MagicGuardState>
+  // Saved-password fill. Runs `script` in the ACTIVE tab only — there is no
+  // tabId parameter by design, so a fill can never be aimed at a background tab.
+  fillCredentials(o: { script: string }): Promise<{ ok: boolean; result: string }>
+  hasLoginForm(): Promise<{ hasForm: boolean; url: string }>
+  // Android system share sheet (the phone-native analog of copy link / email).
+  sharePage(o: { url: string; title?: string }): Promise<void>
+  // "Install as app" → a pinned home-screen shortcut that re-enters this browser.
+  installShortcut(o: { url: string; name?: string }): Promise<void>
   respond(o: { requestId: string; json: string }): Promise<void>
   emitEvent(o: { origin?: string; json: string }): Promise<void>
   addListener(event: 'pageRequest', cb: (e: PageRequestEvent) => void): Promise<PluginListenerHandle>
+  // A visible password field appeared in the ACTIVE tab (payload-free by design).
+  addListener(event: 'autofillFormFound', cb: (e: { tabId: number; origin: string }) => void): Promise<PluginListenerHandle>
   addListener(event: 'urlChanged', cb: (e: { url: string }) => void): Promise<PluginListenerHandle>
   addListener(event: 'loadingChanged', cb: (e: { loading: boolean }) => void): Promise<PluginListenerHandle>
   addListener(event: 'navState', cb: (e: { canBack: boolean; canForward: boolean }) => void): Promise<PluginListenerHandle>

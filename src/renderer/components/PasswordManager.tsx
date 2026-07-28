@@ -29,13 +29,22 @@ interface Draft {
 
 const emptyDraft = (url = ''): Draft => ({ url, username: '', password: '', note: '' })
 
-export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onChanged }: {
+const DESKTOP_IMPORT_EMPTY =
+  'No Chrome, Edge, Brave, Vivaldi or Chromium profile was found on this computer.'
+
+export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onChanged, importEmptyText }: {
   currentHost: string
   currentUrl: string
   onClose: () => void
   onToast: (message: string) => void
   /** Lets BrowserApp refresh its page state (the menu shows locked/unlocked). */
   onChanged: () => void
+  /**
+   * Shown when no importable browser profile exists. Android overrides it: an
+   * app sandbox can never read another browser's profile, so listing desktop
+   * browsers there would just be misleading.
+   */
+  importEmptyText?: string
 }) {
   const [status, setStatus] = useState<PasswordVaultStatus | null>(null)
   const [entries, setEntries] = useState<PasswordSummary[]>([])
@@ -286,7 +295,7 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
             sources={sources}
             busy={importing}
             label="Import passwords from"
-            emptyText="No Chrome, Edge, Brave, Vivaldi or Chromium profile was found on this computer."
+            emptyText={importEmptyText ?? DESKTOP_IMPORT_EMPTY}
             onPick={importFrom}
             extra={{ label: 'CSV file…', onClick: () => void importCsv() }}
           />

@@ -66,6 +66,7 @@ export function BrowserApp() {
   })
   const [webAppsSupported, setWebAppsSupported] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [fullscreen, setFullscreen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // ── Subscribe to nav events from main process ──────────────────────────
@@ -138,6 +139,23 @@ export function BrowserApp() {
     }
     window.wallet.onBrowserAutofill?.(onFilled)
     return () => window.wallet.offBrowserAutofill?.(onFilled)
+  }, [])
+
+  // Status text pushed from main (a download finished, etc).
+  useEffect(() => {
+    const onToast = (message: string) => setToast(message)
+    window.wallet.onBrowserToast?.(onToast)
+    return () => window.wallet.offBrowserToast?.(onToast)
+  }, [])
+
+  // HTML5 fullscreen: main gives the tab's view the whole window and puts the
+  // window into OS fullscreen, so the chrome must get out of the way entirely —
+  // otherwise it keeps reporting a chrome height and re-appears on the next
+  // layout pass.
+  useEffect(() => {
+    const onFullscreen = (v: boolean) => setFullscreen(v)
+    window.wallet.onBrowserFullscreen?.(onFullscreen)
+    return () => window.wallet.offBrowserFullscreen?.(onFullscreen)
   }, [])
 
   // Transient confirmation ("Bookmark added", "Link copied"). One at a time; a
@@ -241,10 +259,17 @@ export function BrowserApp() {
   // edge. The content div's viewport-top IS the chrome height; re-measure on any
   // layout change (window resize, font load) so it can never drift.
   const contentRef = useRef<HTMLDivElement>(null)
+  // The height reporter runs from a deps-free layout effect, so it reads the
+  // fullscreen flag through a ref rather than a stale closure.
+  const fullscreenRef = useRef(false)
+  fullscreenRef.current = fullscreen
   useLayoutEffect(() => {
     const el = contentRef.current
     if (!el) return
     const report = () => {
+      // While a video is fullscreen the view owns the whole window; reporting a
+      // chrome height here would push it back down and re-expose the toolbar.
+      if (fullscreenRef.current) return
       const top = Math.round(el.getBoundingClientRect().top)
       if (top > 0) window.wallet.browserSetChromeHeight?.(top)
     }
@@ -257,10 +282,16 @@ export function BrowserApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
-      {/* ── Custom titlebar ──────────────────────────────────────────── */}
+      {/* ── Custom titlebar ────────────────────────────────────────────
+          Hidden entirely during HTML5 fullscreen so the video really is
+          fullscreen (the view already covers the window; leaving these mounted
+          would keep re-reporting a chrome height). */}
       <div
         className="titlebar"
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+        style={{
+          display: fullscreen ? 'none' : 'flex',
+          alignItems: 'center', justifyContent: 'space-between',
+        }}
       >
         <img
           src={logoUrl}
@@ -278,7 +309,8 @@ export function BrowserApp() {
 
       {/* ── Address bar / nav chrome ─────────────────────────────────── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: fullscreen ? 'none' : 'flex',
+        alignItems: 'center', gap: 6,
         padding: '6px 10px',
         background: 'var(--bg)',
         borderBottom: '1px solid var(--border)',

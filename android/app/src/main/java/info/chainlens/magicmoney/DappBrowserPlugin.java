@@ -1,18 +1,28 @@
 package info.chainlens.magicmoney;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.webkit.CookieManager;
+import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -20,9 +30,16 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.graphics.drawable.IconCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
@@ -190,6 +207,7 @@ public class DappBrowserPlugin extends Plugin {
     @PluginMethod
     public void close(PluginCall call) {
         getActivity().runOnUiThread(() -> {
+            exitFullscreen();
             for (Tab t : tabs.values()) {
                 container.removeView(t.webView);
                 t.webView.destroy();
@@ -317,6 +335,9 @@ public class DappBrowserPlugin extends Plugin {
     @PluginMethod
     public void hide(PluginCall call) {
         getActivity().runOnUiThread(() -> {
+            // Leaving the browser must drop fullscreen too, or the video would
+            // stay pinned over the wallet UI with no way back.
+            exitFullscreen();
             browserShown = false;
             syncContainerVisibility();
             call.resolve();
@@ -329,6 +350,133 @@ public class DappBrowserPlugin extends Plugin {
             browserShown = true;
             syncContainerVisibility();
             call.resolve();
+        });
+    }
+
+    // ── Password autofill / manual fill ──────────────────────────────────────
+    //
+    // JS is evaluated in the ACTIVE tab's WebView only, and the caller (the
+    // wallet WebView's password vault) has already matched the credential
+    // against that tab's host. `evalInActiveTab` is deliberately NOT a general
+    // "run this on any tab" primitive: there is no tabId parameter, so the
+    // wallet can never aim a fill at a background tab it isn't looking at.
+    @PluginMethod
+    public void fillCredentials(PluginCall call) {
+        String script = call.getString("script", "");
+        if (script == null || script.isEmpty()) {
+            call.reject("No fill script supplied");
+            return;
+        }
+        getActivity().runOnUiThread(() -> {
+            Tab t = active();
+            if (t == null) {
+                call.reject("There is no page to fill");
+                return;
+            }
+            t.webView.evaluateJavascript(script, value -> {
+                JSObject ret = new JSObject();
+                // evaluateJavascript hands back a JSON literal, so a returned
+                // string arrives quoted — compare against the quoted form.
+                ret.put("ok", !"\"no-form\"".equals(value));
+                ret.put("result", value == null ? "" : value);
+                call.resolve(ret);
+            });
+        });
+    }
+
+    /** True when the active tab currently shows a visible password field. */
+    @PluginMethod
+    public void hasLoginForm(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            Tab t = active();
+            if (t == null) {
+                JSObject ret = new JSObject();
+                ret.put("hasForm", false);
+                call.resolve(ret);
+                return;
+            }
+            t.webView.evaluateJavascript(HAS_LOGIN_FORM_JS, value -> {
+                JSObject ret = new JSObject();
+                ret.put("hasForm", "true".equals(value));
+                ret.put("url", t.url == null ? "" : t.url);
+                call.resolve(ret);
+            });
+        });
+    }
+
+    private static final String HAS_LOGIN_FORM_JS =
+            "(function(){var l=document.querySelectorAll('input[type=\"password\"]');" +
+            "for(var i=0;i<l.length;i++){var r=l[i].getBoundingClientRect();" +
+            "if(r.width>0&&r.height>0)return true;}return false;})()";
+
+    // ── Share sheet ──────────────────────────────────────────────────────────
+    // Android's system share sheet — the platform-correct analog of the
+    // desktop's "copy link / share by email" pair, and what a phone user
+    // actually expects from a share button.
+    @PluginMethod
+    public void sharePage(PluginCall call) {
+        String url = call.getString("url", "");
+        String title = call.getString("title", "");
+        if (url == null || url.isEmpty()) {
+            call.reject("There is no page to share");
+            return;
+        }
+        final String shareTitle = title == null ? "" : title;
+        getActivity().runOnUiThread(() -> {
+            try {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("text/plain");
+                send.putExtra(Intent.EXTRA_TEXT, url);
+                if (!shareTitle.isEmpty()) send.putExtra(Intent.EXTRA_SUBJECT, shareTitle);
+                Intent chooser = Intent.createChooser(send, "Share page");
+                chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(chooser);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("No app is available to share with");
+            }
+        });
+    }
+
+    // ── Install page as an app (home-screen shortcut) ────────────────────────
+    // The Android analog of the desktop's .lnk/.desktop shortcut. The shortcut
+    // fires a VIEW intent at MagicMoney itself, which the manifest's http/https
+    // filter already routes into this dApp browser — the same path used when
+    // MagicMoney holds the default-browser role. Launchers that don't support
+    // pinning report unsupported rather than silently doing nothing.
+    @PluginMethod
+    public void installShortcut(PluginCall call) {
+        String url = call.getString("url", "");
+        String name = call.getString("name", "");
+        if (url == null || url.isEmpty()) {
+            call.reject("There is no page to install");
+            return;
+        }
+        final String label = (name == null || name.trim().isEmpty())
+                ? Uri.parse(url).getHost() : name.trim();
+        getActivity().runOnUiThread(() -> {
+            try {
+                if (!ShortcutManagerCompat.isRequestPinShortcutSupported(getContext())) {
+                    call.reject("This launcher does not support adding shortcuts");
+                    return;
+                }
+                Intent open = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                open.setPackage(getContext().getPackageName());
+                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+                ShortcutInfoCompat shortcut = new ShortcutInfoCompat.Builder(
+                            getContext(), "mm-webapp-" + Integer.toHexString(url.hashCode()))
+                        .setShortLabel(label == null || label.isEmpty() ? "Web App" : label)
+                        .setLongLabel(label == null || label.isEmpty() ? "Web App" : label)
+                        .setIcon(IconCompat.createWithResource(getContext(), R.mipmap.ic_launcher))
+                        .setIntent(open)
+                        .build();
+
+                ShortcutManagerCompat.requestPinShortcut(getContext(), shortcut, null);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Could not add the shortcut");
+            }
         });
     }
 
@@ -833,8 +981,253 @@ public class DappBrowserPlugin extends Plugin {
         if (container == null) return;
         boolean torAllowsPage = (!torEnabled && !"connecting".equals(torStatus))
                 || "connected".equals(torStatus);
-        boolean showPage = browserShown && activeTabId != -1 && torAllowsPage;
+        // While a video is fullscreen the page container stays hidden behind the
+        // fullscreen view — otherwise the tab would paint over the video.
+        boolean showPage = browserShown && activeTabId != -1 && torAllowsPage && customView == null;
         container.setVisibility(showPage ? View.VISIBLE : View.GONE);
+    }
+
+    // ── HTML5 fullscreen video ───────────────────────────────────────────────
+    //
+    // The site hands us a view; we host it edge-to-edge above everything else
+    // (including the wallet WebView, which is a sibling in the activity's content
+    // frame) and hide the system bars. Back exits fullscreen rather than the page,
+    // which is why the container takes focus and listens for KEYCODE_BACK.
+
+    private FrameLayout fullscreenContainer;
+    private View customView;
+    private WebChromeClient.CustomViewCallback customViewCallback;
+
+    private void ensureFullscreenContainer() {
+        if (fullscreenContainer != null) return;
+        fullscreenContainer = new FrameLayout(getContext());
+        fullscreenContainer.setBackgroundColor(0xFF000000);
+        fullscreenContainer.setVisibility(View.GONE);
+        fullscreenContainer.setFocusable(true);
+        fullscreenContainer.setFocusableInTouchMode(true);
+        fullscreenContainer.setOnKeyListener((v, keyCode, event) -> {
+            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP && customView != null) {
+                exitFullscreen();
+                return true;
+            }
+            return false;
+        });
+        getActivity().addContentView(fullscreenContainer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void enterFullscreen(View view, WebChromeClient.CustomViewCallback callback) {
+        if (customView != null) {
+            // Already fullscreen — the contract is to reject the second request.
+            callback.onCustomViewHidden();
+            return;
+        }
+        customView = view;
+        customViewCallback = callback;
+        ensureFullscreenContainer();
+        fullscreenContainer.addView(view, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        fullscreenContainer.setVisibility(View.VISIBLE);
+        fullscreenContainer.bringToFront();
+        fullscreenContainer.requestFocus();
+        bridge.getWebView().setVisibility(View.GONE);
+        syncContainerVisibility();
+        setSystemBarsVisible(false);
+    }
+
+    private void exitFullscreen() {
+        if (customView == null) return;
+        if (fullscreenContainer != null) {
+            fullscreenContainer.removeAllViews();
+            fullscreenContainer.setVisibility(View.GONE);
+        }
+        customView = null;
+        if (customViewCallback != null) {
+            try { customViewCallback.onCustomViewHidden(); } catch (Exception ignored) { }
+            customViewCallback = null;
+        }
+        bridge.getWebView().setVisibility(View.VISIBLE);
+        syncContainerVisibility();
+        setSystemBarsVisible(true);
+    }
+
+    private void setSystemBarsVisible(boolean visible) {
+        try {
+            Window window = getActivity().getWindow();
+            WindowInsetsControllerCompat controller =
+                    WindowCompat.getInsetsController(window, window.getDecorView());
+            if (visible) {
+                controller.show(WindowInsetsCompat.Type.systemBars());
+            } else {
+                controller.setSystemBarsBehavior(
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.hide(WindowInsetsCompat.Type.systemBars());
+            }
+        } catch (Exception ignored) { /* never let chrome tweaks break playback */ }
+    }
+
+    // ── Long-press context menu (links + images) ─────────────────────────────
+
+    /** Show the action sheet for whatever was long-pressed. False = not ours. */
+    private boolean showHitTestMenu(WebView wv) {
+        WebView.HitTestResult result = wv.getHitTestResult();
+        if (result == null) return false;
+        int type = result.getType();
+        String extra = result.getExtra();
+
+        if (type == WebView.HitTestResult.SRC_ANCHOR_TYPE) {
+            presentLinkMenu(extra, null);
+            return true;
+        }
+        if (type == WebView.HitTestResult.IMAGE_TYPE) {
+            presentLinkMenu(null, extra);
+            return true;
+        }
+        if (type == WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE) {
+            // An image wrapped in a link: the anchor href isn't in the hit test,
+            // it has to be requested asynchronously from the DOM node.
+            final String imageUrl = extra;
+            Message msg = new Handler(Looper.getMainLooper()) {
+                @Override
+                public void handleMessage(@NonNull Message m) {
+                    String linkUrl = m.getData() == null ? null : m.getData().getString("url");
+                    presentLinkMenu(linkUrl, imageUrl);
+                }
+            }.obtainMessage();
+            wv.requestFocusNodeHref(msg);
+            return true;
+        }
+        return false;   // plain text — leave selection alone
+    }
+
+    private void presentLinkMenu(String linkUrl, String imageUrl) {
+        final boolean hasLink = isDownloadableUrl(linkUrl);
+        final boolean hasImage = isDownloadableUrl(imageUrl);
+        if (!hasLink && !hasImage) return;
+
+        final java.util.List<String> labels = new java.util.ArrayList<>();
+        final java.util.List<Runnable> actions = new java.util.ArrayList<>();
+
+        if (hasLink) {
+            labels.add("Open in new tab");
+            actions.add(() -> openInNewTab(linkUrl));
+            labels.add("Copy link address");
+            actions.add(() -> copyToClipboard("Link", linkUrl, "Link copied"));
+            labels.add("Download link");
+            actions.add(() -> startDownload(linkUrl, URLUtil.guessFileName(linkUrl, null, null)));
+            labels.add("Share link");
+            actions.add(() -> shareText(linkUrl));
+        }
+        if (hasImage) {
+            labels.add("Open image in new tab");
+            actions.add(() -> openInNewTab(imageUrl));
+            labels.add("Copy image address");
+            actions.add(() -> copyToClipboard("Image", imageUrl, "Image address copied"));
+            labels.add("Download image");
+            actions.add(() -> startDownload(imageUrl, URLUtil.guessFileName(imageUrl, null, null)));
+            labels.add("Share image");
+            actions.add(() -> shareText(imageUrl));
+        }
+
+        String header = hasLink ? linkUrl : imageUrl;
+        if (header != null && header.length() > 80) header = header.substring(0, 77) + "…";
+
+        new AlertDialog.Builder(getActivity())
+                .setTitle(header)
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    if (which >= 0 && which < actions.size()) actions.get(which).run();
+                })
+                .show();
+    }
+
+    /** Only real web URLs are actionable — data:/blob:/javascript: are not. */
+    private boolean isDownloadableUrl(String url) {
+        if (url == null || url.isEmpty()) return false;
+        String lower = url.toLowerCase(Locale.US);
+        return lower.startsWith("http://") || lower.startsWith("https://");
+    }
+
+    private void openInNewTab(String url) {
+        getActivity().runOnUiThread(() -> {
+            if (tabs.size() >= MAX_TABS) {
+                toast("Close a tab first — " + MAX_TABS + " is the limit");
+                return;
+            }
+            ensureContainer();
+            browserShown = true;
+            Tab t = createTab(url);
+            selectTabInternal(t.id);
+            pushTabsChanged();
+        });
+    }
+
+    private void copyToClipboard(String label, String value, String confirmation) {
+        try {
+            ClipboardManager cm = (ClipboardManager) getContext().getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm == null) return;
+            cm.setPrimaryClip(ClipData.newPlainText(label, value));
+            toast(confirmation);
+        } catch (Exception e) {
+            toast("Could not copy");
+        }
+    }
+
+    private void shareText(String value) {
+        try {
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/plain");
+            send.putExtra(Intent.EXTRA_TEXT, value);
+            Intent chooser = Intent.createChooser(send, "Share");
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(chooser);
+        } catch (Exception e) {
+            toast("No app is available to share with");
+        }
+    }
+
+    /**
+     * Save a URL through Android's DownloadManager (notification + Downloads
+     * folder, like any other browser).
+     *
+     * REFUSED WHILE TOR MODE IS ON: DownloadManager is a separate system process
+     * that does NOT use this app's WebView proxy, so letting it run would send a
+     * direct, de-anonymized request — exactly the leak Tor Mode's fail-closed
+     * design exists to prevent.
+     */
+    private void startDownload(String url, String fileName) {
+        if (torEnabled) {
+            toast("Downloads are blocked while Tor Mode is on — they would bypass Tor");
+            return;
+        }
+        if (!isDownloadableUrl(url)) {
+            toast("This item can't be downloaded");
+            return;
+        }
+        try {
+            DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+            if (dm == null) { toast("Downloads are unavailable on this device"); return; }
+
+            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+            String name = (fileName == null || fileName.isEmpty()) ? "download" : fileName;
+            req.setTitle(name);
+            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            // Carry the page's cookies/UA so login-gated media saves correctly.
+            String cookie = CookieManager.getInstance().getCookie(url);
+            if (cookie != null) req.addRequestHeader("Cookie", cookie);
+            Tab active = active();
+            if (active != null && active.url != null) req.addRequestHeader("Referer", active.url);
+
+            dm.enqueue(req);
+            toast("Saving " + name + "…");
+        } catch (Exception e) {
+            toast("Could not start the download");
+        }
+    }
+
+    private void toast(String message) {
+        getActivity().runOnUiThread(() ->
+                Toast.makeText(getContext(), message, Toast.LENGTH_SHORT).show());
     }
 
     private void stopLoadingAllTabs() {
@@ -925,9 +1318,27 @@ public class DappBrowserPlugin extends Plugin {
                     if (data == null) return;
                     try {
                         JSONObject o = new JSONObject(data);
-                        if ("hello".equals(o.optString("type"))) {
+                        String type = o.optString("type");
+                        if ("hello".equals(type)) {
                             tab.replyProxy = replyProxy;
                             tab.origin = sourceOrigin.toString();
+                            return;
+                        }
+                        // A visible password field appeared in this page. The
+                        // message carries NO data — the wallet re-derives the
+                        // host from the tab it is actually showing, so a page
+                        // cannot ask to be filled with another site's login.
+                        // Only the ACTIVE tab is announced: a background tab
+                        // must never trigger a fill the user isn't looking at.
+                        if ("autofillFormFound".equals(type)) {
+                            tab.replyProxy = replyProxy;
+                            tab.origin = sourceOrigin.toString();
+                            if (tab.id == activeTabId) {
+                                JSObject af = new JSObject();
+                                af.put("tabId", tab.id);
+                                af.put("origin", sourceOrigin.toString());
+                                notifyListeners("autofillFormFound", af);
+                            }
                             return;
                         }
                     } catch (Exception ignored) {
@@ -1030,7 +1441,31 @@ public class DappBrowserPlugin extends Plugin {
                 }
                 pushTabsChanged();
             }
+
+            // HTML5 fullscreen (YouTube/Twitter/etc). Without these two overrides
+            // the WebView reports no fullscreen support and the site's fullscreen
+            // button does nothing at all.
+            @Override
+            public void onShowCustomView(View view, CustomViewCallback callback) {
+                enterFullscreen(view, callback);
+            }
+
+            @Override
+            public void onHideCustomView() {
+                exitFullscreen();
+            }
         });
+
+        // Long-press on a link or image → the same action sheet other Android
+        // browsers offer. Returning false for anything else leaves normal text
+        // selection untouched.
+        wv.setOnLongClickListener(v -> showHitTestMenu(wv));
+
+        // Ordinary download links (a file the page navigates to rather than
+        // renders). Same DownloadManager path the context menu uses, including
+        // the Tor guard — see startDownload.
+        wv.setDownloadListener((downloadUrl, userAgent, contentDisposition, mimeType, contentLength) ->
+                startDownload(downloadUrl, URLUtil.guessFileName(downloadUrl, contentDisposition, mimeType)));
 
         container.addView(wv, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));

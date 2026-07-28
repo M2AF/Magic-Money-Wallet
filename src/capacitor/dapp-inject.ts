@@ -64,6 +64,59 @@ if (bridge) {
     },
     onEvent(cb) { _eventCbs.push(cb) },
   })
+
+  // ── Saved-login autofill: tell the wallet a login form appeared ────────────
+  // Mirrors the Electron preload's detector. The message carries NO data: native
+  // forwards it only for the ACTIVE tab, and the wallet re-derives the host from
+  // that tab's own URL before deciding whether to fill. Reported at most once per
+  // document; the observer catches SPA logins that render after load and then
+  // disconnects.
+
+  const hasVisiblePasswordField = (): boolean => {
+    for (const el of Array.from(document.querySelectorAll('input[type="password"]'))) {
+      const r = (el as HTMLElement).getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) return true
+    }
+    return false
+  }
+
+  let reported = false
+  let queued = false
+  let observer: MutationObserver | null = null
+
+  const scanForLoginForm = (): void => {
+    queued = false
+    if (reported || !hasVisiblePasswordField()) return
+    reported = true
+    observer?.disconnect()
+    observer = null
+    try { bridge.postMessage(JSON.stringify({ type: 'autofillFormFound' })) } catch { /* noop */ }
+  }
+
+  // Coalesce mutation bursts into one scan per frame — pages mutate constantly
+  // and the scan walks the DOM.
+  const queueScan = (): void => {
+    if (reported || queued) return
+    queued = true
+    requestAnimationFrame(scanForLoginForm)
+  }
+
+  const startLoginWatch = (): void => {
+    scanForLoginForm()
+    if (reported) return
+    observer = new MutationObserver(queueScan)
+    observer.observe(document.documentElement, {
+      childList: true, subtree: true,
+      attributes: true, attributeFilter: ['type', 'style', 'class', 'hidden'],
+    })
+  }
+
+  // document_start injection means the body usually isn't parsed yet.
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', startLoginWatch)
+  } else {
+    startLoginWatch()
+  }
 } else {
   console.warn('[MagicMoney] __mmBridge missing — provider injection skipped')
 }

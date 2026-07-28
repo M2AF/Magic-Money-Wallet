@@ -21,10 +21,13 @@
 
 import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen, session } from 'electron'
 import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle, Session } from 'electron'
-import { join } from 'path'
-import { writeFileSync } from 'fs'
+import { join, basename } from 'path'
+import { writeFileSync, existsSync } from 'fs'
 import { Socket } from 'net'
+import { showBrowserContextMenu } from './browser-context-menu'
 import { addBookmark, isBookmarked, removeBookmarkByUrl, getWebApps } from './browser-store'
+// Shared with the Android fill path so the two can never drift (password-fill.ts).
+import { buildFillScript } from './password-fill'
 import { installWebApp, isWebAppInstalled, type WebAppInstallResult } from './web-apps'
 import {
   isPasswordVaultUnlocked,
@@ -119,6 +122,15 @@ const SNAP_WALLET_WIDTH = 440          // wallet pane width when tiled (browser 
 // detached while the dropdown is showing (otherwise it hides the dropdown). It is
 // re-attached when the dropdown closes. See browserSuspendTabsMenu / …Resume….
 let tabsMenuOpen = false
+
+// Tab currently in HTML5 fullscreen (a video's fullscreen button), or null.
+// Drives both the full-window view bounds and the OS-fullscreen window state.
+let htmlFullscreenTabId: number | null = null
+
+// Set for the one download about to be started by a "Save … as…" menu item.
+// Consumed by the will-download handler, which then leaves the save path unset
+// so Electron shows its Save dialog; every other download saves silently.
+let saveAsNextDownload = false
 
 // Last top-level dApp origin loaded — used to reset the active EVM network when the
 // user navigates to a DIFFERENT dApp, so a prior dApp's chain doesn't leak forward.
@@ -380,6 +392,59 @@ export function browserSetMagicGuardForSite(protect: boolean): MagicGuardState {
  * app.whenReady() — before the browser can open, per the plan's Batch B
  * initialization-point guidance.
  */
+/**
+ * Downloads started from the dApp browser — a "Save … as…" context-menu item, or
+ * a page navigating to a file. Without a will-download handler these silently
+ * did nothing.
+ *
+ * "Save as…" leaves the path unset so Electron shows its own Save dialog;
+ * everything else saves straight to the OS Downloads folder under a
+ * collision-safe name. Progress rides the same `download:progress` channel the
+ * wallet's neon top bar already uses, pushed to the browser chrome.
+ *
+ * Registered once, next to the Magic Guard listener, because both attach to
+ * dappSession() and Electron only honours the last listener per session event.
+ */
+export function initBrowserDownloads(): void {
+  dappSession().on('will-download', (_event, item) => {
+    const saveAs = saveAsNextDownload
+    saveAsNextDownload = false
+
+    if (!saveAs) {
+      item.setSavePath(uniqueDownloadPath(item.getFilename() || 'download'))
+    }
+
+    item.on('updated', (_e, state) => {
+      if (state !== 'progressing') return
+      const total = item.getTotalBytes()
+      sendToChrome('download:progress', {
+        active: true,
+        percent: total > 0 ? Math.round((item.getReceivedBytes() / total) * 100) : null,
+      })
+    })
+
+    item.once('done', (_e, state) => {
+      sendToChrome('download:progress', { active: false, percent: null })
+      if (state === 'completed') sendToChrome('browser:toast', `Saved ${basename(item.getSavePath())}`)
+      else if (state === 'cancelled') sendToChrome('browser:toast', 'Download cancelled')
+      else sendToChrome('browser:toast', 'The download failed')
+    })
+  })
+}
+
+/** "photo.png" → "photo (1).png" when the first name is taken. */
+function uniqueDownloadPath(fileName: string): string {
+  const dir = app.getPath('downloads')
+  const dot = fileName.lastIndexOf('.')
+  const base = dot > 0 ? fileName.slice(0, dot) : fileName
+  const ext = dot > 0 ? fileName.slice(dot) : ''
+  for (let i = 0; i < 100; i++) {
+    const candidate = join(dir, i === 0 ? `${base}${ext}` : `${base} (${i})${ext}`)
+    if (!existsSync(candidate)) return candidate
+  }
+  return join(dir, `${base} (${Date.now()})${ext}`)
+}
+
 export function initMagicGuard(): void {
   dappSession().webRequest.onBeforeRequest((details, callback) => {
     const tab = tabs.find(t => t.view.webContents.id === details.webContentsId)
@@ -443,6 +508,14 @@ function layoutActiveView(): void {
   const t = activeTab()
   if (!t || !popupWin || popupWin.isDestroyed()) return
   const [w, h] = popupWin.getContentSize()
+  // HTML5 fullscreen (a video's fullscreen button): the view must cover the
+  // ENTIRE window, not just the area under the chrome — otherwise the toolbar
+  // and titlebar stay visible and it isn't really fullscreen. The window itself
+  // is put into OS fullscreen alongside this (see wireTab's handlers).
+  if (htmlFullscreenTabId === t.id) {
+    t.view.setBounds({ x: 0, y: 0, width: w, height: h })
+    return
+  }
   t.view.setBounds({ x: 0, y: chromeHeight, width: w, height: Math.max(0, h - chromeHeight) })
 }
 
@@ -622,6 +695,18 @@ export function openBrowserWindow(): void {
   // Keep the green (maximize) button's active styling in sync with the OS state.
   popupWin.on('maximize', () => broadcastLayout())
   popupWin.on('unmaximize', () => broadcastLayout())
+
+  // The user can leave OS fullscreen behind the page's back (Esc / F11 / the
+  // green button). Tell the page so it drops its own fullscreen too, otherwise
+  // the view would stay sized to the whole window with the chrome hidden.
+  popupWin.on('leave-full-screen', () => {
+    if (htmlFullscreenTabId === null) return
+    const t = tabs.find(x => x.id === htmlFullscreenTabId)
+    htmlFullscreenTabId = null
+    try { t?.view.webContents.executeJavaScript('document.exitFullscreen?.()', true) } catch { /* gone */ }
+    layoutActiveView()
+    sendToChrome('browser:fullscreen', false)
+  })
 }
 
 // ── Window layout control ────────────────────────────────────────────────────
@@ -900,6 +985,38 @@ function wireTab(tab: Tab): void {
         if (response === 1) wc.loadURL(url)
       })
     }
+  })
+
+  // ── HTML5 fullscreen ────────────────────────────────────────────────────
+  // Electron leaves the WebContentsView where it is when a page goes
+  // fullscreen, so the video stayed boxed under the toolbar. Take the window
+  // into OS fullscreen and let layoutActiveView give the view the whole frame.
+  wc.on('enter-html-full-screen', () => {
+    htmlFullscreenTabId = tab.id
+    if (popupWin && !popupWin.isDestroyed() && !popupWin.isFullScreen()) popupWin.setFullScreen(true)
+    layoutActiveView()
+    sendToChrome('browser:fullscreen', true)
+  })
+
+  wc.on('leave-html-full-screen', () => {
+    if (htmlFullscreenTabId !== tab.id) return
+    htmlFullscreenTabId = null
+    if (popupWin && !popupWin.isDestroyed() && popupWin.isFullScreen()) popupWin.setFullScreen(false)
+    layoutActiveView()
+    sendToChrome('browser:fullscreen', false)
+  })
+
+  // Right-click. Electron ships no default menu for a WebContentsView, which is
+  // why saving an image or copying a link was impossible in this browser.
+  wc.on('context-menu', (_event, params) => {
+    showBrowserContextMenu(wc, params, {
+      openInNewTab: (url) => { setImmediate(() => createTab(url, true)) },
+      download: (target, url, saveAs) => {
+        saveAsNextDownload = saveAs
+        target.downloadURL(url)
+      },
+      window: () => popupWin,
+    })
   })
 
   wc.setWindowOpenHandler(handleWindowOpen)
@@ -1294,41 +1411,7 @@ async function fillEntryIntoTab(t: Tab, id: string): Promise<{ ok: boolean; erro
     return { ok: false, error: e instanceof Error ? e.message : 'Could not read that saved password' }
   }
 
-  const script = `(() => {
-    const user = ${JSON.stringify(username)};
-    const pass = ${JSON.stringify(password)};
-    const visible = el => {
-      const r = el.getBoundingClientRect();
-      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== 'hidden';
-    };
-    const setValue = (el, value) => {
-      const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
-      const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-      // React (and other controlled-input frameworks) track the last value on the
-      // node itself; assigning .value directly is silently reverted on re-render.
-      if (setter) setter.call(el, value); else el.value = value;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    };
-    const passwords = Array.from(document.querySelectorAll('input[type="password"]')).filter(visible);
-    if (passwords.length === 0) return 'no-form';
-    const passField = passwords[0];
-    setValue(passField, pass);
-    if (user) {
-      const form = passField.form || document;
-      const candidates = Array.from(form.querySelectorAll('input')).filter(el =>
-        visible(el) && ['text', 'email', 'tel', ''].includes((el.type || '').toLowerCase())
-      );
-      // The username box is the last plain field BEFORE the password box.
-      const before = candidates.filter(el =>
-        passField.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING
-      );
-      const target = before[before.length - 1] || candidates[0];
-      if (target) setValue(target, user);
-    }
-    passField.focus();
-    return 'ok';
-  })()`
+  const script = buildFillScript(username, password)
 
   try {
     const result = await t.view.webContents.executeJavaScript(script, true)

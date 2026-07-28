@@ -16,10 +16,14 @@ import type { Bookmark, ImportSource, WebApp } from '../types/wallet'
 
 type Tab = 'bookmarks' | 'apps'
 
-export function BookmarksPanel({ onClose, onNavigate, onToast }: {
+export function BookmarksPanel({ onClose, onNavigate, onToast, importEmptyText, appsEmptyBody }: {
   onClose: () => void
   onNavigate: (url: string) => void
   onToast: (message: string) => void
+  /** Android overrides these: no readable browser profiles, and "apps" are
+   *  home-screen shortcuts rather than Start-menu ones. */
+  importEmptyText?: string
+  appsEmptyBody?: string
 }) {
   const [tab, setTab] = useState<Tab>('bookmarks')
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -175,7 +179,7 @@ export function BookmarksPanel({ onClose, onNavigate, onToast }: {
             sources={sources}
             busy={importing}
             label="Import bookmarks from"
-            emptyText="No Chrome, Edge, Brave, Vivaldi or Chromium profile was found on this computer."
+            emptyText={importEmptyText ?? 'No Chrome, Edge, Brave, Vivaldi or Chromium profile was found on this computer.'}
             onPick={importFrom}
           />
           {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
@@ -186,7 +190,7 @@ export function BookmarksPanel({ onClose, onNavigate, onToast }: {
             <EmptyState
               icon="🧩"
               title="No installed apps"
-              body="Open the share menu at the end of the address bar and choose “Install …” to give a site its own shortcut. It will open in MagicMoney Browser rather than your system browser."
+              body={appsEmptyBody ?? 'Open the share menu at the end of the address bar and choose “Install …” to give a site its own shortcut. It will open in MagicMoney Browser rather than your system browser.'}
             />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

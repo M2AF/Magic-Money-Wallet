@@ -8,12 +8,25 @@
  * events emitted by wallet-local's browser* methods.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { DappBrowser, type DappBrowserState } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
+import { BookmarksPanel } from '../renderer/components/BookmarksPanel'
+import { PasswordManager } from '../renderer/components/PasswordManager'
 import mascotUrl from '../renderer/assets/magic-guard.png'
-import type { TorBrowserState, MagicGuardState } from '../renderer/types/wallet'
+import type { TorBrowserState, MagicGuardState, BrowserPageState } from '../renderer/types/wallet'
+
+// Android can't read another app's profile, so the desktop "import from Chrome/
+// Edge/Brave" affordance is replaced by CSV-only wording in the shared panels.
+const ANDROID_PASSWORD_IMPORT_EMPTY =
+  'Android apps cannot read another browser’s data. Export your passwords to a CSV file from that browser and import the file instead.'
+// Bookmarks have no CSV path — say what is actually possible rather than
+// pointing at a file format this panel doesn't accept.
+const ANDROID_BOOKMARK_IMPORT_EMPTY =
+  'Android apps cannot read another browser’s bookmarks. Add pages here with the ☆ in the address bar.'
+const ANDROID_APPS_EMPTY =
+  'Open the ☰ menu and choose “Install …” to pin a site to your home screen. It opens straight back into the MagicMoney browser.'
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
 
@@ -54,6 +67,18 @@ export function BrowserOverlay() {
   // WebView, so a dropdown would be hidden behind it. An inline row shrinks
   // contentRef, and the bounds ResizeObserver moves the native view down with it.
   const [guardOpen, setGuardOpen] = useState(false)
+  // ☰ menu — same inline-panel treatment as the Magic Guard panel above, for the
+  // same reason (no floating dropdown can sit over the native dApp WebView).
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Full-screen panels. These can't be inline (they'd squash the page to nothing),
+  // so while one is open the native WebViews are tucked away — the same move
+  // CapApp makes for approval overlays.
+  const [panel, setPanel] = useState<null | 'passwords' | 'bookmarks'>(null)
+  const [page, setPage] = useState<BrowserPageState>({
+    url: '', title: '', host: '', bookmarked: false, installed: false,
+    savedLogins: [], passwordsUnlocked: false,
+  })
+  const [toast, setToast] = useState<string | null>(null)
 
   const sessionRef = useRef<Session>('closed')
   const pendingUrlRef = useRef<string>(HOME_URL)
@@ -62,6 +87,15 @@ export function BrowserOverlay() {
 
   canBackRef.current = canBack
   browserUiState.open = visible
+
+  // Read by the hardware-back handler, whose effect has no deps (it is installed
+  // once) — so it must see current values through refs, not a stale closure.
+  const panelRef = useRef<null | 'passwords' | 'bookmarks'>(null)
+  const menuOpenRef = useRef(false)
+  const guardOpenRef = useRef(false)
+  panelRef.current = panel
+  menuOpenRef.current = menuOpen
+  guardOpenRef.current = guardOpen
 
   const measureBounds = () => {
     const r = contentRef.current?.getBoundingClientRect()
@@ -87,6 +121,11 @@ export function BrowserOverlay() {
   const hide = () => {
     if (sessionRef.current !== 'open') return
     sessionRef.current = 'hidden'
+    // Leave the browser in a clean state — a panel or menu left open would be
+    // showing (over a hidden page) the next time the session is revealed.
+    setPanel(null)
+    setMenuOpen(false)
+    setGuardOpen(false)
     setVisible(false)
     DappBrowser.hide().catch(() => {})
     emitUiEvent('cap:browser:hidden', null)
@@ -149,8 +188,12 @@ export function BrowserOverlay() {
     }
     const onHide = () => hide()
     const onClose = () => { if (sessionRef.current !== 'closed') close() }
-    // Hardware back: page history first; at the root, hide (keep tabs).
+    // Hardware back: dismiss whatever is layered on top first (panel, then ☰
+    // menu), then page history, and only at the root hide the browser.
     const onBack = () => {
+      if (panelRef.current) { setPanel(null); return }
+      if (menuOpenRef.current) { setMenuOpen(false); return }
+      if (guardOpenRef.current) { setGuardOpen(false); return }
       if (canBackRef.current) DappBrowser.goBack().catch(() => {})
       else hide()
     }
@@ -224,6 +267,72 @@ export function BrowserOverlay() {
   const inputFocusedRef = useRef(false)
   inputFocusedRef.current = inputFocused
 
+  // ── Page state (bookmarked? installed? saved logins?) ─────────────────────
+  // Re-read from wallet-local after every navigation; it derives everything from
+  // the ACTIVE TAB itself, never from `url` here.
+  const refreshPageState = useCallback(() => {
+    window.wallet.browserGetPageState?.().then(setPage).catch(() => {})
+  }, [])
+
+  useEffect(() => { if (visible) refreshPageState() }, [url, visible, refreshPageState])
+
+  const showToast = useCallback((message: string) => setToast(message), [])
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 2600)
+    return () => clearTimeout(t)
+  }, [toast])
+
+  // Auto-fill confirmation — surfaced so a fill is never silent.
+  useEffect(() => {
+    const onFilled = (d: unknown) => {
+      const s = d as { username?: string; more?: number }
+      const who = s?.username ? ` for ${s.username}` : ''
+      const more = (s?.more ?? 0) > 0 ? ` (+${s.more} more)` : ''
+      setToast(`Filled saved login${who}${more}`)
+    }
+    window.wallet.onBrowserAutofill?.(onFilled)
+    return () => window.wallet.offBrowserAutofill?.(onFilled)
+  }, [])
+
+  // While a full-screen panel is up the native dApp WebViews must be hidden —
+  // they render ABOVE this WebView and would cover the panel entirely.
+  useEffect(() => {
+    if (panel) { DappBrowser.hide().catch(() => {}); return }
+    if (sessionRef.current === 'open') {
+      DappBrowser.show().catch(() => {})
+      DappBrowser.setBounds(measureBounds()).catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel])
+
+  const toggleBookmark = async () => {
+    const next = await window.wallet.browserToggleBookmark?.()
+    if (next) {
+      setPage(next)
+      showToast(next.bookmarked ? 'Bookmark added' : 'Bookmark removed')
+    }
+  }
+
+  const sharePage = async () => {
+    setMenuOpen(false)
+    const r = await window.wallet.browserShareByEmail?.()
+    if (!r?.ok && r?.error) showToast(r.error)
+  }
+
+  const copyLink = async () => {
+    setMenuOpen(false)
+    const r = await window.wallet.browserCopyLink?.()
+    showToast(r?.ok ? 'Link copied' : r?.error ?? 'Could not copy the link')
+  }
+
+  const installApp = async () => {
+    setMenuOpen(false)
+    const r = await window.wallet.browserInstallWebApp?.()
+    if (r?.ok) { showToast('Added to your home screen'); refreshPageState() }
+    else showToast(r?.error ?? 'Could not install this page')
+  }
+
   const go = () => {
     const raw = urlInput.trim()
     if (!raw) return
@@ -287,7 +396,7 @@ export function BrowserOverlay() {
           disabled={!canForward} style={{ ...navBtn, opacity: canForward ? 1 : 0.35 }}>›</button>
         <button type="button" aria-label="Reload" onClick={() => DappBrowser.reload().catch(() => {})}
           style={navBtn}>{loading ? '×' : '⟳'}</button>
-        <form onSubmit={e => { e.preventDefault(); go() }} style={{ flex: 1, display: 'flex' }}>
+        <form onSubmit={e => { e.preventDefault(); go() }} style={{ flex: 1, minWidth: 0, position: 'relative', display: 'flex' }}>
           <input
             value={inputFocused ? urlInput : (url || urlInput)}
             onChange={e => setUrlInput(e.target.value)}
@@ -296,14 +405,56 @@ export function BrowserOverlay() {
             placeholder="Search or enter address"
             autoCapitalize="off" autoCorrect="off" spellCheck={false}
             style={{
-              flex: 1, minWidth: 0, padding: '8px 12px', borderRadius: 10, fontSize: 12,
+              // Right padding reserves room for the star that sits INSIDE the bar.
+              flex: 1, minWidth: 0, padding: '8px 34px 8px 12px', borderRadius: 10, fontSize: 12,
               border: '1px solid var(--border, #2a2a2a)', background: 'var(--bg-card, #161616)',
               color: 'var(--text, #fff)', outline: 'none'
             }}
           />
+          {/* Bookmark star — inside the address bar, at its end (desktop parity).
+              onMouseDown/onTouchStart preventDefault keeps the input from taking
+              focus (and popping the keyboard) when the star is tapped. */}
+          <button
+            type="button"
+            aria-label={page.bookmarked ? 'Remove bookmark' : 'Bookmark this page'}
+            aria-pressed={page.bookmarked}
+            onMouseDown={e => e.preventDefault()}
+            onClick={() => void toggleBookmark()}
+            disabled={!/^https?:\/\//i.test(page.url)}
+            style={{
+              position: 'absolute', right: 3, top: 0, bottom: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 30, padding: 0, background: 'none', border: 'none',
+              fontSize: 16, lineHeight: 1,
+              color: page.bookmarked ? '#f5b301' : 'var(--text-muted, #737373)',
+            }}
+          >
+            {page.bookmarked ? '★' : '☆'}
+          </button>
         </form>
-        {/* Hide (back to wallet) — tabs are preserved; only per-tab ✕ closes tabs. */}
-        <button type="button" aria-label="Back to wallet" onClick={hide} style={navBtn}>✕</button>
+        {/* ☰ — password manager, bookmarks, Magic Guard, Tor, save and share.
+            It sits where the old "back to wallet" ✕ was: that ✕ was redundant
+            (the wallet's bottom nav stays visible over the browser, and hardware
+            back at the root of history hides the session too), and moving the
+            menu up here frees the tab row for tabs. */}
+        <button
+          type="button"
+          aria-label="Browser menu"
+          aria-expanded={menuOpen}
+          onClick={() => { setMenuOpen(v => !v); setGuardOpen(false) }}
+          style={{
+            ...navBtn, width: 40, gap: 3, flexShrink: 0,
+            borderColor: menuOpen ? '#48c8e8' : 'var(--border, #2a2a2a)',
+          }}
+        >
+          <span aria-hidden="true" style={{ fontSize: 15, lineHeight: 1 }}>☰</span>
+          {tor.enabled && (
+            <span aria-hidden="true" style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
+            }} />
+          )}
+        </button>
       </div>
 
       {/* Tab row — tabs scroll in the left region; Tor + chain switcher stay
@@ -337,43 +488,6 @@ export function BrowserOverlay() {
               style={{ ...navBtn, flexShrink: 0 }}>＋</button>
           )}
         </div>
-        <button
-          type="button"
-          aria-label="Magic Guard"
-          aria-pressed={guardOpen}
-          onClick={() => setGuardOpen(v => !v)}
-          style={{
-            ...navBtn, width: 42, gap: 3, flexShrink: 0,
-            borderColor: guardOpen ? '#48c8e8' : 'var(--border, #2a2a2a)',
-            color: guard.enabled && guard.siteEnabled ? '#48c8e8' : 'var(--text-muted, #737373)',
-          }}
-        >
-          <ShieldIcon active={guard.effectiveEnabled} />
-          {guard.blockedThisPage > 0 && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text, #fff)' }}>
-              {guard.blockedThisPage > 99 ? '99+' : guard.blockedThisPage}
-            </span>
-          )}
-        </button>
-        <button
-          type="button"
-          aria-label={tor.enabled ? 'Disable Tor Mode' : 'Enable Tor Mode'}
-          aria-pressed={tor.enabled}
-          title={`${tor.message} Embedded SOCKS5 ${tor.host}:${tor.port}. On Android, WebView proxy settings apply to all app WebViews.`}
-          onClick={toggleTor}
-          disabled={tor.status === 'connecting' || tor.status === 'unsupported'}
-          style={{
-            ...navBtn, width: 42, gap: 3, fontSize: 14, flexShrink: 0,
-            borderColor: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : 'var(--border, #2a2a2a)',
-            opacity: tor.status === 'unsupported' ? 0.35 : 1,
-          }}
-        >
-          <span aria-hidden="true">🧅</span>
-          <span aria-hidden="true" style={{
-            width: 6, height: 6, borderRadius: '50%',
-            background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
-          }} />
-        </button>
         <NetworkSwitcher compact />
       </div>
 
@@ -388,6 +502,76 @@ export function BrowserOverlay() {
         </div>
       )}
 
+      {menuOpen && (
+        <div style={{
+          margin: '0 10px 8px', padding: 6, borderRadius: 12, maxHeight: '52vh', overflowY: 'auto',
+          border: '1px solid var(--border-active, #48c8e8)', background: 'var(--bg-card, #161616)',
+        }}>
+          <MenuRow icon="＋" label="New tab"
+            onClick={() => { setMenuOpen(false); DappBrowser.newTab({ url: HOME_URL }).catch(() => {}) }} />
+
+          <MenuDivider />
+          <MenuRow icon="🔑" label="Password manager"
+            hint={page.passwordsUnlocked ? 'Unlocked' : 'Locked'}
+            onClick={() => { setMenuOpen(false); setPanel('passwords') }} />
+          <MenuRow icon="🔖" label="Bookmarks"
+            onClick={() => { setMenuOpen(false); setPanel('bookmarks') }} />
+
+          <MenuDivider />
+          <MenuLabel>Privacy</MenuLabel>
+          {/* Magic Guard lives here now rather than on its own toolbar pill; the
+              panel itself is still the inline one below (it has toggles and
+              counters, so it stays expandable rather than becoming a menu row). */}
+          <MenuRow
+            icon="🛡"
+            label="Magic Guard"
+            hint={!guard.enabled
+              ? 'Off'
+              : !guard.siteEnabled ? 'Off for this site'
+              : guard.status === 'ready' ? `On · ${guard.blockedThisPage} blocked here`
+              : guard.status === 'loading' ? 'Filter lists loading…'
+              : 'Temporarily inactive'}
+            active={guard.effectiveEnabled}
+            trailing={
+              <span aria-hidden="true" style={{
+                display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                background: guard.effectiveEnabled ? '#48c8e8' : '#737373',
+              }} />
+            }
+            onClick={() => { setMenuOpen(false); setGuardOpen(true) }}
+          />
+          <MenuRow
+            icon="🧅"
+            label={tor.enabled ? 'Tor Mode' : 'Turn on Tor Mode'}
+            hint={tor.status === 'unsupported'
+              ? 'Not supported on this device'
+              : tor.status === 'connecting' ? 'Connecting…'
+              : tor.status === 'error' ? 'Blocked — traffic is not flowing'
+              : tor.enabled ? 'On' : 'Off'}
+            active={tor.enabled}
+            disabled={tor.status === 'connecting' || tor.status === 'unsupported'}
+            trailing={
+              <span aria-hidden="true" style={{
+                display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
+              }} />
+            }
+            onClick={() => { setMenuOpen(false); toggleTor() }}
+          />
+
+          <MenuDivider />
+          <MenuLabel>Save and share</MenuLabel>
+          <MenuRow icon="🔗" label="Copy link" hint={page.host} onClick={() => void copyLink()} />
+          <MenuRow icon="↗" label="Share…" hint="Android share sheet" onClick={() => void sharePage()} />
+          <MenuRow
+            icon="⊞"
+            label={page.installed ? 'Re-add to home screen' : `Install ${page.host || 'this page'}…`}
+            hint={page.installed ? 'Already added' : 'Opens in MagicMoney Browser'}
+            onClick={() => void installApp()}
+          />
+        </div>
+      )}
+
       {guardOpen && (
         <div style={{
           margin: '0 10px 8px', padding: 12, borderRadius: 12,
@@ -395,12 +579,25 @@ export function BrowserOverlay() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
             <img src={mascotUrl} alt="" width={38} height={38} style={{ borderRadius: 9, flexShrink: 0, objectFit: 'cover' }} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text, #fff)' }}>Magic Guard</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: guard.effectiveEnabled ? '#48c8e8' : 'var(--text-muted, #737373)' }}>
+                <ShieldIcon active={guard.effectiveEnabled} />
+                <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text, #fff)' }}>Magic Guard</span>
+              </div>
               <div style={{ fontSize: 11, color: 'var(--text-muted, #737373)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {guard.hostname ?? 'No site loaded'}
               </div>
             </div>
+            {/* Own close control: this panel is opened from the ☰ menu now, so
+                there is no toolbar toggle to close it with. */}
+            <button
+              type="button"
+              aria-label="Close Magic Guard"
+              onClick={() => setGuardOpen(false)}
+              style={{ ...navBtn, width: 30, height: 30, fontSize: 13, flexShrink: 0 }}
+            >
+              ✕
+            </button>
           </div>
 
           <GuardToggleRow label="Protection for this site" checked={guard.siteEnabled}
@@ -462,7 +659,110 @@ export function BrowserOverlay() {
           </div>
         )}
       </div>
+
+      {/* Full-screen panels — the native WebViews are hidden while these are up
+          (see the `panel` effect), so they cover the whole browser view. The
+          components are the SAME ones the desktop chrome uses. */}
+      {panel === 'bookmarks' && (
+        <div style={panelHost}>
+          <BookmarksPanel
+            onClose={() => setPanel(null)}
+            onNavigate={(target) => { DappBrowser.navigate({ url: target }).catch(() => {}) }}
+            onToast={showToast}
+            importEmptyText={ANDROID_BOOKMARK_IMPORT_EMPTY}
+            appsEmptyBody={ANDROID_APPS_EMPTY}
+          />
+        </div>
+      )}
+      {panel === 'passwords' && (
+        <div style={panelHost}>
+          <PasswordManager
+            currentHost={page.host}
+            currentUrl={page.url}
+            onClose={() => setPanel(null)}
+            onToast={showToast}
+            onChanged={refreshPageState}
+            importEmptyText={ANDROID_PASSWORD_IMPORT_EMPTY}
+          />
+        </div>
+      )}
+
+      {toast && (
+        <div role="status" style={{
+          position: 'absolute', bottom: 18, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 60, pointerEvents: 'none', maxWidth: '86%',
+          padding: '9px 16px', borderRadius: 999,
+          background: 'var(--bg-card, #161616)', border: '1px solid var(--border-active, #48c8e8)',
+          boxShadow: '0 10px 28px rgba(0,0,0,0.45)',
+          color: 'var(--text, #fff)', fontSize: 12, fontWeight: 600,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {toast}
+        </div>
+      )}
     </div>
+  )
+}
+
+// Panels render against the overlay's own box; the native WebViews are hidden
+// while one is open, so nothing can cover them.
+const panelHost: React.CSSProperties = { position: 'absolute', inset: 0, zIndex: 40 }
+
+// ── ☰ menu primitives (inline panel — no floating dropdown on Android) ───────
+
+function MenuLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      padding: '6px 8px 4px', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4,
+      textTransform: 'uppercase', color: 'var(--text-muted, #737373)',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function MenuDivider() {
+  return <div style={{ height: 1, background: 'var(--border, #2a2a2a)', margin: '4px 6px' }} />
+}
+
+function MenuRow({ icon, label, hint, trailing, onClick, disabled, active }: {
+  icon: string
+  label: React.ReactNode
+  hint?: string
+  trailing?: React.ReactNode
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+        padding: '11px 8px', borderRadius: 9, border: 'none', textAlign: 'left',
+        background: active ? 'var(--accent-dim, rgba(124,58,237,0.18))' : 'transparent',
+        color: disabled ? 'var(--text-muted, #737373)' : 'var(--text, #fff)',
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <span aria-hidden="true" style={{ width: 18, flexShrink: 0, fontSize: 14, textAlign: 'center' }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {label}
+        </span>
+        {hint && (
+          <span style={{
+            fontSize: 10, color: 'var(--text-muted, #737373)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {hint}
+          </span>
+        )}
+      </span>
+      {trailing}
+    </button>
   )
 }
 

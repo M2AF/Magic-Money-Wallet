@@ -192,9 +192,21 @@ function saveUnlockedMnemonic(mnemonic: string): void {
   _unlockedAt = Date.now()
 }
 
+// Extra secrets that must die with the wallet session — currently the browser's
+// saved-password vault (browser-data-local). Registered from wallet-local rather
+// than imported here, so this module keeps no dependency on the browser feature
+// (and there is no import cycle back through verifyPassword).
+const _lockListeners: Array<() => void> = []
+
+/** Run `fn` whenever the wallet session is cleared (explicit lock or idle expiry). */
+export function registerLockListener(fn: () => void): void {
+  if (!_lockListeners.includes(fn)) _lockListeners.push(fn)
+}
+
 function clearUnlockedMnemonic(): void {
   _unlockedMnemonic = null
   _unlockedAt = 0
+  for (const fn of _lockListeners) { try { fn() } catch { /* a listener must never block locking */ } }
 }
 
 function getUnlockedMnemonic(): string | null {

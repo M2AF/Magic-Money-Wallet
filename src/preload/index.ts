@@ -224,6 +224,12 @@ contextBridge.exposeInMainWorld('wallet', {
   // Pushed after a saved login was auto-filled into the active page.
   onBrowserAutofill:  (cb: (s: unknown) => void) => ipcRenderer.on('browser:autofill-filled', (_e, v) => cb(v)),
   offBrowserAutofill: (cb: (s: unknown) => void) => ipcRenderer.removeListener('browser:autofill-filled', cb as never),
+  // Transient status text from main (download finished, etc).
+  onBrowserToast:  (cb: (m: string) => void) => ipcRenderer.on('browser:toast', (_e, v) => cb(v)),
+  offBrowserToast: (cb: (m: string) => void) => ipcRenderer.removeListener('browser:toast', cb as never),
+  // True while a page is in HTML5 fullscreen — the chrome hides itself.
+  onBrowserFullscreen:  (cb: (v: boolean) => void) => ipcRenderer.on('browser:fullscreen', (_e, v) => cb(v)),
+  offBrowserFullscreen: (cb: (v: boolean) => void) => ipcRenderer.removeListener('browser:fullscreen', cb as never),
 
   offBrowserUrl:      (cb: (url: string) => void)                                   => ipcRenderer.removeListener('browser:url',       cb as never),
   offBrowserLoading:  (cb: (loading: boolean) => void)                              => ipcRenderer.removeListener('browser:loading',   cb as never),
