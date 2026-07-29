@@ -200,6 +200,7 @@ jobs:
 
       - name: Build (unsigned, simulator)
         run: |
+          set -o pipefail
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
@@ -208,18 +209,53 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build/ios \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee xcodebuild.log
 
-      # Boot a simulator and confirm the app actually launches — a successful
-      # compile says nothing about whether the WebView loads the bundle, which
-      # is where alias/webDir mistakes surface.
+      # Boot a simulator and confirm the app actually launches. A successful
+      # compile says nothing about whether the WebView loaded the bundle or
+      # whether the custom plugins linked — both fail silently at runtime, and
+      # with no Mac on the team this job is the ONLY place they can be caught.
       - name: Smoke test on simulator
         run: |
-          xcrun simctl boot "iPhone 15" || true
-          xcrun simctl install booted build/ios/Build/Products/Debug-iphonesimulator/App.app
-          xcrun simctl launch booted info.chainlens.magicmoney
-          sleep 15
-          xcrun simctl io booted screenshot ios-launch.png
+          set -e
+          DEVICE=$(xcrun simctl list devices available -j \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for v in d.values() for x in v if 'iPhone' in x['name']))")
+          echo "Using simulator $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+          xcrun simctl install "$DEVICE" build/ios/Build/Products/Debug-iphonesimulator/App.app
+
+          # Capture the app's own log stream — this is where Capacitor reports
+          # plugin registration and where WebView load errors surface.
+          xcrun simctl spawn "$DEVICE" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "App"' > simulator.log 2>&1 &
+          LOG_PID=$!
+
+          xcrun simctl launch "$DEVICE" info.chainlens.magicmoney
+          sleep 20
+          kill $LOG_PID || true
+
+          xcrun simctl io "$DEVICE" screenshot ios-launch.png
+
+      # A blank white/black screenshot is the classic "bundle didn't load"
+      # failure, and it is invisible unless someone looks. Assert on the log
+      # instead so the job goes red on its own.
+      - name: Assert the app booted and plugins registered
+        run: |
+          echo "── Capacitor / WebView log lines ──"
+          grep -iE "capacitor|webview|plugin|error|fatal" simulator.log | head -60 || true
+
+          if grep -qiE "Unable to open|Failed to load webpage|WebPageProxy.*crash" simulator.log; then
+            echo "::error::The WebView failed to load the bundle — check webDir/cap sync."
+            exit 1
+          fi
+          for plugin in AppInfo Downloader SecureVault; do
+            if grep -qi "Unimplemented.*$plugin\|$plugin.*not implemented" simulator.log; then
+              echo "::error::Plugin $plugin did not register — the -ObjC linker flag or the podspec glob is wrong."
+              exit 1
+            fi
+          done
 
       - name: Upload build output
         if: always()
@@ -228,6 +264,8 @@ jobs:
           name: magicmoney-iOS
           path: |
             ios-launch.png
+            simulator.log
+            xcodebuild.log
             build/ios/Build/Products/Debug-iphonesimulator/App.app
           if-no-files-found: warn
 

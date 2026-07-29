@@ -49,14 +49,25 @@ const KEYS = {
 			</array>
 		</dict>
 	</array>`,
+
+  // DownloaderPlugin saves NFT images/video to Photos with ADD-ONLY access, so
+  // the app never gains read access to the user's library. Missing key = crash
+  // on the first save, same as the camera/Face ID strings above.
+  NSPhotoLibraryAddUsageDescription:
+    '<string>MagicMoney saves NFT images and video you choose to download into your photo library. It never reads your existing photos.</string>',
+
+  // Non-media downloads land in the app's Documents directory. These two keys
+  // are what make that directory visible in the Files app — without them the
+  // files are saved but unreachable, which reads as a silent failure.
+  UIFileSharingEnabled: '<true/>',
+  LSSupportsOpeningDocumentsInPlace: '<true/>',
 }
 
 // NOTE deliberately NOT set here:
 //   ITSAppUsesNonExemptEncryption — an export-compliance declaration, not a
 //   build setting. Answer it in App Store Connect; hardcoding a wrong value is
 //   a false legal declaration.
-//   NSPhotoLibraryAddUsageDescription / UIFileSharingEnabled — land with the
-//   Downloader plugin (Phase 1), not before there is code that needs them.
+//   (Everything the shipped plugins actually touch is declared above.)
 
 function main() {
   if (!existsSync(PLIST)) {

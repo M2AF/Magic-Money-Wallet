@@ -32,5 +32,13 @@ export default makeCapacitorConfig({
       find: /^\.\/default-browser(\.ts)?$/,
       replacement: r('src/ios/default-browser.ts')
     },
+    {
+      // Face ID / Touch ID via the Secure Enclave instead of Android's
+      // app-enforced gate: the keychain item is bound to .biometryCurrentSet,
+      // so the hardware — not the app's control flow — decides whether the
+      // wrapping key is released. See SecureVaultPlugin.swift.
+      find: /^\.\/biometric(\.ts)?$/,
+      replacement: r('src/ios/biometric.ts')
+    },
   ]
 })

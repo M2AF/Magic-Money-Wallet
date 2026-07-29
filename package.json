@@ -38,7 +38,7 @@
     "android:aab": "npm run build:capacitor && cd android && gradlew bundleRelease",
     "android:dev": "vite --config vite.capacitor.config.ts --port 5183 --host",
     "prebuild:ios": "node scripts/convert-apphub.js",
-    "build:ios": "vite build --config vite.ios.config.ts && npx esbuild src/capacitor/dapp-inject.ts --bundle --format=iife --minify --outfile=dist-ios/dapp-inject.js && node scripts/patch-ios-plist.js && node scripts/cap.js sync ios",
+    "build:ios": "vite build --config vite.ios.config.ts && npx esbuild src/capacitor/dapp-inject.ts --bundle --format=iife --minify --outfile=dist-ios/dapp-inject.js && node scripts/patch-ios-plist.js && node scripts/patch-ios-podfile.js && node scripts/cap.js sync ios",
     "ios": "npm run build:ios && node scripts/cap.js run ios",
     "ios:dev": "vite --config vite.ios.config.ts --port 5184 --host",
     "release:patch": "node scripts/release.js patch",

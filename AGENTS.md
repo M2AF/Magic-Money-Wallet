@@ -85,10 +85,24 @@ difference can't be expressed as an alias, gate it in place.
 - Windows dev machine: `gradlew` needs its executable bit preserved in git
   (`git update-index --chmod=+x android/gradlew`) or CI fails with
   `Permission denied` (exit 126).
-- **iOS cannot be built or run on the Windows dev machine.** Xcode and the iOS
-  Simulator are macOS-only and no emulator exists for Windows — there is no
-  workaround, so do not claim an iOS change is verified without a green
-  `Build (iOS)` job. On Windows, `npm run build:ios` is expected to complete
+- **iOS cannot be built or run on the Windows dev machine, ever.** The team
+  owns no Mac and will not buy one; Xcode and the iOS Simulator are macOS-only
+  and no emulator exists for Windows. GitHub Actions is the **only** iOS build
+  and test environment that will ever exist for this project. Do not claim an
+  iOS change is verified without a green `Build (iOS)` job, and do not propose
+  a fix whose verification step is "open Xcode".
+- **All custom iOS Swift lives in `ios-plugins/`, a local CocoaPods pod with a
+  globbed `source_files`** — never added to the Xcode target by hand. Adding a
+  file to an Xcode target means editing generated `project.pbxproj` UUIDs,
+  which is untenable blind from Windows. To add a plugin: drop a `.swift` file
+  in `ios-plugins/Sources/` and it is picked up by the next `pod install`.
+  The pod sets `OTHER_LDFLAGS = -ObjC` on the app target because Capacitor
+  finds plugins by runtime ObjC class scan; without it the linker dead-strips
+  them from the static lib and every plugin call rejects as "not implemented"
+  in an app that otherwise builds and launches fine.
+- `ios-plugins/` is **outside** `ios/` on purpose: `cap add ios` refuses a
+  non-empty `ios/`, so anything committed there before the platform is added
+  permanently blocks scaffolding. On Windows, `npm run build:ios` is expected to complete
   the vite + esbuild + plist stages and then fail at `cap sync ios`; that is
   success, not a break. The `Build (iOS)` job in `build.yml` compiles unsigned
   against the simulator SDK, so it needs **no Apple account or certificate**.
