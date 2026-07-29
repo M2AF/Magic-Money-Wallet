@@ -4,6 +4,7 @@ out/
 dist/
 dist-extension/
 dist-capacitor/
+dist-ios/
 coverage/
 playwright-report/
 test-results/
@@ -22,6 +23,20 @@ android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 *.keystore
 *.jks
+
+# ── iOS (Capacitor) — native project is committed, outputs are not ──
+# Mirrors the Android policy above. Pods/ is restored by `pod install` during
+# the CI build; the synced web bundle lands in App/public and is regenerated
+# by every `cap sync ios`.
+ios/App/Pods/
+ios/App/build/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+ios/App/App/config.xml
+ios/DerivedData/
+ios/App/output/
+*.xcuserstate
+xcuserdata/
 
 # ── Secrets / local env ──────────────────────────────────────
 .env

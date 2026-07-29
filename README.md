@@ -170,16 +170,30 @@ npm test              # vitest (wallet-core, crypto-vault, tx-describe, secure-s
 
 ## Architecture
 
-MagicMoney is **one codebase with three runtime surfaces**. All wallet logic — key derivation, balance/token/NFT fetching, transaction building, swap routing, dApp request handling — is shared. Only the platform primitives differ, and they're swapped at build time via Vite aliases:
+MagicMoney is **one codebase with four runtime surfaces**. All wallet logic — key derivation, balance/token/NFT fetching, transaction building, swap routing, dApp request handling — is shared. Only the platform primitives differ, and they're swapped at build time via Vite aliases:
 
-| Concern | Desktop (Electron) | Extension (Chrome MV3) | Android (Capacitor) |
-|---|---|---|---|
-| Privileged runtime | Main process (`ipc-handlers.ts`) | Service worker (`background.ts`) | In-process wallet router (`wallet-local.ts`) |
-| Encrypted key storage | `safeStorage` (OS keychain) | `chrome.storage.local` + AES-256 (`crypto-vault.ts`) | Capacitor Preferences + AES-256 vault (`capacitor-store.ts`) |
-| Storage adapter | `secure-store.ts` | `chrome-store.ts` | `capacitor-store.ts` |
-| Renderer ↔ core bridge | `contextBridge` / IPC | `chrome.runtime.sendMessage` (`bridge.ts`) | Local bridge (`platform-capacitor.ts`, `wallet-local.ts`) |
-| dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs | Native `DappBrowser` plugin with separate WebViews |
-| Native security | Windows Hello / Touch ID | Password unlock | Android biometric unlock, app foreground re-lock, hardware back handling |
+| Concern | Desktop (Electron) | Extension (Chrome MV3) | Android (Capacitor) | iOS (Capacitor) |
+|---|---|---|---|---|
+| Privileged runtime | Main process (`ipc-handlers.ts`) | Service worker (`background.ts`) | In-process wallet router (`wallet-local.ts`) | Same as Android |
+| Encrypted key storage | `safeStorage` (OS keychain) | `chrome.storage.local` + AES-256 (`crypto-vault.ts`) | Capacitor Preferences + AES-256 vault (`capacitor-store.ts`) | Same as Android |
+| Storage adapter | `secure-store.ts` | `chrome-store.ts` | `capacitor-store.ts` | `capacitor-store.ts` |
+| Renderer ↔ core bridge | `contextBridge` / IPC | `chrome.runtime.sendMessage` (`bridge.ts`) | Local bridge (`platform-capacitor.ts`, `wallet-local.ts`) | Same as Android |
+| dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs | Native `DappBrowser` plugin with separate WebViews | `WKWebView` port of the same plugin |
+| Native security | Windows Hello / Touch ID | Password unlock | Android biometric unlock, app foreground re-lock, hardware back handling | Face ID / Touch ID (Secure Enclave), foreground re-lock |
+
+The two native targets are **one target with two alias sets**: both build from `src/capacitor/*` through the shared recipe in `vite.capacitor.shared.ts`. `src/ios/` contains only an entry point, a stylesheet, and the two modules iOS must replace.
+
+**iOS platform gaps** (Apple provides no API for these — they are not TODOs):
+
+| Feature | iOS status |
+|---|---|
+| Set as default browser | Unavailable — no third-party API to request or query the role |
+| Install site as home-screen app | Unavailable — a Safari-only privilege |
+| Self-updater | Removed by design; the App Store delivers updates |
+| Chromium password import | Stubbed, as on Android. CSV import works |
+| Monero send | Receive-only, as on Android and the extension |
+| Screenshot blocking | Approximated (no `FLAG_SECURE` equivalent) — see below |
+| Ad-block fidelity | `WKContentRuleList`; slightly below Android's `adblock-rs` engine |
 
 ### API proxy — no keys in the client
 

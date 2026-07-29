@@ -151,3 +151,96 @@ jobs:
             magicmoney-android*.apk
             magicmoney-android*.aab
           if-no-files-found: warn
+
+  # ── iOS (unsigned simulator build) ──────────────────────────────────────────
+  # This is the ONLY way the iOS target gets compiled: the project is developed
+  # on Windows, where Xcode and the iOS Simulator do not exist. Treat a red run
+  # here as a broken build, not a flaky job.
+  #
+  # Deliberately unsigned (CODE_SIGNING_ALLOWED=NO, -sdk iphonesimulator) so it
+  # needs no Apple Developer account, no certificate and no provisioning
+  # profile. Signed archive + TestFlight upload land in release.yml once the
+  # account exists — see the iOS plan, Phase 4.
+  ios:
+    runs-on: macos-14
+    name: Build (iOS)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # adblock-rs has no prebuilt binaries and compiles from Rust source during
+      # npm ci. This job never uses it (Magic Guard on iOS is WKContentRuleList,
+      # not the Rust engine), but npm ci installs ALL declared dependencies.
+      - uses: dtolnay/rust-toolchain@1.97
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The ios/ project is generated rather than committed while the port is in
+      # progress: `cap add ios` runs CocoaPods, which needs macOS, so it cannot
+      # be produced on the Windows dev machine. Once the generated tree is
+      # committed this step becomes a no-op and Xcode settings survive.
+      - name: Scaffold ios/ if absent
+        run: |
+          if [ ! -d ios ]; then
+            echo "::notice::ios/ not committed yet — generating from the Capacitor template"
+            node scripts/cap.js add ios
+          fi
+
+      - name: Generate app icons
+        run: npm run icons:ios
+
+      - name: Build web bundle + sync
+        run: npm run build:ios
+
+      - name: Build (unsigned, simulator)
+        run: |
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build
+
+      # Boot a simulator and confirm the app actually launches — a successful
+      # compile says nothing about whether the WebView loads the bundle, which
+      # is where alias/webDir mistakes surface.
+      - name: Smoke test on simulator
+        run: |
+          xcrun simctl boot "iPhone 15" || true
+          xcrun simctl install booted build/ios/Build/Products/Debug-iphonesimulator/App.app
+          xcrun simctl launch booted info.chainlens.magicmoney
+          sleep 15
+          xcrun simctl io booted screenshot ios-launch.png
+
+      - name: Upload build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magicmoney-iOS
+          path: |
+            ios-launch.png
+            build/ios/Build/Products/Debug-iphonesimulator/App.app
+          if-no-files-found: warn
+
+      # Lets the generated project be downloaded and committed from Windows, so
+      # the Xcode config (Info.plist keys, capabilities, Swift plugins) becomes
+      # a reviewable part of the repo instead of a CI-time artifact.
+      - name: Upload generated ios/ project
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-project-scaffold
+          path: |
+            ios/
+            !ios/App/Pods
+            !ios/App/build
+          if-no-files-found: warn

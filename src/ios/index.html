@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
+         values on notch/Dynamic-Island devices; maximum-scale + user-scalable
+         suppress the double-tap and input-focus zoom WKWebView applies by
+         default, which would otherwise jump the layout on every send form. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="dark" />
+    <title>Magic Money Wallet</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

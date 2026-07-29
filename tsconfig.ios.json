@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    // Same reasoning as tsconfig.capacitor.json: tsc doesn't see the vite
+    // aliases, so the import graph reaches src/extension files that reference
+    // chrome.* types. Typechecking them is a superset, not a problem.
+    "types": ["vite/client", "chrome", "node"]
+  },
+  "include": [
+    "src/ios/**/*",
+    // src/ios re-exports into src/capacitor for everything except the two
+    // aliased stubs, so the shared WebView code has to be in scope here too.
+    // It is also covered by tsconfig.capacitor.json; checking it twice costs a
+    // few seconds and catches an iOS-only regression at the seam.
+    "src/capacitor/**/*"
+  ]
+}

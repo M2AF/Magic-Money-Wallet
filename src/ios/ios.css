@@ -1,0 +1,33 @@
+/* iOS shell overrides — layered ON TOP of cap.css, which already handles the
+   fluid phone layout and safe-area insets identically for both native targets.
+   Only WKWebView-specific behavior belongs here. */
+
+/* WKWebView shows a system callout (Copy / Look Up) on long-press and a grey
+   flash on tap. Both read as "this is a web page" inside the wallet chrome.
+   The dApp browser's own content is a separate native WebView and is NOT
+   affected by this rule, so page text there stays selectable. */
+body {
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Re-enable selection where it's the point: the seed phrase, addresses, and
+   any input the user needs to copy out of. */
+input,
+textarea,
+[contenteditable='true'],
+.selectable {
+  -webkit-touch-callout: default;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* iOS rubber-band scrolls the whole document behind the fixed shell, exposing
+   the WebView background. cap.css sets overscroll-behavior: none, which WebKit
+   only honors on scroll containers — pinning the body removes the outer
+   scroller entirely so there is nothing to bounce. */
+html,
+body {
+  position: fixed;
+  inset: 0;
+}

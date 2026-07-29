@@ -46,15 +46,24 @@ not a re-description of what's already documented there.
 
 ## Architecture in one paragraph
 
-Three targets share one `src/main/*` chain-core bundle via **vite alias
+Four targets share one `src/main/*` chain-core bundle via **vite alias
 seams**, not forks: `chrome-store`/`secure-store` pivots to per-target storage
 (`capacitor-store.ts`, extension's own store), `platform` pivots to per-target
 side effects, and the extension's `wallet-handlers.ts` `handle()` router is
 called directly in-process by both the extension background script and the
-Android wallet WebView. If you're implementing something "for Android" or
+native wallet WebViews. If you're implementing something "for Android" or
 "for the extension," check whether it already exists in the shared core
 before writing target-specific code — most features should need zero
 target-specific logic beyond the seam.
+
+**iOS and Android are one target with two alias sets.** Both build from
+`src/capacitor/*`; `src/ios/` holds only an entry point, a stylesheet, and the
+two modules iOS must replace (`update-check.ts`, `default-browser.ts`). The
+alias table and plugin set live in **`vite.capacitor.shared.ts`**, consumed by
+both `vite.capacitor.config.ts` and `vite.ios.config.ts` — add a new seam
+there, not in one config, or the targets drift. Do **not** fork
+`src/capacitor/CapApp.tsx` or any other shared WebView module for iOS; if a
+difference can't be expressed as an alias, gate it in place.
 
 ## Toolchain facts that will silently break a build if you don't know them
 
@@ -76,6 +85,27 @@ target-specific logic beyond the seam.
 - Windows dev machine: `gradlew` needs its executable bit preserved in git
   (`git update-index --chmod=+x android/gradlew`) or CI fails with
   `Permission denied` (exit 126).
+- **iOS cannot be built or run on the Windows dev machine.** Xcode and the iOS
+  Simulator are macOS-only and no emulator exists for Windows — there is no
+  workaround, so do not claim an iOS change is verified without a green
+  `Build (iOS)` job. On Windows, `npm run build:ios` is expected to complete
+  the vite + esbuild + plist stages and then fail at `cap sync ios`; that is
+  success, not a break. The `Build (iOS)` job in `build.yml` compiles unsigned
+  against the simulator SDK, so it needs **no Apple account or certificate**.
+- The Capacitor CLI has **no `--config` flag**, so both native targets share
+  one `capacitor.config.ts` and differ only by `webDir`, which is read from
+  `CAP_WEB_DIR`. Always invoke the CLI for iOS through **`node scripts/cap.js
+  <cmd> ios`** — a bare `npx cap sync ios` picks up Android's `dist-capacitor`
+  and ships the wrong bundle without erroring.
+- `npm run icons:ios` **must run after** the platform is added: `cap add ios`
+  refuses a non-empty `ios/`, so generating icons first permanently blocks
+  scaffolding. The script hard-fails rather than creating the directory.
+- `ios.scheme` is pinned to `https` in `capacitor.config.ts`. iOS defaults to
+  `capacitor://localhost`, which would invalidate every CORS-verified entry in
+  `src/capacitor/fetch-guard.ts`'s `BROWSER_HOSTS` — and the failure mode is
+  silent: hosts fall back to the native bridge, which corrupts the binary
+  bodies Monero and Zcash depend on. Don't change it without re-verifying that
+  allowlist against the new origin.
 
 ## Release pipeline — do not bypass the gating
 
