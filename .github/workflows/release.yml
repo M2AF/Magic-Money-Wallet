@@ -274,6 +274,84 @@ jobs:
         run: |
           gh release upload "$TAG" "magicmoney-extension-$TAG.zip" --clobber --repo "$GITHUB_REPOSITORY"
 
+  # ── iOS: unsigned .ipa for sideloading ─────────────────────────────────────
+  # MagicMoney is not distributed through the App Store — by choice, and there
+  # is no paid Apple Developer membership. The release asset is an UNSIGNED
+  # .ipa; users install it with Sideloadly or AltStore on Windows/macOS, which
+  # re-signs the app and its embedded frameworks with the user's own free Apple
+  # ID. No certificate, no provisioning profile and no Apple account are needed
+  # to produce this artifact, which is why this job needs no secrets.
+  #
+  # Free-provisioning installs expire after 7 days and must be re-signed; that
+  # is a property of the user's install, not of this build.
+  ios:
+    needs: [validate, prepare-release]
+    runs-on: macos-14
+    name: iOS (.ipa)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # adblock-rs compiles from Rust source during npm ci (see the notes on the
+      # other jobs) — unused here, but npm ci installs every declared dependency.
+      - uses: dtolnay/rust-toolchain@1.97
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Scaffold ios/ if absent
+        run: |
+          if [ ! -d ios ]; then
+            echo "::notice::ios/ not committed yet — generating from the Capacitor template"
+            node scripts/cap.js add ios
+          fi
+
+      - name: Generate app icons
+        run: npm run icons:ios
+
+      - name: Build web bundle + sync
+        run: npm run build:ios
+
+      - name: Build device .ipa (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/ios-device \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build 2>&1 | tee xcodebuild-device.log
+
+          APP="build/ios-device/Build/Products/Release-iphoneos/App.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Device build produced no App.app at $APP"
+            exit 1
+          fi
+          # .ipa is a zip with the app under Payload/ — the standard unsigned
+          # layout that re-signing tools accept.
+          rm -rf Payload && mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry "magicmoney-ios-${{ github.ref_name }}-unsigned.ipa" Payload
+          rm -rf Payload
+          ls -lh magicmoney-ios-*.ipa
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" "magicmoney-ios-$TAG-unsigned.ipa" --clobber --repo "$GITHUB_REPOSITORY"
+
   # ── Verify completeness, then publish atomically ───────────────────────────
   # Runs only if EVERY build job succeeded. Checks that all expected assets
   # actually landed on the draft (a leg can succeed while an upload silently
@@ -281,7 +359,7 @@ jobs:
   # a half-uploaded release. If this job fails or is skipped, the release
   # stays draft — fix and use "Re-run failed jobs" to resume.
   publish-release:
-    needs: [prepare-release, electron, android, extension]
+    needs: [prepare-release, electron, android, extension, ios]
     runs-on: ubuntu-latest
     name: Publish Release
 
@@ -306,7 +384,8 @@ jobs:
             '^latest-linux\.yml$' \
             '^magicmoney-android-.*\.apk$' \
             '^magicmoney-android-.*\.aab$' \
-            '^magicmoney-extension-.*\.zip$'
+            '^magicmoney-extension-.*\.zip$' \
+            '^magicmoney-ios-.*-unsigned\.ipa$'
           do
             # '--': some patterns start with '-' (e.g. -mac\.zip$) and grep
             # would otherwise parse them as options.

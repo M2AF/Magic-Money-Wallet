@@ -1,7 +1,8 @@
 # Working on MagicMoney Wallet
 
-This is a **self-custody, multi-chain wallet** shipping as three targets from
-one codebase (Electron desktop, Chrome MV3 extension, Android via Capacitor).
+This is a **self-custody, multi-chain wallet** shipping as four targets from
+one codebase (Electron desktop, Chrome MV3 extension, Android and iOS via
+Capacitor).
 It holds real private keys and moves real funds across ~19 chains. Mistakes
 here are not "revert and retry" — they can be irreversible fund loss for a
 real user. Read this file before making changes; it exists because a change
@@ -58,7 +59,9 @@ target-specific logic beyond the seam.
 
 **iOS and Android are one target with two alias sets.** Both build from
 `src/capacitor/*`; `src/ios/` holds only an entry point, a stylesheet, and the
-two modules iOS must replace (`update-check.ts`, `default-browser.ts`). The
+three modules iOS must replace (`update-check.ts` — same updater, `.ipa` asset;
+`default-browser.ts` — unsupported on iOS; `biometric.ts` — Secure Enclave
+instead of the app-enforced gate). The
 alias table and plugin set live in **`vite.capacitor.shared.ts`**, consumed by
 both `vite.capacitor.config.ts` and `vite.ios.config.ts` — add a new seam
 there, not in one config, or the targets drift. Do **not** fork
@@ -88,9 +91,42 @@ difference can't be expressed as an alias, gate it in place.
 - **iOS cannot be built or run on the Windows dev machine, ever.** The team
   owns no Mac and will not buy one; Xcode and the iOS Simulator are macOS-only
   and no emulator exists for Windows. GitHub Actions is the **only** iOS build
-  and test environment that will ever exist for this project. Do not claim an
-  iOS change is verified without a green `Build (iOS)` job, and do not propose
-  a fix whose verification step is "open Xcode".
+  and test environment that will ever exist for this project. Do not propose a
+  fix whose verification step is "open Xcode".
+- **The iOS build lives in its own workflow, `.github/workflows/ios.yml`, and
+  runs on push/PR.** Do not put it in `build.yml` — that one is
+  `workflow_dispatch` only ("Build (manual)"), so an iOS job there never runs on
+  a push and produces the illusion of verified iOS work. `ci.yml`'s green
+  checkmark covers `npm run typecheck` (which does include
+  `tsconfig.ios.json`) and the unit tests — it compiles **no Swift whatsoever**.
+  "iOS is verified" means a green **`iOS / Build (iOS)`** run, nothing else.
+- **iOS is NOT shipped through the App Store, by decision — do not reintroduce
+  App Store constraints.** MagicMoney is self-distributed from GitHub Releases
+  and the ChainLens site on every platform. There is no Apple Developer
+  Program membership and there will not be one. Consequences: the self-updater
+  **stays** (`src/ios/update-check.ts` — guideline 2.5.2 does not apply), no
+  feature is cut for review, and no Apple account or certificate appears
+  anywhere in CI. `ios.yml` produces a *simulator* `.app` (CI smoke test only —
+  it cannot run on a device) plus an **unsigned device `.ipa`**;
+  `release.yml`'s `ios` job publishes that `.ipa` as a release asset, and it is
+  in the `publish-release` required-asset gate. Users install it with
+  Sideloadly/AltStore on **Windows** using their own free Apple ID.
+  Free-provisioning limits apply to the install, not the build: 7-day expiry,
+  re-sign via computer, max 3 sideloaded apps. Keep new features clear of
+  entitlements free provisioning can't grant (App Groups, push, associated
+  domains, NetworkExtension); Tor is fine because WKWebView
+  `proxyConfigurations` needs no entitlement.
+- The iOS app version comes from `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`
+  in `project.pbxproj` (Info.plist only holds `$(...)` substitutions), and
+  `scripts/patch-ios-native.js` sets both from `package.json` on every build.
+  Do not add an iOS bump to `scripts/release.js` — it would fight that, and it
+  would not work anyway while `ios/` is CI-generated.
+- The iOS job asserts more than "xcodebuild exited 0", because the two worst
+  failures here are silent: it checks the Podfile/lock actually reference
+  `MagicMoneyPlugins` (a failed Podfile patch otherwise yields a green build in
+  which none of our Swift compiled), that each `*Plugin.swift` appears in the
+  build log (a bad `source_files` glob yields an empty-but-valid pod), and that
+  the simulator log shows no WebView load failure or unregistered plugin.
 - **All custom iOS Swift lives in `ios-plugins/`, a local CocoaPods pod with a
   globbed `source_files`** — never added to the Xcode target by hand. Adding a
   file to an Xcode target means editing generated `project.pbxproj` UUIDs,
@@ -125,7 +161,7 @@ difference can't be expressed as an alias, gate it in place.
 
 `.github/workflows/release.yml` creates a single **draft** release
 (`prepare-release` job) before any builder runs, every build job uploads
-into that draft, and a final `publish-release` job verifies all 11 expected
+into that draft, and a final `publish-release` job verifies all 12 expected
 asset patterns exist before flipping the release to published. This exists
 because electron-builder silently skips uploads into an already-published
 non-draft release — a partial release with green CI is worse than a failed

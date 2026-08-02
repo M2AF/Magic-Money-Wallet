@@ -1,0 +1,259 @@
+name: iOS
+
+# THE ONLY PLACE iOS CODE IS EVER COMPILED.
+#
+# This project is developed on Windows and the team owns no Mac, so there is no
+# local Xcode, no local Simulator, and no way to check a Swift change before
+# pushing. That makes this workflow the entire feedback loop for the iOS target:
+# treat a red run as a broken build, and never mark iOS work "done" without a
+# green one.
+#
+# It runs on every push and PR (not workflow_dispatch like build.yml) precisely
+# because of that — unverified Swift must not accumulate. It deliberately does
+# NOT reuse build.yml, which would drag three Electron installers and the
+# Android APK along with every iOS check.
+#
+# Unsigned, simulator-only (CODE_SIGNING_ALLOWED=NO, -sdk iphonesimulator), so
+# it needs no Apple Developer account, no certificate and no provisioning
+# profile. Signed archive + TestFlight upload land in release.yml once the
+# account exists — see the iOS plan, Phase 4.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/ios/**'
+      - 'src/capacitor/**'
+      - 'src/renderer/**'
+      - 'src/main/**'
+      - 'src/extension/**'
+      - 'ios-plugins/**'
+      - 'ios/**'
+      - 'vite.ios.config.ts'
+      - 'vite.capacitor.shared.ts'
+      - 'capacitor.config.ts'
+      - 'tsconfig.ios.json'
+      - 'scripts/cap.js'
+      - 'scripts/patch-ios-*.js'
+      - 'scripts/generate-ios-icons.js'
+      - 'package.json'
+      - '.github/workflows/ios.yml'
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-14
+    name: Build (iOS)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # adblock-rs has no prebuilt binaries and compiles from Rust source during
+      # npm ci. This job never uses it (Magic Guard on iOS is WKContentRuleList,
+      # not the Rust engine), but npm ci installs ALL declared dependencies.
+      - uses: dtolnay/rust-toolchain@1.97
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The ios/ project is generated rather than committed while the port is in
+      # progress: `cap add ios` runs CocoaPods, which needs macOS, so it cannot
+      # be produced on the Windows dev machine. Once the generated tree is
+      # committed this step becomes a no-op and Xcode settings survive.
+      - name: Scaffold ios/ if absent
+        run: |
+          if [ ! -d ios ]; then
+            echo "::notice::ios/ not committed yet — generating from the Capacitor template"
+            node scripts/cap.js add ios
+          fi
+
+      - name: Generate app icons
+        run: npm run icons:ios
+
+      - name: Build web bundle + sync
+        run: npm run build:ios
+
+      # Prove the local pod was actually wired in. Without this, a Podfile-patch
+      # failure produces a perfectly green build in which none of our Swift was
+      # ever compiled — the single most misleading outcome available here.
+      - name: Verify the MagicMoneyPlugins pod is installed
+        run: |
+          if ! grep -q 'MagicMoneyPlugins' ios/App/Podfile; then
+            echo "::error::Podfile does not reference MagicMoneyPlugins — patch-ios-native.js failed."
+            exit 1
+          fi
+          # Capacitor's template pins iOS 14.0, which cannot resolve
+          # GoogleMLKit/BarcodeScanning 7.0.0 (needs 15.5+) — that exact failure
+          # broke the first real build. Assert the patch actually landed so a
+          # future template change fails here with a clear message instead of
+          # deep inside CocoaPods dependency resolution.
+          if ! grep -q "platform :ios, '17.0'" ios/App/Podfile; then
+            echo "::error::Podfile platform is not iOS 17.0 — patch-ios-native.js did not apply."
+            grep -n 'platform :ios' ios/App/Podfile
+            exit 1
+          fi
+          if [ ! -d ios/App/Pods/MagicMoneyPlugins ] && ! grep -q 'MagicMoneyPlugins' ios/App/Podfile.lock; then
+            echo "::error::pod install did not resolve MagicMoneyPlugins."
+            exit 1
+          fi
+          echo "Podfile + lock reference the local pod:"
+          grep -n 'MagicMoneyPlugins' ios/App/Podfile ios/App/Podfile.lock || true
+
+      - name: Build (unsigned, simulator)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO \
+            build 2>&1 | tee xcodebuild.log
+
+      # Compiling the pod is not the same as compiling OUR files: a glob typo
+      # yields an empty-but-valid pod. Assert each plugin was actually built.
+      - name: Verify every Swift plugin compiled
+        run: |
+          missing=0
+          for f in AppInfoPlugin DownloaderPlugin SecureVaultPlugin; do
+            if grep -q "$f.swift" xcodebuild.log; then
+              echo "  ✓ $f.swift compiled"
+            else
+              echo "::error::$f.swift never appeared in the build log — the podspec source_files glob is not matching."
+              missing=1
+            fi
+          done
+          exit $missing
+
+      # Boot a simulator and confirm the app actually launches. A successful
+      # compile says nothing about whether the WebView loaded the bundle or
+      # whether the custom plugins linked — both fail silently at runtime.
+      - name: Smoke test on simulator
+        run: |
+          set -e
+          DEVICE=$(xcrun simctl list devices available -j \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for v in d.values() for x in v if 'iPhone' in x['name']))")
+          echo "Using simulator $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+
+          xcrun simctl install "$DEVICE" build/ios/Build/Products/Debug-iphonesimulator/App.app
+
+          # Capture the app's own log stream — this is where Capacitor reports
+          # plugin registration and where WebView load errors surface.
+          xcrun simctl spawn "$DEVICE" log stream --level debug \
+            --predicate 'processImagePath CONTAINS "App"' > simulator.log 2>&1 &
+          LOG_PID=$!
+
+          xcrun simctl launch "$DEVICE" info.chainlens.magicmoney
+          sleep 20
+          kill $LOG_PID || true
+
+          xcrun simctl io "$DEVICE" screenshot ios-launch.png
+
+      # A blank screenshot is the classic "bundle didn't load" failure, and it is
+      # invisible unless someone looks. Assert on the log so the job self-reports.
+      - name: Assert the app booted and plugins registered
+        run: |
+          echo "── Capacitor / WebView log lines ──"
+          grep -iE "capacitor|webview|plugin|error|fatal" simulator.log | head -60 || true
+
+          if grep -qiE "Unable to open|Failed to load webpage|WebPageProxy.*crash" simulator.log; then
+            echo "::error::The WebView failed to load the bundle — check webDir/cap sync."
+            exit 1
+          fi
+          for plugin in AppInfo Downloader SecureVault; do
+            if grep -qi "Unimplemented.*$plugin\|$plugin.*not implemented" simulator.log; then
+              echo "::error::Plugin $plugin did not register — the -ObjC linker flag or the podspec glob is wrong."
+              exit 1
+            fi
+          done
+
+      # ── Device build → unsigned .ipa for sideloading ────────────────────────
+      # The simulator .app above CANNOT run on a real iPhone (different CPU
+      # slice and no code signature). This produces a device build instead,
+      # packaged as an unsigned .ipa.
+      #
+      # Unsigned is deliberate and is what sideloading tools expect: Sideloadly
+      # and AltStore re-sign the .ipa (app + embedded frameworks) with the
+      # user's own FREE Apple ID on their PC. That means no Apple Developer
+      # Program membership and no Mac anywhere in the loop — Sideloadly runs on
+      # Windows, which is the whole dev machine story for this project.
+      #
+      # Free-provisioning limits apply to the INSTALL, not to this build: the
+      # app expires after 7 days and must be re-signed, and only 3 sideloaded
+      # apps can be active at once. Publishing to the App Store is the only
+      # thing that still requires the paid program.
+      - name: Build device .ipa (unsigned, for sideloading)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace ios/App/App.xcworkspace \
+            -scheme App \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build/ios-device \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGN_ENTITLEMENTS="" \
+            build 2>&1 | tee xcodebuild-device.log
+
+          APP="build/ios-device/Build/Products/Release-iphoneos/App.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::Device build produced no App.app at $APP"
+            exit 1
+          fi
+
+          # .ipa is just a zip with the app under Payload/ — the standard
+          # unsigned-ipa recipe that re-signing tools accept.
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry "MagicMoney-${GITHUB_SHA::7}-unsigned.ipa" Payload
+          rm -rf Payload
+          ls -lh MagicMoney-*.ipa
+
+      - name: Upload build output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magicmoney-iOS
+          path: |
+            ios-launch.png
+            simulator.log
+            xcodebuild.log
+            xcodebuild-device.log
+          if-no-files-found: warn
+
+      # The sideload-ready build. Download, then install with Sideloadly (or
+      # AltStore) on Windows using a free Apple ID.
+      - name: Upload unsigned .ipa
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magicmoney-ios-ipa
+          path: MagicMoney-*.ipa
+          if-no-files-found: warn
+
+      # Lets the generated project be downloaded and committed from Windows, so
+      # the Xcode config (Info.plist keys, capabilities, pod wiring) becomes a
+      # reviewable part of the repo instead of a CI-time artifact.
+      - name: Upload generated ios/ project
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-project-scaffold
+          path: |
+            ios/
+            !ios/App/Pods
+            !ios/App/build
+          if-no-files-found: warn

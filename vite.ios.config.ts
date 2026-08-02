@@ -19,10 +19,9 @@ export default makeCapacitorConfig({
   outDir: 'dist-ios',
   extraAliases: [
     {
-      // The GitHub-Releases APK sideload updater must not exist in an App Store
-      // binary (guideline 2.5.2). The stub's isPlayStoreInstall() returns true,
-      // which reuses wallet-local.ts's existing removal path to strip the whole
-      // Software Update surface off window.wallet.
+      // Same GitHub-Releases updater as Android, but looking for the .ipa asset
+      // instead of the .apk, and never self-disabling (there is no store build
+      // of this app — it is sideloaded, so nothing forbids self-updating).
       find: /^\.\/update-check(\.ts)?$/,
       replacement: r('src/ios/update-check.ts')
     },

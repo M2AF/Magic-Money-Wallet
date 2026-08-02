@@ -23,10 +23,15 @@ Pod::Spec.new do |s|
   # process — the pbxproj is never touched by hand.
   s.source_files     = 'Sources/**/*.{swift,h,m}'
 
-  # Capacitor 7's floor. Phase 3 (Tor) needs WKWebView proxyConfigurations,
-  # which is iOS 17+ — raising this is a deliberate, separate decision, since
-  # it drops iOS 15/16 devices.
-  s.ios.deployment_target = '14.0'
+  # Must match DEPLOYMENT_TARGET in scripts/patch-ios-native.js, which sets the
+  # same value in ios/App/Podfile and project.pbxproj (CocoaPods resolves
+  # dependencies against the Podfile's platform, so a mismatch here surfaces as
+  # a confusing version-resolution failure rather than a clear error).
+  #
+  # Not Capacitor's 14.0 floor, for two reasons: GoogleMLKit/BarcodeScanning
+  # 7.0.0 (the QR scanner) requires 15.5+, and Phase 3 routes the dApp browser
+  # through Tor via WKWebView proxyConfigurations, which is iOS 17+.
+  s.ios.deployment_target = '17.0'
   s.swift_version    = '5.9'
 
   # Capacitor discovers plugins at RUNTIME by scanning the Objective-C class

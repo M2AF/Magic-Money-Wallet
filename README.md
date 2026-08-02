@@ -181,7 +181,9 @@ MagicMoney is **one codebase with four runtime surfaces**. All wallet logic — 
 | dApp browser | Built-in pop-out `WebContentsView` | The user's own browser tabs | Native `DappBrowser` plugin with separate WebViews | `WKWebView` port of the same plugin |
 | Native security | Windows Hello / Touch ID | Password unlock | Android biometric unlock, app foreground re-lock, hardware back handling | Face ID / Touch ID (Secure Enclave), foreground re-lock |
 
-The two native targets are **one target with two alias sets**: both build from `src/capacitor/*` through the shared recipe in `vite.capacitor.shared.ts`. `src/ios/` contains only an entry point, a stylesheet, and the two modules iOS must replace.
+The two native targets are **one target with two alias sets**: both build from `src/capacitor/*` through the shared recipe in `vite.capacitor.shared.ts`. `src/ios/` contains only an entry point, a stylesheet, and the few modules iOS must replace.
+
+**iOS distribution — sideload, not the App Store.** MagicMoney is self-distributed from GitHub Releases and the ChainLens site on every platform, iOS included. The release asset is an **unsigned `.ipa`**; you install it with [Sideloadly](https://sideloadly.io) or [AltStore](https://altstore.io) using your own **free** Apple ID — no Apple Developer Program membership on either side. Apple's free provisioning means a sideloaded app **expires after 7 days** and must be re-signed from a computer, and you can have at most 3 sideloaded apps active. In exchange, the iOS build is subject to no store review: the self-updater, the ad-blocker and Tor are all present, and nothing is cut to satisfy a guideline.
 
 **iOS platform gaps** (Apple provides no API for these — they are not TODOs):
 
@@ -189,7 +191,6 @@ The two native targets are **one target with two alias sets**: both build from `
 |---|---|
 | Set as default browser | Unavailable — no third-party API to request or query the role |
 | Install site as home-screen app | Unavailable — a Safari-only privilege |
-| Self-updater | Removed by design; the App Store delivers updates |
 | Chromium password import | Stubbed, as on Android. CSV import works |
 | Monero send | Receive-only, as on Android and the extension |
 | Screenshot blocking | Approximated (no `FLAG_SECURE` equivalent) — see below |
