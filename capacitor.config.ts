@@ -19,13 +19,19 @@ const config: CapacitorConfig = {
     // Secure context (WebCrypto guaranteed); WebView origin = https://localhost.
     // The vault lives in Preferences, not web storage, so origin isn't custody-critical.
     androidScheme: 'https',
-    // iOS defaults to capacitor://localhost. That origin would invalidate every
-    // entry in fetch-guard.ts's BROWSER_HOSTS allowlist, which was CORS-verified
-    // against `Origin: https://localhost` — hosts that reflect the origin (the
-    // Worker, Monad RPCs, Magic Eden) would start failing and silently fall back
-    // to the native bridge, corrupting Monero/Zcash binary bodies. Pinning the
-    // iOS scheme to https keeps one origin across both native targets.
-    iosScheme: 'https',
+    // NOTE: there is deliberately no `iosScheme` here. iOS serves the bundle
+    // from capacitor://localhost and CANNOT be moved to https: Capacitor
+    // registers a WKURLSchemeHandler for the scheme, and WKWebView refuses to
+    // hand over any scheme it already handles. Capacitor validates this in
+    // CAPInstanceDescriptor.normalize() —
+    //     if WKWebView.handlesURLScheme(scheme) == false { valid } else { reset }
+    // — so `iosScheme: 'https'` is SILENTLY discarded and falls back to
+    // 'capacitor'. It looks applied in capacitor.config.json and is not.
+    //
+    // The two origins therefore differ (https://localhost on Android,
+    // capacitor://localhost on iOS). That is fine: the Worker reflects both
+    // (APP_ORIGINS in cloudflare-worker/swap-proxy.js), and every other entry
+    // in fetch-guard.ts's BROWSER_HOSTS sends `Access-Control-Allow-Origin: *`.
     ...(devUrl ? { url: devUrl, cleartext: true } : {})
   },
   plugins: {

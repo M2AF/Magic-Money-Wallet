@@ -22,12 +22,16 @@ textarea,
   user-select: text;
 }
 
-/* iOS rubber-band scrolls the whole document behind the fixed shell, exposing
-   the WebView background. cap.css sets overscroll-behavior: none, which WebKit
-   only honors on scroll containers — pinning the body removes the outer
-   scroller entirely so there is nothing to bounce. */
-html,
-body {
-  position: fixed;
-  inset: 0;
-}
+/* NOTE — do not reintroduce `position: fixed` on `html`.
+   An earlier version of this file pinned BOTH html and body with
+   `position: fixed; inset: 0` to kill iOS rubber-band scrolling. Taking the
+   ROOT element out of flow collapses the initial containing block in WebKit,
+   so `#root { height: 100% }` (index.css) resolves against nothing, the whole
+   tree lays out at zero height, and the app renders a completely blank screen
+   — React mounts and runs, but paints nothing. It cost a full CI round to
+   find, because "blank" looks identical to "crashed".
+
+   cap.css already sets `overflow: hidden` + `overscroll-behavior: none` on
+   html/body/#root/.app-shell, which is what Android ships. If rubber-band
+   still shows on a real device, fix it on a scroll CONTAINER inside the app,
+   never on html. */

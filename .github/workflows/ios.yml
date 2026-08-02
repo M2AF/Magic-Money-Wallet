@@ -147,35 +147,88 @@ jobs:
 
           xcrun simctl install "$DEVICE" build/ios/Build/Products/Debug-iphonesimulator/App.app
 
-          # Capture the app's own log stream — this is where Capacitor reports
-          # plugin registration and where WebView load errors surface.
+          # Route WebKit page messages (console.log / JS exceptions) into the
+          # system log as well. The app reads this key from its OWN preferences
+          # domain, so it must be written there.
+          xcrun simctl spawn "$DEVICE" defaults write info.chainlens.magicmoney \
+            WebKitDebugLogsPageMessagesToSystemConsoleEnabled -bool YES || true
+
+          # os_log stream: native-side signals (plugin registration, WebView).
           xcrun simctl spawn "$DEVICE" log stream --level debug \
             --predicate 'processImagePath CONTAINS "App"' > simulator.log 2>&1 &
           LOG_PID=$!
 
-          xcrun simctl launch "$DEVICE" info.chainlens.magicmoney
-          sleep 20
-          kill $LOG_PID || true
+          # THE important one. Capacitor's CAPLog (and therefore every JS
+          # console.log / uncaught error forwarded by native-bridge.js) is
+          # emitted with Swift `print()`, i.e. to the process's STDOUT — which
+          # os_log does NOT capture. That is why the first blank-screen failure
+          # produced no JS diagnostics at all. --console-pipe attaches to the
+          # app's stdout/stderr, so this file is where a startup exception
+          # actually shows up.
+          xcrun simctl launch --console-pipe "$DEVICE" info.chainlens.magicmoney \
+            > app-console.log 2>&1 &
+          APP_PID=$!
+
+          sleep 25
+          kill $LOG_PID $APP_PID 2>/dev/null || true
 
           xcrun simctl io "$DEVICE" screenshot ios-launch.png
 
-      # A blank screenshot is the classic "bundle didn't load" failure, and it is
-      # invisible unless someone looks. Assert on the log so the job self-reports.
-      - name: Assert the app booted and plugins registered
+      # The first version of this step only grepped for a handful of error
+      # strings and PASSED a build whose screen was completely blank. Absence of
+      # a known error message is not evidence the app rendered — so the
+      # authoritative check here is the SCREENSHOT ITSELF.
+      - name: Assert the app booted and rendered
         run: |
-          echo "── Capacitor / WebView log lines ──"
-          grep -iE "capacitor|webview|plugin|error|fatal" simulator.log | head -60 || true
+          echo "── app stdout (Capacitor + JS console) ──"
+          cat app-console.log || echo "(no app-console.log)"
+          echo
+          echo "── native log highlights ──"
+          grep -aiE "capacitor|webview|plugin|error|fatal" simulator.log | head -40 || true
 
-          if grep -qiE "Unable to open|Failed to load webpage|WebPageProxy.*crash" simulator.log; then
+          if grep -qaiE "Unable to open|Failed to load webpage|WebPageProxy.*crash" simulator.log; then
             echo "::error::The WebView failed to load the bundle — check webDir/cap sync."
             exit 1
           fi
           for plugin in AppInfo Downloader SecureVault; do
-            if grep -qi "Unimplemented.*$plugin\|$plugin.*not implemented" simulator.log; then
-              echo "::error::Plugin $plugin did not register — the -ObjC linker flag or the podspec glob is wrong."
+            if grep -qai "Unimplemented.*$plugin\|$plugin.*not implemented" simulator.log app-console.log; then
+              echo "::error::Plugin $plugin did not register — check the -ObjC flag or the podspec glob."
               exit 1
             fi
           done
+          # Uncaught JS at startup is the most likely cause of a blank render.
+          if grep -qaE "Uncaught|ReferenceError|TypeError:|SyntaxError|Unhandled Promise" app-console.log; then
+            echo "::error::Uncaught JavaScript error during startup (see app stdout above)."
+            exit 1
+          fi
+
+      # Pixel-level proof that something actually rendered. A React app that
+      # threw during boot leaves a uniform background — which is exactly what
+      # shipped as "green" once already.
+      - name: Assert the screen is not blank
+        run: |
+          python3 -m pip install --quiet --disable-pip-version-check pillow
+          python3 - <<'PY'
+          import sys
+          from PIL import Image
+
+          im = Image.open("ios-launch.png").convert("RGB")
+          w, h = im.size
+          # Ignore the status bar (clock/wifi/battery always draw) and the home
+          # indicator, or every blank screen looks "non-empty".
+          body = im.crop((0, int(h * 0.08), w, int(h * 0.96)))
+          colors = body.getcolors(maxcolors=1_000_000) or []
+          distinct = len(colors)
+          total = body.size[0] * body.size[1]
+          dominant = max((c for c, _ in colors), default=total)
+          share = dominant / total
+
+          print(f"body {body.size}  distinct_colors={distinct}  dominant_share={share:.4f}")
+          if distinct < 12 or share > 0.995:
+              print("::error::App window is effectively blank — the UI did not render.")
+              sys.exit(1)
+          print("Screen rendered content.")
+          PY
 
       # ── Device build → unsigned .ipa for sideloading ────────────────────────
       # The simulator .app above CANNOT run on a real iPhone (different CPU
@@ -229,6 +282,7 @@ jobs:
           name: magicmoney-iOS
           path: |
             ios-launch.png
+            app-console.log
             simulator.log
             xcodebuild.log
             xcodebuild-device.log
