@@ -283,9 +283,19 @@ jobs:
       # Swift plugins (SecureVault, AppInfo) — a screenshot can't.
       - name: Install Appium + XCUITest driver
         run: |
-          npm install -g appium@2
-          appium driver install xcuitest
+          # Versions are pinned, like every other toolchain here (rust 1.97,
+          # adblock-rs 0.13.2), because CI is the only place iOS runs — a silent
+          # upstream bump would surface as an unexplained red build.
+          #
+          # MUST be Appium 3: appium-xcuitest-driver has required server
+          # `^3.0.0-rc.2` since v11.17, so pinning appium@2 fails at install with
+          # "cannot be installed because the server version it requires ... does
+          # not meet the currently installed one".
+          npm install -g appium@3.6.0
+          appium driver install xcuitest@12.1.4
           npm install --no-save webdriverio@9
+          appium --version
+          appium driver list --installed
 
       - name: Enroll Face ID on the simulator
         run: |
