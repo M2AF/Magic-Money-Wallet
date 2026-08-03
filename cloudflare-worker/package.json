@@ -1,0 +1,11 @@
+{
+  "name": "magicmoney-swap-proxy",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Cloudflare Worker: swap proxy, read path, market cache. Deps are pinned to the exact versions the desktop app resolves, so the bundled crypto is identical.",
+  "type": "module",
+  "dependencies": {
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0"
+  }
+}
