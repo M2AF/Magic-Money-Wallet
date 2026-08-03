@@ -136,7 +136,10 @@ jobs:
       # Boot a simulator and confirm the app actually launches. A successful
       # compile says nothing about whether the WebView loaded the bundle or
       # whether the custom plugins linked — both fail silently at runtime.
-      - name: Smoke test on simulator
+      # Device selection lives in its own step so the UDID is available to every
+      # later step (smoke test, Face ID enrollment, Appium) via $IOS_UDID —
+      # a shell variable set inside one `run:` block does not survive to the next.
+      - name: Boot simulator
         run: |
           set -e
           DEVICE=$(xcrun simctl list devices available -j \
@@ -144,6 +147,18 @@ jobs:
           echo "Using simulator $DEVICE"
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
+          echo "IOS_UDID=$DEVICE" >> "$GITHUB_ENV"
+          # Record the runtime version so Appium can pin platformVersion.
+          VER=$(xcrun simctl list devices available -j \
+            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(k for k,v in d.items() for x in v if x['udid']=='$DEVICE'))" \
+            | sed -E 's/.*iOS-([0-9]+)-([0-9]+).*/\1.\2/')
+          echo "IOS_PLATFORM=$VER" >> "$GITHUB_ENV"
+          echo "Runtime: $VER"
+
+      - name: Smoke test on simulator
+        run: |
+          set -e
+          DEVICE="$IOS_UDID"
 
           xcrun simctl install "$DEVICE" build/ios/Build/Products/Debug-iphonesimulator/App.app
 
@@ -257,6 +272,78 @@ jobs:
               print("::warning::Screen is almost entirely one colour — check the screenshot artifact.")
           print("Screen rendered content.")
           PY
+
+      # ── Functional end-to-end on the simulator ──────────────────────────────
+      # This is the ONLY functional test the iOS build will ever get: nobody on
+      # the project owns an Apple device, so there is no manual QA pass to fall
+      # back on. Runner minutes are free on a public repo — use them.
+      #
+      # Drives the real app through Appium/XCUITest, switching into the WebView
+      # to exercise window.wallet.* directly. That is what actually covers the
+      # Swift plugins (SecureVault, AppInfo) — a screenshot can't.
+      - name: Install Appium + XCUITest driver
+        run: |
+          npm install -g appium@2
+          appium driver install xcuitest
+          npm install --no-save webdriverio@9
+
+      - name: Enroll Face ID on the simulator
+        run: |
+          # The simulator supports biometrics via darwin notifications. Without
+          # this, LAContext reports "No identities are enrolled" and the whole
+          # SecureVaultPlugin path is untestable — which is exactly what made
+          # Face ID look like it needed real hardware.
+          xcrun simctl spawn "$IOS_UDID" notifyutil -s com.apple.BiometricKit.enrollmentChanged 1
+          xcrun simctl spawn "$IOS_UDID" notifyutil -p com.apple.BiometricKit.enrollmentChanged
+          echo "Face ID enrolled on $IOS_UDID"
+
+      - name: Run iOS end-to-end
+        env:
+          IOS_APP_PATH: build/ios/Build/Products/Debug-iphonesimulator/App.app
+          SHOT_DIR: ios-shots
+        run: |
+          appium --port 4723 --log appium.log &
+          APPIUM_PID=$!
+          # Wait for readiness rather than sleeping a fixed amount.
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:4723/status >/dev/null && break
+            sleep 1
+          done
+          set +e
+          node scripts/ios-e2e.mjs
+          STATUS=$?
+          set -e
+          kill $APPIUM_PID 2>/dev/null || true
+          exit $STATUS
+
+      - name: Upload e2e screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magicmoney-ios-e2e
+          path: |
+            ios-shots/
+            appium.log
+          if-no-files-found: warn
+
+      # The SIMULATOR build, zipped. Not installable on a phone — this is what
+      # Appetize.io wants if you ever need to poke at the app by hand in a
+      # browser (their free tier is 30 min/month, public apps only). The .ipa
+      # below is the device build and is NOT interchangeable with it.
+      - name: Package simulator .app (for browser-based simulators)
+        if: always()
+        run: |
+          cd build/ios/Build/Products/Debug-iphonesimulator
+          zip -qry "$GITHUB_WORKSPACE/magicmoney-ios-simulator.zip" App.app
+          ls -lh "$GITHUB_WORKSPACE/magicmoney-ios-simulator.zip"
+
+      - name: Upload simulator .app
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: magicmoney-ios-simulator-app
+          path: magicmoney-ios-simulator.zip
+          if-no-files-found: warn
 
       # ── Device build → unsigned .ipa for sideloading ────────────────────────
       # The simulator .app above CANNOT run on a real iPhone (different CPU

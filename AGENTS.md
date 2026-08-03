@@ -121,6 +121,19 @@ difference can't be expressed as an alias, gate it in place.
   `scripts/patch-ios-native.js` sets both from `package.json` on every build.
   Do not add an iOS bump to `scripts/release.js` — it would fight that, and it
   would not work anyway while `ios/` is CI-generated.
+- **`scripts/ios-e2e.mjs` (Appium/XCUITest, run by `ios.yml`) is the ONLY
+  functional test iOS will ever get** — there is no device and no manual QA
+  pass. It switches into the WEBVIEW context and drives `window.wallet.*`
+  directly rather than using native selectors, because that is what actually
+  exercises the Swift plugins (`SecureVault`, `AppInfo`); a screenshot cannot.
+  Add coverage here when you add a plugin.
+- **Face ID IS testable on the simulator — do not claim it needs real
+  hardware.** `ios.yml` enrolls it with
+  `simctl spawn <udid> notifyutil -s com.apple.BiometricKit.enrollmentChanged 1`
+  (then `-p` to post). Match/no-match can be driven with
+  `notifyutil -p com.apple.BiometricKit_Sim.pearl.match|nomatch`. Without the
+  enrollment step `LAContext` reports "No identities are enrolled" and the whole
+  Secure Enclave path silently goes untested.
 - The iOS job asserts more than "xcodebuild exited 0", because the two worst
   failures here are silent: it checks the Podfile/lock actually reference
   `MagicMoneyPlugins` (a failed Podfile patch otherwise yields a green build in
