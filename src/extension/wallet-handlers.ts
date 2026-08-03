@@ -60,6 +60,15 @@ import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
+import {
+  summarizeCardanoTx, formatCardanoTxSummary, formatSignDataPayload, formatAda,
+  type CardanoTxSummary,
+} from '../main/cardano-tx-inspect'
+import { getCardanoStakeKey } from '../main/cardano-pure'
+import { grantForChainLabel, type DappChain } from '../main/dapp-permissions'
+import { mnemonicToEntropy } from '@scure/bip39'
+import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
+import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
 import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
 
 // ── In-memory pending mnemonic (lives only during the create/import flow) ────
@@ -104,9 +113,11 @@ const _web3SignQueue = new Map<string, {
   details?: string
 }>()
 
-async function requireApprovedOrigin(sender: Sender | undefined, action: string): Promise<string> {
+async function requireApprovedOrigin(
+  sender: Sender | undefined, action: string, chain: DappChain
+): Promise<string> {
   const origin = sender?.origin ?? 'unknown'
-  if (!(await store.getApprovedOrigins()).includes(origin)) {
+  if (!(await store.hasOriginChain(origin, chain))) {
     throw Object.assign(new Error(`Connect the wallet before ${action}.`), { code: 4100 })
   }
   return origin
@@ -117,7 +128,9 @@ async function requestSignatureApproval(
   req: { chain: string; method: string; summary: string; details?: string }
 ): Promise<void> {
   if (sender?.kind !== 'page') return
-  const origin = await requireApprovedOrigin(sender, 'signing')
+  // The grant is derived from the chain being signed for, so a site connected
+  // for one chain cannot get a signing prompt for another.
+  const origin = await requireApprovedOrigin(sender, 'signing', grantForChainLabel(req.chain))
   const id = crypto.randomUUID()
   return new Promise<void>((resolve, reject) => {
     _web3SignQueue.set(id, { resolve, reject, origin, ...req })
@@ -136,6 +149,58 @@ function previewBytes(bytes: Uint8Array | number[] | string, max = 96): string {
     ? bytes
     : Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
   return text.length > max ? `${text.slice(0, max)}...` : text
+}
+
+// ── Cardano dApp helpers ─────────────────────────────────────────────────────
+
+/** Throws CIP-30 APIError.Refused unless the origin holds a Cardano grant. */
+async function requireCardanoGrant(sender: Sender | undefined): Promise<string> {
+  const origin = sender?.origin ?? 'unknown'
+  if (!(await store.hasOriginChain(origin, 'cardano'))) {
+    throw Object.assign(new Error('Connect the wallet before using the Cardano API.'), { code: 4100 })
+  }
+  return origin
+}
+
+/**
+ * The Cardano address CIP-30 should expose. loadFullAddresses() applies the
+ * Testnet Mode substitution, so in Testnet Mode dApps get the addr_test…
+ * address matching the network id we report.
+ */
+async function cardanoDappAddress(): Promise<{ address: string; accountIndex: number }> {
+  const addresses = await loadFullAddresses()
+  if (!addresses?.cardano) throw new Error('No Cardano wallet')
+  return { address: addresses.cardano, accountIndex: addresses.accountIndex ?? 0 }
+}
+
+/**
+ * Decode a dApp transaction for the approval sheet. Never throws — a decoder
+ * failure must still produce a prompt (marked undecodable) rather than an error
+ * the user reads as "signing is broken". The stake-key hash is best-effort: it
+ * only drives the "also signs with your stake key" warning.
+ */
+async function describeCardanoTxForApproval(
+  txHex: string, ownAddress: string, accountIndex: number
+): Promise<CardanoTxSummary> {
+  let stakeKeyHash: Uint8Array | undefined
+  try {
+    const entropy = mnemonicToEntropy(await store.loadMnemonic(), bip39Wordlist)
+    stakeKeyHash = blake2bHash(getCardanoStakeKey(entropy, accountIndex).pub, { dkLen: 28 })
+  } catch { /* warning omitted rather than blocking the prompt */ }
+
+  return summarizeCardanoTx(txHex, {
+    ownAddresses: [ownAddress],
+    stakeKeyHash,
+    config: await store.loadConfig(),
+  })
+}
+
+/** One-line headline for the approval sheet's summary row. */
+function cardanoApprovalHeadline(summary: CardanoTxSummary): string {
+  if (summary.resolution === 'failed') return 'Sign an undecodable Cardano transaction'
+  if (summary.netAda < 0n) return `Send ${formatAda(-summary.netAda)} ADA`
+  if (summary.netAda > 0n) return `Receive ${formatAda(summary.netAda)} ADA`
+  return 'Sign Cardano transaction'
 }
 
 // ── Monad RPC rotation ────────────────────────────────────────────────────────
@@ -343,16 +408,22 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     // ── Connected sites (revoke dApp access, like MetaMask/Phantom) ─────────
+    // Returns per-chain grant records so Settings can show what each site may
+    // actually do, and revoke one chain without disconnecting the others.
     case 'wallet:get-connected-sites':
-      return store.getApprovedOrigins()
+      return store.getApprovedOriginRecords()
 
     case 'wallet:revoke-site': {
       const origin = String(a0 ?? '')
-      if (!origin) return store.getApprovedOrigins()
-      await store.removeApprovedOrigin(origin)
-      // Tell any open tab on that origin it's been disconnected (MetaMask behavior).
-      platform.pushToDappOrigin(origin, 'accountsChanged', [])
-      return store.getApprovedOrigins()
+      if (!origin) return store.getApprovedOriginRecords()
+      const revokeScope = a1 ? (a1 as DappChain) : undefined
+      await store.removeApprovedOrigin(origin, revokeScope)
+      // Tell any open tab on that origin it's been disconnected (MetaMask
+      // behavior) — but only once it has no grants left at all.
+      if (!(await store.getApprovedOrigins()).includes(origin)) {
+        platform.pushToDappOrigin(origin, 'accountsChanged', [])
+      }
+      return store.getApprovedOriginRecords()
     }
 
     case 'wallet:revoke-all-sites': {
@@ -880,8 +951,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
         // Passive check — return [] if not yet approved (no prompt)
         case 'eth_accounts': {
-          const approved = await store.getApprovedOrigins()
-          if (!approved.includes(senderOrigin)) return []
+          if (!(await store.hasOriginChain(senderOrigin, 'evm'))) return []
           return addresses?.evm ? [addresses.evm] : []
         }
 
@@ -952,7 +1022,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         }
 
         case 'eth_sendTransaction': {
-          await requireApprovedOrigin(sender, 'sending transactions')
+          await requireApprovedOrigin(sender, 'sending transactions', 'evm')
           const id = crypto.randomUUID()
           const tx = params[0] as Record<string, string>
           const txChainId = _currentChainId
@@ -986,7 +1056,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
           // connected origin (internal UI uses web3:set-chain, not this path).
           const targetHex = `0x${target.toString(16)}`
           if (sender?.kind === 'page' && targetHex !== _currentChainId) {
-            await requireApprovedOrigin(sender, 'switching networks')
+            await requireApprovedOrigin(sender, 'switching networks', 'evm')
           }
           applyChainSwitch(targetHex)
           return null
@@ -1001,7 +1071,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
             // H-2: same connected-origin gate as wallet_switchEthereumChain.
             const addHex = `0x${addTarget.toString(16)}`
             if (sender?.kind === 'page' && addHex !== _currentChainId) {
-              await requireApprovedOrigin(sender, 'switching networks')
+              await requireApprovedOrigin(sender, 'switching networks', 'evm')
             }
             applyChainSwitch(addHex)
           }
@@ -1011,8 +1081,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         // EIP-2255 permissions
         case 'wallet_requestPermissions': {
           // Treat like eth_requestAccounts — prompt if not already approved
-          const approvedPerms = await store.getApprovedOrigins()
-          if (!approvedPerms.includes(senderOrigin)) {
+          if (!(await store.hasOriginChain(senderOrigin, 'evm'))) {
             await handle({ type: 'web3:request', args: [{ method: 'eth_requestAccounts', params: [] }] }, sender)
           }
           return [{ parentCapability: 'eth_accounts', caveats: [] }]
@@ -1025,7 +1094,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         }
 
         case 'wallet_revokePermissions': {
-          await store.removeApprovedOrigin(senderOrigin)
+          await store.removeApprovedOrigin(senderOrigin, 'evm')
           platform.pushToDapps('accountsChanged', [])
           return null
         }
@@ -1076,8 +1145,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'bitcoin:request-accounts': {
       const btcOrigin = sender?.origin ?? 'unknown'
-      const btcApproved = await store.getApprovedOrigins()
-      if (btcApproved.includes(btcOrigin)) {
+      if (await store.hasOriginChain(btcOrigin, 'bitcoin')) {
         const btcAddrs = await store.loadAddresses()
         return btcAddrs?.bitcoin ? [btcAddrs.bitcoin] : []
       }
@@ -1109,7 +1177,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         const want = Array.isArray(a0) ? (a0 as string[]) : ['payment', 'ordinals']
         return { addresses: all.filter(x => want.includes(x.purpose)) }
       }
-      if ((await store.getApprovedOrigins()).includes(btcOrigin)) return build()
+      if (await store.hasOriginChain(btcOrigin, 'bitcoin')) return build()
       const reqId = crypto.randomUUID()
       await new Promise<void>((resolve, reject) => {
         _connectionQueue.set(reqId, { resolve: () => resolve(), reject, origin: btcOrigin, tabId: sender?.tabId, chain: 'bitcoin' })
@@ -1154,7 +1222,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'bitcoin:sign-psbt': {
       const btcOrigin = sender?.origin ?? 'unknown'
-      if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+      if (!(await store.hasOriginChain(btcOrigin, 'bitcoin'))) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
       await requestSignatureApproval(sender, {
         chain: 'Bitcoin',
         method: 'signPsbt',
@@ -1184,7 +1252,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'bitcoin:send': {
       const btcOrigin = sender?.origin ?? 'unknown'
-      if (!(await store.getApprovedOrigins()).includes(btcOrigin)) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
+      if (!(await store.hasOriginChain(btcOrigin, 'bitcoin'))) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
       await requestSignatureApproval(sender, {
         chain: 'Bitcoin',
         method: 'sendBitcoin',
@@ -1201,8 +1269,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'polkadot:enable': {
       const dotOrigin = sender?.origin ?? 'unknown'
-      const dotApproved = await store.getApprovedOrigins()
-      if (dotApproved.includes(dotOrigin)) return true
+      if (await store.hasOriginChain(dotOrigin, 'polkadot')) return true
       const dotId = crypto.randomUUID()
       return new Promise((resolve, reject) => {
         _connectionQueue.set(dotId, { resolve, reject, origin: dotOrigin, tabId: sender?.tabId, chain: 'polkadot' })
@@ -1271,7 +1338,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!entry) throw new Error('Connection request not found')
       _connectionQueue.delete(id)
       const connAddresses = await store.loadAddresses()
-      await store.addApprovedOrigin(entry.origin)
+      // Scope the grant to the chain the site actually asked to connect for.
+      await store.addApprovedOrigin(entry.origin, entry.chain as DappChain)
       if (entry.chain === 'cardano' || entry.chain === 'polkadot') {
         entry.resolve(true)
       } else if (entry.chain === 'solana') {
@@ -1362,7 +1430,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const solOrigin = sender?.origin ?? 'unknown'
       const addresses = await store.loadAddresses()
       if (!addresses?.solana) throw new Error('No Solana wallet')
-      if ((await store.getApprovedOrigins()).includes(solOrigin)) return addresses.solana
+      if (await store.hasOriginChain(solOrigin, 'solana')) return addresses.solana
       const solId = crypto.randomUUID()
       return new Promise((resolve, reject) => {
         _connectionQueue.set(solId, { resolve, reject, origin: solOrigin, tabId: sender?.tabId, chain: 'solana' })
@@ -1433,16 +1501,16 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     // ── CIP-30 Cardano dApp connectivity ──────────────────────────────────
+    // Gated on a CARDANO grant, not merely a known origin: the reads expose
+    // holdings and submit-tx broadcasts, so an EVM-only connection must not
+    // reach them. Mirrors the Electron handlers in ../main/ipc-handlers.ts.
 
-    case 'cardano:is-enabled': {
-      const approvedCardano = await store.getApprovedOrigins()
-      return approvedCardano.includes(sender?.origin ?? 'unknown')
-    }
+    case 'cardano:is-enabled':
+      return store.hasOriginChain(sender?.origin ?? 'unknown', 'cardano')
 
     case 'cardano:enable': {
       const senderOriginCardano = sender?.origin ?? 'unknown'
-      const approvedCardanoOrigins = await store.getApprovedOrigins()
-      if (approvedCardanoOrigins.includes(senderOriginCardano)) return true
+      if (await store.hasOriginChain(senderOriginCardano, 'cardano')) return true
       const id = crypto.randomUUID()
       return new Promise((resolve, reject) => {
         _connectionQueue.set(id, { resolve, reject, origin: senderOriginCardano, tabId: sender?.tabId, chain: 'cardano' })
@@ -1456,65 +1524,67 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       })
     }
 
-    case 'cardano:get-network-id':
-      return 1 // mainnet
+    // 1 = mainnet, 0 = testnet. Must track Testnet Mode — reporting mainnet
+    // while handing out addr_test… addresses makes dApps build unusable txs.
+    case 'cardano:get-network-id': {
+      await requireCardanoGrant(sender)
+      return (await store.loadConfig()).testnetMode ? 0 : 1
+    }
 
     case 'cardano:get-balance': {
-      const addresses = await store.loadAddresses()
-      if (!addresses?.cardano) throw new Error('No Cardano wallet')
-      const config = await store.loadConfig()
-      return cip30GetBalance(addresses.cardano, config)
+      await requireCardanoGrant(sender)
+      const { address } = await cardanoDappAddress()
+      return cip30GetBalance(address, await store.loadConfig())
     }
 
     case 'cardano:get-utxos': {
-      const addresses = await store.loadAddresses()
-      if (!addresses?.cardano) throw new Error('No Cardano wallet')
-      const config = await store.loadConfig()
-      return cip30GetUtxos(addresses.cardano, config)
+      await requireCardanoGrant(sender)
+      const { address } = await cardanoDappAddress()
+      return cip30GetUtxos(address, await store.loadConfig())
     }
 
     case 'cardano:get-collateral': {
-      const addresses = await store.loadAddresses()
-      if (!addresses?.cardano) throw new Error('No Cardano wallet')
-      const config = await store.loadConfig()
-      return cip30GetCollateral(addresses.cardano, config, a0 ? String(a0) : undefined)
+      await requireCardanoGrant(sender)
+      const { address } = await cardanoDappAddress()
+      return cip30GetCollateral(address, await store.loadConfig(), a0 ? String(a0) : undefined)
     }
 
     case 'cardano:get-used-addresses': {
-      const addresses = await store.loadAddresses()
+      await requireCardanoGrant(sender)
       // CIP-30 requires hex-encoded address bytes, not bech32.
-      return addresses?.cardano ? [addressToHex(addresses.cardano)] : []
+      const { address } = await cardanoDappAddress()
+      return [addressToHex(address)]
     }
 
     case 'cardano:get-unused-addresses':
+      await requireCardanoGrant(sender)
       return []
 
     case 'cardano:get-change-address': {
-      const addresses = await store.loadAddresses()
-      if (!addresses?.cardano) throw new Error('No Cardano wallet')
-      return addressToHex(addresses.cardano)
+      await requireCardanoGrant(sender)
+      const { address } = await cardanoDappAddress()
+      return addressToHex(address)
     }
 
     case 'cardano:get-reward-addresses': {
-      const mnemonic = await store.loadMnemonic()
-      const addresses = await store.loadAddresses()
-      const accountIdx = addresses?.accountIndex ?? 0
-      return cip30GetRewardAddresses(mnemonic, accountIdx)
+      await requireCardanoGrant(sender)
+      const { accountIndex } = await cardanoDappAddress()
+      const cfg = await store.loadConfig()
+      return cip30GetRewardAddresses(await store.loadMnemonic(), accountIndex, !!cfg.testnetMode)
     }
 
     case 'cardano:sign-tx': {
-      const [txHex, _partial] = [String(a0), Boolean(a1)]
+      const txHex = String(a0)
+      const { address, accountIndex } = await cardanoDappAddress()
+      const summary = await describeCardanoTxForApproval(txHex, address, accountIndex)
       await requestSignatureApproval(sender, {
         chain: 'Cardano',
         method: 'signTx',
-        summary: 'Sign Cardano transaction',
-        details: `${txHex.length / 2} bytes`,
+        summary: cardanoApprovalHeadline(summary),
+        details: formatCardanoTxSummary(summary),
       })
-      const mnemonic = await store.loadMnemonic()
-      const addresses = await store.loadAddresses()
-      const accountIdx = addresses?.accountIndex ?? 0
       try {
-        return await cip30SignTx(txHex, mnemonic, accountIdx)
+        return await cip30SignTx(txHex, await store.loadMnemonic(), accountIndex)
       } catch (err) {
         throw new Error(`Could not sign this Cardano transaction — the dApp may have sent it in an unexpected format. (${err instanceof Error ? err.message : String(err)})`)
       }
@@ -1526,22 +1596,29 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         chain: 'Cardano',
         method: 'signData',
         summary: 'Sign Cardano data',
-        details: previewBytes(payloadHex),
+        details: formatSignDataPayload(payloadHex),
       })
-      const mnemonic = await store.loadMnemonic()
-      const addresses = await store.loadAddresses()
-      const accountIdx = addresses?.accountIndex ?? 0
-      const signingAddr = addrArg || addresses?.cardano || ''
+      const { address, accountIndex } = await cardanoDappAddress()
       try {
-        return await cip30SignData(signingAddr, payloadHex, mnemonic, accountIdx)
+        return await cip30SignData(addrArg || address, payloadHex, await store.loadMnemonic(), accountIndex)
       } catch (err) {
         throw new Error(`Could not sign this Cardano data payload. (${err instanceof Error ? err.message : String(err)})`)
       }
     }
 
+    // Broadcasting is a state change, so it is gated AND approved — without
+    // this an unconnected page could push arbitrary CBOR straight to the network.
     case 'cardano:submit-tx': {
-      const config = await store.loadConfig()
-      return cip30SubmitTx(String(a0), config)
+      const submitHex = String(a0)
+      const { address, accountIndex } = await cardanoDappAddress()
+      const summary = await describeCardanoTxForApproval(submitHex, address, accountIndex)
+      await requestSignatureApproval(sender, {
+        chain: 'Cardano',
+        method: 'submitTx',
+        summary: 'Broadcast Cardano transaction',
+        details: formatCardanoTxSummary(summary),
+      })
+      return cip30SubmitTx(submitHex, await store.loadConfig())
     }
 
     // ── Side panel ────────────────────────────────────────────────────────

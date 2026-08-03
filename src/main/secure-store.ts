@@ -16,6 +16,10 @@ import { normalizeMnemonic, type WalletAddresses } from './wallet-core'
 import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob } from './crypto-vault'
 import { runHello, helloPlatformOk, helloSupported, HELLO_KEY_NAME, HELLO_CHALLENGE_B64 } from './hello-bridge'
 import { touchIdPlatformOk, touchIdSupported, touchIdEnrollMaterial, touchIdGetMaterial, touchIdDeleteMaterial, TOUCHID_ITEM_MISSING } from './touchid-bridge'
+import {
+  normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
+  type ApprovedOrigin, type DappChain,
+} from './dapp-permissions'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -656,46 +660,54 @@ export function saveConfig(config: Partial<WalletConfig>): void {
 }
 
 // ─── Approved dApp origins (plain JSON, not secrets) ────────────────────────
+// Grants are per-chain (see dapp-permissions.ts). Legacy flat `string[]` files
+// are migrated on first read and rewritten on the next grant/revoke.
 
-let approvedOriginsCache: string[] | null = null
+let approvedOriginsCache: ApprovedOrigin[] | null = null
 
-export function getApprovedOrigins(): string[] {
+/** Full per-chain grant records. */
+export function getApprovedOriginRecords(): ApprovedOrigin[] {
   if (approvedOriginsCache) return approvedOriginsCache
   if (!existsSync(approvedOriginsPath())) {
     approvedOriginsCache = []
     return approvedOriginsCache
   }
   try {
-    const parsed = JSON.parse(readFileSync(approvedOriginsPath(), 'utf-8'))
-    approvedOriginsCache = Array.isArray(parsed)
-      ? parsed.filter((origin): origin is string => typeof origin === 'string')
-      : []
+    approvedOriginsCache = normalizeApprovedOrigins(JSON.parse(readFileSync(approvedOriginsPath(), 'utf-8')))
   } catch {
     approvedOriginsCache = []
   }
   return approvedOriginsCache
 }
 
-export function addApprovedOrigin(origin: string): void {
-  const existing = getApprovedOrigins()
-  if (existing.includes(origin)) return
-  const next = [...existing, origin]
+function persistApprovedOrigins(next: ApprovedOrigin[]): void {
   mkdirSync(userData(), { recursive: true })
   writeFileSync(approvedOriginsPath(), JSON.stringify(next, null, 2))
   approvedOriginsCache = next
 }
 
-export function removeApprovedOrigin(origin: string): void {
-  const existing = getApprovedOrigins()
-  const next = existing.filter(o => o !== origin)
-  mkdirSync(userData(), { recursive: true })
-  writeFileSync(approvedOriginsPath(), JSON.stringify(next, null, 2))
-  approvedOriginsCache = next
+/** Connected origins, any chain — what Settings → Connected Sites lists. */
+export function getApprovedOrigins(): string[] {
+  return originList(getApprovedOriginRecords())
+}
+
+/** Is this origin allowed to use this chain? The gate every dApp handler uses. */
+export function hasOriginChain(origin: string, chain: DappChain): boolean {
+  return hasChainGrant(getApprovedOriginRecords(), origin, chain)
+}
+
+export function addApprovedOrigin(origin: string, chain: DappChain): void {
+  const next = grantChain(getApprovedOriginRecords(), origin, chain)
+  if (next === getApprovedOriginRecords()) return   // already granted
+  persistApprovedOrigins(next)
+}
+
+/** Revoke one chain, or the whole origin when `chain` is omitted. */
+export function removeApprovedOrigin(origin: string, chain?: DappChain): void {
+  persistApprovedOrigins(revokeChain(getApprovedOriginRecords(), origin, chain))
 }
 
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
 export function clearApprovedOrigins(): void {
-  mkdirSync(userData(), { recursive: true })
-  writeFileSync(approvedOriginsPath(), JSON.stringify([], null, 2))
-  approvedOriginsCache = []
+  persistApprovedOrigins([])
 }

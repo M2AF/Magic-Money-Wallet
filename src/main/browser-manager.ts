@@ -1499,6 +1499,12 @@ export interface ApprovalOptions {
   confirmLabel: string   // 'Sign' | 'Connect' | 'Send' | …
   tone?: 'primary' | 'danger'
   origin?: string        // shown in the titlebar (🔒 origin)
+  /**
+   * Risk callouts pulled out of `detail` into a band above it, so the things
+   * that can cost the user money (burns, collateral, undecodable fields) are
+   * read before the amounts rather than scrolled past with them.
+   */
+  warnings?: string[]
 }
 
 function approvalPreloadPath(): string {
@@ -1515,6 +1521,9 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   const accent = opts.tone === 'danger' ? '#f59e0b' : '#2563eb'
   const accentHover = opts.tone === 'danger' ? '#d97706' : '#1d4ed8'
   const originBadge = opts.origin ? `🔒 ${escapeHtml(opts.origin)}` : ''
+  const warningBand = opts.warnings?.length
+    ? `<div class="warn">${opts.warnings.map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('')}</div>`
+    : ''
   // Our own trusted content (all dynamic values are HTML-escaped) loaded from a
   // data: URL — no CSP so the inline button handlers are guaranteed to fire.
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -1530,7 +1539,9 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   #bar .x:hover{background:rgba(255,90,90,.18);color:#ff6b6b}
   main{flex:1 1 auto;display:flex;flex-direction:column;padding:18px 18px 0;min-height:0}
   h1{font-size:16px;font-weight:700;color:#f8fafc;margin-bottom:12px}
-  .detail{flex:1 1 auto;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:#cbd5e1}
+  .warn{flex:0 0 auto;margin-bottom:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:#fcd34d}
+  .warn div + div{margin-top:5px}
+  .detail{flex:1 1 auto;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:#cbd5e1;font-family:ui-monospace,'Cascadia Mono','Segoe UI Mono',Menlo,monospace}
   footer{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;padding:14px 18px 18px}
   button.act{-webkit-app-region:no-drag;cursor:pointer;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700;transition:background .12s}
   .confirm{background:${accent};color:#fff}
@@ -1546,6 +1557,7 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   </div>
   <main>
     <h1>${escapeHtml(opts.heading)}</h1>
+    ${warningBand}
     <div class="detail">${escapeHtml(opts.detail)}</div>
   </main>
   <footer>
@@ -1570,7 +1582,10 @@ export function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
 
     const win = new BrowserWindow({
       width: 440,
-      height: 560,
+      // A decoded transaction summary plus a warning band needs more room than
+      // the one-line prompts this window was originally built for. The detail
+      // pane still scrolls, so this only reduces how often it has to.
+      height: opts.warnings?.length ? 660 : 560,
       parent,
       resizable: false,
       minimizable: false,

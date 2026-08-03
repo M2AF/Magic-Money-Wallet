@@ -120,7 +120,7 @@ contextBridge.exposeInMainWorld('wallet', {
 
   // ── Connected sites (revoke dApp access) ──────────────────────────────
   getConnectedSites: ()              => ipcRenderer.invoke('wallet:get-connected-sites'),
-  revokeSite:    (origin: string)    => ipcRenderer.invoke('wallet:revoke-site', origin),
+  revokeSite:    (origin: string, chain?: string) => ipcRenderer.invoke('wallet:revoke-site', origin, chain),
   revokeAllSites:()                  => ipcRenderer.invoke('wallet:revoke-all-sites'),
 
   // ── Downloads (NFT media → OS Downloads folder) ───────────────────────

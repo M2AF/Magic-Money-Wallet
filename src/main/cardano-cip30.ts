@@ -218,8 +218,12 @@ export function extractTxBody(txBytes: Uint8Array): Uint8Array {
  * body map. Used to inspect `required_signers` (14), `certificates` (4) and
  * `withdrawals` (5) without pulling in a full CBOR decoder. Returns null if the
  * field is absent or the body isn't a definite-length map.
+ *
+ * Exported so cardano-tx-inspect.ts can run the SAME scan when it tells the user
+ * "this also signs with your stake key" — the prompt must describe the signature
+ * that cip30SignTx actually produces, not a second opinion about it.
  */
-function bodyFieldBytes(body: Uint8Array, fieldKey: number): Uint8Array | null {
+export function bodyFieldBytes(body: Uint8Array, fieldKey: number): Uint8Array | null {
   if ((body[0] >> 5) !== 5) return null   // major type 5 = map
   const ai = body[0] & 0x1f
   let n: number, off: number
@@ -332,9 +336,17 @@ export async function cip30GetCollateral(
   })
 }
 
-export async function cip30GetRewardAddresses(mnemonic: string, accountIndex: number): Promise<string[]> {
+/**
+ * `testnet` must track Testnet Mode: a stake1… reward address alongside a
+ * reported network id of 0 (and addr_test… payment addresses) is inconsistent,
+ * and dApps that build delegation or withdrawal transactions from it produce
+ * transactions the node rejects.
+ */
+export async function cip30GetRewardAddresses(
+  mnemonic: string, accountIndex: number, testnet = false
+): Promise<string[]> {
   const entropy   = mnemonicToEntropy(mnemonic, wordlist)
-  const stakeAddr = deriveCardanoStakeAddress(entropy, accountIndex)
+  const stakeAddr = deriveCardanoStakeAddress(entropy, accountIndex, testnet)
   // CIP-30 requires hex-encoded reward-address bytes, not bech32 (stake1...).
   return [addressToHex(stakeAddr)]
 }
