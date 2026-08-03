@@ -372,12 +372,14 @@ const hostOf = (origin: string) => { try { return new URL(origin).hostname } cat
 /**
  * One connected site: favicon, hostname, the chains it may use.
  *
- * The favicon is loaded from the site's OWN origin rather than a third-party
- * favicon service. app-hub.ts uses Google's for its curated public directory,
- * which is fine — everyone fetches the same list. This list is the user's
- * personal dApp connections, and routing it through Google would hand a third
- * party a log of exactly which dApps this wallet talks to. The site is already
- * connected, so asking it for its own icon reveals nothing new.
+ * Favicons come from Google's s2 service, the same source and URL shape
+ * app-hub.ts uses — it normalises size and handles sites whose own favicon.ico
+ * is missing, oddly sized, or only declared via <link rel="icon">.
+ *
+ * The letter-tile fallback (BrowserApp's SuggestRow pattern) is for OFFLINE or
+ * blocked requests only: s2 answers an unknown domain with a generic globe
+ * rather than a 404, so onError does not fire for sites it doesn't recognise.
+ * Allowed by the packaged CSP via `img-src https:` (WALLET_CSP, main/index.ts).
  */
 function ConnectedSiteRow({ site, busy, onRevoke }: {
   site: ApprovedOrigin
@@ -405,7 +407,7 @@ function ConnectedSiteRow({ site, busy, onRevoke }: {
           </div>
         ) : (
           <img
-            src={`${site.origin}/favicon.ico`}
+            src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`}
             alt=""
             width={26}
             height={26}
