@@ -361,10 +361,110 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 // tells the live page it's disconnected, so a stale/forgotten connection can be
 // cleared without deleting the wallet.
 
-/** Chain grant → the label shown on its chip. */
+/** Chain grant → the label shown on its chip. Short: these sit 5-across. */
 const CHAIN_LABELS: Record<string, string> = {
-  evm: 'Ethereum & EVM', cardano: 'Cardano', bitcoin: 'Bitcoin',
+  evm: 'EVM', cardano: 'Cardano', bitcoin: 'Bitcoin',
   solana: 'Solana', polkadot: 'Polkadot',
+}
+
+const hostOf = (origin: string) => { try { return new URL(origin).hostname } catch { return origin } }
+
+/**
+ * One connected site: favicon, hostname, the chains it may use.
+ *
+ * The favicon is loaded from the site's OWN origin rather than a third-party
+ * favicon service. app-hub.ts uses Google's for its curated public directory,
+ * which is fine — everyone fetches the same list. This list is the user's
+ * personal dApp connections, and routing it through Google would hand a third
+ * party a log of exactly which dApps this wallet talks to. The site is already
+ * connected, so asking it for its own icon reveals nothing new.
+ */
+function ConnectedSiteRow({ site, busy, onRevoke }: {
+  site: ApprovedOrigin
+  busy: string | null
+  onRevoke: (origin: string, chain?: DappChain) => void
+}) {
+  const [iconErr, setIconErr] = useState(false)
+  const host = hostOf(site.origin)
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 10,
+      background: 'var(--bg-surface)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: '12px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {iconErr ? (
+          <div style={{
+            width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--surface-raised)', border: '1px solid var(--border)',
+            fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)',
+          }}>
+            {host.replace(/^www\./, '').charAt(0).toUpperCase()}
+          </div>
+        ) : (
+          <img
+            src={`${site.origin}/favicon.ico`}
+            alt=""
+            width={26}
+            height={26}
+            style={{ borderRadius: 7, flexShrink: 0, objectFit: 'contain' }}
+            onError={() => setIconErr(true)}
+            loading="lazy"
+          />
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div title={host} style={{
+            fontSize: 13, fontWeight: 600, color: 'var(--text-primary)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{host.replace(/^www\./, '')}</div>
+          <div title={site.origin} style={{
+            fontSize: 10, color: 'var(--text-muted)',
+            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{site.origin}</div>
+        </div>
+
+        {/* Styled inline, NOT `.btn` — that class sets width:100%, which made
+            this button swallow the row and collapse the hostname to nothing. */}
+        <button
+          type="button"
+          onClick={() => onRevoke(site.origin)}
+          disabled={busy !== null}
+          style={{
+            flexShrink: 0, width: 'auto', padding: '6px 11px', borderRadius: 8,
+            fontSize: 11, fontWeight: 600, cursor: busy ? 'default' : 'pointer',
+            background: 'transparent', color: 'var(--error)',
+            border: '1px solid var(--border)', opacity: busy ? 0.5 : 1,
+          }}
+        >
+          {busy === site.origin ? '…' : 'Disconnect'}
+        </button>
+      </div>
+
+      {/* Which chains this site can use. Tap a chip to revoke just that one. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {site.chains.map(chain => (
+          <button
+            key={chain}
+            type="button"
+            title={`Revoke ${CHAIN_LABELS[chain] ?? chain} access`}
+            onClick={() => onRevoke(site.origin, chain)}
+            disabled={busy !== null}
+            style={{
+              width: 'auto', fontSize: 10, padding: '3px 8px', borderRadius: 999,
+              border: '1px solid var(--border)', background: 'var(--surface-raised)',
+              color: 'var(--text-secondary)', cursor: busy ? 'default' : 'pointer',
+              whiteSpace: 'nowrap', opacity: busy ? 0.5 : 1,
+            }}
+          >
+            {busy === `${site.origin}:${chain}` ? '…' : `${CHAIN_LABELS[chain] ?? chain} ×`}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
@@ -374,8 +474,6 @@ function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
 
   const load = () => { window.wallet.getConnectedSites().then(setSites).catch(() => setSites([])) }
   useEffect(load, [])
-
-  const hostOf = (origin: string) => { try { return new URL(origin).hostname } catch { return origin } }
 
   /** Revoke one chain, or the whole site when `chain` is omitted. */
   const revoke = async (origin: string, chain?: DappChain) => {
@@ -416,45 +514,7 @@ function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {sites.map(site => (
-                <div key={site.origin} style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 18, flexShrink: 0 }}>🌐</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hostOf(site.origin)}</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{site.origin}</div>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{ padding: '6px 10px', fontSize: 12, color: 'var(--error)', flexShrink: 0 }}
-                      onClick={() => revoke(site.origin)}
-                      disabled={busy !== null}
-                    >
-                      {busy === site.origin ? '…' : 'Disconnect'}
-                    </button>
-                  </div>
-
-                  {/* Which chains this site can actually use. Tap a chip to
-                      revoke that one chain and leave the rest connected. */}
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 28 }}>
-                    {site.chains.map(chain => (
-                      <button
-                        key={chain}
-                        type="button"
-                        title={`Revoke ${CHAIN_LABELS[chain] ?? chain} access`}
-                        onClick={() => revoke(site.origin, chain)}
-                        disabled={busy !== null}
-                        style={{
-                          fontSize: 10, padding: '3px 8px', borderRadius: 999,
-                          border: '1px solid var(--border)', background: 'transparent',
-                          color: 'var(--text-secondary)', cursor: busy ? 'default' : 'pointer',
-                        }}
-                      >
-                        {busy === `${site.origin}:${chain}` ? '…' : `${CHAIN_LABELS[chain] ?? chain} ×`}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <ConnectedSiteRow key={site.origin} site={site} busy={busy} onRevoke={revoke} />
               ))}
             </div>
           )}
