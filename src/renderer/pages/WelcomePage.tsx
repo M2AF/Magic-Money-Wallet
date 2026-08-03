@@ -92,7 +92,13 @@ export function WelcomePage({ onNavigate }: Props) {
       </div>
 
       <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
-        Your seed phrase is encrypted with your OS keychain.<br />
+        {/* Deliberately platform-neutral. "encrypted with your OS keychain" is
+            true only on desktop (Electron safeStorage); on Android and iOS the
+            vault is AES-256-GCM under the user's password in Capacitor
+            Preferences, and the OS keychain holds only the optional biometric
+            wrapping key. Claiming otherwise at the moment someone creates a
+            wallet is a security claim we can't back on half the targets. */}
+        Your seed phrase is encrypted on this device and never leaves it.<br />
         No data is transmitted to any server.
       </p>
     </div>

@@ -669,6 +669,31 @@ extension DappBrowserPlugin: WKNavigationDelegate {
         decisionHandler(.allow)
     }
 
+    /**
+     * Anything WebKit can't display becomes a download instead of a blank page.
+     *
+     * Android needs an explicit `setDownloadListener` for this; WKWebView has
+     * `.download` as a navigation-response policy, which is both simpler and
+     * covers Content-Disposition: attachment automatically.
+     */
+    public func webView(_ webView: WKWebView,
+                        decidePolicyFor navigationResponse: WKNavigationResponse,
+                        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+        decisionHandler(navigationResponse.canShowMIMEType ? .allow : .download)
+    }
+
+    public func webView(_ webView: WKWebView,
+                        navigationResponse: WKNavigationResponse,
+                        didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
+    public func webView(_ webView: WKWebView,
+                        navigationAction: WKNavigationAction,
+                        didBecome download: WKDownload) {
+        download.delegate = self
+    }
+
     public func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
         emitStateForActiveTab(); emitTabs()
     }
@@ -686,8 +711,53 @@ extension DappBrowserPlugin: WKNavigationDelegate {
     }
 }
 
+// MARK: - Downloads
+
+/**
+ * Page downloads land in the app's Documents directory, which Info.plist
+ * exposes to the Files app (UIFileSharingEnabled +
+ * LSSupportsOpeningDocumentsInPlace, set by scripts/patch-ios-plist.js).
+ *
+ * iOS has no shared Downloads folder and no DownloadManager equivalent, so
+ * unlike Android there is no system notification or download tray — the file
+ * simply appears under "On My iPhone → MagicMoney". Android's Tor guard
+ * (refusing downloads while proxied, because DownloadManager is a separate
+ * process that would bypass the proxy) has no counterpart here: WKDownload runs
+ * in-process, and iOS has no Tor mode at all.
+ */
+extension DappBrowserPlugin: WKDownloadDelegate {
+    public func download(_ download: WKDownload,
+                         decideDestinationUsing response: URLResponse,
+                         suggestedFilename: String,
+                         completionHandler: @escaping (URL?) -> Void) {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let safe = suggestedFilename.isEmpty ? "download" : suggestedFilename
+        // WKDownload REQUIRES a destination that does not already exist — it
+        // fails the download rather than overwriting.
+        completionHandler(DownloaderPlugin.uniqueUrl(in: docs, fileName: safe))
+    }
+
+    public func downloadDidFinish(_ download: WKDownload) {
+        CAPLog.print("[DappBrowser] download finished")
+    }
+
+    public func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        CAPLog.print("[DappBrowser] download failed: \(error.localizedDescription)")
+    }
+}
+
 // MARK: - UI delegate
 
+/**
+ * NOTE — the long-press context menu is deliberately NOT ported.
+ *
+ * DappBrowserPlugin.java builds one by hand (HitTestResult + a custom action
+ * sheet) because Android's WebView has no built-in menu at all. WKWebView
+ * already provides one: Open / Open in New Tab / Copy / Share for links, and
+ * Save Image / Copy / Share for images, with correct system styling, haptics
+ * and Live Text. Overriding `contextMenuConfigurationForElement` to rebuild
+ * that would be strictly worse than what iOS gives for free.
+ */
 extension DappBrowserPlugin: WKUIDelegate {
     /// target="_blank" and window.open: load in the SAME tab rather than
     /// silently dropping it (Android sets setSupportMultipleWindows(false),

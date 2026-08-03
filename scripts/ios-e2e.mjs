@@ -114,6 +114,16 @@ const caps = {
   // room, the first attach after a cold boot is slow.
   'appium:webviewConnectTimeout': 30000,
   'appium:newCommandTimeout': 180,
+  // Appium compiles WebDriverAgent from source the first time it drives a
+  // device, and CI runners are ephemeral so EVERY run pays that cost (~3-5
+  // min of xcodebuild). The driver's own defaults are far below that.
+  'appium:wdaLaunchTimeout': 600000,
+  'appium:wdaConnectionTimeout': 600000,
+  // Verbose, but the WebDriverAgent build is the most likely thing to break
+  // here and its errors are otherwise swallowed ("Output from xcodebuild will
+  // only be logged if any errors are present"). With no Mac to reproduce on,
+  // the log is the only diagnosis available.
+  'appium:showXcodeLog': true,
   ...(PLATFORM ? { 'appium:platformVersion': PLATFORM } : {}),
 }
 
@@ -122,6 +132,11 @@ const driver = await remote({
   port: 4723,
   path: '/',
   logLevel: 'error',
+  // WebdriverIO's default is 120s, which expires while WDA is still building
+  // and surfaces as an opaque UND_ERR_HEADERS_TIMEOUT on POST /session rather
+  // than anything pointing at WebDriverAgent.
+  connectionRetryTimeout: 900000,
+  connectionRetryCount: 1,
   capabilities: caps,
 })
 

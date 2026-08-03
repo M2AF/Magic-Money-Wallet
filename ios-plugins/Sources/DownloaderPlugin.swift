@@ -221,7 +221,9 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // ── Helpers (ported 1:1 from the Java) ──────────────────────────────────
 
-    private static func uniqueUrl(in dir: URL, fileName: String) -> URL {
+    /// Internal, not private: DappBrowserPlugin's WKDownloadDelegate needs the
+    /// same "don't clobber an existing file" behaviour for page downloads.
+    static func uniqueUrl(in dir: URL, fileName: String) -> URL {
         let base = (fileName as NSString).deletingPathExtension
         let ext = (fileName as NSString).pathExtension
         var candidate = dir.appendingPathComponent(fileName)

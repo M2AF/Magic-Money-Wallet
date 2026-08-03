@@ -308,6 +308,10 @@ jobs:
           echo "Face ID enrolled on $IOS_UDID"
 
       - name: Run iOS end-to-end
+        # Appium builds WebDriverAgent from source on first use and runners are
+        # ephemeral, so ~3-5 min of that is unavoidable every run. The cap stops
+        # a genuinely hung session from burning the whole job budget.
+        timeout-minutes: 25
         env:
           IOS_APP_PATH: build/ios/Build/Products/Debug-iphonesimulator/App.app
           SHOT_DIR: ios-shots
