@@ -9,6 +9,16 @@ export interface UpdateStatus {
   error?: string
 }
 
+// Per-chain dApp grant. Mirrors main/dapp-permissions.ts — declared here rather
+// than imported because tsconfig.web.json deliberately does not include src/main.
+export type DappChain = 'evm' | 'cardano' | 'bitcoin' | 'solana' | 'polkadot'
+
+export interface ApprovedOrigin {
+  origin: string
+  chains: DappChain[]
+  addedAt: number
+}
+
 // User-added EVM network (MetaMask-style manual add). Mirrors secure-store.ts.
 export interface CustomChain {
   id: string            // 'custom-<chainId>'
@@ -538,9 +548,9 @@ declare global {
       setPrivacyMode(enabled: boolean): Promise<{ privacy: boolean; addresses: WalletAddresses | null }>
       setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
       // Connected sites (revoke dApp access)
-      getConnectedSites(): Promise<string[]>
-      revokeSite(origin: string): Promise<string[]>
-      revokeAllSites(): Promise<string[]>
+      getConnectedSites(): Promise<ApprovedOrigin[]>
+      revokeSite(origin: string, chain?: DappChain): Promise<ApprovedOrigin[]>
+      revokeAllSites(): Promise<ApprovedOrigin[]>
       deleteWallet(): Promise<boolean>
       // Phase 5
       getMarket(): Promise<MarketResult>

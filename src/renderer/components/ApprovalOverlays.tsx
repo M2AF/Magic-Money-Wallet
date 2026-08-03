@@ -35,6 +35,13 @@ export function ApprovalOverlays({
   try { txHostname = txRequest?.origin ? new URL(txRequest.origin).hostname : '' } catch { txHostname = txRequest?.origin ?? '' }
   let signHostname = ''
   try { signHostname = signRequest?.origin ? new URL(signRequest.origin).hostname : '' } catch { signHostname = signRequest?.origin ?? '' }
+
+  // The decoded-transaction formatter appends its risk callouts as ⚠ lines.
+  // Split them back out so they sit above the amounts rather than below them,
+  // where they would be the first thing scrolled past.
+  const signLines = (signRequest?.details ?? '').split('\n')
+  const signWarnings = signLines.filter(l => l.startsWith('⚠')).map(l => l.slice(1).trim())
+  const signDetails = signLines.filter(l => !l.startsWith('⚠')).join('\n').trimEnd()
   const txNativeValue = txRequest?.value ? formatWei(txRequest.value) : '0'
 
   return (
@@ -98,12 +105,26 @@ export function ApprovalOverlays({
               </div>
             </div>
 
+            {signWarnings.length > 0 && (
+              <div style={warningBoxStyle}>
+                {signWarnings.map((w, i) => <div key={i} style={{ marginTop: i ? 5 : 0 }}>{w}</div>)}
+              </div>
+            )}
+
             <div style={detailBoxStyle}>
               <DetailRow label="Chain" value={signRequest.chain} />
               <DetailRow label="Method" value={signRequest.method} mono />
               <DetailRow label="Request" value={signRequest.summary} />
-              {signRequest.details && <DetailRow label="Details" value={signRequest.details} mono />}
             </div>
+
+            {signDetails && (
+              // pre-wrap, not a DetailRow: a decoded transaction summary is
+              // line-oriented, and collapsing it into one paragraph is exactly
+              // how a blind sign gets approved by accident.
+              <div style={{ ...detailBoxStyle, whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: 11.5, color: '#ddd', lineHeight: 1.6, maxHeight: 240, overflowY: 'auto' }}>
+                {signDetails}
+              </div>
+            )}
 
             <div style={{ color: '#777', fontSize: 11, lineHeight: 1.55 }}>
               Signatures can grant permissions or authorize off-chain actions. Approve only if you understand this request.
@@ -211,6 +232,16 @@ const rejectBtnStyle: React.CSSProperties = {
   padding: '12px', borderRadius: 12,
   background: 'transparent', color: '#888', fontWeight: 600, fontSize: 14,
   border: '1px solid #2a2a2a', cursor: 'pointer'
+}
+
+const warningBoxStyle: React.CSSProperties = {
+  background: 'rgba(245,158,11,.12)',
+  border: '1px solid rgba(245,158,11,.35)',
+  borderRadius: 12,
+  padding: '10px 12px',
+  color: '#fcd34d',
+  fontSize: 11.5,
+  lineHeight: 1.45,
 }
 
 const detailBoxStyle: React.CSSProperties = {

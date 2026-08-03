@@ -7,6 +7,8 @@
  * This replaces src/preload/index.ts (Electron contextBridge + ipcRenderer).
  */
 
+import type { ApprovedOrigin, DappChain } from '../main/dapp-permissions'
+
 type MsgResult = { ok: true; result: unknown } | { ok: false; error: string }
 
 // Heavy aggregation calls fan out across ~18 chains and enrich every result
@@ -149,9 +151,9 @@ export function createExtensionWallet() {
     setAgw:         (i: number, address: string | null) => send('wallet:set-agw', i, address),
 
     // Connected sites (revoke dApp access)
-    getConnectedSites: ()             => send<string[]>('wallet:get-connected-sites'),
-    revokeSite:     (origin: string)  => send<string[]>('wallet:revoke-site', origin),
-    revokeAllSites: ()                => send<string[]>('wallet:revoke-all-sites'),
+    getConnectedSites: ()             => send<ApprovedOrigin[]>('wallet:get-connected-sites'),
+    revokeSite: (origin: string, chain?: DappChain) => send<ApprovedOrigin[]>('wallet:revoke-site', origin, chain),
+    revokeAllSites: ()                => send<ApprovedOrigin[]>('wallet:revoke-all-sites'),
 
     // Transactions
     validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),

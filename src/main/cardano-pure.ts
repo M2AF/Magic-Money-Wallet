@@ -319,10 +319,25 @@ function cborMap(entries: Array<[Buffer, Buffer]>): Buffer {
 
 // ─── Cardano transaction builder ──────────────────────────────────────────────
 
+export interface CardanoAsset {
+  /** policyIdHex + assetNameHex — the `unit` form Blockfrost and Koios report. */
+  unit: string
+  quantity: bigint
+}
+
 export interface CardanoUtxo {
   txHash: string    // hex
   txIndex: number
   lovelace: bigint
+  /**
+   * Native tokens/NFTs sitting on this UTxO.
+   *
+   * NOT optional decoration: Cardano transactions must balance per-asset, so
+   * every asset on a spent input has to reappear in an output. When this was
+   * dropped, spending a UTxO that carried an NFT to send plain ADA silently
+   * BURNED the NFT. Fetchers must populate it and buildCardanoTx must return it.
+   */
+  assets: CardanoAsset[]
 }
 
 export interface CardanoTxResult {
@@ -334,24 +349,85 @@ export interface CardanoTxResult {
   fee: bigint
 }
 
+/** Multiasset CBOR: `{ policy_id(28B) => { asset_name => quantity } }`. */
+function cborMultiasset(assets: CardanoAsset[]): Buffer {
+  const byPolicy = new Map<string, Array<{ name: string; qty: bigint }>>()
+  for (const a of assets) {
+    if (a.quantity <= 0n) continue
+    const policy = a.unit.slice(0, 56)
+    if (!byPolicy.has(policy)) byPolicy.set(policy, [])
+    byPolicy.get(policy)!.push({ name: a.unit.slice(56), qty: a.quantity })
+  }
+  return cborMap([...byPolicy].map(([policy, tokens]) => [
+    cborBytes(Buffer.from(policy, 'hex')),
+    cborMap(tokens.map(t => [cborBytes(Buffer.from(t.name, 'hex')), cborUint(t.qty)])),
+  ]))
+}
+
+/** Output value: a bare coin when there are no assets, else `[coin, multiasset]`. */
+function cborOutputValue(lovelace: bigint, assets: CardanoAsset[]): Buffer {
+  const held = assets.filter(a => a.quantity > 0n)
+  if (held.length === 0) return cborUint(lovelace)
+  return cborArray([cborUint(lovelace), cborMultiasset(held)])
+}
+
+function buildOutput(address: Uint8Array, lovelace: bigint, assets: CardanoAsset[]): Buffer {
+  return cborArray([cborBytes(Buffer.from(address)), cborOutputValue(lovelace, assets)])
+}
+
+/** Sum assets across UTxOs, collapsing duplicate units. */
+export function sumAssets(utxos: CardanoUtxo[]): CardanoAsset[] {
+  const totals = new Map<string, bigint>()
+  for (const u of utxos) {
+    for (const a of u.assets ?? []) {
+      totals.set(a.unit, (totals.get(a.unit) ?? 0n) + a.quantity)
+    }
+  }
+  return [...totals].filter(([, q]) => q > 0n).map(([unit, quantity]) => ({ unit, quantity }))
+}
+
 /**
- * Build and sign a simple ADA transfer transaction.
- *
- * @param utxos     - UTXOs to spend from (must sum to >= amountLovelace + fee)
- * @param toAddress - Recipient bech32 address
- * @param fromAddressBytes - Sender address as raw bytes (for change output)
- * @param amountLovelace - Amount to send
- * @param spendKey  - Spending key for signing
+ * Minimum lovelace an output must carry, per the Babbage rule
+ * `(160 + |serialised output|) * coinsPerUtxoByte`. An output holding native
+ * tokens needs materially more than 1 ADA, which is why the old flat
+ * `MIN_UTXO = 1_000_000` constant was unsafe for asset-bearing change.
  */
-export function buildCardanoTx(
-  utxos: CardanoUtxo[],
-  toAddress: Uint8Array,
-  fromAddressBytes: Uint8Array,
-  amountLovelace: bigint,
+export function minAdaForOutput(
+  address: Uint8Array, assets: CardanoAsset[], coinsPerUtxoByte: bigint
+): bigint {
+  // Size with a deliberately large placeholder coin so the estimate can't come
+  // out under the real encoding once the true amount is written in.
+  const size = BigInt(buildOutput(address, 4_000_000_000n, assets).length)
+  return (160n + size) * coinsPerUtxoByte
+}
+
+export interface BuildCardanoTxOptions {
+  utxos: CardanoUtxo[]
+  toAddress: Uint8Array
+  changeAddress: Uint8Array
+  amountLovelace: bigint
+  /** Native assets to send to the recipient. Omit for a plain ADA transfer. */
+  sendAssets?: CardanoAsset[]
+  fee: bigint
+  /** Absolute slot after which the tx is invalid. Omitted only by tests. */
+  ttl?: bigint
+  coinsPerUtxoByte?: bigint
   spendKey: CardanoSpendingKey
-): CardanoTxResult {
-  // Fixed fee: 170000 lovelace (comfortably above min for a simple transfer)
-  const fee = 170000n
+}
+
+/**
+ * Build and sign a transfer.
+ *
+ * Balances per-asset, not just per-lovelace: every native token on a spent
+ * input is either sent to the recipient or returned in the change output. If
+ * change cannot be created the build FAILS rather than silently dropping it —
+ * a dropped asset-bearing change output is a permanent burn.
+ */
+export function buildCardanoTx(opts: BuildCardanoTxOptions): CardanoTxResult {
+  const {
+    utxos, toAddress, changeAddress, amountLovelace, sendAssets = [],
+    fee, ttl, coinsPerUtxoByte = 4310n, spendKey,
+  } = opts
 
   const inputSum = utxos.reduce((acc, u) => acc + u.lovelace, 0n)
   if (inputSum < amountLovelace + fee) {
@@ -360,8 +436,37 @@ export function buildCardanoTx(
     )
   }
 
+  // Per-asset balance: everything held on the inputs, minus what we're sending,
+  // must come back as change.
+  const held = new Map(sumAssets(utxos).map(a => [a.unit, a.quantity]))
+  for (const a of sendAssets) {
+    const available = held.get(a.unit) ?? 0n
+    if (available < a.quantity) {
+      throw new Error(`Insufficient token balance for ${a.unit}: have ${available}, need ${a.quantity}`)
+    }
+    held.set(a.unit, available - a.quantity)
+  }
+  const changeAssets: CardanoAsset[] = [...held]
+    .filter(([, q]) => q > 0n)
+    .map(([unit, quantity]) => ({ unit, quantity }))
+
   const change = inputSum - amountLovelace - fee
-  const MIN_UTXO = 1_000_000n  // 1 ADA minimum output
+  const changeMinAda = minAdaForOutput(changeAddress, changeAssets, coinsPerUtxoByte)
+
+  const outputItems: Buffer[] = [buildOutput(toAddress, amountLovelace, sendAssets)]
+
+  if (change >= changeMinAda) {
+    outputItems.push(buildOutput(changeAddress, change, changeAssets))
+  } else if (changeAssets.length > 0) {
+    // Dropping this output would destroy the tokens on it. Refuse instead —
+    // the caller must select another UTxO to cover the change output's min-ADA.
+    throw new Error(
+      `Cannot return ${changeAssets.length} native asset(s) in change: needs ` +
+      `${changeMinAda} lovelace of change but only ${change} is left. ` +
+      'Send a smaller amount so the tokens can be returned to your wallet.'
+    )
+  }
+  // else: pure-ADA dust below min-ADA — safely absorbed into the fee.
 
   // Build inputs CBOR
   const inputsCbor = cborArray(
@@ -369,22 +474,18 @@ export function buildCardanoTx(
       cborArray([cborBytes(Buffer.from(u.txHash, 'hex')), cborUint(u.txIndex)])
     )
   )
-
-  // Build outputs CBOR — send to recipient + change back (if above min)
-  const outputItems: Buffer[] = [
-    cborArray([cborBytes(toAddress), cborUint(amountLovelace)])
-  ]
-  if (change >= MIN_UTXO) {
-    outputItems.push(cborArray([cborBytes(fromAddressBytes), cborUint(change)]))
-  }
   const outputsCbor = cborArray(outputItems)
 
-  // Transaction body map: {0: inputs, 1: outputs, 2: fee}
-  const txBodyCbor = cborMap([
+  // Transaction body map: {0: inputs, 1: outputs, 2: fee, 3: ttl}
+  // The TTL matters: without one a transaction stays valid forever and can sit
+  // in a mempool and resurface long after the user assumed it had failed.
+  const bodyEntries: Array<[Buffer, Buffer]> = [
     [cborUint(0), inputsCbor],
     [cborUint(1), outputsCbor],
-    [cborUint(2), cborUint(fee)]
-  ])
+    [cborUint(2), cborUint(fee)],
+  ]
+  if (ttl !== undefined) bodyEntries.push([cborUint(3), cborUint(ttl)])
+  const txBodyCbor = cborMap(bodyEntries)
 
   // Transaction body hash (blake2b-256)
   const txBodyHash = blake2b(txBodyCbor, { dkLen: 32 })

@@ -6,11 +6,15 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain, BrowserWindow, dialog, app, clipboard, shell } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app, clipboard, shell, type IpcMainInvokeEvent } from 'electron'
 import { HDKey } from '@scure/bip32'
-import { mnemonicToSeedSync } from '@scure/bip39'
+import { mnemonicToSeedSync, mnemonicToEntropy } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english'
+import { blake2b } from '@noble/hashes/blake2b'
 import { privateKeyToAccount } from 'viem/accounts'
 import { ed25519 } from '@noble/curves/ed25519'
+import { getCardanoStakeKey } from './cardano-pure'
+import type { DappChain } from './dapp-permissions'
 import {
   generateMnemonic,
   validateMnemonic,
@@ -39,6 +43,8 @@ import {
   loadConfig,
   saveConfig,
   getApprovedOrigins,
+  getApprovedOriginRecords,
+  hasOriginChain,
   addApprovedOrigin,
   removeApprovedOrigin,
   clearApprovedOrigins,
@@ -166,6 +172,9 @@ import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
 } from './cardano-cip30'
+import {
+  summarizeCardanoTx, formatCardanoTxSummary, formatSignDataPayload,
+} from './cardano-tx-inspect'
 import { describeEvmSend, describeTypedData } from './tx-describe'
 import { validateAddress } from './address-validate'
 
@@ -227,7 +236,7 @@ async function ensureConnectedOrigin(
   origin: string,
   addresses: WalletAddresses | null
 ): Promise<void> {
-  if (getApprovedOrigins().includes(origin)) return
+  if (hasOriginChain(origin, 'evm')) return
   const approved = await showApprovalWindow({
     title: 'Connect Wallet',
     heading: `${origin} wants to connect to your wallet`,
@@ -238,7 +247,7 @@ async function ensureConnectedOrigin(
   if (!approved) {
     throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
   }
-  addApprovedOrigin(origin)
+  addApprovedOrigin(origin, 'evm')
 }
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
@@ -567,13 +576,16 @@ export function registerIpcHandlers(): void {
     emitDappEvent('solana', 'disconnect', null)
   }
 
-  ipcMain.handle('wallet:get-connected-sites', () => getApprovedOrigins())
+  // Returns per-chain grant records so Settings can show what each site may
+  // actually do, and revoke one chain without disconnecting the others.
+  ipcMain.handle('wallet:get-connected-sites', () => getApprovedOriginRecords())
 
-  ipcMain.handle('wallet:revoke-site', (_event, origin: string) => {
-    if (typeof origin !== 'string' || !origin) return getApprovedOrigins()
-    removeApprovedOrigin(origin)
-    if (currentDappOrigin() === origin) notifyDappDisconnected()
-    return getApprovedOrigins()
+  ipcMain.handle('wallet:revoke-site', (_event, origin: string, chain?: DappChain) => {
+    if (typeof origin !== 'string' || !origin) return getApprovedOriginRecords()
+    removeApprovedOrigin(origin, chain)
+    // Only signal a full disconnect once the site has no grants left.
+    if (currentDappOrigin() === origin && !getApprovedOrigins().includes(origin)) notifyDappDisconnected()
+    return getApprovedOriginRecords()
   })
 
   ipcMain.handle('wallet:revoke-all-sites', () => {
@@ -1282,7 +1294,7 @@ export function registerIpcHandlers(): void {
     switch (method) {
       // ── Connection ──────────────────────────────────────────────────────
       case 'eth_requestAccounts': {
-        if (getApprovedOrigins().includes(origin) && addresses?.evm) return [addresses.evm]
+        if (hasOriginChain(origin, 'evm') && addresses?.evm) return [addresses.evm]
         const approved = await showApprovalWindow({
           title: 'Connect Wallet',
           heading: `${origin} wants to connect to your wallet`,
@@ -1294,12 +1306,12 @@ export function registerIpcHandlers(): void {
           const err = Object.assign(new Error('User rejected the request.'), { code: 4001 })
           throw err
         }
-        addApprovedOrigin(origin)
+        addApprovedOrigin(origin, 'evm')
         return [addresses?.evm ?? '']
       }
 
       case 'eth_accounts':
-        return getApprovedOrigins().includes(origin) && addresses?.evm ? [addresses.evm] : []
+        return hasOriginChain(origin, 'evm') && addresses?.evm ? [addresses.evm] : []
 
       case 'eth_chainId':
         return `0x${getDappChainId().toString(16)}`
@@ -1349,7 +1361,7 @@ export function registerIpcHandlers(): void {
       }
 
       case 'wallet_requestPermissions': {
-        if (!getApprovedOrigins().includes(origin)) {
+        if (!hasOriginChain(origin, 'evm')) {
           const approved = await showApprovalWindow({
             title: 'Connect Wallet',
             heading: `${origin} wants permission to access your EVM account`,
@@ -1360,16 +1372,18 @@ export function registerIpcHandlers(): void {
           if (!approved) {
             throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
           }
-          addApprovedOrigin(origin)
+          addApprovedOrigin(origin, 'evm')
         }
         return [{ parentCapability: 'eth_accounts' }]
       }
 
       case 'wallet_getPermissions':
-        return getApprovedOrigins().includes(origin) ? [{ parentCapability: 'eth_accounts' }] : []
+        return hasOriginChain(origin, 'evm') ? [{ parentCapability: 'eth_accounts' }] : []
 
       case 'wallet_revokePermissions':
-        removeApprovedOrigin(origin)
+        // Scoped: revoking EVM permissions must not silently disconnect the
+        // site's Cardano or Bitcoin grants, which it never asked about.
+        removeApprovedOrigin(origin, 'evm')
         return null
 
       // ── Message signing ─────────────────────────────────────────────────
@@ -1573,122 +1587,190 @@ export function registerIpcHandlers(): void {
     return { signature }
   })
 
+  /**
+   * Decode a dApp transaction for the approval prompt. Never throws — a decoder
+   * failure must still produce a prompt (marked undecodable) rather than an
+   * error the user reads as "signing is broken".
+   *
+   * The stake-key hash is best-effort: it only drives the "also signs with your
+   * stake key" warning, so if the vault can't produce it we show the rest of the
+   * summary instead of failing the whole prompt.
+   */
+  async function describeCardanoTx(txHex: string, ownAddress: string, accountIndex: number) {
+    let stakeKeyHash: Uint8Array | undefined
+    try {
+      const entropy = mnemonicToEntropy(loadMnemonic(), wordlist)
+      stakeKeyHash = blake2b(getCardanoStakeKey(entropy, accountIndex).pub, { dkLen: 28 })
+    } catch { /* warning omitted rather than blocking the prompt */ }
+
+    return summarizeCardanoTx(txHex, {
+      ownAddresses: [ownAddress],
+      stakeKeyHash,
+      config: loadConfig(),
+    })
+  }
+
   // ── CIP-30 Cardano dApp requests ─────────────────────────────────────────
-  // Connection state is tracked per-origin (shared with the EVM allowlist), so
-  // approval survives reloads and is scoped to the site that asked — matching
-  // the extension. A previously denied/closed approval leaves the origin out.
-  ipcMain.handle('cardano:is-enabled', (event) =>
-    getApprovedOrigins().includes(getSenderOrigin(event.sender.getURL()))
-  )
+  // Every handler below is gated on a CARDANO grant for the calling origin, not
+  // merely on the origin being known: reads leak holdings and submitTx
+  // broadcasts, so an EVM-only connection must not reach any of them.
+  const cardanoOrigin = (event: IpcMainInvokeEvent): string => getSenderOrigin(event.sender.getURL())
+
+  /** Throws CIP-30 APIError.Refused unless the origin holds a Cardano grant. */
+  function requireCardano(event: IpcMainInvokeEvent): string {
+    const origin = cardanoOrigin(event)
+    if (!hasOriginChain(origin, 'cardano')) {
+      throw Object.assign(new Error('Connect the wallet before using the Cardano API.'), { code: 4100 })
+    }
+    return origin
+  }
+
+  /**
+   * The Cardano address CIP-30 should expose. getFullAddresses() applies the
+   * Testnet Mode substitution, so in Testnet Mode dApps see the addr_test…
+   * address that matches the network id we report — loadAddresses() alone would
+   * hand out a mainnet address while the wallet operates on Preprod.
+   */
+  async function cardanoAddress(): Promise<{ address: string; accountIndex: number }> {
+    const addresses = await getFullAddresses()
+    if (!addresses.cardano) throw new Error('No Cardano wallet')
+    return { address: addresses.cardano, accountIndex: addresses.accountIndex ?? 0 }
+  }
+
+  ipcMain.handle('cardano:is-enabled', (event) => hasOriginChain(cardanoOrigin(event), 'cardano'))
 
   ipcMain.handle('cardano:enable', async (event) => {
-    const origin = getSenderOrigin(event.sender.getURL())
-    if (getApprovedOrigins().includes(origin)) return true
-    const addresses = loadAddresses()
+    const origin = cardanoOrigin(event)
+    if (hasOriginChain(origin, 'cardano')) return true
+    const { address } = await cardanoAddress().catch(() => ({ address: '' }))
     const approved = await showApprovalWindow({
       title: 'Connect Cardano Wallet',
       heading: `${origin} wants to connect to your Cardano wallet`,
-      detail: `Address:\n${addresses?.cardano ?? 'Not available'}`,
+      // State the grant explicitly — the site can read holdings and ask for
+      // signatures, and the user should know that before allowing it.
+      detail: [
+        `Address:\n${address || 'Not available'}`,
+        '',
+        'This site will be able to:',
+        '  • see your Cardano address, balance and UTxOs',
+        '  • ask you to sign transactions and data',
+        '',
+        'Every signature still needs your approval.',
+      ].join('\n'),
       confirmLabel: 'Connect',
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-    addApprovedOrigin(origin)
+    addApprovedOrigin(origin, 'cardano')
     return true
   })
 
-  ipcMain.handle('cardano:get-network-id', () => 1)
-
-  ipcMain.handle('cardano:get-balance', async () => {
-    const addresses = loadAddresses()
-    if (!addresses?.cardano) throw new Error('No Cardano wallet')
-    const config = loadConfig()
-    return cip30GetBalance(addresses.cardano, config)
+  // 1 = mainnet, 0 = testnet. Must track Testnet Mode: reporting mainnet while
+  // handing out addr_test… addresses makes dApps build unusable transactions.
+  ipcMain.handle('cardano:get-network-id', (event) => {
+    requireCardano(event)
+    return isTestnet(loadConfig()) ? 0 : 1
   })
 
-  ipcMain.handle('cardano:get-utxos', async () => {
-    const addresses = loadAddresses()
-    if (!addresses?.cardano) throw new Error('No Cardano wallet')
-    const config = loadConfig()
-    return cip30GetUtxos(addresses.cardano, config)
+  ipcMain.handle('cardano:get-balance', async (event) => {
+    requireCardano(event)
+    const { address } = await cardanoAddress()
+    return cip30GetBalance(address, loadConfig())
   })
 
-  ipcMain.handle('cardano:get-collateral', async (_event, amountHex?: string) => {
-    const addresses = loadAddresses()
-    if (!addresses?.cardano) throw new Error('No Cardano wallet')
-    const config = loadConfig()
-    return cip30GetCollateral(addresses.cardano, config, amountHex)
+  ipcMain.handle('cardano:get-utxos', async (event) => {
+    requireCardano(event)
+    const { address } = await cardanoAddress()
+    return cip30GetUtxos(address, loadConfig())
   })
 
-  ipcMain.handle('cardano:get-used-addresses', () => {
-    const addresses = loadAddresses()
+  ipcMain.handle('cardano:get-collateral', async (event, amountHex?: string) => {
+    requireCardano(event)
+    const { address } = await cardanoAddress()
+    return cip30GetCollateral(address, loadConfig(), amountHex)
+  })
+
+  ipcMain.handle('cardano:get-used-addresses', async (event) => {
+    requireCardano(event)
     // CIP-30 requires hex-encoded address bytes, not bech32 — dApps match these
     // against indexer-reported owner addresses to detect ownership.
-    return addresses?.cardano ? [addressToHex(addresses.cardano)] : []
+    const { address } = await cardanoAddress()
+    return [addressToHex(address)]
   })
 
-  ipcMain.handle('cardano:get-unused-addresses', () => [])
-
-  ipcMain.handle('cardano:get-change-address', () => {
-    const addresses = loadAddresses()
-    if (!addresses?.cardano) throw new Error('No Cardano wallet')
-    return addressToHex(addresses.cardano)
+  ipcMain.handle('cardano:get-unused-addresses', (event) => {
+    requireCardano(event)
+    return []
   })
 
-  ipcMain.handle('cardano:get-reward-addresses', async () => {
-    const mnemonic = loadMnemonic()
-    const addresses = loadAddresses()
-    return cip30GetRewardAddresses(mnemonic, addresses?.accountIndex ?? 0)
+  ipcMain.handle('cardano:get-change-address', async (event) => {
+    requireCardano(event)
+    const { address } = await cardanoAddress()
+    return addressToHex(address)
+  })
+
+  ipcMain.handle('cardano:get-reward-addresses', async (event) => {
+    requireCardano(event)
+    const { accountIndex } = await cardanoAddress()
+    return cip30GetRewardAddresses(loadMnemonic(), accountIndex, isTestnet(loadConfig()))
   })
 
   ipcMain.handle('cardano:sign-tx', async (event, txHex: string, _partial: boolean) => {
-    const origin = getSenderOrigin(event.sender.getURL())
-    if (!getApprovedOrigins().includes(origin)) {
-      throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
-    }
+    const origin = requireCardano(event)
+    const { address, accountIndex } = await cardanoAddress()
+    const summary = await describeCardanoTx(txHex, address, accountIndex)
     const approved = await showApprovalWindow({
       title: 'Sign Transaction',
       heading: 'A dApp wants you to sign a Cardano transaction',
-      detail: `Transaction:\n${txHex.slice(0, 200)}${txHex.length > 200 ? '…' : ''}`,
+      detail: formatCardanoTxSummary(summary, { includeWarnings: false }),
+      warnings: summary.warnings,
       confirmLabel: 'Sign',
+      tone: summary.warnings.length > 0 ? 'danger' : 'primary',
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-    const mnemonic = loadMnemonic()
-    const addresses = loadAddresses()
     try {
-      return await cip30SignTx(txHex, mnemonic, addresses?.accountIndex ?? 0)
+      return await cip30SignTx(txHex, loadMnemonic(), accountIndex)
     } catch (err) {
       throw new Error(`Could not sign this Cardano transaction — the dApp may have sent it in an unexpected format. (${err instanceof Error ? err.message : String(err)})`)
     }
   })
 
   ipcMain.handle('cardano:sign-data', async (event, address: string, payloadHex: string) => {
-    const origin = getSenderOrigin(event.sender.getURL())
-    if (!getApprovedOrigins().includes(origin)) {
-      throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
-    }
+    const origin = requireCardano(event)
+    const { address: ownAddress, accountIndex } = await cardanoAddress()
     const approved = await showApprovalWindow({
       title: 'Sign Data',
       heading: 'A dApp wants you to sign data with your Cardano wallet',
-      detail: `Data:\n${payloadHex.slice(0, 200)}${payloadHex.length > 200 ? '…' : ''}`,
+      detail: formatSignDataPayload(payloadHex),
       confirmLabel: 'Sign',
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-    const mnemonic = loadMnemonic()
-    const addresses = loadAddresses()
-    const signingAddr = address || addresses?.cardano || ''
     try {
-      return await cip30SignData(signingAddr, payloadHex, mnemonic, addresses?.accountIndex ?? 0)
+      return await cip30SignData(address || ownAddress, payloadHex, loadMnemonic(), accountIndex)
     } catch (err) {
       throw new Error(`Could not sign this Cardano data payload. (${err instanceof Error ? err.message : String(err)})`)
     }
   })
 
-  ipcMain.handle('cardano:submit-tx', async (_event, txHex: string) => {
-    const config = loadConfig()
-    return cip30SubmitTx(txHex, config)
+  // Broadcasting is a state change, so it is gated AND approved. Without this an
+  // unconnected page could push arbitrary CBOR straight to the network.
+  ipcMain.handle('cardano:submit-tx', async (event, txHex: string) => {
+    const origin = requireCardano(event)
+    const { address, accountIndex } = await cardanoAddress()
+    const summary = await describeCardanoTx(txHex, address, accountIndex)
+    const approved = await showApprovalWindow({
+      title: 'Submit Transaction',
+      heading: 'A dApp wants to broadcast a Cardano transaction',
+      detail: formatCardanoTxSummary(summary, { includeWarnings: false }),
+      warnings: summary.warnings,
+      confirmLabel: 'Submit',
+      tone: summary.warnings.length > 0 ? 'danger' : 'primary',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    return cip30SubmitTx(txHex, loadConfig())
   })
 
   // ── Bitcoin / Ordinals dApp provider (sats-connect/WBIP + Unisat) ─────────
@@ -1699,7 +1781,7 @@ export function registerIpcHandlers(): void {
 
   async function btcConnect(origin: string): Promise<WalletAddresses> {
     const a = await getFullAddresses()
-    if (!getApprovedOrigins().includes(origin)) {
+    if (!hasOriginChain(origin, 'bitcoin')) {
       const approved = await showApprovalWindow({
         title: 'Connect Bitcoin Wallet',
         heading: `${origin} wants to connect to your Bitcoin wallet`,
@@ -1708,13 +1790,13 @@ export function registerIpcHandlers(): void {
         origin
       })
       if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-      addApprovedOrigin(origin)
+      addApprovedOrigin(origin, 'bitcoin')
     }
     return a
   }
 
   ipcMain.handle('bitcoin:is-enabled', (event) =>
-    getApprovedOrigins().includes(getSenderOrigin(event.sender.getURL())))
+    hasOriginChain(getSenderOrigin(event.sender.getURL()), 'bitcoin'))
 
   // sats-connect getAddresses → { addresses: [{ address, publicKey, purpose, addressType }] }
   ipcMain.handle('bitcoin:request-addresses', async (event, purposes?: string[]) => {
@@ -1734,7 +1816,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('bitcoin:get-accounts', async (event) => {
     const origin = getSenderOrigin(event.sender.getURL())
     const a = await getFullAddresses()
-    return getApprovedOrigins().includes(origin) && a.bitcoin ? [a.bitcoin] : []
+    return hasOriginChain(origin, 'bitcoin') && a.bitcoin ? [a.bitcoin] : []
   })
   ipcMain.handle('bitcoin:request-accounts', async (event) => {
     const a = await btcConnect(getSenderOrigin(event.sender.getURL()))
@@ -1753,7 +1835,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('bitcoin:sign-psbt', async (event, psbt: string, opts?: Record<string, unknown>) => {
     const origin = getSenderOrigin(event.sender.getURL())
-    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    if (!hasOriginChain(origin, 'bitcoin')) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
     const approved = await showApprovalWindow({
       title: 'Sign Bitcoin Transaction',
       heading: `${origin} wants you to sign a Bitcoin PSBT`,
@@ -1773,7 +1855,7 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('bitcoin:sign-message', async (event, message: string, addressOrType?: string) => {
     const origin = getSenderOrigin(event.sender.getURL())
-    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
+    if (!hasOriginChain(origin, 'bitcoin')) throw Object.assign(new Error('Connect the wallet before signing.'), { code: 4100 })
     const approved = await showApprovalWindow({
       title: 'Sign Message',
       heading: `${origin} wants you to sign a message with your Bitcoin wallet`,
@@ -1795,7 +1877,7 @@ export function registerIpcHandlers(): void {
   // Unisat sendBitcoin(to, satoshis) — build+sign+broadcast from the payment address.
   ipcMain.handle('bitcoin:send', async (event, to: string, satoshis: number) => {
     const origin = getSenderOrigin(event.sender.getURL())
-    if (!getApprovedOrigins().includes(origin)) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
+    if (!hasOriginChain(origin, 'bitcoin')) throw Object.assign(new Error('Connect the wallet before sending.'), { code: 4100 })
     const a = await getFullAddresses()
     const btcAmount = (Number(satoshis) / 1e8).toFixed(8)
     const approved = await showApprovalWindow({

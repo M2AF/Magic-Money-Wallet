@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { DefaultBrowserState, UpdateStatus } from '../types/wallet'
+import type { ApprovedOrigin, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 
 interface Props {
@@ -361,8 +361,14 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 // tells the live page it's disconnected, so a stale/forgotten connection can be
 // cleared without deleting the wallet.
 
+/** Chain grant → the label shown on its chip. */
+const CHAIN_LABELS: Record<string, string> = {
+  evm: 'Ethereum & EVM', cardano: 'Cardano', bitcoin: 'Bitcoin',
+  solana: 'Solana', polkadot: 'Polkadot',
+}
+
 function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
-  const [sites, setSites] = useState<string[] | null>(null)
+  const [sites, setSites] = useState<ApprovedOrigin[] | null>(null)
   const [busy, setBusy] = useState<string | null>(null) // origin being revoked, or '*' for all
   const [confirmAll, setConfirmAll] = useState(false)
 
@@ -371,9 +377,10 @@ function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
 
   const hostOf = (origin: string) => { try { return new URL(origin).hostname } catch { return origin } }
 
-  const revoke = async (origin: string) => {
-    setBusy(origin)
-    try { setSites(await window.wallet.revokeSite(origin)) }
+  /** Revoke one chain, or the whole site when `chain` is omitted. */
+  const revoke = async (origin: string, chain?: DappChain) => {
+    setBusy(chain ? `${origin}:${chain}` : origin)
+    try { setSites(await window.wallet.revokeSite(origin, chain)) }
     catch { load() }
     finally { setBusy(null) }
   }
@@ -408,22 +415,45 @@ function ConnectedSitesModal({ onClose }: { onClose: () => void }) {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {sites.map(origin => (
-                <div key={origin} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
-                  <span style={{ fontSize: 18, flexShrink: 0 }}>🌐</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hostOf(origin)}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{origin}</div>
+              {sites.map(site => (
+                <div key={site.origin} style={{ display: 'flex', flexDirection: 'column', gap: 8, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>🌐</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hostOf(site.origin)}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{site.origin}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      style={{ padding: '6px 10px', fontSize: 12, color: 'var(--error)', flexShrink: 0 }}
+                      onClick={() => revoke(site.origin)}
+                      disabled={busy !== null}
+                    >
+                      {busy === site.origin ? '…' : 'Disconnect'}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ padding: '6px 10px', fontSize: 12, color: 'var(--error)', flexShrink: 0 }}
-                    onClick={() => revoke(origin)}
-                    disabled={busy !== null}
-                  >
-                    {busy === origin ? '…' : 'Disconnect'}
-                  </button>
+
+                  {/* Which chains this site can actually use. Tap a chip to
+                      revoke that one chain and leave the rest connected. */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingLeft: 28 }}>
+                    {site.chains.map(chain => (
+                      <button
+                        key={chain}
+                        type="button"
+                        title={`Revoke ${CHAIN_LABELS[chain] ?? chain} access`}
+                        onClick={() => revoke(site.origin, chain)}
+                        disabled={busy !== null}
+                        style={{
+                          fontSize: 10, padding: '3px 8px', borderRadius: 999,
+                          border: '1px solid var(--border)', background: 'transparent',
+                          color: 'var(--text-secondary)', cursor: busy ? 'default' : 'pointer',
+                        }}
+                      >
+                        {busy === `${site.origin}:${chain}` ? '…' : `${CHAIN_LABELS[chain] ?? chain} ×`}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

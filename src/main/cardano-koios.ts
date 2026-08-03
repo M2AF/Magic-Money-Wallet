@@ -44,19 +44,33 @@ export async function koiosAddressLovelace(address: string, base = KOIOS_URL): P
 }
 
 /**
- * Spendable UTXOs normalized to the wallet's CardanoUtxo shape (lovelace only —
- * the ADA send path doesn't spend native tokens), or null if Koios is unreachable.
+ * Spendable UTXOs normalized to the wallet's CardanoUtxo shape, or null if Koios
+ * is unreachable.
+ *
+ * `_extended: true` is required, not cosmetic: it returns `asset_list`, and a
+ * UTxO whose native tokens are unknown to the builder gets those tokens BURNED
+ * when it is spent (they'd be missing from every output). Sending ADA must never
+ * destroy an NFT that happened to share the UTxO.
  */
 export async function koiosAddressUtxos(address: string, base = KOIOS_URL): Promise<CardanoUtxo[] | null> {
   try {
-    const res = await koiosPost('/address_utxos', { _addresses: [address], _extended: false }, 12_000, base)
+    const res = await koiosPost('/address_utxos', { _addresses: [address], _extended: true }, 12_000, base)
     if (!res.ok) return null
-    const rows = await res.json() as Array<{ tx_hash: string; tx_index: number; value: string }>
+    const rows = await res.json() as Array<{
+      tx_hash: string
+      tx_index: number
+      value: string
+      asset_list?: Array<{ policy_id: string; asset_name: string | null; quantity: string }>
+    }>
     if (!Array.isArray(rows)) return null
     return rows.map(u => ({
       txHash: u.tx_hash,
       txIndex: u.tx_index,
       lovelace: BigInt(u.value ?? '0'),
+      assets: (u.asset_list ?? []).map(a => ({
+        unit: a.policy_id + (a.asset_name ?? ''),
+        quantity: BigInt(a.quantity),
+      })),
     }))
   } catch { return null }
 }

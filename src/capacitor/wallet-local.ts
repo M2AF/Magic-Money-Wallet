@@ -12,6 +12,8 @@
  * transparently uses Preferences-backed storage and the local event bus.
  */
 
+import type { ApprovedOrigin, DappChain } from '../main/dapp-permissions'
+
 import { App as CapacitorApp } from '@capacitor/app'
 import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
@@ -281,9 +283,9 @@ function buildWallet() {
     setAgw:         (i: number, address: string | null) => send('wallet:set-agw', i, address),
 
     // Connected sites (revoke dApp access)
-    getConnectedSites: ()             => send<string[]>('wallet:get-connected-sites'),
-    revokeSite:     (origin: string)  => send<string[]>('wallet:revoke-site', origin),
-    revokeAllSites: ()                => send<string[]>('wallet:revoke-all-sites'),
+    getConnectedSites: ()             => send<ApprovedOrigin[]>('wallet:get-connected-sites'),
+    revokeSite: (origin: string, chain?: DappChain) => send<ApprovedOrigin[]>('wallet:revoke-site', origin, chain),
+    revokeAllSites: ()                => send<ApprovedOrigin[]>('wallet:revoke-all-sites'),
 
     // Transactions
     validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),

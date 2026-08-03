@@ -61,7 +61,8 @@ import type { WalletConfig } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, blockfrostFetch, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
 import {
   MONAD_RPCS, PUBLIC_RPCS, EVM_CHAINS as EVM_CHAIN_DEFS,
-  TESTNET_EVM_CHAINS as TESTNET_EVM_CHAIN_DEFS, TESTNET_PUBLIC_RPCS, TESTNET_KOIOS_URL, isTestnet
+  TESTNET_EVM_CHAINS as TESTNET_EVM_CHAIN_DEFS, TESTNET_PUBLIC_RPCS,
+  KOIOS_URL, TESTNET_KOIOS_URL, isTestnet
 } from './chain-config'
 import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
 
@@ -522,7 +523,12 @@ async function fetchUtxos(address: string, config: WalletConfig): Promise<Cardan
       return utxos.map(u => ({
         txHash: u.tx_hash,
         txIndex: u.tx_index,
-        lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
+        lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0'),
+        // Native tokens MUST be carried through — dropping them here is what
+        // burned NFTs on plain ADA sends (they vanish from the change output).
+        assets: u.amount
+          .filter(a => a.unit !== 'lovelace')
+          .map(a => ({ unit: a.unit, quantity: BigInt(a.quantity) })),
       }))
     }
     // Non-404 error — fall through to the keyless Koios fallback below.
@@ -533,12 +539,107 @@ async function fetchUtxos(address: string, config: WalletConfig): Promise<Cardan
   throw new Error('Could not fetch Cardano UTXOs (Blockfrost and Koios both unavailable)')
 }
 
+// ── Protocol parameters + chain tip ──────────────────────────────────────────
+// The fee was a hardcoded 170000 lovelace, which is both wrong when the network
+// raises min_fee and silently overpaid on small transfers. These fetch the real
+// values, cached briefly, with the old constant kept only as an offline floor.
+
+interface CardanoParams {
+  minFeeA: bigint
+  minFeeB: bigint
+  coinsPerUtxoByte: bigint
+}
+
+const FALLBACK_PARAMS: CardanoParams = { minFeeA: 44n, minFeeB: 155381n, coinsPerUtxoByte: 4310n }
+const PARAMS_TTL_MS = 10 * 60_000
+
+let paramsCache: { at: number; testnet: boolean; params: CardanoParams } | null = null
+
+async function fetchCardanoParams(config: WalletConfig): Promise<CardanoParams> {
+  const testnet = isTestnet(config)
+  if (paramsCache && paramsCache.testnet === testnet && Date.now() - paramsCache.at < PARAMS_TTL_MS) {
+    return paramsCache.params
+  }
+
+  const remember = (params: CardanoParams): CardanoParams => {
+    paramsCache = { at: Date.now(), testnet, params }
+    return params
+  }
+
+  if (!testnet) {
+    try {
+      const res = await blockfrostFetch('epochs/latest/parameters', config, 10_000)
+      if (res.ok) {
+        const p = await res.json() as { min_fee_a?: number; min_fee_b?: number; coins_per_utxo_size?: string }
+        if (p.min_fee_a && p.min_fee_b) {
+          return remember({
+            minFeeA: BigInt(p.min_fee_a),
+            minFeeB: BigInt(p.min_fee_b),
+            coinsPerUtxoByte: BigInt(p.coins_per_utxo_size ?? '4310'),
+          })
+        }
+      }
+    } catch { /* fall through to Koios */ }
+  }
+
+  try {
+    const base = testnet ? TESTNET_KOIOS_URL : KOIOS_URL
+    const res = await fetch(`${base}/epoch_params`, { signal: AbortSignal.timeout(10_000) })
+    if (res.ok) {
+      const rows = await res.json() as Array<{ min_fee_a?: number; min_fee_b?: number; coins_per_utxo_size?: number }>
+      const p = rows?.[0]
+      if (p?.min_fee_a && p?.min_fee_b) {
+        return remember({
+          minFeeA: BigInt(p.min_fee_a),
+          minFeeB: BigInt(p.min_fee_b),
+          coinsPerUtxoByte: BigInt(p.coins_per_utxo_size ?? 4310),
+        })
+      }
+    }
+  } catch { /* offline — use the floor below */ }
+
+  return FALLBACK_PARAMS   // deliberately NOT cached, so we retry next time
+}
+
+/** Current absolute slot, or null when neither backend answers. */
+async function fetchCardanoTip(config: WalletConfig): Promise<bigint | null> {
+  if (!isTestnet(config)) {
+    try {
+      const res = await blockfrostFetch('blocks/latest', config, 10_000)
+      if (res.ok) {
+        const block = await res.json() as { slot?: number }
+        if (typeof block.slot === 'number') return BigInt(block.slot)
+      }
+    } catch { /* fall through to Koios */ }
+  }
+  try {
+    const base = isTestnet(config) ? TESTNET_KOIOS_URL : KOIOS_URL
+    const res = await fetch(`${base}/tip`, { signal: AbortSignal.timeout(10_000) })
+    if (res.ok) {
+      const rows = await res.json() as Array<{ abs_slot?: number }>
+      const slot = rows?.[0]?.abs_slot
+      if (typeof slot === 'number') return BigInt(slot)
+    }
+  } catch { /* no tip — the caller omits the TTL rather than guessing one */ }
+  return null
+}
+
+/** Two hours of slots (1 slot ≈ 1 s) — long enough to survive a slow relay. */
+const TTL_SLOTS = 7200n
+
+/** Minimum fee for a transaction of `size` bytes: min_fee_a * size + min_fee_b. */
+function feeForSize(size: number, params: CardanoParams): bigint {
+  return params.minFeeA * BigInt(size) + params.minFeeB
+}
+
 export async function estimateCardanoFee(
   _address: string,
   config: WalletConfig
 ): Promise<FeeEstimate> {
-  // Fixed 0.17 ADA — adequate for a simple transfer (real min ≈ 0.16 ADA for ~280 bytes)
-  const feeLovelace = 170000n
+  // Same protocol parameters the send path uses, sized for a typical 1-in/2-out
+  // transfer, so the quoted fee matches what actually gets paid.
+  const params = await fetchCardanoParams(config)
+  const feeLovelace = feeForSize(TYPICAL_TX_SIZE, params)
   const feeAda = Number(feeLovelace) / 1e6
 
   let feeUsd: string | null = null
@@ -553,6 +654,9 @@ export async function estimateCardanoFee(
 
   return { fee: feeAda.toFixed(6), feeSymbol: 'ADA', feeUsd }
 }
+
+/** ~1 input, 2 outputs, 1 witness. Only used for the pre-send estimate. */
+const TYPICAL_TX_SIZE = 300
 
 export async function sendCardanoTransaction(
   mnemonic: string,
@@ -573,34 +677,80 @@ export async function sendCardanoTransaction(
   const allUtxos = await fetchUtxos(fromAddress, config)
   if (allUtxos.length === 0) throw new Error('No UTXOs found — address has no funds on-chain')
 
-  // Sort descending by value, pick until we have enough
-  allUtxos.sort((a, b) => (b.lovelace > a.lovelace ? 1 : -1))
-  const FEE = 170000n
-  const needed = amountLovelace + FEE
-
-  const selected: CardanoUtxo[] = []
-  let sum = 0n
-  for (const utxo of allUtxos) {
-    selected.push(utxo)
-    sum += utxo.lovelace
-    if (sum >= needed) break
-  }
-  if (sum < needed) {
-    throw new Error(
-      `Insufficient funds: have ${(Number(sum) / 1e6).toFixed(6)} ADA, need ${(Number(needed) / 1e6).toFixed(6)} ADA`
-    )
-  }
+  const [params, tip] = await Promise.all([fetchCardanoParams(config), fetchCardanoTip(config)])
+  const ttl = tip === null ? undefined : tip + TTL_SLOTS
 
   const toAddrBytes = decodeCardanoAddress(toAddress)
   const fromAddrBytes = decodeCardanoAddress(fromAddress)
 
-  const { txCbor, txHash } = buildCardanoTx(
-    selected,
-    toAddrBytes,
-    fromAddrBytes,
+  // Prefer pure-ADA UTxOs. Every asset on a selected input has to be returned in
+  // the change output, and an asset-bearing change output needs extra min-ADA —
+  // so pulling in tokens we aren't sending only makes the transaction harder to
+  // balance. Larger first within each group, to keep the input count down.
+  const byValueDesc = (a: CardanoUtxo, b: CardanoUtxo): number =>
+    a.lovelace === b.lovelace ? 0 : a.lovelace < b.lovelace ? 1 : -1
+  const ordered = [
+    ...allUtxos.filter(u => (u.assets?.length ?? 0) === 0).sort(byValueDesc),
+    ...allUtxos.filter(u => (u.assets?.length ?? 0) > 0).sort(byValueDesc),
+  ]
+
+  /**
+   * Select inputs, then converge on the real fee: the fee depends on the signed
+   * size, and the size depends on the fee's own CBOR width, so we build, measure,
+   * re-fee and rebuild. Two passes is enough in practice; the loop guards the
+   * case where a wider fee integer tips the size over a byte boundary.
+   */
+  const build = (selected: CardanoUtxo[], fee: bigint) => buildCardanoTx({
+    utxos: selected,
+    toAddress: toAddrBytes,
+    changeAddress: fromAddrBytes,
     amountLovelace,
-    spendKey
-  )
+    fee,
+    ttl,
+    coinsPerUtxoByte: params.coinsPerUtxoByte,
+    spendKey,
+  })
+
+  const selected: CardanoUtxo[] = []
+  let sum = 0n
+  let built: ReturnType<typeof build> | null = null
+  let lastError: Error | null = null
+
+  for (const utxo of ordered) {
+    selected.push(utxo)
+    sum += utxo.lovelace
+    // A first guess big enough to cover a typical transaction; refined below.
+    if (sum < amountLovelace + feeForSize(TYPICAL_TX_SIZE, params)) continue
+
+    try {
+      let fee = feeForSize(TYPICAL_TX_SIZE, params)
+      let candidate = build(selected, fee)
+      for (let pass = 0; pass < 3; pass++) {
+        const needed = feeForSize(candidate.txCbor.length, params)
+        if (needed <= fee) break
+        fee = needed
+        candidate = build(selected, fee)
+      }
+      built = candidate
+      break
+    } catch (err) {
+      // Not enough left for min-ADA change (usually because this input carried
+      // tokens that must be returned). Add another input and try again.
+      lastError = err instanceof Error ? err : new Error(String(err))
+    }
+  }
+
+  if (!built) {
+    if (sum < amountLovelace + feeForSize(TYPICAL_TX_SIZE, params)) {
+      const needed = amountLovelace + feeForSize(TYPICAL_TX_SIZE, params)
+      throw new Error(
+        `Insufficient funds: have ${(Number(sum) / 1e6).toFixed(6)} ADA, need ${(Number(needed) / 1e6).toFixed(6)} ADA`
+      )
+    }
+    throw lastError ?? new Error('Could not build a balanced Cardano transaction')
+  }
+
+  const { txCbor, txHash } = built
 
   // Testnet Mode: broadcast via keyless Koios preprod (Blockfrost keys are
   // network-scoped, so the mainnet proxy route can't submit preprod txs).

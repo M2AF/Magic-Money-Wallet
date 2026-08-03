@@ -14,6 +14,10 @@
 
 import { Preferences } from '@capacitor/preferences'
 import { normalizeMnemonic, type WalletAddresses } from '../main/wallet-core'
+import {
+  normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
+  type ApprovedOrigin, type DappChain,
+} from '../main/dapp-permissions'
 import { emitUiEvent } from './platform-capacitor'
 
 // ── WalletConfig — identical shape to secure-store.ts / chrome-store.ts ───────
@@ -399,21 +403,31 @@ export async function setCurrentChain(hex: string): Promise<void> {
 }
 
 // ── Approved dApp origins ─────────────────────────────────────────────────────
+// Per-chain grants; legacy flat string[] values migrate on read. Shape and
+// migration are shared with the Electron and extension stores — see
+// ../main/dapp-permissions.ts. This file serves BOTH native targets (Android and
+// iOS resolve `./secure-store` here), so a change made once covers both.
+
+export async function getApprovedOriginRecords(): Promise<ApprovedOrigin[]> {
+  return normalizeApprovedOrigins(await prefGet<unknown>('wallet.approved_origins'))
+}
 
 export async function getApprovedOrigins(): Promise<string[]> {
-  return (await prefGet<string[]>('wallet.approved_origins')) ?? []
+  return originList(await getApprovedOriginRecords())
 }
 
-export async function addApprovedOrigin(origin: string): Promise<void> {
-  const existing = await getApprovedOrigins()
-  if (!existing.includes(origin)) {
-    await prefSet('wallet.approved_origins', [...existing, origin])
-  }
+/** Is this origin allowed to use this chain? The gate every dApp handler uses. */
+export async function hasOriginChain(origin: string, chain: DappChain): Promise<boolean> {
+  return hasChainGrant(await getApprovedOriginRecords(), origin, chain)
 }
 
-export async function removeApprovedOrigin(origin: string): Promise<void> {
-  const existing = await getApprovedOrigins()
-  await prefSet('wallet.approved_origins', existing.filter(o => o !== origin))
+export async function addApprovedOrigin(origin: string, chain: DappChain): Promise<void> {
+  await prefSet('wallet.approved_origins', grantChain(await getApprovedOriginRecords(), origin, chain))
+}
+
+/** Revoke one chain, or the whole origin when `chain` is omitted. */
+export async function removeApprovedOrigin(origin: string, chain?: DappChain): Promise<void> {
+  await prefSet('wallet.approved_origins', revokeChain(await getApprovedOriginRecords(), origin, chain))
 }
 
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */

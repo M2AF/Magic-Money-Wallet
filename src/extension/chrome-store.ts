@@ -10,6 +10,10 @@
  */
 
 import { normalizeMnemonic, type WalletAddresses } from '../main/wallet-core'
+import {
+  normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
+  type ApprovedOrigin, type DappChain,
+} from '../main/dapp-permissions'
 
 // ── WalletConfig — identical shape to secure-store.ts so aliased imports work ─
 
@@ -378,22 +382,33 @@ export async function setCurrentChain(hex: string): Promise<void> {
 }
 
 // ── Approved dApp origins ─────────────────────────────────────────────────────
+// Per-chain grants; legacy flat string[] values migrate on read. See
+// ../main/dapp-permissions.ts — the shape and migration are shared with the
+// Electron and Capacitor stores so the four targets can't drift apart.
+
+export async function getApprovedOriginRecords(): Promise<ApprovedOrigin[]> {
+  const r = await chrome.storage.local.get('wallet.approved_origins')
+  return normalizeApprovedOrigins(r['wallet.approved_origins'])
+}
 
 export async function getApprovedOrigins(): Promise<string[]> {
-  const r = await chrome.storage.local.get('wallet.approved_origins')
-  return (r['wallet.approved_origins'] as string[] | undefined) ?? []
+  return originList(await getApprovedOriginRecords())
 }
 
-export async function addApprovedOrigin(origin: string): Promise<void> {
-  const existing = await getApprovedOrigins()
-  if (!existing.includes(origin)) {
-    await chrome.storage.local.set({ 'wallet.approved_origins': [...existing, origin] })
-  }
+/** Is this origin allowed to use this chain? The gate every dApp handler uses. */
+export async function hasOriginChain(origin: string, chain: DappChain): Promise<boolean> {
+  return hasChainGrant(await getApprovedOriginRecords(), origin, chain)
 }
 
-export async function removeApprovedOrigin(origin: string): Promise<void> {
-  const existing = await getApprovedOrigins()
-  await chrome.storage.local.set({ 'wallet.approved_origins': existing.filter(o => o !== origin) })
+export async function addApprovedOrigin(origin: string, chain: DappChain): Promise<void> {
+  const next = grantChain(await getApprovedOriginRecords(), origin, chain)
+  await chrome.storage.local.set({ 'wallet.approved_origins': next })
+}
+
+/** Revoke one chain, or the whole origin when `chain` is omitted. */
+export async function removeApprovedOrigin(origin: string, chain?: DappChain): Promise<void> {
+  const next = revokeChain(await getApprovedOriginRecords(), origin, chain)
+  await chrome.storage.local.set({ 'wallet.approved_origins': next })
 }
 
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
