@@ -220,7 +220,39 @@ try {
     fail(`helloStatus threw: ${e.message}`)
   }
 
-  // ── 5. Navigation works (React state + event handling) ──────────────────
+  // ── 5. DappBrowserPlugin.swift — registered and callable ────────────────
+  // getTorState is the ideal probe: it reaches the native plugin but opens no
+  // web views and changes no state. A reply proves the plugin registered; an
+  // "not implemented" rejection proves it did not.
+  console.log('\n── DappBrowserPlugin ──')
+  try {
+    const tor = await evalAsync(driver, `
+      const { DappBrowser } = window.Capacitor.registerPlugin
+        ? { DappBrowser: window.Capacitor.registerPlugin('DappBrowser') }
+        : {};
+      if (!DappBrowser) return { unavailable: true };
+      return await DappBrowser.getTorState();
+    `)
+    console.log(`     getTorState() = ${JSON.stringify(tor)}`)
+    if (tor && tor.unavailable) {
+      fail('Capacitor.registerPlugin unavailable — cannot probe DappBrowser')
+    } else if (tor && typeof tor.status === 'string') {
+      pass(`DappBrowser plugin responded (tor status=${tor.status})`)
+      // Until Phase 3 lands this MUST report unsupported. Reporting anything
+      // else would tell the user their traffic is anonymised when it is not.
+      if (tor.status === 'unsupported' && tor.isTor === false) {
+        pass('Tor correctly reports unsupported (not a false "connected")')
+      } else {
+        fail(`Tor should report unsupported on iOS, got status=${tor.status} isTor=${tor.isTor}`)
+      }
+    } else {
+      fail(`DappBrowser.getTorState returned an unexpected shape: ${JSON.stringify(tor)}`)
+    }
+  } catch (e) {
+    fail(`DappBrowser.getTorState threw: ${e.message}`)
+  }
+
+  // ── 6. Navigation works (React state + event handling) ──────────────────
   console.log('\n── navigation ──')
   const clicked = await evalAsync(driver, `
     const btn = [...document.querySelectorAll('button')]
