@@ -123,7 +123,7 @@ jobs:
       - name: Verify every Swift plugin compiled
         run: |
           missing=0
-          for f in AppInfoPlugin DownloaderPlugin SecureVaultPlugin DappBrowserPlugin; do
+          for f in AppInfoPlugin DownloaderPlugin SecureVaultPlugin DappBrowserPlugin MagicGuard; do
             if grep -q "$f.swift" xcodebuild.log; then
               echo "  ✓ $f.swift compiled"
             else

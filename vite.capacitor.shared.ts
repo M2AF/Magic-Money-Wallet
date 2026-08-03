@@ -32,6 +32,13 @@ export interface CapacitorTargetOptions {
    * match, so a target-specific override of a shared seam must come first.
    */
   extraAliases?: Alias[]
+  /**
+   * Extra resource directories to copy into the bundle, as [from, to] relative
+   * to the repo root and outDir respectively. Used for assets only ONE target
+   * needs — e.g. iOS ships ~1.3 MB of WKContentRuleList filter data that would
+   * be dead weight in the APK, since Android blocks via the Rust engine.
+   */
+  extraCopies?: Array<[string, string]>
 }
 
 /**
@@ -48,7 +55,7 @@ export interface CapacitorTargetOptions {
  * missed. See AGENTS.md §"Architecture in one paragraph".
  */
 export function makeCapacitorConfig(opts: CapacitorTargetOptions): UserConfig {
-  const { root, outDir, extraAliases = [] } = opts
+  const { root, outDir, extraAliases = [], extraCopies = [] } = opts
 
   return defineConfig({
     root: r('src', root),
@@ -77,6 +84,22 @@ export function makeCapacitorConfig(opts: CapacitorTargetOptions): UserConfig {
           const dest = r(outDir, 'midnight-keys')
           mkdirSync(dest, { recursive: true })
           for (const f of readdirSync(src)) copyFileSync(path.join(src, f), path.join(dest, f))
+        },
+      },
+      {
+        // Per-target resources (see CapacitorTargetOptions.extraCopies).
+        name: 'copy-target-resources',
+        closeBundle() {
+          for (const [from, to] of extraCopies) {
+            const src = r(from)
+            if (!existsSync(src)) {
+              console.warn(`[copy-target-resources] missing: ${from}`)
+              continue
+            }
+            const dest = r(outDir, to)
+            mkdirSync(dest, { recursive: true })
+            for (const f of readdirSync(src)) copyFileSync(path.join(src, f), path.join(dest, f))
+          }
         },
       },
     ],

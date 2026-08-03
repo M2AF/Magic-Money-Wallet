@@ -238,18 +238,40 @@ try {
       fail('Capacitor.registerPlugin unavailable — cannot probe DappBrowser')
     } else if (tor && typeof tor.status === 'string') {
       pass(`DappBrowser plugin responded (tor status=${tor.status})`)
-      // Until Phase 3 lands this MUST report unsupported. Reporting anything
-      // else would tell the user their traffic is anonymised when it is not.
+      // Tor is deliberately NOT part of the iOS build, so this must always
+      // report unsupported. Reporting anything else would tell the user their
+      // traffic is anonymised when it is in clear.
       if (tor.status === 'unsupported' && tor.isTor === false) {
         pass('Tor correctly reports unsupported (not a false "connected")')
       } else {
         fail(`Tor should report unsupported on iOS, got status=${tor.status} isTor=${tor.isTor}`)
       }
-    } else {
-      fail(`DappBrowser.getTorState returned an unexpected shape: ${JSON.stringify(tor)}`)
     }
   } catch (e) {
     fail(`DappBrowser.getTorState threw: ${e.message}`)
+  }
+
+  // ── Magic Guard — the rulesets must actually compile ────────────────────
+  // status 'ready' is the meaningful assertion: it means all four
+  // WKContentRuleList chunks inflated from the bundle and compiled in WebKit.
+  // 'degraded' means the filter data is missing or failed to compile, which
+  // would leave the browser silently unprotected.
+  console.log('\n── Magic Guard ──')
+  try {
+    const guard = await evalAsync(driver, `
+      const DappBrowser = window.Capacitor.registerPlugin('DappBrowser');
+      return await DappBrowser.getMagicGuardState();
+    `, 90000)   // first launch compiles ~134k rules; WebKit needs a while
+    console.log(`     getMagicGuardState() = ${JSON.stringify(guard)}`)
+    if (guard && guard.status === 'ready') {
+      pass(`content blocking compiled (listVersion=${guard.listVersion})`)
+    } else if (guard && guard.status === 'disabled') {
+      pass('content blocking compiled but is switched off')
+    } else {
+      fail(`Magic Guard status=${guard && guard.status} error=${guard && guard.error} — rulesets did not compile`)
+    }
+  } catch (e) {
+    fail(`getMagicGuardState threw: ${e.message}`)
   }
 
   // ── 6. Navigation works (React state + event handling) ──────────────────

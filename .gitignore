@@ -80,3 +80,6 @@ ChainLens_Files/stlyes.css
 # ── Magic Guard native (generated build outputs) ─────────────
 native/magic-guard-core/target/
 android/app/src/main/jniLibs/
+
+# Magic Guard iOS converter (build tool) — generated rulesets ARE committed
+native/magic-guard-cb/target/

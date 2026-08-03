@@ -540,24 +540,29 @@ export function BrowserOverlay() {
             }
             onClick={() => { setMenuOpen(false); setGuardOpen(true) }}
           />
-          <MenuRow
-            icon="🧅"
-            label={tor.enabled ? 'Tor Mode' : 'Turn on Tor Mode'}
-            hint={tor.status === 'unsupported'
-              ? 'Not supported on this device'
-              : tor.status === 'connecting' ? 'Connecting…'
-              : tor.status === 'error' ? 'Blocked — traffic is not flowing'
-              : tor.enabled ? 'On' : 'Off'}
-            active={tor.enabled}
-            disabled={tor.status === 'connecting' || tor.status === 'unsupported'}
-            trailing={
-              <span aria-hidden="true" style={{
-                display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
-                background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
-              }} />
-            }
-            onClick={() => { setMenuOpen(false); toggleTor() }}
-          />
+          {/* Hidden entirely where the platform can't do Tor — iOS never can
+              (no ProxyController for WKWebView), and old Android WebViews
+              without PROXY_OVERRIDE report the same. A permanently disabled
+              privacy switch invites the reading that it's merely off right
+              now, which is worse than not offering it. */}
+          {tor.status !== 'unsupported' && (
+            <MenuRow
+              icon="🧅"
+              label={tor.enabled ? 'Tor Mode' : 'Turn on Tor Mode'}
+              hint={tor.status === 'connecting' ? 'Connecting…'
+                : tor.status === 'error' ? 'Blocked — traffic is not flowing'
+                : tor.enabled ? 'On' : 'Off'}
+              active={tor.enabled}
+              disabled={tor.status === 'connecting'}
+              trailing={
+                <span aria-hidden="true" style={{
+                  display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                  background: tor.status === 'connected' ? '#22c55e' : tor.status === 'error' ? '#ef4444' : '#737373',
+                }} />
+              }
+              onClick={() => { setMenuOpen(false); toggleTor() }}
+            />
+          )}
 
           <MenuDivider />
           <MenuLabel>Save and share</MenuLabel>

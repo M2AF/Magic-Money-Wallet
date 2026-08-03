@@ -1,0 +1,29 @@
+{
+  "chunks": [
+    {
+      "file": "rules-0.json.deflate",
+      "rawBytes": 3972209,
+      "rules": 40000
+    },
+    {
+      "file": "rules-1.json.deflate",
+      "rawBytes": 4191863,
+      "rules": 40000
+    },
+    {
+      "file": "rules-2.json.deflate",
+      "rawBytes": 4109028,
+      "rules": 40000
+    },
+    {
+      "file": "rules-3.json.deflate",
+      "rawBytes": 2091346,
+      "rules": 14612
+    }
+  ],
+  "engine": "adblock-rust 0.13.2 (content-blocking)",
+  "generatedBy": "native/magic-guard-cb",
+  "totalRules": 134612,
+  "unsupportedRules": 134468,
+  "version": "b30dd2b0b72a5511"
+}

@@ -194,7 +194,8 @@ The two native targets are **one target with two alias sets**: both build from `
 | Chromium password import | Stubbed, as on Android. CSV import works |
 | Monero send | Receive-only, as on Android and the extension |
 | Screenshot blocking | Approximated (no `FLAG_SECURE` equivalent) — see below |
-| Ad-block fidelity | `WKContentRuleList`; slightly below Android's `adblock-rs` engine |
+| Tor Mode | Not available — WKWebView has no proxy override. The toggle is hidden rather than shown permanently disabled |
+| Ad-block block counts | Not available — `WKContentRuleList` never reports a match, so per-page/per-tab counters read 0. **Blocking itself is fully active** (~109k network rules + ~24k cosmetic) |
 
 ### API proxy — no keys in the client
 

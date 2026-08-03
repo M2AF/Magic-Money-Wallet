@@ -1,0 +1,37 @@
+[package]
+name = "magic-guard-cb"
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+publish = false
+
+# Build-time tool, not shipped: converts the EasyList/EasyPrivacy snapshots in
+# resources/magic-guard/ into Apple's content-blocking JSON for iOS.
+#
+# WHY A SEPARATE CRATE from native/magic-guard-core: that one is a cdylib built
+# for Android with cargo-ndk and must stay minimal. This is a host binary that
+# needs the `content-blocking` feature, which the Android build has no use for.
+[[bin]]
+name = "magic-guard-cb"
+path = "src/main.rs"
+
+[dependencies]
+# EXACTLY the same engine version as the Android cdylib and the desktop
+# adblock-rs binding (package.json pins adblock-rs 0.13.2). Using Brave's own
+# ABP→content-blocking converter — the one Brave iOS ships — rather than
+# hand-rolling the translation, which is full of edge cases.
+adblock = { version = "=0.13.2", default-features = false, features = [
+    "embedded-domain-resolver",
+    "full-regex-handling",
+    "content-blocking",
+] }
+serde_json = "1"
+# Raw DEFLATE (no zlib/gzip container) — that is exactly what Apple's
+# `compression` framework decodes with COMPRESSION_ZLIB, so the Swift side needs
+# no third-party unzip. Shrinks the shipped rulesets ~11x (14.4 MB → 1.3 MB),
+# which matters for an app people download from a website.
+flate2 = "1"
+sha2 = "0.10"
+
+[profile.release]
+opt-level = 2

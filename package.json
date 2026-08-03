@@ -43,7 +43,8 @@
     "ios:dev": "vite --config vite.ios.config.ts --port 5184 --host",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor",
-    "release:major": "node scripts/release.js major"
+    "release:major": "node scripts/release.js major",
+    "magic-guard:ios": "cargo run --release --manifest-path native/magic-guard-cb/Cargo.toml -- resources/magic-guard resources/magic-guard/ios"
   },
   "dependencies": {
     "@abstract-foundation/agw-client": "^1.11.0",

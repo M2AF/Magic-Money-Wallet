@@ -83,6 +83,7 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
     private var nextTabId: Int = 1
     private var pendingRequests: [String: Int] = [:]   // requestId → tabId
     private var injectionScript: String?
+    let magicGuard = MagicGuard()
 
     // MARK: - Lifecycle
 
@@ -182,9 +183,17 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         tab.observe { [weak self] in self?.emitStateForActiveTab() }
 
-        if let target = Self.normalizedURL(url) {
-            webView.load(URLRequest(url: target))
+        let target = Self.normalizedURL(url)
+
+        // Content rule lists must be attached BEFORE the first load or the
+        // opening page goes unfiltered. If the lists are still compiling
+        // (first launch after an update), load once they are ready.
+        magicGuard.load { [weak self] in
+            guard let self = self else { return }
+            self.magicGuard.apply(to: webView, host: target?.host)
+            if let target = target { webView.load(URLRequest(url: target)) }
         }
+
         selectTabInternal(tab.id)
         return tab
     }
@@ -483,13 +492,17 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         call.reject("Adding a site to the Home Screen isn't available on iOS")
     }
 
-    // MARK: - Tor / Magic Guard (not yet implemented on iOS)
+    // MARK: - Tor (deliberately not implemented on iOS)
 
-    /// Phase 3. WKWebView has no ProxyController; the plan is Tor.framework plus
-    /// WKWebsiteDataStore.proxyConfigurations (iOS 17+, which is why the
-    /// deployment target is already 17.0). Until then this reports 'unsupported'
-    /// so BrowserOverlay renders the toggle as unavailable instead of pretending
-    /// traffic is anonymised — a false "connected" here would be a privacy lie.
+    /**
+     * Tor is NOT part of the iOS build — a product decision, not a TODO.
+     *
+     * Reporting `status: 'unsupported'` makes BrowserOverlay hide the toggle
+     * entirely. The one thing this must never do is report anything that reads
+     * as working: a Tor switch that appears on but isn't proxying tells the
+     * user their traffic is anonymised when it is in clear — strictly worse
+     * than having no feature.
+     */
     private func torStatePayload() -> [String: Any] {
         [
             "enabled": false,
@@ -497,36 +510,61 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
             "host": "",
             "port": 0,
             "isTor": false,
-            "message": "Tor is not available on iOS yet",
+            "message": "Tor Mode isn't available on iOS",
         ]
     }
 
     @objc func getTorState(_ call: CAPPluginCall) { call.resolve(torStatePayload()) }
-
     @objc func setTorMode(_ call: CAPPluginCall) { call.resolve(torStatePayload()) }
 
-    /// Magic Guard's Rust/JNI engine does not port: WKWebView has no
-    /// shouldInterceptRequest. The iOS path is WKContentRuleList compiled from
-    /// the EasyList snapshots — real work, tracked separately. 'degraded' with an
-    /// explanation is the shape the shared UI already renders for "toggle exists,
-    /// engine isn't filtering yet".
-    private func magicGuardPayload() -> [String: Any] {
-        let host = activeTab?.webView.url?.host
-        return [
-            "enabled": false,
-            "siteEnabled": true,
-            "effectiveEnabled": false,
-            "status": "degraded",
-            "hostname": host as Any,
-            "blockedThisPage": 0,
-            "blockedThisTab": 0,
-            "error": "Content blocking isn't available on iOS yet",
-        ]
+    // MARK: - Magic Guard
+
+    private func magicGuardHost() -> String? { activeTab?.webView.url?.host }
+
+    /// Re-attach rule lists to every tab and reload — content rule lists only
+    /// take effect on the next navigation, so a toggle without the reload looks
+    /// like it silently did nothing.
+    private func reapplyMagicGuard() {
+        for tab in tabs {
+            magicGuard.apply(to: tab.webView, host: tab.webView.url?.host)
+            tab.webView.reload()
+        }
+        notifyListeners("magicGuardStateChanged", data: magicGuard.statePayload(host: magicGuardHost()))
     }
 
-    @objc func getMagicGuardState(_ call: CAPPluginCall) { call.resolve(magicGuardPayload()) }
-    @objc func setMagicGuardEnabled(_ call: CAPPluginCall) { call.resolve(magicGuardPayload()) }
-    @objc func setMagicGuardForSite(_ call: CAPPluginCall) { call.resolve(magicGuardPayload()) }
+    @objc func getMagicGuardState(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.magicGuard.load {
+                call.resolve(self.magicGuard.statePayload(host: self.magicGuardHost()))
+            }
+        }
+    }
+
+    @objc func setMagicGuardEnabled(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled") ?? true
+        DispatchQueue.main.async {
+            self.magicGuard.enabled = enabled
+            self.magicGuard.load {
+                self.reapplyMagicGuard()
+                call.resolve(self.magicGuard.statePayload(host: self.magicGuardHost()))
+            }
+        }
+    }
+
+    /// The hostname is derived from the ACTIVE TAB here, never passed in from
+    /// JS — same invariant as the desktop IPC contract, so a compromised page
+    /// cannot switch protection off for an unrelated site.
+    @objc func setMagicGuardForSite(_ call: CAPPluginCall) {
+        let enabled = call.getBool("enabled") ?? true
+        DispatchQueue.main.async {
+            let host = self.magicGuardHost()
+            self.magicGuard.setEnabled(forHost: host, enabled: enabled)
+            self.magicGuard.refreshExceptions {
+                self.reapplyMagicGuard()
+                call.resolve(self.magicGuard.statePayload(host: host))
+            }
+        }
+    }
 
     // MARK: - Helpers
 
@@ -618,6 +656,16 @@ extension DappBrowserPlugin: WKNavigationDelegate {
             UIApplication.shared.open(url, options: [:], completionHandler: nil)
             return
         }
+
+        // A per-site exception is keyed on host, so a top-level navigation to a
+        // different host has to re-evaluate which lists apply. Rule lists take
+        // effect on the NEXT load, so this is done before allowing it.
+        if navigationAction.targetFrame?.isMainFrame == true,
+           let host = url.host,
+           host != webView.url?.host {
+            magicGuard.apply(to: webView, host: host)
+        }
+
         decisionHandler(.allow)
     }
 
