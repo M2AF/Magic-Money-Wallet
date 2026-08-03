@@ -49,6 +49,11 @@ export default defineConfig({
         if (existsSync(keysSrc)) {
           mkdirSync(r('dist-extension/midnight-keys'), { recursive: true })
           for (const f of readdirSync(keysSrc)) {
+            // Skip the vendoring provenance sidecar: its pinned hashes are
+            // duplicated in src/main/midnight-proving-keys.ts (nothing reads the
+            // file at runtime), and a second manifest.json anywhere in the
+            // package makes the Chrome Web Store reject the upload.
+            if (f === 'manifest.json') continue
             copyFileSync(`${keysSrc}/${f}`, r(`dist-extension/midnight-keys/${f}`))
           }
         }

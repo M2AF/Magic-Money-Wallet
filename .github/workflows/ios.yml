@@ -170,9 +170,22 @@ jobs:
           APP_PID=$!
 
           sleep 25
-          kill $LOG_PID $APP_PID 2>/dev/null || true
 
+          # ORDER MATTERS: screenshot BEFORE detaching. `--console-pipe` keeps
+          # simctl attached to the app, so killing that process also terminates
+          # the app — screenshotting afterwards captured the iOS home screen and
+          # made a perfectly healthy build look like a render failure.
           xcrun simctl io "$DEVICE" screenshot ios-launch.png
+
+          # Prove the app was actually frontmost when the screenshot was taken,
+          # so "app died / never foregrounded" can never again be mistaken for
+          # "app rendered nothing".
+          if ! xcrun simctl spawn "$DEVICE" launchctl list 2>/dev/null | grep -q "info.chainlens.magicmoney"; then
+            echo "::error::App was not running when the screenshot was taken."
+            exit 1
+          fi
+
+          kill $LOG_PID $APP_PID 2>/dev/null || true
 
       # The first version of this step only grepped for a handful of error
       # strings and PASSED a build whose screen was completely blank. Absence of
@@ -207,8 +220,11 @@ jobs:
       # shipped as "green" once already.
       - name: Assert the screen is not blank
         run: |
-          python3 -m pip install --quiet --disable-pip-version-check pillow
-          python3 - <<'PY'
+          # A venv, not `pip install` directly: the runner's python3 is
+          # Homebrew-managed and refuses with "error: externally-managed-environment".
+          python3 -m venv /tmp/pyenv
+          /tmp/pyenv/bin/pip install --quiet --disable-pip-version-check pillow
+          /tmp/pyenv/bin/python - <<'PY'
           import sys
           from PIL import Image
 
@@ -224,9 +240,21 @@ jobs:
           share = dominant / total
 
           print(f"body {body.size}  distinct_colors={distinct}  dominant_share={share:.4f}")
-          if distinct < 12 or share > 0.995:
-              print("::error::App window is effectively blank — the UI did not render.")
+
+          # Calibrated against the real failure: a non-rendering WebView gives
+          # EXACTLY 1 distinct colour at 100% (the native background showing
+          # through). Anything that painted — even a bare "Loading…" label —
+          # produces hundreds of colours from text antialiasing.
+          #
+          # dominant_share is deliberately NOT a hard failure: this app's UI is
+          # very dark, and a sparse-but-correct screen legitimately sits above
+          # 0.99. Failing on it would block good builds; the colour count is the
+          # signal that actually discriminates.
+          if distinct < 12:
+              print("::error::App window is blank — the UI did not render.")
               sys.exit(1)
+          if share > 0.999:
+              print("::warning::Screen is almost entirely one colour — check the screenshot artifact.")
           print("Screen rendered content.")
           PY
 
