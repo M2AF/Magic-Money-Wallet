@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { buildSiwsMessage, checkSiwsDomain, formatSiws, siwsWarnings } from './solana-siws'
+import {
+  buildSiwsMessage, checkSiwsDomain, formatSiws, parseSiwsMessage, siwsWarnings,
+} from './solana-siws'
 
 const ADDRESS = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'
 
@@ -132,5 +134,52 @@ describe('formatSiws', () => {
     expect(text).toContain('abc')
     // Reassurance that matters: a sign-in is not a transfer.
     expect(text).toContain('cannot move funds')
+  })
+})
+
+describe('parseSiwsMessage — SIWS arriving through plain signMessage', () => {
+  // Captured verbatim from Magic Eden in the in-app browser. Most dApps
+  // authenticate this way rather than via the solana:signIn feature, so the
+  // phishing check has to work on this shape too.
+  const MAGIC_EDEN = [
+    'magiceden.io wants you to sign in with your Solana account:',
+    '3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d',
+    '',
+    'Welcome to Magic Eden. Signing is the only way we can truly know that you are the owner of the wallet you are connecting. Signing is a safe, gas-less transaction that does not in any way give Magic Eden permission to perform any transactions with your wallet.',
+    '',
+    'URI: https://magiceden.io/',
+    'Version: 1',
+    'Nonce: c5c80c5738e4492bafbdabe05b30a38e',
+    'Issued At: 2026-08-04T01:53:57.145Z',
+  ].join('\n')
+
+  it('extracts the domain and fields from a real dApp message', () => {
+    const parsed = parseSiwsMessage(MAGIC_EDEN)
+    expect(parsed).not.toBeNull()
+    expect(parsed!.domain).toBe('magiceden.io')
+    expect(parsed!.address).toBe('3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d')
+    expect(parsed!.uri).toBe('https://magiceden.io/')
+    expect(parsed!.nonce).toBe('c5c80c5738e4492bafbdabe05b30a38e')
+    expect(parsed!.issuedAt).toBe('2026-08-04T01:53:57.145Z')
+    expect(parsed!.statement).toContain('Welcome to Magic Eden')
+  })
+
+  it('stays silent when the real origin matches', () => {
+    const parsed = parseSiwsMessage(MAGIC_EDEN)!
+    expect(siwsWarnings(parsed, checkSiwsDomain(parsed.domain, 'https://magiceden.io'))).toEqual([])
+  })
+
+  it('CATCHES a phishing site replaying the identical message', () => {
+    // Byte-for-byte the same text, served from somewhere else.
+    const parsed = parseSiwsMessage(MAGIC_EDEN)!
+    const w = siwsWarnings(parsed, checkSiwsDomain(parsed.domain, 'https://magiceden-mint.xyz'))
+    expect(w.some(x => /phishing/i.test(x))).toBe(true)
+    expect(w.some(x => x.includes('magiceden-mint.xyz'))).toBe(true)
+  })
+
+  it('returns null for an ordinary message so normal signing is unaffected', () => {
+    expect(parseSiwsMessage('Please confirm your order #123')).toBeNull()
+    expect(parseSiwsMessage('')).toBeNull()
+    expect(parseSiwsMessage('foo.com wants you to sign in with your Ethereum account:')).toBeNull()
   })
 })

@@ -70,6 +70,7 @@ import {
   summarizeSolanaTx, formatSolanaTxSummary, formatSolanaMessage, formatSol,
   type SolanaTxSummary,
 } from '../main/solana-tx-inspect'
+import { parseSiwsMessage, checkSiwsDomain, siwsWarnings } from '../main/solana-siws'
 import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
@@ -1470,11 +1471,22 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'web3:solana:sign': {
       const bytes = new Uint8Array(a0 as number[])
+      const solMsgDetail = formatSolanaMessage(bytes)
+      // Same SIWS-through-signMessage phishing check as the Electron handler:
+      // the message text can name any site, the origin cannot be faked.
+      const solSiws = parseSiwsMessage(
+        solMsgDetail.startsWith('Message:\n') ? solMsgDetail.slice(9) : ''
+      )
+      const solSiwsWarnings = solSiws
+        ? siwsWarnings(solSiws, checkSiwsDomain(solSiws.domain, sender?.origin ?? 'unknown'))
+        : []
       await requestSignatureApproval(sender, {
         chain: 'Solana',
         method: 'signMessage',
-        summary: 'Sign Solana message',
-        details: formatSolanaMessage(bytes),
+        summary: solSiws ? `Sign in to ${solSiws.domain ?? 'this site'}` : 'Sign Solana message',
+        details: solSiwsWarnings.length
+          ? `${solMsgDetail}\n\n${solSiwsWarnings.map(w => `⚠ ${w}`).join('\n')}`
+          : solMsgDetail,
       })
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()

@@ -179,7 +179,8 @@ import {
   summarizeSolanaTx, formatSolanaTxSummary, formatSolanaMessage,
 } from './solana-tx-inspect'
 import {
-  buildSiwsMessage, checkSiwsDomain, formatSiws, siwsWarnings, type SiwsInput,
+  buildSiwsMessage, checkSiwsDomain, formatSiws, siwsWarnings, parseSiwsMessage,
+  type SiwsInput,
 } from './solana-siws'
 import { describeEvmSend, describeTypedData } from './tx-describe'
 import { validateAddress } from './address-validate'
@@ -1567,10 +1568,22 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('web3:solana-sign-message', async (event, messageBytes: number[]) => {
     const origin = requireSolana(event)
+    const detail = formatSolanaMessage(Uint8Array.from(messageBytes))
+
+    // Most dApps do Sign In With Solana through plain signMessage rather than
+    // the solana:signIn feature. Parse the domain back out of the message so
+    // the same phishing check applies: the text can claim any site it likes,
+    // but it cannot fake the origin the request actually came from.
+    let warnings: string[] = []
+    const siws = parseSiwsMessage(detail.startsWith('Message:\n') ? detail.slice(9) : '')
+    if (siws) warnings = siwsWarnings(siws, checkSiwsDomain(siws.domain, origin))
+
     const approved = await showApprovalWindow({
       title: 'Sign Solana Message',
       heading: 'A dApp wants to sign a message with your Solana wallet',
-      detail: formatSolanaMessage(Uint8Array.from(messageBytes)),
+      detail,
+      warnings,
+      tone: warnings.length > 0 ? 'danger' : 'primary',
       confirmLabel: 'Sign',
       origin
     })

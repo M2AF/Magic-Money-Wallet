@@ -66,6 +66,65 @@ export function buildSiwsMessage(input: SiwsInput, address: string): string {
   return lines.join('\n')
 }
 
+/** First line of a SIWS message: `<domain> wants you to sign in with your Solana account:` */
+const SIWS_HEADER = /^(\S+) wants you to sign in with your Solana account:\s*$/
+
+/**
+ * Recognise a SIWS message that arrived through plain `signMessage`.
+ *
+ * This matters more than the `solana:signIn` path it complements. Most dApps —
+ * Magic Eden among them — still authenticate by formatting a SIWS message
+ * themselves and pushing it through `signMessage`, which hands the wallet an
+ * opaque string and no way to check anything. Parsing the domain back out lets
+ * the SAME phishing check run: a site can print "magiceden.io wants you to sign
+ * in" all it likes, but it cannot change the origin the request came from.
+ *
+ * Returns null for anything that isn't SIWS-shaped, so ordinary messages are
+ * unaffected.
+ */
+export function parseSiwsMessage(text: string): SiwsInput | null {
+  const lines = text.split('\n')
+  const header = SIWS_HEADER.exec(lines[0] ?? '')
+  if (!header) return null
+
+  const input: SiwsInput = { domain: header[1] }
+  if (lines[1]?.trim()) input.address = lines[1].trim()
+
+  const resources: string[] = []
+  let inResources = false
+  const statement: string[] = []
+  let seenField = false
+
+  for (const raw of lines.slice(2)) {
+    const line = raw.trim()
+    if (inResources) {
+      if (line.startsWith('- ')) { resources.push(line.slice(2)); continue }
+      inResources = false
+    }
+    if (line === 'Resources:')            { inResources = true; seenField = true; continue }
+    const field = /^([A-Za-z ]+):\s*(.*)$/.exec(line)
+    if (field) {
+      const [, key, value] = field
+      switch (key) {
+        case 'URI':             input.uri = value; seenField = true; continue
+        case 'Version':         input.version = value; seenField = true; continue
+        case 'Chain ID':        input.chainId = value; seenField = true; continue
+        case 'Nonce':           input.nonce = value; seenField = true; continue
+        case 'Issued At':       input.issuedAt = value; seenField = true; continue
+        case 'Expiration Time': input.expirationTime = value; seenField = true; continue
+        case 'Not Before':      input.notBefore = value; seenField = true; continue
+        case 'Request ID':      input.requestId = value; seenField = true; continue
+      }
+    }
+    // Anything before the first recognised field is the human statement.
+    if (!seenField && line) statement.push(line)
+  }
+
+  if (statement.length) input.statement = statement.join(' ')
+  if (resources.length) input.resources = resources
+  return input
+}
+
 export interface SiwsDomainCheck {
   ok: boolean
   /** Present when the check fails — shown to the user as a warning. */
