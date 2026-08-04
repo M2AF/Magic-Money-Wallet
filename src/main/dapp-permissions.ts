@@ -13,9 +13,9 @@
  * each store only does its own reads and writes.
  */
 
-export type DappChain = 'evm' | 'cardano' | 'bitcoin' | 'solana' | 'polkadot'
+export type DappChain = 'evm' | 'cardano' | 'bitcoin' | 'solana' | 'polkadot' | 'midnight'
 
-export const DAPP_CHAINS: readonly DappChain[] = ['evm', 'cardano', 'bitcoin', 'solana', 'polkadot']
+export const DAPP_CHAINS: readonly DappChain[] = ['evm', 'cardano', 'bitcoin', 'solana', 'polkadot', 'midnight']
 
 /**
  * Map a user-facing chain label (as shown on an approval sheet) to its grant.
@@ -28,6 +28,7 @@ export function grantForChainLabel(label: string): DappChain {
     case 'bitcoin':  return 'bitcoin'
     case 'solana':   return 'solana'
     case 'polkadot': return 'polkadot'
+    case 'midnight': return 'midnight'
     default:         return 'evm'
   }
 }

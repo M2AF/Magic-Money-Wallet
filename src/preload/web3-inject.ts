@@ -394,6 +394,81 @@ webFrame.executeJavaScript(`(function () {
     try { if (typeof window.BitcoinProvider === 'undefined') window.BitcoinProvider = mmBtc; } catch (_) {}
   } catch(e) { console.error('[MagicMoney] Bitcoin WBIP injection failed:', e); }
 
+  // ── Midnight DApp Connector ───────────────────────────────────────────────
+  // Both API generations, because the ecosystem is mid-migration: legacy dApps
+  // look for a named key on window.midnight with enable()/state(), current ones
+  // enumerate window.midnight for objects carrying rdns + connect(networkId).
+  //
+  // This shim is deliberately THIN — every call is an IPC hop. Nothing here
+  // touches @midnightntwrk/*: that graph pulls in ledger WASM, and importing it
+  // at page scope would abort this entire script on any site whose CSP lacks
+  // wasm-unsafe-eval, taking the Cardano/VESPR announcement above down with it.
+  try {
+    const MN_RDNS = 'info.chainlens.magicmoney';
+    const mnState = { networkId: null };
+
+    const mnApi = () => ({
+      // ── Legacy (≤3.x) ────────────────────────────────────────────────
+      state: () => call('midnight:state'),
+      serviceUriConfig: () => call('midnight:service-uris'),
+      submitTransaction: (tx) => call('midnight:submit', tx),
+
+      // ── Current (4.x) ────────────────────────────────────────────────
+      getUnshieldedAddress: () => call('midnight:addresses').then(a => ({ unshieldedAddress: a.unshielded })),
+      getShieldedAddresses: () => call('midnight:addresses').then(a => ({
+        shieldedAddress: a.shielded, shieldedCoinPublicKey: a.shielded, shieldedEncryptionPublicKey: a.shielded
+      })),
+      getDustAddress: () => call('midnight:addresses').then(a => ({ dustAddress: a.dust })),
+      getUnshieldedBalances: () => call('midnight:balances'),
+      getShieldedBalances: () => Promise.resolve({}),
+      getDustBalance: () => call('midnight:dust-balance'),
+      getConfiguration: () => call('midnight:service-uris'),
+      getConnectionStatus: () => call('midnight:connection-status'),
+      makeTransfer: (outputs) => {
+        const list = Array.isArray(outputs) ? outputs : [outputs];
+        const first = list[0] || {};
+        return call('midnight:transfer', first.recipient, String(first.value));
+      },
+      // Declared so a dApp can batch its permission prompts; we prompt per
+      // action anyway, so there is nothing to pre-authorise.
+      hintUsage: () => Promise.resolve(),
+    });
+
+    const mnWallet = {
+      rdns: MN_RDNS,
+      name: 'MagicMoney Wallet',
+      icon: ${_ICON_JSON},
+      apiVersion: '4.0.1',
+      isEnabled: () => call('midnight:is-enabled').catch(() => false),
+      // Legacy entry point.
+      enable: () => call('midnight:enable').then(() => mnApi()),
+      // 4.x entry point — the network is validated against the wallet's mode.
+      connect: (networkId) => call('midnight:enable', networkId).then(() => {
+        mnState.networkId = networkId || null;
+        return mnApi();
+      }),
+    };
+
+    if (!window.midnight || typeof window.midnight !== 'object') {
+      // The 4.x spec says the FIRST wallet to define window.midnight must make
+      // it non-configurable and non-writable, so later wallets add keys rather
+      // than replacing the registry wholesale.
+      Object.defineProperty(window, 'midnight', {
+        value: {}, writable: false, configurable: false, enumerable: true
+      });
+    }
+    try {
+      // 4.x dApps ENUMERATE window.midnight and pick an entry — they do not
+      // reach for a hardcoded key — so registration goes under a UUID, per the
+      // spec. Ours is stable rather than regenerated per load: the key is the
+      // wallet's identity in that registry, and a value that changes on every
+      // reload makes a dApp's "reconnect to the wallet you used last" break.
+      window.midnight['b7f3c1d2-5a4e-4f8b-9c2d-1e6a3b8d7f04'] = mnWallet;
+      // Legacy (≤3.x) dApps DO look up a named key, so keep a readable one too.
+      window.midnight.magicmoney = mnWallet;
+    } catch (_) {}
+  } catch(e) { console.error('[MagicMoney] Midnight injection failed:', e); }
+
   // ── Solana Wallet Standard ────────────────────────────────────────────────
   const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
   function b58Decode(s) {

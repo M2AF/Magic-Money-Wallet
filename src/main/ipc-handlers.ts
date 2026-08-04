@@ -182,6 +182,13 @@ import {
   buildSiwsMessage, checkSiwsDomain, formatSiws, siwsWarnings, parseSiwsMessage,
   type SiwsInput,
 } from './solana-siws'
+import { fetchMidnightBalance } from './midnight'
+import {
+  activeMidnightNetwork, assertNetworkSupported, buildLegacyState,
+  formatMidnightConnect, formatMidnightTransfer, midnightServiceUris,
+  nightToStars, NIGHT_TOKEN_TYPE, STARS_PER_NIGHT,
+  type MidnightAddressSet, type MidnightNetwork,
+} from './midnight-connector'
 import { describeEvmSend, describeTypedData } from './tx-describe'
 import { validateAddress } from './address-validate'
 
@@ -1873,6 +1880,146 @@ export function registerIpcHandlers(): void {
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     return cip30SubmitTx(txHex, loadConfig())
+  })
+
+  // ── Midnight DApp Connector ──────────────────────────────────────────────
+  // Serves BOTH generations of the connector API from one set of handlers (see
+  // midnight-connector.ts). Nothing here imports the ledger WASM directly —
+  // midnight-send-manager is dynamically imported inside the handlers that need
+  // it, so the injected page-side shim stays WASM-free.
+
+  function requireMidnight(event: IpcMainInvokeEvent): string {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!hasOriginChain(origin, 'midnight')) {
+      throw Object.assign(new Error('Connect the wallet before using the Midnight API.'), { code: 4100 })
+    }
+    return origin
+  }
+
+  /** Midnight addresses for the active mode, or throws with what to turn on. */
+  async function midnightState(): Promise<{
+    network: MidnightNetwork
+    addresses: MidnightAddressSet
+    accountIndex: number
+  }> {
+    const config = loadConfig()
+    const network = activeMidnightNetwork(config)
+    const stored = await getFullAddresses()
+    // Testnet Mode keeps its Midnight set under `testnet`, Privacy Mode under
+    // `privacy` — effectiveAddresses does not merge these, so pick explicitly.
+    const set = network === 'preprod' ? stored.testnet : stored.privacy
+    return {
+      network,
+      addresses: {
+        unshielded: set?.midnight,
+        shielded: set?.midnightShielded,
+        dust: set?.midnightDust,
+      },
+      accountIndex: stored.accountIndex ?? 0,
+    }
+  }
+
+  ipcMain.handle('midnight:is-enabled', (event) =>
+    hasOriginChain(getSenderOrigin(event.sender.getURL()), 'midnight'))
+
+  ipcMain.handle('midnight:enable', async (event, requestedNetwork?: string) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    const { network, addresses } = await midnightState()
+    assertNetworkSupported(requestedNetwork, network)
+    if (hasOriginChain(origin, 'midnight')) return true
+
+    const approved = await showApprovalWindow({
+      title: 'Connect Midnight Wallet',
+      heading: `${origin} wants to connect to your Midnight wallet`,
+      detail: formatMidnightConnect(origin, network, addresses),
+      confirmLabel: 'Connect',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
+    addApprovedOrigin(origin, 'midnight')
+    return true
+  })
+
+  ipcMain.handle('midnight:state', async (event) => {
+    requireMidnight(event)
+    const { addresses } = await midnightState()
+    return buildLegacyState(addresses)
+  })
+
+  ipcMain.handle('midnight:addresses', async (event) => {
+    requireMidnight(event)
+    const { addresses } = await midnightState()
+    return addresses
+  })
+
+  ipcMain.handle('midnight:service-uris', async (event) => {
+    requireMidnight(event)
+    const { network } = await midnightState()
+    return midnightServiceUris(network)
+  })
+
+  ipcMain.handle('midnight:connection-status', async (event) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!hasOriginChain(origin, 'midnight')) return { status: 'disconnected' as const }
+    const { network } = await midnightState()
+    return { status: 'connected' as const, networkId: network }
+  })
+
+  ipcMain.handle('midnight:balances', async (event) => {
+    requireMidnight(event)
+    const { network, addresses } = await midnightState()
+    const { native, error } = await fetchMidnightBalance(addresses.unshielded, network)
+    if (error && error !== 'coming-soon') throw new Error(error)
+    // Raw base units (Stars), matching the connector spec's bigint-as-string.
+    return { [NIGHT_TOKEN_TYPE]: String(BigInt(Math.round(native * Number(STARS_PER_NIGHT)))) }
+  })
+
+  ipcMain.handle('midnight:dust-balance', async (event) => {
+    requireMidnight(event)
+    const { network, accountIndex } = await midnightState()
+    const { getMidnightDustStatus } = await import('./midnight-send-manager')
+    // The SDK exposes DUST as sync progress rather than a queryable balance;
+    // report 0 until it is ready so a dApp doesn't read a half-synced figure
+    // as authoritative.
+    const status = getMidnightDustStatus(loadMnemonic(), accountIndex, network)
+    return status.ready ? '1' : '0'
+  })
+
+  // Legacy submitTransaction. We do not accept a pre-built transaction: it
+  // would arrive as opaque bytes we cannot decode, so the user could not be
+  // told what they are approving. dApps should use makeTransfer instead.
+  ipcMain.handle('midnight:submit', () => {
+    throw Object.assign(
+      new Error(
+        'MagicMoney cannot submit a pre-built Midnight transaction, because it '
+        + 'cannot show you what that transaction does. Use makeTransfer so the '
+        + 'wallet can build and describe the transfer itself.'
+      ),
+      { code: -1 }
+    )
+  })
+
+  ipcMain.handle('midnight:transfer', async (event, to: string, amountNight: string) => {
+    const origin = requireMidnight(event)
+    const { network, accountIndex } = await midnightState()
+    const stars = nightToStars(amountNight)
+
+    const approved = await showApprovalWindow({
+      title: 'Send NIGHT',
+      heading: 'A dApp wants to send NIGHT from your wallet',
+      detail: formatMidnightTransfer(to, stars, network),
+      confirmLabel: 'Send',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
+
+    const { registerMidnightDustIfNeeded, sendMidnightNight } = await import('./midnight-send-manager')
+    const mnemonic = loadMnemonic()
+    // Fees are paid in DUST, which only exists once NIGHT UTxOs are registered
+    // to generate it — a first-time sender would otherwise just fail here.
+    await registerMidnightDustIfNeeded(mnemonic, accountIndex, network)
+    const txId = await sendMidnightNight(mnemonic, accountIndex, network, to, stars)
+    return { txId, explorerUrl: network === 'mainnet' ? `https://midnightscan.io/tx/${txId}` : '' }
   })
 
   // ── Bitcoin / Ordinals dApp provider (sats-connect/WBIP + Unisat) ─────────

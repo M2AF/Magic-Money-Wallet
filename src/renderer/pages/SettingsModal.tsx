@@ -364,7 +364,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 /** Chain grant → the label shown on its chip. Short: these sit 5-across. */
 const CHAIN_LABELS: Record<string, string> = {
   evm: 'EVM', cardano: 'Cardano', bitcoin: 'Bitcoin',
-  solana: 'Solana', polkadot: 'Polkadot',
+  solana: 'Solana', polkadot: 'Polkadot', midnight: 'Midnight',
 }
 
 const hostOf = (origin: string) => { try { return new URL(origin).hostname } catch { return origin } }

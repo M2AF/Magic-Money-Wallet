@@ -11,7 +11,7 @@ export interface UpdateStatus {
 
 // Per-chain dApp grant. Mirrors main/dapp-permissions.ts — declared here rather
 // than imported because tsconfig.web.json deliberately does not include src/main.
-export type DappChain = 'evm' | 'cardano' | 'bitcoin' | 'solana' | 'polkadot'
+export type DappChain = 'evm' | 'cardano' | 'bitcoin' | 'solana' | 'polkadot' | 'midnight'
 
 export interface ApprovedOrigin {
   origin: string
