@@ -40,6 +40,9 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
+        // passkey-preload.ts is NOT built here: electron-vite emits only the
+        // first preload input. It goes through build:inject with esbuild, the
+        // same route approval-preload.ts already takes for its own window.
         input: { index: 'src/preload/index.ts' }
       }
     }

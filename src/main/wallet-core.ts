@@ -113,11 +113,47 @@ export function normalizeMnemonic(phrase: string): string {
   return phrase.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
+/** Seed-phrase lengths offered at wallet creation (and accepted on import). */
+export type MnemonicWordCount = 12 | 24
+
 /**
- * Generate a fresh cryptographically secure 12-word BIP-39 mnemonic.
+ * Generate a fresh cryptographically secure BIP-39 mnemonic. 12 words (128-bit
+ * entropy) is the default and what every wallet created before this option
+ * existed uses; 24 words (256-bit) is offered for users who want it. Both are
+ * plain BIP-39, so every downstream derivation is identical.
  */
-export function generateMnemonic(): string {
-  return bip39.generateMnemonic(wordlist, 128) // 128-bit entropy = 12 words
+export function generateMnemonic(words: MnemonicWordCount = 12): string {
+  return bip39.generateMnemonic(wordlist, words === 24 ? 256 : 128)
+}
+
+/** Coerce untrusted input (IPC / extension message) to a supported length. */
+export function toWordCount(value: unknown): MnemonicWordCount {
+  return Number(value) === 24 ? 24 : 12
+}
+
+/**
+ * Build a mnemonic from externally supplied entropy — the passkey path, where
+ * the 32 bytes come from a WebAuthn PRF ceremony instead of the system RNG
+ * (see renderer/lib/passkey-prf.ts).
+ *
+ * 24 words consumes all 256 bits; 12 words takes the leading 128. Truncating is
+ * safe (PRF output is HMAC-SHA-256, uniform across every byte) and keeps the
+ * user's 12/24 choice meaningful on this path too. The result is plain BIP-39,
+ * so nothing downstream can tell how the entropy was produced.
+ */
+export function mnemonicFromEntropy(
+  entropy: Uint8Array,
+  words: MnemonicWordCount = 12,
+): string {
+  if (entropy.length !== 32) {
+    throw new Error(`Expected 32 bytes of entropy, got ${entropy.length}`)
+  }
+  // All-zero (or otherwise absent) entropy means the ceremony silently failed
+  // upstream; refuse rather than mint a wallet anyone else can also derive.
+  if (entropy.every(b => b === 0)) {
+    throw new Error('Refusing to derive a wallet from empty entropy')
+  }
+  return bip39.entropyToMnemonic(words === 24 ? entropy : entropy.slice(0, 16), wordlist)
 }
 
 /**

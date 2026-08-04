@@ -4,9 +4,11 @@ import type { AppPage, WalletAddresses } from '../types/wallet'
 interface Props {
   onNavigate: (page: AppPage) => void
   onComplete: (addresses: WalletAddresses) => void
+  /** Length of the phrase just shown, so the checklist names the right number. */
+  wordCount: 12 | 24
 }
 
-export function ConfirmPage({ onNavigate, onComplete }: Props) {
+export function ConfirmPage({ onNavigate, onComplete, wordCount }: Props) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -41,7 +43,7 @@ export function ConfirmPage({ onNavigate, onComplete }: Props) {
       {/* Checklist */}
       <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {[
-          'I wrote down all 12 words in the correct order',
+          `I wrote down all ${wordCount} words in the correct order`,
           'I stored my phrase somewhere safe offline',
           'I understand losing my phrase means losing access forever',
           'I understand MagicMoney never stores or transmits my phrase',

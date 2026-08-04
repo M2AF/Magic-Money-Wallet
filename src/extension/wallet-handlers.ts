@@ -11,7 +11,7 @@
  * vite-aliased per build target. Private keys and mnemonics never leave this file.
  */
 
-import { generateMnemonic, validateMnemonic, deriveAddresses, deriveTestnetAddresses, derivePrivacyAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
+import { generateMnemonic, toWordCount, validateMnemonic, deriveAddresses, deriveTestnetAddresses, derivePrivacyAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
 import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTransaction as sendBtc, type PsbtSignRequest } from '../main/bitcoin'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
@@ -395,9 +395,23 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'wallet:generate': {
       // generateMnemonic returns the space-separated phrase (see wallet-core);
-      // split for display exactly like the Electron handler does.
-      _pendingMnemonic = generateMnemonic()
+      // split for display exactly like the Electron handler does. a0 is the
+      // user's 12/24 choice; toWordCount defaults anything else to 12.
+      _pendingMnemonic = generateMnemonic(toWordCount(a0))
       return _pendingMnemonic.split(' ')
+    }
+
+    // Stash a phrase the UI generated itself as the pending wallet. Used by the
+    // Android passkey path, where the WebAuthn ceremony must run in the WebView
+    // (only it has a secure origin) but the pending-wallet state lives here.
+    // Unlike wallet:import this does NOT save addresses — confirm-backup still
+    // does that, so the create flow is byte-for-byte the normal one.
+    // Not in PAGE_RPC_TYPES, so web pages cannot reach it.
+    case 'wallet:stash-pending': {
+      const cleaned = String(a0).trim().toLowerCase().replace(/\s+/g, ' ')
+      if (!validateMnemonic(cleaned)) throw new Error('Generated phrase failed BIP-39 validation')
+      _pendingMnemonic = cleaned
+      return cleaned.split(' ')
     }
 
     case 'wallet:validate':
@@ -415,6 +429,10 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!_pendingMnemonic) throw new Error('No pending wallet — start over')
       await store.saveMnemonic(_pendingMnemonic, password)
       _pendingMnemonic = null
+      // A different wallet just became the active one (created or imported), so
+      // its dApp grants start empty. Inheriting the previous wallet's approvals
+      // would expose a brand-new address to those sites with no approval step.
+      await store.clearApprovedOrigins()
       return true
     }
 
@@ -429,6 +447,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'wallet:delete': {
       await store.deleteWallet()
+      // dApp grants belong to the WALLET, not the install — see set-password.
+      await store.clearApprovedOrigins()
       return true
     }
 

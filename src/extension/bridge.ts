@@ -134,7 +134,7 @@ export function createExtensionWallet() {
     isUnlocked:     ()                      => send<boolean>('wallet:is-unlocked'),
     unlock:         (password: string)      => send<boolean>('wallet:unlock', password),
     lock:           ()                      => send<boolean>('wallet:lock'),
-    generate:       ()                      => send<string[]>('wallet:generate'),
+    generate:       (words?: 12 | 24)       => send<string[]>('wallet:generate', words),
     validate:       (m: string)             => send<boolean>('wallet:validate', m),
     confirmBackup:  ()                      => send('wallet:confirm-backup'),
     setPassword:    (password: string)      => send<boolean>('wallet:set-password', password),

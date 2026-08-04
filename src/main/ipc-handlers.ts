@@ -15,8 +15,11 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
+import { runPasskeyCeremony, verifyPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
 import {
   generateMnemonic,
+  mnemonicFromEntropy,
+  toWordCount,
   validateMnemonic,
   deriveAddresses,
   deriveTestnetAddresses,
@@ -106,7 +109,8 @@ import {
   browserActivePage,
   browserFillCredentials,
   browserAutofillFormFound,
-  browserTryAutofillActiveTab
+  browserTryAutofillActiveTab,
+  clearBrowsingData,
 } from './browser-manager'
 import { getBookmarks, removeBookmark, renameBookmark, mergeBookmarks, getWebApps } from './browser-store'
 import { webAppsSupported, uninstallWebApp } from './web-apps'
@@ -268,6 +272,10 @@ async function ensureConnectedOrigin(
 // This holds the phrase after generation/import but BEFORE the user sets a
 // password (wallet:set-password), which is when it's actually persisted.
 let _pendingMnemonic: string | null = null
+// Set only when the pending wallet came from a passkey, so the user can ask
+// whether that passkey reproduces it. Metadata only — no key material.
+let _pendingPasskey: { id: string; transports: string[] } | null = null
+let _pendingPasskeyWords: 12 | 24 = 12
 
 // ── Idle auto-lock ────────────────────────────────────────────────────────────
 // The decrypted mnemonic lives only in secure-store's memory after unlock. We
@@ -447,12 +455,66 @@ export function registerIpcHandlers(): void {
 
   // ── Generate a new mnemonic (does NOT save it yet) ─────────────────────
   // The renderer shows the words; the user confirms backup; THEN we save.
-  ipcMain.handle('wallet:generate', () => {
-    _pendingMnemonic = generateMnemonic()
+  // `words` is the user's 12/24 choice on the create screen; anything else
+  // (including omitted, i.e. every older caller) falls back to 12.
+  ipcMain.handle('wallet:generate', (_event, words?: unknown) => {
+    _pendingMnemonic = generateMnemonic(toWordCount(words))
+    _pendingPasskey = null
     // Return the words array for display — this is the ONLY time the
     // mnemonic is sent to the renderer, and only in the create flow.
     return _pendingMnemonic.split(' ')
   })
+
+  // ── Generate a new mnemonic from a passkey (optional path) ─────────────
+  // Same contract as wallet:generate — stashes a pending mnemonic and returns
+  // the words — but the entropy comes from a WebAuthn PRF ceremony instead of
+  // the system RNG. The result is ordinary BIP-39, so the rest of the create
+  // flow (confirm-backup → set-password) is untouched.
+  //
+  // `reproducible` reports whether the passkey could re-derive its own output on
+  // this device. It is display-only: the seed phrase is still shown and
+  // confirmed either way, because Windows Hello can mint PRF at registration
+  // and refuse to evaluate it at assertion (measured on Win11 26220).
+  ipcMain.handle('wallet:generate-passkey', async (event, words?: unknown) => {
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const result = await runPasskeyCeremony({
+      parent,
+      userName: `MagicMoney wallet · ${new Date().toISOString().slice(0, 10)}`,
+    })
+    const entropy = Uint8Array.from(Buffer.from(result.prfB64, 'base64'))
+    try {
+      _pendingMnemonic = mnemonicFromEntropy(entropy, toWordCount(words))
+    } finally {
+      entropy.fill(0)
+    }
+    // Remembered only for an optional, user-initiated reproducibility check
+    // (below). Cleared with the pending mnemonic at set-password.
+    _pendingPasskey = { id: result.credentialId, transports: result.transports }
+    _pendingPasskeyWords = toWordCount(words)
+    return { words: _pendingMnemonic.split(' ') }
+  })
+
+  // Optional: ask the passkey to reproduce the wallet we just made. Separate
+  // from creation because it prompts again and FAILS LOUDLY on Windows Hello.
+  // Compares derived mnemonics rather than holding raw entropy in memory.
+  ipcMain.handle('wallet:passkey-verify', async event => {
+    if (!_pendingPasskey || !_pendingMnemonic) throw new Error('No passkey wallet to check')
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const prfB64 = await verifyPasskeyPrf({ parent, credential: _pendingPasskey })
+    if (!prfB64) return false
+    const entropy = Uint8Array.from(Buffer.from(prfB64, 'base64'))
+    try {
+      return mnemonicFromEntropy(entropy, _pendingPasskeyWords) === _pendingMnemonic
+    } catch {
+      return false
+    } finally {
+      entropy.fill(0)
+    }
+  })
+
+  // Can this build offer the passkey option at all? The renderer can't answer
+  // (file:// has no WebAuthn), so main reports platform capability instead.
+  ipcMain.handle('wallet:passkey-supported', () => passkeyCeremonySupported())
 
   // ── Validate any mnemonic string ───────────────────────────────────────
   ipcMain.handle('wallet:validate', (_event, mnemonic: string) =>
@@ -479,6 +541,7 @@ export function registerIpcHandlers(): void {
     const addresses = await deriveAddresses(cleaned)
     saveAddresses(addresses)
     _pendingMnemonic = cleaned
+    _pendingPasskey = null
     return addresses
   })
 
@@ -491,6 +554,13 @@ export function registerIpcHandlers(): void {
     if (_pendingMnemonic) {
       await saveMnemonic(_pendingMnemonic, password)
       _pendingMnemonic = null
+      _pendingPasskey = null
+      // A pending mnemonic here means a DIFFERENT wallet just became the active
+      // one (created or imported). Its dApp grants must start empty: inheriting
+      // them would expose a brand-new address to every site the old wallet had
+      // connected to, without the user ever approving it. The migration branch
+      // below is the same wallet continuing, so it deliberately keeps them.
+      clearApprovedOrigins()
       touchActivity()
       // fire-and-forget: sync to ChainLens profile now that we're unlocked
       const addresses = loadAddresses()
@@ -574,6 +644,10 @@ export function registerIpcHandlers(): void {
     // Saved site logins are encrypted under the wallet password, so wiping the
     // wallet leaves them permanently unopenable — remove them with it.
     deletePasswordVault()
+    // dApp grants belong to the WALLET, not the install. Leaving them behind
+    // meant the next wallet inherited every connection this one made, and would
+    // hand its address to those sites with no approval step.
+    clearApprovedOrigins()
     return true
   })
 
@@ -600,6 +674,14 @@ export function registerIpcHandlers(): void {
     // Only signal a full disconnect once the site has no grants left.
     if (currentDappOrigin() === origin && !getApprovedOrigins().includes(origin)) notifyDappDisconnected()
     return getApprovedOriginRecords()
+  })
+
+  // Sign the in-app browser out of every site. Offered when a new wallet is
+  // created (see SetPasswordPage) and never run without the user asking, since
+  // it destroys real logins.
+  ipcMain.handle('browser:clear-data', async () => {
+    await clearBrowsingData()
+    return true
   })
 
   ipcMain.handle('wallet:revoke-all-sites', () => {

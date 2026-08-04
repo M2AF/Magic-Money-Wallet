@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { ApprovedOrigin, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
+import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 
 interface Props {
   onClose: () => void
@@ -609,10 +610,21 @@ function RevealSeedModal({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               className="btn btn-ghost"
-              onClick={async () => { await navigator.clipboard.writeText(words.join(' ')).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 1800) }}
+              onClick={async () => {
+                if (await copySeedPhrase(words)) {
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), SEED_CLIPBOARD_TTL_MS)
+                }
+              }}
             >
-              {copied ? 'Copied!' : 'Copy to clipboard'}
+              {copied ? 'Copied — clears in 90s' : 'Copy to clipboard'}
             </button>
+            {copied && (
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
+                Paste it somewhere safe now — a password manager, not a chat or notes app.
+                Other programs can read your clipboard, so it’s cleared automatically.
+              </p>
+            )}
             <button type="button" className="btn btn-primary" onClick={onClose}>Done</button>
           </div>
         )}

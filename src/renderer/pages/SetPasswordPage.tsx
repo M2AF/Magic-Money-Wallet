@@ -3,6 +3,9 @@ import { useState } from 'react'
 interface Props {
   /** 'create' = new/imported wallet; 'migrate' = securing a pre-password wallet. */
   mode: 'create' | 'migrate'
+  /** Whether this wallet was freshly generated or restored — changes the
+   *  default for signing the browser out of sites. */
+  origin?: 'created' | 'imported'
   onComplete: () => void
 }
 
@@ -65,11 +68,17 @@ function StrengthMeter({ password }: { password: string }) {
  * written to disk (main-process wallet:set-password) — for a freshly created /
  * imported wallet, or to upgrade a legacy (safeStorage-only) wallet in place.
  */
-export function SetPasswordPage({ mode, onComplete }: Props) {
+export function SetPasswordPage({ mode, origin = 'created', onComplete }: Props) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm]   = useState('')
   const [error, setError]       = useState<string | null>(null)
   const [busy, setBusy]         = useState(false)
+  // dApp grants clear themselves when the wallet changes, but site LOGINS in the
+  // browser don't — so a fresh wallet stays linkable to the old identity. Offer
+  // to sign out, defaulting on for a brand-new wallet and off for an import
+  // (importing is usually the same person restoring, who wants their sessions).
+  const offerSignOut = mode === 'create' && !!window.wallet.clearBrowsingData
+  const [signOutSites, setSignOutSites] = useState(origin === 'created')
 
   const submit = async () => {
     if (password.length < 8) { setError('Password must be at least 8 characters'); return }
@@ -81,6 +90,11 @@ export function SetPasswordPage({ mode, onComplete }: Props) {
     setBusy(true); setError(null)
     try {
       await window.wallet.setPassword(password)
+      // Best-effort: the wallet is already saved, so a failure here must not
+      // strand the user on the password screen.
+      if (offerSignOut && signOutSites) {
+        await window.wallet.clearBrowsingData?.().catch(() => {})
+      }
       setPassword(''); setConfirm('')
       onComplete()
     } catch (e) {
@@ -132,6 +146,24 @@ export function SetPasswordPage({ mode, onComplete }: Props) {
           value={confirm}
           onChange={e => { setConfirm(e.target.value); setError(null) }}
         />
+        {offerSignOut && (
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            <input
+              type="checkbox"
+              checked={signOutSites}
+              onChange={e => setSignOutSites(e.target.checked)}
+              style={{ marginTop: 2, accentColor: 'var(--accent)', flexShrink: 0 }}
+            />
+            <span>
+              Sign out of websites in the browser
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)' }}>
+                {origin === 'created'
+                  ? 'Recommended for a new wallet — otherwise sites you were signed into can still link it to your previous one.'
+                  : 'Leave off to keep your logins. Turn on if this device should not stay signed in as anyone else.'}
+              </span>
+            </span>
+          </label>
+        )}
         {error && <div style={{ color: 'var(--error)', fontSize: 12, textAlign: 'center' }}>{error}</div>}
         <button type="submit" className="btn btn-primary" disabled={busy || !password || !confirm}>
           {busy ? 'Encrypting…' : 'Encrypt & Continue'}

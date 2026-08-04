@@ -473,7 +473,30 @@ declare global {
   interface Window {
     wallet: {
       isSetup(): Promise<boolean>
-      generate(): Promise<string[]>
+      /** Fresh BIP-39 phrase for the create flow. Defaults to 12 words. */
+      generate(words?: 12 | 24): Promise<string[]>
+      /**
+       * Optional passkey path: entropy comes from a WebAuthn PRF ceremony
+       * instead of the system RNG. Absent on targets that can't run WebAuthn
+       * (browser extension, iOS).
+       */
+      generateWithPasskey?(words?: 12 | 24): Promise<{ words: string[] }>
+      /** Whether to offer the passkey option at all. Absent = never offer. */
+      passkeySupported?(): Promise<boolean>
+      /**
+       * Ask the passkey to reproduce the pending wallet. USER-INITIATED ONLY:
+       * it prompts again and raises an OS error dialog on platforms that mint
+       * PRF at registration but refuse it at assertion. false = "can't", never
+       * "something broke" — the wallet exists either way.
+       */
+      passkeyVerify?(): Promise<boolean>
+      /**
+       * Sign the in-app browser out of every site (cookies, localStorage,
+       * IndexedDB, caches). dApp grants are wallet-scoped and clear on their
+       * own; site logins are not, so a new wallet stays linkable to the previous
+       * identity until this runs. Always user-initiated — it destroys logins.
+       */
+      clearBrowsingData?(): Promise<boolean>
       validate(mnemonic: string): Promise<boolean>
       confirmBackup(): Promise<WalletAddresses>
       import(mnemonic: string): Promise<WalletAddresses>

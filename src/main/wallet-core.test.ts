@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { deriveAddresses, generateMnemonic, validateMnemonic, normalizeMnemonic, getEvmPrivateKey } from './wallet-core'
+import { deriveAddresses, generateMnemonic, mnemonicFromEntropy, toWordCount, validateMnemonic, normalizeMnemonic, getEvmPrivateKey } from './wallet-core'
 
 // The crown-jewel test: if address derivation regresses, users receive funds at
 // addresses they don't control. The EVM vector is the well-known Foundry/Anvil
@@ -42,6 +42,57 @@ describe('wallet-core deriveAddresses', () => {
     expect(m.trim().split(/\s+/)).toHaveLength(12)
     expect(validateMnemonic(m)).toBe(true)
     expect(validateMnemonic('clearly invalid')).toBe(false)
+  })
+
+  it('generates valid 24-word mnemonics on request', () => {
+    const m = generateMnemonic(24)
+    expect(m.trim().split(/\s+/)).toHaveLength(24)
+    expect(validateMnemonic(m)).toBe(true)
+  })
+
+  // The passkey path supplies its own entropy (32 bytes of WebAuthn PRF output)
+  // instead of using the system RNG. The result must be indistinguishable from a
+  // normally-generated phrase, or the rest of the wallet would treat it
+  // differently somewhere downstream.
+  describe('mnemonicFromEntropy (passkey path)', () => {
+    const prf = new Uint8Array(32).map((_, i) => (i * 7 + 11) & 0xff)
+
+    it('produces valid phrases at both lengths', () => {
+      expect(mnemonicFromEntropy(prf, 24).split(' ')).toHaveLength(24)
+      expect(mnemonicFromEntropy(prf, 12).split(' ')).toHaveLength(12)
+      expect(validateMnemonic(mnemonicFromEntropy(prf, 24))).toBe(true)
+      expect(validateMnemonic(mnemonicFromEntropy(prf, 12))).toBe(true)
+    })
+
+    it('is deterministic — the same passkey always yields the same wallet', () => {
+      expect(mnemonicFromEntropy(prf, 24)).toBe(mnemonicFromEntropy(prf, 24))
+      // …and a different passkey does not.
+      const other = new Uint8Array(prf); other[0] ^= 1
+      expect(mnemonicFromEntropy(other, 24)).not.toBe(mnemonicFromEntropy(prf, 24))
+    })
+
+    it('defaults to 12 words, matching generateMnemonic', () => {
+      expect(mnemonicFromEntropy(prf).split(' ')).toHaveLength(12)
+    })
+
+    // Guards against a silently-failed ceremony minting a wallet whose seed is
+    // all zeroes — one every other user of this library would also derive.
+    it('refuses empty or wrong-sized entropy', () => {
+      expect(() => mnemonicFromEntropy(new Uint8Array(32))).toThrow(/empty entropy/)
+      expect(() => mnemonicFromEntropy(new Uint8Array(16))).toThrow(/32 bytes/)
+      expect(() => mnemonicFromEntropy(new Uint8Array(64))).toThrow(/32 bytes/)
+    })
+  })
+
+  // The word count crosses an IPC / extension-message boundary, so the handlers
+  // coerce it. Anything that isn't exactly 24 must fall back to the 12-word
+  // default rather than throwing or producing an off-spec strength.
+  it('coerces untrusted word counts to 12 or 24', () => {
+    expect(toWordCount(24)).toBe(24)
+    expect(toWordCount('24')).toBe(24)
+    for (const bad of [undefined, null, 12, '12', 0, 18, 25, 'lots', NaN, {}]) {
+      expect(toWordCount(bad)).toBe(12)
+    }
   })
 
   // Regression (audit L-2): bip39 seeds the RAW string, so a phrase with stray

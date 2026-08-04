@@ -164,6 +164,33 @@ function dappSession(): Session {
   return session.fromPartition(DAPP_SESSION_PARTITION)
 }
 
+/**
+ * Sign the browser out of everything: cookies, localStorage, IndexedDB, service
+ * workers and cache, for the dApp session AND the default one (early browsing
+ * predates the isolated partition, so data exists in both).
+ *
+ * Offered when a NEW wallet is created. dApp grants are wallet-scoped and clear
+ * automatically, but site logins are not — without this a fresh wallet stays
+ * linkable to the previous identity through every site session it inherited.
+ * Never automatic: this destroys real logins, so it is always the user's call.
+ */
+export async function clearBrowsingData(): Promise<void> {
+  // Inlined per call so TS infers the literal union from the parameter type
+  // rather than widening to string[].
+  const wipe = (s: Session) => s.clearStorageData({
+    storages: [
+      'cookies', 'localstorage', 'indexdb', 'filesystem',
+      'serviceworkers', 'cachestorage', 'shadercache',
+    ],
+  })
+  await Promise.allSettled([
+    wipe(dappSession()),
+    dappSession().clearCache(),
+    wipe(session.defaultSession),
+    session.defaultSession.clearCache(),
+  ])
+}
+
 function publishTorState(): void {
   sendToChrome('browser:tor-state', torState)
 }

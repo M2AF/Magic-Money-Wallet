@@ -18,6 +18,7 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { helloStatus, helloEnroll, helloUnlock, helloRemove } from './biometric'
+import { passkeySupported, createPasskeyMnemonic, verifyPasskeyWallet } from './passkey'
 import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
 import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
@@ -266,7 +267,15 @@ function buildWallet() {
     isUnlocked:     ()                      => send<boolean>('wallet:is-unlocked'),
     unlock:         (password: string)      => send<boolean>('wallet:unlock', password),
     lock:           ()                      => send<boolean>('wallet:lock'),
-    generate:       ()                      => send<string[]>('wallet:generate'),
+    generate:       (words?: 12 | 24)       => send<string[]>('wallet:generate', words),
+    // Passkey path: the ceremony must run HERE (the WebView is the only secure
+    // origin), then the resulting phrase is stashed as the pending wallet.
+    passkeySupported: () => passkeySupported(),
+    generateWithPasskey: async (words?: 12 | 24) => {
+      const mnemonic = await createPasskeyMnemonic(words)
+      return { words: await send<string[]>('wallet:stash-pending', mnemonic) }
+    },
+    passkeyVerify: () => verifyPasskeyWallet(),
     validate:       (m: string)             => send<boolean>('wallet:validate', m),
     confirmBackup:  ()                      => send('wallet:confirm-backup'),
     setPassword:    (password: string)      => send<boolean>('wallet:set-password', password),

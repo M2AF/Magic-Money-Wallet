@@ -1,23 +1,99 @@
 import { useState, useEffect } from 'react'
 import type { AppPage, WalletAddresses } from '../types/wallet'
+import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 
 interface Props {
   onNavigate: (page: AppPage) => void
   onComplete: (addresses: WalletAddresses) => void
+  /** Chosen seed length — owned by App so ConfirmPage can name it too. */
+  wordCount: 12 | 24
+  onWordCountChange: (count: 12 | 24) => void
 }
 
-export function CreatePage({ onNavigate }: Props) {
+export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) {
   const [words, setWords] = useState<string[]>([])
   const [blurred, setBlurred] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
+  // Passkey path (optional, never the default). `source` tracks which entropy
+  // produced the phrase on screen; `reproducible` is what the device told us
+  // about re-deriving it, and is shown rather than acted on.
+  const [passkeyOffered, setPasskeyOffered] = useState(false)
+  const [source, setSource] = useState<'random' | 'passkey'>('random')
+  // null = not checked. Checking costs another device prompt and fails loudly
+  // on some platforms, so it is opt-in rather than part of creation.
+  const [reproducible, setReproducible] = useState<boolean | null>(null)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [checking, setChecking] = useState(false)
+  const [copied, setCopied] = useState(false)
 
+  const copyPhrase = async () => {
+    if (!words.length) return
+    if (await copySeedPhrase(words)) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), SEED_CLIPBOARD_TTL_MS)
+    }
+  }
+
+  // Capability check runs once, only on this screen, and shows no prompt.
+  useEffect(() => {
+    let cancelled = false
+    window.wallet.passkeySupported?.()
+      .then(ok => { if (!cancelled) setPasskeyOffered(!!ok) })
+      .catch(() => { /* option stays hidden */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const createWithPasskey = async () => {
+    if (!window.wallet.generateWithPasskey) return
+    setPasskeyBusy(true)
+    setError('')
+    try {
+      const res = await window.wallet.generateWithPasskey(wordCount)
+      setWords(res.words)
+      setSource('passkey')
+      setReproducible(null)
+      setCopied(false)
+      setBlurred(true)
+      setLoading(false)
+    } catch (e) {
+      setError(String((e as Error)?.message ?? e))
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
+
+  // Opt-in. Prompts the device again and, on platforms that refuse PRF at
+  // assertion, shows an OS error the user must dismiss — which is why this is
+  // never run automatically. Either answer is harmless: the wallet already exists.
+  const checkReproducible = async () => {
+    if (!window.wallet.passkeyVerify) return
+    setChecking(true)
+    try {
+      setReproducible(await window.wallet.passkeyVerify())
+    } catch {
+      setReproducible(false)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  // Re-runs when the user flips 12 ⇄ 24: a new phrase of that length replaces
+  // the pending one in the main process, so nothing half-generated can be saved.
+  // Flipping the length after a passkey run falls back to a random phrase rather
+  // than silently re-prompting the device; the user can pick the passkey again.
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
-    window.wallet.generate().then(w => {
+    setBlurred(true)
+    setSource('random')
+    setReproducible(null)
+    // The phrase on screen is about to change; any earlier copy is now stale.
+    // The scheduled clipboard clear is deliberately left running.
+    setCopied(false)
+    window.wallet.generate(wordCount).then(w => {
       if (cancelled) return
       setWords(w)
       setLoading(false)
@@ -27,7 +103,7 @@ export function CreatePage({ onNavigate }: Props) {
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [retryKey])
+  }, [retryKey, wordCount])
 
   // Android: block screenshots/recents preview while the seed is on screen.
   useEffect(() => {
@@ -48,8 +124,91 @@ export function CreatePage({ onNavigate }: Props) {
           Back
         </button>
         <h1 className="page-title">Your Seed Phrase</h1>
-        <p className="page-subtitle">Write these 12 words down in order and store them somewhere safe. This is the only way to recover your wallet.</p>
+        <p className="page-subtitle">Write these {wordCount} words down in order and store them somewhere safe. This is the only way to recover your wallet.</p>
       </div>
+
+      {/* Word count toggle — mirrors the one on the import screen. 24 words is
+          256-bit entropy instead of 128; both are standard BIP-39. */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {([12, 24] as const).map(n => (
+          <button
+            key={n}
+            onClick={() => onWordCountChange(n)}
+            disabled={loading}
+            style={{
+              flex: 1, padding: '8px 0', borderRadius: 'var(--radius-sm)',
+              border: `1px solid ${wordCount === n ? 'var(--border-active)' : 'var(--border)'}`,
+              background: wordCount === n ? 'var(--accent-dim)' : 'transparent',
+              color: wordCount === n ? 'var(--accent-text)' : 'var(--text-muted)',
+              fontSize: 12, fontWeight: 500, cursor: loading ? 'default' : 'pointer',
+              opacity: loading ? 0.6 : 1, transition: 'all var(--transition)'
+            }}
+          >{n} words</button>
+        ))}
+      </div>
+
+      {/* Optional passkey path. Hidden unless the platform can actually do it,
+          and never the default — the phrase above is already a valid wallet. */}
+      {passkeyOffered && source === 'random' && (
+        <button
+          type="button"
+          onClick={createWithPasskey}
+          disabled={passkeyBusy || loading}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            padding: '10px 0', borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)', background: 'transparent',
+            color: 'var(--text-muted)', fontSize: 12, fontWeight: 500,
+            cursor: passkeyBusy || loading ? 'default' : 'pointer',
+            opacity: passkeyBusy || loading ? 0.6 : 1,
+            transition: 'all var(--transition)',
+          }}
+        >
+          {passkeyBusy ? (
+            <>
+              <div className="spinner" style={{ width: 14, height: 14 }} />
+              Waiting for your device…
+            </>
+          ) : (
+            <>
+              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <circle cx="10" cy="8" r="4"/>
+                <path d="M10.3 14H7a4 4 0 0 0-4 4v2"/>
+                <circle cx="17" cy="15" r="2.5"/>
+                <path d="M17 17.5V21l1.5-1.5"/>
+              </svg>
+              Generate from a passkey instead
+            </>
+          )}
+        </button>
+      )}
+
+      {source === 'passkey' && (
+        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>
+          <strong style={{ fontSize: 13 }}>Generated from your passkey</strong>
+          <span style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            {reproducible === true
+              ? 'Confirmed: this passkey can re-create the same wallet. Still write the words down — losing the passkey without them means losing access.'
+              : reproducible === false
+                ? 'This device can’t re-create the wallet from the passkey, so these words are your only way back in. Your wallet is fine — write them down.'
+                : 'Your wallet was created from this passkey. Write the words down: they are what restores it.'}
+          </span>
+          {reproducible === null && (
+            <button
+              type="button"
+              onClick={checkReproducible}
+              disabled={checking}
+              style={{
+                alignSelf: 'flex-start', background: 'none', border: 'none', padding: 0,
+                color: 'var(--accent-text)', fontSize: 11,
+                cursor: checking ? 'default' : 'pointer', opacity: checking ? 0.6 : 1,
+              }}
+            >
+              {checking ? 'Checking…' : 'Can this passkey restore my wallet? Check (asks again)'}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Warning */}
       <div className="warning-box">
@@ -86,9 +245,10 @@ export function CreatePage({ onNavigate }: Props) {
               </div>
             ))}
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
           <button
             onClick={() => setBlurred(b => !b)}
-            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
               {blurred
@@ -98,6 +258,27 @@ export function CreatePage({ onNavigate }: Props) {
             </svg>
             {blurred ? 'Reveal phrase' : 'Hide phrase'}
           </button>
+
+          <button
+            onClick={copyPhrase}
+            style={{ background: 'none', border: 'none', color: copied ? 'var(--accent-text)' : 'var(--text-muted)', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+              {copied
+                ? <path d="M20 6L9 17l-5-5"/>
+                : <><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>
+              }
+            </svg>
+            {copied ? 'Copied — clears in 90s' : `Copy all ${wordCount} words`}
+          </button>
+          </div>
+
+          {copied && (
+            <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 8, lineHeight: 1.5 }}>
+              Paste it somewhere safe now — a password manager, not a chat or notes app.
+              Other programs can read your clipboard, so it’s cleared automatically.
+            </p>
+          )}
         </div>
       )}
 

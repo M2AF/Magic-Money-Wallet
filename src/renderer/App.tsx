@@ -32,6 +32,11 @@ export function App() {
   const [wcPending, setWcPending] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [pwMode, setPwMode] = useState<'create' | 'migrate'>('create')
+  // Seed length chosen on the create screen, so the backup checklist can name it.
+  const [seedWordCount, setSeedWordCount] = useState<12 | 24>(12)
+  // Was the pending wallet generated here or restored? Only affects the default
+  // of the "sign out of websites" offer on the password step.
+  const [walletOrigin, setWalletOrigin] = useState<'created' | 'imported'>('created')
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {
@@ -114,6 +119,10 @@ export function App() {
   const handleWalletReady = (addrs: WalletAddresses) => {
     setAddresses(addrs)
     setPwMode('create')
+    // Both the confirm-backup and import screens land here; `page` still holds
+    // whichever one called, which is what distinguishes a fresh wallet from a
+    // restored one for the sign-out default.
+    setWalletOrigin(page === 'import' ? 'imported' : 'created')
     setPage('setpassword')
   }
 
@@ -187,10 +196,10 @@ export function App() {
       {/* Page router */}
       {page === 'loading'  && <LoadingPage />}
       {page === 'welcome'  && <WelcomePage onNavigate={setPage} />}
-      {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} />}
-      {page === 'confirm'  && <ConfirmPage onNavigate={setPage} onComplete={handleWalletReady} />}
+      {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} wordCount={seedWordCount} onWordCountChange={setSeedWordCount} />}
+      {page === 'confirm'  && <ConfirmPage onNavigate={setPage} onComplete={handleWalletReady} wordCount={seedWordCount} />}
       {page === 'import'   && <ImportPage onNavigate={setPage} onComplete={handleWalletReady} />}
-      {page === 'setpassword' && <SetPasswordPage mode={pwMode} onComplete={handleUnlockedOrSet} />}
+      {page === 'setpassword' && <SetPasswordPage mode={pwMode} origin={walletOrigin} onComplete={handleUnlockedOrSet} />}
       {page === 'unlock'      && <UnlockPage onUnlocked={handleUnlockedOrSet} />}
       {/* Dashboard stays mounted while in the dashboard so balances/tokens/NFTs,
           the portfolio total, scroll position and the active sub-tab survive

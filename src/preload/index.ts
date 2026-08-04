@@ -11,7 +11,13 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('wallet', {
   // ── Wallet lifecycle ──────────────────────────────────────────────────
   isSetup:       ()                  => ipcRenderer.invoke('wallet:is-setup'),
-  generate:      ()                  => ipcRenderer.invoke('wallet:generate'),
+  generate:      (words?: 12 | 24)   => ipcRenderer.invoke('wallet:generate', words),
+  // Optional passkey path — same result shape as generate(), plus whether the
+  // passkey could reproduce its own entropy on this device.
+  generateWithPasskey: (words?: 12 | 24) => ipcRenderer.invoke('wallet:generate-passkey', words),
+  passkeySupported:    ()                => ipcRenderer.invoke('wallet:passkey-supported'),
+  passkeyVerify:       ()                => ipcRenderer.invoke('wallet:passkey-verify'),
+  clearBrowsingData:   ()                => ipcRenderer.invoke('browser:clear-data'),
   validate:      (mnemonic: string)  => ipcRenderer.invoke('wallet:validate', mnemonic),
   confirmBackup: ()                  => ipcRenderer.invoke('wallet:confirm-backup'),
   import:        (mnemonic: string)  => ipcRenderer.invoke('wallet:import', mnemonic),
