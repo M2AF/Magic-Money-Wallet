@@ -55,7 +55,20 @@ const config: CapacitorConfig = {
     contentInset: 'never',
     // Match the dark chrome — this is the color behind the WebView during
     // rotation/rubber-band scroll, not a theme setting.
-    backgroundColor: '#0b0b0f'
+    backgroundColor: '#0b0b0f',
+    // OPT-IN web inspection, for the Appium e2e run only.
+    //
+    // Since iOS 16.4 a WKWebView that is not `isInspectable` is invisible to
+    // the remote debugger — which is exactly how Appium enumerates webview
+    // contexts. Without this the harness only ever sees NATIVE_APP and cannot
+    // drive the app at all. Capacitor decides this from `#if DEBUG` evaluated
+    // when ITS pod compiles, which is not something to rely on.
+    //
+    // Deliberately NOT unconditional: an inspectable WebView in a shipped
+    // wallet lets anyone with the device and a Mac read the running page. Only
+    // .github/workflows/ios.yml sets CAP_WEB_DEBUG=1; release.yml never does,
+    // so published builds keep Capacitor's default (off in Release).
+    ...(process.env.CAP_WEB_DEBUG === '1' ? { webContentsDebuggingEnabled: true } : {})
   }
 }
 

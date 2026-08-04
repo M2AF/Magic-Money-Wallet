@@ -159,6 +159,15 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
 
         let webView = WKWebView(frame: frame, configuration: config)
         webView.allowsBackForwardNavigationGestures = true   // iOS edge-swipe back
+
+        // Since iOS 16.4 a WKWebView is only reachable by the remote debugger
+        // (and therefore by Appium's webview contexts) when isInspectable is
+        // set. Inherit the wallet WebView's own setting rather than a compile
+        // flag, so dApp pages are inspectable exactly when the app is — i.e.
+        // in the e2e run, and never in a shipped build.
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = bridge?.config.isWebDebuggable ?? false
+        }
         webView.navigationDelegate = self
         webView.uiDelegate = self
         webView.autoresizingMask = [.flexibleWidth, .flexibleHeight]

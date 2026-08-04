@@ -46,6 +46,19 @@ jobs:
     runs-on: macos-14
     name: Build (iOS)
 
+    env:
+      # Makes the WKWebView inspectable (capacitor.config.ts reads this).
+      # REQUIRED for the Appium e2e: since iOS 16.4 a non-inspectable WebView is
+      # invisible to the remote debugger, so the harness sees only NATIVE_APP
+      # and cannot drive the app.
+      #
+      # Scoped to THIS workflow on purpose. release.yml never sets it, so the
+      # published .ipa is not inspectable — an inspectable WebView in a shipped
+      # wallet would let anyone with the device and a Mac read the running page.
+      # The .ipa produced by this workflow is a per-commit test artifact and
+      # should not be handed out.
+      CAP_WEB_DEBUG: '1'
+
     steps:
       - uses: actions/checkout@v4
 
@@ -104,6 +117,16 @@ jobs:
           fi
           echo "Podfile + lock reference the local pod:"
           grep -n 'MagicMoneyPlugins' ios/App/Podfile ios/App/Podfile.lock || true
+
+          # The generated config must carry webContentsDebuggingEnabled, or the
+          # Appium step burns ~15 minutes before failing with "No WEBVIEW
+          # context". Fail here, in seconds, with the actual reason.
+          if ! grep -q '"webContentsDebuggingEnabled": *true' ios/App/App/capacitor.config.json; then
+            echo "::error::capacitor.config.json lacks webContentsDebuggingEnabled — CAP_WEB_DEBUG was not set when build:ios ran, so the WebView will be invisible to Appium."
+            cat ios/App/App/capacitor.config.json
+            exit 1
+          fi
+          echo "  ✓ web inspection enabled for the e2e run"
 
       - name: Build (unsigned, simulator)
         run: |

@@ -98,7 +98,16 @@ async function switchToWebview(driver, timeoutMs = 60000) {
       return webview
     }
     if (Date.now() > deadline) {
-      throw new Error(`No WEBVIEW context after ${timeoutMs}ms. Contexts: ${names.join(', ') || '(none)'}`)
+      throw new Error(
+        `No WEBVIEW context after ${timeoutMs}ms. Contexts: ${names.join(', ') || '(none)'}\n` +
+        `\nAlmost always means the WKWebView is not inspectable. Since iOS 16.4 a\n` +
+        `WebView is invisible to the remote debugger (and so to Appium) unless\n` +
+        `isInspectable is set. Check that:\n` +
+        `  • CAP_WEB_DEBUG=1 is set for the job (see .github/workflows/ios.yml)\n` +
+        `  • ios.webContentsDebuggingEnabled is true in the GENERATED\n` +
+        `    ios/App/App/capacitor.config.json — capacitor.config.ts only emits\n` +
+        `    it when CAP_WEB_DEBUG=1, and cap sync must have run after that.`
+      )
     }
     await new Promise(res => setTimeout(res, 1000))
   }
