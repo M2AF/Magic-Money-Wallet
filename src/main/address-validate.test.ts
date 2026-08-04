@@ -92,3 +92,41 @@ describe('privacy chain addresses (Monero / Zcash)', () => {
     expect(validateAddress('monero', donation).valid).toBe(true)
   })
 })
+
+describe('Midnight addresses', () => {
+  // Real addresses derived from the repo test mnemonic.
+  const MAINNET = 'mn_addr1lhm2myd3rwe672fs3hsw2nc9t4wvkhtst7fq75jtlh7674a3reqspywdyd'
+  const PREPROD = 'mn_addr_preprod1lhm2myd3rwe672fs3hsw2nc9t4wvkhtst7fq75jtlh7674a3reqs6s6l86'
+  const SHIELDED = 'mn_shield-addr_preprod1j79fwduuxrpphd7v3flqufr6slsquc3laz5xcv0vn2ft23p4k6vnvh3vy3ckjx9leyts2yc3mak23suejz47je5dh9n5c9zfsagrm0gxngfy4'
+  const DUST = 'mn_dust_preprod1wdkdudaenm0zef20rvgnacmpmrqy9xjjn8q0rjh3j6q2nreq3jyxvcfa5vr'
+
+  it('accepts the right address for the active network', () => {
+    expect(validateAddress('midnight', MAINNET, false).valid).toBe(true)
+    expect(validateAddress('midnight', PREPROD, true).valid).toBe(true)
+  })
+
+  it('no longer rejects a Midnight address as an EVM one', () => {
+    // Without a `midnight` case this fell through to the EVM default and told
+    // the user to check for typos in a perfectly valid address.
+    for (const [addr, testnet] of [[MAINNET, false], [PREPROD, true]] as const) {
+      expect(validateAddress('midnight', addr, testnet).reason ?? '').not.toMatch(/EVM/)
+    }
+    expect(validateAddress('midnight', 'not-an-address', false).reason).not.toMatch(/EVM/)
+  })
+
+  it('catches a cross-network paste and names the direction', () => {
+    expect(validateAddress('midnight', PREPROD, false).reason).toMatch(/PREPROD/)
+    expect(validateAddress('midnight', MAINNET, true).reason).toMatch(/MAINNET/)
+  })
+
+  it('rejects shielded and DUST addresses, which cannot receive NIGHT', () => {
+    expect(validateAddress('midnight', SHIELDED, true).reason).toMatch(/shielded/)
+    expect(validateAddress('midnight', DUST, true).reason).toMatch(/DUST/)
+  })
+
+  it('rejects junk with Midnight-specific guidance', () => {
+    expect(validateAddress('midnight', 'mn_addr1nope', false).valid).toBe(false)
+    expect(validateAddress('midnight', '0x1234', false).reason).toMatch(/mn_addr/)
+    expect(validateAddress('midnight', '', false).valid).toBe(false)
+  })
+})

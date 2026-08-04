@@ -2006,6 +2006,13 @@ export function registerIpcHandlers(): void {
     const { network, accountIndex } = await midnightState()
     const stars = nightToStars(amountNight)
 
+    // Validate BEFORE prompting. Opening the Midnight wallet to attempt a send
+    // is a minute of WASM + indexer sync, so a wrong-network or malformed
+    // address must fail here — not after the user approves and then watches the
+    // app appear to hang while it works toward a send that cannot succeed.
+    const check = validateAddress('midnight', to, network === 'preprod')
+    if (!check.valid) throw Object.assign(new Error(check.reason ?? 'Invalid address'), { code: -1 })
+
     const approved = await showApprovalWindow({
       title: 'Send NIGHT',
       heading: 'A dApp wants to send NIGHT from your wallet',

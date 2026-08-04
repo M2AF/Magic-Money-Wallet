@@ -18,7 +18,7 @@
  */
 
 import { isAddress } from 'viem'
-import { base58, bech32 } from '@scure/base'
+import { base58, bech32, bech32m } from '@scure/base'
 import { sha256 } from '@noble/hashes/sha256'
 import * as btc from '@scure/btc-signer'
 import { validateMoneroAddress } from './monero-pure'
@@ -134,6 +134,48 @@ function validateZcash(address: string): AddressValidation {
  * or 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin').
  * `testnet` = wallet-wide Testnet Mode (Bitcoin/Cardano encode differently).
  */
+/**
+ * Midnight unshielded addresses (where NIGHT lives).
+ *
+ * Without this case, `midnight` fell through to the EVM default and every
+ * Midnight address was rejected as "Not a valid EVM address (0x…)" — nonsense
+ * advice that made a correct address look like a typo.
+ *
+ * The network segment is part of the HRP (`mn_addr1…` mainnet,
+ * `mn_addr_preprod1…` Preprod), so a cross-network paste is caught here rather
+ * than after the wallet has spent a minute syncing to attempt an impossible send.
+ */
+function validateMidnight(address: string, testnet: boolean): AddressValidation {
+  const expectPrefix = testnet ? 'mn_addr_preprod' : 'mn_addr'
+  let prefix: string
+  try {
+    prefix = bech32m.decode(address as `${string}1${string}`, 2000).prefix
+  } catch {
+    return bad(testnet
+      ? 'Not a valid Midnight Preprod address (mn_addr_preprod1…)'
+      : 'Not a valid Midnight address (mn_addr1…)')
+  }
+
+  if (prefix === (testnet ? 'mn_addr' : 'mn_addr_preprod')) {
+    return bad(testnet
+      ? 'That is a Midnight MAINNET address — Testnet Mode is on'
+      : 'That is a Midnight PREPROD address — turn on Testnet Mode to use it')
+  }
+  // Shielded/DUST addresses are valid bech32m but cannot receive a NIGHT transfer.
+  if (prefix.startsWith('mn_shield-addr')) {
+    return bad('That is a shielded address — NIGHT is sent to an unshielded address (mn_addr1…)')
+  }
+  if (prefix.startsWith('mn_dust')) {
+    return bad('That is a DUST address — it pays fees and cannot receive NIGHT')
+  }
+  if (prefix !== expectPrefix) {
+    return bad(testnet
+      ? 'Not a valid Midnight Preprod address (mn_addr_preprod1…)'
+      : 'Not a valid Midnight address (mn_addr1…)')
+  }
+  return ok
+}
+
 export function validateAddress(chainId: string, address: string, testnet = false): AddressValidation {
   const a = address.trim()
   if (!a) return bad('Enter a recipient address')
@@ -145,6 +187,7 @@ export function validateAddress(chainId: string, address: string, testnet = fals
     case 'tron':     return validateTron(a)
     case 'monero':   return validateMonero(a)
     case 'zcash':    return validateZcash(a)
+    case 'midnight': return validateMidnight(a, testnet)
     default:
       // Every other Send-form chain is EVM. isAddress enforces the EIP-55
       // checksum when the input is mixed-case (catches real typos).
