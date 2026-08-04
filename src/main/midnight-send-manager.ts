@@ -72,6 +72,33 @@ function getOrOpen(mnemonic: string, accountIndex: number, network: MidnightNetw
   return state
 }
 
+/**
+ * Dust status WITHOUT opening the wallet — returns null when nothing is open.
+ *
+ * getMidnightDustStatus() calls getOrOpen(), which starts the full Midnight
+ * wallet: WASM proving keys plus an indexer sync, on the main process. That is
+ * correct for the wallet's own UI, which is about to send. It is NOT correct for
+ * a dApp read: a page calling getDustBalance() looks harmless and would
+ * otherwise kick off that sync and lock up the main process — which is exactly
+ * what made an approval window show "(Not Responding)".
+ *
+ * Anything reachable from an injected provider must use this, not the opener.
+ */
+export function peekMidnightDustStatus(
+  accountIndex: number, network: MidnightNetwork
+): MidnightDustStatus | null {
+  if (!current || current.key !== keyFor(accountIndex, network)) return null
+  const p = current.progress
+  if (!p) return { ready: false, percent: 0, isConnected: false, error: current.error }
+  const percent = p.highestRelevantWalletIndex > 0
+    ? Math.min(100, (100 * p.appliedIndex) / p.highestRelevantWalletIndex)
+    : 0
+  const ready = p.isConnected
+    && p.appliedIndex >= p.highestRelevantWalletIndex
+    && p.highestRelevantWalletIndex > 0
+  return { ready, percent, isConnected: p.isConnected, error: current.error }
+}
+
 export interface MidnightDustStatus {
   ready: boolean
   percent: number

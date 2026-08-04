@@ -1977,12 +1977,14 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('midnight:dust-balance', async (event) => {
     requireMidnight(event)
     const { network, accountIndex } = await midnightState()
-    const { getMidnightDustStatus } = await import('./midnight-send-manager')
-    // The SDK exposes DUST as sync progress rather than a queryable balance;
-    // report 0 until it is ready so a dApp doesn't read a half-synced figure
-    // as authoritative.
-    const status = getMidnightDustStatus(loadMnemonic(), accountIndex, network)
-    return status.ready ? '1' : '0'
+    // PEEK — deliberately not getMidnightDustStatus(), which opens the whole
+    // Midnight wallet (WASM + indexer sync) on the main process. A dApp read
+    // must never trigger that: it locks up the UI, including any approval
+    // window already on screen. Reports 0 when the wallet isn't open, which is
+    // honest — no DUST is available to spend until it is.
+    const { peekMidnightDustStatus } = await import('./midnight-send-manager')
+    const status = peekMidnightDustStatus(accountIndex, network)
+    return status?.ready ? '1' : '0'
   })
 
   // Legacy submitTransaction. We do not accept a pre-built transaction: it
