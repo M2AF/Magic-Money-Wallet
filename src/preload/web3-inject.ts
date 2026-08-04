@@ -416,7 +416,8 @@ webFrame.executeJavaScript(`(function () {
     return { address: _wsAddr, publicKey: _wsPubKey,
              chains: ['solana:mainnet', 'solana:devnet'],
              features: ['standard:connect','standard:disconnect','standard:events',
-                        'solana:signAndSendTransaction','solana:signTransaction','solana:signMessage'] };
+                        'solana:signAndSendTransaction','solana:signTransaction','solana:signMessage',
+                        'solana:signIn'] };
   }
 
   const _wsMM = {
@@ -486,6 +487,32 @@ webFrame.executeJavaScript(`(function () {
               signature: new Uint8Array(sig),
               signatureType: 'ed25519'
             }))
+          ));
+        }
+      },
+      // Sign In With Solana. Structured fields let the wallet compare the
+      // domain the dApp claims against the origin actually asking — the check
+      // that an opaque signMessage payload makes impossible.
+      'solana:signIn': {
+        version: '1.0.0',
+        signIn(...inputs) {
+          const list = inputs.length > 0 ? inputs : [{}];
+          return Promise.all(list.map(input =>
+            call('web3:solana-sign-in', input || {}).then(res => {
+              _wsAddr = res.address; _wsPubKey = b58Decode(res.address);
+              const sol = window.solana;
+              if (sol) {
+                sol.publicKey = { toBase58: () => res.address, toString: () => res.address };
+                sol.isConnected = true;
+              }
+              _wsEmit('change', { accounts: [_wsAccount()] });
+              return {
+                account: _wsAccount(),
+                signedMessage: new Uint8Array(res.signedMessage),
+                signature: new Uint8Array(res.signature),
+                signatureType: res.signatureType || 'ed25519'
+              };
+            })
           ));
         }
       },

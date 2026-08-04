@@ -66,6 +66,10 @@ import {
 } from '../main/cardano-tx-inspect'
 import { getCardanoStakeKey } from '../main/cardano-pure'
 import { grantForChainLabel, type DappChain } from '../main/dapp-permissions'
+import {
+  summarizeSolanaTx, formatSolanaTxSummary, formatSolanaMessage, formatSol,
+  type SolanaTxSummary,
+} from '../main/solana-tx-inspect'
 import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
@@ -193,6 +197,26 @@ async function describeCardanoTxForApproval(
     stakeKeyHash,
     config: await store.loadConfig(),
   })
+}
+
+// ── Solana dApp helpers ──────────────────────────────────────────────────────
+
+/** Decode + simulate for the approval sheet. Never throws — see solana-tx-inspect.ts. */
+async function describeSolanaForApproval(txBytes: Uint8Array): Promise<SolanaTxSummary> {
+  const addresses = await loadFullAddresses()
+  return summarizeSolanaTx(txBytes, {
+    ownAddress: addresses?.solana ?? '',
+    config: await store.loadConfig(),
+  })
+}
+
+/** One-line headline for the approval sheet's summary row. */
+function solanaHeadline(s: SolanaTxSummary): string {
+  if (s.error) return 'Sign an undecodable Solana transaction'
+  if (s.simulation === 'failed') return 'Sign a transaction that fails simulation'
+  if (s.netSol !== null && s.netSol < 0n) return `Send ${formatSol(-s.netSol)} SOL`
+  if (s.netSol !== null && s.netSol > 0n) return `Receive ${formatSol(s.netSol)} SOL`
+  return 'Sign Solana transaction'
 }
 
 /** One-line headline for the approval sheet's summary row. */
@@ -1450,7 +1474,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         chain: 'Solana',
         method: 'signMessage',
         summary: 'Sign Solana message',
-        details: previewBytes(bytes),
+        details: formatSolanaMessage(bytes),
       })
       const mnemonic = await store.loadMnemonic()
       const addresses = await store.loadAddresses()
@@ -1465,11 +1489,12 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const input = a0 as { transaction?: number[] | Uint8Array }
       if (!input?.transaction) throw new Error('No transaction data provided')
       const txBytes = input.transaction instanceof Uint8Array ? input.transaction : new Uint8Array(input.transaction as number[])
+      const sendSummary = await describeSolanaForApproval(txBytes)
       await requestSignatureApproval(sender, {
         chain: 'Solana',
         method: 'signAndSendTransaction',
-        summary: 'Sign and send Solana transaction',
-        details: `${txBytes.length} bytes`,
+        summary: solanaHeadline(sendSummary),
+        details: formatSolanaTxSummary(sendSummary),
       })
       const solMnemonic = await store.loadMnemonic()
       const solAddresses = await store.loadAddresses()
@@ -1485,11 +1510,12 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'web3:solana:sign-tx': {
       const txBytes = new Uint8Array(a0 as number[])
+      const signSummary = await describeSolanaForApproval(txBytes)
       await requestSignatureApproval(sender, {
         chain: 'Solana',
         method: 'signTransaction',
-        summary: 'Sign Solana transaction',
-        details: `${txBytes.length} bytes`,
+        summary: solanaHeadline(signSummary),
+        details: formatSolanaTxSummary(signSummary),
       })
       const solMnemonic2 = await store.loadMnemonic()
       const solAddresses2 = await store.loadAddresses()

@@ -175,6 +175,12 @@ import {
 import {
   summarizeCardanoTx, formatCardanoTxSummary, formatSignDataPayload,
 } from './cardano-tx-inspect'
+import {
+  summarizeSolanaTx, formatSolanaTxSummary, formatSolanaMessage,
+} from './solana-tx-inspect'
+import {
+  buildSiwsMessage, checkSiwsDomain, formatSiws, siwsWarnings, type SiwsInput,
+} from './solana-siws'
 import { describeEvmSend, describeTypedData } from './tx-describe'
 import { validateAddress } from './address-validate'
 
@@ -1511,27 +1517,62 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Phase 6: Solana dApp requests ─────────────────────────────────────────
-  ipcMain.handle('web3:solana-connect', async () => {
-    const addresses = loadAddresses()
+  // Every Solana handler below is gated on a SOLANA grant for the calling
+  // origin, and passes that origin to the prompt. Previously none of them
+  // checked the origin at all and none showed it, so any page in the dApp
+  // browser could raise a signing prompt that gave no clue who was asking.
+  function requireSolana(event: IpcMainInvokeEvent): string {
+    const origin = getSenderOrigin(event.sender.getURL())
+    if (!hasOriginChain(origin, 'solana')) {
+      throw Object.assign(new Error('Connect the wallet before using the Solana API.'), { code: 4100 })
+    }
+    return origin
+  }
+
+  /** Decode + simulate for the prompt. Never throws — see solana-tx-inspect.ts. */
+  async function describeSolanaTx(txBytes: Uint8Array) {
+    const addresses = await getFullAddresses()
+    return summarizeSolanaTx(txBytes, {
+      ownAddress: addresses.solana ?? '',
+      config: loadConfig(),
+    })
+  }
+
+  ipcMain.handle('web3:solana-connect', async (event) => {
+    const origin = getSenderOrigin(event.sender.getURL())
+    const addresses = await getFullAddresses()
+    if (hasOriginChain(origin, 'solana')) return addresses.solana ?? ''
     const approved = await showApprovalWindow({
       title: 'Connect Solana Wallet',
-      heading: 'A dApp wants to connect to your Solana wallet',
-      detail: `Address:\n${addresses?.solana ?? 'Not available'}`,
-      confirmLabel: 'Connect'
+      heading: `${origin} wants to connect to your Solana wallet`,
+      detail: [
+        `Address:\n${addresses.solana ?? 'Not available'}`,
+        '',
+        'This site will be able to:',
+        '  • see your Solana address and balances',
+        '  • ask you to sign messages and transactions',
+        '',
+        'Every signature still needs your approval.',
+      ].join('\n'),
+      confirmLabel: 'Connect',
+      origin
     })
     if (!approved) {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     }
-    return addresses?.solana ?? ''
+    // Remember the grant so the site isn't re-prompted on every reload.
+    addApprovedOrigin(origin, 'solana')
+    return addresses.solana ?? ''
   })
 
-  ipcMain.handle('web3:solana-sign-message', async (_event, messageBytes: number[]) => {
-    const decoded = (() => { try { return Buffer.from(messageBytes).toString('utf8') } catch { return `${messageBytes.length} bytes` } })()
+  ipcMain.handle('web3:solana-sign-message', async (event, messageBytes: number[]) => {
+    const origin = requireSolana(event)
     const approved = await showApprovalWindow({
       title: 'Sign Solana Message',
       heading: 'A dApp wants to sign a message with your Solana wallet',
-      detail: decoded.slice(0, 1000),
-      confirmLabel: 'Sign'
+      detail: formatSolanaMessage(Uint8Array.from(messageBytes)),
+      confirmLabel: 'Sign',
+      origin
     })
     if (!approved) {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
@@ -1547,14 +1588,57 @@ export function registerIpcHandlers(): void {
     return Array.from(signature)
   })
 
+  // Sign In With Solana (solana:signIn). Structured fields let US verify the
+  // domain the dApp claims against the origin actually asking — the check the
+  // user cannot make when a site hands over an opaque signMessage payload.
+  ipcMain.handle('web3:solana-sign-in', async (event, input: SiwsInput | undefined) => {
+    const origin = requireSolana(event)
+    const addresses = await getFullAddresses()
+    const address = addresses.solana ?? ''
+    const siws = input ?? {}
+
+    const check = checkSiwsDomain(siws.domain, origin)
+    const warnings = siwsWarnings(siws, check)
+
+    const approved = await showApprovalWindow({
+      title: 'Sign In',
+      heading: `${check.originHost} wants you to sign in`,
+      detail: formatSiws(siws, address, check),
+      warnings,
+      confirmLabel: 'Sign in',
+      tone: warnings.length > 0 ? 'danger' : 'primary',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+
+    // Bind the signed message to the domain we verified, not the one claimed.
+    const message = buildSiwsMessage({ ...siws, domain: siws.domain ?? check.originHost }, address)
+    const messageBytes = new TextEncoder().encode(message)
+    const accountIndex = addresses.accountIndex ?? 0
+    const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
+    const signature = ed25519.sign(messageBytes, keypair.secretKey.slice(0, 32))
+
+    return {
+      address,
+      signedMessage: Array.from(messageBytes),
+      signature: Array.from(signature),
+      signatureType: 'ed25519' as const,
+    }
+  })
+
   // Sign (only) a serialized Solana transaction and return the signed bytes.
   // The dApp broadcasts it itself (Wallet Standard signTransaction).
-  ipcMain.handle('web3:solana-sign-tx', async (_event, txBytes: number[]) => {
+  ipcMain.handle('web3:solana-sign-tx', async (event, txBytes: number[]) => {
+    const origin = requireSolana(event)
+    const summary = await describeSolanaTx(Uint8Array.from(txBytes))
     const approved = await showApprovalWindow({
       title: 'Sign Solana Transaction',
       heading: 'A dApp wants you to sign a Solana transaction',
-      detail: `Transaction (${txBytes.length} bytes)\nReview carefully — only sign if you trust this site.`,
-      confirmLabel: 'Sign'
+      detail: formatSolanaTxSummary(summary, { includeWarnings: false }),
+      warnings: summary.warnings,
+      confirmLabel: 'Sign',
+      tone: summary.warnings.length > 0 ? 'danger' : 'primary',
+      origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const accountIndex = loadAddresses()?.accountIndex ?? 0
@@ -1567,13 +1651,18 @@ export function registerIpcHandlers(): void {
 
   // Sign AND broadcast a serialized Solana transaction via Helius
   // (Wallet Standard signAndSendTransaction). Returns the tx signature string.
-  ipcMain.handle('web3:solana-sign-and-send', async (_event, input: { transaction?: number[] }) => {
+  ipcMain.handle('web3:solana-sign-and-send', async (event, input: { transaction?: number[] }) => {
+    const origin = requireSolana(event)
     if (!input?.transaction) throw new Error('No transaction data provided')
+    const summary = await describeSolanaTx(Uint8Array.from(input.transaction))
     const approved = await showApprovalWindow({
       title: 'Send Solana Transaction',
       heading: 'A dApp wants to send a Solana transaction',
-      detail: `Transaction (${input.transaction.length} bytes)\nReview carefully — only proceed if you trust this site.`,
-      confirmLabel: 'Send'
+      detail: formatSolanaTxSummary(summary, { includeWarnings: false }),
+      warnings: summary.warnings,
+      confirmLabel: 'Send',
+      tone: summary.warnings.length > 0 ? 'danger' : 'primary',
+      origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     const config = loadConfig()
