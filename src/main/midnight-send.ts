@@ -72,7 +72,22 @@ const NETWORKS: Record<MidnightNetwork, { indexerHttp: string; indexerWs: string
 // Measured 2026-07-20 as the sweet spot — size:1000 was only marginally
 // faster than size:200 (diminishing returns), and a smaller batch keeps peak
 // memory/main-thread pauses lower for constrained targets (Android WebView).
-const DUST_BATCH_UPDATES = { size: 200, spacing: 0 }
+//
+// spacing:1 (was 0) — 2026-08-04. spacing:0 never yields, so the ~36-minute
+// Preprod backlog above saturated the Electron main process and the whole app
+// stopped responding: the Send NIGHT progress bar froze, approval windows would
+// not paint, and users restarted the app — which, because serializeState() only
+// checkpoints once caught up (see the warning above), threw away every event
+// synced so far and restarted from zero. An unusable loop.
+//
+// The cost of yielding is arithmetic, not a guess: one yield per 200-event
+// batch over ~1.3M events is ~6,500 yields. At ~1ms each that is ~6.5 seconds
+// added to a ~36-minute sync — under 0.5% — in exchange for a UI that keeps
+// running throughout. Do not set this back to 0.
+//
+// This is mitigation, not the fix. The sync still runs on the main process;
+// moving it to a utilityProcess is the real answer.
+const DUST_BATCH_UPDATES = { size: 200, spacing: 1 }
 // How often to snapshot dust sync progress to disk via serializeState().
 const PERSIST_INTERVAL_MS = 15_000
 
