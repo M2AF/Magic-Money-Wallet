@@ -1,28 +1,52 @@
+import { useState, useEffect } from 'react'
 import type { AppPage } from '../types/wallet'
+import logoMarkUrl from '../assets/logo-mark.png'
 
 interface Props {
   onNavigate: (page: AppPage) => void
+  /** Go to the create flow and start the passkey ceremony immediately. */
+  onCreateWithPasskey: () => void
 }
 
-export function WelcomePage({ onNavigate }: Props) {
+export function WelcomePage({ onNavigate, onCreateWithPasskey }: Props) {
+  const [passkeyOffered, setPasskeyOffered] = useState(false)
+
+  // Prompt-free capability check. Only reached during onboarding — once a wallet
+  // exists the app routes straight to unlock — so this never runs on a normal
+  // launch, which matters because on Electron the probe spins up a loopback
+  // window. `fn?.()` alone would NOT guard an absent method: optional chaining
+  // stops at the call and `.then` on the result would throw.
+  useEffect(() => {
+    const probe = window.wallet?.passkeySupported
+    if (typeof probe !== 'function') return
+    let cancelled = false
+    Promise.resolve(probe.call(window.wallet))
+      .then(ok => { if (!cancelled) setPasskeyOffered(!!ok) })
+      .catch(() => { /* option stays hidden */ })
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <div className="page fade-in" style={{ justifyContent: 'center', gap: 28 }}>
       {/* Logo / wordmark */}
       <div style={{ textAlign: 'center' }}>
+        {/* Circular crop, avatar style. The source is square with its own dark
+            background, so object-fit:cover fills the circle edge to edge with no
+            letterboxing; overflow:hidden does the actual cropping. */}
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
-          background: 'var(--accent-dim)',
+          overflow: 'hidden',
           border: '1px solid var(--border-active)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
           margin: '0 auto 20px',
           boxShadow: '0 0 32px var(--accent-glow)'
         }}>
-          {/* Vault icon */}
-          <svg width="28" height="28" fill="none" stroke="var(--accent)" strokeWidth="1.5" viewBox="0 0 24 24">
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            <circle cx="12" cy="16" r="1" fill="var(--accent)"/>
-          </svg>
+          <img
+            src={logoMarkUrl}
+            alt=""
+            width={64}
+            height={64}
+            style={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         </div>
         <h1 className="page-title">MagicMoney Wallet</h1>
         <p className="page-subtitle" style={{ marginTop: 8 }}>
@@ -74,6 +98,30 @@ export function WelcomePage({ onNavigate }: Props) {
           <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'var(--border)', transform: 'translateY(-50%)' }} />
           <span style={{ position: 'relative', background: 'var(--bg-dark)', padding: '0 10px', fontSize: 11, color: 'var(--text-muted)' }}>or</span>
         </div>
+        {/* Below the divider sit the two "identity-backed" routes: a wallet from
+            a passkey, and a wallet reached through a ChainLens account. Passkey
+            creation is hidden entirely where the platform can't do it (browser
+            extension, iOS, older Android WebViews) rather than shown and failing. */}
+        {passkeyOffered && (
+          <button
+            className="btn btn-ghost"
+            onClick={onCreateWithPasskey}
+            style={{
+              background: 'linear-gradient(135deg, rgba(0,170,255,0.12) 0%, rgba(56,189,248,0.12) 100%)',
+              border: '1px solid rgba(0,170,255,0.35)',
+              color: '#7dd3fc'
+            }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+              <circle cx="10" cy="8" r="4"/>
+              <path d="M10.3 14H7a4 4 0 0 0-4 4v2"/>
+              <circle cx="17" cy="15" r="2.5"/>
+              <path d="M17 17.5V21l1.5-1.5"/>
+            </svg>
+            Generate with Passkey
+          </button>
+        )}
+
         <button
           className="btn btn-ghost"
           onClick={() => onNavigate('import')}

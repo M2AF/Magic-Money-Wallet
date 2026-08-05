@@ -25,6 +25,7 @@ import {
   saveMnemonic, loadMnemonic, unlock, lock, isUnlocked, isPasswordEncrypted,
   needsMigration, migrateLegacy, verifyPassword, walletExists, deleteWallet,
   loadConfig, saveConfig,
+  hasPasskeyBackup, linkPasskey, mnemonicFromPasskeyBackup, removePasskeyBackup,
 } from './secure-store'
 import { ACTIVE_PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS, encryptSecret } from './crypto-vault'
 
@@ -129,5 +130,60 @@ describe('secure-store · swap proxy pinning (H-3)', () => {
 
     saveConfig({ torBrowserPort: 9150 })
     expect(loadConfig().torBrowserPort).toBe(9150)
+  })
+})
+
+// ── Passkey recovery blob (link an EXISTING wallet to a passkey) ─────────────
+// Envelope encryption: the phrase is stored under a key derived from 32 bytes of
+// WebAuthn PRF output. Unlike wallet:generate-passkey, which DERIVES a wallet
+// from those bytes, this must return the operator's own pre-existing phrase.
+describe('secure-store · passkey recovery blob', () => {
+  const PRF = new Uint8Array(32).map((_, i) => (i * 5 + 3) & 0xff)
+
+  beforeEach(async () => {
+    lock()
+    removePasskeyBackup()
+    await saveMnemonic(MNEMONIC, 'Correct-Horse-9!')
+  })
+
+  it('round-trips the existing phrase, not a derived one', async () => {
+    expect(hasPasskeyBackup()).toBe(false)
+    await linkPasskey(PRF)
+    expect(hasPasskeyBackup()).toBe(true)
+    // The whole point: what comes back is the wallet we already had.
+    expect(await mnemonicFromPasskeyBackup(PRF)).toBe(MNEMONIC)
+  })
+
+  it('refuses a different passkey rather than returning garbage', async () => {
+    await linkPasskey(PRF)
+    const other = new Uint8Array(PRF); other[0] ^= 0xff
+    await expect(mnemonicFromPasskeyBackup(other)).rejects.toThrow()
+  })
+
+  it('requires an unlocked wallet to link', async () => {
+    lock()
+    await expect(linkPasskey(PRF)).rejects.toThrow(/Unlock/i)
+  })
+
+  it('throws when nothing is linked', async () => {
+    await expect(mnemonicFromPasskeyBackup(PRF)).rejects.toThrow(/No passkey/i)
+  })
+
+  // Regression: the blob was originally destroyed by deleteWallet, so importing
+  // after a delete found nothing, fell through to DERIVING from the PRF bytes,
+  // and silently produced a different wallet that looked like a real restore.
+  // Surviving deletion is the entire point of a recovery factor.
+  it('survives wallet deletion so it can still restore', async () => {
+    await linkPasskey(PRF)
+    deleteWallet()
+    expect(walletExists()).toBe(false)
+    expect(hasPasskeyBackup()).toBe(true)
+    expect(await mnemonicFromPasskeyBackup(PRF)).toBe(MNEMONIC)
+  })
+
+  it('is removed only by an explicit unlink', async () => {
+    await linkPasskey(PRF)
+    removePasskeyBackup()
+    expect(hasPasskeyBackup()).toBe(false)
   })
 })

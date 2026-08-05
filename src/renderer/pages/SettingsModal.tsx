@@ -18,6 +18,10 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
   const [helloError, setHelloError] = useState<string | null>(null)
+  const [passkeySupported, setPasskeySupported] = useState(false)
+  const [passkeyLinked, setPasskeyLinked] = useState(false)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+  const [passkeyError, setPasskeyError] = useState<string | null>(null)
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
@@ -98,6 +102,50 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   useEffect(refreshSiteCount, [])
 
   const refreshHello = () => { window.wallet.helloStatus?.().then(setHello).catch(() => setHello(null)) }
+
+  // Capability + current state. `fn?.()` alone would not guard an absent method:
+  // optional chaining stops at the call, so `.then` on undefined would throw.
+  useEffect(() => {
+    const probe = window.wallet.passkeySupported
+    const linked = window.wallet.passkeyLinked
+    if (typeof probe !== 'function' || typeof linked !== 'function' || !window.wallet.passkeyLink) return
+    let cancelled = false
+    Promise.resolve(probe.call(window.wallet))
+      .then(ok => { if (!cancelled) setPasskeySupported(!!ok) })
+      .catch(() => { /* row stays hidden */ })
+    Promise.resolve(linked.call(window.wallet))
+      .then(on => { if (!cancelled) setPasskeyLinked(!!on) })
+      .catch(() => { /* treat as unlinked */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const togglePasskeyLink = async () => {
+    if (passkeyBusy) return
+    setPasskeyBusy(true)
+    setPasskeyError(null)
+    try {
+      if (passkeyLinked) {
+        await window.wallet.passkeyUnlink?.()
+        setPasskeyLinked(false)
+      } else {
+        await window.wallet.passkeyLink?.()   // prompts, then self-tests
+        setPasskeyLinked(true)
+      }
+    } catch (e) {
+      // Electron prefixes IPC rejections with
+      // "Error invoking remote method 'x': Error: " — noise to a user.
+      setPasskeyError(
+        String((e as Error)?.message ?? e)
+          .replace(/^Error invoking remote method '[^']*':\s*/, '')
+          .replace(/^Error:\s*/, '')
+      )
+      // The handler removes the blob when its own round-trip check fails, so the
+      // row must not be left claiming recovery is on.
+      window.wallet.passkeyLinked?.().then(on => setPasskeyLinked(!!on)).catch(() => setPasskeyLinked(false))
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
   const bioMethodName = (m?: 'windows-hello' | 'touch-id' | 'android-biometric' | null) =>
     m === 'touch-id' ? 'Touch ID' : m === 'android-biometric' ? 'Biometric' : 'Windows Hello'
   useEffect(refreshHello, [])
@@ -293,6 +341,30 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
           {helloError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{helloError}</div>
+          )}
+
+          {/* Passkey recovery — a way BACK IN, not a way to unlock. Distinct from
+              biometric unlock above, which only decrypts a local copy on this
+              machine. Hidden where WebAuthn is unavailable; linking additionally
+              self-tests and refuses on platforms that can't read the key back. */}
+          {passkeySupported && (
+            <SettingsRow
+              icon="🔑"
+              label={passkeyBusy
+                ? 'Please wait…'
+                : passkeyLinked
+                  ? 'Passkey recovery — On'
+                  : 'Link a passkey'}
+              sublabel={passkeyLinked
+                ? 'This wallet can be restored with your passkey. Tap to unlink.'
+                : 'Restore this wallet with a passkey instead of typing your seed phrase.'}
+              onClick={togglePasskeyLink}
+              disabled={passkeyBusy}
+              noChevron
+            />
+          )}
+          {passkeyError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px', lineHeight: 1.5 }}>{passkeyError}</div>
           )}
         </SettingsSection>
 

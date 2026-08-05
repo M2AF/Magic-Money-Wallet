@@ -37,6 +37,9 @@ export function App() {
   // Was the pending wallet generated here or restored? Only affects the default
   // of the "sign out of websites" offer on the password step.
   const [walletOrigin, setWalletOrigin] = useState<'created' | 'imported'>('created')
+  // Set when the user picked "Generate with Passkey" on the welcome screen, so
+  // the create page runs the ceremony instead of the system RNG.
+  const [startWithPasskey, setStartWithPasskey] = useState(false)
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {
@@ -195,8 +198,13 @@ export function App() {
 
       {/* Page router */}
       {page === 'loading'  && <LoadingPage />}
-      {page === 'welcome'  && <WelcomePage onNavigate={setPage} />}
-      {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} wordCount={seedWordCount} onWordCountChange={setSeedWordCount} />}
+      {page === 'welcome'  && (
+        <WelcomePage
+          onNavigate={p => { setStartWithPasskey(false); setPage(p) }}
+          onCreateWithPasskey={() => { setStartWithPasskey(true); setPage('create') }}
+        />
+      )}
+      {page === 'create'   && <CreatePage onNavigate={setPage} onComplete={handleWalletReady} wordCount={seedWordCount} onWordCountChange={setSeedWordCount} startWithPasskey={startWithPasskey} />}
       {page === 'confirm'  && <ConfirmPage onNavigate={setPage} onComplete={handleWalletReady} wordCount={seedWordCount} />}
       {page === 'import'   && <ImportPage onNavigate={setPage} onComplete={handleWalletReady} />}
       {page === 'setpassword' && <SetPasswordPage mode={pwMode} origin={walletOrigin} onComplete={handleUnlockedOrSet} />}

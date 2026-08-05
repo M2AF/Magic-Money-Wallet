@@ -8,23 +8,24 @@ interface Props {
   /** Chosen seed length — owned by App so ConfirmPage can name it too. */
   wordCount: 12 | 24
   onWordCountChange: (count: 12 | 24) => void
+  /** Arrived via "Generate with Passkey" on the welcome screen. */
+  startWithPasskey?: boolean
 }
 
-export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) {
+export function CreatePage({ onNavigate, wordCount, onWordCountChange, startWithPasskey = false }: Props) {
   const [words, setWords] = useState<string[]>([])
   const [blurred, setBlurred] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [retryKey, setRetryKey] = useState(0)
-  // Passkey path (optional, never the default). `source` tracks which entropy
-  // produced the phrase on screen; `reproducible` is what the device told us
-  // about re-deriving it, and is shown rather than acted on.
-  const [passkeyOffered, setPasskeyOffered] = useState(false)
-  const [source, setSource] = useState<'random' | 'passkey'>('random')
+  // Which entropy produced the phrase on screen. Chosen on the welcome screen —
+  // this page never offers the switch, so there is exactly one way in per run.
+  // `reproducible` is what the device told us about re-deriving it, and is shown
+  // rather than acted on.
+  const source: 'random' | 'passkey' = startWithPasskey ? 'passkey' : 'random'
   // null = not checked. Checking costs another device prompt and fails loudly
   // on some platforms, so it is opt-in rather than part of creation.
   const [reproducible, setReproducible] = useState<boolean | null>(null)
-  const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [checking, setChecking] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -33,42 +34,6 @@ export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) 
     if (await copySeedPhrase(words)) {
       setCopied(true)
       setTimeout(() => setCopied(false), SEED_CLIPBOARD_TTL_MS)
-    }
-  }
-
-  // Capability check runs once, only on this screen, and shows no prompt.
-  //
-  // The method is OPTIONAL — absent on the browser extension, and on any target
-  // that can't run WebAuthn. `fn?.().then()` does NOT guard that: optional
-  // chaining stops at the call, so `.then` on the resulting undefined throws a
-  // TypeError inside the effect and React blanks the whole page. Resolve the
-  // function first, and bail if it isn't there.
-  useEffect(() => {
-    const probe = window.wallet.passkeySupported
-    if (typeof probe !== 'function') return
-    let cancelled = false
-    Promise.resolve(probe.call(window.wallet))
-      .then(ok => { if (!cancelled) setPasskeyOffered(!!ok) })
-      .catch(() => { /* option stays hidden */ })
-    return () => { cancelled = true }
-  }, [])
-
-  const createWithPasskey = async () => {
-    if (!window.wallet.generateWithPasskey) return
-    setPasskeyBusy(true)
-    setError('')
-    try {
-      const res = await window.wallet.generateWithPasskey(wordCount)
-      setWords(res.words)
-      setSource('passkey')
-      setReproducible(null)
-      setCopied(false)
-      setBlurred(true)
-      setLoading(false)
-    } catch (e) {
-      setError(String((e as Error)?.message ?? e))
-    } finally {
-      setPasskeyBusy(false)
     }
   }
 
@@ -87,21 +52,26 @@ export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) 
     }
   }
 
-  // Re-runs when the user flips 12 ⇄ 24: a new phrase of that length replaces
-  // the pending one in the main process, so nothing half-generated can be saved.
-  // Flipping the length after a passkey run falls back to a random phrase rather
-  // than silently re-prompting the device; the user can pick the passkey again.
+  // Generates the phrase, and re-runs when the user flips 12 ⇄ 24 so the new
+  // length replaces the pending one in the main process — nothing half-generated
+  // can be saved. On the passkey route this re-runs the ceremony (another device
+  // prompt), because the entropy has to come from the authenticator again; that
+  // is the honest cost of changing length and the user asked for it.
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
     setBlurred(true)
-    setSource('random')
     setReproducible(null)
     // The phrase on screen is about to change; any earlier copy is now stale.
     // The scheduled clipboard clear is deliberately left running.
     setCopied(false)
-    window.wallet.generate(wordCount).then(w => {
+
+    const generate = startWithPasskey && window.wallet.generateWithPasskey
+      ? window.wallet.generateWithPasskey(wordCount).then(r => r.words)
+      : window.wallet.generate(wordCount)
+
+    generate.then(w => {
       if (cancelled) return
       setWords(w)
       setLoading(false)
@@ -111,7 +81,7 @@ export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) 
       setLoading(false)
     })
     return () => { cancelled = true }
-  }, [retryKey, wordCount])
+  }, [retryKey, wordCount, startWithPasskey])
 
   // Android: block screenshots/recents preview while the seed is on screen.
   useEffect(() => {
@@ -154,42 +124,6 @@ export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) 
           >{n} words</button>
         ))}
       </div>
-
-      {/* Optional passkey path. Hidden unless the platform can actually do it,
-          and never the default — the phrase above is already a valid wallet. */}
-      {passkeyOffered && source === 'random' && (
-        <button
-          type="button"
-          onClick={createWithPasskey}
-          disabled={passkeyBusy || loading}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '10px 0', borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--border)', background: 'transparent',
-            color: 'var(--text-muted)', fontSize: 12, fontWeight: 500,
-            cursor: passkeyBusy || loading ? 'default' : 'pointer',
-            opacity: passkeyBusy || loading ? 0.6 : 1,
-            transition: 'all var(--transition)',
-          }}
-        >
-          {passkeyBusy ? (
-            <>
-              <div className="spinner" style={{ width: 14, height: 14 }} />
-              Waiting for your device…
-            </>
-          ) : (
-            <>
-              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-                <circle cx="10" cy="8" r="4"/>
-                <path d="M10.3 14H7a4 4 0 0 0-4 4v2"/>
-                <circle cx="17" cy="15" r="2.5"/>
-                <path d="M17 17.5V21l1.5-1.5"/>
-              </svg>
-              Generate from a passkey instead
-            </>
-          )}
-        </button>
-      )}
 
       {source === 'passkey' && (
         <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 12 }}>

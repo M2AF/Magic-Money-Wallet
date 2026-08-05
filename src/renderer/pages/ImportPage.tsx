@@ -12,6 +12,37 @@ export function ImportPage({ onNavigate, onComplete }: Props) {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
+  // Passkey recovery — the counterpart of "Generate with Passkey".
+  const [passkeyOffered, setPasskeyOffered] = useState(false)
+  const [passkeyBusy, setPasskeyBusy] = useState(false)
+
+  // Prompt-free capability check. `fn?.()` alone would NOT guard an absent
+  // method — optional chaining stops at the call, so `.then` would throw.
+  useEffect(() => {
+    const probe = window.wallet?.passkeySupported
+    if (typeof probe !== 'function' || !window.wallet.importWithPasskey) return
+    let cancelled = false
+    Promise.resolve(probe.call(window.wallet))
+      .then(ok => { if (!cancelled) setPasskeyOffered(!!ok) })
+      .catch(() => { /* option stays hidden */ })
+    return () => { cancelled = true }
+  }, [])
+
+  // Uses the SAME 12/24 selector as the typed import above: the same passkey
+  // yields a different wallet at each length, so the user must pick the one they
+  // created with. If the addresses look wrong, they flip it and retry.
+  const importWithPasskey = async () => {
+    if (!window.wallet.importWithPasskey) return
+    setPasskeyBusy(true)
+    setError(null)
+    try {
+      onComplete(await window.wallet.importWithPasskey(wordCount))
+    } catch (e) {
+      setError(String((e as Error)?.message ?? e))
+    } finally {
+      setPasskeyBusy(false)
+    }
+  }
 
   // Android: block screenshots/recents preview while the seed is on screen.
   useEffect(() => {
@@ -141,6 +172,49 @@ export function ImportPage({ onNavigate, onComplete }: Props) {
           </>
         ) : 'Import Wallet'}
       </button>
+
+      {/* Passkey recovery. Only shown where the platform can run WebAuthn — and
+          note that even there the assertion may refuse to release the key
+          (Windows Hello does), which the handler reports as "this device can't
+          read your passkey" rather than blaming the passkey. */}
+      {passkeyOffered && (
+        <>
+          <div style={{ position: 'relative', textAlign: 'center', margin: '2px 0' }}>
+            <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'var(--border)', transform: 'translateY(-50%)' }} />
+            <span style={{ position: 'relative', background: 'var(--bg-dark)', padding: '0 10px', fontSize: 11, color: 'var(--text-muted)' }}>or</span>
+          </div>
+          <button
+            className="btn btn-ghost"
+            onClick={importWithPasskey}
+            disabled={passkeyBusy || loading}
+            style={{
+              background: 'linear-gradient(135deg, rgba(0,170,255,0.12) 0%, rgba(56,189,248,0.12) 100%)',
+              border: '1px solid rgba(0,170,255,0.35)',
+              color: '#7dd3fc'
+            }}
+          >
+            {passkeyBusy ? (
+              <>
+                <div className="spinner" style={{ width: 14, height: 14 }} />
+                Waiting for your device…
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+                  <circle cx="10" cy="8" r="4"/>
+                  <path d="M10.3 14H7a4 4 0 0 0-4 4v2"/>
+                  <circle cx="17" cy="15" r="2.5"/>
+                  <path d="M17 17.5V21l1.5-1.5"/>
+                </svg>
+                Import with Passkey
+              </>
+            )}
+          </button>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5, marginTop: -4 }}>
+            Uses the {wordCount}-word setting above — pick the length you created the wallet with.
+          </p>
+        </>
+      )}
     </div>
   )
 }

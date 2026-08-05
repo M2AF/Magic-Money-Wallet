@@ -18,7 +18,10 @@ import { App as CapacitorApp } from '@capacitor/app'
 import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { helloStatus, helloEnroll, helloUnlock, helloRemove } from './biometric'
-import { passkeySupported, createPasskeyMnemonic, verifyPasskeyWallet } from './passkey'
+import {
+  passkeySupported, createPasskeyMnemonic, verifyPasskeyWallet, importPasskeyMnemonic,
+  linkPasskeyToWallet, passkeyLinked, passkeyUnlink,
+} from './passkey'
 import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
 import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
@@ -276,6 +279,15 @@ function buildWallet() {
       return { words: await send<string[]>('wallet:stash-pending', mnemonic) }
     },
     passkeyVerify: () => verifyPasskeyWallet(),
+    importWithPasskey: async (words?: 12 | 24) => {
+      const mnemonic = await importPasskeyMnemonic(words)
+      return send('wallet:import', mnemonic)
+    },
+    // Link/unlink an EXISTING wallet to a passkey. Runs entirely in this
+    // context — the WebView is both the WebAuthn origin and the store.
+    passkeyLink: () => linkPasskeyToWallet(),
+    passkeyLinked: () => passkeyLinked(),
+    passkeyUnlink: () => passkeyUnlink(),
     validate:       (m: string)             => send<boolean>('wallet:validate', m),
     confirmBackup:  ()                      => send('wallet:confirm-backup'),
     setPassword:    (password: string)      => send<boolean>('wallet:set-password', password),

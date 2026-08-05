@@ -15,7 +15,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
-import { runPasskeyCeremony, verifyPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
+import { runPasskeyCeremony, verifyPasskeyPrf, importPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
 import {
   generateMnemonic,
   mnemonicFromEntropy,
@@ -60,6 +60,10 @@ import {
   migrateLegacy,
   verifyPassword,
   hasHelloUnlock,
+  hasPasskeyBackup,
+  linkPasskey,
+  mnemonicFromPasskeyBackup,
+  removePasskeyBackup,
   enrollHello,
   unlockWithHello,
   removeHello,
@@ -275,6 +279,32 @@ let _pendingMnemonic: string | null = null
 // Set only when the pending wallet came from a passkey, so the user can ask
 // whether that passkey reproduces it. Metadata only — no key material.
 let _pendingPasskey: { id: string; transports: string[] } | null = null
+
+/**
+ * Shown whenever linking can't complete. Windows Hello mints PRF at
+ * registration and refuses to evaluate it at assertion (measured across
+ * Electron, Chrome and VS Code), and a phone reached over the hybrid tunnel is
+ * never granted hmac-secret at all — so on desktop this is the expected outcome,
+ * not a fault. Nothing is stored, and the wording must not imply the user did
+ * anything wrong or that their wallet is affected.
+ */
+/**
+ * Name shown in the OS passkey manager. MUST be unique per passkey: each one
+ * yields different PRF bytes and therefore a DIFFERENT wallet, so identical
+ * labels leave the user unable to tell which entry restores which wallet — and
+ * picking the wrong one silently produces a valid, empty, wrong wallet. A date
+ * alone collided for every passkey created on the same day.
+ */
+function passkeyLabel(): string {
+  const when = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  const tag = Math.random().toString(36).slice(2, 6)
+  return `MagicMoney · ${when} · ${tag}`
+}
+
+const PASSKEY_LINK_UNSUPPORTED =
+  'This device can’t read keys back from its passkeys, so a passkey could never restore this wallet. ' +
+  'Nothing was changed and your wallet is unaffected — your seed phrase remains your backup. ' +
+  'Passkey recovery currently works on Android.'
 let _pendingPasskeyWords: 12 | 24 = 12
 
 // ── Idle auto-lock ────────────────────────────────────────────────────────────
@@ -479,7 +509,7 @@ export function registerIpcHandlers(): void {
     const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
     const result = await runPasskeyCeremony({
       parent,
-      userName: `MagicMoney wallet · ${new Date().toISOString().slice(0, 10)}`,
+      userName: passkeyLabel(),
     })
     const entropy = Uint8Array.from(Buffer.from(result.prfB64, 'base64'))
     try {
@@ -512,6 +542,54 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // ── Link an EXISTING wallet to a passkey ───────────────────────────────
+  // Creates a fresh passkey and wraps the unlocked phrase under its PRF output,
+  // then immediately proves the round trip by unwrapping once. On platforms that
+  // mint PRF at registration but refuse it at assertion (Windows Hello) that
+  // check fails, and we delete the blob rather than leave the user believing
+  // they have a recovery factor that can never be opened.
+  ipcMain.handle('wallet:passkey-link', async event => {
+    if (!isUnlocked()) throw new Error('Unlock the wallet first')
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    // The ceremony's own errors are written for wallet CREATION ("create a
+    // wallet the normal way instead"), which is nonsense while linking an
+    // existing one. Restate them for this context; a cancel stays a cancel.
+    const result = await runPasskeyCeremony({
+      parent,
+      userName: passkeyLabel(),
+    }).catch((e: unknown) => {
+      const msg = String((e as Error)?.message ?? e)
+      if (/cancel/i.test(msg)) throw new Error('Passkey setup was cancelled. Nothing changed.')
+      throw new Error(PASSKEY_LINK_UNSUPPORTED)
+    })
+    const material = Uint8Array.from(Buffer.from(result.prfB64, 'base64'))
+    try {
+      await linkPasskey(material)
+    } finally {
+      material.fill(0)
+    }
+
+    const check = await verifyPasskeyPrf({
+      parent,
+      credential: { id: result.credentialId, transports: result.transports },
+    })
+    let ok = false
+    if (check) {
+      const again = Uint8Array.from(Buffer.from(check, 'base64'))
+      try {
+        ok = (await mnemonicFromPasskeyBackup(again)) === loadMnemonic()
+      } catch { ok = false } finally { again.fill(0) }
+    }
+    if (!ok) {
+      removePasskeyBackup()
+      throw new Error(PASSKEY_LINK_UNSUPPORTED)
+    }
+    return true
+  })
+
+  ipcMain.handle('wallet:passkey-linked', () => hasPasskeyBackup())
+  ipcMain.handle('wallet:passkey-unlink', () => { removePasskeyBackup(); return true })
+
   // Can this build offer the passkey option at all? The renderer can't answer
   // (file:// has no WebAuthn), so main reports platform capability instead.
   ipcMain.handle('wallet:passkey-supported', () => passkeyCeremonySupported())
@@ -541,6 +619,54 @@ export function registerIpcHandlers(): void {
     const addresses = await deriveAddresses(cleaned)
     saveAddresses(addresses)
     _pendingMnemonic = cleaned
+    _pendingPasskey = null
+    return addresses
+  })
+
+  // ── Import from a passkey ──────────────────────────────────────────────
+  // The recovery counterpart of wallet:generate-passkey: re-derive the same
+  // wallet from the same passkey. Lands in exactly the same pending state as a
+  // typed import, so the rest of onboarding is untouched.
+  //
+  // `words` matters — the SAME passkey yields a different wallet at 12 vs 24
+  // (12 truncates the PRF to its leading 128 bits), so the user must restore
+  // with the length they created. The UI asks.
+  ipcMain.handle('wallet:import-passkey', async (event, words?: unknown) => {
+    const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+    const prfB64 = await importPasskeyPrf({ parent })
+    if (!prfB64) {
+      throw new Error(
+        'This device could not read a key from your passkey. Your passkey may be fine — some platforms cannot re-derive keys. Import your seed phrase instead.'
+      )
+    }
+    const entropy = Uint8Array.from(Buffer.from(prfB64, 'base64'))
+    let mnemonic: string
+    try {
+      // Two ways a passkey can reach a wallet, and they are not interchangeable:
+      //  - LINKED: an existing seed was wrapped under this passkey. Unwrap it.
+      //  - GENERATED: the wallet came from these PRF bytes. Re-derive it.
+      // Try unwrapping first — if a blob exists it is the authoritative answer,
+      // and deriving instead would silently produce a DIFFERENT wallet.
+      if (hasPasskeyBackup()) {
+        try {
+          mnemonic = await mnemonicFromPasskeyBackup(entropy)
+        } catch {
+          // A linked wallet exists but THIS passkey cannot open it. Deriving
+          // instead would hand back a real, empty, DIFFERENT wallet that looks
+          // like a successful restore — funds could be sent to it. Fail loudly.
+          throw new Error(
+            'That passkey does not match the wallet linked on this device. Try the passkey you linked, or import your seed phrase.'
+          )
+        }
+      } else {
+        mnemonic = mnemonicFromEntropy(entropy, toWordCount(words))
+      }
+    } finally {
+      entropy.fill(0)
+    }
+    const addresses = await deriveAddresses(mnemonic)
+    saveAddresses(addresses)
+    _pendingMnemonic = mnemonic
     _pendingPasskey = null
     return addresses
   })

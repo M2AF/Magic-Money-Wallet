@@ -241,6 +241,49 @@ export async function removeHello(): Promise<void> {
   if (touchIdPlatformOk()) await touchIdDeleteMaterial()
 }
 
+// ─── Passkey recovery blob ───────────────────────────────────────────────────
+// Links an EXISTING wallet to a passkey. Distinct from wallet:generate-passkey,
+// which *derives* a wallet from PRF output and so only ever applies to wallets
+// that passkey created. An arbitrary seed cannot be derived from a passkey, so
+// the only way to reach it later is to store the phrase encrypted under a key
+// the passkey produces — envelope encryption — and unwrap it on the way back.
+//
+// Deliberately NOT wrapped in safeStorage (unlike wallet.hello.enc): safeStorage
+// binds ciphertext to this machine, which would defeat the point of a recovery
+// factor and block ever syncing the blob. The inner AES-256-GCM key comes from
+// 32 bytes of authenticator-held PRF output, which no other process can produce.
+
+const walletPasskeyPath = () => join(userData(), 'wallet.passkey.enc')
+
+/** Is this wallet linked to a passkey on this device? */
+export function hasPasskeyBackup(): boolean {
+  return existsSync(walletPasskeyPath())
+}
+
+/** Link the CURRENTLY-UNLOCKED wallet to `material` (32 bytes of PRF output). */
+export async function linkPasskey(material: Uint8Array): Promise<void> {
+  if (_unlockedMnemonic == null) throw new Error('Unlock the wallet first')
+  const blob = await encryptWithKeyMaterial(_unlockedMnemonic, material)
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(walletPasskeyPath(), JSON.stringify(blob))
+}
+
+/**
+ * Recover the phrase from the passkey blob. Throws when there is no blob, or
+ * when `material` is from a different passkey — AES-GCM authentication fails,
+ * which is the desired outcome rather than returning garbage.
+ */
+export async function mnemonicFromPasskeyBackup(material: Uint8Array): Promise<string> {
+  if (!hasPasskeyBackup()) throw new Error('No passkey is linked to a wallet on this device')
+  const blob = JSON.parse(readFileSync(walletPasskeyPath(), 'utf-8')) as EncryptedBlob
+  return normalizeMnemonic(await decryptWithKeyMaterial(blob, material))
+}
+
+/** Unlink: drop the encrypted copy. The passkey itself is the user's to delete. */
+export function removePasskeyBackup(): void {
+  if (existsSync(walletPasskeyPath())) unlinkSync(walletPasskeyPath())
+}
+
 export function isUnlocked(): boolean {
   return _unlockedMnemonic !== null
 }
@@ -262,6 +305,12 @@ export function deleteWallet(): void {
   if (existsSync(walletHelloPath())) unlinkSync(walletHelloPath())
   if (helloPlatformOk()) { void runHello('delete', HELLO_KEY_NAME).catch(() => { /* best effort */ }) }
   if (touchIdPlatformOk()) { void touchIdDeleteMaterial() }
+  // The passkey recovery copy deliberately SURVIVES wallet deletion. It is a
+  // backup, and destroying it here would make it useless for the one job it
+  // has — restoring after the wallet is gone. (Shipping it the other way meant
+  // import found no blob and silently DERIVED a different wallet instead.)
+  // It stays encrypted under a key only a user-verified passkey can produce,
+  // and Settings → "Passkey recovery — On → tap to unlink" removes it.
   _unlockedMnemonic = null
   addressesCache = null
   addressesCached = false

@@ -283,7 +283,67 @@ export function restoreUnlockedSession(mnemonic: string): void {
 export async function deleteWallet(): Promise<void> {
   await Preferences.remove({ key: 'wallet.enc' })
   await Preferences.remove({ key: 'wallet.addresses' })
+  // The passkey recovery copy deliberately SURVIVES wallet deletion — it is a
+  // backup, and destroying it defeats the one job it has (mirrors
+  // secure-store.ts). Unlink in Settings to remove it.
   clearUnlockedMnemonic()
+}
+
+// ── Passkey recovery blob (link an EXISTING wallet to a passkey) ──────────────
+// Envelope encryption under 32 bytes of WebAuthn PRF output, mirroring
+// secure-store.ts on Electron. Distinct from generate-with-passkey, which
+// DERIVES a wallet from those bytes and stores nothing.
+//
+// The key material is already 32 uniform bytes from HMAC-SHA-256, so it is
+// imported directly as an AES-256 key — no PBKDF2. Stretching a
+// high-entropy key would add cost without adding strength.
+
+const PASSKEY_BLOB_KEY = 'wallet.passkey.enc'
+
+interface PasskeyBlob { iv: number[]; data: number[] }
+
+async function aesKeyFromMaterial(material: Uint8Array): Promise<CryptoKey> {
+  if (material.length !== 32) throw new Error('Passkey key material must be 32 bytes')
+  // Copy into a fresh ArrayBuffer-backed view — importKey rejects shared buffers.
+  const raw = new Uint8Array(32)
+  raw.set(material)
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+}
+
+export async function hasPasskeyBackup(): Promise<boolean> {
+  return (await prefGet<PasskeyBlob>(PASSKEY_BLOB_KEY)) !== null
+}
+
+/** Link the CURRENTLY-UNLOCKED wallet to `material` (32 bytes of PRF output). */
+export async function linkPasskey(material: Uint8Array): Promise<void> {
+  const mnemonic = getUnlockedMnemonic()
+  if (!mnemonic) throw new Error('Unlock the wallet first')
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const key = await aesKeyFromMaterial(material)
+  const ct = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv }, key, new TextEncoder().encode(normalizeMnemonic(mnemonic))
+  )
+  await prefSet(PASSKEY_BLOB_KEY, { iv: Array.from(iv), data: Array.from(new Uint8Array(ct)) })
+}
+
+/**
+ * Recover the phrase from the passkey blob. Throws when nothing is linked, or
+ * when `material` is from a different passkey — AES-GCM authentication fails,
+ * which is the desired outcome rather than returning garbage.
+ */
+export async function mnemonicFromPasskeyBackup(material: Uint8Array): Promise<string> {
+  const blob = await prefGet<PasskeyBlob>(PASSKEY_BLOB_KEY)
+  if (!blob) throw new Error('No passkey is linked to a wallet on this device')
+  const key = await aesKeyFromMaterial(material)
+  const pt = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: new Uint8Array(blob.iv) }, key, new Uint8Array(blob.data)
+  )
+  return normalizeMnemonic(new TextDecoder().decode(pt))
+}
+
+/** Unlink: drop the encrypted copy. The passkey itself is the user's to delete. */
+export async function removePasskeyBackup(): Promise<void> {
+  await Preferences.remove({ key: PASSKEY_BLOB_KEY })
 }
 
 // ── Temp mnemonic during create/import flow (before password is set) ──────────

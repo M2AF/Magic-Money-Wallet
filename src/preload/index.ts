@@ -17,6 +17,11 @@ contextBridge.exposeInMainWorld('wallet', {
   generateWithPasskey: (words?: 12 | 24) => ipcRenderer.invoke('wallet:generate-passkey', words),
   passkeySupported:    ()                => ipcRenderer.invoke('wallet:passkey-supported'),
   passkeyVerify:       ()                => ipcRenderer.invoke('wallet:passkey-verify'),
+  importWithPasskey:   (words?: 12 | 24) => ipcRenderer.invoke('wallet:import-passkey', words),
+  // Link/unlink an EXISTING wallet to a passkey (envelope encryption).
+  passkeyLink:         ()                => ipcRenderer.invoke('wallet:passkey-link'),
+  passkeyLinked:       ()                => ipcRenderer.invoke('wallet:passkey-linked'),
+  passkeyUnlink:       ()                => ipcRenderer.invoke('wallet:passkey-unlink'),
   clearBrowsingData:   ()                => ipcRenderer.invoke('browser:clear-data'),
   validate:      (mnemonic: string)  => ipcRenderer.invoke('wallet:validate', mnemonic),
   confirmBackup: ()                  => ipcRenderer.invoke('wallet:confirm-backup'),

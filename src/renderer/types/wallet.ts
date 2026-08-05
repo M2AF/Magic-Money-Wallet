@@ -484,6 +484,21 @@ declare global {
       /** Whether to offer the passkey option at all. Absent = never offer. */
       passkeySupported?(): Promise<boolean>
       /**
+       * Recover a wallet from a passkey — the counterpart of
+       * generateWithPasskey. `words` must match the length the wallet was
+       * created with: the same passkey yields a different wallet at 12 vs 24.
+       * Rejects where the platform won't evaluate PRF at assertion.
+       */
+      importWithPasskey?(words?: 12 | 24): Promise<WalletAddresses>
+      /**
+       * Link the unlocked wallet to a NEW passkey by wrapping the phrase under
+       * its PRF output. Rejects (and stores nothing) on platforms that can mint
+       * PRF but not read it back, since that blob could never be opened.
+       */
+      passkeyLink?(): Promise<boolean>
+      passkeyLinked?(): Promise<boolean>
+      passkeyUnlink?(): Promise<boolean>
+      /**
        * Ask the passkey to reproduce the pending wallet. USER-INITIATED ONLY:
        * it prompts again and raises an OS error dialog on platforms that mint
        * PRF at registration but refuse it at assertion. false = "can't", never

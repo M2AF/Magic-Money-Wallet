@@ -68,6 +68,28 @@ export async function verifyPasskeyPrf(opts: {
 }
 
 /**
+ * Recover a wallet: ask ANY passkey for this relying party to produce its PRF
+ * output. No credential is passed, so the platform offers whichever discoverable
+ * passkeys it holds and the user picks — which is the whole point when restoring
+ * on a device that has no wallet and therefore no stored credential id.
+ *
+ * Returns null when the platform won't evaluate PRF at assertion (Windows Hello
+ * does exactly this — it mints PRF at registration and refuses it here), so
+ * callers must present that as "this device can't read your passkey", never as
+ * "your passkey is wrong".
+ */
+export async function importPasskeyPrf(opts: {
+  parent?: BrowserWindow
+}): Promise<string | null> {
+  const result = await runCeremonyWindow({
+    mode: 'verify',
+    parent: opts.parent,
+    timeoutMs: CEREMONY_TIMEOUT_MS,
+  }).catch(() => null)
+  return (result as { prfB64?: string | null } | null)?.prfB64 ?? null
+}
+
+/**
  * Is the passkey option worth offering on this machine? Runs the ceremony page
  * hidden and asks it, WITHOUT any prompt (isUserVerifyingPlatformAuthenticator
  * + getClientCapabilities are both silent).
