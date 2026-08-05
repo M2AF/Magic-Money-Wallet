@@ -46,7 +46,13 @@ const config: CapacitorConfig = {
     // under the system nav bar (it overlapped the app's bottom nav). 'auto'
     // makes Capacitor inset the WebView on affected devices; older Androids
     // are untouched. (Capacitor 7 defaults to 'disable'; 8 flips to 'auto'.)
-    adjustMarginsForEdgeToEdge: 'auto'
+    adjustMarginsForEdgeToEdge: 'auto',
+    // OPT-IN web inspection, same doctrine as the iOS block below: an
+    // inspectable WebView in a shipped wallet lets anyone with the device read
+    // the running page, so this is never unconditional. Set CAP_WEB_DEBUG=1 to
+    // attach Chrome DevTools over adb (used to verify WebAuthn/PRF behaviour in
+    // the real WebView origin rather than in a browser).
+    ...(process.env.CAP_WEB_DEBUG === '1' ? { webContentsDebuggingEnabled: true } : {})
   },
   ios: {
     // The app paints its own background under the notch/home indicator; safe

@@ -37,9 +37,17 @@ export function CreatePage({ onNavigate, wordCount, onWordCountChange }: Props) 
   }
 
   // Capability check runs once, only on this screen, and shows no prompt.
+  //
+  // The method is OPTIONAL — absent on the browser extension, and on any target
+  // that can't run WebAuthn. `fn?.().then()` does NOT guard that: optional
+  // chaining stops at the call, so `.then` on the resulting undefined throws a
+  // TypeError inside the effect and React blanks the whole page. Resolve the
+  // function first, and bail if it isn't there.
   useEffect(() => {
+    const probe = window.wallet.passkeySupported
+    if (typeof probe !== 'function') return
     let cancelled = false
-    window.wallet.passkeySupported?.()
+    Promise.resolve(probe.call(window.wallet))
       .then(ok => { if (!cancelled) setPasskeyOffered(!!ok) })
       .catch(() => { /* option stays hidden */ })
     return () => { cancelled = true }

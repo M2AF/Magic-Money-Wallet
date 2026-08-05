@@ -26,7 +26,18 @@ import {
 } from '../renderer/lib/passkey-prf'
 import { mnemonicFromEntropy, toWordCount } from '../main/wallet-core'
 
-const RP_ID = 'localhost'
+/**
+ * NOT 'localhost' — that only works in a browser, where the page's own origin is
+ * localhost. In the app the WebView runs WebAuthn in FOR_APP mode (see
+ * MainActivity.enableWebAuthn), where the APP is the relying party and Android
+ * authorises it by fetching this domain's /.well-known/assetlinks.json and
+ * matching our signing certificate. So the rpId must be a domain we control.
+ *
+ * Consequence: Android passkeys and desktop passkeys (rpId 'localhost', served
+ * from the loopback ceremony window) are DIFFERENT credentials. That is fine —
+ * each is an independent door onto the same wallet.
+ */
+const RP_ID = 'chainlensnft.info'
 const RP_NAME = 'MagicMoney Wallet'
 
 /** Prompt-free: can this device offer the passkey option? */

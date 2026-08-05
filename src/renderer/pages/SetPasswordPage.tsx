@@ -92,8 +92,13 @@ export function SetPasswordPage({ mode, origin = 'created', onComplete }: Props)
       await window.wallet.setPassword(password)
       // Best-effort: the wallet is already saved, so a failure here must not
       // strand the user on the password screen.
+      // Same trap as CreatePage's capability probe: `fn?.()` yields undefined
+      // when the method is absent, so `.catch` on it would throw. Resolve first.
       if (offerSignOut && signOutSites) {
-        await window.wallet.clearBrowsingData?.().catch(() => {})
+        const clear = window.wallet.clearBrowsingData
+        if (typeof clear === 'function') {
+          await Promise.resolve(clear.call(window.wallet)).catch(() => {})
+        }
       }
       setPassword(''); setConfirm('')
       onComplete()
