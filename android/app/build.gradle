@@ -139,6 +139,10 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     // DappBrowserPlugin: addDocumentStartJavaScript + addWebMessageListener
     implementation "androidx.webkit:webkit:$androidxWebkitVersion"
+    // Lets the wallet act as a system passkey provider (Android 14+), so its
+    // seed-derived passkeys work in Chrome/Brave/Samsung Internet — and, unlike
+    // Samsung Pass, in the wallet's own browser too.
+    implementation "androidx.credentials:credentials:$androidxCredentialsVersion"
     // Embedded Tor runtime for Android. The previous arti-mobile AAR was built
     // without onion-service-client support, so .onion requests were rejected
     // after an ordinary Tor exit had already been verified. tor-android embeds

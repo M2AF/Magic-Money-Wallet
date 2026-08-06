@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- allowBackup=false: never let the encrypted vault ride device/cloud backups -->
     <application
@@ -60,6 +61,31 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Lets the wallet appear beside Google Password Manager and Samsung
+             Pass under Settings > Passwords, passkeys & accounts, so its
+             seed-derived passkeys work in every browser.
+
+             android:permission restricts binding to the system. Android 14+
+             only (CredentialProviderService); below that the service is never
+             bound and nothing else changes.
+
+             PHASE 0: measurement only — returns no entries and does no crypto.
+             The user must still enable it in Settings before it is ever called. -->
+        <service
+            android:name="info.chainlens.magicmoney.passkey.MagicMoneyCredentialProviderService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="Magic Money"
+            android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
+            tools:targetApi="upside_down_cake">
+            <intent-filter>
+                <action android:name="android.service.credentials.CredentialProviderService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.credentials.provider"
+                android:resource="@xml/provider" />
+        </service>
     </application>
 
     <!--

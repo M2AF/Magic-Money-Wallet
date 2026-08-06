@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Credential types the wallet offers the system.
+
+  Passkeys only: the wallet is not a password manager, and claiming
+  TYPE_PASSWORD_CREDENTIAL would put it in every password prompt on the device
+  for a capability it does not have.
+-->
+<credential-provider xmlns:android="http://schemas.android.com/apk/res/android">
+    <capabilities>
+        <capability name="androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL" />
+    </capabilities>
+</credential-provider>

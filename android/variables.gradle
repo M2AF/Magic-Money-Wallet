@@ -14,6 +14,9 @@ ext {
     androidxFragmentVersion = '1.8.4'
     coreSplashScreenVersion = '1.0.1'
     androidxWebkitVersion = '1.12.1'
+    // Credential Manager PROVIDER api (CredentialProviderService) — Android 14+
+    // only, so the service is gated at runtime and simply never bound below 34.
+    androidxCredentialsVersion = '1.5.0'
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'
