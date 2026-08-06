@@ -87,6 +87,35 @@ export function makeCapacitorConfig(opts: CapacitorTargetOptions): UserConfig {
         },
       },
       {
+        /**
+         * Build dapp-inject.js INTO the bundle, rather than as a separate step
+         * in the npm script after vite has run.
+         *
+         * `emptyOutDir: true` above wipes the whole output directory, so when
+         * this was a trailing `&& npx esbuild …` in package.json, any invocation
+         * of vite on its own — `vite build --config vite.capacitor.config.ts`,
+         * which is a perfectly natural thing to run — deleted the injector and
+         * did not put it back. A later `cap sync` then copied an asset set with
+         * no dapp-inject.js into android/app/src/main/assets/public/, and
+         * DappBrowserPlugin.readAsset("public/dapp-inject.js") found nothing.
+         *
+         * The failure is silent and total: no provider is installed on any dApp
+         * page, so EVERY chain's connection breaks at once with no error in the
+         * app. Generating it here ties it to the build that erases it.
+         */
+        name: 'build-dapp-inject',
+        async closeBundle() {
+          const esbuild = await import('esbuild')
+          await esbuild.build({
+            entryPoints: [r('src/capacitor/dapp-inject.ts')],
+            bundle: true,
+            format: 'iife',
+            minify: true,
+            outfile: r(outDir, 'dapp-inject.js'),
+          })
+        },
+      },
+      {
         // Per-target resources (see CapacitorTargetOptions.extraCopies).
         name: 'copy-target-resources',
         closeBundle() {
