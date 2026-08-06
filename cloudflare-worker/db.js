@@ -98,24 +98,38 @@ export async function handleDb(request, url, env, ctx) {
 /**
  * Which account does this EVM address belong to?
  *
- * One address can legitimately appear under several accounts (you sign in with
- * it on one, someone adds it watch-only on another), so "first row PostgREST
- * happens to return" is not an answer — it makes the wallet show a different
- * profile on different loads. Order explicitly:
- *   watch_only asc  → an account that PROVED ownership beats a watch-only link
- *   verified_at asc → among those, the oldest link wins, so the answer is stable
+ * One address can legitimately sit under several accounts — you sign in with it
+ * on one, someone adds it watch-only on another — so "whichever row the database
+ * returned first" is not an answer: it makes the wallet show a different profile
+ * on different loads, with no code change in between.
+ *
+ * Accounts that PROVED ownership (watch_only=false) always beat watch-only ones.
  */
-function ownerQuery(evmAddress, verifiedOnly) {
-  return `cl_wallets?address=eq.${evmAddress}&chain=eq.evm`
-    + (verifiedOnly ? '&watch_only=eq.false' : '')
-    + '&select=user_id,watch_only,verified_at'
-    + '&order=watch_only.asc,verified_at.asc.nullslast&limit=1'
+async function candidateOwners(evmAddress, env, verifiedOnly) {
+  const wRes = await sb(env, `cl_wallets?address=eq.${evmAddress}&chain=eq.evm&select=user_id,watch_only`, { method: 'GET' })
+  const rows = wRes.ok ? await wRes.json().catch(() => []) : []
+  const verified = rows.filter(r => r.watch_only === false).map(r => r.user_id)
+  if (verifiedOnly) return [...new Set(verified)]
+  return [...new Set(verified.length ? verified : rows.map(r => r.user_id))]
+}
+
+/**
+ * Tie-break on cl_users.created_at: the ORIGINAL account wins.
+ *
+ * Deliberately not cl_wallets.verified_at — every sync rewrites that, so an
+ * ordering built on it would flip to a different account the moment you pressed
+ * Connect. created_at never changes, so this returns the same answer forever.
+ */
+async function pickOwner(ids, env) {
+  if (ids.length <= 1) return ids[0] ?? null
+  const list = ids.map(encodeURIComponent).join(',')
+  const uRes = await sb(env, `cl_users?id=in.(${list})&select=id,created_at&order=created_at.asc.nullslast&limit=1`, { method: 'GET' })
+  const rows = uRes.ok ? await uRes.json().catch(() => []) : []
+  return rows[0]?.id ?? ids[0]
 }
 
 async function getProfileByAddress(evmAddress, env) {
-  const wRes = await sb(env, ownerQuery(evmAddress, false), { method: 'GET' })
-  const wallets = wRes.ok ? await wRes.json().catch(() => []) : []
-  const userId = wallets[0]?.user_id
+  const userId = await pickOwner(await candidateOwners(evmAddress, env, false), env)
   if (!userId) return null
   const uRes = await sb(env, `cl_users?id=eq.${encodeURIComponent(userId)}&select=*,cl_wallets(*),cl_linked_accounts(*)`, { method: 'GET' })
   const users = uRes.ok ? await uRes.json().catch(() => []) : []
@@ -140,8 +154,7 @@ async function syncWallets(addresses, env) {
   //    watch-only link would let anyone who adds your address to their profile
   //    absorb your Solana/Cardano/BTC addresses on your next sync.
   let user = null
-  const oRes = await sb(env, ownerQuery(evmLower, true), { method: 'GET' })
-  const ownerId = (oRes.ok ? await oRes.json().catch(() => []) : [])[0]?.user_id
+  const ownerId = await pickOwner(await candidateOwners(evmLower, env, true), env)
   if (ownerId) {
     const eRes = await sb(env, `cl_users?id=eq.${encodeURIComponent(ownerId)}&select=*`, { method: 'GET' })
     user = (eRes.ok ? await eRes.json().catch(() => []) : [])[0] ?? null

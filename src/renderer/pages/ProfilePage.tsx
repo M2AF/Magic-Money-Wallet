@@ -364,7 +364,10 @@ export function ProfilePage() {
           </div>
         </div>
 
-        <button type="button" onClick={handleSync} disabled={syncing} title="Refresh profile"
+        {/* This WRITES: it re-signs ownership and re-links every address, so the
+            label says so. "Refresh" read like a read-only reload and left no
+            obvious way to push newly added addresses to ChainLens. */}
+        <button type="button" onClick={handleSync} disabled={syncing} title="Sync my addresses to ChainLens"
           style={{ background: 'none', border: 'none', cursor: syncing ? 'default' : 'pointer', color: syncing ? 'var(--text-muted)' : 'var(--accent)', fontSize: 18, padding: 4 }}>
           {syncing ? '⏳' : '↻'}
         </button>
