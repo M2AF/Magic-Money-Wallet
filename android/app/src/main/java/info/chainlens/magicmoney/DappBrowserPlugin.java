@@ -43,6 +43,7 @@ import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
+import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewCompat;
 import androidx.webkit.WebViewFeature;
 
@@ -1293,6 +1294,36 @@ public class DappBrowserPlugin extends Plugin {
         pushTabsChanged();
     }
 
+    /**
+     * Let sites in the dApp browser use passkeys (WebAuthn).
+     *
+     * Without this a plain WebView has no window.PublicKeyCredential at all, so
+     * passkey prompts silently never appear — measured on a real device against
+     * chainlensnft.info, where the whole passkey UI simply refused to show.
+     *
+     * FOR_BROWSER, deliberately NOT the FOR_APP used in MainActivity. The two
+     * mean opposite things about who the relying party is:
+     *   FOR_APP     — THIS APP is the RP. Right for the wallet's own WebView,
+     *                 where the page we serve IS us.
+     *   FOR_BROWSER — the VISITED SITE is the RP, exactly like Chrome. Right
+     *                 here, where we render other people's origins.
+     * Using FOR_APP here would bind every credential to MagicMoney instead of to
+     * the site the user thinks they're registering with — credentials that would
+     * not work in any other browser and could not be undone afterwards.
+     *
+     * Guarded and swallowed: on a device whose WebView predates the API the
+     * browser keeps working without passkeys, which sites can feature-detect.
+     */
+    private void enableBrowserWebAuthn(WebSettings s) {
+        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) return;
+        try {
+            WebSettingsCompat.setWebAuthenticationSupport(
+                    s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER);
+        } catch (Exception e) {
+            // Optional capability — never break tab creation over it.
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private Tab createTab(String url) {
         Tab tab = new Tab();
@@ -1308,6 +1339,7 @@ public class DappBrowserPlugin extends Plugin {
         // dApp pages get a normal mobile browsing identity; no file/content access.
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
+        enableBrowserWebAuthn(s);
 
         // Origin-authenticated message bridge (main frame only — mirrors the
         // extension's content-script scope).
