@@ -95,8 +95,25 @@ export async function handleDb(request, url, env, ctx) {
   return err(env, 'Not found', 404)
 }
 
+/**
+ * Which account does this EVM address belong to?
+ *
+ * One address can legitimately appear under several accounts (you sign in with
+ * it on one, someone adds it watch-only on another), so "first row PostgREST
+ * happens to return" is not an answer — it makes the wallet show a different
+ * profile on different loads. Order explicitly:
+ *   watch_only asc  → an account that PROVED ownership beats a watch-only link
+ *   verified_at asc → among those, the oldest link wins, so the answer is stable
+ */
+function ownerQuery(evmAddress, verifiedOnly) {
+  return `cl_wallets?address=eq.${evmAddress}&chain=eq.evm`
+    + (verifiedOnly ? '&watch_only=eq.false' : '')
+    + '&select=user_id,watch_only,verified_at'
+    + '&order=watch_only.asc,verified_at.asc.nullslast&limit=1'
+}
+
 async function getProfileByAddress(evmAddress, env) {
-  const wRes = await sb(env, `cl_wallets?address=eq.${evmAddress}&chain=eq.evm&select=user_id`, { method: 'GET' })
+  const wRes = await sb(env, ownerQuery(evmAddress, false), { method: 'GET' })
   const wallets = wRes.ok ? await wRes.json().catch(() => []) : []
   const userId = wallets[0]?.user_id
   if (!userId) return null
@@ -109,15 +126,37 @@ async function syncWallets(addresses, env) {
   const evmLower = String(addresses.evm).toLowerCase()
   const shortAddr = `${evmLower.slice(0, 6)}…${evmLower.slice(-4)}`
 
-  // 1. Upsert identity (provider,provider_id unique), return the row.
-  const uRes = await sb(env, 'cl_users?on_conflict=provider,provider_id&select=*', {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-    body: JSON.stringify({ provider: 'evm_wallet', provider_id: evmLower, display_name: shortAddr, avatar_url: null, email: null }),
-  })
-  if (!uRes.ok) return { success: false, profile: null, error: `upsert failed ${uRes.status}` }
-  const user = (await uRes.json().catch(() => []))[0]
-  if (!user) return { success: false, profile: null, error: 'upsert failed' }
+  // 1. Identity. Join the account this address ALREADY belongs to, if there is
+  //    one, instead of minting a parallel identity for the same person.
+  //
+  //    Someone who signed in on the ChainLens website with a Solana wallet has a
+  //    cl_users row keyed ('solana_wallet', <sol addr>) carrying their Google and
+  //    Discord links. Upserting ('evm_wallet', <evm addr>) unconditionally built
+  //    a SECOND account for that same human: the wallet showed a profile with no
+  //    socials, and the one EVM address then resolved to two different accounts
+  //    depending on which row the database returned first.
+  //
+  //    Only signature-proved links are adopted (watch_only=false). Honouring a
+  //    watch-only link would let anyone who adds your address to their profile
+  //    absorb your Solana/Cardano/BTC addresses on your next sync.
+  let user = null
+  const oRes = await sb(env, ownerQuery(evmLower, true), { method: 'GET' })
+  const ownerId = (oRes.ok ? await oRes.json().catch(() => []) : [])[0]?.user_id
+  if (ownerId) {
+    const eRes = await sb(env, `cl_users?id=eq.${encodeURIComponent(ownerId)}&select=*`, { method: 'GET' })
+    user = (eRes.ok ? await eRes.json().catch(() => []) : [])[0] ?? null
+  }
+
+  if (!user) {
+    const uRes = await sb(env, 'cl_users?on_conflict=provider,provider_id&select=*', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ provider: 'evm_wallet', provider_id: evmLower, display_name: shortAddr, avatar_url: null, email: null }),
+    })
+    if (!uRes.ok) return { success: false, profile: null, error: `upsert failed ${uRes.status}` }
+    user = (await uRes.json().catch(() => []))[0]
+    if (!user) return { success: false, profile: null, error: 'upsert failed' }
+  }
 
   // 2. Link all wallet addresses.
   const now = new Date().toISOString()
