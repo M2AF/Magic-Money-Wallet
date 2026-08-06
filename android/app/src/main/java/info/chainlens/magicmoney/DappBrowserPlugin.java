@@ -1315,12 +1315,15 @@ public class DappBrowserPlugin extends Plugin {
      * browser keeps working without passkeys, which sites can feature-detect.
      */
     private void enableBrowserWebAuthn(WebSettings s) {
-        if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) return;
+        boolean supported = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION);
+        Log.i("MagicMoneyWebAuthn", "WEB_AUTHENTICATION feature supported=" + supported);
+        if (!supported) return;
         try {
             WebSettingsCompat.setWebAuthenticationSupport(
                     s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_BROWSER);
-        } catch (Exception e) {
-            // Optional capability — never break tab creation over it.
+            Log.i("MagicMoneyWebAuthn", "FOR_BROWSER applied");
+        } catch (Throwable e) {
+            Log.e("MagicMoneyWebAuthn", "FOR_BROWSER failed", e);
         }
     }
 
