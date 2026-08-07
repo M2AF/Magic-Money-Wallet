@@ -78,6 +78,17 @@ async function promptTouchId(reason: string): Promise<void> {
 }
 
 /**
+ * Verification only — the Touch ID sheet with no keychain access at all.
+ *
+ * Used by the passkey gate (passkey-manager.ts), which needs to prove the user
+ * is present but must never read or create the unlock material: a passkey prompt
+ * has no business touching wallet.hello.enc's key. Rejects on cancel/failure.
+ */
+export async function touchIdVerify(reason: string): Promise<void> {
+  await promptTouchId(reason)
+}
+
+/**
  * Enroll: verify the user with Touch ID, then mint fresh 32-byte key material
  * and store it in the login keychain (replacing any previous item). Returns
  * the material for the caller to HKDF-wrap the mnemonic with.

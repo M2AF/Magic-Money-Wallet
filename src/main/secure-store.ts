@@ -311,6 +311,11 @@ export function deleteWallet(): void {
   // import found no blob and silently DERIVED a different wallet instead.)
   // It stays encrypted under a key only a user-verified passkey can produce,
   // and Settings → "Passkey recovery — On → tap to unlink" removes it.
+  //
+  // The passkey CREDENTIAL INDEX (passkey-index.enc, passkey-store.ts) survives
+  // for the same reason and must not be added here: the credentials it describes
+  // live in the seed, so they outlast this install. It is encrypted under the
+  // wallet's own webauthnRoot, so a different wallet cannot read it either way.
   _unlockedMnemonic = null
   addressesCache = null
   addressesCached = false
