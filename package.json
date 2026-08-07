@@ -21,6 +21,7 @@
     "test:tor": "esbuild src/main/tor-manager.ts --bundle --platform=node --format=cjs --external:electron --outfile=out/tor-smoke-manager.cjs && electron scripts/tor-smoke.cjs",
     "test:magic-guard-engine": "electron scripts/magic-guard-engine-smoke.cjs",
     "test:watch": "vitest",
+    "webauthn:vectors": "node scripts/gen-webauthn-vectors.mjs",
     "postinstall": "patch-package",
     "predev": "node scripts/convert-apphub.js",
     "dev": "npm run build:inject && electron-vite dev",
@@ -90,6 +91,7 @@
   "devDependencies": {
     "@capacitor/cli": "^7.6.7",
     "@playwright/test": "^1.61.1",
+    "@simplewebauthn/server": "^13.3.2",
     "@types/chrome": "^0.2.2",
     "@types/node": "^20.14.0",
     "@types/qrcode": "^1.5.6",

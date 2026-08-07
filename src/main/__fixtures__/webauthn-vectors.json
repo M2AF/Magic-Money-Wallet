@@ -1,0 +1,206 @@
+{
+  "$comment": "CONTRACT — the TypeScript core and the Android Java port must both reproduce every value here byte-for-byte. Regenerate with `node scripts/gen-webauthn-vectors.mjs`. Mnemonics and private keys are PUBLIC test values; nothing here is secret.",
+  "spec": {
+    "version": "v1",
+    "rootSalt": "magicmoney/webauthn",
+    "rootInfo": "v1 for accountIndex 0, otherwise v1/<accountIndex>",
+    "macKeyInfo": "cred-id-mac",
+    "credentialIdFormat": "0x01 || nonce(16) || HMAC-SHA256(macKey, rpIdHash||nonce)[0..15]",
+    "credentialIdVersion": 1,
+    "scalarDerivation": "HKDF-Expand(root, info=rpIdHash(32)||nonce(16)||ctr(1), 32), rejection-sampled into [1, n-1]; ctr starts at 0",
+    "aaguid": "2c4b3c62a6fc6b9f47f24ede41f1b4bf",
+    "signCount": 0,
+    "flags": "UP|UV|BE|BS (|AT on registration) = 0x5d registration, 0x1d assertion",
+    "attestationFormat": "none",
+    "signature": "ES256 over SHA-256(authenticatorData || clientDataHash), RFC 6979 deterministic k, low-S normalised, ASN.1 DER"
+  },
+  "vectors": [
+    {
+      "label": "foundry/account0/chainlensnft.info",
+      "mnemonic": "test test test test test test test test test test test junk",
+      "accountIndex": 0,
+      "rpId": "chainlensnft.info",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "webauthnRoot": "e032dfd540a5c7ba32916e1c43ee8cfde0fbc6fd794c1e042db78ac88d906980",
+      "macKey": "01da683c0c9a76695a53bfa73506c38db4a6dee745eff2b7668e0aba788cee53",
+      "rpIdHash": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc60911798",
+      "scalarCounter": 0,
+      "privateKey": "c0a4f90de5159d347a0131b6f6861f29253c326419100179f6e3a0df779d021e",
+      "publicKeyUncompressed": "044024eb8f0fbdc0b53bd0f00d2cf176e4368d9b2792767c00360614e2fb432af16c3c6615a662a7df3081e079410680dde6bb6b50cbe8e465132c53efba22abed",
+      "publicKeyX": "4024eb8f0fbdc0b53bd0f00d2cf176e4368d9b2792767c00360614e2fb432af1",
+      "publicKeyY": "6c3c6615a662a7df3081e079410680dde6bb6b50cbe8e465132c53efba22abed",
+      "coseKey": "a50102032620012158204024eb8f0fbdc0b53bd0f00d2cf176e4368d9b2792767c00360614e2fb432af12258206c3c6615a662a7df3081e079410680dde6bb6b50cbe8e465132c53efba22abed",
+      "credentialId": "01000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d9",
+      "credentialIdBase64url": "AQABAgMEBQYHCAkKCwwNDg-aTWtEjMD_nQDFK0li1TfZ",
+      "registration": {
+        "authData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d9a50102032620012158204024eb8f0fbdc0b53bd0f00d2cf176e4368d9b2792767c00360614e2fb432af12258206c3c6615a662a7df3081e079410680dde6bb6b50cbe8e465132c53efba22abed",
+        "attestationObject": "a363666d74646e6f6e656761747453746d74a068617574684461746158a5f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d9a50102032620012158204024eb8f0fbdc0b53bd0f00d2cf176e4368d9b2792767c00360614e2fb432af12258206c3c6615a662a7df3081e079410680dde6bb6b50cbe8e465132c53efba22abed"
+      },
+      "assertion": {
+        "clientDataHashSource": "magicmoney-vector-1",
+        "clientDataHash": "72222c4f524a077cb71a6c45e6705a16b3573a578ce9dd5af8e28adb8bf90298",
+        "authenticatorData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117981d00000000",
+        "signatureDer": "304402205cc3be7b39abc12b1a65db6cd33bc8b1e694aba480fdbb0b3043acc11506272d02200a551e0980de54e25b830df29686e8320f3f0696cfd1492870635c658e66aa51"
+      }
+    },
+    {
+      "label": "foundry/account0/example.com",
+      "mnemonic": "test test test test test test test test test test test junk",
+      "accountIndex": 0,
+      "rpId": "example.com",
+      "nonce": "fffcf9f6f3f0edeae7e4e1dedbd8d5d2",
+      "webauthnRoot": "e032dfd540a5c7ba32916e1c43ee8cfde0fbc6fd794c1e042db78ac88d906980",
+      "macKey": "01da683c0c9a76695a53bfa73506c38db4a6dee745eff2b7668e0aba788cee53",
+      "rpIdHash": "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce1947",
+      "scalarCounter": 0,
+      "privateKey": "f617717a0883a85b8ea58a0472b02d9c72a07e58606a847dc112460a1b60aaf9",
+      "publicKeyUncompressed": "04f442eafc350526464a4a1ff7c0e5bf2cc789ea5990f859c7a40d52712cf24397fb133a4b60c5425c0cb0042441252be0e37ddbcf788a6d1d5ff321e0ac615e8d",
+      "publicKeyX": "f442eafc350526464a4a1ff7c0e5bf2cc789ea5990f859c7a40d52712cf24397",
+      "publicKeyY": "fb133a4b60c5425c0cb0042441252be0e37ddbcf788a6d1d5ff321e0ac615e8d",
+      "coseKey": "a5010203262001215820f442eafc350526464a4a1ff7c0e5bf2cc789ea5990f859c7a40d52712cf24397225820fb133a4b60c5425c0cb0042441252be0e37ddbcf788a6d1d5ff321e0ac615e8d",
+      "credentialId": "01fffcf9f6f3f0edeae7e4e1dedbd8d5d2bb38c017ed96ea9d8fb73f00065065ac",
+      "credentialIdBase64url": "Af_8-fbz8O3q5-Th3tvY1dK7OMAX7ZbqnY-3PwAGUGWs",
+      "registration": {
+        "authData": "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce19475d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101fffcf9f6f3f0edeae7e4e1dedbd8d5d2bb38c017ed96ea9d8fb73f00065065aca5010203262001215820f442eafc350526464a4a1ff7c0e5bf2cc789ea5990f859c7a40d52712cf24397225820fb133a4b60c5425c0cb0042441252be0e37ddbcf788a6d1d5ff321e0ac615e8d",
+        "attestationObject": "a363666d74646e6f6e656761747453746d74a068617574684461746158a5a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce19475d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101fffcf9f6f3f0edeae7e4e1dedbd8d5d2bb38c017ed96ea9d8fb73f00065065aca5010203262001215820f442eafc350526464a4a1ff7c0e5bf2cc789ea5990f859c7a40d52712cf24397225820fb133a4b60c5425c0cb0042441252be0e37ddbcf788a6d1d5ff321e0ac615e8d"
+      },
+      "assertion": {
+        "clientDataHashSource": "magicmoney-vector-2",
+        "clientDataHash": "4fd78ad7752c9bff6741ce9913bfd90ae92280e5688ea00c7870b62be9ce3572",
+        "authenticatorData": "a379a6f6eeafb9a55e378c118034e2751e682fab9f2d30ab13d2125586ce19471d00000000",
+        "signatureDer": "3045022100f0c0864725405c438c9a29ad9a44e220b15201272e985be04338d1181fc85706022063ff8fdcd4f9097ee2fbc5b6ee11a29e9075cd19d769f79f2befb14746aaad8f"
+      }
+    },
+    {
+      "label": "foundry/account1/chainlensnft.info",
+      "mnemonic": "test test test test test test test test test test test junk",
+      "accountIndex": 1,
+      "rpId": "chainlensnft.info",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "webauthnRoot": "45f08207164f1f804c96d0644254d8c0246e3de8c9926554d3e0e45e77519bcb",
+      "macKey": "cc8e9ec198f7aa51f5c1e60c1422883c5782d6c80845e2e4a3e8ba4618b6a436",
+      "rpIdHash": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc60911798",
+      "scalarCounter": 0,
+      "privateKey": "ed03d68a1dd2e99a85117530821ebe7ce288212710f284233d0967df6cd4057f",
+      "publicKeyUncompressed": "0467426a5502cb081ce4e0a31a12e18ac7dfda997a6c3379a6d8ac0cfd6156a5a600e2cbbff0d1a463e4c452f0469b668ac23902a483c0247f678756c10e4a3a78",
+      "publicKeyX": "67426a5502cb081ce4e0a31a12e18ac7dfda997a6c3379a6d8ac0cfd6156a5a6",
+      "publicKeyY": "00e2cbbff0d1a463e4c452f0469b668ac23902a483c0247f678756c10e4a3a78",
+      "coseKey": "a501020326200121582067426a5502cb081ce4e0a31a12e18ac7dfda997a6c3379a6d8ac0cfd6156a5a622582000e2cbbff0d1a463e4c452f0469b668ac23902a483c0247f678756c10e4a3a78",
+      "credentialId": "01000102030405060708090a0b0c0d0e0f7791614edf1638bec9ad2f48f7b2337d",
+      "credentialIdBase64url": "AQABAgMEBQYHCAkKCwwNDg93kWFO3xY4vsmtL0j3sjN9",
+      "registration": {
+        "authData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0f7791614edf1638bec9ad2f48f7b2337da501020326200121582067426a5502cb081ce4e0a31a12e18ac7dfda997a6c3379a6d8ac0cfd6156a5a622582000e2cbbff0d1a463e4c452f0469b668ac23902a483c0247f678756c10e4a3a78",
+        "attestationObject": "a363666d74646e6f6e656761747453746d74a068617574684461746158a5f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0f7791614edf1638bec9ad2f48f7b2337da501020326200121582067426a5502cb081ce4e0a31a12e18ac7dfda997a6c3379a6d8ac0cfd6156a5a622582000e2cbbff0d1a463e4c452f0469b668ac23902a483c0247f678756c10e4a3a78"
+      },
+      "assertion": {
+        "clientDataHashSource": "magicmoney-vector-3",
+        "clientDataHash": "6ca7457b5b82f3eb6cc5ee51a3256a79e1c5903990340ea6470a6bc7314a84e6",
+        "authenticatorData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117981d00000000",
+        "signatureDer": "3044022014ed49d7ea34f4dea9019867ae5132ffa36c411f60bf0904909ea2628f7f62f002204965daa54a9262f38d878cde941e8e84abb409becc8708168ec1c4fa4c8e4a0c"
+      }
+    },
+    {
+      "label": "bip39-zero/account0/chainlensnft.info",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "accountIndex": 0,
+      "rpId": "chainlensnft.info",
+      "nonce": "000102030405060708090a0b0c0d0e0f",
+      "webauthnRoot": "f285852e74835521cec7a6a51726c8fe9cc0fb0308c907ae4a923e5c98cf93bd",
+      "macKey": "90e7e8746adf37534fcc647a0cfd4f9c08f918015b0ca8da1588fb7dff8221c0",
+      "rpIdHash": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc60911798",
+      "scalarCounter": 0,
+      "privateKey": "1fc8a49aa55552948383683a12f4c888361bd3424be7379f960d199ca30dc04e",
+      "publicKeyUncompressed": "04f66b72b726908e808cd0150b5350fce8953ec66b51165ad80723f105195bd56da397f39c27e623e926734ca8864cdd71fbb761ceaa2afba042e274faa2ab95f7",
+      "publicKeyX": "f66b72b726908e808cd0150b5350fce8953ec66b51165ad80723f105195bd56d",
+      "publicKeyY": "a397f39c27e623e926734ca8864cdd71fbb761ceaa2afba042e274faa2ab95f7",
+      "coseKey": "a5010203262001215820f66b72b726908e808cd0150b5350fce8953ec66b51165ad80723f105195bd56d225820a397f39c27e623e926734ca8864cdd71fbb761ceaa2afba042e274faa2ab95f7",
+      "credentialId": "01000102030405060708090a0b0c0d0e0fa66ea451b6bf9a8354d22d2cc0e3f647",
+      "credentialIdBase64url": "AQABAgMEBQYHCAkKCwwNDg-mbqRRtr-ag1TSLSzA4_ZH",
+      "registration": {
+        "authData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0fa66ea451b6bf9a8354d22d2cc0e3f647a5010203262001215820f66b72b726908e808cd0150b5350fce8953ec66b51165ad80723f105195bd56d225820a397f39c27e623e926734ca8864cdd71fbb761ceaa2afba042e274faa2ab95f7",
+        "attestationObject": "a363666d74646e6f6e656761747453746d74a068617574684461746158a5f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117985d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101000102030405060708090a0b0c0d0e0fa66ea451b6bf9a8354d22d2cc0e3f647a5010203262001215820f66b72b726908e808cd0150b5350fce8953ec66b51165ad80723f105195bd56d225820a397f39c27e623e926734ca8864cdd71fbb761ceaa2afba042e274faa2ab95f7"
+      },
+      "assertion": {
+        "clientDataHashSource": "magicmoney-vector-4",
+        "clientDataHash": "cfbcc1db0aad0ab96f59c7f9c7efe75033a9815343d076d0564fdfe9c9ed1202",
+        "authenticatorData": "f02ba30eab553d5d6096e130e1319cb22426dd251b7bf0f8325760bc609117981d00000000",
+        "signatureDer": "30440220306be04659a98191d9f968cb622ea10937d76deed7d3d2b37f20cf3beb6096070220191d7bb1862f5fad42cff235eaa88f9c7e2a5330ad2cf7a8deaeec04c95f2f1f"
+      }
+    },
+    {
+      "label": "bip39-zero/account0/webauthn.io",
+      "mnemonic": "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
+      "accountIndex": 0,
+      "rpId": "webauthn.io",
+      "nonce": "052a4f7499bee3082d52779cc1e60b30",
+      "webauthnRoot": "f285852e74835521cec7a6a51726c8fe9cc0fb0308c907ae4a923e5c98cf93bd",
+      "macKey": "90e7e8746adf37534fcc647a0cfd4f9c08f918015b0ca8da1588fb7dff8221c0",
+      "rpIdHash": "74a6ea9213c99c2f74b22492b320cf40262a94c1a950a0397f29250b60841ef0",
+      "scalarCounter": 0,
+      "privateKey": "9cb3e3d9530a9c6300bf88d6ac647dd79f0d94bf4cf3853c8d7bcaa7800c34a8",
+      "publicKeyUncompressed": "043100fb04e3856c9fc03f8e337a9baece8ef5570d71e2c739528a14edea3bc3b9aae960cd4c84aa26bcfd4163956611fb4166a28e1dd62b8c25ff61228da192fe",
+      "publicKeyX": "3100fb04e3856c9fc03f8e337a9baece8ef5570d71e2c739528a14edea3bc3b9",
+      "publicKeyY": "aae960cd4c84aa26bcfd4163956611fb4166a28e1dd62b8c25ff61228da192fe",
+      "coseKey": "a50102032620012158203100fb04e3856c9fc03f8e337a9baece8ef5570d71e2c739528a14edea3bc3b9225820aae960cd4c84aa26bcfd4163956611fb4166a28e1dd62b8c25ff61228da192fe",
+      "credentialId": "01052a4f7499bee3082d52779cc1e60b30869c04ad9b28326aafff058444311949",
+      "credentialIdBase64url": "AQUqT3SZvuMILVJ3nMHmCzCGnAStmygyaq__BYREMRlJ",
+      "registration": {
+        "authData": "74a6ea9213c99c2f74b22492b320cf40262a94c1a950a0397f29250b60841ef05d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101052a4f7499bee3082d52779cc1e60b30869c04ad9b28326aafff058444311949a50102032620012158203100fb04e3856c9fc03f8e337a9baece8ef5570d71e2c739528a14edea3bc3b9225820aae960cd4c84aa26bcfd4163956611fb4166a28e1dd62b8c25ff61228da192fe",
+        "attestationObject": "a363666d74646e6f6e656761747453746d74a068617574684461746158a574a6ea9213c99c2f74b22492b320cf40262a94c1a950a0397f29250b60841ef05d000000002c4b3c62a6fc6b9f47f24ede41f1b4bf002101052a4f7499bee3082d52779cc1e60b30869c04ad9b28326aafff058444311949a50102032620012158203100fb04e3856c9fc03f8e337a9baece8ef5570d71e2c739528a14edea3bc3b9225820aae960cd4c84aa26bcfd4163956611fb4166a28e1dd62b8c25ff61228da192fe"
+      },
+      "assertion": {
+        "clientDataHashSource": "magicmoney-vector-5",
+        "clientDataHash": "287799fe8918c6271880037f29c08d59e1687a0b0a2e2c5c0b1650a6cde1d4bf",
+        "authenticatorData": "74a6ea9213c99c2f74b22492b320cf40262a94c1a950a0397f29250b60841ef01d00000000",
+        "signatureDer": "3045022100b4294ba4d3793772956db966e928c71f6c382182f3a13cd4304120ca0e89c0b902200488343ed78847785e55db1ccd9b15f5c18faaf2ac63a65ae8dde3ee562ece29"
+      }
+    }
+  ],
+  "tamper": {
+    "rpId": "chainlensnft.info",
+    "mnemonic": "test test test test test test test test test test test junk",
+    "accountIndex": 0,
+    "mustReject": [
+      {
+        "why": "version byte flipped",
+        "credentialId": "00000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d9"
+      },
+      {
+        "why": "first nonce bit flipped",
+        "credentialId": "01010102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d9"
+      },
+      {
+        "why": "last nonce byte flipped",
+        "credentialId": "01000102030405060708090a0b0c0d0e8f9a4d6b448cc0ff9d00c52b4962d537d9"
+      },
+      {
+        "why": "first tag bit flipped",
+        "credentialId": "01000102030405060708090a0b0c0d0e0f9b4d6b448cc0ff9d00c52b4962d537d9"
+      },
+      {
+        "why": "last tag bit flipped",
+        "credentialId": "01000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d8"
+      },
+      {
+        "why": "truncated",
+        "credentialId": "01000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537"
+      },
+      {
+        "why": "extended",
+        "credentialId": "01000102030405060708090a0b0c0d0e0f9a4d6b448cc0ff9d00c52b4962d537d900"
+      },
+      {
+        "why": "empty",
+        "credentialId": ""
+      },
+      {
+        "why": "minted for a different rpId",
+        "credentialId": "01fffcf9f6f3f0edeae7e4e1dedbd8d5d2bb38c017ed96ea9d8fb73f00065065ac"
+      },
+      {
+        "why": "minted by a different mnemonic",
+        "credentialId": "01000102030405060708090a0b0c0d0e0fa66ea451b6bf9a8354d22d2cc0e3f647"
+      }
+    ]
+  }
+}
