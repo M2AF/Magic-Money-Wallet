@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY — this file lives in src/debug and never reaches release.
+
+  targetSdk 28+ blocks cleartext HTTP, so the in-app browser refuses the local
+  relying party used by scripts/passkey-device-verify.mjs with
+  net::ERR_CLEARTEXT_NOT_PERMITTED. That is correct behaviour for the internet
+  and wrong for a loopback test server, which is why the exception is scoped to
+  the loopback addresses and nothing else.
+
+  http://localhost is still a SECURE CONTEXT per the W3C definition of a
+  potentially trustworthy origin, so WebAuthn works over it — allowing cleartext
+  here does not weaken the passkey test, it is the only way to run it.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

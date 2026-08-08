@@ -36,7 +36,12 @@ const rp = require('../e2e/chainlens-rp.cjs')
 
 const PORT = Number(process.env.RP_PORT || 7799)
 const PKG = process.env.MM_PKG || 'info.chainlens.magicmoney.debug'
-const adb = (...args) => execFileSync('adb', args, { encoding: 'utf8' })
+// Windows adb.exe terminates every line with CRLF, so a trailing-anchored regex
+// like /\tdevice$/ never matches ("…\tdevice\r") — measured: 0 matches raw, 1
+// after normalising. Strip it once here rather than remembering to \r-strip at
+// each call site.
+const adb = (...args) =>
+  execFileSync('adb', args, { encoding: 'utf8' }).replace(/\r\n/g, '\n')
 
 const log = (...a) => console.log(...a)
 const fail = (m) => { console.error(`\n✗ ${m}`); process.exit(1) }
@@ -86,11 +91,35 @@ if (state.isUnlocked !== true) {
 adb('shell', 'am', 'start', '-a', 'android.intent.action.VIEW', '-d', server.url, '-n', `${PKG}/info.chainlens.magicmoney.MainActivity`)
 
 let site = null
-for (let i = 0; i < 40 && !site; i++) {
+for (let i = 0; i < 20 && !site; i++) {
   site = ctx.pages().find(p => p.url().includes(`:${PORT}`))
   if (!site) await new Promise(r => setTimeout(r, 500))
 }
-if (!site) fail('the page never opened in the in-app browser (is the app in the foreground?)')
+
+// A VIEW intent is DROPPED when MainActivity is already the top instance —
+// "Warning: Activity not started, intent has been delivered to currently
+// running top-most instance" — which is the normal case when someone has the
+// app open. Fall back to driving the UI the way a person would: open the
+// Browser tab, then point the dApp WebView at the local relying party.
+if (!site) {
+  log('intent went to the running instance — opening the in-app browser directly')
+  await wallet.evaluate(() => {
+    const el = [...document.querySelectorAll('button,a,div,span')]
+      .find(e => e.textContent.trim() === 'Browser' && e.offsetParent !== null)
+    el?.click()
+  }).catch(() => { /* already on the browser tab */ })
+
+  let tab = null
+  for (let i = 0; i < 20 && !tab; i++) {
+    tab = ctx.pages().find(p => p.url().startsWith('http') && !p.url().startsWith('https://localhost'))
+    if (!tab) await new Promise(r => setTimeout(r, 500))
+  }
+  if (tab) {
+    await tab.goto(server.url, { waitUntil: 'domcontentloaded', timeout: 20_000 }).catch(() => {})
+    site = ctx.pages().find(p => p.url().includes(`:${PORT}`)) || tab
+  }
+}
+if (!site) fail('the page never opened in the in-app browser (is the app unlocked and in the foreground?)')
 log('dApp tab:', site.url())
 
 // ── What the page can see ────────────────────────────────────────────────────
