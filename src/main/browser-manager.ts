@@ -1519,6 +1519,27 @@ export async function browserTryAutofillActiveTab(): Promise<void> {
 // is OUR HTML, so we control the look entirely; the user's decision comes back
 // over the `approval:respond` IPC.
 
+/**
+ * One selectable identity in a pick-one approval (a discoverable passkey
+ * sign-in that matched several credentials). Rendered as a radio list; the id
+ * comes back on ApprovalDecision.
+ */
+export interface ApprovalChoice {
+  id: string
+  label: string
+  sublabel?: string
+}
+
+/**
+ * The richer approval result. `showApprovalWindow` keeps returning a bare
+ * boolean for the two dozen yes/no prompts that predate choosers; anything
+ * offering `choices` must use `showApprovalDecision` to learn WHICH was picked.
+ */
+export interface ApprovalDecision {
+  approved: boolean
+  choiceId?: string
+}
+
 export interface ApprovalOptions {
   title: string          // window title (accessibility / taskbar)
   heading: string        // bold prompt line
@@ -1532,6 +1553,12 @@ export interface ApprovalOptions {
    * read before the amounts rather than scrolled past with them.
    */
   warnings?: string[]
+  /**
+   * When present the window becomes a chooser: the user picks one entry and the
+   * decision carries its id. The first entry is preselected, so a confirm with
+   * no interaction still means something sensible.
+   */
+  choices?: ApprovalChoice[]
 }
 
 function approvalPreloadPath(): string {
@@ -1551,6 +1578,20 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   const warningBand = opts.warnings?.length
     ? `<div class="warn">${opts.warnings.map(w => `<div>⚠ ${escapeHtml(w)}</div>`).join('')}</div>`
     : ''
+  // Chooser: a radio list above the detail pane. The confirm handler reads the
+  // checked value, so the picked id travels back with the decision.
+  const choiceList = opts.choices?.length
+    ? `<div class="choices">${opts.choices.map((c, i) => `
+        <label class="choice">
+          <input type="radio" name="mmchoice" value="${escapeHtml(c.id)}"${i === 0 ? ' checked' : ''}/>
+          <span class="ct"><span class="cl">${escapeHtml(c.label)}</span>${
+            c.sublabel ? `<span class="cs">${escapeHtml(c.sublabel)}</span>` : ''
+          }</span>
+        </label>`).join('')}</div>`
+    : ''
+  const confirmCall = opts.choices?.length
+    ? `__mmApproval__.respondWith(true, (document.querySelector('input[name=mmchoice]:checked')||{}).value)`
+    : `__mmApproval__.respond(true)`
   // Our own trusted content (all dynamic values are HTML-escaped) loaded from a
   // data: URL — no CSP so the inline button handlers are guaranteed to fire.
   return `<!doctype html><html><head><meta charset="utf-8">
@@ -1568,6 +1609,14 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   h1{font-size:16px;font-weight:700;color:#f8fafc;margin-bottom:12px}
   .warn{flex:0 0 auto;margin-bottom:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.45;color:#fcd34d}
   .warn div + div{margin-top:5px}
+  .choices{flex:0 0 auto;margin-bottom:10px;display:flex;flex-direction:column;gap:6px;max-height:190px;overflow:auto}
+  .choice{display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;border:1px solid rgba(255,255,255,.10);border-radius:10px;cursor:pointer}
+  .choice:hover{border-color:rgba(255,255,255,.22)}
+  .choice:has(input:checked){border-color:${accent};background:rgba(37,99,235,.12)}
+  .choice input{accent-color:${accent};width:16px;height:16px;flex:0 0 auto;cursor:pointer}
+  .choice .ct{display:flex;flex-direction:column;min-width:0}
+  .choice .cl{font-size:13.5px;color:#f1f5f9;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .choice .cs{font-size:12px;color:#9aa4b2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .detail{flex:1 1 auto;overflow:auto;white-space:pre-wrap;word-break:break-word;background:#0f172a;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:12px 14px;font-size:13px;color:#cbd5e1;font-family:ui-monospace,'Cascadia Mono','Segoe UI Mono',Menlo,monospace}
   footer{flex:0 0 auto;display:flex;flex-direction:column;gap:8px;padding:14px 18px 18px}
   button.act{-webkit-app-region:no-drag;cursor:pointer;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:700;transition:background .12s}
@@ -1585,10 +1634,11 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
   <main>
     <h1>${escapeHtml(opts.heading)}</h1>
     ${warningBand}
+    ${choiceList}
     <div class="detail">${escapeHtml(opts.detail)}</div>
   </main>
   <footer>
-    <button class="act confirm" onclick="__mmApproval__.respond(true)">${escapeHtml(opts.confirmLabel)}</button>
+    <button class="act confirm" onclick="${confirmCall}">${escapeHtml(opts.confirmLabel)}</button>
     <button class="act reject" onclick="__mmApproval__.respond(false)">Reject</button>
   </footer>
 </body></html>`
@@ -1596,10 +1646,20 @@ function buildApprovalHtml(opts: ApprovalOptions): string {
 
 /**
  * Shows the branded approval window and resolves true (confirmed) / false
- * (rejected or closed). Parented to the dApp browser popup when it's open (where
- * the user is looking), otherwise the main wallet window.
+ * (rejected or closed). The long-standing yes/no form — use
+ * `showApprovalDecision` when the window offers `choices`.
  */
-export function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
+export async function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
+  return (await showApprovalDecision(opts)).approved
+}
+
+/**
+ * Shows the branded approval window and resolves the full decision, including
+ * which entry the user picked when `choices` were offered. Parented to the dApp
+ * browser popup when it's open (where the user is looking), otherwise the main
+ * wallet window.
+ */
+export function showApprovalDecision(opts: ApprovalOptions): Promise<ApprovalDecision> {
   return new Promise((resolve) => {
     const parent =
       popupWin && !popupWin.isDestroyed() ? popupWin
@@ -1612,7 +1672,7 @@ export function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
       // A decoded transaction summary plus a warning band needs more room than
       // the one-line prompts this window was originally built for. The detail
       // pane still scrolls, so this only reduces how often it has to.
-      height: opts.warnings?.length ? 660 : 560,
+      height: (opts.warnings?.length ? 660 : 560) + (opts.choices?.length ? 150 : 0),
       parent,
       resizable: false,
       minimizable: false,
@@ -1631,15 +1691,18 @@ export function showApprovalWindow(opts: ApprovalOptions): Promise<boolean> {
     })
 
     let settled = false
-    const finish = (approved: boolean): void => {
+    const finish = (approved: boolean, choiceId?: string): void => {
       if (settled) return
       settled = true
       ipcMain.removeListener('approval:respond', onRespond)
       if (!win.isDestroyed()) win.close()
-      resolve(approved)
+      resolve({ approved, choiceId })
     }
-    const onRespond = (event: IpcMainEvent, approved: boolean): void => {
-      if (!win.isDestroyed() && event.sender === win.webContents) finish(!!approved)
+    // `choiceId` is absent for every pre-chooser caller (the old preload sends a
+    // single argument), so an approve with no selection stays a plain approve.
+    const onRespond = (event: IpcMainEvent, approved: boolean, choiceId?: unknown): void => {
+      if (win.isDestroyed() || event.sender !== win.webContents) return
+      finish(!!approved, typeof choiceId === 'string' ? choiceId : undefined)
     }
 
     ipcMain.on('approval:respond', onRespond)

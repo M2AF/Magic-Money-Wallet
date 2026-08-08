@@ -14,6 +14,9 @@ import { handle, PAGE_RPC_TYPES, type Msg } from '../extension/wallet-handlers'
 import { setDappSink } from './platform-capacitor'
 import { DappBrowser, type PageRequestEvent } from './dapp-browser'
 import { maybeAutofillActiveTab, resetAutofillGuard } from './wallet-local'
+import { capacitorPasskeyEnv } from './passkey-provider'
+import { handlePasskeyCreate, handlePasskeyGet, handlePasskeyProbe, type PasskeyWirePayload } from '../main/passkey-bridge'
+import { encodePasskeyError } from '../main/passkey-protocol'
 
 let _installed = false
 
@@ -59,6 +62,32 @@ async function onPageRequest(e: PageRequestEvent): Promise<void> {
 
   const reply = (result?: unknown, error?: string) =>
     DappBrowser.respond({ requestId: e.requestId, json: JSON.stringify({ id, result, error }) }).catch(() => {})
+
+  // ── Passkeys ───────────────────────────────────────────────────────────────
+  // Handled here rather than in the shared wallet-handlers router because they
+  // are dApp-BROWSER-only: the extension runs inside Chrome, which has real
+  // passkeys of its own, and must never shadow them.
+  //
+  // ⚠ `e.origin` is the chromium-authenticated origin of the tab that made the
+  // request — the same value the password-autofill path re-derives rather than
+  // trusting the page. Nothing about identity is taken from payloadJson; the
+  // ceremony rejects an rpId this origin does not own and rebuilds
+  // clientDataJSON around it.
+  const passkeyRun =
+    type === 'passkey:create' ? handlePasskeyCreate
+    : type === 'passkey:get' ? handlePasskeyGet
+    : type === 'passkey:probe' ? handlePasskeyProbe
+    : null
+
+  if (passkeyRun) {
+    try {
+      const arg = (Array.isArray(payload.args) ? payload.args[0] : {}) as PasskeyWirePayload
+      reply(await passkeyRun(capacitorPasskeyEnv, e.origin, arg ?? {}))
+    } catch (err) {
+      reply(undefined, encodePasskeyError(err))
+    }
+    return
+  }
 
   // Same allowlist the extension's content.ts enforces before the SW even sees
   // the message (handle() re-checks via sender.kind === 'page' as well).

@@ -39,6 +39,41 @@ ipcRenderer.on('web3:event', (_e, payload: { chain: string; event: string; data:
   ).catch(() => { /* page may be navigating */ })
 })
 
+// ── navigator.credentials passkey shim (main world, document-start) ──────────
+//
+// Password managers refuse to release site passkeys to an embedded browser and
+// there is no API to join their allowlists, so the wallet becomes the
+// authenticator instead. The shim marshals create()/get() over __mmBridge__ to
+// the passkey:* IPC handlers, which take the ORIGIN from the tab's real URL and
+// derive the key from the seed.
+//
+// It ships as a prebuilt IIFE (build:inject → out/inject/passkey-shim.js) rather
+// than an import because this preload is typed without the DOM lib, and it is
+// evaluated into the page's MAIN world because a patch applied here would land
+// in the isolated world where the page can never see it.
+//
+// ⚠ The source is fetched over SYNCHRONOUS IPC, not read from disk. This preload
+// is SANDBOXED (browser-manager sets sandbox:true for dApp views, as it must for
+// untrusted pages), so `fs` does not exist here — an earlier readFileSync
+// version threw, was swallowed, and let pages fall through to the OS
+// authenticator with no visible sign anything was wrong. Sync is deliberate: the
+// shim has to be installed before the page's first script runs, and an async
+// fetch would race it.
+try {
+  const shimSource = ipcRenderer.sendSync('passkey:shim-source') as string | undefined
+  if (typeof shimSource === 'string' && shimSource.length > 0) {
+    webFrame.executeJavaScript(shimSource).catch((e) => {
+      console.warn('[MagicMoney] passkey shim failed to install:', e)
+    })
+  } else {
+    console.warn('[MagicMoney] passkey shim source unavailable — passkeys disabled for this page')
+  }
+} catch (e) {
+  // Must never take the EVM/Solana/Cardano providers down with it; the page
+  // simply has no Magic Money passkey support, the pre-Phase-3 state.
+  console.warn('[MagicMoney] passkey shim unavailable:', e)
+}
+
 // ── Icon constant (used in both webFrame template strings below) ─────────────
 
 const _ICON = _ICON_IMPORT

@@ -17,6 +17,10 @@
     "types": ["vite/client", "chrome", "node"]
   },
   "include": [
-    "src/capacitor/**/*"
+    "src/capacitor/**/*",
+    // The page-world passkey shim. dapp-inject already pulls passkey-shim.ts in
+    // through the import graph; the Electron IIFE entry beside it has no other
+    // tsconfig that covers it, and it is DOM code, so it belongs here.
+    "src/shared/**/*"
   ]
 }

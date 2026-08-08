@@ -17,6 +17,7 @@
  */
 
 import { installProviders } from '../extension/provider-core'
+import { installPasskeyShim } from '../shared/passkey-shim'
 
 interface MmBridge {
   postMessage(data: string): void
@@ -48,22 +49,31 @@ if (bridge) {
   // Handshake — native captures this frame's replyProxy for event pushes.
   try { bridge.postMessage(JSON.stringify({ type: 'hello' })) } catch { /* noop */ }
 
+  const send = <T = unknown>(type: string, args: unknown[], timeoutMs = 30_000): Promise<T> =>
+    new Promise((resolve, reject) => {
+      const id = ++_id
+      _pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+      bridge.postMessage(JSON.stringify({ id, type, args }))
+      setTimeout(() => {
+        if (_pending.has(id)) {
+          _pending.delete(id)
+          reject(new Error('Wallet request timed out'))
+        }
+      }, timeoutMs)
+    })
+
   installProviders({
-    send<T = unknown>(type: string, args: unknown[]): Promise<T> {
-      return new Promise((resolve, reject) => {
-        const id = ++_id
-        _pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
-        bridge.postMessage(JSON.stringify({ id, type, args }))
-        setTimeout(() => {
-          if (_pending.has(id)) {
-            _pending.delete(id)
-            reject(new Error('Wallet request timed out'))
-          }
-        }, 30_000)
-      })
-    },
+    send<T = unknown>(type: string, args: unknown[]): Promise<T> { return send<T>(type, args) },
     onEvent(cb) { _eventCbs.push(cb) },
   })
+
+  // ── navigator.credentials passkey shim ─────────────────────────────────────
+  // Samsung Pass refuses this WebView by name, so the wallet answers instead:
+  // create()/get() ride the same origin-scoped pipe to dapp-glue, which pins the
+  // origin from the tab natively. A ceremony waits on TWO human interactions (an
+  // approval overlay and BiometricPrompt), so it gets the same 2-minute budget
+  // the approval queues use rather than the 30s provider default.
+  installPasskeyShim((type, payload) => send<Record<string, unknown>>(type, [payload], 120_000))
 
   // ── Saved-login autofill: tell the wallet a login form appeared ────────────
   // Mirrors the Electron preload's detector. The message carries NO data: native

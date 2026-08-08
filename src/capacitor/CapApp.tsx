@@ -22,6 +22,7 @@ import {
   type ConnRequest, type TxApprovalRequest, type SignApprovalRequest,
 } from '../renderer/components/ApprovalOverlays'
 import { BrowserOverlay, browserUiState } from './BrowserOverlay'
+import { PasskeyApproval } from './PasskeyApproval'
 import { DappBrowser } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 
@@ -47,6 +48,8 @@ export function CapApp() {
   const [txRequest, setTxRequest] = useState<TxApprovalRequest | null>(null)
   const [signRequest, setSignRequest] = useState<SignApprovalRequest | null>(null)
   const [connAddress, setConnAddress] = useState<string>('')
+  // Passkey ceremonies from the in-app browser (dapp-glue -> passkey-provider).
+  const [passkeyPending, setPasskeyPending] = useState(false)
 
   // Web link handed to us by another app (MagicMoney set as the default browser).
   // Held here until `page === 'app'`, because the in-app browser renders inside
@@ -151,7 +154,7 @@ export function CapApp() {
 
   // Native dApp WebViews sit ON TOP of this WebView — hide them while an
   // approval overlay is pending so the user can see and tap it.
-  const approvalPending = !!(connRequest || txRequest || signRequest)
+  const approvalPending = !!(connRequest || txRequest || signRequest) || passkeyPending
   useEffect(() => {
     if (approvalPending) DappBrowser.hide().catch(() => {})
     // Only re-show the native WebViews if the browser is actually the visible
@@ -298,6 +301,7 @@ export function CapApp() {
     <>
       <App />
       <BrowserOverlay />
+      <PasskeyApproval onPendingChange={setPasskeyPending} />
       <ApprovalOverlays
         connRequest={connRequest}
         txRequest={txRequest}

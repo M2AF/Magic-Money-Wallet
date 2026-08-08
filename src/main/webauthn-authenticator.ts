@@ -81,6 +81,18 @@ export const MAGICMONEY_AAGUID = Uint8Array.from([
   0x47, 0xf2, 0x4e, 0xde, 0x41, 0xf1, 0xb4, 0xbf,
 ])
 
+/**
+ * The all-zero AAGUID, for callers that are BOTH authenticator and client.
+ *
+ * Zeroing is the CLIENT's job, not the authenticator's: a browser blanks the
+ * AAGUID when attestation was not requested or came back "none", so the RP
+ * cannot fingerprint the authenticator model. On the Android provider path
+ * (Phase 4) Chrome does that for us and we report MAGICMONEY_AAGUID. In our own
+ * in-app browser (Phase 3) there is no browser between us and the page, so we
+ * have to do it ourselves or we would leak what a real client would have hidden.
+ */
+export const ZERO_AAGUID = new Uint8Array(16)
+
 /** COSE alg identifier for ECDSA w/ SHA-256. The only algorithm we support. */
 export const COSE_ALG_ES256 = -7
 
@@ -353,7 +365,16 @@ export interface AuthDataOptions {
   userPresent?: boolean
   signCount?: number
   /** Present only for registration (sets the AT flag). */
-  attested?: { credentialId: Uint8Array; publicKey: Uint8Array }
+  attested?: {
+    credentialId: Uint8Array
+    publicKey: Uint8Array
+    /**
+     * Defaults to MAGICMONEY_AAGUID — the frozen v1 behaviour every test vector
+     * pins. Pass ZERO_AAGUID on the in-app-browser path, where we are also the
+     * client and must blank it ourselves.
+     */
+    aaguid?: Uint8Array
+  }
 }
 
 /**
@@ -383,10 +404,11 @@ export function buildAuthenticatorData(opts: AuthDataOptions): OwnedBytes {
   const head = concat(rpIdHash(rpId), Uint8Array.from([flags]), counterBytes)
   if (!attested) return head
 
-  const { credentialId, publicKey } = attested
+  const { credentialId, publicKey, aaguid = MAGICMONEY_AAGUID } = attested
   if (credentialId.length > 1023) throw new Error('credentialId exceeds 1023 bytes')
+  if (aaguid.length !== 16) throw new Error('aaguid must be 16 bytes')
   const idLen = Uint8Array.from([(credentialId.length >> 8) & 0xff, credentialId.length & 0xff])
-  return concat(head, MAGICMONEY_AAGUID, idLen, credentialId, coseKeyFromPublicKey(publicKey))
+  return concat(head, aaguid, idLen, credentialId, coseKeyFromPublicKey(publicKey))
 }
 
 // ─── Registration ───────────────────────────────────────────────────────────
@@ -400,6 +422,8 @@ export interface AttestationOptions {
   userVerified?: boolean
   userPresent?: boolean
   signCount?: number
+  /** Defaults to MAGICMONEY_AAGUID. See ZERO_AAGUID for when to override. */
+  aaguid?: Uint8Array
 }
 
 export interface AttestationResult {
@@ -431,7 +455,7 @@ export function buildAttestationObject(opts: AttestationOptions): AttestationRes
     userVerified: opts.userVerified,
     userPresent: opts.userPresent,
     signCount: opts.signCount,
-    attested: { credentialId, publicKey: key.publicKey },
+    attested: { credentialId, publicKey: key.publicKey, aaguid: opts.aaguid },
   })
 
   // CTAP2 canonical order: "fmt"(3) < "attStmt"(7) < "authData"(8).

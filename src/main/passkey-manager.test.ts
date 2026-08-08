@@ -12,7 +12,7 @@ const { tmp, ui, bio } = vi.hoisted(() => {
     // The approval window and the biometric bridges are the two things we cannot
     // run headless. Everything else — the vault envelope, the derivation, the
     // signatures — runs for real.
-    ui: { approve: true, shown: [] as Array<Record<string, unknown>> },
+    ui: { approve: true, choiceId: undefined as string | undefined, shown: [] as Array<Record<string, unknown>> },
     bio: {
       platform: 'none' as 'none' | 'win' | 'mac',
       helloSupported: true,
@@ -36,6 +36,10 @@ vi.mock('electron', () => ({
 
 vi.mock('./browser-manager', () => ({
   showApprovalWindow: async (opts: Record<string, unknown>) => { ui.shown.push(opts); return ui.approve },
+  showApprovalDecision: async (opts: Record<string, unknown>) => {
+    ui.shown.push(opts)
+    return { approved: ui.approve, choiceId: ui.choiceId }
+  },
 }))
 
 vi.mock('./hello-bridge', () => ({
@@ -99,6 +103,7 @@ beforeEach(async () => {
   clearPasskeyIndex()
   lock()
   ui.approve = true
+  ui.choiceId = undefined
   ui.shown.length = 0
   bio.platform = 'none'
   bio.helloSupported = true

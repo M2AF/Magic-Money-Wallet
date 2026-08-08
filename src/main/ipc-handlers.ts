@@ -16,6 +16,9 @@ import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
 import { runPasskeyCeremony, verifyPasskeyPrf, importPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
+import { inAppBrowserEnv } from './passkey-manager'
+import { handlePasskeyCreate, handlePasskeyGet, handlePasskeyProbe, type PasskeyWirePayload } from './passkey-bridge'
+import { encodePasskeyError } from './passkey-protocol'
 import {
   generateMnemonic,
   mnemonicFromEntropy,
@@ -131,6 +134,7 @@ import {
 } from './password-vault'
 import { listImportSources, importPasswordsFrom, importBookmarksFrom, parsePasswordCsv } from './browser-import'
 import { readFileSync } from 'fs'
+import { join } from 'path'
 import { downloadAsset } from './downloads'
 import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
@@ -1501,6 +1505,51 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('update:check', () => { startUpdateCheck({ silent: false }); return getUpdateState() })
   ipcMain.handle('update:get-state', () => getUpdateState())
   ipcMain.on('update:install', () => installUpdate())
+
+  // ── Passkeys in the built-in browser (from the page-world shim) ──────────
+  //
+  // The shim (src/shared/passkey-shim.ts) runs in the dApp page's own world, so
+  // NOTHING it sends about identity is trusted: the origin comes from
+  // `event.sender.getURL()` — the tab we are actually showing — exactly as the
+  // password-autofill path does. passkey-ceremony then rejects an rpId that
+  // origin does not own, and rebuilds clientDataJSON around it.
+  //
+  // Errors are flattened to `MMPK:<CODE>:<message>` because Electron's IPC
+  // strips custom error properties; the shim parses them back into the right
+  // DOMException. Uncoded failures deliberately lose their message.
+  const passkeyIpc = <T>(
+    run: (env: typeof inAppBrowserEnv, origin: string, payload: PasskeyWirePayload) => Promise<T>
+  ) => async (event: IpcMainInvokeEvent, payload: PasskeyWirePayload): Promise<T> => {
+    touchActivity()
+    try {
+      return await run(inAppBrowserEnv, getSenderOrigin(event.sender.getURL()), payload ?? {})
+    } catch (e) {
+      throw new Error(encodePasskeyError(e))
+    }
+  }
+
+  ipcMain.handle('passkey:create', passkeyIpc(handlePasskeyCreate))
+  ipcMain.handle('passkey:get', passkeyIpc(handlePasskeyGet))
+  ipcMain.handle('passkey:probe', passkeyIpc(handlePasskeyProbe))
+
+  // The page-world shim's source, served to the SANDBOXED dApp preload, which
+  // has no `fs` of its own. Synchronous because the shim must be in place before
+  // the page's first script runs. Read once and cached — this fires for every
+  // frame of every tab.
+  let _shimSource: string | null = null
+  ipcMain.on('passkey:shim-source', (event) => {
+    if (_shimSource === null) {
+      try {
+        // Built by build:inject into out/inject, beside approval-preload.js —
+        // not the electron-vite preload dir.
+        _shimSource = readFileSync(join(__dirname, '../inject/passkey-shim.js'), 'utf8')
+      } catch (e) {
+        console.warn('[MagicMoney] passkey shim bundle missing:', e)
+        _shimSource = ''
+      }
+    }
+    event.returnValue = _shimSource
+  })
 
   // ── Phase 6: Web3 dApp requests (from web3-inject preload) ───────────────
   ipcMain.handle('web3:request', async (
