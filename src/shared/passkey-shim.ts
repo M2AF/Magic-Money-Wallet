@@ -262,11 +262,35 @@ export function installPasskeyShim(send: PasskeyShimTransport): void {
   const originalGet = typeof container.get === 'function'
     ? (container.get as (o?: unknown) => Promise<unknown>).bind(container) : null
 
+  /**
+   * A ceremony needs a real click behind it.
+   *
+   * Chromium enforces transient user activation on create/get so a background
+   * script cannot summon a passkey prompt on its own — measured: Brave rejects
+   * with NotAllowedError ("the page does not have focus") a call this shim
+   * happily accepted. Our approval sheet and biometric still gate every
+   * signature, so nothing could be signed without the user; but a page should
+   * not be able to raise the prompt at all, and matching the platform here keeps
+   * the shim from being the more permissive path.
+   *
+   * `navigator.userActivation` is Chromium-only, which is exactly where this
+   * shim runs; where it is missing we allow the call rather than break.
+   */
+  function requireUserActivation(): void {
+    const ua = (nav as AnyRecord).userActivation as AnyRecord | undefined
+    if (ua && ua.isActive === false) {
+      // Unknown codes map to NotAllowedError, which is what Chromium itself
+      // throws here — so the page sees the same failure it would in Chrome.
+      throw decodeError('MMPK:PASSKEY_NO_ACTIVATION:A passkey request must follow a user gesture.')
+    }
+  }
+
   async function create(options?: AnyRecord): Promise<unknown> {
     // Password / federated credentials are none of our business — hand them to
     // whatever the engine already had.
     const pk = options?.publicKey as AnyRecord | undefined
     if (!pk) return originalCreate ? originalCreate(options) : null
+    requireUserActivation()
 
     const user = (pk.user ?? {}) as AnyRecord
     const sel = pk.authenticatorSelection as AnyRecord | undefined
@@ -298,6 +322,7 @@ export function installPasskeyShim(send: PasskeyShimTransport): void {
     // says such a request must not prompt, so refusing quietly is the correct
     // behaviour — a dialog here would be exactly what the RP asked us not to do.
     if (options?.mediation === 'conditional') throw decodeError('MMPK:PASSKEY_NO_CREDENTIAL:')
+    requireUserActivation()
 
     const payload = {
       challenge: b64u(pk.challenge),

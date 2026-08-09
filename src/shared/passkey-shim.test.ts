@@ -529,3 +529,50 @@ describe('passkey shim · clientDataJSON', () => {
     expect(signed.length).toBe(69)
   })
 })
+
+// ── Transient user activation ────────────────────────────────────────────────
+// Chromium refuses create/get without a real gesture so a background script
+// cannot summon a passkey prompt. Measured on device: Brave rejected a call this
+// shim accepted, which made the shim the more permissive path. The approval
+// sheet and biometric still gate every signature — this stops the prompt being
+// raised at all.
+describe('passkey shim · user activation', () => {
+  const withActivation = (isActive: boolean | undefined, fn: () => Promise<unknown>) => {
+    const nav = globalThis.navigator as unknown as Record<string, unknown>
+    const had = 'userActivation' in nav
+    const prev = nav.userActivation
+    if (isActive === undefined) delete nav.userActivation
+    else nav.userActivation = { isActive, hasBeenActive: true }
+    return fn().finally(() => {
+      if (had) nav.userActivation = prev
+      else delete nav.userActivation
+    })
+  }
+
+  it('refuses create() with NotAllowedError when there is no activation', async () => {
+    await withActivation(false, async () => {
+      await expect(credentials.create({
+        publicKey: { challenge: challengeOf(3), rp: { id: RP_ID }, user: { id: challengeOf(4), name: 'a' }, pubKeyCredParams: [{ alg: -7, type: 'public-key' }] },
+      })).rejects.toMatchObject({ name: 'NotAllowedError' })
+    })
+  })
+
+  it('refuses get() with NotAllowedError when there is no activation', async () => {
+    await withActivation(false, async () => {
+      await expect(credentials.get({
+        publicKey: { challenge: challengeOf(5), rpId: RP_ID },
+      })).rejects.toMatchObject({ name: 'NotAllowedError' })
+    })
+  })
+
+  // Non-Chromium engines have no navigator.userActivation; absence must not
+  // break the shim, only a present-and-false value blocks.
+  it('allows the ceremony when the API is absent', async () => {
+    await withActivation(undefined, async () => {
+      const cred = await credentials.create({
+        publicKey: { challenge: challengeOf(6), rp: { id: RP_ID }, user: { id: challengeOf(7), name: 'a' }, pubKeyCredParams: [{ alg: -7, type: 'public-key' }] },
+      })
+      expect(cred).toBeTruthy()
+    })
+  })
+})
