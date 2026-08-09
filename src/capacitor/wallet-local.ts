@@ -19,6 +19,10 @@ import { handle, type Sender } from '../extension/wallet-handlers'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { helloStatus, helloEnroll, helloUnlock, helloRemove } from './biometric'
 import {
+  passkeyProviderStatus, enablePasskeyProvider, disablePasskeyProvider,
+  openPasskeyProviderSettings,
+} from './passkey-system-provider'
+import {
   passkeySupported, createPasskeyMnemonic, verifyPasskeyWallet, importPasskeyMnemonic,
   linkPasskeyToWallet, passkeyLinked, passkeyUnlink,
 } from './passkey'
@@ -526,6 +530,12 @@ function buildWallet() {
 
     // Biometric unlock (BiometricPrompt + Keystore — see biometric.ts)
     helloStatus,
+    // Android 14+ system passkey provider. Enabling hands native ONLY the
+    // account's webauthnRoot — never the seed (see passkey-system-provider).
+    passkeyProviderStatus,
+    passkeyProviderEnable: enablePasskeyProvider,
+    passkeyProviderDisable: disablePasskeyProvider,
+    passkeyProviderOpenSettings: openPasskeyProviderSettings,
     helloEnroll,
     helloUnlock,
     helloRemove,

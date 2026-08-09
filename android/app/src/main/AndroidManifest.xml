@@ -70,8 +70,10 @@
              only (CredentialProviderService); below that the service is never
              bound and nothing else changes.
 
-             PHASE 0: measurement only — returns no entries and does no crypto.
-             The user must still enable it in Settings before it is ever called. -->
+             The service itself does NO crypto and has no UI: it only lists which
+             credentials could be used. Every signature happens in PasskeyActivity
+             behind a BiometricPrompt. The user must enable the provider in
+             Settings before any of it is ever called. -->
         <service
             android:name="info.chainlens.magicmoney.passkey.MagicMoneyCredentialProviderService"
             android:enabled="true"
@@ -86,6 +88,23 @@
                 android:name="android.credentials.provider"
                 android:resource="@xml/provider" />
         </service>
+
+        <!-- Launched by a CredentialEntry's PendingIntent. Runs the biometric and
+             the ceremony, then returns through PendingIntentHandler.
+
+             Not exported: only our own service's PendingIntent starts it, and a
+             PendingIntent carries our identity, so nothing else can reach it.
+             excludeFromRecents + the translucent theme keep the system's own
+             credential sheet looking like one screen rather than two. -->
+        <activity
+            android:name="info.chainlens.magicmoney.passkey.PasskeyActivity"
+            android:enabled="true"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:launchMode="singleTop"
+            android:theme="@style/MagicMoneyPasskeyDialog"
+            tools:targetApi="upside_down_cake" />
     </application>
 
     <!--

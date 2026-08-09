@@ -17,6 +17,15 @@ ext {
     // Credential Manager PROVIDER api (CredentialProviderService) — Android 14+
     // only, so the service is gated at runtime and simply never bound below 34.
     androidxCredentialsVersion = '1.5.0'
+    // BouncyCastle LIGHTWEIGHT API only (org.bouncycastle.crypto.*), never
+    // registered as a JCE Provider — Android already ships a stripped-down "BC"
+    // provider and registering a second one is the classic source of silent
+    // algorithm-resolution bugs. We need exactly two things the platform JCE
+    // cannot do: P-256 scalar->point multiplication, and RFC 6979 deterministic
+    // ECDSA (SunEC/Conscrypt pick a random k, which would break the frozen
+    // signature vectors AND risk key disclosure from a weak RNG in a background
+    // service).
+    bouncyCastleVersion = '1.78.1'
     junitVersion = '4.13.2'
     androidxJunitVersion = '1.2.1'
     androidxEspressoCoreVersion = '3.6.1'

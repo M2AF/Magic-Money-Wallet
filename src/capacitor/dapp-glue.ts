@@ -17,6 +17,8 @@ import { maybeAutofillActiveTab, resetAutofillGuard } from './wallet-local'
 import { capacitorPasskeyEnv } from './passkey-provider'
 import { handlePasskeyCreate, handlePasskeyGet, handlePasskeyProbe, type PasskeyWirePayload } from '../main/passkey-bridge'
 import { encodePasskeyError } from '../main/passkey-protocol'
+import { syncPasskeyDiscovery } from './passkey-system-provider'
+import { loadMnemonic } from './capacitor-store'
 
 let _installed = false
 
@@ -82,7 +84,15 @@ async function onPageRequest(e: PageRequestEvent): Promise<void> {
   if (passkeyRun) {
     try {
       const arg = (Array.isArray(payload.args) ? payload.args[0] : {}) as PasskeyWirePayload
-      reply(await passkeyRun(capacitorPasskeyEnv, e.origin, arg ?? {}))
+      const result = await passkeyRun(capacitorPasskeyEnv, e.origin, arg ?? {})
+      reply(result)
+      // A passkey just made in the wallet's own browser should be offered by
+      // Chrome too — that hand-off IS Phase 4. Push the refreshed list AFTER
+      // replying so the ceremony never waits on it, and swallow failures: the
+      // system provider is optional and discovery is a convenience.
+      if (type === 'passkey:create') {
+        loadMnemonic().then(syncPasskeyDiscovery).catch(() => { /* locked or not enrolled */ })
+      }
     } catch (err) {
       reply(undefined, encodePasskeyError(err))
     }

@@ -527,6 +527,21 @@ declare global {
       // Biometric unlock — Windows Hello / Touch ID / Android BiometricPrompt
       // (optional; absent on the extension bridge).
       helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null }>
+      // ── Android 14+ system passkey provider (Capacitor only) ──────────────
+      // Optional, capability-probed like helloStatus above: only the Android
+      // build implements these, and only Android 14+ can honour them. The row
+      // stays hidden everywhere else rather than offering a switch that does
+      // nothing. `enabledInSettings: null` means Android would not say.
+      passkeyProviderStatus?(): Promise<{
+        supported: boolean
+        androidVersion: number
+        enrolled: boolean
+        enabledInSettings: boolean | null
+        fingerprint?: string | null
+      }>
+      passkeyProviderEnable?(): Promise<{ supported: boolean; enrolled: boolean; enabledInSettings: boolean | null }>
+      passkeyProviderDisable?(): Promise<void>
+      passkeyProviderOpenSettings?(): Promise<void>
       helloEnroll?(): Promise<boolean>
       helloUnlock?(): Promise<boolean>
       helloRemove?(): Promise<boolean>

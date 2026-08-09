@@ -143,6 +143,9 @@ dependencies {
     // seed-derived passkeys work in Chrome/Brave/Samsung Internet — and, unlike
     // Samsung Pass, in the wallet's own browser too.
     implementation "androidx.credentials:credentials:$androidxCredentialsVersion"
+    // The Java port of the frozen WebAuthn derivation spec. See variables.gradle
+    // for why this is the lightweight API and not a JCE provider.
+    implementation "org.bouncycastle:bcprov-jdk18on:$bouncyCastleVersion"
     // Embedded Tor runtime for Android. The previous arti-mobile AAR was built
     // without onion-service-client support, so .onion requests were rejected
     // after an ordinary Tor exit had already been verified. tor-android embeds
@@ -151,6 +154,8 @@ dependencies {
     implementation "info.guardianproject:jtorctl:0.4.5.7"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
+    // The parity suite reads src/main/__fixtures__/webauthn-vectors.json.
+    testImplementation "org.json:json:20240303"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

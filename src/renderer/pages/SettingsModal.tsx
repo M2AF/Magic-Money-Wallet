@@ -17,6 +17,10 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [siteCount, setSiteCount] = useState<number | null>(null)
   const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
+  // Android 14+ system passkey provider (Capacitor only — capability-probed).
+  const [pkProvider, setPkProvider] = useState<{ supported: boolean; androidVersion: number; enrolled: boolean; enabledInSettings: boolean | null } | null>(null)
+  const [pkProviderBusy, setPkProviderBusy] = useState(false)
+  const [pkProviderError, setPkProviderError] = useState<string | null>(null)
   const [helloError, setHelloError] = useState<string | null>(null)
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [passkeyLinked, setPasskeyLinked] = useState(false)
@@ -102,6 +106,45 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   useEffect(refreshSiteCount, [])
 
   const refreshHello = () => { window.wallet.helloStatus?.().then(setHello).catch(() => setHello(null)) }
+
+  // Only Android 14+ can host a credential provider, so an absent method or
+  // supported:false hides the row entirely — never a control that cannot work.
+  const refreshPasskeyProvider = () => {
+    const probe = window.wallet.passkeyProviderStatus
+    if (typeof probe !== 'function') { setPkProvider(null); return }
+    Promise.resolve(probe.call(window.wallet))
+      .then(s => setPkProvider(s.supported ? s : null))
+      .catch(() => setPkProvider(null))
+  }
+  useEffect(refreshPasskeyProvider, [])
+
+  // Re-check when the user returns: enabling us happens in Settings, outside
+  // the app, so the state we last read is stale by definition.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshPasskeyProvider() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
+  const togglePasskeyProvider = async () => {
+    if (pkProviderBusy || !pkProvider) return
+    setPkProviderBusy(true)
+    setPkProviderError(null)
+    try {
+      if (pkProvider.enrolled) {
+        await window.wallet.passkeyProviderDisable?.()
+      } else {
+        await window.wallet.passkeyProviderEnable?.()
+        // Enabling only hands over the key material; Android will not let an app
+        // select itself, so the user still has to pick us in Settings.
+        await window.wallet.passkeyProviderOpenSettings?.()
+      }
+      refreshPasskeyProvider()
+    } catch (e) {
+      setPkProviderError(e instanceof Error ? e.message : String(e))
+    }
+    setPkProviderBusy(false)
+  }
 
   // Capability + current state. `fn?.()` alone would not guard an absent method:
   // optional chaining stops at the call, so `.then` on undefined would throw.
@@ -341,6 +384,43 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
           {helloError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{helloError}</div>
+          )}
+
+          {/* System passkeys (Android 14+). Distinct from both rows around it:
+              biometric unlock decrypts a local copy, passkey RECOVERY is a way
+              back into the wallet, and this offers the wallet's seed-derived
+              site passkeys to Chrome, Brave and Samsung Internet — the thing
+              other password managers refuse an in-app browser. */}
+          {pkProvider && (
+            <SettingsRow
+              icon="🪪"
+              label={pkProviderBusy
+                ? 'Please wait…'
+                : pkProvider.enrolled
+                  ? 'System passkeys — On'
+                  : 'Use your passkeys in other browsers'}
+              sublabel={pkProvider.enrolled
+                ? (pkProvider.enabledInSettings === false
+                  ? 'Ready, but not selected yet — tap to finish in Settings.'
+                  : 'Chrome, Brave and Samsung Internet can use your passkeys. Tap to turn off.')
+                : 'Adds Magic Money to Settings → Passwords, passkeys & accounts.'}
+              onClick={togglePasskeyProvider}
+              disabled={pkProviderBusy}
+              noChevron
+            />
+          )}
+          {pkProvider?.enrolled && pkProvider.enabledInSettings === false && (
+            <div style={{ color: 'var(--muted)', fontSize: 11, padding: '2px 12px 4px' }}>
+              Open Settings → Passwords, passkeys & accounts and switch Magic Money on.{' '}
+              <button
+                type="button"
+                onClick={() => { window.wallet.passkeyProviderOpenSettings?.().catch(() => {}) }}
+                style={{ background: 'none', border: 0, color: 'var(--accent)', padding: 0, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}
+              >Open Settings</button>
+            </div>
+          )}
+          {pkProviderError && (
+            <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{pkProviderError}</div>
           )}
 
           {/* Passkey recovery — a way BACK IN, not a way to unlock. Distinct from

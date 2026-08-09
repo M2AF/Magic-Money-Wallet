@@ -16,6 +16,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppInfoPlugin.class);
         registerPlugin(DefaultBrowserPlugin.class);
         registerPlugin(DownloaderPlugin.class);
+        // Android 14+ system passkey provider. The plugin itself gates on
+        // Build.VERSION, so registering it unconditionally is safe — the wallet
+        // asks status() and hides the control on anything older.
+        registerPlugin(info.chainlens.magicmoney.passkey.PasskeyProviderPlugin.class);
         super.onCreate(savedInstanceState);
         enableWebAuthn();
     }
