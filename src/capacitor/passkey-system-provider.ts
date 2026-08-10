@@ -220,25 +220,39 @@ export async function syncPasskeyDiscovery(mnemonic: string): Promise<void> {
 }
 
 /**
- * Drop ChainLens rows the server has forgotten, then republish what is left.
+ * Drop ChainLens rows the server has forgotten, then republish the projection.
  *
- * ⚠ THE RESYNC IS THE POINT ON ANDROID. The system provider reads the discovery
- * projection, not the wallet's index, so pruning the index alone would leave the
- * sheet offering the very row we just decided is dead. Only pushes when
- * something actually changed.
+ * ⚠ THE RESYNC IS THE POINT ON ANDROID, AND IT IS UNCONDITIONAL. Two reasons,
+ * and the second is the one that bites:
  *
- * Best-effort and non-blocking: called after unlock, never from a ceremony.
+ *   1. The system provider reads the discovery projection, not the wallet's
+ *      index, so pruning the index alone would leave the sheet still offering
+ *      the row we just buried.
+ *
+ *   2. It is the MIGRATION for the root fingerprint. Rows written before that
+ *      field existed carry no `rootFp`, and the service now declines to offer a
+ *      row it cannot attribute to the enrolled root — correct, but it means
+ *      every already-registered passkey goes quiet until something rewrites it
+ *      with a fingerprint. This is that something. Skipping the push when
+ *      nothing was pruned would strand exactly the users who had no stale rows,
+ *      i.e. the ones with nothing wrong.
+ *
+ * Cheap and idempotent, so doing it on every unlock costs nothing.
+ * Best-effort and non-blocking: never called from a ceremony.
  */
 export async function reconcilePasskeysOnUnlock(): Promise<number> {
+  let forgotten = 0
   try {
     const { reconcileChainLensPasskeys } = await import('../main/passkey-reconcile-chainlens')
     const { capacitorPasskeyEnv } = await import('./passkey-provider')
-    const forgotten = await reconcileChainLensPasskeys(capacitorPasskeyEnv)
-    if (forgotten > 0) await syncPasskeyDiscovery(await loadMnemonic())
-    return forgotten
-  } catch {
-    return 0   // locked, offline, or no ChainLens passkeys — all fine
-  }
+    forgotten = await reconcileChainLensPasskeys(capacitorPasskeyEnv)
+  } catch { /* locked, offline, or no ChainLens passkeys — all fine */ }
+
+  try {
+    await syncPasskeyDiscovery(await loadMnemonic())
+  } catch { /* locked, or the provider was never enabled */ }
+
+  return forgotten
 }
 
 // ─── First-run prompt state ─────────────────────────────────────────────────
