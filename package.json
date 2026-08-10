@@ -1,6 +1,6 @@
 {
   "name": "magicmoney-wallet",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Self-custody multi-chain wallet — EVM · Solana · Cardano",
   "author": {
     "name": "ChainLens",
