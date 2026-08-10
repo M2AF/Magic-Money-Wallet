@@ -19,6 +19,12 @@
  * go through the Abstract portal / Privy). `isEoaAgwOwner` checks the real
  * on-chain K1 owner so we only ever enable sending when it will actually work.
  *
+ * Third relationship, added once Abstract shipped key export: the user can pull
+ * that embedded signer's own private key out of the portal (Settings → Export
+ * Signer Private Key) and hand it to us. `agwForSigner` finds the AGW that key
+ * controls, and `resolveAccountAgw` reports it as owned + signer-driven so the
+ * send path signs with the imported key instead of this wallet's EOA.
+ *
  * Constants below are taken from @abstract-foundation/agw-client's own source
  * (constants.js) — do not substitute older factory/resolver addresses.
  */
@@ -74,26 +80,96 @@ export async function getLinkedAgw(eoa: string): Promise<string | null> {
   return resolved.toLowerCase() === eoa.toLowerCase() ? null : resolved
 }
 
-/** True only when `eoa` is an on-chain K1 owner of `agw` → this app can sign for it. */
-export async function isEoaAgwOwner(eoa: string, agw: string): Promise<boolean> {
-  if (!isAddress(eoa) || !isAddress(agw)) return false
+/**
+ * The AGW's on-chain K1 owners, or null when the call fails — which includes an
+ * account that has not been deployed yet (eth_call returns '0x'). null means
+ * "unknown", never "no owners", so callers must not read it as a denial.
+ */
+async function k1Owners(agw: string): Promise<string[] | null> {
+  if (!isAddress(agw)) return null
   const hex = await ethCall(agw, encodeFunctionData({ abi: ACCOUNT_ABI, functionName: 'k1ListOwners', args: [] }))
-  if (!hex) return false
+  if (!hex) return null
   try {
     const owners = decodeFunctionResult({ abi: ACCOUNT_ABI, functionName: 'k1ListOwners', data: hex as `0x${string}` }) as readonly string[]
-    return owners.some(o => o.toLowerCase() === eoa.toLowerCase())
+    return owners.map(o => o.toLowerCase())
   } catch {
-    return false
+    return null
   }
 }
 
+/** True only when `eoa` is an on-chain K1 owner of `agw` → this app can sign for it. */
+export async function isEoaAgwOwner(eoa: string, agw: string): Promise<boolean> {
+  if (!isAddress(eoa)) return false
+  const owners = await k1Owners(agw)
+  return owners?.includes(eoa.toLowerCase()) ?? false
+}
+
 /**
- * Resolve the AGW for an account and whether this wallet can sign for it.
- *   agw      = manual override ?? on-chain linked AGW (no counterfactual guess)
- *   agwOwned = the EOA is a real K1 owner → direct send works; else watch-only.
+ * The AGW an *imported signer key* controls, or null.
+ *
+ * Two ways a signer reaches its AGW, tried in order: the resolver link, then the
+ * factory salt (the portal's embedded signer IS the deployer signer, so the
+ * counterfactual address is the real one). BOTH are confirmed against the live
+ * k1ListOwners before being returned — `deriveAgwAddress` will happily produce a
+ * plausible-looking address for a key that never created an AGW, and surfacing
+ * that as the user's smart wallet would invite sends into a phantom account.
  */
-export async function resolveAccountAgw(eoa: string, override?: string | null): Promise<{ agw?: string; agwOwned: boolean }> {
-  const candidate = (override && isAddress(override)) ? getAddress(override) : await getLinkedAgw(eoa)
+export async function agwForSigner(signer: string): Promise<string | null> {
+  if (!isAddress(signer)) return null
+  const s = getAddress(signer)
+  const linked = await getLinkedAgw(s)
+  if (linked && await isEoaAgwOwner(s, linked)) return linked
+  const derived = await deriveAgwAddress(s)
+  if (derived && await isEoaAgwOwner(s, derived)) return derived
+  return null
+}
+
+/**
+ * Coerce an exported signer secret to a 0x-prefixed 32-byte private key, or null
+ * when it isn't one. Accepts exactly what the Abstract portal's "Export Signer
+ * Private Key" hands over (0x-prefixed hex) plus the bare-hex form, and tolerates
+ * the whitespace a clipboard round-trip adds. Curve validity is left to
+ * `privateKeyToAccount`, which rejects out-of-range scalars.
+ */
+export function normalizeSignerKey(secret: string): `0x${string}` | null {
+  const cleaned = secret.trim().replace(/\s+/g, '')
+  const hex = /^0x/i.test(cleaned) ? cleaned.slice(2) : cleaned
+  return /^[0-9a-fA-F]{64}$/.test(hex) ? `0x${hex.toLowerCase()}` : null
+}
+
+export interface AgwResolution {
+  agw?: string
+  /** Some key we hold is a K1 owner → a direct send will actually go through. */
+  agwOwned: boolean
+  /** The imported signer key — not this wallet's EOA — is what must sign. */
+  agwSignerActive?: boolean
+}
+
+/**
+ * Resolve the AGW for an account and whether we can sign for it.
+ *   agw             = manual override ?? on-chain linked AGW ?? the imported
+ *                     signer's own AGW (never a counterfactual guess)
+ *   agwOwned        = the EOA or the imported signer is a real K1 owner → direct
+ *                     send works; else watch-only.
+ *   agwSignerActive = the EOA is NOT an owner but the imported signer is, so the
+ *                     send path has to use the imported key.
+ */
+export async function resolveAccountAgw(
+  eoa: string,
+  override?: string | null,
+  signer?: string | null
+): Promise<AgwResolution> {
+  const signerAddr = (signer && isAddress(signer)) ? getAddress(signer) : null
+
+  let candidate = (override && isAddress(override)) ? getAddress(override) : await getLinkedAgw(eoa)
+  // No link from this wallet's EOA, but the user imported the portal's signer —
+  // that key knows its own AGW even when nothing on-chain points at our EOA.
+  if (!candidate && signerAddr) candidate = await agwForSigner(signerAddr)
   if (!candidate) return { agw: undefined, agwOwned: false }
-  return { agw: candidate, agwOwned: await isEoaAgwOwner(eoa, candidate) }
+
+  const owners = await k1Owners(candidate)
+  const eoaOwns = owners?.includes(eoa.toLowerCase()) ?? false
+  const signerOwns = signerAddr != null && (owners?.includes(signerAddr.toLowerCase()) ?? false)
+  // Prefer this wallet's own key when it works — the imported key is the fallback.
+  return { agw: candidate, agwOwned: eoaOwns || signerOwns, agwSignerActive: !eoaOwns && signerOwns }
 }
