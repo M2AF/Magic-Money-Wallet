@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  onboardingStage, shouldPromptFirstRun, onboardingCopy, settingsRowCopy, settingsLandingNote,
+  onboardingStage, shouldPromptFirstRun, onboardingCopy, settingsRowCopy, settingsLandingNote, MAX_SUBLABEL,
   type PasskeyOnboardingStage,
   type PasskeyProviderStatusLike,
 } from './passkey-onboarding'
@@ -115,8 +115,24 @@ describe('passkey onboarding · copy', () => {
     expect(settingsRowCopy('ready')!.label).toMatch(/On$/)
   })
 
-  it('repeats the Chrome caveat where the user will actually meet it', () => {
-    expect(settingsRowCopy('ready')!.sublabel).toMatch(/More options/)
+  // ⚠ Regression guard for a defect the device screenshot caught: SettingsRow
+  // clamps the sublabel to ONE line, so the Chrome caveat living there was
+  // ellipsised mid-instruction — the user read 'tap “More options”…' and never
+  // learned what to do next. The caveat belongs in the wrapping note; the
+  // sublabel must stay short enough to survive.
+  it('keeps every sublabel short enough not to be ellipsised', () => {
+    for (const stage of ALL_STAGES.filter(s => s !== 'unsupported')) {
+      const { sublabel } = settingsRowCopy(stage)!
+      expect(sublabel.length, `${stage}: "${sublabel}"`).toBeLessThanOrEqual(MAX_SUBLABEL)
+    }
+  })
+
+  it('does not bury the Chrome caveat in the clamped sublabel', () => {
+    for (const stage of ALL_STAGES.filter(s => s !== 'unsupported')) {
+      expect(settingsRowCopy(stage)!.sublabel, stage).not.toMatch(/More options/)
+    }
+    // …it lives in the note instead, which wraps.
+    expect(onboardingCopy('ready')!.browserNote).toMatch(/More options/)
   })
 })
 

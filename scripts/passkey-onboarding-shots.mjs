@@ -52,6 +52,15 @@ const SHOTS = [
     note: 'Only the settings root opened — tells the user where to go from there',
   },
   {
+    // ⚠ The two LIGHT-accent themes. Midnight sets --accent to #ffffff and was
+    // the one that broke the primary button — a hardcoded white label on a white
+    // slab, invisible, caught only on a device. Midnight is the harness default
+    // (so every shot above covers it); White & Gold is the other at-risk one.
+    file: '7-white-gold-contrast',
+    query: 'stage=not-enrolled&theme=white-gold',
+    note: 'White & Gold — the other light accent; proves the button label stays readable',
+  },
+  {
     file: '6-unsupported-hidden',
     query: 'stage=unsupported',
     note: 'Android 13: no sheet, no row — the control is hidden, not disabled',

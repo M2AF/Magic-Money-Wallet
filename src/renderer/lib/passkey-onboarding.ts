@@ -156,7 +156,18 @@ export function onboardingCopy(stage: PasskeyOnboardingStage): OnboardingCopy | 
   }
 }
 
-/** The Settings-row label and sublabel for each stage. */
+/**
+ * Longest sublabel that survives the Settings row without being ellipsised.
+ *
+ * ⚠ MEASURED on a Galaxy S21+: SettingsRow clamps the sublabel to ONE line. The
+ * Chrome caveat used to live here and was cut off mid-instruction — the user saw
+ * `tap “More options”…` and never learned what to do after tapping. Anything
+ * that must be READ belongs in the note beneath the row, which wraps; this line
+ * is for state only. The bound is enforced by a test.
+ */
+export const MAX_SUBLABEL = 52
+
+/** The Settings-row label and sublabel for each stage. State only — see above. */
 export function settingsRowCopy(stage: PasskeyOnboardingStage): { label: string; sublabel: string } | null {
   switch (stage) {
     case 'unsupported':
@@ -164,18 +175,18 @@ export function settingsRowCopy(stage: PasskeyOnboardingStage): { label: string;
     case 'not-enrolled':
       return {
         label: 'Use your passkeys in other browsers',
-        sublabel: 'Adds Magic Money to Settings → Passwords, passkeys & accounts.',
+        sublabel: 'Works in Chrome, Brave and Samsung Internet.',
       }
     case 'enrolled-not-selected':
       return {
         label: 'System passkeys — finish setup',
-        sublabel: 'Ready, but not selected yet. Tap to open Settings.',
+        sublabel: 'Ready, but not selected yet. Tap to finish.',
       }
     case 'enrolled-unknown':
     case 'ready':
       return {
         label: 'System passkeys — On',
-        sublabel: 'Chrome shows Google first — tap “More options” for Magic Money. Tap to turn off.',
+        sublabel: 'Ready in other browsers. Tap to turn off.',
       }
   }
 }

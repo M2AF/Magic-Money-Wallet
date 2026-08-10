@@ -10,12 +10,22 @@
  * cannot be faked in a browser — and the phone can only show one state at a
  * time, behind a fingerprint.
  */
+// The app's REAL stylesheet and theme tokens. ⚠ Not optional: this harness
+// originally supplied its own colours, which hid a white-on-white button — the
+// Mono theme sets --accent to #ffffff, and a hardcoded #fff made the primary
+// button unreadable. Only a device report caught it. Importing the real tokens
+// is what lets a theme bug show up here instead.
+import '../../src/renderer/index.css'
 import { createRoot } from 'react-dom/client'
 import { PasskeyProviderSheet } from '../../src/renderer/components/PasskeyProviderSheet'
 import { onboardingCopy, settingsRowCopy, settingsLandingNote, type PasskeyOnboardingStage } from '../../src/renderer/lib/passkey-onboarding'
 
-const stage = (new URLSearchParams(location.search).get('stage') || 'not-enrolled') as PasskeyOnboardingStage
-const landing = new URLSearchParams(location.search).get('landing')
+const params = new URLSearchParams(location.search)
+// Themes are data-theme overrides in index.css. Rendering the sheet under a
+// named theme is how a token bug (white --accent) becomes visible here.
+document.documentElement.setAttribute('data-theme', params.get('theme') || 'midnight')
+const stage = (params.get('stage') || 'not-enrolled') as PasskeyOnboardingStage
+const landing = params.get('landing')
 const copy = onboardingCopy(stage)
 const row = settingsRowCopy(stage)
 

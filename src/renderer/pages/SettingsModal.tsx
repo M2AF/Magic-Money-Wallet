@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 // Copy lives in one tested module so the Settings row and the first-run prompt
 // cannot drift apart — and so the two measured Chrome/own-browser facts stay
 // assertable rather than buried in JSX.
-import { onboardingStage, settingsRowCopy, settingsLandingNote } from '../lib/passkey-onboarding'
+import { onboardingStage, settingsRowCopy, settingsLandingNote, onboardingCopy } from '../lib/passkey-onboarding'
 import type { ApprovedOrigin, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
@@ -415,12 +415,14 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             )
           })()}
           {/* The two facts device testing turned up, stated where the user is
-              deciding. Chrome puts Google first no matter what — Preferred
-              Service was measured to change nothing — and the wallet's own
-              browser skips the chooser entirely. */}
+              deciding — and HERE rather than in the row's sublabel, which is
+              clamped to one line and ellipsised the Chrome instruction. Chrome
+              puts Google first no matter what (Preferred Service was measured to
+              change nothing), and the wallet's own browser skips the chooser. */}
           {pkProvider?.enrolled && (
             <div style={{ color: 'var(--muted)', fontSize: 11, padding: '2px 12px 6px', lineHeight: 1.5 }}>
-              In Magic Money’s own browser passkeys just work — no chooser.{' '}
+              {onboardingCopy(onboardingStage(pkProvider))?.browserNote}{' '}
+              {onboardingCopy(onboardingStage(pkProvider))?.ownBrowserNote}{' '}
               <button
                 type="button"
                 onClick={() => {
