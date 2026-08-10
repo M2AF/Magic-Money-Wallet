@@ -219,6 +219,28 @@ export async function syncPasskeyDiscovery(mnemonic: string): Promise<void> {
   } catch { /* discovery is a convenience; never fail a ceremony over it */ }
 }
 
+/**
+ * Drop ChainLens rows the server has forgotten, then republish what is left.
+ *
+ * ⚠ THE RESYNC IS THE POINT ON ANDROID. The system provider reads the discovery
+ * projection, not the wallet's index, so pruning the index alone would leave the
+ * sheet offering the very row we just decided is dead. Only pushes when
+ * something actually changed.
+ *
+ * Best-effort and non-blocking: called after unlock, never from a ceremony.
+ */
+export async function reconcilePasskeysOnUnlock(): Promise<number> {
+  try {
+    const { reconcileChainLensPasskeys } = await import('../main/passkey-reconcile-chainlens')
+    const { capacitorPasskeyEnv } = await import('./passkey-provider')
+    const forgotten = await reconcileChainLensPasskeys(capacitorPasskeyEnv)
+    if (forgotten > 0) await syncPasskeyDiscovery(await loadMnemonic())
+    return forgotten
+  } catch {
+    return 0   // locked, offline, or no ChainLens passkeys — all fine
+  }
+}
+
 // ─── First-run prompt state ─────────────────────────────────────────────────
 
 const DISMISSED_KEY = 'passkey.provider.prompted'

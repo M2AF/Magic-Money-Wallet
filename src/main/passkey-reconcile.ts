@@ -27,6 +27,10 @@
 import { deriveWebauthnRoot } from './webauthn-authenticator'
 import { loadIndex, removeRecord, PASSKEY_INDEX_UNREADABLE, type PasskeyCredentialRecord } from './passkey-index'
 import type { PasskeyEnvironment } from './passkey-ceremony'
+import {
+  accountUserHandle as accountUserHandle_, chainlensWalletLogin,
+  type ChainLensSession, type WalletSigner,
+} from './chainlens-auth'
 
 /** What a relying party says it still holds. */
 export interface RelyingPartyPasskeys {
@@ -39,6 +43,18 @@ export interface RelyingPartyPasskeys {
    * than a purge.
    */
   authoritative: boolean
+  /**
+   * The userHandle of the account this list belongs to, base64url — for
+   * ChainLens, its user id (register-options sets `userID` to exactly that).
+   *
+   * ⚠ THE LIST IS ONLY AUTHORITATIVE ABOUT ITS OWN ACCOUNT. Signing in with the
+   * wallet key authenticates the wallet-ADDRESS account, which is not
+   * necessarily the account holding the passkeys — someone whose ChainLens
+   * login is Google has passkeys elsewhere, and the account we reached has a
+   * legitimately empty list. Pruning on that would delete every valid row, so
+   * only rows carrying THIS userHandle are ever candidates for removal.
+   */
+  accountUserHandle: string
 }
 
 /**
@@ -51,8 +67,13 @@ export function recordsToForget(
   local: PasskeyCredentialRecord[], rpId: string, rp: RelyingPartyPasskeys,
 ): PasskeyCredentialRecord[] {
   if (!rp.authoritative) return []
+  // No account identity ⇒ we cannot tell whose list this is ⇒ delete nothing.
+  if (!rp.accountUserHandle) return []
   const known = new Set(rp.credentialIds)
-  return local.filter(r => r.rpId === rpId && !known.has(r.credentialId))
+  return local.filter(r =>
+    r.rpId === rpId &&
+    r.userHandle === rp.accountUserHandle &&   // this account's rows only
+    !known.has(r.credentialId))
 }
 
 /**
@@ -89,6 +110,47 @@ export async function reconcileRelyingParty(
 }
 
 /**
+ * Reconcile the ChainLens rows, end to end. Returns how many were forgotten.
+ *
+ * ⚠ Reaches the network ONLY when the wallet already holds ChainLens passkeys.
+ * `wallet-login` upserts an account, so calling it speculatively would create a
+ * ChainLens account for a user who never asked for one; having a passkey for the
+ * site is the evidence that they already use it.
+ *
+ * Best-effort: a locked wallet, no network or a failed login all return 0. The
+ * local index keeps working regardless — this only ever removes rows the server
+ * has positively disowned.
+ */
+export async function reconcileChainLens(
+  env: PasskeyEnvironment,
+  origin: string,
+  rpId: string,
+  signer: WalletSigner,
+  fetchImpl: typeof fetch = fetch,
+): Promise<number> {
+  try {
+    const mnemonic = await env.loadMnemonic()          // throws when locked
+    const indexKey = await deriveWebauthnRoot(mnemonic, 0)
+
+    let local: PasskeyCredentialRecord[]
+    try {
+      local = await loadIndex(env.storage, indexKey)
+    } catch {
+      return 0
+    }
+    // Nothing for this site ⇒ no reason to touch the network at all.
+    if (!local.some(r => r.rpId === rpId)) return 0
+
+    const session = await chainlensWalletLogin(fetchImpl, origin, signer)
+    if (!session) return 0
+
+    return await reconcileRelyingParty(env, rpId, () => chainlensPasskeys(fetchImpl, origin, session))
+  } catch {
+    return 0
+  }
+}
+
+/**
  * Ask ChainLens which passkeys it still holds for the signed-in account.
  *
  * ⚠ AN EMPTY LIST IS ONLY BELIEVED WHEN THE SERVER SAYS IT MEANS IT. `/list`
@@ -105,13 +167,15 @@ export async function reconcileRelyingParty(
  * safe against a backend that has not been deployed yet.
  */
 export async function chainlensPasskeys(
-  fetchImpl: typeof fetch, origin: string, token: string,
+  fetchImpl: typeof fetch, origin: string, session: ChainLensSession,
 ): Promise<RelyingPartyPasskeys> {
+  const accountUserHandle = accountUserHandle_(session.userId)
+  const unknown = { credentialIds: [], authoritative: false, accountUserHandle }
   try {
     const res = await fetchImpl(`${origin}/api/auth/passkey/list`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${session.token}` },
     })
-    if (!res.ok) return { credentialIds: [], authoritative: false }
+    if (!res.ok) return unknown
     const body = await res.json() as {
       passkeys?: Array<{ credential_id?: string }>
       configured?: boolean
@@ -124,11 +188,15 @@ export async function chainlensPasskeys(
     // A server that reports its own health: believe an empty list only when it
     // says passkeys are configured AND the lookup actually succeeded.
     if (typeof body.configured === 'boolean') {
-      return { credentialIds: ids, authoritative: body.configured && body.unavailable !== true }
+      return {
+        credentialIds: ids,
+        authoritative: body.configured && body.unavailable !== true,
+        accountUserHandle,
+      }
     }
     // Older server, no flags — trust nothing but a non-empty list.
-    return { credentialIds: ids, authoritative: ids.length > 0 }
+    return { credentialIds: ids, authoritative: ids.length > 0, accountUserHandle }
   } catch {
-    return { credentialIds: [], authoritative: false }
+    return unknown
   }
 }

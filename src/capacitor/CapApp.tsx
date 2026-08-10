@@ -43,6 +43,8 @@ export function CapApp() {
   const [bioReady, setBioReady] = useState(false)
   const [bioBusy, setBioBusy] = useState(false)
   const bioAutoTried = useRef(false)
+  /** Reconcile once per app session, not on every re-render that lands on 'app'. */
+  const reconcileTried = useRef(false)
 
   // dApp approval requests (in-app browser pages, routed via dapp-glue)
   const [connRequest, setConnRequest] = useState<ConnRequest | null>(null)
@@ -66,6 +68,20 @@ export function CapApp() {
     }
     check().catch(() => setPage('app'))
   }, [])
+
+  // Once the wallet is open, drop passkey rows the relying party has forgotten.
+  //
+  // Here rather than in a ceremony: a sign-in must never wait on the network
+  // (v0.7.1 shipped to fix exactly that), and this needs an unlocked wallet to
+  // read the index and sign the login. Fire-and-forget — it can only remove
+  // rows the server positively disowned, so failing is the same as not running.
+  useEffect(() => {
+    if (page !== 'app' || reconcileTried.current) return
+    reconcileTried.current = true
+    import('./passkey-system-provider')
+      .then(m => m.reconcilePasskeysOnUnlock())
+      .catch(() => { /* locked, offline, or no ChainLens passkeys */ })
+  }, [page])
 
   // Biometric availability + one auto-prompt whenever the lock screen appears
   useEffect(() => {

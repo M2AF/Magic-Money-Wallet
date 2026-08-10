@@ -16,7 +16,8 @@ import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
 import { runPasskeyCeremony, verifyPasskeyPrf, importPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
-import { inAppBrowserEnv } from './passkey-manager'
+import { inAppBrowserEnv, walletEnv } from './passkey-manager'
+import { reconcileChainLensPasskeys } from './passkey-reconcile-chainlens'
 import { handlePasskeyCreate, handlePasskeyGet, handlePasskeyProbe, type PasskeyWirePayload } from './passkey-bridge'
 import { encodePasskeyError } from './passkey-protocol'
 import {
@@ -709,6 +710,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wallet:unlock', async (_event, password: string) => {
     await unlock(password)   // throws 'Incorrect password' or 'NEEDS_MIGRATION'
     touchActivity()
+    // Drop passkey rows the relying party has forgotten — the "Passkey not
+    // recognised" failure, where we sign correctly with a credential the server
+    // no longer has. Deliberately not awaited: unlock must not wait on the
+    // network, and this can only ever remove rows the server positively
+    // disowned, so a failure is the same as never having run.
+    void reconcileChainLensPasskeys(walletEnv).catch(() => { /* best effort */ })
     return true
   })
   ipcMain.handle('wallet:lock', () => {
