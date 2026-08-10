@@ -57,7 +57,9 @@ vi.mock('./passkey-provider', () => ({
 import {
   rootFingerprint, currentDiscovery, syncPasskeyAccount, syncPasskeyDiscovery,
 } from './passkey-system-provider'
-import { deriveWebauthnRoot, toHex } from '../main/webauthn-authenticator'
+import {
+  deriveWebauthnRoot, toHex, buildAttestationObject, base64url,
+} from '../main/webauthn-authenticator'
 import { saveIndex } from '../main/passkey-index'
 
 const MNEMONIC = store.mnemonic
@@ -115,29 +117,73 @@ describe('following the wallet account (defect a)', () => {
 })
 
 describe('discovery rows carry the minting root (defect c)', () => {
-  const record = (accountIndex: number, credentialId: string) => ({
-    rpId: 'chainlensnft.info', credentialId, userHandle: 'aGFuZGxl',
-    userName: 'criptoejesus', accountIndex, createdAt: 1,
-  })
+  const RP = 'chainlensnft.info'
+  const store = {
+    read: async () => indexBlob.value,
+    write: async (b: string) => { indexBlob.value = b },
+    clear: async () => { indexBlob.value = null },
+    exists: async () => indexBlob.value != null,
+  }
+
+  /**
+   * A genuine row: the credentialId is really minted by `mintedUnder`'s root,
+   * and the row claims to belong to `labelledAs`. Passing different values is
+   * how the stale-row case is reproduced.
+   */
+  const record = async (labelledAs: number, mintedUnder = labelledAs, rpId = RP) => {
+    const root = await deriveWebauthnRoot(MNEMONIC, mintedUnder)
+    const att = buildAttestationObject({
+      root, rpId, nonce: crypto.getRandomValues(new Uint8Array(16)), userVerified: true,
+    })
+    return {
+      rpId, credentialId: base64url(att.credentialId), userHandle: 'aGFuZGxl',
+      userName: 'criptoejesus', accountIndex: labelledAs, createdAt: 1,
+    }
+  }
+
+  const seed = async (records: Awaited<ReturnType<typeof record>>[]) =>
+    saveIndex(store, await deriveWebauthnRoot(MNEMONIC, 0), records)
 
   it('stamps each row with ITS OWN account root fingerprint', async () => {
-    const indexKey = await deriveWebauthnRoot(MNEMONIC, 0)
-    await saveIndex(
-      { read: async () => indexBlob.value, write: async (b: string) => { indexBlob.value = b },
-        clear: async () => { indexBlob.value = null }, exists: async () => indexBlob.value != null },
-      indexKey,
-      [record(0, 'AAAA'), record(3, 'BBBB')],
-    )
+    const [a, b] = [await record(0), await record(3)]
+    await seed([a, b])
 
     const rows = await currentDiscovery(MNEMONIC)
     expect(rows).toHaveLength(2)
 
     const byId = Object.fromEntries(rows.map(r => [r.credentialId, r]))
-    expect(byId['AAAA'].rootFp).toBe(await rootFingerprint(await deriveWebauthnRoot(MNEMONIC, 0)))
-    expect(byId['BBBB'].rootFp).toBe(await rootFingerprint(await deriveWebauthnRoot(MNEMONIC, 3)))
-    // A row stamped with the wrong account's fingerprint would be silently
-    // dropped by the service, so the two must not be interchangeable.
-    expect(byId['AAAA'].rootFp).not.toBe(byId['BBBB'].rootFp)
+    expect(byId[a.credentialId].rootFp).toBe(await rootFingerprint(await deriveWebauthnRoot(MNEMONIC, 0)))
+    expect(byId[b.credentialId].rootFp).toBe(await rootFingerprint(await deriveWebauthnRoot(MNEMONIC, 3)))
+    expect(byId[a.credentialId].rootFp).not.toBe(byId[b.credentialId].rootFp)
+  })
+
+  /**
+   * ⚠ The regression that would have shipped. The fingerprint comes from the
+   * row's own accountIndex, so stamping without checking would re-certify a row
+   * minted under a different root — the exact credential that died in
+   * parseCredentialId on the device, handed back to the sheet looking valid.
+   */
+  it('DROPS a row minted under a different root instead of re-stamping it', async () => {
+    const honest = await record(0)
+    const stale = await record(0, 2)     // claims account 0, actually account 2's key
+    await seed([honest, stale])
+
+    const rows = await currentDiscovery(MNEMONIC)
+    expect(rows.map(r => r.credentialId)).toEqual([honest.credentialId])
+  })
+
+  it('drops a row whose credentialId is not decodable', async () => {
+    const honest = await record(0)
+    await seed([honest, { ...await record(0), credentialId: 'not-base64url-@@@' }])
+    // Sanitisation may reject it first; either way it must never be offered.
+    expect((await currentDiscovery(MNEMONIC)).map(r => r.credentialId)).toEqual([honest.credentialId])
+  })
+
+  it('drops a row claiming another site — the MAC covers the rpId', async () => {
+    const honest = await record(0)
+    const wrongSite = { ...await record(0, 0, 'example.com'), rpId: RP }
+    await seed([honest, wrongSite])
+    expect((await currentDiscovery(MNEMONIC)).map(r => r.credentialId)).toEqual([honest.credentialId])
   })
 
   it('an unreadable index yields no rows rather than unstamped ones', async () => {
@@ -146,14 +192,7 @@ describe('discovery rows carry the minting root (defect c)', () => {
   })
 
   it('pushes stamped rows through syncDiscovery', async () => {
-    const indexKey = await deriveWebauthnRoot(MNEMONIC, 0)
-    await saveIndex(
-      { read: async () => indexBlob.value, write: async (b: string) => { indexBlob.value = b },
-        clear: async () => { indexBlob.value = null }, exists: async () => indexBlob.value != null },
-      indexKey,
-      [record(0, 'AAAA')],
-    )
-
+    await seed([await record(0)])
     await syncPasskeyDiscovery(MNEMONIC)
 
     const pushed: SyncOptions = plugin.syncDiscovery.mock.calls[0][0]

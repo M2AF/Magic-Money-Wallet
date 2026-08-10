@@ -130,16 +130,35 @@ export async function runCreate(env: PasskeyEnvironment, req: CeremonyCreateRequ
   const mnemonic = await env.loadMnemonic()            // throws when locked
   const { accountIndex, accountAddress } = await env.currentAccount()
 
-  // excludeCredentials: the RP is telling us it already holds a credential of
-  // ours. Minting a second silently would leave the user with two, only one of
-  // which the site accepts. The MAC is what decides whether it really is ours.
+  // excludeCredentials: the RP is telling us what it already holds, so we do not
+  // mint a second credential the user cannot tell from the first.
+  //
+  // ⚠ THE QUESTION IS "CAN THIS DEVICE ALREADY OFFER IT?", NOT "COULD THIS
+  // DEVICE DERIVE IT?". Those differ for a seed-derived authenticator in the way
+  // that matters: the MAC verifies on EVERY device holding the seed, so asking
+  // `isOwnCredentialId` refused registration on a second device — which could
+  // not discover the first device's credential either, the index being local.
+  // Unable to register, unable to sign in, and no way out from the device.
+  //
+  // The local index is the honest answer. A second device registers its own
+  // credential (the nonce is fresh, so it is genuinely distinct), the relying
+  // party stores both, and each device can discover its own. That is one passkey
+  // per device with nothing to sync — and when the index sync lands it upgrades
+  // this to a shared one rather than being a precondition for it.
   if (req.excludeCredentials?.length) {
-    for (const accIdx of await candidateAccounts(env, mnemonic, rpId, accountIndex)) {
-      const root = await deriveWebauthnRoot(mnemonic, accIdx)
-      for (const excluded of req.excludeCredentials) {
-        if (isOwnCredentialId(root, rpId, excluded)) {
-          throw passkeyError(PASSKEY_EXCLUDED, `You already have a Magic Money passkey for ${site}.`)
-        }
+    const offerable = new Set<string>()
+    try {
+      for (const r of await findRecords(env.storage, await indexKeyFor(mnemonic), rpId)) {
+        offerable.add(r.credentialId)
+      }
+    } catch {
+      // No readable index ⇒ we cannot claim to hold anything ⇒ let it proceed.
+      // Blocking here is what created the deadlock this comment exists about.
+    }
+    for (const excluded of req.excludeCredentials) {
+      if (offerable.has(base64url(excluded))) {
+        throw passkeyError(PASSKEY_EXCLUDED,
+          `You already have a Magic Money passkey for ${site} on this device.`)
       }
     }
   }

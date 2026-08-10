@@ -127,7 +127,15 @@ describe('cross-device passkey sign-in (same seed, two installs)', () => {
     expect(res.userHandle).toBeNull()
   })
 
-  it('DIAGNOSIS: device B cannot register its way out either — excludeCredentials matches under the same seed', async () => {
+  /**
+   * FIXED. This asserted the deadlock: device B refused to register because the
+   * MAC verified, while also being unable to discover device A's credential.
+   * Exclusion is now scoped to what a device can actually OFFER, so B registers
+   * its own credential and can sign in with it — one passkey per device, no sync
+   * required. Sync later upgrades this to a shared one; it was never a
+   * precondition.
+   */
+  it('device B CAN register its own credential, even though it could derive A\'s', async () => {
     const deskStore = deviceStorage()
     const phoneStore = deviceStorage()
     const desktop = device(deskStore)
@@ -139,9 +147,35 @@ describe('cross-device passkey sign-in (same seed, two installs)', () => {
     })
 
     // A signed-in user hitting "add a passkey" on device B: the RP sends what it
-    // already holds. The MAC says it is ours, so we refuse — correctly, but it
-    // closes the last self-service escape from the state above.
-    await expect(runCreate(phone, {
+    // already holds, which device B's seed can derive but has never recorded.
+    const onPhone = await runCreate(phone, {
+      origin: ORIGIN, rpId: RP_ID, userHandle: USER_HANDLE, userName: USER_NAME,
+      challenge: new Uint8Array(32).fill(7),
+      excludeCredentials: [created.credentialId],
+    })
+
+    // Genuinely distinct — the nonce is fresh per registration.
+    expect(base64url(onPhone.credentialId)).not.toBe(base64url(created.credentialId))
+
+    // And now B can do the thing it could not before: discoverable sign-in.
+    const res = await runAssert(phone, {
+      origin: ORIGIN, rpId: RP_ID, challenge: new Uint8Array(32).fill(9),
+    })
+    expect(base64url(res.credentialId)).toBe(base64url(onPhone.credentialId))
+  })
+
+  it('still refuses a duplicate the SAME device already offers', async () => {
+    const store = deviceStorage()
+    const env = device(store)
+
+    const created = await runCreate(env, {
+      origin: ORIGIN, rpId: RP_ID, userHandle: USER_HANDLE, userName: USER_NAME,
+      challenge: new Uint8Array(32).fill(7),
+    })
+
+    // The point of excludeCredentials survives: two indistinguishable entries
+    // for one site is the confusion it exists to prevent.
+    await expect(runCreate(env, {
       origin: ORIGIN, rpId: RP_ID, userHandle: USER_HANDLE, userName: USER_NAME,
       challenge: new Uint8Array(32).fill(7),
       excludeCredentials: [created.credentialId],

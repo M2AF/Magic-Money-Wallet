@@ -32,6 +32,7 @@ import org.json.JSONObject;
 
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.util.HashSet;
 import java.util.List;
 
 import javax.crypto.Cipher;
@@ -194,6 +195,32 @@ public class PasskeyActivity extends Activity {
             JSONObject user = json.optJSONObject("user");
             userName = user != null ? user.optString("name", "") : "";
             userHandleB64 = user != null ? user.optString("id", "") : "";
+
+            // excludeCredentials: refuse only what THIS DEVICE can already
+            // offer. Mirrors runCreate in passkey-ceremony.ts, and the reasoning
+            // is the same — "could this seed derive it?" is true on every device
+            // holding the words, so answering that way would leave a second
+            // device unable to register and unable to discover the first
+            // device's credential. The discovery projection is the local answer.
+            //
+            // This check did not exist here at all, so the system sheet would
+            // mint a duplicate the wallet's own browser refuses. Two
+            // implementations of one rule is the drift this project keeps
+            // paying for.
+            JSONArray exclude = json.optJSONArray("excludeCredentials");
+            if (exclude != null && exclude.length() > 0) {
+                java.util.Set<String> offerable = new HashSet<>();
+                for (PasskeyVault.Discoverable d : PasskeyVault.discovery(this)) {
+                    if (rpId.equals(d.rpId)) offerable.add(d.credentialId);
+                }
+                for (int i = 0; i < exclude.length(); i++) {
+                    JSONObject c = exclude.optJSONObject(i);
+                    if (c != null && offerable.contains(c.optString("id", ""))) {
+                        failCreate("You already have a Magic Money passkey for this site on this device");
+                        return;
+                    }
+                }
+            }
 
             // ES256 only. Refusing here beats a biometric prompt for a ceremony
             // that cannot succeed.
