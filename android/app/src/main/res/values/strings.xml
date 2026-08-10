@@ -4,4 +4,19 @@
     <string name="title_activity_main">MagicMoney Wallet</string>
     <string name="package_name">info.chainlens.magicmoney</string>
     <string name="custom_url_scheme">info.chainlens.magicmoney</string>
+
+    <!-- Every name the passkey provider shows OUTSIDE the app: the row in
+         Settings → Passwords, passkeys & accounts, the entries in the system
+         credential sheet, and the biometric prompt.
+
+         These are resources rather than literals so src/debug can suffix them.
+         A debug build installs beside the release one (applicationIdSuffix
+         ".debug") and the two were previously indistinguishable in the system
+         picker — two identical "Magic Money" rows, with no way to tell which
+         you were enabling. Measured 2026-08-10 while verifying the release
+         build: the wrong pick is silent, and a passkey minted by the other
+         build is derived from a different seed. -->
+    <string name="passkey_provider_label">Magic Money</string>
+    <string name="passkey_create_entry">Magic Money wallet</string>
+    <string name="passkey_account_entry">Magic Money · Account %1$d</string>
 </resources>

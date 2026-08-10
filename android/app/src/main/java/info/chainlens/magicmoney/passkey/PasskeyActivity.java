@@ -36,6 +36,8 @@ import java.util.List;
 
 import javax.crypto.Cipher;
 
+import info.chainlens.magicmoney.R;
+
 /**
  * The activity a CredentialEntry's PendingIntent launches: biometric, then
  * ceremony, then hand the response back through PendingIntentHandler.
@@ -396,7 +398,7 @@ public class PasskeyActivity extends Activity {
 
         cancellationSignal = new CancellationSignal();
         BiometricPrompt prompt = new BiometricPrompt.Builder(this)
-                .setTitle("Magic Money")
+                .setTitle(getString(R.string.passkey_provider_label))
                 .setSubtitle(subtitle)
                 .setAllowedAuthenticators(
                         BiometricManager.Authenticators.BIOMETRIC_STRONG

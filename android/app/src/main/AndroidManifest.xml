@@ -78,7 +78,7 @@
             android:name="info.chainlens.magicmoney.passkey.MagicMoneyCredentialProviderService"
             android:enabled="true"
             android:exported="true"
-            android:label="Magic Money"
+            android:label="@string/passkey_provider_label"
             android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE"
             tools:targetApi="upside_down_cake">
             <intent-filter>

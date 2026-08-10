@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  Debug-only names. Merged over src/main for debug builds and absent from
+  release, so users never see "(debug)" anywhere.
+
+  A debug build installs alongside the release wallet (applicationIdSuffix
+  ".debug"), and before this file the two were indistinguishable everywhere it
+  mattered — most damagingly as TWO IDENTICAL "Magic Money" rows in
+  Settings → Passwords, passkeys & accounts, where picking the wrong one is
+  silent and each build derives passkeys from a different seed.
+
+  ⚠ Override only display names. package_name and custom_url_scheme are
+  contracts Capacitor and deep links rely on, not labels.
+-->
+<resources>
+    <!-- Launcher icon and the system's app lists. -->
+    <string name="app_name">MagicMoney Wallet (debug)</string>
+    <string name="title_activity_main">MagicMoney Wallet (debug)</string>
+
+    <!-- The credential-provider row, the sheet entries, the biometric prompt. -->
+    <string name="passkey_provider_label">Magic Money (debug)</string>
+    <string name="passkey_create_entry">Magic Money wallet (debug)</string>
+    <string name="passkey_account_entry">Magic Money (debug) · Account %1$d</string>
+</resources>

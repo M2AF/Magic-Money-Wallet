@@ -32,6 +32,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import info.chainlens.magicmoney.R;
+
 /**
  * Magic Money as a system passkey provider.
  *
@@ -130,7 +132,7 @@ public class MagicMoneyCredentialProviderService extends CredentialProviderServi
 
             String label = d.userName == null || d.userName.isEmpty() ? rpId : d.userName;
             out.add(new PublicKeyCredentialEntry.Builder(this, label, pending, option)
-                    .setDisplayName("Magic Money · Account " + (d.accountIndex + 1))
+                    .setDisplayName(getString(R.string.passkey_account_entry, d.accountIndex + 1))
                     .build());
         }
         return out;
@@ -150,7 +152,7 @@ public class MagicMoneyCredentialProviderService extends CredentialProviderServi
             Intent intent = new Intent(this, PasskeyActivity.class).setPackage(getPackageName());
             PendingIntent pending = PendingIntent.getActivity(this, requestCode++, intent,
                     PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-            response.addCreateEntry(new CreateEntry.Builder("Magic Money wallet", pending)
+            response.addCreateEntry(new CreateEntry.Builder(getString(R.string.passkey_create_entry), pending)
                     .setDescription("Saved to your seed phrase — restores on any device with your words")
                     .build());
             // Logged on the SUCCESS path too, not just the else. Without this,
