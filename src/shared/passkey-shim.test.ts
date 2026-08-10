@@ -542,14 +542,14 @@ describe('passkey shim · user activation', () => {
     const had = 'userActivation' in nav
     const prev = nav.userActivation
     if (isActive === undefined) delete nav.userActivation
-    else nav.userActivation = { isActive, hasBeenActive: true }
+    else nav.userActivation = { isActive: true, hasBeenActive: isActive }
     return fn().finally(() => {
       if (had) nav.userActivation = prev
       else delete nav.userActivation
     })
   }
 
-  it('refuses create() with NotAllowedError when there is no activation', async () => {
+  it('refuses create() with NotAllowedError when the page was never interacted with', async () => {
     await withActivation(false, async () => {
       await expect(credentials.create({
         publicKey: { challenge: challengeOf(3), rp: { id: RP_ID }, user: { id: challengeOf(4), name: 'a' }, pubKeyCredParams: [{ alg: -7, type: 'public-key' }] },
@@ -557,7 +557,7 @@ describe('passkey shim · user activation', () => {
     })
   })
 
-  it('refuses get() with NotAllowedError when there is no activation', async () => {
+  it('refuses get() with NotAllowedError when the page was never interacted with', async () => {
     await withActivation(false, async () => {
       await expect(credentials.get({
         publicKey: { challenge: challengeOf(5), rpId: RP_ID },

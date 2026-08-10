@@ -278,7 +278,20 @@ export function installPasskeyShim(send: PasskeyShimTransport): void {
    */
   function requireUserActivation(): void {
     const ua = (nav as AnyRecord).userActivation as AnyRecord | undefined
-    if (ua && ua.isActive === false) {
+    // hasBeenActive (sticky), NOT isActive (transient).
+    //
+    // isActive expires a few seconds after the click, and every real site does
+    // an async round trip for its challenge BEFORE calling create/get — on a
+    // cold free-tier host that can take 50s. Gating on isActive therefore broke
+    // registration on desktop against a spun-down server, while the same code
+    // passed locally and on a warm one. Chromium's own rule is that the page
+    // must be FOCUSED, not that activation is still live; isActive was stricter
+    // than the platform it was written to match.
+    //
+    // hasBeenActive still blocks the thing worth blocking — a page that has
+    // never been interacted with cannot summon a passkey prompt — without
+    // punishing a slow network.
+    if (ua && ua.hasBeenActive === false) {
       // Unknown codes map to NotAllowedError, which is what Chromium itself
       // throws here — so the page sees the same failure it would in Chrome.
       throw decodeError('MMPK:PASSKEY_NO_ACTIVATION:A passkey request must follow a user gesture.')

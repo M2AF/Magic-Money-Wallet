@@ -55,6 +55,28 @@ const ours = enabled.filter(c => c.split('/')[0] === PKG)
 log('providers enabled:', enabled.length, '· Magic Money among them:', ours.length ? 'yes' : 'NO')
 if (!ours.length) fail(`${PKG} is not an enabled credential provider — nothing to diagnose`)
 
+// ── Optional: make ourselves the only provider, so the sheet shows OUR entry ──
+// Chrome puts Google first and resolves before Magic Money is ever visible, so
+// the row's "Account N" label — the only place the recorded accountIndex is
+// observable without rebuilding the app — never gets on screen. Narrowing the
+// provider list is reversible and is restored in the finally below.
+let restoreProviders = null
+if (process.env.MM_SOLO) {
+  restoreProviders = enabled.join(':')
+  adb('shell', 'settings', 'put', 'secure', 'credential_service', ours.join(':'))
+  log('providers narrowed to Magic Money only (will restore)')
+}
+const restore = () => {
+  if (!restoreProviders) return
+  try {
+    adb('shell', 'settings', 'put', 'secure', 'credential_service', restoreProviders)
+    log('providers restored:', restoreProviders.split(':').length, 'entries')
+  } catch (e) { log('⚠ COULD NOT RESTORE PROVIDERS — set them by hand:', restoreProviders) }
+  restoreProviders = null
+}
+process.on('exit', restore)
+process.on('SIGINT', () => { restore(); process.exit(130) })
+
 // ── Logcat ───────────────────────────────────────────────────────────────────
 tryAdb('logcat', '-G', '16M')       // ⚠ silently capped at 5 MiB on this device
 tryAdb('logcat', '-c')
