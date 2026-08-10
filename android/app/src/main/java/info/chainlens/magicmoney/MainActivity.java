@@ -16,6 +16,9 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppInfoPlugin.class);
         registerPlugin(DefaultBrowserPlugin.class);
         registerPlugin(DownloaderPlugin.class);
+        // OEM settings deep-links (the credential-provider picker). Separate from
+        // the passkey package on purpose — see SystemSettingsPlugin.
+        registerPlugin(SystemSettingsPlugin.class);
         // Android 14+ system passkey provider. The plugin itself gates on
         // Build.VERSION, so registering it unconditionally is safe — the wallet
         // asks status() and hides the control on anything older.

@@ -52,7 +52,7 @@ interface PasskeyProviderPlugin {
   syncDiscovery(options: { discovery: DiscoveryRecord[] }): Promise<void>
   setCurrentAccount(options: { accountIndex: number }): Promise<void>
   disable(): Promise<void>
-  openSettings(): Promise<void>
+  // No openSettings here on purpose — SystemSettings owns that, see below.
 }
 
 const PasskeyProvider = registerPlugin<PasskeyProviderPlugin>('PasskeyProvider')
@@ -136,8 +136,33 @@ export async function disablePasskeyProvider(): Promise<void> {
   } catch { /* nothing enrolled, or no native plugin */ }
 }
 
-export async function openPasskeyProviderSettings(): Promise<void> {
-  await PasskeyProvider.openSettings()
+interface SystemSettingsPlugin {
+  openCredentialProviderSettings(): Promise<{ opened: boolean; via: string }>
+  canOpenCredentialProviderSettings(): Promise<{ opened: boolean; via: string }>
+}
+
+const SystemSettings = registerPlugin<SystemSettingsPlugin>('SystemSettings')
+
+/**
+ * Open Settings → Passwords, passkeys & accounts.
+ *
+ * ⚠ Goes through SystemSettings, NOT PasskeyProvider.openSettings(). That older
+ * path uses `Settings.ACTION_CREDENTIAL_PROVIDER` alone, which was measured NOT
+ * to resolve on a Galaxy S21+ (Android 15) — Samsung ships the picker as a bare
+ * component and never registered the AOSP action. SystemSettings tries the
+ * concrete component first and reports which rung worked, so the caller can give
+ * written directions instead of pretending a screen opened.
+ *
+ * Returns the outcome rather than throwing: "nothing opened" is a real answer on
+ * an OEM build nobody has tested, and the UI has copy for it.
+ */
+export async function openPasskeyProviderSettings(): Promise<{ opened: boolean; via: string }> {
+  try {
+    return await SystemSettings.openCredentialProviderSettings()
+  } catch {
+    // No native plugin (web/dev) — or an OEM that rejected every rung.
+    return { opened: false, via: 'none' }
+  }
 }
 
 /**
@@ -153,6 +178,32 @@ export async function syncPasskeyDiscovery(mnemonic: string): Promise<void> {
     if (!status.supported || !status.enrolled) return
     await PasskeyProvider.syncDiscovery({ discovery: await currentDiscovery(mnemonic) })
   } catch { /* discovery is a convenience; never fail a ceremony over it */ }
+}
+
+// ─── First-run prompt state ─────────────────────────────────────────────────
+
+const DISMISSED_KEY = 'passkey.provider.prompted'
+
+/**
+ * Has the user already been shown (and dismissed) the first-run prompt?
+ *
+ * Stored, not derived: "Not now" has to stick, and the alternative — re-deriving
+ * from enrolment state — would re-prompt on every launch of anyone who declined.
+ */
+export async function passkeyPromptDismissed(): Promise<boolean> {
+  try {
+    const { Preferences } = await import('@capacitor/preferences')
+    return (await Preferences.get({ key: DISMISSED_KEY })).value === '1'
+  } catch {
+    return true   // no Preferences (web/dev) — never prompt
+  }
+}
+
+export async function dismissPasskeyPrompt(): Promise<void> {
+  try {
+    const { Preferences } = await import('@capacitor/preferences')
+    await Preferences.set({ key: DISMISSED_KEY, value: '1' })
+  } catch { /* nothing to remember it with */ }
 }
 
 /** Keep provider-side registrations on the account the wallet is showing. */

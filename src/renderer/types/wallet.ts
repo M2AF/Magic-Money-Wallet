@@ -541,7 +541,10 @@ declare global {
       }>
       passkeyProviderEnable?(): Promise<{ supported: boolean; enrolled: boolean; enabledInSettings: boolean | null }>
       passkeyProviderDisable?(): Promise<void>
-      passkeyProviderOpenSettings?(): Promise<void>
+      // Resolves WHERE it landed: the deep link can fail entirely on an OEM
+      // build (measured: the AOSP action does not resolve on Samsung), and the
+      // UI has copy for that rather than pretending a screen opened.
+      passkeyProviderOpenSettings?(): Promise<{ opened: boolean; via: string }>
       helloEnroll?(): Promise<boolean>
       helloUnlock?(): Promise<boolean>
       helloRemove?(): Promise<boolean>

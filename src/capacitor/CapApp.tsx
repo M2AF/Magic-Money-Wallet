@@ -23,6 +23,7 @@ import {
 } from '../renderer/components/ApprovalOverlays'
 import { BrowserOverlay, browserUiState } from './BrowserOverlay'
 import { PasskeyApproval } from './PasskeyApproval'
+import { PasskeyProviderPrompt } from './PasskeyProviderPrompt'
 import { DappBrowser } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 
@@ -302,6 +303,11 @@ export function CapApp() {
       <App />
       <BrowserOverlay />
       <PasskeyApproval onPendingChange={setPasskeyPending} />
+      {/* One-time offer to become a system passkey provider. Self-gating: it
+          renders nothing below Android 14, nothing once enrolled, and nothing
+          after the user has said no. Sits above the browser overlay but below
+          the approval sheets, which must never be covered. */}
+      {!passkeyPending && <PasskeyProviderPrompt />}
       <ApprovalOverlays
         connRequest={connRequest}
         txRequest={txRequest}

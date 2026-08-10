@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react'
+// Copy lives in one tested module so the Settings row and the first-run prompt
+// cannot drift apart — and so the two measured Chrome/own-browser facts stay
+// assertable rather than buried in JSX.
+import { onboardingStage, settingsRowCopy, settingsLandingNote } from '../lib/passkey-onboarding'
 import type { ApprovedOrigin, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
@@ -21,6 +25,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [pkProvider, setPkProvider] = useState<{ supported: boolean; androidVersion: number; enrolled: boolean; enabledInSettings: boolean | null } | null>(null)
   const [pkProviderBusy, setPkProviderBusy] = useState(false)
   const [pkProviderError, setPkProviderError] = useState<string | null>(null)
+  const [pkLanding, setPkLanding] = useState<string | null>(null)
   const [helloError, setHelloError] = useState<string | null>(null)
   const [passkeySupported, setPasskeySupported] = useState(false)
   const [passkeyLinked, setPasskeyLinked] = useState(false)
@@ -133,11 +138,15 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
     try {
       if (pkProvider.enrolled) {
         await window.wallet.passkeyProviderDisable?.()
+        setPkLanding(null)
       } else {
         await window.wallet.passkeyProviderEnable?.()
         // Enabling only hands over the key material; Android will not let an app
-        // select itself, so the user still has to pick us in Settings.
-        await window.wallet.passkeyProviderOpenSettings?.()
+        // select itself, so the user still has to pick us in Settings. The deep
+        // link can fail entirely on an unseen OEM build, so report where it
+        // actually landed rather than assuming the screen opened.
+        const landed = await window.wallet.passkeyProviderOpenSettings?.()
+        setPkLanding(settingsLandingNote(landed?.via ?? 'none', landed?.opened ?? false))
       }
       refreshPasskeyProvider()
     } catch (e) {
@@ -391,33 +400,40 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
               back into the wallet, and this offers the wallet's seed-derived
               site passkeys to Chrome, Brave and Samsung Internet — the thing
               other password managers refuse an in-app browser. */}
-          {pkProvider && (
-            <SettingsRow
-              icon="🪪"
-              label={pkProviderBusy
-                ? 'Please wait…'
-                : pkProvider.enrolled
-                  ? 'System passkeys — On'
-                  : 'Use your passkeys in other browsers'}
-              sublabel={pkProvider.enrolled
-                ? (pkProvider.enabledInSettings === false
-                  ? 'Ready, but not selected yet — tap to finish in Settings.'
-                  : 'Chrome, Brave and Samsung Internet can use your passkeys. Tap to turn off.')
-                : 'Adds Magic Money to Settings → Passwords, passkeys & accounts.'}
-              onClick={togglePasskeyProvider}
-              disabled={pkProviderBusy}
-              noChevron
-            />
-          )}
-          {pkProvider?.enrolled && pkProvider.enabledInSettings === false && (
-            <div style={{ color: 'var(--muted)', fontSize: 11, padding: '2px 12px 4px' }}>
-              Open Settings → Passwords, passkeys & accounts and switch Magic Money on.{' '}
+          {pkProvider && (() => {
+            const row = settingsRowCopy(onboardingStage(pkProvider))
+            if (!row) return null
+            return (
+              <SettingsRow
+                icon="🪪"
+                label={pkProviderBusy ? 'Please wait…' : row.label}
+                sublabel={row.sublabel}
+                onClick={togglePasskeyProvider}
+                disabled={pkProviderBusy}
+                noChevron
+              />
+            )
+          })()}
+          {/* The two facts device testing turned up, stated where the user is
+              deciding. Chrome puts Google first no matter what — Preferred
+              Service was measured to change nothing — and the wallet's own
+              browser skips the chooser entirely. */}
+          {pkProvider?.enrolled && (
+            <div style={{ color: 'var(--muted)', fontSize: 11, padding: '2px 12px 6px', lineHeight: 1.5 }}>
+              In Magic Money’s own browser passkeys just work — no chooser.{' '}
               <button
                 type="button"
-                onClick={() => { window.wallet.passkeyProviderOpenSettings?.().catch(() => {}) }}
+                onClick={() => {
+                  window.wallet.passkeyProviderOpenSettings?.()
+                    .then(r => setPkLanding(settingsLandingNote(r?.via ?? 'none', r?.opened ?? false)))
+                    .catch(() => setPkLanding(settingsLandingNote('none', false)))
+                }}
                 style={{ background: 'none', border: 0, color: 'var(--accent)', padding: 0, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}
               >Open Settings</button>
             </div>
+          )}
+          {pkLanding && (
+            <div style={{ color: 'var(--muted)', fontSize: 11, padding: '0 12px 6px', lineHeight: 1.5 }}>{pkLanding}</div>
           )}
           {pkProviderError && (
             <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{pkProviderError}</div>

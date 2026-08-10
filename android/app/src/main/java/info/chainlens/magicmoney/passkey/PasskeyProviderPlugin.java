@@ -170,32 +170,16 @@ public class PasskeyProviderPlugin extends Plugin {
         call.resolve();
     }
 
-    /**
-     * Open Settings → Passwords, passkeys & accounts, focused on this app.
-     *
-     * There is no way to enable a provider programmatically, by design: the user
-     * must choose it. Onboarding therefore has to send them here rather than
-     * pretend the switch flipped.
-     */
-    @PluginMethod
-    public void openSettings(PluginCall call) {
-        if (!supported()) { call.reject("Android 14 or newer is required"); return; }
-        try {
-            Intent intent = new Intent(Settings.ACTION_CREDENTIAL_PROVIDER)
-                    .setData(Uri.parse("package:" + getContext().getPackageName()))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            getContext().startActivity(intent);
-            call.resolve();
-        } catch (Exception e) {
-            // Some OEM builds do not honour the deep link; the generic sync
-            // settings screen still gets the user to the right place.
-            try {
-                getContext().startActivity(new Intent(Settings.ACTION_SYNC_SETTINGS)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                call.resolve();
-            } catch (Exception inner) {
-                call.reject("Could not open Settings — look for Passwords, passkeys & accounts");
-            }
-        }
-    }
+    // Settings navigation deliberately does NOT live here.
+    //
+    // This class used to expose openSettings(), leading with
+    // Settings.ACTION_CREDENTIAL_PROVIDER — an action MEASURED not to resolve on
+    // a Galaxy S21+ (Android 15), so on the very device we develop against it
+    // fell straight through to a generic settings screen. Two paths to one
+    // screen, one of them known-wrong, is how a fixed bug comes back.
+    //
+    // SystemSettingsPlugin.openCredentialProviderSettings() is the single path:
+    // a four-rung ladder that leads with the CredentialsPickerActivity component
+    // (the rung that actually works here), resolves each rung before starting
+    // it, and reports which one succeeded so the UI can tell the truth.
 }
