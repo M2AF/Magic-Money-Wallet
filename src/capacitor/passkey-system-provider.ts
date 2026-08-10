@@ -16,7 +16,7 @@
  */
 
 import { registerPlugin } from '@capacitor/core'
-import { deriveWebauthnRoot, toHex } from '../main/webauthn-authenticator'
+import { deriveWebauthnRoot, toHex, isOwnCredentialId, fromBase64url } from '../main/webauthn-authenticator'
 import { loadIndex, PASSKEY_INDEX_UNREADABLE, type PasskeyCredentialRecord } from '../main/passkey-index'
 import { capacitorPasskeyStorage } from './passkey-provider'
 import { loadMnemonic, loadAddresses } from './capacitor-store'
@@ -106,6 +106,26 @@ export async function currentDiscovery(mnemonic: string): Promise<DiscoveryRecor
 
     const out: DiscoveryRecord[] = []
     for (const r of records as PasskeyCredentialRecord[]) {
+      // ⚠ VERIFY THE MAC, DO NOT MERELY STAMP. The fingerprint is derived from
+      // the row's accountIndex, so stamping blindly would assert "this belongs
+      // to the current root" on the strength of a number the row supplies about
+      // itself. A row minted under a different root would be re-stamped as
+      // valid and offered again — reviving the fingerprint-then-fail it exists
+      // to prevent, and doing it in the one place that looks authoritative.
+      //
+      // Unlike the provider service, this side HAS the root, so it can ask the
+      // real question. `isOwnCredentialId` is the same authority the in-app
+      // ceremony uses (passkey-ceremony.ts discoverableCandidates); a row that
+      // fails it is dropped from the projection rather than carried forward.
+      const root = await deriveWebauthnRoot(mnemonic, r.accountIndex)
+      let credentialId: Uint8Array
+      try {
+        credentialId = fromBase64url(r.credentialId)
+      } catch {
+        continue
+      }
+      if (!isOwnCredentialId(root, r.rpId, credentialId)) continue
+
       out.push({
         rpId: r.rpId,
         credentialId: r.credentialId,
