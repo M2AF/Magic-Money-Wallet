@@ -105,8 +105,12 @@ const landingBand: React.CSSProperties = {
 const errorBand: React.CSSProperties = { marginTop: 8, fontSize: 12, color: '#f87171' }
 
 const primaryBtn: React.CSSProperties = {
+  // --on-accent, never a hardcoded #fff: the Mono theme sets --accent to
+  // #ffffff, so white-on-accent rendered a blank white button with invisible
+  // text. Reported from the device; the preview harness could not catch it
+  // because it supplies its own colours rather than the app's theme tokens.
   border: 0, borderRadius: 12, padding: 13, fontSize: 15, fontWeight: 700,
-  background: 'var(--accent, #2563eb)', color: '#fff', cursor: 'pointer',
+  background: 'var(--accent, #2563eb)', color: 'var(--on-accent, #fff)', cursor: 'pointer',
 }
 
 const secondaryBtn: React.CSSProperties = {
