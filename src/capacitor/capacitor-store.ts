@@ -386,7 +386,23 @@ export function effectiveAddresses(addresses: WalletAddresses, cfg: WalletConfig
 }
 
 export async function saveAddresses(addresses: WalletAddresses): Promise<void> {
+  const previous = await prefGet<WalletAddresses>('wallet.addresses')
   await prefSet('wallet.addresses', addresses)
+
+  // Follow the selected account into the Android passkey provider. Without this
+  // the provider keeps minting under whichever account was current when it was
+  // first enabled — silently the wrong one. This is the ONLY place every account
+  // change funnels through (switch, import, restore), which is why the hook
+  // lives here rather than in the set-account handler shared with the extension.
+  //
+  // ⚠ Dynamic import: passkey-system-provider imports THIS module, so a static
+  // import would close the cycle.
+  if ((previous?.accountIndex ?? -1) !== addresses.accountIndex) {
+    try {
+      const { syncPasskeyAccount } = await import('./passkey-system-provider')
+      await syncPasskeyAccount(addresses.accountIndex)
+    } catch { /* no provider on this platform, or it was never enabled */ }
+  }
 }
 
 export async function loadAddresses(): Promise<WalletAddresses | null> {

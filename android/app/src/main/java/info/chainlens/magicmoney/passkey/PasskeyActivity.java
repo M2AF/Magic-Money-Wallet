@@ -248,7 +248,7 @@ public class PasskeyActivity extends Activity {
                     // failure here costs discovery only — the credential itself is
                     // a function of the seed and still works when the site names it.
                     PasskeyPrefs.appendDiscovery(PasskeyActivity.this,
-                            rpId, id, userName, userHandleB64, accountIndex);
+                            rpId, id, userName, userHandleB64, accountIndex, root);
 
                     Intent result = new Intent();
                     PendingIntentHandler.setCreateCredentialResponse(result,

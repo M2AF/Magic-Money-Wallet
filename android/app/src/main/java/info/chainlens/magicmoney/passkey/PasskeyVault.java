@@ -22,7 +22,9 @@ import java.security.PublicKey;
 import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -116,6 +118,36 @@ public final class PasskeyVault {
         return Base64.decode(s, Base64.NO_WRAP);
     }
 
+    /**
+     * A non-secret 8-byte tag naming WHICH root this is.
+     *
+     * The provider service runs with no UI and cannot prompt, so it can never
+     * unwrap a root at offer time — which is why it cannot simply call
+     * `isOwnCredentialId` to check that a projection row is signable. This is the
+     * prompt-free stand-in: both the wrapped root and every row it minted carry
+     * this tag, so a row left behind by a DIFFERENT root (a different wallet, or
+     * a different account — the frozen spec puts accountIndex in the HKDF info,
+     * so each account has its own root) is recognisable without any key material.
+     *
+     * Truncated SHA-256 of a 256-bit secret: not an oracle, and hex so the
+     * TypeScript side can produce byte-identical values.
+     */
+    public static String rootFingerprint(byte[] root) throws Exception {
+        byte[] h = java.security.MessageDigest.getInstance("SHA-256").digest(root);
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 8; i++) sb.append(String.format("%02x", h[i]));
+        return sb.toString();
+    }
+
+    /** The fingerprint of the root enrolled for this account, or null. */
+    @Nullable
+    public static String enrolledFingerprint(Context ctx, int accountIndex) {
+        JSONObject entry = readRoots(ctx).optJSONObject(String.valueOf(accountIndex));
+        if (entry == null) return null;
+        String fp = entry.optString("fp", "");
+        return fp.isEmpty() ? null : fp;
+    }
+
     // ── Keystore keys ────────────────────────────────────────────────────────
 
     private static KeyStore keystore() throws Exception {
@@ -202,6 +234,9 @@ public final class PasskeyVault {
         JSONObject all = readRoots(ctx);
         JSONObject entry = new JSONObject();
         entry.put("ct", b64(ct));
+        // Recorded so the service can tell, without a prompt, whether a discovery
+        // row was minted by THIS root. See rootFingerprint().
+        entry.put("fp", rootFingerprint(root));
         all.put(String.valueOf(accountIndex), entry);
         prefs(ctx).edit().putString(KEY_ROOTS, all.toString()).apply();
     }
@@ -279,26 +314,95 @@ public final class PasskeyVault {
         public final String userName;
         public final String userHandle;     // base64url, may be ""
         public final int accountIndex;
+        /** Fingerprint of the root that minted it; "" on rows written before this existed. */
+        public final String rootFp;
+        /**
+         * True for rows this app wrote itself in PasskeyActivity. The wallet's
+         * passkey-index.enc has never heard of them, so a wholesale replace from
+         * the wallet must not take them with it.
+         */
+        public final boolean providerMinted;
 
-        Discoverable(String rpId, String credentialId, String userName, String userHandle, int accountIndex) {
+        Discoverable(String rpId, String credentialId, String userName, String userHandle,
+                     int accountIndex, String rootFp, boolean providerMinted) {
             this.rpId = rpId;
             this.credentialId = credentialId;
             this.userName = userName;
             this.userHandle = userHandle;
             this.accountIndex = accountIndex;
+            this.rootFp = rootFp == null ? "" : rootFp;
+            this.providerMinted = providerMinted;
+        }
+
+        JSONObject toJson() throws Exception {
+            JSONObject o = new JSONObject();
+            o.put("rpId", rpId);
+            o.put("credentialId", credentialId);
+            o.put("userName", userName);
+            o.put("userHandle", userHandle);
+            o.put("accountIndex", accountIndex);
+            if (!rootFp.isEmpty()) o.put("rootFp", rootFp);
+            if (providerMinted) o.put("providerMinted", true);
+            return o;
         }
     }
 
     /**
-     * Replace the discovery projection. The wallet pushes this after every
-     * registration; it is a PROJECTION of passkey-index.enc, never the source of
-     * truth, and it holds no key material.
+     * Update the discovery projection from the wallet's own index.
+     *
+     * ⚠ THIS MERGES, IT DOES NOT REPLACE. `passkey-index.enc` is the source of
+     * truth for everything created in the wallet, but a passkey created through
+     * the SYSTEM SHEET is written here by PasskeyActivity and the wallet's index
+     * has never heard of it. A wholesale replace therefore silently deleted every
+     * Chrome-created passkey the moment the wallet next synced — one-directional
+     * data loss with no error anywhere, and the reason a credential this device
+     * minted itself could vanish from its own discovery list.
+     *
+     * So: incoming rows win, and provider-minted rows survive unless an incoming
+     * row supersedes them by credentialId.
      */
     public static void putDiscovery(Context ctx, JSONArray records) throws Exception {
+        JSONArray merged = new JSONArray();
+        Set<String> incoming = new HashSet<>();
+        for (int i = 0; i < records.length(); i++) {
+            JSONObject o = records.optJSONObject(i);
+            if (o == null) continue;
+            String id = o.optString("credentialId", "");
+            if (!id.isEmpty()) incoming.add(id);
+            merged.put(o);
+        }
+        for (Discoverable d : discovery(ctx)) {
+            if (!d.providerMinted) continue;              // the wallet owns this row
+            if (incoming.contains(d.credentialId)) continue;  // superseded
+            merged.put(d.toJson());
+        }
+        putDiscoveryRaw(ctx, merged);
+    }
+
+    /** Write the projection verbatim. The merge above is the only caller that matters. */
+    private static void putDiscoveryRaw(Context ctx, JSONArray records) throws Exception {
         Cipher cipher = Cipher.getInstance(TRANSFORM);
         cipher.init(Cipher.ENCRYPT_MODE, indexKey());
         byte[] ct = cipher.doFinal(WebAuthnCore.utf8(records.toString()));
         prefs(ctx).edit().putString(KEY_INDEX, b64(cipher.getIV()) + ":" + b64(ct)).apply();
+    }
+
+    /**
+     * Append one row this app minted itself, preserving everything already there.
+     * Kept here rather than in PasskeyPrefs so the merge rule and the row schema
+     * live in one file.
+     */
+    public static void appendDiscovery(Context ctx, Discoverable row) throws Exception {
+        JSONArray next = new JSONArray();
+        for (Discoverable d : discovery(ctx)) {
+            boolean superseded = d.rpId.equals(row.rpId)
+                    && (d.credentialId.equals(row.credentialId)
+                        || (!row.userHandle.isEmpty() && row.userHandle.equals(d.userHandle)));
+            if (superseded) continue;
+            next.put(d.toJson());
+        }
+        next.put(row.toJson());
+        putDiscoveryRaw(ctx, next);
     }
 
     /** Everything this device can offer, or an empty list. Never throws upward. */
@@ -323,7 +427,8 @@ public final class PasskeyVault {
                 if (rpId.isEmpty() || credentialId.isEmpty()) continue;
                 out.add(new Discoverable(rpId, credentialId,
                         o.optString("userName", ""), o.optString("userHandle", ""),
-                        o.optInt("accountIndex", 0)));
+                        o.optInt("accountIndex", 0),
+                        o.optString("rootFp", ""), o.optBoolean("providerMinted", false)));
             }
         } catch (Exception e) {
             // A damaged or key-rotated projection means "nothing to offer", which

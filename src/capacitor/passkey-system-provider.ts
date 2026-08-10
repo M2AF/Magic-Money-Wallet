@@ -28,6 +28,16 @@ export interface DiscoveryRecord {
   userName: string
   userHandle: string
   accountIndex: number
+  /**
+   * Fingerprint of the root that minted this credential — hex of the first 8
+   * bytes of SHA-256(webauthnRoot), matching `PasskeyVault.rootFingerprint`.
+   *
+   * The provider service has no UI and so can never unwrap a root to verify a
+   * credentialId's MAC at offer time. This is what lets it tell, without a
+   * prompt, that a row belongs to the root it actually holds. Rows without one
+   * are not offered, so this field is required in practice.
+   */
+  rootFp: string
 }
 
 export interface PasskeyProviderStatus {
@@ -82,17 +92,46 @@ export async function currentDiscovery(mnemonic: string): Promise<DiscoveryRecor
   try {
     const indexKey = await deriveWebauthnRoot(mnemonic, 0)
     const records = await loadIndex(capacitorPasskeyStorage, indexKey)
-    return records.map((r: PasskeyCredentialRecord) => ({
-      rpId: r.rpId,
-      credentialId: r.credentialId,
-      userName: r.userName,
-      userHandle: r.userHandle,
-      accountIndex: r.accountIndex,
-    }))
+
+    // One derivation per distinct account, not per row: a wallet with many
+    // passkeys on one account would otherwise redo the same HKDF for each.
+    const fingerprints = new Map<number, string>()
+    const fingerprintFor = async (accountIndex: number): Promise<string> => {
+      const cached = fingerprints.get(accountIndex)
+      if (cached !== undefined) return cached
+      const fp = await rootFingerprint(await deriveWebauthnRoot(mnemonic, accountIndex))
+      fingerprints.set(accountIndex, fp)
+      return fp
+    }
+
+    const out: DiscoveryRecord[] = []
+    for (const r of records as PasskeyCredentialRecord[]) {
+      out.push({
+        rpId: r.rpId,
+        credentialId: r.credentialId,
+        userName: r.userName,
+        userHandle: r.userHandle,
+        accountIndex: r.accountIndex,
+        rootFp: await fingerprintFor(r.accountIndex),
+      })
+    }
+    return out
   } catch (e) {
     if (e instanceof Error && e.message === PASSKEY_INDEX_UNREADABLE) return []
     throw e
   }
+}
+
+/**
+ * Hex of the first 8 bytes of SHA-256(root).
+ *
+ * ⚠ Must stay byte-identical to `PasskeyVault.rootFingerprint` in Java. If the
+ * two ever disagree the provider silently offers nothing, which looks exactly
+ * like "no passkeys registered" — so there is a test pinning the value.
+ */
+export async function rootFingerprint(root: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', root as BufferSource))
+  return Array.from(digest.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 /**
@@ -206,11 +245,40 @@ export async function dismissPasskeyPrompt(): Promise<void> {
   } catch { /* nothing to remember it with */ }
 }
 
-/** Keep provider-side registrations on the account the wallet is showing. */
+/**
+ * Keep the provider on the account the wallet is showing.
+ *
+ * ⚠ WHY THIS ENROLS RATHER THAN JUST MOVING A POINTER. The frozen spec puts
+ * accountIndex in the HKDF info, so every account has its OWN webauthnRoot.
+ * `PasskeyActivity` mints under `PasskeyPrefs.currentAccount`, and that pointer
+ * is only ever written by `enrol`. Left alone after an account switch it does
+ * not fail — it silently mints the new passkey under the PREVIOUS account's
+ * key, producing a credential that works while quietly belonging to the wrong
+ * account. A wrong-but-working credential is worse than a refusal, because
+ * nothing ever surfaces it.
+ *
+ * Moving the pointer alone is not enough either: an account with no enrolled
+ * root cannot be signed for at all, so passkeys created in the in-app browser
+ * under that account would be silently skipped by the provider's offer path
+ * (`hasRoot`) and never appear in Chrome.
+ *
+ * Handing over one more root is a real widening of what the provider holds, and
+ * it is the coherent one: the user enabled the provider for THIS WALLET, each
+ * root is auth-bound in Keystore, and a root only ever costs logins for its own
+ * account — never funds. See the header for why the seed itself never crosses.
+ *
+ * Best-effort by design: a locked wallet, a device below Android 14 or a
+ * provider that was never enabled must not break switching accounts.
+ */
 export async function syncPasskeyAccount(accountIndex: number): Promise<void> {
   try {
     const status = await passkeyProviderStatus()
     if (!status.supported || !status.enrolled) return
-    await PasskeyProvider.setCurrentAccount({ accountIndex })
-  } catch { /* best effort */ }
+    const mnemonic = await loadMnemonic()      // throws when the wallet is locked
+    // enrol() sets currentAccount to what it just enrolled, so this is one call.
+    await PasskeyProvider.enrol({
+      rootHex: toHex(await deriveWebauthnRoot(mnemonic, accountIndex)),
+      accountIndex,
+    })
+  } catch { /* best effort — never break an account switch over this */ }
 }

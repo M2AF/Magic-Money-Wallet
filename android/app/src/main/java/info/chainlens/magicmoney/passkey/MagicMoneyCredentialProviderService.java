@@ -121,6 +121,25 @@ public class MagicMoneyCredentialProviderService extends CredentialProviderServi
             // offering it would produce a prompt that always fails.
             if (!PasskeyVault.hasRoot(this, d.accountIndex)) continue;
 
+            // ⚠ "A root exists for that account" is NOT the same as "that root
+            // minted this credential". Each account has its own root (the frozen
+            // spec puts accountIndex in the HKDF info), so a row left behind by a
+            // different wallet — or one whose account was re-enrolled — passes
+            // hasRoot and then dies in parseCredentialId's MAC check, AFTER the
+            // user has already given a fingerprint. Measured on device as
+            // "Unrecognised credential id: authentication tag mismatch".
+            //
+            // The MAC itself is unavailable here: this service has no UI, so it
+            // can never unwrap a root to compute one. The root fingerprint is the
+            // prompt-free equivalent and catches exactly that case. A row with no
+            // fingerprint predates this check and is not offered — the wallet
+            // rewrites its own rows, with fingerprints, on the next sync.
+            String enrolled = PasskeyVault.enrolledFingerprint(this, d.accountIndex);
+            if (enrolled == null || d.rootFp.isEmpty() || !enrolled.equals(d.rootFp)) {
+                Log.i(TAG, "skipping a row this wallet cannot sign (stale or unverifiable)");
+                continue;
+            }
+
             Intent intent = new Intent(this, PasskeyActivity.class)
                     .setPackage(getPackageName())
                     .putExtra(PasskeyActivity.EXTRA_CREDENTIAL_ID, d.credentialId)

@@ -52,37 +52,27 @@ public final class PasskeyPrefs {
      * TypeScript index does on re-registration: the relying party has just stored
      * a new public key, so the old credential is dead to it.
      *
-     * ⚠ Best-effort by design. The wallet's own passkey-index.enc remains the
-     * source of truth and is reconciled on next launch; losing a row here costs
-     * username-less discovery, never the credential.
+     * The row is flagged `providerMinted` because the wallet's passkey-index.enc
+     * has never heard of it — that flag is what stops the wallet's next sync from
+     * deleting it. It also carries the fingerprint of the root that minted it, so
+     * the service can later tell whether it is still signable without prompting.
+     *
+     * ⚠ Best-effort by design: losing a row here costs username-less discovery,
+     * never the credential, which re-derives from the seed whenever a site names it.
      */
     public static void appendDiscovery(Context ctx, String rpId, String credentialIdB64u,
-                                       String userName, String userHandleB64u, int accountIndex) {
+                                       String userName, String userHandleB64u, int accountIndex,
+                                       byte[] root) {
         try {
-            JSONArray next = new JSONArray();
-            List<PasskeyVault.Discoverable> existing = PasskeyVault.discovery(ctx);
-            for (PasskeyVault.Discoverable d : existing) {
-                boolean superseded = d.rpId.equals(rpId)
-                        && (d.credentialId.equals(credentialIdB64u)
-                            || (!userHandleB64u.isEmpty() && userHandleB64u.equals(d.userHandle)));
-                if (superseded) continue;
-                next.put(toJson(d.rpId, d.credentialId, d.userName, d.userHandle, d.accountIndex));
-            }
-            next.put(toJson(rpId, credentialIdB64u, userName, userHandleB64u, accountIndex));
-            PasskeyVault.putDiscovery(ctx, next);
+            PasskeyVault.appendDiscovery(ctx, new PasskeyVault.Discoverable(
+                    rpId, credentialIdB64u,
+                    userName == null ? "" : userName,
+                    userHandleB64u == null ? "" : userHandleB64u,
+                    accountIndex,
+                    PasskeyVault.rootFingerprint(root),
+                    true));
         } catch (Exception e) {
             Log.w(TAG, "could not record the new passkey for discovery", e);
         }
-    }
-
-    private static JSONObject toJson(String rpId, String credentialId, String userName,
-                                     String userHandle, int accountIndex) throws Exception {
-        JSONObject o = new JSONObject();
-        o.put("rpId", rpId);
-        o.put("credentialId", credentialId);
-        o.put("userName", userName == null ? "" : userName);
-        o.put("userHandle", userHandle == null ? "" : userHandle);
-        o.put("accountIndex", accountIndex);
-        return o;
     }
 }
