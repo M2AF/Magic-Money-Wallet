@@ -751,6 +751,16 @@
       description: "A Solana decentralized exchange for perpetual futures and spot trading.",
     },
     {
+      id:          'gravity',
+      name:        "Gravity",
+      website:     "https://gravitydex.app/",
+      category:    "DEX",
+      chains:      ["cardano"],
+      featured:    false,
+      favicon:     "https://www.google.com/s2/favicons?domain=gravitydex.app&sz=64",
+      description: "A decentralized exchange built on the Cardano blockchain, facilitating secure token swapping and liquidity provision."
+    },
+    {
       id:          "fomo",
       name:        "fomo",
       website:     "https://fomo.family/",
