@@ -44,7 +44,7 @@ import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee,
 // Monero wallet-birthday probe — plain fetch (monero-rpc), safe to static-import
 // in the SW; avoids a forbidden dynamic import (see the chain-config note above).
 import { fetchMoneroHeight } from '../main/monero'
-import { resolveAccountAgw } from '../main/agw'
+import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
@@ -275,14 +275,17 @@ async function deriveEvmKey(): Promise<`0x${string}`> {
 }
 
 // ── Abstract Global Wallet resolution ─────────────────────────────────────────
-// Mirrors ipc-handlers.ts: resolve the linked AGW (manual override ?? on-chain
-// linked) once and persist agwOwned so we don't re-query the resolver each read.
+// Mirrors ipc-handlers.ts: resolve the AGW (manual override ?? on-chain linked ??
+// the imported portal signer's own AGW) once and persist agwOwned so we don't
+// re-query the resolver each read.
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveAgw(addresses: any): Promise<any> {
-  const override = await store.loadAgwOverride(addresses.accountIndex ?? 0)
-  const { agw, agwOwned } = await resolveAccountAgw(addresses.evm, override)
-  return { ...addresses, agw, agwOwned }
+  const accountIndex = addresses.accountIndex ?? 0
+  const override = await store.loadAgwOverride(accountIndex)
+  const signer = await store.loadAgwSignerAddress(accountIndex)
+  const { agw, agwOwned, agwSignerActive } = await resolveAccountAgw(addresses.evm, override, signer)
+  return { ...addresses, agw, agwOwned, agwSigner: signer ?? undefined, agwSignerActive }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -825,7 +828,15 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!addresses.agwOwned) throw new Error('This wallet can’t sign for the linked AGW — it is watch-only')
       const mnemonic = await store.loadMnemonic()
       const config = await store.loadConfig()
-      return sendAgwTransaction(mnemonic, to, amount, config, addresses.accountIndex ?? 0, { token, agwAddress: addresses.agw })
+      const accountIndex = addresses.accountIndex ?? 0
+      // The imported portal signer owns the AGW where this wallet's own EOA does
+      // not — decrypt it only for the send, and only when it is the active owner.
+      const signerKey = addresses.agwSignerActive ? await store.loadAgwSignerKey(accountIndex) : null
+      return sendAgwTransaction(mnemonic, to, amount, config, accountIndex, {
+        token,
+        agwAddress: addresses.agw,
+        signerKey: signerKey ?? undefined
+      })
     }
 
     case 'wallet:set-agw': {
@@ -839,6 +850,52 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       } else {
         await store.saveAgwOverride(accountIndex, null)
       }
+      const current = await store.loadAddresses()
+      if (current && (current.accountIndex ?? 0) === accountIndex) {
+        const resolved = await resolveAgw(current)
+        await store.saveAddresses(resolved)
+        return resolved
+      }
+      return current
+    }
+
+    // ── Abstract Global Wallet: import / forget the portal's signer key ─────
+    //
+    // Abstract's portal exports the AGW's embedded signer private key, which is a
+    // real K1 owner of the smart account — importing it turns a watch-only AGW
+    // into a spendable one. The key is stored encrypted (see the store's AGW
+    // signer vault) and only ever decrypted inside wallet:send-agw.
+    //
+    // The import is verified against the chain before it is kept: a key that does
+    // not own the AGW this account resolves to is rejected and erased, rather than
+    // silently sitting on disk as spendable material that buys the user nothing.
+    case 'wallet:import-agw-signer': {
+      const accountIndex = Number(a0)
+      if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+      const current = await store.loadAddresses()
+      if (!current) throw new Error('No wallet found')
+      if ((current.accountIndex ?? 0) !== accountIndex) throw new Error('Switch to that account before importing its signer')
+
+      const { privateKey, address } = await signerFromSecret(String(a1 ?? ''))
+      await store.saveAgwSigner(accountIndex, privateKey, address)
+
+      const resolved = await resolveAgw(current)
+      const controls = resolved.agw ? await isEoaAgwOwner(address, resolved.agw) : false
+      if (!controls) {
+        await store.clearAgwSigner(accountIndex)
+        const other = await agwForSigner(address)
+        throw new Error(other
+          ? `That signer controls ${other}, not the Abstract wallet linked here. Clear the manual address first, then import it again.`
+          : 'That key doesn’t own an Abstract smart wallet. In the Abstract portal use Settings → Export Signer Private Key.')
+      }
+      await store.saveAddresses(resolved)
+      return resolved
+    }
+
+    case 'wallet:remove-agw-signer': {
+      const accountIndex = Number(a0)
+      if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+      await store.clearAgwSigner(accountIndex)
       const current = await store.loadAddresses()
       if (current && (current.accountIndex ?? 0) === accountIndex) {
         const resolved = await resolveAgw(current)

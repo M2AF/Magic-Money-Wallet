@@ -57,6 +57,10 @@ import {
   clearApprovedOrigins,
   loadAgwOverride,
   saveAgwOverride,
+  loadAgwSignerAddress,
+  saveAgwSigner,
+  loadAgwSignerKey,
+  clearAgwSigner,
   unlock,
   lock,
   isUnlocked,
@@ -77,7 +81,7 @@ import {
   type CustomToken,
   type CustomNft
 } from './secure-store'
-import { resolveAccountAgw } from './agw'
+import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from './agw'
 import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
@@ -347,17 +351,21 @@ function touchActivity(): void {
 
 /**
  * Resolve the Abstract Global Wallet for an account:
- *   agw      = manual override ?? on-chain linked AGW (no counterfactual guessing)
- *   agwOwned = this EOA is a real on-chain K1 owner of the AGW → direct send works.
- *              Most AGWs are owned by a Privy embedded signer, so this is usually
- *              false and the AGW is shown read-only (writes go via the portal).
+ *   agw      = manual override ?? on-chain linked AGW ?? the imported signer's own
+ *              AGW (no counterfactual guessing)
+ *   agwOwned = a key we hold — this EOA, or the signer key imported from the
+ *              Abstract portal — is a real on-chain K1 owner → direct send works.
+ *              Without an imported signer this is usually false, because most AGWs
+ *              are owned by a Privy embedded signer, and the AGW is then read-only.
  * Returns a new object — never mutates the input. On RPC failure agw is left
  * undefined so the next read retries.
  */
 async function resolveAgw(addresses: WalletAddresses): Promise<WalletAddresses> {
-  const override = loadAgwOverride(addresses.accountIndex ?? 0)
-  const { agw, agwOwned } = await resolveAccountAgw(addresses.evm, override)
-  return { ...addresses, agw, agwOwned }
+  const accountIndex = addresses.accountIndex ?? 0
+  const override = loadAgwOverride(accountIndex)
+  const signer = loadAgwSignerAddress(accountIndex)
+  const { agw, agwOwned, agwSignerActive } = await resolveAccountAgw(addresses.evm, override, signer)
+  return { ...addresses, agw, agwOwned, agwSigner: signer ?? undefined, agwSignerActive }
 }
 
 /**
@@ -907,7 +915,15 @@ export function registerIpcHandlers(): void {
     if (!addresses.agwOwned) throw new Error('This wallet can’t sign for the linked AGW — it is watch-only')
     const mnemonic = loadMnemonic()
     const config = loadConfig()
-    return sendAgwTransaction(mnemonic, to, amount, config, addresses.accountIndex ?? 0, { token, agwAddress: addresses.agw })
+    const accountIndex = addresses.accountIndex ?? 0
+    // The imported portal signer owns the AGW where this wallet's own EOA does
+    // not — decrypt it only for the send, and only when it is the active owner.
+    const signerKey = addresses.agwSignerActive ? await loadAgwSignerKey(accountIndex) : null
+    return sendAgwTransaction(mnemonic, to, amount, config, accountIndex, {
+      token,
+      agwAddress: addresses.agw,
+      signerKey: signerKey ?? undefined
+    })
   })
 
   // ── Phase 2: Send Solana ──────────────────────────────────────────────
@@ -1249,6 +1265,50 @@ export function registerIpcHandlers(): void {
     } else {
       saveAgwOverride(accountIndex, null)
     }
+    const current = loadAddresses()
+    if (current && (current.accountIndex ?? 0) === accountIndex) {
+      const resolved = await resolveAgw(current)
+      saveAddresses(resolved)
+      return resolved
+    }
+    return current
+  })
+
+  // ── Abstract Global Wallet: import / forget the portal's signer key ────────
+  //
+  // Abstract's portal exports the AGW's embedded signer private key, which is a
+  // real K1 owner of the smart account — importing it turns a watch-only AGW into
+  // a spendable one. The key is stored encrypted (see secure-store's AGW signer
+  // vault) and only ever decrypted inside the send handler.
+  //
+  // The import is verified against the chain before it is kept: a key that does
+  // not own the AGW this account resolves to is rejected and erased, rather than
+  // silently sitting on disk as spendable material that buys the user nothing.
+  ipcMain.handle('wallet:import-agw-signer', async (_event, accountIndex: number, secret: string) => {
+    if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+    const current = loadAddresses()
+    if (!current) throw new Error('No wallet found')
+    if ((current.accountIndex ?? 0) !== accountIndex) throw new Error('Switch to that account before importing its signer')
+
+    const { privateKey, address } = await signerFromSecret(String(secret ?? ''))
+    await saveAgwSigner(accountIndex, privateKey, address)
+
+    const resolved = await resolveAgw(current)
+    const controls = resolved.agw ? await isEoaAgwOwner(address, resolved.agw) : false
+    if (!controls) {
+      clearAgwSigner(accountIndex)
+      const other = await agwForSigner(address)
+      throw new Error(other
+        ? `That signer controls ${other}, not the Abstract wallet linked here. Clear the manual address first, then import it again.`
+        : 'That key doesn’t own an Abstract smart wallet. In the Abstract portal use Settings → Export Signer Private Key.')
+    }
+    saveAddresses(resolved)
+    return resolved
+  })
+
+  ipcMain.handle('wallet:remove-agw-signer', async (_event, accountIndex: number) => {
+    if (accountIndex < 0 || accountIndex > 9) throw new Error('Account index must be 0–9')
+    clearAgwSigner(accountIndex)
     const current = loadAddresses()
     if (current && (current.accountIndex ?? 0) === accountIndex) {
       const resolved = await resolveAgw(current)

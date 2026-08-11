@@ -380,11 +380,13 @@ const ERC20_TRANSFER_ABI = parseAbi(['function transfer(address to, uint256 amou
 
 /**
  * Send native ETH or an ERC-20 FROM the Abstract Global Wallet (smart account)
- * on Abstract. The signer is this wallet's EOA — only valid when it is the AGW's
- * initial signer, so callers MUST gate on `agwOwned`. @abstract-foundation/agw-client
- * builds + signs the zkSync EIP-712 (type-113) account-abstraction transaction and
- * auto-deploys the smart account on its first send. The AGW pays its own gas, so it
- * must hold a little ETH (no paymaster sponsorship wired up here).
+ * on Abstract. The signer is this wallet's EOA, or `opts.signerKey` when the user
+ * imported the AGW's own signer key from the Abstract portal — either way it must
+ * be a K1 owner of the account, so callers MUST gate on `agwOwned`.
+ * @abstract-foundation/agw-client builds + signs the zkSync EIP-712 (type-113)
+ * account-abstraction transaction and auto-deploys the smart account on its first
+ * send. The AGW pays its own gas, so it must hold a little ETH (no paymaster
+ * sponsorship wired up here).
  */
 export async function sendAgwTransaction(
   mnemonic: string,
@@ -392,13 +394,15 @@ export async function sendAgwTransaction(
   amount: string,
   config: WalletConfig,
   accountIndex = 0,
-  opts?: { token?: { contractAddress: string; decimals: number }; agwAddress?: string }
+  opts?: { token?: { contractAddress: string; decimals: number }; agwAddress?: string; signerKey?: string }
 ): Promise<SendResult> {
   // AGW is hidden in Testnet Mode (renderer gates it too) — hard-stop here so a
   // stale renderer can't accidentally fire a MAINNET Abstract transaction.
   if (isTestnet(config)) throw new Error('AGW sends are unavailable in Testnet Mode')
 
-  const pk = await getEvmPrivateKey(mnemonic, accountIndex)
+  const pk = opts?.signerKey
+    ? opts.signerKey as `0x${string}`
+    : await getEvmPrivateKey(mnemonic, accountIndex)
   const signer = privateKeyToAccount(pk)
 
   // Lazy-load the heavy SDK + zkSync-configured chain only when actually sending.

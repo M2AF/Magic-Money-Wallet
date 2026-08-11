@@ -283,6 +283,10 @@ export function restoreUnlockedSession(mnemonic: string): void {
 export async function deleteWallet(): Promise<void> {
   await Preferences.remove({ key: 'wallet.enc' })
   await Preferences.remove({ key: 'wallet.addresses' })
+  // Imported Abstract signer keys are encrypted under THIS mnemonic, so they are
+  // unreadable once the wallet is gone — and leaving spendable key material for
+  // the next wallet on this install is not an option (mirrors secure-store.ts).
+  await Preferences.remove({ key: 'wallet.agw_signers' })
   // The passkey recovery copy deliberately SURVIVES wallet deletion — it is a
   // backup, and destroying it defeats the one job it has (mirrors
   // secure-store.ts). Unlink in Settings to remove it.
@@ -465,6 +469,76 @@ export async function saveAgwOverride(accountIndex: number, address: string | nu
   if (address) map[String(accountIndex)] = address
   else delete map[String(accountIndex)]
   await prefSet('wallet.agw_overrides', map)
+}
+
+// ── AGW signer keys (per account, imported from the Abstract portal) ──────────
+// Mirrors secure-store.ts's agw-signers.enc and chrome-store.ts's counterpart.
+// Abstract's portal exports the AGW's embedded signer private key, and holding it
+// makes a watch-only AGW spendable — so it is the most sensitive thing in
+// Preferences after wallet.enc, and it is encrypted under a key derived from the
+// UNLOCKED mnemonic. Two consequences, both deliberate: a locked wallet cannot
+// spend the AGW either, and replacing the wallet makes these blobs permanently
+// unreadable (deleteWallet drops them).
+//
+// The signer's public address stays in the clear — ownership resolution reads it
+// on every address load, including while locked, and an address is not a secret.
+
+interface AgwSignerRecord { address: string; iv: number[]; data: number[] }
+
+const AGW_SIGNERS_KEY = 'wallet.agw_signers'
+
+async function agwSignerAesKey(): Promise<CryptoKey> {
+  const mnemonic = getUnlockedMnemonic()
+  if (!mnemonic) throw new Error('Wallet is locked — please unlock first')
+  // The mnemonic is already high-entropy key material, so a single hash is the
+  // whole KDF — PBKDF2 stretching only buys anything against guessable inputs.
+  const material = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`magicmoney/agw-signer/v1:${mnemonic}`))
+  return crypto.subtle.importKey('raw', material, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+}
+
+async function loadAgwSigners(): Promise<Record<string, AgwSignerRecord>> {
+  return (await prefGet<Record<string, AgwSignerRecord>>(AGW_SIGNERS_KEY)) ?? {}
+}
+
+/** The imported signer's public address for an account, or null. No unlock needed. */
+export async function loadAgwSignerAddress(accountIndex: number): Promise<string | null> {
+  return (await loadAgwSigners())[String(accountIndex)]?.address ?? null
+}
+
+/** Store an imported signer key for an account. Requires an unlocked wallet. */
+export async function saveAgwSigner(accountIndex: number, privateKey: string, address: string): Promise<void> {
+  const key = await agwSignerAesKey()
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(privateKey))
+  await prefSet(AGW_SIGNERS_KEY, {
+    ...(await loadAgwSigners()),
+    [String(accountIndex)]: { address, iv: Array.from(iv), data: Array.from(new Uint8Array(ct)) }
+  })
+}
+
+/**
+ * Decrypt the imported signer key for an account, or null when none is stored.
+ * Throws when the wallet is locked, or when the blob was written under a
+ * different mnemonic (AES-GCM authentication fails — the right outcome).
+ */
+export async function loadAgwSignerKey(accountIndex: number): Promise<string | null> {
+  const record = (await loadAgwSigners())[String(accountIndex)]
+  if (!record) return null
+  const key = await agwSignerAesKey()
+  try {
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(record.iv) }, key, new Uint8Array(record.data))
+    return new TextDecoder().decode(pt)
+  } catch {
+    throw new Error('The stored Abstract signer key belongs to a different wallet — re-import it')
+  }
+}
+
+/** Forget the imported signer key for an account (the AGW falls back to watch-only). */
+export async function clearAgwSigner(accountIndex: number): Promise<void> {
+  const map = { ...(await loadAgwSigners()) }
+  if (!(String(accountIndex) in map)) return
+  delete map[String(accountIndex)]
+  await prefSet(AGW_SIGNERS_KEY, map)
 }
 
 // ── Active EVM chain (persisted so it survives app restarts) ──────────────────

@@ -46,10 +46,16 @@ export interface WalletAddresses {
   dogecoin: string       // BIP-44 legacy P2PKH (D…)
   accountIndex: number   // BIP-44 account index (0 = default)
   // Abstract Global Wallet (smart account) — resolved, not seed-derived.
-  // agw = manual override ?? auto-derived from evm. agwOwned = this EOA can sign
-  // for it (i.e. it is the AGW's initial signer) → required to send from it.
+  // agw = manual override ?? auto-derived from evm. agwOwned = we hold a key that
+  // is one of its on-chain K1 owners → required to send from it.
   agw?: string
   agwOwned?: boolean
+  // Public address of the AGW signer key imported from the Abstract portal
+  // (Settings → Export Signer Private Key), when one is stored for this account.
+  // The key itself lives encrypted in agw-signers.enc and never leaves main.
+  agwSigner?: string
+  // That imported signer — not this wallet's EOA — is the owner that must sign.
+  agwSignerActive?: boolean
   // Testnet Mode: chains whose ADDRESSES differ on testnet (Bitcoin tb1…/2…/tb1p…
   // via coin-type-1 paths; Cardano addr_test…). Derived once when Testnet Mode is
   // enabled (wallet unlocked) and cached here so testnet balances render from

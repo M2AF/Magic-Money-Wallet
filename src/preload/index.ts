@@ -105,6 +105,10 @@ contextBridge.exposeInMainWorld('wallet', {
   setPrivacyMode:  (enabled: boolean)  => ipcRenderer.invoke('wallet:set-privacy-mode', enabled),
   setAgw:          (accountIndex: number, address: string | null) =>
     ipcRenderer.invoke('wallet:set-agw', accountIndex, address),
+  importAgwSigner: (accountIndex: number, secret: string) =>
+    ipcRenderer.invoke('wallet:import-agw-signer', accountIndex, secret),
+  removeAgwSigner: (accountIndex: number) =>
+    ipcRenderer.invoke('wallet:remove-agw-signer', accountIndex),
 
   // ── Phase 5: Market Watch + Tokens + Collectibles ────────────────────
   getMarket:       ()                  => ipcRenderer.invoke('wallet:get-market'),

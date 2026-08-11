@@ -30,6 +30,8 @@
  */
 
 import { keccak256, toBytes, encodeFunctionData, decodeFunctionResult, parseAbi, getAddress, isAddress } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { getEvmPrivateKey, validateMnemonic } from './wallet-core'
 
 export const ABSTRACT_RPC = 'https://api.mainnet.abs.xyz'
 
@@ -135,6 +137,27 @@ export function normalizeSignerKey(secret: string): `0x${string}` | null {
   const cleaned = secret.trim().replace(/\s+/g, '')
   const hex = /^0x/i.test(cleaned) ? cleaned.slice(2) : cleaned
   return /^[0-9a-fA-F]{64}$/.test(hex) ? `0x${hex.toLowerCase()}` : null
+}
+
+/**
+ * Turn an exported Abstract signer secret into the key we sign with, plus its
+ * public address. Accepts both shapes the portal hands out: the raw private key
+ * (Settings → Export Signer Private Key) and a recovery phrase, whose account-0
+ * EVM key is the signer. Throws a user-facing message when it is neither — and
+ * never puts the secret itself in the message.
+ */
+export async function signerFromSecret(secret: string): Promise<{ privateKey: `0x${string}`; address: string }> {
+  const privateKey = normalizeSignerKey(secret)
+    ?? (validateMnemonic(secret) ? await getEvmPrivateKey(secret, 0) : null)
+  if (!privateKey) {
+    throw new Error('That is not a signer key — paste the private key exported from the Abstract portal, or its recovery phrase')
+  }
+  try {
+    return { privateKey, address: privateKeyToAccount(privateKey).address }
+  } catch {
+    // Out-of-range scalar (zero, ≥ n): 64 valid hex characters that are not a key.
+    throw new Error('That private key is not a valid secp256k1 key')
+  }
 }
 
 export interface AgwResolution {

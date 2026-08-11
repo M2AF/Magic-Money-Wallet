@@ -67,9 +67,15 @@ export interface WalletAddresses {
   dogecoin?: string
   accountIndex: number
   // Abstract Global Wallet (smart account). agw = manual override ?? auto-derived.
-  // agwOwned = this wallet's EOA can sign for it (required to send from it).
+  // agwOwned = we hold a key that can sign for it (required to send from it).
   agw?: string
   agwOwned?: boolean
+  // Public address of the AGW signer key imported from the Abstract portal
+  // (Settings → Export Signer Private Key), when one is stored for this account.
+  // The key itself never leaves the wallet backend.
+  agwSigner?: string
+  // That imported signer — not this wallet's EOA — is the owner that signs.
+  agwSignerActive?: boolean
   // Testnet Mode: cached testnet-encoded set (Bitcoin tb1…, Cardano addr_test…).
   // While the mode is on, main substitutes these into the top-level fields before
   // returning, so the renderer rarely needs to read this directly.
@@ -603,6 +609,12 @@ declare global {
       getPrivacyMode(): Promise<boolean>
       setPrivacyMode(enabled: boolean): Promise<{ privacy: boolean; addresses: WalletAddresses | null }>
       setAgw(accountIndex: number, address: string | null): Promise<WalletAddresses | null>
+      // Abstract portal signer key (Settings → Export Signer Private Key) — makes
+      // a watch-only AGW spendable. `secret` is the private key or its recovery
+      // phrase; it is consumed by the backend and never stored by the renderer.
+      // Optional so a bridge without it degrades to watch-only instead of throwing.
+      importAgwSigner?(accountIndex: number, secret: string): Promise<WalletAddresses | null>
+      removeAgwSigner?(accountIndex: number): Promise<WalletAddresses | null>
       // Connected sites (revoke dApp access)
       getConnectedSites(): Promise<ApprovedOrigin[]>
       revokeSite(origin: string, chain?: DappChain): Promise<ApprovedOrigin[]>

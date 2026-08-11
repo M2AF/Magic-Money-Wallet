@@ -306,6 +306,8 @@ function buildWallet() {
     getAccountIndex:()                      => send<number>('wallet:get-account'),
     setAccount:     (i: number)             => send('wallet:set-account', i),
     setAgw:         (i: number, address: string | null) => send('wallet:set-agw', i, address),
+    importAgwSigner: (i: number, secret: string) => send('wallet:import-agw-signer', i, secret),
+    removeAgwSigner: (i: number) => send('wallet:remove-agw-signer', i),
 
     // Connected sites (revoke dApp access)
     getConnectedSites: ()             => send<ApprovedOrigin[]>('wallet:get-connected-sites'),
