@@ -60,6 +60,7 @@ export async function koiosAddressUtxos(address: string, base = KOIOS_URL): Prom
       tx_hash: string
       tx_index: number
       value: string
+      datum_hash?: string | null
       asset_list?: Array<{ policy_id: string; asset_name: string | null; quantity: string }>
     }>
     if (!Array.isArray(rows)) return null
@@ -71,6 +72,9 @@ export async function koiosAddressUtxos(address: string, base = KOIOS_URL): Prom
         unit: a.policy_id + (a.asset_name ?? ''),
         quantity: BigInt(a.quantity),
       })),
+      // Carried for the CIP-30 reads (dApps re-spend these outputs); the send
+      // path ignores it.
+      datumHash: u.datum_hash ?? undefined,
     }))
   } catch { return null }
 }

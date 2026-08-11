@@ -3,6 +3,12 @@
  *
  * Used by both the Chrome extension background (via src/extension/background.ts)
  * and the Electron main process (via src/main/ipc-handlers.ts).
+ *
+ * The chain reads/broadcast here are NETWORK-SCOPED and must follow Testnet Mode,
+ * exactly like tx-sender.ts: Blockfrost project keys only answer for the network
+ * they were issued on, so preprod goes to keyless Koios preprod instead. Getting
+ * this wrong is silent — CIP-30 connectors call getBalance() inside connect() and
+ * swallow the rejection, so the dApp just ends up with no wallet address at all.
  */
 
 import { blake2b }            from '@noble/hashes/blake2b'
@@ -14,10 +20,12 @@ import {
   cardanoSign,
   decodeCardanoAddress,
   deriveCardanoStakeAddress,
+  type CardanoUtxo,
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
 import { blockfrostFetch } from './api-proxy'
-import { koiosSubmitTx } from './cardano-koios'
+import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
+import { TESTNET_KOIOS_URL, isTestnet } from './chain-config'
 
 // ── CBOR primitives ───────────────────────────────────────────────────────────
 
@@ -259,8 +267,57 @@ function bytesContain(haystack: Uint8Array, needle: Uint8Array): boolean {
 
 // ── CIP-30 API implementations ────────────────────────────────────────────────
 
+/**
+ * Preprod UTxOs for the CIP-30 reads.
+ *
+ * Blockfrost project keys are network-scoped — the mainnet key behind the proxy
+ * cannot answer for an addr_test… address — so Testnet Mode reads keyless Koios
+ * preprod instead, the same source tx-sender.ts uses for preprod sends.
+ *
+ * Throws only when Koios itself is unreachable: an address with no on-chain
+ * history is an empty list, not an error. dApp connectors routinely call
+ * getBalance() inside the connect flow and drop the whole connection on a
+ * rejected promise, so "no funds yet" must never surface as a failure.
+ */
+async function testnetUtxos(address: string): Promise<CardanoUtxo[]> {
+  const utxos = await koiosAddressUtxos(address, TESTNET_KOIOS_URL)
+  if (!utxos) throw new Error('Could not fetch Cardano preprod UTXOs (Koios unavailable)')
+  return utxos
+}
+
+/** CardanoUtxo assets → the `{unit, quantity}` rows cborValue expects. */
+function utxoAmounts(utxo: CardanoUtxo): Array<{ unit: string; quantity: string }> {
+  return utxo.assets.map(a => ({ unit: a.unit, quantity: a.quantity.toString() }))
+}
+
+/** One UTxO as CIP-30 `cbor<TransactionUnspentOutput>` — [txIn, txOut] hex. */
+function encodeUtxo(utxo: CardanoUtxo, addrBytes: Uint8Array): string {
+  const txIn = cborArray([cborBytes(hexToBytes(utxo.txHash)), cborUint(utxo.txIndex)])
+  // Legacy array output: [address, value, ?datum_hash]. Value carries native
+  // assets so the dApp can see tokens/NFTs held at this UTxO.
+  const outItems = [cborBytes(addrBytes), cborValue(utxo.lovelace, utxoAmounts(utxo))]
+  if (utxo.datumHash) outItems.push(cborBytes(hexToBytes(utxo.datumHash)))
+  return bytesToHex(cborArray([txIn, cborArray(outItems)]))
+}
+
 export async function cip30GetBalance(address: string, config: WalletConfig): Promise<string> {
+  if (isTestnet(config)) {
+    const utxos = await testnetUtxos(address)
+    let lovelace = 0n
+    const byUnit = new Map<string, bigint>()
+    for (const u of utxos) {
+      lovelace += u.lovelace
+      for (const a of u.assets) byUnit.set(a.unit, (byUnit.get(a.unit) ?? 0n) + a.quantity)
+    }
+    const amount = [...byUnit].map(([unit, qty]) => ({ unit, quantity: qty.toString() }))
+    return bytesToHex(cborValue(lovelace, amount))
+  }
+
   const res = await blockfrostFetch(`addresses/${address}`, config, 10_000)
+  // 404 is Blockfrost's definitive "this address has never been seen on-chain"
+  // (the same reading tx-sender's fetchUtxos takes), so it's a zero balance —
+  // not a backend failure to propagate into the dApp's connect flow.
+  if (res.status === 404) return bytesToHex(cborValue(0n, []))
   if (!res.ok) throw new Error(`Blockfrost ${res.status}`)
   const data = await res.json() as { amount?: Array<{ unit: string; quantity: string }> }
   const amount = data.amount ?? []
@@ -271,23 +328,26 @@ export async function cip30GetBalance(address: string, config: WalletConfig): Pr
 }
 
 export async function cip30GetUtxos(address: string, config: WalletConfig): Promise<string[]> {
+  const addrBytes = decodeCardanoAddress(address)
+
+  if (isTestnet(config)) {
+    const utxos = await testnetUtxos(address)
+    return utxos.map(u => encodeUtxo(u, addrBytes))
+  }
+
   const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12_000)
   if (!res.ok) return []
   const utxos = await res.json() as Array<{
     tx_hash: string; output_index: number; data_hash?: string | null
     amount: Array<{ unit: string; quantity: string }>
   }>
-  const addrBytes = decodeCardanoAddress(address)
-  return utxos.map(u => {
-    const lovelace = BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0')
-    const txIn  = cborArray([cborBytes(hexToBytes(u.tx_hash)), cborUint(u.output_index)])
-    // Legacy array output: [address, value, ?datum_hash]. Value carries native
-    // assets so the dApp can see tokens/NFTs held at this UTxO.
-    const outItems = [cborBytes(addrBytes), cborValue(lovelace, u.amount)]
-    if (u.data_hash) outItems.push(cborBytes(hexToBytes(u.data_hash)))
-    const txOut = cborArray(outItems)
-    return bytesToHex(cborArray([txIn, txOut]))
-  })
+  return utxos.map(u => encodeUtxo({
+    txHash: u.tx_hash,
+    txIndex: u.output_index,
+    lovelace: BigInt(u.amount.find(a => a.unit === 'lovelace')?.quantity ?? '0'),
+    assets: u.amount.filter(a => a.unit !== 'lovelace').map(a => ({ unit: a.unit, quantity: BigInt(a.quantity) })),
+    datumHash: u.data_hash ?? undefined,
+  }, addrBytes))
 }
 
 /**
@@ -300,12 +360,18 @@ export async function cip30GetUtxos(address: string, config: WalletConfig): Prom
 export async function cip30GetCollateral(
   address: string, config: WalletConfig, amountHex?: string
 ): Promise<string[]> {
-  const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12_000)
-  if (!res.ok) return []
-  const utxos = await res.json() as Array<{
-    tx_hash: string; output_index: number
-    amount: Array<{ unit: string; quantity: string }>
-  }>
+  let utxos: Array<{ tx_hash: string; output_index: number; amount: Array<{ unit: string; quantity: string }> }>
+  if (isTestnet(config)) {
+    utxos = (await testnetUtxos(address)).map(u => ({
+      tx_hash: u.txHash,
+      output_index: u.txIndex,
+      amount: [{ unit: 'lovelace', quantity: u.lovelace.toString() }, ...utxoAmounts(u)],
+    }))
+  } else {
+    const res = await blockfrostFetch(`addresses/${address}/utxos?count=100`, config, 12_000)
+    if (!res.ok) return []
+    utxos = await res.json()
+  }
 
   const target = amountHex ? decodeCborUint(hexToBytes(amountHex), 5_000_000n) : 5_000_000n
   const addrBytes = decodeCardanoAddress(address)
@@ -425,6 +491,12 @@ export async function cip30SignData(
 
 export async function cip30SubmitTx(txHex: string, config: WalletConfig): Promise<string> {
   const bytes = new Uint8Array(hexToBytes(txHex))
+
+  // Testnet Mode: broadcast via keyless Koios preprod only. The Blockfrost proxy
+  // route is mainnet-scoped, so letting it run first would push a preprod tx at
+  // the MAINNET submit endpoint. Mirrors sendCardanoTransaction.
+  if (isTestnet(config)) return koiosSubmitTx(bytes, TESTNET_KOIOS_URL)
+
   // Blockfrost first; fall back to keyless Koios /submittx if it's unreachable or
   // rejects on transport grounds, so a down primary doesn't block a dApp broadcast.
   let res: Response | null = null

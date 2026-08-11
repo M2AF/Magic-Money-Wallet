@@ -338,6 +338,12 @@ export interface CardanoUtxo {
    * BURNED the NFT. Fetchers must populate it and buildCardanoTx must return it.
    */
   assets: CardanoAsset[]
+  /**
+   * Datum hash attached to the output, when it has one (hex). Only the CIP-30
+   * reads use it — a dApp re-spending such a UTxO has to reproduce the hash in
+   * its own transaction. The wallet's own send path ignores it.
+   */
+  datumHash?: string
 }
 
 export interface CardanoTxResult {
