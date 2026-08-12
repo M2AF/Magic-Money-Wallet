@@ -27,6 +27,19 @@ const BLOB_KEY = 'wallet.hello.enc'
 // encrypted credential storage by this "server" identifier).
 const CRED_SERVER = 'info.chainlens.magicmoney.vault'
 
+/**
+ * A SECOND credential namespace, for the browser password manager's gate.
+ *
+ * Deliberately not CRED_SERVER. That entry is the key to 'wallet.hello.enc',
+ * and the callers self-heal a missing one by DELETING the wrapped copy — so
+ * sharing it would let a password-manager prompt silently disable biometric
+ * WALLET unlock. Same separation as Electron's 'MagicMoneyPasswordGate'.
+ */
+const PASSWORD_CRED_SERVER = 'info.chainlens.magicmoney.passwords'
+
+/** Thrown (by message) when the Keystore entry is gone — the caller self-heals. */
+export const BIO_MATERIAL_MISSING = 'BIO_MATERIAL_MISSING'
+
 function toBase64(bytes: Uint8Array): string {
   let bin = ''
   for (const b of bytes) bin += String.fromCharCode(b)
@@ -102,4 +115,60 @@ export async function helloRemove(): Promise<boolean> {
   try { await NativeBiometric.deleteCredentials({ server: CRED_SERVER }) } catch { /* not set */ }
   await Preferences.remove({ key: BLOB_KEY })
   return true
+}
+
+// ─── Password-manager gate (separate key, see PASSWORD_CRED_SERVER) ──────────
+//
+// Only the ceremony + the key material live here; the wrapped copy of the vault
+// password is browser-data-local.ts's business, the same way secure-store owns
+// 'wallet.hello.enc' above. Nothing in this section can read or remove the
+// wallet's own credential entry.
+
+/** Platform capability + sensor label, independent of any enrollment. */
+export async function biometricCapability(): Promise<{ supported: boolean; method: string | null }> {
+  const supported = await biometricsAvailable()
+  return { supported, method: supported ? 'android-biometric' : null }
+}
+
+/** Mint fresh 32-byte material for the password gate, behind a biometric check. */
+export async function passwordGateEnrollMaterial(): Promise<Uint8Array> {
+  await NativeBiometric.verifyIdentity({
+    reason: 'Enable biometric unlock for your saved passwords',
+    title: 'MagicMoney Wallet',
+    subtitle: 'Confirm to enable biometric unlock',
+    useFallback: true,
+  })
+  const material = crypto.getRandomValues(new Uint8Array(32))
+  await NativeBiometric.setCredentials({
+    server: PASSWORD_CRED_SERVER,
+    username: 'passwords',
+    password: toBase64(material),
+  })
+  return material
+}
+
+/**
+ * Reproduce the password gate's material. Throws BIO_MATERIAL_MISSING when the
+ * Keystore entry is gone, so the caller can drop its now-undecryptable copy.
+ */
+export async function passwordGateGetMaterial(): Promise<Uint8Array> {
+  await NativeBiometric.verifyIdentity({
+    reason: 'Open your saved passwords',
+    title: 'MagicMoney Wallet',
+    subtitle: 'Unlock with biometrics',
+    useFallback: true,
+  })
+  let materialB64: string
+  try {
+    materialB64 = (await NativeBiometric.getCredentials({ server: PASSWORD_CRED_SERVER })).password
+  } catch {
+    throw new Error(BIO_MATERIAL_MISSING)
+  }
+  if (!materialB64) throw new Error(BIO_MATERIAL_MISSING)
+  return fromBase64(materialB64)
+}
+
+/** Forget the password gate's material. Best-effort, never throws. */
+export async function passwordGateDeleteMaterial(): Promise<void> {
+  try { await NativeBiometric.deleteCredentials({ server: PASSWORD_CRED_SERVER }) } catch { /* not set */ }
 }

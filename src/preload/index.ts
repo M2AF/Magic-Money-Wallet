@@ -219,6 +219,12 @@ contextBridge.exposeInMainWorld('wallet', {
   passwordsStatus:        ()                 => ipcRenderer.invoke('passwords:status'),
   passwordsUnlock:        (password: string) => ipcRenderer.invoke('passwords:unlock', password),
   passwordsLock:          ()                 => ipcRenderer.invoke('passwords:lock'),
+  // Biometric unlock for the vault (Windows Hello / Touch ID). Additive — the
+  // password above still opens it — and gated on its own platform key.
+  passwordsBioStatus:     ()                 => ipcRenderer.invoke('passwords:bio-status'),
+  passwordsBioEnroll:     ()                 => ipcRenderer.invoke('passwords:bio-enroll'),
+  passwordsBioUnlock:     ()                 => ipcRenderer.invoke('passwords:bio-unlock'),
+  passwordsBioRemove:     ()                 => ipcRenderer.invoke('passwords:bio-remove'),
   passwordsList:          ()                 => ipcRenderer.invoke('passwords:list'),
   passwordsReveal:        (id: string)       => ipcRenderer.invoke('passwords:reveal', id),
   passwordsCopy:          (id: string)       => ipcRenderer.invoke('passwords:copy', id),

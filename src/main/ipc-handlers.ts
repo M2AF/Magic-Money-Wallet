@@ -30,7 +30,8 @@ import {
   derivePrivacyAddresses,
   getSolanaKeypair,
   getBitcoinKey,
-  getBitcoinTaprootKey
+  getBitcoinTaprootKey,
+  normalizeMnemonic
 } from './wallet-core'
 import {
   signBitcoinPsbt,
@@ -135,7 +136,11 @@ import {
   savePassword,
   deletePassword,
   mergePasswords,
-  deletePasswordVault
+  deletePasswordVault,
+  passwordBioStatus,
+  enrollPasswordBio,
+  unlockPasswordsWithBio,
+  removePasswordBio
 } from './password-vault'
 import { listImportSources, importPasswordsFrom, importBookmarksFrom, parsePasswordCsv } from './browser-import'
 import { readFileSync } from 'fs'
@@ -202,10 +207,13 @@ import {
 import { fetchMidnightBalance } from './midnight'
 import {
   activeMidnightNetwork, assertNetworkSupported, buildLegacyState,
-  formatMidnightConnect, formatMidnightTransfer, midnightServiceUris,
+  decodeMidnightSignPayload, formatMidnightConnect, formatMidnightSignData,
+  splitShieldedAddress,
+  formatMidnightTransfer, midnightServiceUris,
   nightToStars, NIGHT_TOKEN_TYPE, STARS_PER_NIGHT,
   type MidnightAddressSet, type MidnightNetwork,
 } from './midnight-connector'
+import { signWithLedger } from './midnight-ledger'
 import { describeEvmSend, describeTypedData } from './tx-describe'
 import { validateAddress } from './address-validate'
 
@@ -1480,6 +1488,29 @@ export function registerIpcHandlers(): void {
     return status
   })
   ipcMain.handle('passwords:lock', () => { lockPasswords(); return passwordVaultStatus() })
+  // Biometric unlock for the VAULT — an additional path, never a replacement:
+  // the password above always still opens it. The gate runs under its own
+  // platform key ('MagicMoneyPasswordGate'), so none of this can reach the
+  // wallet's biometric enrollment. See the note in password-vault.ts.
+  ipcMain.handle('passwords:bio-status', () => passwordBioStatus())
+  ipcMain.handle('passwords:bio-enroll', async () => {
+    await enrollPasswordBio()      // requires the vault to be open
+    touchActivity()
+    return true
+  })
+  ipcMain.handle('passwords:bio-unlock', async () => {
+    // Same precondition as the typed path: the vault must not outlive a locked
+    // wallet, and lockEverything() would clear it again the moment it did.
+    if (!isUnlocked()) throw new Error('Unlock your wallet first')
+    const status = await unlockPasswordsWithBio()
+    touchActivity()
+    void browserTryAutofillActiveTab()
+    return status
+  })
+  ipcMain.handle('passwords:bio-remove', async () => {
+    await removePasswordBio()
+    return true
+  })
   ipcMain.handle('passwords:list', () => listPasswords())
   // Reveal/copy is an explicit user action on an already-unlocked vault, so it
   // does not re-prompt — but it does count as activity against the idle timer.
@@ -2273,7 +2304,11 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('midnight:addresses', async (event) => {
     requireMidnight(event)
     const { addresses } = await midnightState()
-    return addresses
+    // The connector's getShieldedAddresses wants the two component public keys
+    // alongside the address — a dApp needs them to build a shielded output to
+    // this wallet. See splitShieldedAddress.
+    const { coinPublicKey, encryptionPublicKey } = splitShieldedAddress(addresses.shielded)
+    return { ...addresses, shieldedCoinPublicKey: coinPublicKey, shieldedEncryptionPublicKey: encryptionPublicKey }
   })
 
   ipcMain.handle('midnight:service-uris', async (event) => {
@@ -2323,6 +2358,49 @@ export function registerIpcHandlers(): void {
       ),
       { code: -1 }
     )
+  })
+
+  /**
+   * signData — prove control of the unshielded address without moving funds.
+   *
+   * dApps need this to bind an off-chain identity to the wallet: Pulse Finance
+   * registers a "note owner" by having the wallet sign a message naming its own
+   * addresses, and reads `verifyingKey` back as the identity.
+   *
+   * The ledger's own docs warn against exposing raw signing, so this is gated
+   * the same way every other signing route is — connected origin, per-call
+   * approval, and the prompt shows a decoding of the exact bytes being signed.
+   */
+  ipcMain.handle('midnight:sign-data', async (event, payload: unknown, options?: { encoding?: string; keyType?: string }) => {
+    const origin = requireMidnight(event)
+    const { network, accountIndex } = await midnightState()
+
+    // Only the unshielded (NIGHT) identity can sign. Silently substituting it
+    // for a requested shielded/DUST key would hand back a signature that
+    // verifies against an address the dApp never asked about.
+    const keyType = (options?.keyType ?? 'unshielded').toLowerCase()
+    if (keyType !== 'unshielded') {
+      throw Object.assign(
+        new Error(`MagicMoney can only sign with the unshielded Midnight key, not "${options?.keyType}".`),
+        { code: -1 }
+      )
+    }
+
+    const { bytes, display, text } = decodeMidnightSignPayload(payload, options?.encoding)
+
+    const approved = await showApprovalWindow({
+      title: 'Sign Midnight message',
+      heading: `${origin} wants you to sign a message`,
+      detail: formatMidnightSignData(display, network),
+      confirmLabel: 'Sign',
+      origin
+    })
+    if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
+
+    // Same normalize→seed path as every other derivation, so the key that signs
+    // is the one behind the mn_addr… the dApp was shown at connect.
+    const seed = mnemonicToSeedSync(normalizeMnemonic(loadMnemonic()))
+    return signWithLedger(seed, accountIndex, bytes, text)
   })
 
   ipcMain.handle('midnight:transfer', async (event, to: string, amountNight: string) => {

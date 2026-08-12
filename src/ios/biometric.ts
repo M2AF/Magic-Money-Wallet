@@ -33,6 +33,19 @@ const BLOB_KEY = 'wallet.hello.enc'
 /** Keychain account name for the wrapping material inside the vault service. */
 const MATERIAL_KEY = 'vault'
 
+/**
+ * A SECOND Enclave item, for the browser password manager's gate.
+ *
+ * Deliberately not MATERIAL_KEY. That item is the key to 'wallet.hello.enc',
+ * and the callers self-heal a missing one by DELETING the wrapped copy — so
+ * sharing it would let a password-manager prompt silently disable biometric
+ * WALLET unlock. Same separation as Electron's 'MagicMoneyPasswordGate'.
+ */
+const PASSWORD_MATERIAL_KEY = 'passwords'
+
+/** Thrown (by message) when the Enclave item is gone — the caller self-heals. */
+export const BIO_MATERIAL_MISSING = 'BIO_MATERIAL_MISSING'
+
 interface SecureVaultPlugin {
   isAvailable(): Promise<{ isAvailable: boolean; biometry: 'faceId' | 'touchId' | 'opticId' | 'none'; reason: string }>
   store(o: { key: string; value: string }): Promise<void>
@@ -138,3 +151,84 @@ export async function helloRemove(): Promise<boolean> {
   await Preferences.remove({ key: BLOB_KEY })
   return true
 }
+
+// ─── Password-manager gate (separate Enclave item, see PASSWORD_MATERIAL_KEY) ─
+//
+// Only the ceremony + the key material live here; the wrapped copy of the vault
+// password is browser-data-local.ts's business, the same way this file owns
+// 'wallet.hello.enc' above. Nothing in this section can read or remove the
+// wallet's own Enclave item. Contract-identical to the Android module so
+// browser-data-local.ts needs no platform branch.
+
+/** Platform capability + sensor label, independent of any enrollment. */
+export async function biometricCapability(): Promise<{ supported: boolean; method: string | null }> {
+  try {
+    const r = await SecureVault.isAvailable()
+    return { supported: !!r.isAvailable, method: r.isAvailable ? (r.biometry === 'touchId' ? 'touch-id' : 'face-id') : null }
+  } catch {
+    return { supported: false, method: null }
+  }
+}
+
+/**
+ * Mint fresh 32-byte material for the password gate. Writing does not prompt
+ * (the plugin sets interactionNotAllowed) — the first prompt the user sees is
+ * their first biometric unlock, matching helloEnroll above.
+ */
+export async function passwordGateEnrollMaterial(): Promise<Uint8Array> {
+  if (!(await biometricsAvailable())) {
+    throw new Error('Face ID / Touch ID is not available on this device')
+  }
+  const material = crypto.getRandomValues(new Uint8Array(32))
+  await SecureVault.store({ key: PASSWORD_MATERIAL_KEY, value: toBase64(material) })
+  return material
+}
+
+/**
+ * Reproduce the password gate's material. This single call IS the
+ * authentication — the Enclave releases the bytes only on a live match.
+ * Throws BIO_MATERIAL_MISSING when the item is gone (it self-destructs when
+ * the device's biometric set changes) so the caller can drop its copy.
+ */
+export async function passwordGateGetMaterial(): Promise<Uint8Array> {
+  // A missing item and a refused match both surface as a rejection, so ask
+  // first: only the genuinely-absent case may trigger the caller's self-heal.
+  let exists = false
+  try {
+    exists = (await SecureVault.hasItem({ key: PASSWORD_MATERIAL_KEY })).exists
+  } catch {
+    exists = false
+  }
+  if (!exists) throw new Error(BIO_MATERIAL_MISSING)
+
+  const { value } = await SecureVault.retrieve({
+    key: PASSWORD_MATERIAL_KEY,
+    reason: 'Open your saved passwords',
+  })
+  return fromBase64(value)
+}
+
+/** Forget the password gate's material. Best-effort, never throws. */
+export async function passwordGateDeleteMaterial(): Promise<void> {
+  try { await SecureVault.remove({ key: PASSWORD_MATERIAL_KEY }) } catch { /* not set */ }
+}
+
+// ─── Drop-in check against the Android module ────────────────────────────────
+//
+// browser-data-local.ts imports './biometric' and the alias table decides which
+// file that is. tsc does NOT see that table (see tsconfig.ios.json), so under
+// every config the shared code is only ever checked against the ANDROID shapes
+// — drift in this file would compile clean and fail on a device instead. These
+// two lines make it a compile error here. Type-only: nothing is emitted.
+
+type Assert<T extends true> = T
+
+export type PasswordGateMatchesAndroid = Assert<{
+  biometricCapability: typeof biometricCapability
+  passwordGateEnrollMaterial: typeof passwordGateEnrollMaterial
+  passwordGateGetMaterial: typeof passwordGateGetMaterial
+  passwordGateDeleteMaterial: typeof passwordGateDeleteMaterial
+} extends Pick<
+  typeof import('../capacitor/biometric'),
+  'biometricCapability' | 'passwordGateEnrollMaterial' | 'passwordGateGetMaterial' | 'passwordGateDeleteMaterial'
+> ? true : false>

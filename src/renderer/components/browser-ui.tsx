@@ -11,6 +11,10 @@
  *     active dApp view is detached while it's showing, and
  *   • a full-area panel renders INSIDE the content div (position: absolute,
  *     inset: 0), painted over the snapshot BrowserApp puts behind it.
+ *
+ * ContentPanel covers both shapes: full-bleed by default, or `floating` for an
+ * anchored card that reads as a dropdown from the ☰ button. Both live in the
+ * same absolutely-positioned slot, so the layering rules above are unchanged.
  */
 import type { ReactNode, CSSProperties } from 'react'
 import { useEffect } from 'react'
@@ -147,22 +151,78 @@ export function ToolbarButton({ open, active, title, onClick, children, ariaLabe
 // ─── Full-area panel (rendered inside BrowserApp's content div) ──────────────
 
 /**
- * A full-bleed sheet covering the page area, used by the bookmarks and password
- * surfaces — both are too big for a dropdown. The active dApp view is already
- * detached (openOverlay), so this sits over the page snapshot.
+ * The page-area surface behind the bookmarks and password managers. Two shapes:
+ *
+ *   default    — full-bleed sheet covering the whole page area. What the touch
+ *                targets (Android/iOS) use: there is nowhere smaller to put it.
+ *   floating   — an anchored card in the top-right corner, sized like the ☰
+ *                dropdown it visually drops out of. Desktop default: a list of
+ *                saved logins does not need the whole window.
+ *
+ * Either way the active dApp view is already detached (openOverlay), so this
+ * sits over the page snapshot.
  */
-export function ContentPanel({ title, subtitle, onClose, children, actions }: {
+export function ContentPanel({ title, subtitle, onClose, children, actions, floating, onDismiss, width = 440 }: {
   title: string
   subtitle?: ReactNode
   onClose: () => void
   children: ReactNode
   actions?: ReactNode
+  /** Render as the anchored card rather than the full-bleed sheet. */
+  floating?: boolean
+  /**
+   * Floating only — click-outside dismissal, matching the ☰ dropdown. Omit it
+   * while a half-filled form is on screen so a stray click can't discard typing.
+   */
+  onDismiss?: () => void
+  /** Floating only. */
+  width?: number
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  if (floating) {
+    return (
+      <>
+        {/* Click-catcher, same trick as Dropdown — but scoped to the page area,
+            so the toolbar above stays live and can hand the overlay slot over. */}
+        <div onClick={onDismiss} style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'transparent' }} />
+        <div style={{
+          position: 'absolute', top: 8, right: 8, zIndex: 31,
+          width, maxWidth: 'calc(100% - 16px)', maxHeight: 'min(560px, calc(100% - 16px))',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          background: 'var(--bg-surface)', border: '1px solid var(--border-active)',
+          borderRadius: 12, boxShadow: '0 12px 32px rgba(0, 0, 0, 0.5)',
+          color: 'var(--text-primary)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexShrink: 0, padding: '11px 12px 0' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 800 }}>{title}</div>
+              {subtitle && (
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.45 }}>{subtitle}</div>
+              )}
+            </div>
+            <PanelCloseButton onClose={onClose} size={24} />
+          </div>
+          {/* Actions get their own row here: there is no room beside the title. */}
+          {actions && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flexShrink: 0, padding: '9px 12px 0' }}>
+              {actions}
+            </div>
+          )}
+          <div style={{
+            flex: 1, minHeight: 0, overflowY: 'auto',
+            marginTop: 11, borderTop: '1px solid var(--border)', padding: '11px 12px 12px',
+          }}>
+            {children}
+          </div>
+        </div>
+      </>
+    )
+  }
 
   return (
     <div style={{
@@ -179,29 +239,35 @@ export function ContentPanel({ title, subtitle, onClose, children, actions }: {
           {subtitle && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{subtitle}</div>}
         </div>
         {actions}
-        <button
-          type="button"
-          onClick={onClose}
-          title="Close"
-          aria-label="Close"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 28, height: 28, flexShrink: 0, padding: 0,
-            background: 'none', border: '1px solid var(--border)', borderRadius: 8,
-            color: 'var(--text-secondary)', cursor: 'pointer',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text-primary)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-secondary)' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
-        </button>
+        <PanelCloseButton onClose={onClose} />
       </div>
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 16 }}>
         {children}
       </div>
     </div>
+  )
+}
+
+function PanelCloseButton({ onClose, size = 28 }: { onClose: () => void; size?: number }) {
+  return (
+    <button
+      type="button"
+      onClick={onClose}
+      title="Close"
+      aria-label="Close"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: size, height: size, flexShrink: 0, padding: 0,
+        background: 'none', border: '1px solid var(--border)', borderRadius: 8,
+        color: 'var(--text-secondary)', cursor: 'pointer',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.color = 'var(--text-primary)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = 'var(--text-secondary)' }}
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    </button>
   )
 }
 

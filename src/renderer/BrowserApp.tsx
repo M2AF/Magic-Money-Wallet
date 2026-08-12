@@ -498,8 +498,9 @@ export function BrowserApp() {
           <TorStatusPanel state={tor} onChange={setTor} />
         )}
 
-        {/* Full-area panels. They own the detached-view overlay slot, so they sit
-            over the page snapshot exactly like the Tor block screen above. */}
+        {/* Panels opened from ☰. They own the detached-view overlay slot, so they
+            sit over the page snapshot exactly like the Tor block screen above —
+            bookmarks full-area, passwords as an anchored card. */}
         {overlay === 'bookmarks' && (
           <BookmarksPanel onClose={closeOverlay} onNavigate={navigate} onToast={showToast} />
         )}
@@ -510,6 +511,8 @@ export function BrowserApp() {
             onClose={closeOverlay}
             onToast={showToast}
             onChanged={refreshPageState}
+            // Anchored card under the ☰ it came from, not a full-window sheet.
+            floating
           />
         )}
 

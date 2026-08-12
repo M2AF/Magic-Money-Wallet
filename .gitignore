@@ -24,6 +24,13 @@ android/app/src/main/assets/capacitor.plugins.json
 *.keystore
 *.jks
 
+# Play Console service-account key. This can publish to the store unattended —
+# keep it out of the repo entirely (see scripts/play-publish.mjs).
+play-service-account*.json
+*-play-sa.json
+# Google's default download name is <cloud-project-id>-<keyid>.json
+magic-money-*.json
+
 # ── iOS (Capacitor) — native project is committed, outputs are not ──
 # Mirrors the Android policy above. Pods/ is restored by `pod install` during
 # the CI build; the synced web bundle lands in App/public and is regenerated

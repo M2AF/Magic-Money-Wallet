@@ -19,6 +19,7 @@
  * targets would take the VESPR Cardano announcement down with it.
  */
 
+import { bech32m } from '@scure/base'
 import type { WalletConfig } from './secure-store'
 import { midnightNetworkFor } from './chain-config'
 
@@ -155,6 +156,43 @@ export interface MidnightLegacyState {
   encryptionPublicKeyLegacy: string
 }
 
+/**
+ * Split a shielded address into its two component public keys, hex-encoded.
+ *
+ * `getShieldedAddresses` must return the coin and encryption public keys
+ * SEPARATELY — a dApp needs them to build a shielded output to this wallet, and
+ * an address string is not a key. We previously returned the address three
+ * times, which dApps either reject or silently mis-encode.
+ *
+ * Hex, not Bech32m: the spec's prose says Bech32m but the reference codec
+ * (`ShieldedAddress.coinPublicKeyString()`) returns hex, and live dApps branch
+ * on the fields matching /^[0-9a-f]*$/ — verified byte-for-byte against
+ * @midnightntwrk/wallet-sdk-address-format. Following the prose would take the
+ * fallback path everywhere.
+ *
+ * The payload is coinPublicKey ++ encryptionPublicKey, 32 bytes each, exactly
+ * as computeMidnightAddresses assembles it.
+ */
+export function splitShieldedAddress(shielded: string | undefined): {
+  coinPublicKey?: string
+  encryptionPublicKey?: string
+} {
+  if (!shielded) return {}
+  try {
+    const { words } = bech32m.decode(shielded as `${string}1${string}`, 400)
+    const payload = Buffer.from(bech32m.fromWords(words))
+    // Anything else is not a shielded address; say nothing rather than hand a
+    // dApp half a key.
+    if (payload.length !== 64) return {}
+    return {
+      coinPublicKey: payload.subarray(0, 32).toString('hex'),
+      encryptionPublicKey: payload.subarray(32, 64).toString('hex'),
+    }
+  } catch {
+    return {}
+  }
+}
+
 export function buildLegacyState(addresses: MidnightAddressSet): MidnightLegacyState {
   const address = addresses.unshielded ?? ''
   // The shielded address is the concatenated coin + encryption public keys; we
@@ -203,6 +241,118 @@ export function formatMidnightConnect(
     '',
     'Every transfer still needs your approval.',
     PROVER_NOTE,
+  ].join('\n')
+}
+
+// ── signData payload ─────────────────────────────────────────────────────────
+
+/**
+ * Turn a connector signData payload into the exact bytes to sign, plus the text
+ * to show the user.
+ *
+ * The display string is derived FROM THE BYTES, never taken as a separate field
+ * alongside them: a page that could send bytes and an unrelated "here is what
+ * that says" caption would be able to show a benign message and have a
+ * different one signed. What is rendered here is a decoding of what is signed,
+ * so the two cannot diverge.
+ */
+export function decodeMidnightSignPayload(
+  payload: unknown, encoding?: string
+): { bytes: Uint8Array; display: string; text: string | null } {
+  const bytes = toSignBytes(payload, encoding)
+  if (bytes.length === 0) throw new Error('Nothing to sign: the payload is empty.')
+  const text = readableText(bytes)
+  return { bytes, display: text ?? describeSignBytes(bytes), text }
+}
+
+/**
+ * The payload as a human-readable message, or null if it is really binary.
+ *
+ * This is the hinge of the signing-oracle defence, so it is deliberately
+ * conservative: valid UTF-8 AND free of control characters. A Midnight
+ * transaction segment is a serialization of hashes, keys and amounts — for one
+ * to pass this check every single byte would have to land in the printable
+ * range, which a dApp cannot arrange for content it does not fully control.
+ * See signMidnightData for what rides on the distinction.
+ */
+function readableText(bytes: Uint8Array): string | null {
+  let decoded: string
+  try {
+    decoded = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes)
+  } catch {
+    return null
+  }
+  return /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(decoded) ? null : decoded
+}
+
+function toSignBytes(payload: unknown, encoding?: string): Uint8Array {
+  if (payload instanceof Uint8Array) return payload
+  // Byte arrays arrive over IPC as plain arrays (structured clone drops the
+  // Uint8Array view for some senders), so accept both.
+  if (Array.isArray(payload) && payload.every(b => Number.isInteger(b) && b >= 0 && b <= 255)) {
+    return Uint8Array.from(payload as number[])
+  }
+  if (typeof payload !== 'string') {
+    throw new Error('Unsupported Midnight signData payload — expected a string or bytes.')
+  }
+  const enc = (encoding ?? '').toLowerCase()
+  if (enc === 'text' || enc === 'utf8' || enc === 'utf-8') return new TextEncoder().encode(payload)
+  // Validate STRICTLY before decoding. Buffer's hex/base64 decoders are
+  // lenient: they silently stop at (or skip) the first invalid character
+  // rather than throwing. A dApp could then send a long plausible-looking
+  // string, have the prompt render its decoding, and get a signature over only
+  // a short attacker-chosen prefix of it.
+  if (enc === 'hex') {
+    const bare = payload.startsWith('0x') ? payload.slice(2) : payload
+    if (bare.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(bare)) {
+      throw new Error('Midnight signData payload is not valid hex.')
+    }
+    return Uint8Array.from(Buffer.from(bare, 'hex'))
+  }
+  if (enc === 'base64') {
+    // RFC 4648 alphabet, padding only at the end, in 4-character groups.
+    if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(payload)) {
+      throw new Error('Midnight signData payload is not valid base64.')
+    }
+    return Uint8Array.from(Buffer.from(payload, 'base64'))
+  }
+  if (enc) throw new Error(`Unsupported Midnight signData encoding "${encoding}".`)
+  // No encoding given. Treating a bare string as text is the safe default: the
+  // alternative (guessing hex whenever it happens to look like hex) would sign
+  // different bytes than the user was shown for a message like "deadbeef".
+  return new TextEncoder().encode(payload)
+}
+
+/** Render bytes for the approval prompt: readable text when they are text. */
+function describeSignBytes(bytes: Uint8Array): string {
+  const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false })
+  let decoded: string
+  try {
+    decoded = text.decode(bytes)
+  } catch {
+    return `${bytes.length} bytes (binary):\n  ${Buffer.from(bytes).toString('hex')}`
+  }
+  // Control characters other than tab/newline mean it is not really a message —
+  // show the hex instead of letting them mangle the prompt.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(decoded)) {
+    return `${bytes.length} bytes (binary):\n  ${Buffer.from(bytes).toString('hex')}`
+  }
+  return decoded
+}
+
+export function formatMidnightSignData(
+  display: string, network: MidnightNetwork
+): string {
+  return [
+    'Message:',
+    display.split('\n').map(line => `  ${line}`).join('\n'),
+    '',
+    `Signed with     your unshielded (NIGHT) key`,
+    `Network         Midnight ${network === 'preprod' ? 'Preprod (testnet)' : 'Mainnet'}`,
+    '',
+    'This proves you control the address. It does not move any funds.',
+    'Only sign messages from a site you trust.',
   ].join('\n')
 }
 

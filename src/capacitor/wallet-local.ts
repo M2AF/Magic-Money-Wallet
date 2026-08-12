@@ -501,6 +501,16 @@ function buildWallet() {
       return status
     },
     passwordsLock:   async () => { Bm.lockPasswords(); return Bm.passwordVaultStatus() },
+    // Biometric unlock for the VAULT — additive, and gated on its own Keystore/
+    // Enclave entry so it can never disturb the wallet's own enrollment.
+    passwordsBioStatus: () => Bm.passwordBioStatus(),
+    passwordsBioEnroll: () => Bm.enrollPasswordBio(),
+    passwordsBioUnlock: async () => {
+      const status = await Bm.unlockPasswordsWithBio()
+      void tryAutofillActiveTab()
+      return status
+    },
+    passwordsBioRemove: () => Bm.removePasswordBio(),
     passwordsList:   () => Promise.resolve(Bm.listPasswords()),
     passwordsReveal: (id: string) => Promise.resolve(Bm.revealPassword(id)),
     passwordsCopy:   async (id: string) => {

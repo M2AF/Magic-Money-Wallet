@@ -450,8 +450,14 @@ webFrame.executeJavaScript(`(function () {
 
       // ── Current (4.x) ────────────────────────────────────────────────
       getUnshieldedAddress: () => call('midnight:addresses').then(a => ({ unshieldedAddress: a.unshielded })),
+      // The two component keys are hex and DISTINCT from the address — a dApp
+      // needs them to build a shielded output to this wallet. Fall back to the
+      // address only if the split failed, which keeps the older behaviour
+      // rather than handing back nothing.
       getShieldedAddresses: () => call('midnight:addresses').then(a => ({
-        shieldedAddress: a.shielded, shieldedCoinPublicKey: a.shielded, shieldedEncryptionPublicKey: a.shielded
+        shieldedAddress: a.shielded,
+        shieldedCoinPublicKey: a.shieldedCoinPublicKey || a.shielded,
+        shieldedEncryptionPublicKey: a.shieldedEncryptionPublicKey || a.shielded,
       })),
       getDustAddress: () => call('midnight:addresses').then(a => ({ dustAddress: a.dust })),
       getUnshieldedBalances: () => call('midnight:balances'),
@@ -459,6 +465,16 @@ webFrame.executeJavaScript(`(function () {
       getDustBalance: () => call('midnight:dust-balance'),
       getConfiguration: () => call('midnight:service-uris'),
       getConnectionStatus: () => call('midnight:connection-status'),
+      // Prove control of the unshielded address (dApp identity registration).
+      // Uint8Array does not survive the IPC hop intact, so send plain bytes;
+      // main decodes the payload itself and shows the user what it will sign.
+      signData: (payload, options) => call(
+        'midnight:sign-data',
+        (payload instanceof Uint8Array || Array.isArray(payload))
+          ? Array.from(payload)
+          : payload,
+        options || {}
+      ),
       makeTransfer: (outputs) => {
         const list = Array.isArray(outputs) ? outputs : [outputs];
         const first = list[0] || {};
@@ -501,6 +517,75 @@ webFrame.executeJavaScript(`(function () {
       window.midnight['b7f3c1d2-5a4e-4f8b-9c2d-1e6a3b8d7f04'] = mnWallet;
       // Legacy (≤3.x) dApps DO look up a named key, so keep a readable one too.
       window.midnight.magicmoney = mnWallet;
+    } catch (_) {}
+
+    // ── Lace compatibility alias ───────────────────────────────────────────
+    // Lace authorized this, on the same terms as the VESPR key above.
+    //
+    // Enumerating the registry is only HALF of what the spec asked for, and the
+    // live Midnight dApps do the other half: they enumerate, then keep whatever
+    // matches a HARDCODED rdns allowlist. Pulse Finance is the concrete case —
+    //   WALLETS.forEach(w => Object.values(window.midnight)
+    //     .some(p => p.rdns === w.rdns) && found.add(w.rdns))
+    // over a fixed ['com.midnight.1am','io.lace.wallet','io.pulse.wallet',...].
+    // A wallet whose rdns is not on that list cannot appear no matter how
+    // correctly it registers, so MagicMoney needs an entry carrying Lace's.
+    //
+    // It is a SEPARATE object from mnWallet, not a second key pointing at it:
+    // rdns is one value per object, and the canonical entries above must keep
+    // MagicMoney's own identity. Same shim, same guarded IPC routes, same name
+    // and icon — only the rdns differs, and the name/icon are what a spec-
+    // compliant dApp renders.
+    try {
+      const LACE_RDNS = 'io.lace.wallet';
+      const laceKey = 'mnLace';
+      // Never displace a genuine Lace: not its named key, and not its rdns
+      // under any key. Both are checked because either one alone would let us
+      // shadow a real Lace that registered the other way.
+      const laceAlreadyPresent =
+        typeof window.midnight[laceKey] !== 'undefined' ||
+        Object.values(window.midnight).some(p => p && p.rdns === LACE_RDNS);
+      if (!laceAlreadyPresent) {
+        // Registered LAST and under Lace's own key: a dApp that enumerates
+        // without an allowlist hits MagicMoney's canonical entry first, and a
+        // legacy dApp that hardcodes window.midnight.mnLace still resolves.
+        const mnLaceAlias = Object.assign({}, mnWallet, { rdns: LACE_RDNS });
+        window.midnight[laceKey] = mnLaceAlias;
+
+        // A dApp that hardcodes the rdns hardcodes the label beside it too, so
+        // the row we now light up is drawn from the dApp's own asset bundle and
+        // reads "Lace". Correct it to what the click actually opens, exactly as
+        // the VESPR key does on its targets — the alias is a discovery
+        // workaround, not a claim to be another wallet.
+        const laceBrandHosts = ['pulsefinance.org', 'www.pulsefinance.org'];
+        if (laceBrandHosts.indexOf(window.location.hostname) !== -1) {
+          const applyLaceCompatibilityBranding = function() {
+            // Stop touching the page if a genuine Lace claims the key after we
+            // were injected.
+            if (window.midnight[laceKey] !== mnLaceAlias) return;
+            for (const image of document.querySelectorAll('img[alt="Lace"], img[alt="Lace wallet"]')) {
+              const source = (image.getAttribute('src') || '') + ' ' + (image.getAttribute('srcset') || '');
+              if (!source.toLowerCase().includes('lace')) continue;
+              image.alt = 'MagicMoney Wallet';
+              image.removeAttribute('srcset');
+              image.src = ${_ICON_JSON};
+              image.dataset.magicMoneyLaceBrand = 'true';
+              const scope = image.closest('button, [role="dialog"]') || image.parentElement;
+              if (!scope) continue;
+              for (const element of scope.querySelectorAll('span, p, div, h1, h2, h3')) {
+                if (element.children.length > 0) continue;
+                if ((element.textContent || '').trim() === 'Lace') {
+                  element.textContent = 'MagicMoney Wallet';
+                }
+              }
+            }
+          };
+          applyLaceCompatibilityBranding();
+          new MutationObserver(applyLaceCompatibilityBranding).observe(document.documentElement || document, {
+            childList: true, subtree: true
+          });
+        }
+      }
     } catch (_) {}
   } catch(e) { console.error('[MagicMoney] Midnight injection failed:', e); }
 

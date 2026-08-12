@@ -28,7 +28,7 @@ export interface AppHubData {
 }
 
 const APP_HUB: AppHubData = {
-  "totalApps": 431,
+  "totalApps": 432,
   "totalChains": 19,
   "chains": [
     {
@@ -122,7 +122,7 @@ const APP_HUB: AppHubData = {
     {
       "name": "DEX",
       "short": "DEX",
-      "count": 46
+      "count": 47
     },
     {
       "name": "Gaming",
@@ -226,7 +226,7 @@ const APP_HUB: AppHubData = {
     },
     {
       "id": "cardano",
-      "count": 228
+      "count": 229
     },
     {
       "id": "ethereum",
@@ -1423,6 +1423,20 @@ const APP_HUB: AppHubData = {
       "featured": false,
       "favicon": "https://www.google.com/s2/favicons?domain=drift.trade&sz=128",
       "description": "A Solana decentralized exchange for perpetual futures and spot trading.",
+      "chainCount": 1,
+      "coverage": 5
+    },
+    {
+      "id": "gravity",
+      "name": "Gravity",
+      "website": "https://gravitydex.app/",
+      "category": "DEX",
+      "chains": [
+        "cardano"
+      ],
+      "featured": false,
+      "favicon": "https://www.google.com/s2/favicons?domain=gravitydex.app&sz=64",
+      "description": "A decentralized exchange built on the Cardano blockchain, facilitating secure token swapping and liquidity provision.",
       "chainCount": 1,
       "coverage": 5
     },

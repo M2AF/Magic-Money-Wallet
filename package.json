@@ -40,6 +40,7 @@
     "android:apk": "npm run build:capacitor && cd android && gradlew assembleRelease",
     "android:aab": "npm run build:capacitor && cd android && gradlew bundleRelease",
     "android:dev": "vite --config vite.capacitor.config.ts --port 5183 --host",
+    "play": "node scripts/play-publish.mjs",
     "prebuild:ios": "node scripts/convert-apphub.js",
     "build:ios": "vite build --config vite.ios.config.ts && node scripts/patch-ios-plist.js && node scripts/patch-ios-native.js && node scripts/cap.js sync ios",
     "ios": "npm run build:ios && node scripts/cap.js run ios",

@@ -21,8 +21,17 @@
  */
 
 import { Preferences } from '@capacitor/preferences'
-import { encryptSecret, decryptSecret, isEncryptedBlob, type EncryptedBlob } from '../main/crypto-vault'
+import {
+  encryptSecret, decryptSecret, isEncryptedBlob,
+  encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob,
+} from '../main/crypto-vault'
 import { verifyPassword } from './capacitor-store'
+// Resolves to src/ios/biometric.ts on the iOS build (vite.ios.config.ts alias).
+// Both modules expose this same contract, so nothing below branches on platform.
+import {
+  biometricCapability, passwordGateEnrollMaterial, passwordGateGetMaterial,
+  passwordGateDeleteMaterial, BIO_MATERIAL_MISSING,
+} from './biometric'
 
 // ── Types (shape-parity with the desktop modules) ───────────────────────────
 
@@ -67,9 +76,16 @@ export interface PasswordVaultStatus {
   available: boolean
 }
 
+export interface PasswordBioStatus {
+  supported: boolean
+  enrolled: boolean
+  method: string | null
+}
+
 const BOOKMARKS_KEY = 'browser.bookmarks'
 const APPS_KEY = 'browser.apps'
 const VAULT_KEY = 'passwords.enc'
+const VAULT_BIO_KEY = 'passwords.hello.enc'
 
 const MAX_BOOKMARKS = 5000
 const MAX_APPS = 500
@@ -395,7 +411,102 @@ export function matchPasswordsForHost(host: string): PasswordSummary[] {
     }))
 }
 
+// ── Biometric unlock for the vault (optional, additive) ──────────────────────
+//
+// 'passwords.hello.enc' holds the vault password wrapped (HKDF → AES-GCM) by
+// key material the platform releases only after a biometric gesture — the same
+// shape biometric.ts uses for 'wallet.hello.enc', and the same doctrine: it is
+// a convenience factor, and the typed password stays the recovery path.
+//
+// ⚠ The gate runs under its OWN Keystore/Enclave entry (PASSWORD_CRED_SERVER /
+// PASSWORD_MATERIAL_KEY in biometric.ts). Borrowing the wallet's would let a
+// password-manager prompt reach a self-heal that deletes 'wallet.hello.enc' and
+// silently disable biometric WALLET unlock. Nothing here writes that key.
+
+async function bioBlob(): Promise<EncryptedBlob | null> {
+  const stored = await prefGet<unknown>(VAULT_BIO_KEY)
+  return isEncryptedBlob(stored) ? (stored as EncryptedBlob) : null
+}
+
+/** Drop the biometric copy. Never touches 'wallet.hello.enc' — see the note above. */
+async function dropBioCopy(): Promise<void> {
+  await Preferences.remove({ key: VAULT_BIO_KEY })
+}
+
+export async function passwordBioStatus(): Promise<PasswordBioStatus> {
+  const { supported, method } = await biometricCapability()
+  return { supported, enrolled: (await bioBlob()) !== null, method }
+}
+
+/**
+ * Turn biometric unlock on. Requires the vault to be OPEN — the password being
+ * wrapped is the one cached by unlockPasswords, so the user has just typed it.
+ */
+export async function enrollPasswordBio(): Promise<boolean> {
+  if (_password == null) throw new Error('Unlock the password manager first')
+  const { supported } = await biometricCapability()
+  if (!supported) throw new Error('Biometric unlock is not available on this device')
+  const material = await passwordGateEnrollMaterial()
+  await prefSet(VAULT_BIO_KEY, await encryptWithKeyMaterial(_password, material))
+  return true
+}
+
+/**
+ * Open the vault with a biometric gesture instead of typing the password. The
+ * recovered password goes through unlockPasswords, so every check the typed
+ * path makes still runs.
+ */
+export async function unlockPasswordsWithBio(): Promise<PasswordVaultStatus> {
+  const blob = await bioBlob()
+  if (!blob) throw new Error('Biometric unlock is not set up for your saved passwords')
+
+  let material: Uint8Array
+  try {
+    material = await passwordGateGetMaterial()
+  } catch (e) {
+    // The platform lost the key, so the copy it wrapped can never be read
+    // again. Drop it (and only it) and fall back to the password.
+    if (e instanceof Error && e.message === BIO_MATERIAL_MISSING) {
+      await dropBioCopy()
+      throw new Error('Biometric unlock for saved passwords was lost. Unlock with your password, then turn it back on.')
+    }
+    throw e
+  }
+
+  // The material is deterministic, so an unwrap failure is never transient —
+  // the copy will fail identically forever. Drop it (ours only) rather than
+  // leaving a button that can never work.
+  let password: string
+  try {
+    password = await decryptWithKeyMaterial(blob, material)
+  } catch {
+    await dropBioCopy()
+    throw new Error('Biometric unlock for saved passwords could not be read. Unlock with your password, then turn it back on.')
+  }
+
+  try {
+    return await unlockPasswords(password)
+  } catch (e) {
+    // A password that no longer opens the vault (the wallet was re-created
+    // under a different one) can never work again.
+    if (e instanceof Error && e.message === 'Incorrect password') {
+      await dropBioCopy()
+      throw new Error('Your saved passwords no longer open with biometrics. Unlock with your password, then turn it back on.')
+    }
+    throw e
+  }
+}
+
+/** Turn biometric unlock off: drop the copy and the platform key. */
+export async function removePasswordBio(): Promise<boolean> {
+  await dropBioCopy()
+  await passwordGateDeleteMaterial()
+  return true
+}
+
 export async function deletePasswordVault(): Promise<void> {
   lockPasswords()
   await Preferences.remove({ key: VAULT_KEY })
+  // The biometric copy holds the password to a vault that no longer exists.
+  await removePasswordBio()
 }

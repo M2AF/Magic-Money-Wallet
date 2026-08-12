@@ -27,8 +27,16 @@
 import { safeStorage, app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'fs'
 import { join } from 'path'
-import { encryptSecret, decryptSecret, isEncryptedBlob, type EncryptedBlob } from './crypto-vault'
-import { verifyPassword } from './secure-store'
+import {
+  encryptSecret, decryptSecret, isEncryptedBlob,
+  encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob,
+} from './crypto-vault'
+import { verifyPassword, bioMethod, bioSupported, type BioMethod } from './secure-store'
+import { runHello, helloPlatformOk } from './hello-bridge'
+import {
+  touchIdPlatformOk, touchIdEnrollMaterial, touchIdGetMaterial, touchIdDeleteMaterial,
+  TOUCHID_ITEM_MISSING, TOUCHID_PASSWORD_ACCOUNT,
+} from './touchid-bridge'
 
 export interface PasswordEntry {
   id: string
@@ -58,6 +66,15 @@ export interface PasswordVaultStatus {
   count: number
   /** False when the OS keychain is unavailable — the vault cannot be used at all. */
   available: boolean
+}
+
+/** Whether the vault can offer a biometric unlock, and whether one is set up. */
+export interface PasswordBioStatus {
+  /** Platform + OS enrollment allow a prompt at all. */
+  supported: boolean
+  /** This vault has a biometric copy on disk. */
+  enrolled: boolean
+  method: BioMethod | null
 }
 
 const MAX_ENTRIES = 10_000
@@ -284,8 +301,165 @@ export function matchPasswordsForHost(host: string): PasswordSummary[] {
     }))
 }
 
+// ─── Biometric unlock for the vault (optional, additive) ─────────────────────
+//
+// A SECOND encrypted copy of the vault's password at passwords.hello.enc,
+// wrapped (HKDF → AES-GCM) by platform key material released only after a
+// biometric ceremony — exactly the shape secure-store uses for wallet.hello.enc,
+// and for the same reason: it is a convenience factor, and the typed password
+// stays the recovery path. At rest it's safeStorage.encrypt(JSON(blob)).
+//
+// ⚠ THE GATE HAS ITS OWN KEY, and must keep it.
+//
+// Borrowing the wallet's HELLO_KEY_NAME / TOUCHID_ACCOUNT would route a
+// password-manager prompt into secure-store's NotFound (resp.
+// TOUCHID_ITEM_MISSING) self-heal, which DELETES wallet.hello.enc — so opening
+// saved logins could silently disable the user's biometric WALLET unlock. The
+// precedent, and the same mistake caught once already, is passkey-manager's
+// 'MagicMoneyPasskeyGate'. The self-heal below only ever removes THIS module's
+// file. password-vault.test.ts guards it.
+
+const PASSWORD_GATE_KEY_NAME = 'MagicMoneyPasswordGate'
+const PASSWORD_GATE_CHALLENGE_B64 = Buffer.from('magicmoney-password-vault-gate-v1', 'utf8').toString('base64')
+
+function bioPath(): string {
+  return join(app.getPath('userData'), 'passwords.hello.enc')
+}
+
+function bioLabel(): string {
+  return bioMethod() === 'touch-id' ? 'Touch ID' : 'Windows Hello'
+}
+
+/** True when a biometric copy of the vault password exists on this machine. */
+export function hasPasswordBioUnlock(): boolean {
+  return existsSync(bioPath())
+}
+
+/** Drop the biometric copy. Never touches wallet.hello.enc — see the note above. */
+function dropBioCopy(): void {
+  try { if (existsSync(bioPath())) unlinkSync(bioPath()) } catch { /* best effort */ }
+}
+
+/**
+ * What the UI needs to decide whether to show the control at all. `supported`
+ * is the platform + OS-enrollment check, so a machine with nothing enrolled
+ * gets no button rather than one that always fails.
+ */
+export async function passwordBioStatus(): Promise<PasswordBioStatus> {
+  const method = bioMethod()
+  return {
+    supported: method !== null && safeStorage.isEncryptionAvailable() && await bioSupported(),
+    enrolled: hasPasswordBioUnlock(),
+    method,
+  }
+}
+
+/**
+ * Run the ceremony and return the wrap-key material. `enroll` mints it,
+ * `sign` reproduces it. Self-heals — by dropping THIS module's copy only — when
+ * the platform has lost the key the copy was written under.
+ */
+async function gateMaterial(command: 'enroll' | 'sign'): Promise<Uint8Array> {
+  const method = bioMethod()
+  if (method === null) throw new Error('Biometric unlock is not available on this platform')
+
+  if (method === 'touch-id') {
+    const reason = command === 'enroll'
+      ? 'enable Touch ID for your saved passwords'
+      : 'open your saved passwords'
+    try {
+      return command === 'enroll'
+        ? await touchIdEnrollMaterial(TOUCHID_PASSWORD_ACCOUNT, reason)
+        : await touchIdGetMaterial(TOUCHID_PASSWORD_ACCOUNT, reason)
+    } catch (e) {
+      if (e instanceof Error && e.message === TOUCHID_ITEM_MISSING) {
+        dropBioCopy()
+        throw new Error('Touch ID for saved passwords was lost. Unlock with your password, then turn it back on.')
+      }
+      throw e
+    }
+  }
+
+  const res = await runHello(command, PASSWORD_GATE_KEY_NAME, PASSWORD_GATE_CHALLENGE_B64)
+  if (res.ok && res.signatureB64) return new Uint8Array(Buffer.from(res.signatureB64, 'base64'))
+  if (res.status === 'UserCanceled') throw new Error('Windows Hello was canceled')
+  // NotFound = Windows evicted the TPM key (reboot / PIN change / TPM reset).
+  // The copy it wrapped can never be decrypted again, so drop it and fall back
+  // to the password. Only passwords.hello.enc — wallet.hello.enc is not ours.
+  if (command === 'sign' && res.status === 'NotFound') {
+    dropBioCopy()
+    throw new Error('Windows Hello for saved passwords was lost. Unlock with your password, then turn it back on.')
+  }
+  throw new Error(res.status ?? res.error ?? `Windows Hello ${command === 'enroll' ? 'enrollment' : 'unlock'} failed`)
+}
+
+/**
+ * Turn biometric unlock on for the vault. Requires the vault to be OPEN — the
+ * password being wrapped is the one cached by unlockPasswords, so the user has
+ * just typed it. Triggers a prompt.
+ */
+export async function enrollPasswordBio(): Promise<void> {
+  if (bioMethod() === null) throw new Error('Biometric unlock is not available on this platform')
+  if (_password == null) throw new Error('Unlock the password manager first')
+  requireSafeStorage()
+  const material = await gateMaterial('enroll')
+  const blob = await encryptWithKeyMaterial(_password, material)
+  mkdirSync(app.getPath('userData'), { recursive: true })
+  writeFileSync(bioPath(), safeStorage.encryptString(JSON.stringify(blob)))
+}
+
+/**
+ * Open the vault with a biometric gesture instead of typing the password.
+ *
+ * The recovered password goes through unlockPasswords, so every check the typed
+ * path makes still runs. A password that no longer opens the vault (the wallet
+ * was re-created under a different one) can never work again, so the stale copy
+ * is dropped and the user is sent back to typing.
+ */
+export async function unlockPasswordsWithBio(): Promise<PasswordVaultStatus> {
+  if (bioMethod() === null) throw new Error('Biometric unlock is not available on this platform')
+  if (!hasPasswordBioUnlock()) throw new Error(`${bioLabel()} is not set up for your saved passwords`)
+  requireSafeStorage()
+
+  const material = await gateMaterial('sign')
+
+  // Unwrap. The material is deterministic, so a failure here is never
+  // transient — the copy is corrupt or was written under key material this
+  // machine can no longer reproduce, and it will fail identically forever.
+  // Drop it (ours only) rather than leaving a button that can never work.
+  let password: string
+  try {
+    const outer = safeStorage.decryptString(readFileSync(bioPath()))
+    password = await decryptWithKeyMaterial(JSON.parse(outer) as EncryptedBlob, material)
+  } catch {
+    dropBioCopy()
+    throw new Error(`${bioLabel()} for saved passwords could not be read. Unlock with your password, then turn it back on.`)
+  }
+
+  try {
+    return await unlockPasswords(password)
+  } catch (e) {
+    if (e instanceof Error && e.message === 'Incorrect password') {
+      dropBioCopy()
+      throw new Error(`Your saved passwords no longer open with ${bioLabel()}. Unlock with your password, then turn it back on.`)
+    }
+    throw e
+  }
+}
+
+/** Turn biometric unlock off: drop the copy and the platform key. */
+export async function removePasswordBio(): Promise<void> {
+  dropBioCopy()
+  if (helloPlatformOk()) { try { await runHello('delete', PASSWORD_GATE_KEY_NAME) } catch { /* best effort */ } }
+  if (touchIdPlatformOk()) await touchIdDeleteMaterial(TOUCHID_PASSWORD_ACCOUNT)
+}
+
 /** Wipe the whole vault (Danger zone / wallet delete). */
 export function deletePasswordVault(): void {
   try { if (vaultExists()) unlinkSync(vaultPath()) } catch { /* best effort */ }
+  // The biometric copy holds the password to a vault that no longer exists.
+  // Fire-and-forget on the platform key so this stays synchronous for callers.
+  dropBioCopy()
+  void removePasswordBio().catch(() => { /* best effort */ })
   lockPasswords()
 }

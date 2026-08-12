@@ -422,6 +422,35 @@ export interface PasswordVaultStatus {
   available: boolean
 }
 
+/**
+ * Biometric unlock for the saved-password vault. Additive: the wallet password
+ * always still opens it, exactly as for the wallet itself.
+ *
+ * `method` is one of 'windows-hello' | 'touch-id' | 'android-biometric' |
+ * 'face-id', typed loosely because each target reports its own sensor name;
+ * `bioMethodLabel` turns it into UI copy. `supported: false` means the control
+ * must be hidden — there is no ceremony this build/machine could run.
+ */
+export interface PasswordBioStatus {
+  supported: boolean
+  enrolled: boolean
+  method: string | null
+}
+
+/**
+ * Display name for a PasswordBioStatus/helloStatus `method`, written to read
+ * after "Unlock with …". Android's BiometricPrompt can be a fingerprint or a
+ * face depending on the device, so it stays generic rather than guessing.
+ */
+export function bioMethodLabel(method: string | null | undefined): string {
+  switch (method) {
+    case 'windows-hello': return 'Windows Hello'
+    case 'touch-id':      return 'Touch ID'
+    case 'face-id':       return 'Face ID'
+    default:              return 'biometrics'
+  }
+}
+
 /** Everything the chrome needs about the page in the active tab, read from main. */
 export interface BrowserPageState {
   url: string
@@ -718,6 +747,13 @@ declare global {
       passwordsStatus?(): Promise<PasswordVaultStatus>
       passwordsUnlock?(password: string): Promise<PasswordVaultStatus>
       passwordsLock?(): Promise<PasswordVaultStatus>
+      // Biometric unlock for the saved-password vault. Optional and capability-
+      // probed like helloStatus? above: the extension bridge has no biometric
+      // API at all, so the control is hidden there rather than offered broken.
+      passwordsBioStatus?(): Promise<PasswordBioStatus>
+      passwordsBioEnroll?(): Promise<boolean>
+      passwordsBioUnlock?(): Promise<PasswordVaultStatus>
+      passwordsBioRemove?(): Promise<boolean>
       passwordsList?(): Promise<PasswordSummary[]>
       passwordsReveal?(id: string): Promise<string>
       passwordsCopy?(id: string): Promise<{ ok: boolean }>

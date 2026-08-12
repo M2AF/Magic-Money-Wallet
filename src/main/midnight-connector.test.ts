@@ -3,11 +3,14 @@ import {
   activeMidnightNetwork,
   assertNetworkSupported,
   buildLegacyState,
+  decodeMidnightSignPayload,
   formatMidnightConnect,
+  formatMidnightSignData,
   formatMidnightTransfer,
   midnightServiceUris,
   MidnightUnavailableError,
   nightToStars,
+  splitShieldedAddress,
   NIGHT_TOKEN_TYPE,
   STARS_PER_NIGHT,
 } from './midnight-connector'
@@ -173,5 +176,131 @@ describe('networks the wallet does not serve', () => {
 
   it('still rejects genuine nonsense as unknown', () => {
     expect(() => assertNetworkSupported('banana', 'mainnet')).toThrow(/Unknown Midnight network/)
+  })
+})
+
+describe('decodeMidnightSignPayload', () => {
+  const utf8 = (s: string) => Array.from(new TextEncoder().encode(s))
+
+  it('signs the UTF-8 bytes of a text payload', () => {
+    // The shape Pulse Finance sends: signData(message, { encoding: 'text' }).
+    const msg = 'Pulse Finance note owner registration'
+    const { bytes, display } = decodeMidnightSignPayload(msg, 'text')
+    expect(Array.from(bytes)).toEqual(utf8(msg))
+    expect(display).toBe(msg)
+  })
+
+  it('treats a bare string as text rather than guessing hex', () => {
+    // "deadbeef" is valid hex AND a plausible message. Guessing would sign
+    // 4 bytes while the prompt showed 8 characters.
+    const { bytes, display } = decodeMidnightSignPayload('deadbeef')
+    expect(Array.from(bytes)).toEqual(utf8('deadbeef'))
+    expect(display).toBe('deadbeef')
+  })
+
+  it('decodes hex only when the dApp says the payload is hex', () => {
+    const { bytes } = decodeMidnightSignPayload('deadbeef', 'hex')
+    expect(Array.from(bytes)).toEqual([0xde, 0xad, 0xbe, 0xef])
+    expect(Array.from(decodeMidnightSignPayload('0xdeadbeef', 'hex').bytes)).toEqual([0xde, 0xad, 0xbe, 0xef])
+  })
+
+  it('decodes base64, the third encoding the connector spec defines', () => {
+    expect(Array.from(decodeMidnightSignPayload('SGk=', 'base64').bytes)).toEqual(utf8('Hi'))
+  })
+
+  it('rejects malformed hex and base64 instead of silently truncating', () => {
+    // Buffer's decoders stop at (or skip) the first invalid character rather
+    // than throwing, so a dApp could show a long plausible string and have a
+    // short attacker-chosen prefix signed. Both must reject outright.
+    expect(() => decodeMidnightSignPayload('aabbZZZZlongdeceptivetext', 'hex')).toThrow(/valid hex/)
+    expect(() => decodeMidnightSignPayload('SGk=extra!!', 'base64')).toThrow(/valid base64/)
+  })
+
+  it('accepts raw bytes from either side of the IPC hop', () => {
+    expect(Array.from(decodeMidnightSignPayload([1, 2, 3]).bytes)).toEqual([1, 2, 3])
+    expect(Array.from(decodeMidnightSignPayload(Uint8Array.from([1, 2, 3])).bytes)).toEqual([1, 2, 3])
+  })
+
+  it('derives the displayed message FROM the bytes being signed', () => {
+    // The prompt must never be able to disagree with what is signed, so the
+    // display is a decoding of the bytes rather than a caption beside them.
+    const { bytes, display } = decodeMidnightSignPayload('48690a', 'hex')
+    expect(Array.from(bytes)).toEqual([0x48, 0x69, 0x0a])
+    expect(display).toBe('Hi\n')
+  })
+
+  it('flags readable payloads as text and binary ones as not', () => {
+    // This flag selects the SIGNING MODE (raw vs prefixed), so it is security-
+    // relevant, not cosmetic — see signMidnightData.
+    expect(decodeMidnightSignPayload('Pulse Finance note owner registration', 'text').text)
+      .toBe('Pulse Finance note owner registration')
+    expect(decodeMidnightSignPayload([0x00, 0x01, 0xff]).text).toBeNull()
+    // Control characters read as binary: a transaction segment must never be
+    // able to present itself as a message and get signed unprefixed.
+    expect(decodeMidnightSignPayload([0x41, 0x07, 0x42]).text).toBeNull()
+    expect(decodeMidnightSignPayload('48690a', 'hex').text).toBe('Hi\n')
+  })
+
+  it('shows hex when the bytes are not a readable message', () => {
+    const binary = decodeMidnightSignPayload([0x00, 0x01, 0xff])
+    expect(binary.display).toMatch(/3 bytes \(binary\)/)
+    // Invalid UTF-8 must not be smuggled through as replacement characters.
+    expect(binary.display).not.toContain('\uFFFD')
+
+    const control = decodeMidnightSignPayload([0x41, 0x07, 0x42])
+    expect(control.display).toMatch(/bytes \(binary\)/)
+  })
+
+  it('rejects payloads it cannot sign faithfully', () => {
+    expect(() => decodeMidnightSignPayload('')).toThrow(/empty/)
+    expect(() => decodeMidnightSignPayload('xyz', 'hex')).toThrow(/valid hex/)
+    expect(() => decodeMidnightSignPayload('abc', 'hex')).toThrow(/valid hex/)
+    expect(() => decodeMidnightSignPayload('hi', 'utf16')).toThrow(/Unsupported.*encoding/)
+    expect(() => decodeMidnightSignPayload({ msg: 'hi' })).toThrow(/Unsupported/)
+  })
+})
+
+describe('formatMidnightSignData', () => {
+  it('shows the message and says signing moves no funds', () => {
+    const detail = formatMidnightSignData('Pulse Finance note owner registration', 'mainnet')
+    expect(detail).toContain('Pulse Finance note owner registration')
+    expect(detail).toContain('unshielded (NIGHT) key')
+    expect(detail).toContain('Midnight Mainnet')
+    expect(detail).toMatch(/does not move any funds/)
+  })
+
+  it('names Preprod so a testnet signature is not mistaken for mainnet', () => {
+    expect(formatMidnightSignData('hi', 'preprod')).toContain('Preprod (testnet)')
+  })
+})
+
+describe('splitShieldedAddress', () => {
+  // The repo's Lace-verified test wallet (wallet-core.test.ts). The expected
+  // keys were taken from @midnightntwrk/wallet-sdk-address-format's own
+  // ShieldedAddress codec, so this pins our split to the reference decoder.
+  const SHIELDED = 'mn_shield-addr1l6xvefgt4w0m24ujr7rhydzj2tw5vmfm74ens9uu5ynj0kfhwn7n2ujd43n9wlnutvzpejzwp9wzzppm2wqfxc790kh9llyn772zrcq8t4qr4'
+
+  it('returns the two component public keys as hex, matching the SDK codec', () => {
+    expect(splitShieldedAddress(SHIELDED)).toEqual({
+      coinPublicKey: 'fe8ccca50bab9fb557921f8772345252dd466d3bf57338179ca12727d93774fd',
+      encryptionPublicKey: '35724dac66577e7c5b041cc84e095c21043b53809363c57dae5ffc93f79421e0',
+    })
+  })
+
+  it('is hex, because dApps branch on that', () => {
+    // Live dApps test these fields against /^[0-9a-f]*$/ and only derive the
+    // shielded address from them on the hex branch. Bech32m — which the spec's
+    // prose says — would silently take the fallback path everywhere.
+    const { coinPublicKey, encryptionPublicKey } = splitShieldedAddress(SHIELDED)
+    expect(coinPublicKey).toMatch(/^[0-9a-f]{64}$/)
+    expect(encryptionPublicKey).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it('says nothing rather than handing back half a key', () => {
+    expect(splitShieldedAddress(undefined)).toEqual({})
+    expect(splitShieldedAddress('')).toEqual({})
+    expect(splitShieldedAddress('not-an-address')).toEqual({})
+    // A well-formed bech32m string that is not a 64-byte shielded payload.
+    expect(splitShieldedAddress('mn_addr1m2vkj22w9r7g37yry7cawdj0pnsvyvryc6l0afw69vctellddrqq0gl5g2')).toEqual({})
   })
 })

@@ -30,6 +30,18 @@ import { randomBytes } from 'crypto'
 export const TOUCHID_SERVICE = 'MagicMoneyWalletVault'
 export const TOUCHID_ACCOUNT = 'bio-unlock'
 
+/**
+ * A SECOND keychain account, for the browser password manager's own gate.
+ *
+ * Deliberately not TOUCHID_ACCOUNT. That item is the key to wallet.hello.enc,
+ * and both callers self-heal a missing item by DELETING the encrypted copy —
+ * so sharing it would let a password-manager prompt silently disable the
+ * user's biometric wallet unlock. Same reasoning as passkey-manager's
+ * 'MagicMoneyPasskeyGate'. The two items are independent: enrolling, using or
+ * removing one never touches the other.
+ */
+export const TOUCHID_PASSWORD_ACCOUNT = 'password-vault'
+
 /** Thrown (by message) when the keychain item has vanished — caller self-heals. */
 export const TOUCHID_ITEM_MISSING = 'TOUCHID_ITEM_MISSING'
 
@@ -92,12 +104,18 @@ export async function touchIdVerify(reason: string): Promise<void> {
  * Enroll: verify the user with Touch ID, then mint fresh 32-byte key material
  * and store it in the login keychain (replacing any previous item). Returns
  * the material for the caller to HKDF-wrap the mnemonic with.
+ *
+ * `account` selects WHICH item — the wallet's (default) or the password
+ * manager's (TOUCHID_PASSWORD_ACCOUNT). One ceremony, two independent secrets.
  */
-export async function touchIdEnrollMaterial(): Promise<Uint8Array> {
-  await promptTouchId('enable Touch ID unlock for your wallet')
+export async function touchIdEnrollMaterial(
+  account: string = TOUCHID_ACCOUNT,
+  reason = 'enable Touch ID unlock for your wallet',
+): Promise<Uint8Array> {
+  await promptTouchId(reason)
   const material = randomBytes(32)
   // -U updates an existing item in place instead of erroring on duplicates.
-  const cmd = `add-generic-password -U -s "${TOUCHID_SERVICE}" -a "${TOUCHID_ACCOUNT}" -w "${material.toString('hex')}"`
+  const cmd = `add-generic-password -U -s "${TOUCHID_SERVICE}" -a "${account}" -w "${material.toString('hex')}"`
   const r = await runSecurity([], cmd)
   if (r.code !== 0) throw new Error(`Could not store the Touch ID key in the keychain: ${r.stderr.trim() || 'unknown error'}`)
   return new Uint8Array(material)
@@ -108,17 +126,20 @@ export async function touchIdEnrollMaterial(): Promise<Uint8Array> {
  * keychain. Throws TOUCHID_ITEM_MISSING when the item is gone (keychain reset,
  * item deleted) so the caller can drop the stale encrypted copy and re-enroll.
  */
-export async function touchIdGetMaterial(): Promise<Uint8Array> {
-  await promptTouchId('unlock your wallet')
-  const r = await runSecurity(['find-generic-password', '-s', TOUCHID_SERVICE, '-a', TOUCHID_ACCOUNT, '-w'])
+export async function touchIdGetMaterial(
+  account: string = TOUCHID_ACCOUNT,
+  reason = 'unlock your wallet',
+): Promise<Uint8Array> {
+  await promptTouchId(reason)
+  const r = await runSecurity(['find-generic-password', '-s', TOUCHID_SERVICE, '-a', account, '-w'])
   const hex = r.stdout.trim()
   if (r.code !== 0 || !/^[0-9a-f]{64}$/i.test(hex)) throw new Error(TOUCHID_ITEM_MISSING)
   return new Uint8Array(Buffer.from(hex, 'hex'))
 }
 
 /** Remove the keychain item (disable / wallet delete). Best-effort, never throws. */
-export async function touchIdDeleteMaterial(): Promise<void> {
+export async function touchIdDeleteMaterial(account: string = TOUCHID_ACCOUNT): Promise<void> {
   try {
-    await runSecurity(['delete-generic-password', '-s', TOUCHID_SERVICE, '-a', TOUCHID_ACCOUNT])
+    await runSecurity(['delete-generic-password', '-s', TOUCHID_SERVICE, '-a', account])
   } catch { /* best effort */ }
 }

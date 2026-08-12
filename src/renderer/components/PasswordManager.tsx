@@ -1,7 +1,9 @@
 /**
  * PasswordManager.tsx — saved website logins for the dApp browser
  *
- * A full-area ContentPanel in the browser chrome. Three states:
+ * A ContentPanel in the browser chrome — anchored card on desktop (`floating`,
+ * so it reads as a dropdown from the ☰ it was opened from), full-bleed sheet on
+ * the touch targets, which have nowhere smaller to put it. Three states:
  *   locked  — asks for the wallet password (the vault is encrypted under it)
  *   list    — search, reveal, copy, edit, delete, fill-on-this-page, import
  *   editor  — add / edit one entry
@@ -13,11 +15,15 @@
  *     page that navigates mid-click cannot receive another site's credential
  *   • locking the wallet locks this too — the panel re-renders to the password
  *     prompt because passwordsStatus() flips back to unlocked: false
+ *   • biometric unlock (Windows Hello / Touch ID / Face ID / Android) is an
+ *     ADDITIONAL path, never a replacement — the password below always still
+ *     works, and the control is hidden wherever no ceremony could run
  */
 import { useCallback, useEffect, useState } from 'react'
 import { ContentPanel, EmptyState, Field, Notice, SiteIcon, fieldStyle } from './browser-ui'
 import { ImportRow, RowButton } from './BookmarksPanel'
-import type { ImportSource, PasswordSummary, PasswordVaultStatus } from '../types/wallet'
+import { bioMethodLabel } from '../types/wallet'
+import type { ImportSource, PasswordBioStatus, PasswordSummary, PasswordVaultStatus } from '../types/wallet'
 
 interface Draft {
   id?: string
@@ -32,7 +38,7 @@ const emptyDraft = (url = ''): Draft => ({ url, username: '', password: '', note
 const DESKTOP_IMPORT_EMPTY =
   'No Chrome, Edge, Brave, Vivaldi or Chromium profile was found on this computer.'
 
-export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onChanged, importEmptyText }: {
+export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onChanged, importEmptyText, floating }: {
   currentHost: string
   currentUrl: string
   onClose: () => void
@@ -45,6 +51,8 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
    * browsers there would just be misleading.
    */
   importEmptyText?: string
+  /** Desktop: render as the anchored dropdown card instead of a full sheet. */
+  floating?: boolean
 }) {
   const [status, setStatus] = useState<PasswordVaultStatus | null>(null)
   const [entries, setEntries] = useState<PasswordSummary[]>([])
@@ -54,10 +62,27 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
   const [sources, setSources] = useState<ImportSource[]>([])
   const [importing, setImporting] = useState(false)
   const [notice, setNotice] = useState<{ tone: 'info' | 'error' | 'success'; text: string } | null>(null)
+  // null = this build has no biometric bridge at all (the extension), or the
+  // probe failed. Either way no control is shown.
+  const [bio, setBio] = useState<PasswordBioStatus | null>(null)
+  const [bioBusy, setBioBusy] = useState(false)
 
   const loadList = useCallback(async () => {
     const list = await window.wallet.passwordsList?.()
     if (list) setEntries(list)
+  }, [])
+
+  /**
+   * Re-probe after every ceremony: an enrollment can vanish underneath us when
+   * the platform loses its key (TPM reset, changed fingerprint), in which case
+   * main self-heals and the control must stop offering an unlock that can't work.
+   */
+  const refreshBio = useCallback(async () => {
+    try {
+      setBio(await window.wallet.passwordsBioStatus?.() ?? null)
+    } catch {
+      setBio(null)
+    }
   }, [])
 
   useEffect(() => {
@@ -68,7 +93,8 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
     window.wallet.passwordsImportSources?.()
       .then(list => setSources(list.filter(s => s.hasPasswords)))
       .catch(() => setSources([]))
-  }, [loadList])
+    void refreshBio()
+  }, [loadList, refreshBio])
 
   const lock = async () => {
     const s = await window.wallet.passwordsLock?.()
@@ -82,9 +108,17 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
   // ── Locked ────────────────────────────────────────────────────────────────
   if (!status?.unlocked) {
     return (
-      <ContentPanel title="Password manager" subtitle="Saved website logins" onClose={onClose}>
+      <ContentPanel
+        title="Password manager"
+        subtitle="Saved website logins"
+        onClose={onClose}
+        floating={floating}
+        // No outside-dismiss here: the form is collecting a typed password.
+      >
         <UnlockForm
           status={status}
+          bio={bio}
+          onBioChanged={refreshBio}
           onUnlocked={async s => {
             setStatus(s)
             await loadList()
@@ -93,6 +127,32 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
         />
       </ContentPanel>
     )
+  }
+
+  // ── Biometric enrollment (only reachable with the vault already open, which
+  // is what makes the cached password available to wrap) ────────────────────
+  const setBiometric = async (on: boolean) => {
+    if (bioBusy) return
+    setBioBusy(true)
+    setNotice(null)
+    const label = bioMethodLabel(bio?.method)
+    try {
+      if (on) await window.wallet.passwordsBioEnroll?.()
+      else await window.wallet.passwordsBioRemove?.()
+      setNotice({
+        tone: 'success',
+        text: on
+          ? `${label} will now open your saved passwords. Your wallet password still works too.`
+          : `${label} is off for your saved passwords.`,
+      })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      // Cancelling a prompt is a normal outcome, not an error worth shouting about.
+      if (!/cancel/i.test(msg)) setNotice({ tone: 'error', text: msg.replace(/^Error:\s*/, '') })
+    } finally {
+      await refreshBio()
+      setBioBusy(false)
+    }
   }
 
   // ── Editor ────────────────────────────────────────────────────────────────
@@ -197,9 +257,28 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
       title="Password manager"
       subtitle={`${entries.length} saved login${entries.length === 1 ? '' : 's'} · encrypted with your wallet password`}
       onClose={onClose}
+      floating={floating}
+      // Clicking the page behind closes the list, exactly like the ☰ menu — but
+      // never while the editor is up, or a stray click discards a typed entry.
+      onDismiss={draft ? undefined : onClose}
       actions={
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <RowButton label="Add" onClick={() => setDraft(emptyDraft(currentUrl))} />
+          {/*
+            In the header, not down with the import strip: a vault with hundreds
+            of logins puts anything below the list far off-screen, and this is a
+            one-time control the user has to be able to FIND.
+          */}
+          {bio?.supported && (
+            <RowButton
+              label={bioBusy
+                ? 'Working…'
+                : bio.enrolled
+                  ? `${bioMethodLabel(bio.method)} — On`
+                  : `Turn on ${bioMethodLabel(bio.method)}`}
+              onClick={() => { if (!bioBusy) void setBiometric(!bio.enrolled) }}
+            />
+          )}
           <RowButton label="Lock" onClick={() => void lock()} />
         </div>
       }
@@ -258,12 +337,13 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
               {shown.map(e => (
                 <div
                   key={e.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px', borderRadius: 8 }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8 }}
                   onMouseEnter={ev => { ev.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)' }}
                   onMouseLeave={ev => { ev.currentTarget.style.background = 'transparent' }}
                 >
                   <SiteIcon url={e.url} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* title= matters in the narrow card: long hosts ellipsize. */}
+                  <div style={{ flex: 1, minWidth: 0 }} title={`${e.host}${e.username ? ` · ${e.username}` : ''}`}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {e.host}
                     </div>
@@ -272,20 +352,22 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
                       {revealed[e.id] !== undefined && ` · ${revealed[e.id]}`}
                     </div>
                   </div>
-                  <RowButton label={revealed[e.id] !== undefined ? 'Hide' : 'Show'} onClick={() => void toggleReveal(e.id)} />
-                  <RowButton label="Copy" onClick={() => void copy(e.id)} />
-                  <RowButton
-                    label="Edit"
-                    onClick={async () => {
-                      try {
-                        const secret = await window.wallet.passwordsReveal?.(e.id)
-                        setDraft({ id: e.id, url: e.url, username: e.username, password: secret ?? '', note: e.note ?? '' })
-                      } catch {
-                        setNotice({ tone: 'error', text: 'Could not open that login for editing' })
-                      }
-                    }}
-                  />
-                  <RowButton label="Delete" danger onClick={() => void remove(e.id)} />
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <RowButton label={revealed[e.id] !== undefined ? 'Hide' : 'Show'} onClick={() => void toggleReveal(e.id)} />
+                    <RowButton label="Copy" onClick={() => void copy(e.id)} />
+                    <RowButton
+                      label="Edit"
+                      onClick={async () => {
+                        try {
+                          const secret = await window.wallet.passwordsReveal?.(e.id)
+                          setDraft({ id: e.id, url: e.url, username: e.username, password: secret ?? '', note: e.note ?? '' })
+                        } catch {
+                          setNotice({ tone: 'error', text: 'Could not open that login for editing' })
+                        }
+                      }}
+                    />
+                    <RowButton label="Delete" danger onClick={() => void remove(e.id)} />
+                  </div>
                 </div>
               ))}
             </div>
@@ -308,13 +390,17 @@ export function PasswordManager({ currentHost, currentUrl, onClose, onToast, onC
 
 // ─── Unlock ──────────────────────────────────────────────────────────────────
 
-function UnlockForm({ status, onUnlocked }: {
+function UnlockForm({ status, bio, onBioChanged, onUnlocked }: {
   status: PasswordVaultStatus | null
+  bio: PasswordBioStatus | null
+  /** Re-probe after a ceremony — a lost platform key self-heals the enrollment away. */
+  onBioChanged: () => Promise<void>
   onUnlocked: (s: PasswordVaultStatus) => void
 }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [bioBusy, setBioBusy] = useState(false)
 
   if (status && !status.available) {
     return (
@@ -342,21 +428,63 @@ function UnlockForm({ status, onUnlocked }: {
     }
   }
 
+  // Offered only when this vault is enrolled AND the OS still has a biometric
+  // set up; the password form below is always rendered regardless.
+  const bioLabel = bioMethodLabel(bio?.method)
+  const canBio = bio?.supported === true && bio.enrolled
+
+  const unlockWithBio = async () => {
+    if (bioBusy || busy) return
+    setBioBusy(true)
+    setError(null)
+    try {
+      const s = await window.wallet.passwordsBioUnlock?.()
+      if (s) onUnlocked(s)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      // Cancel is a normal, quiet outcome — don't shout about it.
+      if (!/cancel/i.test(msg)) setError(msg.replace(/^Error:\s*/, ''))
+      // The enrollment may have just self-healed away (lost TPM/keychain key),
+      // in which case the button must disappear and leave only the password.
+      await onBioChanged()
+    } finally {
+      setBioBusy(false)
+    }
+  }
+
   return (
-    <form onSubmit={submit} style={{ maxWidth: 380, margin: '30px auto 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <form onSubmit={submit} style={{ maxWidth: 380, margin: '18px auto 0', display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div aria-hidden="true" style={{ fontSize: 32, textAlign: 'center' }}>🔐</div>
       <div style={{ fontSize: 13, fontWeight: 700, textAlign: 'center' }}>
         {status?.exists ? 'Unlock your saved passwords' : 'Set up the password manager'}
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
         {status?.exists
-          ? 'Saved website logins are encrypted with your wallet password. Enter it to open them.'
+          ? canBio
+            ? `Saved website logins are encrypted with your wallet password. Open them with ${bioLabel}, or enter it below.`
+            : 'Saved website logins are encrypted with your wallet password. Enter it to open them.'
           : 'Website logins will be encrypted with your wallet password and stored only on this computer — never synced, never sent anywhere.'}
       </div>
 
+      {canBio && (
+        <>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={bioBusy || busy}
+            onClick={() => void unlockWithBio()}
+          >
+            {bioBusy ? `Waiting for ${bioLabel}…` : `Unlock with ${bioLabel}`}
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textAlign: 'center', letterSpacing: 0.4 }}>
+            or
+          </div>
+        </>
+      )}
+
       <Field label="Wallet password">
         <input
-          autoFocus
+          autoFocus={!canBio}
           type="password"
           value={password}
           onChange={e => setPassword(e.target.value)}
@@ -366,9 +494,21 @@ function UnlockForm({ status, onUnlocked }: {
 
       {error && <Notice tone="error">{error}</Notice>}
 
-      <button type="submit" className="btn btn-primary" disabled={busy || !password}>
+      <button type="submit" className={canBio ? 'btn' : 'btn btn-primary'} disabled={busy || bioBusy || !password}>
         {busy ? 'Unlocking…' : status?.exists ? 'Unlock' : 'Create'}
       </button>
+
+      {/*
+        Enrolling needs the password this form is about to collect, so it cannot
+        happen here. Say where it lives instead — otherwise the feature is
+        invisible to anyone who only ever sees this screen.
+      */}
+      {bio?.supported === true && !bio.enrolled && (
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+          Once open, use <strong style={{ color: 'var(--text-secondary)' }}>Turn on {bioLabel}</strong> at
+          the top of the panel to skip typing this next time.
+        </div>
+      )}
     </form>
   )
 }
