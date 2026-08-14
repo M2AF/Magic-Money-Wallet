@@ -41,3 +41,18 @@ createRoot(root).render(
     <CapApp />
   </StrictMode>
 )
+
+// In-app runtime verification — CI only. __MM_SELF_CHECK__ is a Vite define
+// driven by CAP_WEB_DEBUG, so this whole branch (and the imported module) is
+// dead-code-eliminated from release builds.
+//
+// Deferred past first paint so the checks never delay the UI, and so the
+// screenshot assertion in ios.yml photographs the real app rather than a
+// half-mounted tree.
+if (__MM_SELF_CHECK__) {
+  setTimeout(() => {
+    import('./self-check')
+      .then(m => m.runSelfCheck())
+      .catch(e => console.log('[MM-SELFCHECK] FAIL loader — ' + (e?.message ?? e)))
+  }, 3000)
+}

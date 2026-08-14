@@ -40,12 +40,14 @@ import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteReque
 import { executeSwap } from '../main/swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
-import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, estimateZcashFee, estimateMoneroFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction, sendZcashTransaction, sendMoneroTransaction } from '../main/tx-sender'
+import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, estimateZcashFee, estimateMoneroFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction, sendZcashTransaction, sendMoneroTransaction, type SendAsset } from '../main/tx-sender'
 // Monero wallet-birthday probe — plain fetch (monero-rpc), safe to static-import
 // in the SW; avoids a forbidden dynamic import (see the chain-config note above).
 import { fetchMoneroHeight } from '../main/monero'
 import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
+import { fetchAssetFilters, pushAssetFilters } from '../main/asset-filter-sync'
+import type { AssetFilterEntries } from '../shared/asset-filter-key'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
@@ -372,7 +374,7 @@ export const PAGE_RPC_TYPES = new Set([
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function handle(msg: Msg, sender?: Sender): Promise<any> {
-  const [a0, a1, a2] = msg.args ?? []
+  const [a0, a1, a2, a3] = msg.args ?? []
   if (sender?.kind === 'page' && !PAGE_RPC_TYPES.has(msg.type)) {
     throw Object.assign(new Error(`Method not available to web pages: ${msg.type}`), { code: 4100 })
   }
@@ -734,13 +736,16 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'wallet:estimate-fee': {
       const [chain, to, amount] = [String(a0), String(a1), String(a2)]
+      const asset = a3 as SendAsset | undefined
       const config = await store.loadConfig()
       const addresses = await loadFullAddresses()
       if (!addresses) throw new Error('No wallet')
       // Match the shared tx-sender signatures (Electron calls these the same way).
-      if (chain === 'solana') return estimateSolanaFee(config)
+      if (chain === 'solana') return estimateSolanaFee(config, { asset, to })
       if (chain === 'cardano') return estimateCardanoFee(addresses.cardano ?? '', config)
-      if (chain === 'tron') return estimateTronFee(to, config)
+      // A contract call burns energy rather than bandwidth, so the flat estimate
+      // has to know it isn't a plain TRX transfer.
+      if (chain === 'tron') return estimateTronFee(to, config, !!asset)
       if (chain === 'dogecoin') {
         if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
         return estimateDogecoinFee(addresses.dogecoin, to, amount)
@@ -754,21 +759,30 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         return estimateZcashFee(addresses.privacy.zcashTransparent, to, amount)
       }
       if (chain === 'monero') return estimateMoneroFee(to, config)
-      return estimateEvmFee(addresses.evm, to, amount, config, chain)
+      return estimateEvmFee(addresses.evm, to, amount, config, chain, asset)
     }
 
     case 'wallet:send-evm': {
       const [chainId, to, amount] = [String(a0), String(a1), String(a2)]
+      const asset = a3 as SendAsset | undefined
       const mnemonic = await store.loadMnemonic()
       const config = await store.loadConfig()
       const addresses = await store.loadAddresses()
-      return sendEvmTransaction(mnemonic, to, amount, config, chainId, addresses?.accountIndex ?? 0)
+      return sendEvmTransaction(mnemonic, to, amount, config, chainId, addresses?.accountIndex ?? 0, asset)
     }
 
     case 'wallet:send-solana': {
       const mnemonic = await store.loadMnemonic()
       const config = await store.loadConfig()
-      return sendSolanaTransaction(mnemonic, String(a0), String(a1), config)
+      const addresses = await store.loadAddresses()
+      // accountIndex was previously left to default to 0 here while Electron
+      // passed the active one — which signed with account 0's key no matter
+      // which account was selected. Passing it explicitly keeps the four
+      // targets on identical behaviour.
+      return sendSolanaTransaction(
+        mnemonic, String(a0), String(a1), config,
+        addresses?.accountIndex ?? 0, a2 as SendAsset | undefined
+      )
     }
 
     case 'wallet:send-cardano': {
@@ -776,15 +790,22 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const config = await store.loadConfig()
       if (!addresses) throw new Error('No wallet')
       const mnemonic = await store.loadMnemonic()
-      return sendCardanoTransaction(mnemonic, addresses.cardano, String(a0), String(a1), config)
+      // Same accountIndex fix as send-solana above: the tx was being built from
+      // the ACTIVE account's address but signed with account 0's spending key.
+      return sendCardanoTransaction(
+        mnemonic, addresses.cardano, String(a0), String(a1), config,
+        addresses.accountIndex ?? 0, a2 as SendAsset | undefined
+      )
     }
 
     case 'wallet:send-tron': {
       const mnemonic = await store.loadMnemonic()
       const config = await store.loadConfig()
       const addresses = await store.loadAddresses()
-      const token = a2 as { contractAddress: string; decimals: number } | undefined
-      return sendTronTransaction(mnemonic, String(a0), String(a1), config, addresses?.accountIndex ?? 0, token)
+      return sendTronTransaction(
+        mnemonic, String(a0), String(a1), config,
+        addresses?.accountIndex ?? 0, a2 as SendAsset | undefined
+      )
     }
 
     case 'wallet:send-dogecoin': {
@@ -822,7 +843,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wallet:send-agw': {
       const to = String(a0)
       const amount = String(a1)
-      const token = a2 as { contractAddress: string; decimals: number } | undefined
+      const asset = a2 as SendAsset | undefined
       const addresses = await loadFullAddresses()
       if (!addresses.agw) throw new Error('No Abstract Global Wallet linked for this account')
       if (!addresses.agwOwned) throw new Error('This wallet can’t sign for the linked AGW — it is watch-only')
@@ -833,7 +854,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       // not — decrypt it only for the send, and only when it is the active owner.
       const signerKey = addresses.agwSignerActive ? await store.loadAgwSignerKey(accountIndex) : null
       return sendAgwTransaction(mnemonic, to, amount, config, accountIndex, {
-        token,
+        asset,
         agwAddress: addresses.agw,
         signerKey: signerKey ?? undefined
       })
@@ -1009,6 +1030,15 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     // Extension can't open native file dialog — avatar picking not supported
     case 'chainlens:pick-avatar':
       return null
+
+    // ── Hidden/spam asset list, carried on the ChainLens profile ───────────
+    // Stubbed out in the extension build (see stubs/asset-filter-sync-stub.ts);
+    // live on Capacitor and iOS, which share this router.
+    case 'assetfilters:get':
+      return fetchAssetFilters(await store.loadConfig())
+
+    case 'assetfilters:push':
+      return pushAssetFilters(a0 as AssetFilterEntries, await store.loadConfig())
 
     // ── WalletConnect ──────────────────────────────────────────────────────
 

@@ -23,7 +23,8 @@
   ],
   "engine": "adblock-rust 0.13.2 (content-blocking)",
   "generatedBy": "native/magic-guard-cb",
+  "sampleBlockedPath": "/bundle/trafee/prelands/",
   "totalRules": 134612,
   "unsupportedRules": 134468,
-  "version": "b30dd2b0b72a5511"
+  "version": "a83628db445f12ba"
 }

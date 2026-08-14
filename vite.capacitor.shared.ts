@@ -39,6 +39,8 @@ export interface CapacitorTargetOptions {
    * be dead weight in the APK, since Android blocks via the Rust engine.
    */
   extraCopies?: Array<[string, string]>
+  /** Compile-time constants (Vite `define`), e.g. the iOS self-check flag. */
+  define?: Record<string, string>
 }
 
 /**
@@ -55,7 +57,7 @@ export interface CapacitorTargetOptions {
  * missed. See AGENTS.md §"Architecture in one paragraph".
  */
 export function makeCapacitorConfig(opts: CapacitorTargetOptions): UserConfig {
-  const { root, outDir, extraAliases = [], extraCopies = [] } = opts
+  const { root, outDir, extraAliases = [], extraCopies = [], define = {} } = opts
 
   return defineConfig({
     root: r('src', root),
@@ -180,6 +182,8 @@ export function makeCapacitorConfig(opts: CapacitorTargetOptions): UserConfig {
         },
       ]
     },
+
+    define,
 
     base: './',
 

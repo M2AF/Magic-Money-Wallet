@@ -21,6 +21,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use adblock::content_blocking::CbType;
 use adblock::lists::{FilterFormat, FilterSet, ParseOptions};
 use flate2::write::DeflateEncoder;
 use flate2::Compression;
@@ -121,12 +122,47 @@ fn main() {
     // instead of silently serving stale rules.
     let version = format!("{:x}", hasher.finalize())[..16].to_string();
 
+    // A path fragment the shipped ruleset genuinely blocks, so the iOS
+    // self-check can PROVE blocking rather than merely proving the lists
+    // compiled. Derived from the generated rules, so it can never drift from
+    // what actually ships.
+    //
+    // Requirements, each load-bearing:
+    //  • action `block` with NO trigger conditions at all — a `load-type:
+    //    third-party` or `resource-type` restriction would not fire for the
+    //    top-level navigation the self-check performs.
+    //  • a pure literal (no regex metacharacters), so the self-check can append
+    //    it to a control host and be certain the pattern matches.
+    // ~100k of the ~109k block rules are unconditional and ~400 are pure
+    // literals, so this is not a fragile search.
+    const META: &[char] = &['\\', '^', '$', '.', '|', '?', '*', '+', '(', ')', '[', ']', '{', '}'];
+    let sample_blocked_path = rules.iter().find_map(|r| {
+        if !matches!(r.action.typ, CbType::Block) { return None; }
+        let t = &r.trigger;
+        if t.if_domain.is_some() || t.unless_domain.is_some() { return None; }
+        if t.if_top_url.is_some() || t.unless_top_url.is_some() { return None; }
+        if t.resource_type.is_some() || !t.load_type.is_empty() { return None; }
+        if t.url_filter_is_case_sensitive.unwrap_or(false) { return None; }
+
+        let f = &t.url_filter;
+        if f.len() < 12 || !f.starts_with('/') || !f.ends_with('/') { return None; }
+        if f.chars().any(|c| META.contains(&c)) { return None; }
+        if !f.chars().all(|c| c.is_ascii_alphanumeric() || "._-/".contains(c)) { return None; }
+        Some(f.clone())
+    });
+
+    match &sample_blocked_path {
+        Some(p) => println!("  sample blocked path for the iOS self-check: {p}"),
+        None => eprintln!("  ! no pure-literal unconditional block rule found — self-check will skip the blocking test"),
+    }
+
     let manifest = serde_json::json!({
         "generatedBy": "native/magic-guard-cb",
         "engine": "adblock-rust 0.13.2 (content-blocking)",
         "version": version,
         "totalRules": rules.len(),
         "unsupportedRules": unsupported.len(),
+        "sampleBlockedPath": sample_blocked_path,
         "chunks": manifest_chunks,
     });
     fs::write(out_dir.join("manifest.json"), serde_json::to_string_pretty(&manifest).unwrap())

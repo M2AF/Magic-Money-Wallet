@@ -13,6 +13,7 @@
  */
 
 import type { ApprovedOrigin, DappChain } from '../main/dapp-permissions'
+import type { SendAsset } from '../main/tx-sender'
 
 import { App as CapacitorApp } from '@capacitor/app'
 import { handle, type Sender } from '../extension/wallet-handlers'
@@ -26,6 +27,7 @@ import {
   passkeySupported, createPasskeyMnemonic, verifyPasskeyWallet, importPasskeyMnemonic,
   linkPasskeyToWallet, passkeyLinked, passkeyUnlink,
 } from './passkey'
+import { WEB_APPS_SUPPORTED } from './platform-caps'
 import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
 import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
@@ -316,12 +318,13 @@ function buildWallet() {
 
     // Transactions
     validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),
-    estimateFee:    (c: string, t: string, a: string) => send('wallet:estimate-fee', c, t, a),
-    sendEvm:        (c: string, t: string, a: string) => send('wallet:send-evm', c, t, a),
-    sendAgw:        (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-agw', t, a, token),
-    sendSolana:     (t: string, a: string)            => send('wallet:send-solana', t, a),
-    sendCardano:    (t: string, a: string)            => send('wallet:send-cardano', t, a),
-    sendTron:       (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-tron', t, a, token),
+    // `asset` omitted = native send; set = ERC-20/SPL/native-asset token or NFT.
+    estimateFee:    (c: string, t: string, a: string, s?: SendAsset) => send('wallet:estimate-fee', c, t, a, s),
+    sendEvm:        (c: string, t: string, a: string, s?: SendAsset) => send('wallet:send-evm', c, t, a, s),
+    sendAgw:        (t: string, a: string, s?: SendAsset) => send('wallet:send-agw', t, a, s),
+    sendSolana:     (t: string, a: string, s?: SendAsset) => send('wallet:send-solana', t, a, s),
+    sendCardano:    (t: string, a: string, s?: SendAsset) => send('wallet:send-cardano', t, a, s),
+    sendTron:       (t: string, a: string, s?: SendAsset) => send('wallet:send-tron', t, a, s),
     sendDogecoin:   (t: string, a: string)            => send('wallet:send-dogecoin', t, a),
     sendBitcoin:    (t: string, a: string)            => send('wallet:send-bitcoin', t, a),
     sendMonero:     (t: string, a: string)            => send('wallet:send-monero', t, a),
@@ -442,11 +445,14 @@ function buildWallet() {
     // there is no bookmark/password profile import here — CSV only.
     browserImportBookmarks: async () => ({
       added: 0, skipped: 0, bookmarks: await Bm.getBookmarks(),
-      error: 'Android apps cannot read another browser’s bookmarks. Export them to a file and import that instead.',
+      error: 'Apps on this device can’t read another browser’s bookmarks. Export them to a file and import that instead.',
     }),
 
     // ── Save and share ────────────────────────────────────────────────────
-    browserWebAppsSupported: () => Promise.resolve(true),
+    // Real capability, not a constant true: iOS cannot pin to the Home Screen
+    // (Safari-only privilege), so installShortcut always rejects there. The UI
+    // consults this before offering the action.
+    browserWebAppsSupported: () => Promise.resolve(WEB_APPS_SUPPORTED),
     browserListWebApps:      () => Bm.getWebApps(),
     browserInstallWebApp:    async () => {
       const page = await activePage()
@@ -488,8 +494,8 @@ function buildWallet() {
     },
     // Saving a full offline copy and screenshotting the native WebView have no
     // Android equivalent yet — reported rather than silently doing nothing.
-    browserSavePage:    () => Promise.resolve({ ok: false, error: 'Saving pages is not available on Android yet' }),
-    browserCapturePage: () => Promise.resolve({ ok: false, error: 'Screenshots are not available on Android yet' }),
+    browserSavePage:    () => Promise.resolve({ ok: false, error: 'Saving pages isn’t available on mobile yet' }),
+    browserCapturePage: () => Promise.resolve({ ok: false, error: 'Screenshots aren’t available on mobile yet' }),
 
     // ── Password manager ──────────────────────────────────────────────────
     passwordsStatus: () => Bm.passwordVaultStatus(),
@@ -524,7 +530,7 @@ function buildWallet() {
     passwordsImportSources: () => Promise.resolve([]),
     passwordsImport:        () => Promise.resolve({
       added: 0, skipped: 0,
-      error: 'Android apps cannot read another browser’s saved passwords. Export them to a CSV and import that instead.',
+      error: 'Apps on this device can’t read another browser’s saved passwords. Export them to a CSV and import that instead.',
     }),
     passwordsImportCsv: () => importPasswordsFromCsvFile(),
     browserFillPassword: (id: string) => fillSavedLogin(id),
@@ -535,6 +541,8 @@ function buildWallet() {
     chainlensGetProfile:    ()              => send('chainlens:get-profile'),
     chainlensSync:          ()              => send('chainlens:sync'),
     chainlensUpdateProfile: (u: unknown)    => send('chainlens:update-profile', u),
+    assetFiltersGet:        ()              => send('assetfilters:get'),
+    assetFiltersPush:       (e: unknown)    => send('assetfilters:push', e),
     chainlensPickAvatar:    ()              => send('chainlens:pick-avatar'),
 
     // App version (SettingsModal footer + update check)

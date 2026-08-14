@@ -17,8 +17,11 @@ import { loadMnemonic, loadAddresses } from './secure-store'
 import { getEvmPrivateKey } from './wallet-core'
 import { privateKeyToAccount } from 'viem/accounts'
 
+/** Every write the Worker will verify a signature for. */
+export type OwnershipAction = 'sync' | 'profile-update' | 'filters-update'
+
 // Canonical ownership message — MUST byte-match the Worker (cloudflare-worker/auth.js).
-function ownershipMessage(action: 'sync' | 'profile-update', addressLower: string, ts: number): string {
+function ownershipMessage(action: OwnershipAction, addressLower: string, ts: number): string {
   return `MagicMoney Wallet ownership\naction:${action}\naddress:${addressLower}\nts:${ts}`
 }
 
@@ -28,8 +31,8 @@ function ownershipMessage(action: 'sync' | 'profile-update', addressLower: strin
 // NOTE: store reads are awaited even though Electron's secure-store is sync —
 // the Capacitor build aliases './secure-store' to its async Preferences store,
 // and `await` normalizes both (awaiting a plain value is a no-op).
-async function signOwnership(
-  action: 'sync' | 'profile-update', evmAddress: string
+export async function signOwnership(
+  action: OwnershipAction, evmAddress: string
 ): Promise<{ ts: number; signature: string } | null> {
   try {
     const idx = (await loadAddresses())?.accountIndex ?? 0

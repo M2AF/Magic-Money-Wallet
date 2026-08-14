@@ -16,17 +16,23 @@ import { BookmarksPanel } from '../renderer/components/BookmarksPanel'
 import { PasswordManager } from '../renderer/components/PasswordManager'
 import mascotUrl from '../renderer/assets/magic-guard.png'
 import type { TorBrowserState, MagicGuardState, BrowserPageState } from '../renderer/types/wallet'
+import { WEB_APPS_SUPPORTED, BLOCK_COUNTS_SUPPORTED } from './platform-caps'
 
-// Android can't read another app's profile, so the desktop "import from Chrome/
-// Edge/Brave" affordance is replaced by CSV-only wording in the shared panels.
-const ANDROID_PASSWORD_IMPORT_EMPTY =
-  'Android apps cannot read another browser’s data. Export your passwords to a CSV file from that browser and import the file instead.'
+// Phone app sandboxes (Android AND iOS alike) can't read another app's profile,
+// so the desktop "import from Chrome/Edge/Brave" affordance is replaced by
+// CSV-only wording in the shared panels. Deliberately platform-neutral: this
+// file is shared by both native targets, and naming one of them was showing
+// "Android apps cannot…" to iOS users.
+const MOBILE_PASSWORD_IMPORT_EMPTY =
+  'Apps on this device can’t read another browser’s data. Export your passwords to a CSV file from that browser and import the file instead.'
 // Bookmarks have no CSV path — say what is actually possible rather than
 // pointing at a file format this panel doesn't accept.
-const ANDROID_BOOKMARK_IMPORT_EMPTY =
-  'Android apps cannot read another browser’s bookmarks. Add pages here with the ☆ in the address bar.'
-const ANDROID_APPS_EMPTY =
-  'Open the ☰ menu and choose “Install …” to pin a site to your home screen. It opens straight back into the MagicMoney browser.'
+const MOBILE_BOOKMARK_IMPORT_EMPTY =
+  'Apps on this device can’t read another browser’s bookmarks. Add pages here with the ☆ in the address bar.'
+// Two texts: only one platform can pin sites to the home screen.
+const APPS_EMPTY = WEB_APPS_SUPPORTED
+  ? 'Open the ☰ menu and choose “Install …” to pin a site to your home screen. It opens straight back into the MagicMoney browser.'
+  : 'Pinning a site to the Home Screen isn’t available on this device. Bookmark pages with the ☆ in the address bar instead.'
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
 
@@ -528,7 +534,11 @@ export function BrowserOverlay() {
             hint={!guard.enabled
               ? 'Off'
               : !guard.siteEnabled ? 'Off for this site'
-              : guard.status === 'ready' ? `On · ${guard.blockedThisPage} blocked here`
+              // WKContentRuleList gives no match callback, so on iOS the count
+              // is permanently 0 — say "On" rather than "On · 0 blocked here",
+              // which reads as broken when blocking is in fact working.
+              : guard.status === 'ready'
+                ? (BLOCK_COUNTS_SUPPORTED ? `On · ${guard.blockedThisPage} blocked here` : 'On')
               : guard.status === 'loading' ? 'Filter lists loading…'
               : 'Temporarily inactive'}
             active={guard.effectiveEnabled}
@@ -567,13 +577,18 @@ export function BrowserOverlay() {
           <MenuDivider />
           <MenuLabel>Save and share</MenuLabel>
           <MenuRow icon="🔗" label="Copy link" hint={page.host} onClick={() => void copyLink()} />
-          <MenuRow icon="↗" label="Share…" hint="Android share sheet" onClick={() => void sharePage()} />
-          <MenuRow
-            icon="⊞"
-            label={page.installed ? 'Re-add to home screen' : `Install ${page.host || 'this page'}…`}
-            hint={page.installed ? 'Already added' : 'Opens in MagicMoney Browser'}
-            onClick={() => void installApp()}
-          />
+          <MenuRow icon="↗" label="Share…" hint="System share sheet" onClick={() => void sharePage()} />
+          {/* Hidden where the platform can't pin a site to the home screen —
+              iOS has no third-party API for it, so installShortcut always
+              rejects and the row could only ever produce an error toast. */}
+          {WEB_APPS_SUPPORTED && (
+            <MenuRow
+              icon="⊞"
+              label={page.installed ? 'Re-add to home screen' : `Install ${page.host || 'this page'}…`}
+              hint={page.installed ? 'Already added' : 'Opens in MagicMoney Browser'}
+              onClick={() => void installApp()}
+            />
+          )}
         </div>
       )}
 
@@ -610,10 +625,16 @@ export function BrowserOverlay() {
           <GuardToggleRow label="Magic Guard (global)" checked={guard.enabled}
             onChange={setGuardEnabled} />
 
-          <div style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
-            <GuardCountTile label="Blocked this page" value={guard.blockedThisPage} />
-            <GuardCountTile label="Blocked this tab" value={guard.blockedThisTab} />
-          </div>
+          {/* Counters only exist where the engine reports matches. iOS blocks
+              via WKContentRuleList, which WebKit evaluates internally with no
+              callback — two permanent zeroes would misrepresent working
+              protection as broken. */}
+          {BLOCK_COUNTS_SUPPORTED && (
+            <div style={{ display: 'flex', gap: 8, margin: '10px 0' }}>
+              <GuardCountTile label="Blocked this page" value={guard.blockedThisPage} />
+              <GuardCountTile label="Blocked this tab" value={guard.blockedThisTab} />
+            </div>
+          )}
 
           <div style={{
             fontSize: 10.5, lineHeight: 1.5, color: 'var(--text-muted, #737373)',
@@ -674,8 +695,8 @@ export function BrowserOverlay() {
             onClose={() => setPanel(null)}
             onNavigate={(target) => { DappBrowser.navigate({ url: target }).catch(() => {}) }}
             onToast={showToast}
-            importEmptyText={ANDROID_BOOKMARK_IMPORT_EMPTY}
-            appsEmptyBody={ANDROID_APPS_EMPTY}
+            importEmptyText={MOBILE_BOOKMARK_IMPORT_EMPTY}
+            appsEmptyBody={APPS_EMPTY}
           />
         </div>
       )}
@@ -687,7 +708,7 @@ export function BrowserOverlay() {
             onClose={() => setPanel(null)}
             onToast={showToast}
             onChanged={refreshPageState}
-            importEmptyText={ANDROID_PASSWORD_IMPORT_EMPTY}
+            importEmptyText={MOBILE_PASSWORD_IMPORT_EMPTY}
           />
         </div>
       )}

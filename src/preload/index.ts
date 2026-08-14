@@ -7,6 +7,9 @@
  */
 
 import { contextBridge, ipcRenderer } from 'electron'
+// Type-only: erased at build time, so this pulls no main-process code into the
+// preload bundle.
+import type { SendAsset } from '../main/tx-sender'
 
 contextBridge.exposeInMainWorld('wallet', {
   // ── Wallet lifecycle ──────────────────────────────────────────────────
@@ -51,20 +54,22 @@ contextBridge.exposeInMainWorld('wallet', {
   // ── Phase 2: Send transactions ────────────────────────────────────────
   validateAddress: (chain: string, to: string) =>
     ipcRenderer.invoke('wallet:validate-address', chain, to),
-  estimateFee:   (chain: string, to: string, amount: string) =>
-    ipcRenderer.invoke('wallet:estimate-fee', chain, to, amount),
-  sendEvm:       (chainId: string, to: string, amount: string) =>
-    ipcRenderer.invoke('wallet:send-evm', chainId, to, amount),
-  sendAgw:       (to: string, amount: string, token?: { contractAddress: string; decimals: number }) =>
-    ipcRenderer.invoke('wallet:send-agw', to, amount, token),
-  sendSolana:    (to: string, amount: string) =>
-    ipcRenderer.invoke('wallet:send-solana', to, amount),
-  sendCardano:   (to: string, amount: string) =>
-    ipcRenderer.invoke('wallet:send-cardano', to, amount),
+  // `asset` is omitted for a native send; set for an ERC-20/SPL/native-asset
+  // token or an NFT. Structured-cloneable plain object, so it crosses IPC as-is.
+  estimateFee:   (chain: string, to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:estimate-fee', chain, to, amount, asset),
+  sendEvm:       (chainId: string, to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:send-evm', chainId, to, amount, asset),
+  sendAgw:       (to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:send-agw', to, amount, asset),
+  sendSolana:    (to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:send-solana', to, amount, asset),
+  sendCardano:   (to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:send-cardano', to, amount, asset),
   sendBitcoin:   (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-bitcoin', to, amount),
-  sendTron:      (to: string, amount: string, token?: { contractAddress: string; decimals: number }) =>
-    ipcRenderer.invoke('wallet:send-tron', to, amount, token),
+  sendTron:      (to: string, amount: string, asset?: SendAsset) =>
+    ipcRenderer.invoke('wallet:send-tron', to, amount, asset),
   sendDogecoin:  (to: string, amount: string) =>
     ipcRenderer.invoke('wallet:send-dogecoin', to, amount),
   sendMonero:    (to: string, amount: string) =>
@@ -293,4 +298,8 @@ contextBridge.exposeInMainWorld('wallet', {
   chainlensUpdateProfile: (updates: { display_name?: string; avatar_url?: string }) =>
     ipcRenderer.invoke('chainlens:update-profile', updates),
   chainlensPickAvatar:    ()                                                   => ipcRenderer.invoke('chainlens:pick-avatar'),
+
+  // Hidden/spam asset list shared with ChainLens (src/shared/asset-filter-key.ts)
+  assetFiltersGet:        ()                                                   => ipcRenderer.invoke('assetfilters:get'),
+  assetFiltersPush:       (entries: unknown)                                   => ipcRenderer.invoke('assetfilters:push', entries),
 })

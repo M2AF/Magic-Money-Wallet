@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import type { FeeEstimate, SendResult } from '../types/wallet'
+import type { FeeEstimate, SendResult, SendAsset } from '../types/wallet'
+import { formatUnits, parseUnits, getChainType } from '../lib/asset-send'
 
 interface Props {
   chainId: string       // chain-config id, e.g. 'ethereum', 'arbitrum', 'solana'
@@ -7,6 +8,24 @@ interface Props {
   symbol: string
   onClose: () => void
   source?: 'eoa' | 'agw'  // 'agw' sends from the Abstract Global Wallet (smart account)
+  /**
+   * Omitted for a native send — the original and still the default behaviour.
+   * Set when sending a token or NFT held on `chainId`, in which case `balance`
+   * and `symbol` describe that asset rather than the chain's native coin.
+   */
+  asset?: SendAsset
+  /** Exact holding in base units. Token sends validate against this, never `balance`. */
+  rawBalance?: string
+  /** Shown instead of the amount field for a 1-of-1 NFT. */
+  assetLabel?: string
+  /**
+   * Human name of the network. Supplied for token/NFT sends, where `symbol`
+   * describes the ASSET — so getChainLabel's `${symbol} Network` fallback would
+   * otherwise render nonsense like "FUSD Network" on a custom chain.
+   */
+  chainLabel?: string
+  /** Fired after a broadcast succeeds, so the portfolio can refresh. */
+  onSent?: () => void
 }
 
 // 'registering' is Midnight-only: a one-time (per wallet) DUST-registration
@@ -16,17 +35,6 @@ interface Props {
 // skips straight from 'confirm' to 'sending'.
 type Step = 'form' | 'confirm' | 'registering' | 'sending' | 'success' | 'error'
 
-function getChainType(chainId: string): 'evm' | 'solana' | 'cardano' | 'tron' | 'dogecoin' | 'bitcoin' | 'monero' | 'zcash' | 'midnight' {
-  if (chainId === 'solana') return 'solana'
-  if (chainId === 'cardano') return 'cardano'
-  if (chainId === 'tron') return 'tron'
-  if (chainId === 'dogecoin') return 'dogecoin'
-  if (chainId === 'bitcoin') return 'bitcoin'
-  if (chainId === 'monero') return 'monero'
-  if (chainId === 'zcash') return 'zcash'
-  if (chainId === 'midnight') return 'midnight'
-  return 'evm'
-}
 
 function getAddressPlaceholder(chainId: string): string {
   if (chainId === 'solana') return 'Base58 address...'
@@ -53,7 +61,18 @@ function getChainLabel(chainId: string, symbol: string): string {
   return labels[chainId] ?? `${symbol} Network`
 }
 
-export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }: Props) {
+export function SendModal({
+  chainId, balance, symbol, onClose, source = 'eoa',
+  asset, rawBalance, assetLabel, chainLabel, onSent,
+}: Props) {
+  const networkName = chainLabel ?? getChainLabel(chainId, symbol)
+  // A 1-of-1 NFT has no amount to choose — the quantity is fixed at 1, so the
+  // amount field and MAX button are omitted entirely rather than shown disabled.
+  const isNft = asset?.kind === 'nft'
+  const isMultiEdition = isNft && asset.standard === 'erc1155'
+  const needsAmount = !isNft || isMultiEdition
+  // ERC-1155 editions are whole units; a token uses the asset's own decimals.
+  const amountDecimals = asset?.kind === 'token' ? asset.decimals : 0
   const [step, setStep]             = useState<Step>('form')
   const [to, setTo]                 = useState('')
   const [amount, setAmount]         = useState('')
@@ -124,19 +143,44 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
   }, [to, chainId])
 
   // ── H-3: amount ≤ balance, and (once the fee is known) amount + fee ≤ balance
+  //
+  // For a token/NFT this compares EXACT base units. `balance` is a rounded,
+  // comma-grouped display string, so comparing against it would let a user
+  // overdraw by whatever the rounding hid — hence rawBalance.
   const parsedAmount  = parseFloat(amount)
+  const rawAmount     = needsAmount ? parseUnits(amount, amountDecimals) : '1'
+  const exceedsBalance = asset
+    ? rawBalance != null && rawAmount != null && BigInt(rawAmount) > BigInt(rawBalance)
+    : (() => {
+        const parsedBalance = balance != null ? parseFloat(balance.replace(/,/g, '')) : NaN
+        return Number.isFinite(parsedBalance) && parsedAmount > parsedBalance
+      })()
+  const isValidAmount = !needsAmount
+    ? true
+    : asset
+      ? rawAmount != null && BigInt(rawAmount) > 0n && !exceedsBalance
+      : parsedAmount > 0 && !isNaN(parsedAmount) && !exceedsBalance
+
   const parsedBalance = balance != null ? parseFloat(balance.replace(/,/g, '')) : NaN
-  const exceedsBalance = Number.isFinite(parsedBalance) && parsedAmount > parsedBalance
-  const isValidAmount  = parsedAmount > 0 && !isNaN(parsedAmount) && !exceedsBalance
   const feeNum = fee ? parseFloat(fee.fee) : NaN
-  // Only comparable when the fee is paid in the sent asset (native sends).
-  const totalExceeds = !!fee && fee.feeSymbol === symbol &&
+  // Only comparable when the fee is paid in the sent asset — i.e. native sends.
+  // A token/NFT send pays gas in the chain's native coin, which is a different
+  // balance entirely, so there is nothing to add up here.
+  const totalExceeds = !asset && !!fee && fee.feeSymbol === symbol &&
     Number.isFinite(parsedBalance) && Number.isFinite(feeNum) &&
     parsedAmount + feeNum > parsedBalance
   const canEstimate = addrState === 'valid' && isValidAmount
 
   // Max = full balance, minus the estimated fee when it's in the same asset.
   const handleMax = () => {
+    // Token: the whole holding, exactly. No fee reserve — gas comes out of the
+    // native coin, not out of the token being sent.
+    if (asset) {
+      if (rawBalance == null) return
+      setAmount(formatUnits(rawBalance, amountDecimals))
+      setFee(null)
+      return
+    }
     if (!Number.isFinite(parsedBalance)) return
     const reserve = fee && fee.feeSymbol === symbol && Number.isFinite(feeNum) ? feeNum : 0
     const v = Math.max(parsedBalance - reserve, 0)
@@ -144,13 +188,17 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
     setFee(null)
   }
 
+  // A 1-of-1 NFT carries no user-entered amount; the backend ignores the value
+  // for that case but the bridge signature still wants a string.
+  const sendAmount = () => (needsAmount ? amount.trim() : '1')
+
   const handleEstimateFee = async () => {
     if (!canEstimate) return
     setFeeLoading(true)
     setFeeError(null)
     setFee(null)
     try {
-      const estimate = await window.wallet.estimateFee(chainId, to.trim(), amount.trim())
+      const estimate = await window.wallet.estimateFee(chainId, to.trim(), sendAmount(), asset)
       setFee(estimate)
     } catch (err) {
       setFeeError(String(err).replace('Error: ', ''))
@@ -180,18 +228,22 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
       }
 
       setStep('sending')
+      const amt = sendAmount()
       let res: SendResult
-      if (source === 'agw')              res = await window.wallet.sendAgw(to.trim(), amount.trim())
-      else if (chainType === 'solana')   res = await window.wallet.sendSolana(to.trim(), amount.trim())
-      else if (chainType === 'cardano')  res = await window.wallet.sendCardano(to.trim(), amount.trim())
-      else if (chainType === 'tron')     res = await window.wallet.sendTron(to.trim(), amount.trim())
-      else if (chainType === 'dogecoin') res = await window.wallet.sendDogecoin(to.trim(), amount.trim())
-      else if (chainType === 'bitcoin')  res = await window.wallet.sendBitcoin(to.trim(), amount.trim())
-      else if (chainType === 'monero')   res = await window.wallet.sendMonero(to.trim(), amount.trim())
-      else if (chainType === 'zcash')    res = await window.wallet.sendZcash(to.trim(), amount.trim())
-      else                               res = await window.wallet.sendEvm(chainId, to.trim(), amount.trim())
+      if (source === 'agw')              res = await window.wallet.sendAgw(to.trim(), amt, asset)
+      else if (chainType === 'solana')   res = await window.wallet.sendSolana(to.trim(), amt, asset)
+      else if (chainType === 'cardano')  res = await window.wallet.sendCardano(to.trim(), amt, asset)
+      else if (chainType === 'tron')     res = await window.wallet.sendTron(to.trim(), amt, asset)
+      else if (chainType === 'dogecoin') res = await window.wallet.sendDogecoin(to.trim(), amt)
+      else if (chainType === 'bitcoin')  res = await window.wallet.sendBitcoin(to.trim(), amt)
+      else if (chainType === 'monero')   res = await window.wallet.sendMonero(to.trim(), amt)
+      else if (chainType === 'zcash')    res = await window.wallet.sendZcash(to.trim(), amt)
+      else                               res = await window.wallet.sendEvm(chainId, to.trim(), amt, asset)
       setResult(res)
       setStep('success')
+      // Balances and holdings have moved — let the dashboard refetch. Fired
+      // after the success screen renders so a slow refresh can't delay it.
+      onSent?.()
     } catch (err) {
       setError(String(err).replace('Error: ', ''))
       setStep('error')
@@ -212,10 +264,10 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16 }}>
-              Send {symbol}
+              Send {isNft ? (assetLabel || 'NFT') : symbol}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              {source === 'agw' ? 'Abstract Smart Wallet (AGW)' : getChainLabel(chainId, symbol)}
+              {source === 'agw' ? 'Abstract Smart Wallet (AGW)' : networkName}
             </div>
           </div>
           <button
@@ -230,10 +282,18 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
           </button>
         </div>
 
-        {/* Balance hint */}
-        {balance && (
+        {/* Balance hint — for a 1-of-1 NFT there is nothing to quantify, so we
+            identify the token instead of showing "Available: 1". */}
+        {isNft && !isMultiEdition ? (
           <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-            Available: <span style={{ color: 'var(--text-secondary)' }}>{balance} {symbol}</span>
+            Sending <span style={{ color: 'var(--text-secondary)' }}>1 of 1</span>
+            {asset.tokenId && (
+              <span style={{ fontFamily: 'var(--font-mono)' }}> · #{asset.tokenId.length > 12 ? `${asset.tokenId.slice(0, 10)}…` : asset.tokenId}</span>
+            )}
+          </div>
+        ) : balance && (
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            Available: <span style={{ color: 'var(--text-secondary)' }}>{balance} {isMultiEdition ? 'editions' : symbol}</span>
           </div>
         )}
 
@@ -275,36 +335,48 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
               )}
             </div>
 
-            <div>
-              <div className="label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span>Amount ({symbol})</span>
-                {balance != null && step === 'form' && (
-                  <button
-                    type="button"
-                    onClick={handleMax}
-                    style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 99, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer' }}
-                  >
-                    MAX
-                  </button>
+            {needsAmount && (
+              <div>
+                <div className="label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>{isMultiEdition ? 'Editions to send' : `Amount (${symbol})`}</span>
+                  {(asset ? rawBalance != null : balance != null) && step === 'form' && (
+                    <button
+                      type="button"
+                      onClick={handleMax}
+                      style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', padding: '2px 8px', borderRadius: 99, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer' }}
+                    >
+                      MAX
+                    </button>
+                  )}
+                </div>
+                <input
+                  className="input"
+                  placeholder={isMultiEdition ? '1' : '0.0'}
+                  value={amount}
+                  type="number"
+                  min="0"
+                  step={isMultiEdition ? '1' : 'any'}
+                  style={{ borderColor: exceedsBalance ? 'var(--error)' : undefined }}
+                  onChange={e => { setAmount(e.target.value); setFee(null) }}
+                  disabled={step === 'confirm'}
+                />
+                {exceedsBalance && (
+                  <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>
+                    Exceeds available balance ({balance} {isMultiEdition ? 'editions' : symbol})
+                  </div>
+                )}
+                {/* parseUnits returns null when the input carries more decimal
+                    places than the token actually has — silently truncating
+                    would send a different amount than the one on screen. */}
+                {asset && amount.trim() !== '' && rawAmount == null && (
+                  <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>
+                    {isMultiEdition
+                      ? 'Editions must be a whole number.'
+                      : `${symbol} supports at most ${amountDecimals} decimal place${amountDecimals === 1 ? '' : 's'}.`}
+                  </div>
                 )}
               </div>
-              <input
-                className="input"
-                placeholder="0.0"
-                value={amount}
-                type="number"
-                min="0"
-                step="any"
-                style={{ borderColor: exceedsBalance ? 'var(--error)' : undefined }}
-                onChange={e => { setAmount(e.target.value); setFee(null) }}
-                disabled={step === 'confirm'}
-              />
-              {exceedsBalance && (
-                <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>
-                  Exceeds available balance ({balance} {symbol})
-                </div>
-              )}
-            </div>
+            )}
 
             {step === 'form' && chainType !== 'midnight' && (
               <button
@@ -343,6 +415,21 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
               </div>
             )}
 
+            {asset && chainType === 'cardano' && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                Cardano requires a small amount of ADA to travel with any token. The wallet
+                works out the minimum and attaches it automatically — it stays spendable by
+                the recipient.
+              </div>
+            )}
+
+            {asset && chainType !== 'cardano' && (
+              <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                The network fee is paid in {networkName}’s native coin, not in
+                the asset you’re sending — keep a little of it in this wallet.
+              </div>
+            )}
+
             {chainType === 'midnight' && (
               <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4 }}>
                 Fees are paid automatically in DUST, generated by holding NIGHT — never deducted from the amount you're sending. First send from a wallet includes a one-time registration step.
@@ -371,7 +458,13 @@ export function SendModal({ chainId, balance, symbol, onClose, source = 'eoa' }:
                 <div className="warning-box">
                   <span className="warning-icon">⚠️</span>
                   <span>
-                    Sending <strong>{amount} {symbol}</strong> to{' '}
+                    Sending{' '}
+                    <strong>
+                      {isNft
+                        ? (isMultiEdition ? `${amount} × ${assetLabel || 'NFT'}` : (assetLabel || 'NFT'))
+                        : `${amount} ${symbol}`}
+                    </strong>
+                    {' '}to{' '}
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, wordBreak: 'break-all' }}>{to}</span>.
                     This cannot be undone.
                   </span>

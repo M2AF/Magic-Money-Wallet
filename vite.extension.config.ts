@@ -104,6 +104,13 @@ export default defineConfig({
         find: /^\.\.\/main\/supabase-sync(\.ts)?$/,
         replacement: r('src/extension/stubs/supabase-sync-stub.ts')
       },
+      // Hidden-asset sync signs an ownership proof through supabase-sync, so it
+      // has to be stubbed alongside it — otherwise the real module drags the
+      // stubbed-out one back into the bundle.
+      {
+        find: /^\.\.\/main\/asset-filter-sync(\.ts)?$/,
+        replacement: r('src/extension/stubs/asset-filter-sync-stub.ts')
+      },
       // Privacy-chain WASM backends: the MV3 service worker can't run Workers
       // or dynamic import(), so Monero + Midnight route through the offscreen
       // document (which imports the real browser backends directly).

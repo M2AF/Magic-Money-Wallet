@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 // cannot drift apart — and so the two measured Chrome/own-browser facts stay
 // assertable rather than buried in JSX.
 import { onboardingStage, settingsRowCopy, settingsLandingNote, onboardingCopy } from '../lib/passkey-onboarding'
-import type { ApprovedOrigin, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
+import type { ApprovedOrigin, BiometricMethod, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
+import { bioMethodLabel } from '../types/wallet'
 import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 
@@ -19,7 +20,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [revealOpen, setRevealOpen] = useState(false)
   const [sitesOpen, setSitesOpen] = useState(false)
   const [siteCount, setSiteCount] = useState<number | null>(null)
-  const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null } | null>(null)
+  const [hello, setHello] = useState<{ supported: boolean; enrolled: boolean; method?: BiometricMethod | null } | null>(null)
   const [helloBusy, setHelloBusy] = useState(false)
   // Android 14+ system passkey provider (Capacitor only — capability-probed).
   const [pkProvider, setPkProvider] = useState<{ supported: boolean; androidVersion: number; enrolled: boolean; enabledInSettings: boolean | null } | null>(null)
@@ -198,8 +199,12 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       setPasskeyBusy(false)
     }
   }
-  const bioMethodName = (m?: 'windows-hello' | 'touch-id' | 'android-biometric' | null) =>
-    m === 'touch-id' ? 'Touch ID' : m === 'android-biometric' ? 'Biometric' : 'Windows Hello'
+  // Uses the SHARED bioMethodLabel (types/wallet.ts) rather than a local map.
+  // The local version defaulted every unrecognised method to 'Windows Hello',
+  // so iOS — which reports 'face-id' — rendered "Enable Windows Hello unlock"
+  // on an iPhone, while the password-vault row below it (already on the shared
+  // helper) correctly said "Face ID" two sections away.
+  const bioMethodName = (m?: string | null) => bioMethodLabel(m)
   useEffect(refreshHello, [])
 
   useEffect(() => { window.wallet.getTestnetMode().then(setTestnet).catch(() => setTestnet(null)) }, [])

@@ -14,7 +14,8 @@ import { base58 } from '@scure/base'
 import type { WalletConfig } from './secure-store'
 import { tronApiUrl } from './api-proxy'
 import { getTronKey } from './wallet-core'
-import type { SendResult, FeeEstimate } from './tx-sender'
+import type { SendResult, FeeEstimate, SendAsset } from './tx-sender'
+import { parseUnits } from 'viem'
 
 // Keyless native TRON HTTP API fallbacks — same `wallet/*` shape as the Alchemy
 // endpoint, so they're drop-in when the proxy route isn't deployed or Alchemy is
@@ -106,10 +107,59 @@ function signTxid(txID: string, privateKey: Uint8Array): string {
 
 interface TronUnsignedTx { txID: string; raw_data: unknown; raw_data_hex: string; visible?: boolean; [k: string]: unknown }
 
+/** uint256 → a bare 32-byte hex word, for hand-built TRON call parameters. */
+function uintParam(v: bigint): string {
+  return v.toString(16).padStart(64, '0')
+}
+
 /**
- * Send native TRX, or a TRC-20 token when `token` is provided. `amount` is human
- * decimal. Builds the tx on-node (createtransaction / triggersmartcontract), signs
- * the returned txID locally, and broadcasts.
+ * Build the `triggersmartcontract` selector + parameter blob for a non-native
+ * TRON transfer.
+ *
+ * TRC-20/721/1155 mirror their ERC equivalents exactly, so the selectors are the
+ * same — only the address encoding differs (TRON packs a base58check `T…`
+ * address into the same 32-byte word, which is what tronAddrParam does).
+ */
+export function tronTransferCall(
+  asset: SendAsset, from: string, to: string, amount: string
+): { selector: string; parameter: string } {
+  if (asset.kind === 'token') {
+    const raw = parseUnits(amount, asset.decimals)
+    if (raw <= 0n) throw new Error('Amount must be greater than 0')
+    return {
+      selector: 'transfer(address,uint256)',
+      parameter: tronAddrParam(to) + uintParam(raw),
+    }
+  }
+
+  const tokenId = BigInt(asset.tokenId)
+  if (asset.standard === 'erc721') {
+    // The safe variant, as on EVM: a recipient contract that can't receive NFTs
+    // rejects the transfer instead of swallowing the token.
+    return {
+      selector: 'safeTransferFrom(address,address,uint256)',
+      parameter: tronAddrParam(from) + tronAddrParam(to) + uintParam(tokenId),
+    }
+  }
+  if (asset.standard === 'erc1155') {
+    const qty = BigInt(asset.quantity ?? '1')
+    if (qty <= 0n) throw new Error('Quantity must be at least 1')
+    // Trailing `bytes data`: ABI-encodes as a head offset (0xa0 — five words in)
+    // followed by a zero length, i.e. an empty byte string.
+    return {
+      selector: 'safeTransferFrom(address,address,uint256,uint256,bytes)',
+      parameter:
+        tronAddrParam(from) + tronAddrParam(to) + uintParam(tokenId) +
+        uintParam(qty) + uintParam(160n) + uintParam(0n),
+    }
+  }
+  throw new Error(`Cannot send a ${asset.standard} asset on Tron`)
+}
+
+/**
+ * Send native TRX, or a TRC-20/721/1155 asset when `asset` is provided. `amount`
+ * is human decimal. Builds the tx on-node (createtransaction /
+ * triggersmartcontract), signs the returned txID locally, and broadcasts.
  */
 export async function sendTronTransaction(
   mnemonic: string,
@@ -117,25 +167,28 @@ export async function sendTronTransaction(
   amount: string,
   config: WalletConfig,
   accountIndex = 0,
-  token?: { contractAddress: string; decimals: number }
+  asset?: SendAsset
 ): Promise<SendResult> {
   const { privateKey, address: from } = await getTronKey(mnemonic, accountIndex)
 
   let unsigned: TronUnsignedTx
-  if (token) {
-    const raw = BigInt(Math.round(parseFloat(amount) * 10 ** token.decimals))
-    if (raw <= 0n) throw new Error('Amount must be greater than 0')
-    const parameter = tronAddrParam(to) + raw.toString(16).padStart(64, '0')
+  if (asset) {
+    const { selector, parameter } = tronTransferCall(asset, from, to, amount)
     const res = await tronApiPost<{ transaction?: TronUnsignedTx; result?: { message?: string }; txID?: string }>(
       'wallet/triggersmartcontract',
       {
-        owner_address: from, contract_address: token.contractAddress,
-        function_selector: 'transfer(address,uint256)', parameter,
+        owner_address: from, contract_address: asset.contractAddress,
+        function_selector: selector, parameter,
         fee_limit: 100_000_000, call_value: 0, visible: true
       },
       config
     )
-    if (!res.transaction) throw new Error(decodeTronError(res.result?.message) || 'TRC-20 build failed')
+    if (!res.transaction) {
+      throw new Error(
+        decodeTronError(res.result?.message) ||
+        (asset.kind === 'token' ? 'TRC-20 build failed' : 'NFT transfer build failed')
+      )
+    }
     unsigned = res.transaction
   } else {
     const sun = BigInt(Math.round(parseFloat(amount) * 1e6))

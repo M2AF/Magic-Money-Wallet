@@ -42,6 +42,51 @@ function sb(env, path, init = {}) {
 
 const isEvm = (a) => /^0x[0-9a-f]{40}$/.test(a)
 
+// ─── Hidden/spam asset lists (cl_asset_filters) ──────────────────────────────
+//
+// Ported from src/shared/asset-filter-key.ts — the SAME merge the wallet and the
+// ChainLens website run. Every client pushes its whole list, so a plain overwrite
+// would let the desktop silently undo a hide made on the phone; merging per key
+// on the newer timestamp is what makes them converge, and what lets a restore
+// ('a') out-rank a stale hide instead of being re-added by it.
+const MAX_FILTER_ENTRIES = 2000
+
+function sanitizeEntries(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out = {}
+  for (const [key, e] of Object.entries(value)) {
+    if (!key || key.length > 256) continue
+    if (!e || typeof e !== 'object') continue
+    if (e.s !== 'h' && e.s !== 's' && e.s !== 'a') continue
+    if (typeof e.t !== 'number' || !Number.isFinite(e.t)) continue
+    out[key] = { s: e.s, t: e.t }
+  }
+  return out
+}
+
+function mergeEntries(base, incoming) {
+  const out = {}
+  for (const src of [sanitizeEntries(base), sanitizeEntries(incoming)]) {
+    for (const [key, e] of Object.entries(src)) {
+      if (!out[key] || e.t > out[key].t) out[key] = e
+    }
+  }
+  const keys = Object.keys(out)
+  if (keys.length <= MAX_FILTER_ENTRIES) return out
+  const kept = {}
+  for (const key of keys.sort((a, b) => out[b].t - out[a].t).slice(0, MAX_FILTER_ENTRIES)) kept[key] = out[key]
+  return kept
+}
+
+async function readFilters(userId, env) {
+  const res = await sb(env, `cl_asset_filters?user_id=eq.${encodeURIComponent(userId)}&select=entries`, { method: 'GET' })
+  // A missing table (operator hasn't run sql/cl_asset_filters.sql yet) reads as
+  // "nothing hidden" rather than a 500 — the wallet then keeps its local list.
+  if (!res.ok) return {}
+  const rows = await res.json().catch(() => [])
+  return sanitizeEntries(rows[0]?.entries)
+}
+
 /** Returns a Response for a db route, or null if this isn't a db route. */
 export async function handleDb(request, url, env, ctx) {
   const parts = pathParts(url.pathname)
@@ -59,6 +104,47 @@ export async function handleDb(request, url, env, ctx) {
     const address = (url.searchParams.get('address') || '').toLowerCase()
     if (!isEvm(address)) return err(env, 'Invalid address')
     return json(env, await getProfileByAddress(address, env))
+  }
+
+  // GET /profile/filters?address=0x…  → { entries }
+  // Unsigned like GET /profile: the list of assets someone chose not to look at
+  // is not a secret, and the route is address-scoped so it can't be enumerated.
+  // No profile is an empty list, not an error — the client keeps its local one.
+  if (parts[0] === 'profile' && parts[1] === 'filters' && request.method === 'GET') {
+    const address = (url.searchParams.get('address') || '').toLowerCase()
+    if (!isEvm(address)) return err(env, 'Invalid address')
+    const userId = await pickOwner(await candidateOwners(address, env, false), env)
+    return json(env, { entries: userId ? await readFilters(userId, env) : {} })
+  }
+
+  // POST /profile/filters  { address, ts, signature, entries }  → { entries }
+  // Signature-gated, and resolved against VERIFIED links only: honouring a
+  // watch-only link would let anyone who adds your address to their profile
+  // rewrite what your wallet shows you.
+  if (parts[0] === 'profile' && parts[1] === 'filters' && request.method === 'POST') {
+    const b = await request.json().catch(() => null)
+    const addr = String(b?.address || '').toLowerCase()
+    if (!b || !isEvm(addr)) return err(env, 'Invalid address')
+    if (!verifyOwnership('filters-update', addr, b.ts, b.signature)) return err(env, 'Bad signature', 401)
+    if (await replayed(env, ctx, b.signature)) return err(env, 'Replay', 401)
+
+    const userId = await pickOwner(await candidateOwners(addr, env, true), env)
+    // 404 is the contract with the client: it means "create a profile, then push
+    // again". Creating one here would mint accounts on an unauthenticated shape
+    // this route never validates, so that stays on /sync.
+    if (!userId) return err(env, 'No profile', 404)
+
+    // Read-merge-write. Two devices pushing in the same instant can still lose
+    // one side's newest decision; the user simply hides it again, which is not
+    // worth a transaction on a preferences list.
+    const merged = mergeEntries(await readFilters(userId, env), b.entries)
+    const wRes = await sb(env, 'cl_asset_filters?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ user_id: userId, entries: merged, updated_at: new Date().toISOString() }),
+    })
+    if (!wRes.ok) return err(env, `DB ${wRes.status}`, 502)
+    return json(env, { entries: merged, error: null })
   }
 
   // POST /profile/update  { userId, address, ts, signature, display_name?, avatar_url? }

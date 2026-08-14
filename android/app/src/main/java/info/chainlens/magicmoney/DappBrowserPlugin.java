@@ -17,7 +17,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
-import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -32,6 +31,7 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.pm.ShortcutInfoCompat;
@@ -992,27 +992,44 @@ public class DappBrowserPlugin extends Plugin {
     //
     // The site hands us a view; we host it edge-to-edge above everything else
     // (including the wallet WebView, which is a sibling in the activity's content
-    // frame) and hide the system bars. Back exits fullscreen rather than the page,
-    // which is why the container takes focus and listens for KEYCODE_BACK.
+    // frame) and hide the system bars. Back exits fullscreen rather than the page.
+    //
+    // ⚠ This used to be an OnKeyListener on the focused container watching for
+    // KEYCODE_BACK. Under targetSdk 36 predictive back is on by default and the
+    // system stops dispatching KEYCODE_BACK entirely, so that listener would
+    // never fire and back would tear down the whole browser mid-video instead of
+    // just leaving fullscreen. OnBackPressedDispatcher is the supported path and
+    // works on every API level we ship to (legacy back routes through
+    // ComponentActivity.onBackPressed, predictive back through
+    // OnBackInvokedDispatcher).
+    //
+    // Registration is lazy — on first fullscreen, therefore always AFTER
+    // @capacitor/app's own callback, which is added in its load(). The
+    // dispatcher walks callbacks in reverse registration order, so ours is
+    // offered the event first whenever it is enabled, and the wallet's normal
+    // back handling resumes the moment fullscreen exits.
 
     private FrameLayout fullscreenContainer;
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
+    private OnBackPressedCallback fullscreenBackCallback;
 
     private void ensureFullscreenContainer() {
         if (fullscreenContainer != null) return;
         fullscreenContainer = new FrameLayout(getContext());
         fullscreenContainer.setBackgroundColor(0xFF000000);
         fullscreenContainer.setVisibility(View.GONE);
+        // Focus still matters: it keeps the hidden page WebView from taking key
+        // input while a video is up.
         fullscreenContainer.setFocusable(true);
         fullscreenContainer.setFocusableInTouchMode(true);
-        fullscreenContainer.setOnKeyListener((v, keyCode, event) -> {
-            if (keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP && customView != null) {
+        fullscreenBackCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
                 exitFullscreen();
-                return true;
             }
-            return false;
-        });
+        };
+        getActivity().getOnBackPressedDispatcher().addCallback(getActivity(), fullscreenBackCallback);
         getActivity().addContentView(fullscreenContainer, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
@@ -1031,6 +1048,7 @@ public class DappBrowserPlugin extends Plugin {
         fullscreenContainer.setVisibility(View.VISIBLE);
         fullscreenContainer.bringToFront();
         fullscreenContainer.requestFocus();
+        if (fullscreenBackCallback != null) fullscreenBackCallback.setEnabled(true);
         bridge.getWebView().setVisibility(View.GONE);
         syncContainerVisibility();
         setSystemBarsVisible(false);
@@ -1038,6 +1056,7 @@ public class DappBrowserPlugin extends Plugin {
 
     private void exitFullscreen() {
         if (customView == null) return;
+        if (fullscreenBackCallback != null) fullscreenBackCallback.setEnabled(false);
         if (fullscreenContainer != null) {
             fullscreenContainer.removeAllViews();
             fullscreenContainer.setVisibility(View.GONE);

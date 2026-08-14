@@ -15,8 +15,13 @@ name: iOS
 #
 # Unsigned, simulator-only (CODE_SIGNING_ALLOWED=NO, -sdk iphonesimulator), so
 # it needs no Apple Developer account, no certificate and no provisioning
-# profile. Signed archive + TestFlight upload land in release.yml once the
-# account exists — see the iOS plan, Phase 4.
+# profile. release.yml builds the distributable .ipa separately and never sets
+# CAP_WEB_DEBUG, so shipped builds are neither inspectable nor self-checking.
+#
+# Runtime verification is scripts/../src/ios/self-check.ts running INSIDE the
+# app, not Appium: the XCUITest driver could never attach to the WebView here
+# (NATIVE_APP only). scripts/ios-e2e.mjs is kept, unwired, for a future attempt
+# at true UI-interaction testing.
 
 on:
   push:
@@ -47,10 +52,8 @@ jobs:
     name: Build (iOS)
 
     env:
-      # Makes the WKWebView inspectable (capacitor.config.ts reads this).
-      # REQUIRED for the Appium e2e: since iOS 16.4 a non-inspectable WebView is
-      # invisible to the remote debugger, so the harness sees only NATIVE_APP
-      # and cannot drive the app.
+      # Makes the WKWebView inspectable AND compiles in the in-app self-check
+      # (both capacitor.config.ts and vite.ios.config.ts read this flag).
       #
       # Scoped to THIS workflow on purpose. release.yml never sets it, so the
       # published .ipa is not inspectable — an inspectable WebView in a shipped
@@ -118,15 +121,15 @@ jobs:
           echo "Podfile + lock reference the local pod:"
           grep -n 'MagicMoneyPlugins' ios/App/Podfile ios/App/Podfile.lock || true
 
-          # The generated config must carry webContentsDebuggingEnabled, or the
-          # Appium step burns ~15 minutes before failing with "No WEBVIEW
-          # context". Fail here, in seconds, with the actual reason.
+          # The generated config must carry webContentsDebuggingEnabled, which
+          # is the same flag that compiles in the self-check. Fail here, in
+          # seconds, rather than minutes later with a vaguer symptom.
           if ! grep -q '"webContentsDebuggingEnabled": *true' ios/App/App/capacitor.config.json; then
             echo "::error::capacitor.config.json lacks webContentsDebuggingEnabled — CAP_WEB_DEBUG was not set when build:ios ran, so the WebView will be invisible to Appium."
             cat ios/App/App/capacitor.config.json
             exit 1
           fi
-          echo "  ✓ web inspection enabled for the e2e run"
+          echo "  ✓ web inspection + self-check enabled for this run"
 
       - name: Build (unsigned, simulator)
         run: |
@@ -160,7 +163,7 @@ jobs:
       # compile says nothing about whether the WebView loaded the bundle or
       # whether the custom plugins linked — both fail silently at runtime.
       # Device selection lives in its own step so the UDID is available to every
-      # later step (smoke test, Face ID enrollment, Appium) via $IOS_UDID —
+      # later step (Face ID enrollment, smoke test, self-check) via $IOS_UDID —
       # a shell variable set inside one `run:` block does not survive to the next.
       - name: Boot simulator
         run: |
@@ -171,14 +174,19 @@ jobs:
           xcrun simctl boot "$DEVICE" || true
           xcrun simctl bootstatus "$DEVICE" -b
           echo "IOS_UDID=$DEVICE" >> "$GITHUB_ENV"
-          # Record the runtime version so Appium can pin platformVersion.
-          VER=$(xcrun simctl list devices available -j \
-            | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(k for k,v in d.items() for x in v if x['udid']=='$DEVICE'))" \
-            | sed -E 's/.*iOS-([0-9]+)-([0-9]+).*/\1.\2/')
-          echo "IOS_PLATFORM=$VER" >> "$GITHUB_ENV"
-          echo "Runtime: $VER"
 
-      - name: Smoke test on simulator
+      # Biometrics must be enrolled BEFORE the app launches: the self-check
+      # asserts helloStatus().supported, which exercises SecureVaultPlugin.
+      # Without this LAContext reports "No identities are enrolled" and the
+      # whole Secure Enclave path silently goes untested.
+      - name: Enroll Face ID on the simulator
+        run: |
+          xcrun simctl spawn "$IOS_UDID" notifyutil -s com.apple.BiometricKit.enrollmentChanged 1
+          xcrun simctl spawn "$IOS_UDID" notifyutil -p com.apple.BiometricKit.enrollmentChanged
+          echo "Face ID enrolled on $IOS_UDID"
+
+      - name: Smoke test + in-app self-check
+        timeout-minutes: 12
         run: |
           set -e
           DEVICE="$IOS_UDID"
@@ -207,12 +215,19 @@ jobs:
             > app-console.log 2>&1 &
           APP_PID=$!
 
-          sleep 25
+          # Wait for the self-check to finish rather than sleeping a fixed
+          # amount: it performs two real page loads, whose duration depends on
+          # the runner's network. Poll for the DONE marker it prints last.
+          echo "waiting for [MM-SELFCHECK] DONE …"
+          for i in $(seq 1 120); do
+            grep -qa "MM-SELFCHECK] DONE" app-console.log && break
+            sleep 5
+          done
 
-          # ORDER MATTERS: screenshot BEFORE detaching. `--console-pipe` keeps
-          # simctl attached to the app, so killing that process also terminates
-          # the app — screenshotting afterwards captured the iOS home screen and
-          # made a perfectly healthy build look like a render failure.
+          # Screenshot while the app is still attached. ORDER MATTERS:
+          # --console-pipe keeps simctl attached, so killing that process also
+          # terminates the app — screenshotting afterwards once captured the iOS
+          # home screen and made a healthy build look like a render failure.
           xcrun simctl io "$DEVICE" screenshot ios-launch.png
 
           # Prove the app was actually frontmost when the screenshot was taken,
@@ -223,7 +238,28 @@ jobs:
             exit 1
           fi
 
-          kill $LOG_PID $APP_PID 2>/dev/null || true
+          # ── Deep link: wc:// must reach CapApp's appUrlOpen handler ─────────
+          # Testable without a device — this is the handler, not a full
+          # WalletConnect session handoff.
+          xcrun simctl openurl "$DEVICE" "wc:selfcheck@2?relay-protocol=irn&symKey=deadbeef" || true
+          sleep 5
+
+          # ── Persistence across a restart ────────────────────────────────────
+          # A single launch cannot prove Preferences/keychain scoping is right;
+          # state written by launch #1 must still be readable by launch #2.
+          kill $APP_PID 2>/dev/null || true
+          xcrun simctl terminate "$DEVICE" info.chainlens.magicmoney || true
+          sleep 3
+          xcrun simctl launch --console-pipe "$DEVICE" info.chainlens.magicmoney \
+            > app-console-relaunch.log 2>&1 &
+          RELAUNCH_PID=$!
+          for i in $(seq 1 60); do
+            grep -qa "MM-SELFCHECK] DONE" app-console-relaunch.log && break
+            sleep 5
+          done
+          xcrun simctl io "$DEVICE" screenshot ios-relaunch.png || true
+
+          kill $LOG_PID $RELAUNCH_PID 2>/dev/null || true
 
       # The first version of this step only grepped for a handful of error
       # strings and PASSED a build whose screen was completely blank. Absence of
@@ -251,6 +287,45 @@ jobs:
           if grep -qaE "Uncaught|ReferenceError|TypeError:|SyntaxError|Unhandled Promise" app-console.log; then
             echo "::error::Uncaught JavaScript error during startup (see app stdout above)."
             exit 1
+          fi
+
+      # THE functional gate. src/ios/self-check.ts runs inside the app and
+      # exercises what nothing else can: the Swift plugins through the bridge,
+      # address derivation under JavaScriptCore (every other test runs on
+      # Node/V8), the capacitor://localhost origin against the Worker, and
+      # whether Magic Guard actually blocks a request.
+      - name: Assert the in-app self-check passed
+        run: |
+          echo "── self-check results ──"
+          grep -a "MM-SELFCHECK" app-console.log || true
+
+          if ! grep -qa "MM-SELFCHECK] DONE" app-console.log; then
+            echo "::error::Self-check never completed — the app died or hung mid-run. Full stdout above."
+            exit 1
+          fi
+          if grep -qa "MM-SELFCHECK] FAIL" app-console.log; then
+            echo "::error::One or more in-app self-checks FAILED (see the lines above)."
+            exit 1
+          fi
+
+          # Second launch: proves the vault written by launch #1 is still
+          # readable, i.e. Preferences/keychain scoping survives a restart.
+          echo "── self-check results (after restart) ──"
+          grep -a "MM-SELFCHECK" app-console-relaunch.log || true
+          if ! grep -qa "MM-SELFCHECK] DONE" app-console-relaunch.log; then
+            echo "::error::Self-check did not complete after restart — state may not persist."
+            exit 1
+          fi
+          if grep -qa "MM-SELFCHECK] FAIL" app-console-relaunch.log; then
+            echo "::error::Self-check FAILED on the second launch (persistence regression)."
+            exit 1
+          fi
+
+          # The deep-link handler must have fired (CapApp appUrlOpen → wcPair).
+          if grep -qa "wc:selfcheck" app-console.log simulator.log; then
+            echo "  ✓ wc:// deep link reached the app"
+          else
+            echo "::warning::No trace of the wc:// deep link — handler may not be wired."
           fi
 
       # Pixel-level proof that something actually rendered. A React app that
@@ -295,73 +370,6 @@ jobs:
               print("::warning::Screen is almost entirely one colour — check the screenshot artifact.")
           print("Screen rendered content.")
           PY
-
-      # ── Functional end-to-end on the simulator ──────────────────────────────
-      # This is the ONLY functional test the iOS build will ever get: nobody on
-      # the project owns an Apple device, so there is no manual QA pass to fall
-      # back on. Runner minutes are free on a public repo — use them.
-      #
-      # Drives the real app through Appium/XCUITest, switching into the WebView
-      # to exercise window.wallet.* directly. That is what actually covers the
-      # Swift plugins (SecureVault, AppInfo) — a screenshot can't.
-      - name: Install Appium + XCUITest driver
-        run: |
-          # Versions are pinned, like every other toolchain here (rust 1.97,
-          # adblock-rs 0.13.2), because CI is the only place iOS runs — a silent
-          # upstream bump would surface as an unexplained red build.
-          #
-          # MUST be Appium 3: appium-xcuitest-driver has required server
-          # `^3.0.0-rc.2` since v11.17, so pinning appium@2 fails at install with
-          # "cannot be installed because the server version it requires ... does
-          # not meet the currently installed one".
-          npm install -g appium@3.6.0
-          appium driver install xcuitest@12.1.4
-          npm install --no-save webdriverio@9
-          appium --version
-          appium driver list --installed
-
-      - name: Enroll Face ID on the simulator
-        run: |
-          # The simulator supports biometrics via darwin notifications. Without
-          # this, LAContext reports "No identities are enrolled" and the whole
-          # SecureVaultPlugin path is untestable — which is exactly what made
-          # Face ID look like it needed real hardware.
-          xcrun simctl spawn "$IOS_UDID" notifyutil -s com.apple.BiometricKit.enrollmentChanged 1
-          xcrun simctl spawn "$IOS_UDID" notifyutil -p com.apple.BiometricKit.enrollmentChanged
-          echo "Face ID enrolled on $IOS_UDID"
-
-      - name: Run iOS end-to-end
-        # Appium builds WebDriverAgent from source on first use and runners are
-        # ephemeral, so ~3-5 min of that is unavoidable every run. The cap stops
-        # a genuinely hung session from burning the whole job budget.
-        timeout-minutes: 25
-        env:
-          IOS_APP_PATH: build/ios/Build/Products/Debug-iphonesimulator/App.app
-          SHOT_DIR: ios-shots
-        run: |
-          appium --port 4723 --log appium.log &
-          APPIUM_PID=$!
-          # Wait for readiness rather than sleeping a fixed amount.
-          for i in $(seq 1 60); do
-            curl -sf http://127.0.0.1:4723/status >/dev/null && break
-            sleep 1
-          done
-          set +e
-          node scripts/ios-e2e.mjs
-          STATUS=$?
-          set -e
-          kill $APPIUM_PID 2>/dev/null || true
-          exit $STATUS
-
-      - name: Upload e2e screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: magicmoney-ios-e2e
-          path: |
-            ios-shots/
-            appium.log
-          if-no-files-found: warn
 
       # The SIMULATOR build, zipped. Not installable on a phone — this is what
       # Appetize.io wants if you ever need to poke at the app by hand in a

@@ -8,6 +8,7 @@
  */
 
 import type { ApprovedOrigin, DappChain } from '../main/dapp-permissions'
+import type { SendAsset } from '../main/tx-sender'
 
 type MsgResult = { ok: true; result: unknown } | { ok: false; error: string }
 
@@ -159,12 +160,13 @@ export function createExtensionWallet() {
 
     // Transactions
     validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),
-    estimateFee:    (c: string, t: string, a: string) => send('wallet:estimate-fee', c, t, a),
-    sendEvm:        (c: string, t: string, a: string) => send('wallet:send-evm', c, t, a),
-    sendAgw:        (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-agw', t, a, token),
-    sendSolana:     (t: string, a: string)            => send('wallet:send-solana', t, a),
-    sendCardano:    (t: string, a: string)            => send('wallet:send-cardano', t, a),
-    sendTron:       (t: string, a: string, token?: { contractAddress: string; decimals: number }) => send('wallet:send-tron', t, a, token),
+    // `asset` omitted = native send; set = ERC-20/SPL/native-asset token or NFT.
+    estimateFee:    (c: string, t: string, a: string, s?: SendAsset) => send('wallet:estimate-fee', c, t, a, s),
+    sendEvm:        (c: string, t: string, a: string, s?: SendAsset) => send('wallet:send-evm', c, t, a, s),
+    sendAgw:        (t: string, a: string, s?: SendAsset) => send('wallet:send-agw', t, a, s),
+    sendSolana:     (t: string, a: string, s?: SendAsset) => send('wallet:send-solana', t, a, s),
+    sendCardano:    (t: string, a: string, s?: SendAsset) => send('wallet:send-cardano', t, a, s),
+    sendTron:       (t: string, a: string, s?: SendAsset) => send('wallet:send-tron', t, a, s),
     sendDogecoin:   (t: string, a: string)            => send('wallet:send-dogecoin', t, a),
     sendBitcoin:    (t: string, a: string)            => send('wallet:send-bitcoin', t, a),
     sendMonero:     (t: string, a: string)            => send('wallet:send-monero', t, a),
@@ -228,6 +230,8 @@ export function createExtensionWallet() {
     chainlensGetProfile:    ()              => send('chainlens:get-profile'),
     chainlensSync:          ()              => send('chainlens:sync'),
     chainlensUpdateProfile: (u: unknown)    => send('chainlens:update-profile', u),
+    assetFiltersGet:        ()              => send('assetfilters:get'),
+    assetFiltersPush:       (e: unknown)    => send('assetfilters:push', e),
     chainlensPickAvatar:    ()              => send('chainlens:pick-avatar'),
 
     // WalletConnect

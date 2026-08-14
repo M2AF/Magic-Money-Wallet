@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, SendAsset } from '../types/wallet'
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AddChainModal } from '../components/AddChainModal'
@@ -7,6 +7,12 @@ import { ImportTokenModal } from '../components/ImportTokenModal'
 import { ImportNftModal } from '../components/ImportNftModal'
 import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar } from '../components/HeaderToolbar'
+import {
+  canSendToken, canSendNft, nftSendBlockedReason,
+  nftToSendAsset, tokenToSendAsset, formatUnits,
+} from '../lib/asset-send'
+import { useAssetFilters } from '../lib/asset-filters'
+import { canonicalTokenKey, canonicalNftKey } from '../../shared/asset-filter-key'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
 
@@ -25,15 +31,11 @@ function AgwBadge() {
 
 // ─── Spam filter helpers ──────────────────────────────────────────────────────
 
-function tokenKey(t: WalletToken) { return `${t.chain}:${t.contractAddress}` }
-function nftKey(n: WalletCollectible) { return n.id }
-
-function loadSet(key: string): Set<string> {
-  try { return new Set(JSON.parse(localStorage.getItem(key) ?? '[]')) } catch { return new Set() }
-}
-function saveSet(key: string, s: Set<string>) {
-  localStorage.setItem(key, JSON.stringify([...s]))
-}
+// Canonical keys, NOT the display ids: the same asset has a different display id
+// in MagicMoney and on the ChainLens website, so keying the hidden list on one
+// would mean neither product could read the other's. See asset-filter-key.ts.
+function tokenKey(t: WalletToken) { return canonicalTokenKey(t.chain, t.contractAddress) }
+function nftKey(n: WalletCollectible) { return canonicalNftKey(n.chain, n.contractAddress, n.tokenId) }
 
 // ─── Spam manager modal ───────────────────────────────────────────────────────
 
@@ -97,9 +99,23 @@ function SpamManagerModal({
 
 // ─── Hover action buttons ─────────────────────────────────────────────────────
 
-function HideSpamButtons({ onHide, onSpam }: { onHide: () => void; onSpam: () => void }) {
+function HideSpamButtons({ onHide, onSpam, onSend }: {
+  onHide: () => void
+  onSpam: () => void
+  /** Omitted when the asset can't be sent — see canSendToken in lib/asset-send. */
+  onSend?: () => void
+}) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
+      {onSend && (
+        <button type="button" onClick={e => { e.stopPropagation(); onSend() }}
+          title="Send" aria-label="Send this token"
+          style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+          </svg>
+        </button>
+      )}
       <button type="button" onClick={e => { e.stopPropagation(); onHide() }}
         title="Hide" aria-label="Hide this item"
         style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -166,9 +182,10 @@ interface TokenRowProps {
   onMouseLeave: () => void
   onHide: () => void
   onSpam: () => void
+  onSend: (token: WalletToken) => void
 }
 
-function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam }: TokenRowProps) {
+function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam, onSend }: TokenRowProps) {
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: 0 }}
@@ -213,7 +230,11 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           otherwise (always mounted on touch screens, which can't hover) */}
       {(isHovered || COARSE_POINTER) && (
         <div style={{ marginLeft: 3 }}>
-          <HideSpamButtons onHide={onHide} onSpam={onSpam} />
+          <HideSpamButtons
+            onHide={onHide}
+            onSpam={onSpam}
+            onSend={canSendToken(token) ? () => onSend(token) : undefined}
+          />
         </div>
       )}
     </div>
@@ -230,9 +251,10 @@ interface TokensViewProps {
   search: string
   onHide: (id: string) => void
   onSpam: (id: string) => void
+  onSend: (token: WalletToken) => void
 }
 
-function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam }: TokensViewProps) {
+function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam, onSend }: TokensViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
@@ -278,6 +300,7 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, o
             onMouseLeave={() => setHovered(null)}
             onHide={() => onHide(id)}
             onSpam={() => onSpam(id)}
+            onSend={onSend}
           />
         )
       })}
@@ -356,7 +379,11 @@ const NFT_NATIVE_SYMBOL: Record<string, string> = {
 }
 const formatFloor = (n: number) => Number(n.toFixed(4)).toLocaleString('en-US')
 
-function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () => void }) {
+function NftDetailModal({ nft, onClose, onSend }: {
+  nft: WalletCollectible
+  onClose: () => void
+  onSend: (nft: WalletCollectible) => void
+}) {
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [download, setDownload] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
@@ -521,6 +548,27 @@ function NftDetailModal({ nft, onClose }: { nft: WalletCollectible; onClose: () 
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Send — primary action, above the secondary row. Absent entirely for
+              asset types the wallet can't move yet, replaced by the reason why:
+              a disabled button here would just prompt "why?" with no answer. */}
+          {canSendNft(nft) ? (
+            <button
+              type="button"
+              onClick={() => onSend(nft)}
+              className="btn btn-primary"
+              style={{ width: '100%', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            >
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+              </svg>
+              Send
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 8, padding: '8px 10px', background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+              {nftSendBlockedReason(nft)}
             </div>
           )}
 
@@ -828,6 +876,21 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     setPortfolioSearch('')
   }, [])
   const [sendChain, setSendChain]           = useState<string | null>(null)
+  /**
+   * Non-native send in flight, opened from the Tokens or Collectibles tab.
+   * Kept separate from `sendChain` (the Networks-tab native send) so the two
+   * entry points can't interfere: opening one clears the other.
+   */
+  const [sendAsset, setSendAsset] = useState<{
+    chainId: string
+    source: 'eoa' | 'agw'
+    asset: SendAsset
+    balance: string | null
+    rawBalance?: string
+    symbol: string
+    label?: string
+    chainLabel?: string
+  } | null>(null)
   // Testnet Mode — flipped from Settings (which reloads the renderer), so this
   // only needs to be read once on mount.
   const [testnet, setTestnet] = useState(false)
@@ -845,14 +908,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [showImportNft, setShowImportNft] = useState(false)
   useEffect(() => { window.wallet.getCustomChains?.().then(setCustomChains).catch(() => {}) }, [])
 
-  // Spam filter state — persisted per account
+  // Spam filter state — per account, and carried on the ChainLens profile so the
+  // same list applies on every device and on the ChainLens website.
   const acctIdx = addresses.accountIndex ?? 0
-  const hiddenKey  = `mmw_hidden_${acctIdx}`
-  const spamKey    = `mmw_spam_${acctIdx}`
-  const allowedKey = `mmw_allowed_${acctIdx}`   // user-restored auto-flagged tokens
-  const [hiddenItems, setHiddenItems]   = useState<Set<string>>(() => loadSet(hiddenKey))
-  const [spamItems,   setSpamItems]     = useState<Set<string>>(() => loadSet(spamKey))
-  const [allowedItems, setAllowedItems] = useState<Set<string>>(() => loadSet(allowedKey))
+  const {
+    hidden: hiddenItems, spam: spamItems, allowed: allowedItems,
+    hide: hideItem, markSpam, restore: restoreItem,
+  } = useAssetFilters(acctIdx)
   const [showManager, setShowManager] = useState(false)
   const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
   // H-1: auto-flagged phishing airdrops (main's spam-filter.ts) are bucketed
@@ -872,7 +934,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [collectibles, setCollectibles] = useState<CollectiblesResult | null>(null)
   const [collectiblesLoading, setCollectiblesLoading] = useState(true)
   // Ids the floor-valuation should skip (hidden/spam) — kept fresh for fetches.
-  const excludeRef = useRef<string[]>([...loadSet(hiddenKey), ...loadSet(spamKey)])
+  // Canonical keys: main matches them with the same canonicalNftKey().
+  const excludeRef = useRef<string[]>([])
   useEffect(() => { excludeRef.current = [...hiddenItems, ...effectiveSpamItems] }, [hiddenItems, effectiveSpamItems])
   // True once balances + tokens + collectibles have ALL finished their first load.
   // Gates the portfolio total so it shows one complete figure (not a "growing"
@@ -888,24 +951,6 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const toggleBalanceHidden = useCallback(() => {
     setBalanceHidden(prev => { const next = !prev; localStorage.setItem('mmw_balance_hidden', next ? '1' : '0'); return next })
   }, [])
-
-  const hideItem = useCallback((id: string) => {
-    setHiddenItems(prev => { const next = new Set(prev).add(id); saveSet(hiddenKey, next); return next })
-  }, [hiddenKey])
-
-  const markSpam = useCallback((id: string) => {
-    setSpamItems(prev => { const next = new Set(prev).add(id); saveSet(spamKey, next); return next })
-  }, [spamKey])
-
-  const restoreItem = useCallback((id: string) => {
-    setHiddenItems(prev => { const next = new Set(prev); next.delete(id); saveSet(hiddenKey, next); return next })
-    setSpamItems(prev  => { const next = new Set(prev);  next.delete(id); saveSet(spamKey, next);   return next })
-    // Auto-flagged tokens need a persistent whitelist entry too, or the
-    // heuristic just re-buckets them on the next fetch.
-    if (tokensResult?.tokens.some(t => t.suspectedSpam && tokenKey(t) === id)) {
-      setAllowedItems(prev => { const next = new Set(prev).add(id); saveSet(allowedKey, next); return next })
-    }
-  }, [hiddenKey, spamKey, allowedKey, tokensResult])
 
   // Request sequence per fetcher. A portfolio fetch fans out over ~20 chains, so
   // one triggered by a user action (importing a token/NFT, adding a network)
@@ -1090,6 +1135,49 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // Find active send chain balance & symbol for the modal
   const activeSendBalance = sendChain ? balances?.chains[sendChain]?.native ?? null : null
   const activeSendSymbol  = sendChain ? balances?.chains[sendChain]?.symbol ?? sendChain.toUpperCase() : ''
+
+  // A send moves balances, token holdings and NFT ownership all at once, so all
+  // three refetch. Indexers lag a few seconds behind the chain, so the 5-minute
+  // interval that follows is what actually settles the numbers — this just
+  // shortens the window where the tab still shows the pre-send state.
+  const refreshAfterSend = useCallback(() => {
+    fetchBalances(true); fetchTokens(true); fetchCollectibles(true)
+  }, [fetchBalances, fetchTokens, fetchCollectibles])
+
+  const openTokenSend = useCallback((token: WalletToken) => {
+    // AGW-held assets must move through the smart account, not the EOA — the
+    // EOA doesn't own them and the transfer would revert.
+    const isAgw = token.source === 'agw'
+    setSendChain(null)
+    setSendAsset({
+      chainId: token.chain,
+      source: isAgw ? 'agw' : 'eoa',
+      asset: tokenToSendAsset(token),
+      // Exact, unrounded — what the Available line and MAX are computed from.
+      balance: token.rawBalance ? formatUnits(token.rawBalance, token.decimals) : token.balance,
+      rawBalance: token.rawBalance,
+      symbol: token.symbol,
+      chainLabel: token.chainLabel,
+    })
+  }, [])
+
+  const openNftSend = useCallback((nft: WalletCollectible) => {
+    const asset = nftToSendAsset(nft)
+    if (!asset) return   // canSendNft gates the button; this is belt-and-braces
+    const isAgw = nft.source === 'agw'
+    setSelectedNft(null)
+    setSendChain(null)
+    setSendAsset({
+      chainId: nft.chain,
+      source: isAgw ? 'agw' : 'eoa',
+      asset,
+      balance: nft.quantity ?? null,
+      rawBalance: nft.quantity ?? '1',
+      symbol: NFT_NATIVE_SYMBOL[nft.chain] ?? '',
+      label: nft.name || `#${nft.tokenId}`,
+      chainLabel: nft.chainLabel,
+    })
+  }, [])
 
   // "Hidden (n)" count for whichever sub-tab is active — lives in the fixed
   // tab bar/search row now, so it needs computing up here instead of inside
@@ -1387,6 +1475,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           search={portfolioSearch}
           onHide={hideItem}
           onSpam={markSpam}
+          onSend={openTokenSend}
         />
       )}
       {portfolioTab === 'collectibles' && (
@@ -1405,10 +1494,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       </div>{/* end scrollable content */}
 
       {selectedNft && (
-        <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} />
+        <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} onSend={openNftSend} />
       )}
 
-      {/* Send modal */}
+      {/* Send modal — native asset, opened from a network card or the AGW panel */}
       {sendChain && (
         <SendModal
           chainId={sendChain === 'abstract-agw' ? 'abstract' : sendChain}
@@ -1416,6 +1505,23 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           balance={activeSendBalance}
           symbol={activeSendSymbol}
           onClose={() => setSendChain(null)}
+          onSent={refreshAfterSend}
+        />
+      )}
+
+      {/* Send modal — token or NFT, opened from the Tokens/Collectibles tabs */}
+      {sendAsset && (
+        <SendModal
+          chainId={sendAsset.chainId}
+          source={sendAsset.source}
+          asset={sendAsset.asset}
+          balance={sendAsset.balance}
+          rawBalance={sendAsset.rawBalance}
+          symbol={sendAsset.symbol}
+          assetLabel={sendAsset.label}
+          chainLabel={sendAsset.chainLabel}
+          onClose={() => setSendAsset(null)}
+          onSent={refreshAfterSend}
         />
       )}
 

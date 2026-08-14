@@ -1,0 +1,10 @@
+Big update since 0.5.3 - thanks for testing!
+
+- Passkeys: Magic Money can now act as your device passkey provider, and manages passkeys for sites in the in-app browser.
+- Midnight: dApp connector, working sends, faster balance sync.
+- Cardano: new CIP-30 support for dApp connections.
+- Hardened Solana and Cardano dApp connections and signing.
+- Abstract Global Wallet signing.
+- Connected Sites and Swap improvements.
+
+Please report anything that looks broken or confusing.

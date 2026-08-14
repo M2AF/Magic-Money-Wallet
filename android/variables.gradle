@@ -3,10 +3,23 @@ ext {
     // (addDocumentStartJavaScript is still feature-checked at runtime in Phase 3).
     minSdkVersion = 26
     // Compile against API 37 so the current embedded Tor Android runtime can
-    // be consumed. targetSdk remains 35, so this does not opt the wallet into
-    // Android 16/17 behavior changes.
+    // be consumed.
+    //
+    // targetSdk 36 (Android 16) is required by Play for app updates from
+    // 2026-08-30. Behavior changes that switch on at 36 and how each lands here:
+    //   • Edge-to-edge is no longer opt-out-able. Already absorbed at 35 (the
+    //     theme never set windowOptOutEdgeToEdgeEnforcement) — insets are
+    //     handled in capacitor/cap.css via env(safe-area-inset-*).
+    //   • Predictive back is on by default: onBackPressed() is not called and
+    //     KEYCODE_BACK is not dispatched. The JS `backButton` event is safe
+    //     (@capacitor/app routes through OnBackPressedDispatcher), but the
+    //     fullscreen-video handler in DappBrowserPlugin had to move off the raw
+    //     key event — see ensureFullscreenContainer().
+    //   • Orientation/resizability ignored on sw>=600dp: the manifest never
+    //     constrained screenOrientation or resizableActivity, so no change.
+    //   • elegantTextHeight ignored: the UI is a WebView; no native TextViews.
     compileSdkVersion = 37
-    targetSdkVersion = 35
+    targetSdkVersion = 36
     androidxActivityVersion = '1.9.2'
     androidxAppCompatVersion = '1.7.0'
     androidxCoordinatorLayoutVersion = '1.2.0'

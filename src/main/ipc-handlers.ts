@@ -164,6 +164,8 @@ import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from './xchange-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
+import { fetchAssetFilters, pushAssetFilters } from './asset-filter-sync'
+import type { AssetFilterEntries } from '../shared/asset-filter-key'
 import {
   wcGetSessions, wcGetPendingProposals,
   wcPair, wcApproveSession, wcRejectSession,
@@ -188,7 +190,8 @@ import {
   estimateZcashFee,
   sendMoneroTransaction,
   sendZcashTransaction,
-  type SendResult
+  type SendResult,
+  type SendAsset
 } from './tx-sender'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
@@ -877,14 +880,17 @@ export function registerIpcHandlers(): void {
     _event,
     chainId: string,
     to: string,
-    amount: string
+    amount: string,
+    asset?: SendAsset
   ) => {
     const config = loadConfig()
     // getFullAddresses migrates older wallets so tron/dogecoin addresses exist here.
     const addresses = await getFullAddresses()
-    if (chainId === 'solana')   return estimateSolanaFee(config)
+    if (chainId === 'solana')   return estimateSolanaFee(config, { asset, to })
     if (chainId === 'cardano')  return estimateCardanoFee(addresses.cardano, config)
-    if (chainId === 'tron')     return estimateTronFee(to, config)
+    // A contract call burns energy rather than bandwidth, so the flat estimate
+    // has to know it isn't a plain TRX transfer.
+    if (chainId === 'tron')     return estimateTronFee(to, config, !!asset)
     if (chainId === 'dogecoin') {
       if (!addresses.dogecoin) throw new Error('No Dogecoin address found')
       return estimateDogecoinFee(addresses.dogecoin, to, amount)
@@ -898,25 +904,32 @@ export function registerIpcHandlers(): void {
       if (!addresses.privacy?.zcashTransparent) throw new Error('No Zcash address found')
       return estimateZcashFee(addresses.privacy.zcashTransparent, to, amount)
     }
-    return estimateEvmFee(addresses.evm, to, amount, config, chainId)
+    return estimateEvmFee(addresses.evm, to, amount, config, chainId, asset)
   })
 
   // ── Phase 2: Send EVM ─────────────────────────────────────────────────
-  ipcMain.handle('wallet:send-evm', async (_event, chainId: string, to: string, amountEth: string) => {
+  // Native coin when `asset` is omitted; ERC-20 / ERC-721 / ERC-1155 otherwise.
+  ipcMain.handle('wallet:send-evm', async (
+    _event,
+    chainId: string,
+    to: string,
+    amountEth: string,
+    asset?: SendAsset
+  ) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
     const accountIndex = loadAddresses()?.accountIndex ?? 0
-    return sendEvmTransaction(mnemonic, to, amountEth, config, chainId, accountIndex)
+    return sendEvmTransaction(mnemonic, to, amountEth, config, chainId, accountIndex, asset)
   })
 
   // ── Send FROM the Abstract Global Wallet (smart account) on Abstract ────
-  // Native ETH when token is omitted; ERC-20 transfer otherwise. Gated on
+  // Native ETH when asset is omitted; ERC-20 or NFT transfer otherwise. Gated on
   // ownership — a watch-only (override) AGW cannot be signed for.
   ipcMain.handle('wallet:send-agw', async (
     _event,
     to: string,
     amount: string,
-    token?: { contractAddress: string; decimals: number }
+    asset?: SendAsset
   ) => {
     const addresses = await getFullAddresses()
     if (!addresses.agw) throw new Error('No Abstract Global Wallet linked for this account')
@@ -928,41 +941,54 @@ export function registerIpcHandlers(): void {
     // not — decrypt it only for the send, and only when it is the active owner.
     const signerKey = addresses.agwSignerActive ? await loadAgwSignerKey(accountIndex) : null
     return sendAgwTransaction(mnemonic, to, amount, config, accountIndex, {
-      token,
+      asset,
       agwAddress: addresses.agw,
       signerKey: signerKey ?? undefined
     })
   })
 
   // ── Phase 2: Send Solana ──────────────────────────────────────────────
-  ipcMain.handle('wallet:send-solana', async (_event, to: string, amountSol: string) => {
+  // Native SOL when `asset` is omitted; an SPL token or uncompressed NFT otherwise.
+  ipcMain.handle('wallet:send-solana', async (
+    _event,
+    to: string,
+    amountSol: string,
+    asset?: SendAsset
+  ) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
     const accountIndex = loadAddresses()?.accountIndex ?? 0
-    return sendSolanaTransaction(mnemonic, to, amountSol, config, accountIndex)
+    return sendSolanaTransaction(mnemonic, to, amountSol, config, accountIndex, asset)
   })
 
   // ── Phase 2: Send Cardano ─────────────────────────────────────────────
-  ipcMain.handle('wallet:send-cardano', async (_event, to: string, amountAda: string) => {
+  // Native ADA when `asset` is omitted; a native asset / CIP-25 CNFT otherwise
+  // (which carries its own computed min-ADA, ignoring amountAda).
+  ipcMain.handle('wallet:send-cardano', async (
+    _event,
+    to: string,
+    amountAda: string,
+    asset?: SendAsset
+  ) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
     // getFullAddresses: in Testnet Mode this is the addr_test… address.
     const addresses = await getFullAddresses()
     if (!addresses.cardano) throw new Error('No Cardano address found')
-    return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config, addresses.accountIndex ?? 0)
+    return sendCardanoTransaction(mnemonic, addresses.cardano, to, amountAda, config, addresses.accountIndex ?? 0, asset)
   })
 
-  // ── Send Tron (native TRX, or TRC-20 when token is provided) ──────────────
+  // ── Send Tron (native TRX, or TRC-20/721/1155 when asset is provided) ─────
   ipcMain.handle('wallet:send-tron', async (
     _event,
     to: string,
     amount: string,
-    token?: { contractAddress: string; decimals: number }
+    asset?: SendAsset
   ) => {
     const mnemonic = loadMnemonic()
     const config = loadConfig()
     const accountIndex = loadAddresses()?.accountIndex ?? 0
-    return sendTronTransaction(mnemonic, to, amount, config, accountIndex, token)
+    return sendTronTransaction(mnemonic, to, amount, config, accountIndex, asset)
   })
 
   // ── Send Dogecoin (legacy P2PKH UTXO) ─────────────────────────────────────
@@ -2622,4 +2648,12 @@ export function registerIpcHandlers(): void {
     if (!profile) return { success: false, error: 'No ChainLens profile found' }
     return updateProfile(profile.id, updates, loadConfig())
   })
+
+  // ── Hidden/spam asset list, carried on the ChainLens profile ──────────────
+  // Both return null entries for "could not sync"; the dashboard keeps showing
+  // its local list in that case rather than un-hiding everything.
+  ipcMain.handle('assetfilters:get', () => fetchAssetFilters(loadConfig()))
+
+  ipcMain.handle('assetfilters:push', (_e, entries: AssetFilterEntries) =>
+    pushAssetFilters(entries, loadConfig()))
 }

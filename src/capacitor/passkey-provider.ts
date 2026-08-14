@@ -112,8 +112,14 @@ export function getPendingPasskeyApprovals(): Array<PasskeyApprovalRequest & { i
  */
 async function capacitorVerifyUser(reason: string): Promise<PasskeyVerification> {
   let available = false
+  // TOUCH_ID = 1, FACE_ID = 2 in @capgo's BiometryType; anything else is an
+  // Android sensor (FINGERPRINT / FACE_AUTHENTICATION / IRIS / MULTIPLE).
+  let sensor: PasskeyVerification = 'android-biometric'
   try {
-    available = !!(await NativeBiometric.isAvailable()).isAvailable
+    const status = await NativeBiometric.isAvailable()
+    available = !!status.isAvailable
+    if (status.biometryType === 1) sensor = 'touch-id'
+    else if (status.biometryType === 2) sensor = 'face-id'
   } catch {
     available = false
   }
@@ -126,7 +132,11 @@ async function capacitorVerifyUser(reason: string): Promise<PasskeyVerification>
       subtitle: reason,
       useFallback: true,
     })
-    return 'android-biometric'
+    // Both native targets reach this path (@capgo/capacitor-native-biometric
+    // ships an iOS implementation), so report the sensor the device actually
+    // has rather than hardcoding Android — a Face ID confirmation recorded as
+    // 'android-biometric' is wrong in the approval record and in telemetry.
+    return sensor
   } catch (e) {
     throw passkeyError(PASSKEY_VERIFICATION_FAILED, e instanceof Error ? e.message : 'Biometric check failed')
   }

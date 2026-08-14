@@ -138,7 +138,10 @@ export interface PasskeyCredentialRecord {
   createdAt: number
 }
 
-export type PasskeyVerification = 'windows-hello' | 'touch-id' | 'android-biometric' | 'wallet-password'
+// 'face-id' is reported by the iOS build, which reaches the same Capacitor
+// biometric path as Android (@capgo ships an iOS implementation) and derives the
+// sensor from BiometryType rather than assuming the platform.
+export type PasskeyVerification = 'windows-hello' | 'touch-id' | 'face-id' | 'android-biometric' | 'wallet-password'
 
 export interface PasskeyAccount {
   accountIndex: number

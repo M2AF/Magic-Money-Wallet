@@ -134,7 +134,29 @@ preBuild.dependsOn 'buildMagicGuardCore'
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    // 16 KB page size (Play requirement for apps targeting Android 15+).
+    // capacitor-mlkit-barcode-scanning still resolves androidx.camera 1.1.0,
+    // whose libimage_processing_util_jni.so is linked with 4 KB max-page-size —
+    // Play rejects the bundle for it. CameraX ships 16 KB-aligned binaries from
+    // 1.4.0 on. Constraints (not a direct dependency) so the plugin keeps owning
+    // which CameraX artifacts it pulls; we only raise the floor.
+    //
+    // ⚠ This moves the QR scanner from CameraX 1.1.0 to 1.4.2. Re-verify
+    // WalletConnect pairing and send-address scanning on a device before
+    // release: the alignment check only proves the .so linkage, not that the
+    // camera still works.
+    constraints {
+        implementation('androidx.camera:camera-core:1.4.2')
+        implementation('androidx.camera:camera-camera2:1.4.2')
+        implementation('androidx.camera:camera-lifecycle:1.4.2')
+        implementation('androidx.camera:camera-view:1.4.2')
+    }
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    // OnBackPressedDispatcher — DappBrowserPlugin exits fullscreen video through
+    // it, because targetSdk 36 stops dispatching KEYCODE_BACK. Already in the
+    // graph via appcompat/capacitor at this same version; declared explicitly
+    // because we now import androidx.activity directly.
+    implementation "androidx.activity:activity:$androidxActivityVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     // DappBrowserPlugin: addDocumentStartJavaScript + addWebMessageListener

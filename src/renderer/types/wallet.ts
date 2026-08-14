@@ -1,5 +1,9 @@
 import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange, XchangeEstimate, XchangeCreateParams, ExchangeProvider } from './simpleswap'
 import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
+// Unlike src/main (deliberately not reachable from the renderer), src/shared is
+// platform-neutral — no node, no electron — so importing it here typechecks
+// under every target's lib, even though it sits outside tsconfig.web's include.
+import type { AssetFilterEntries } from '../../shared/asset-filter-key'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -167,6 +171,13 @@ export interface WalletToken {
   symbol: string
   decimals: number
   balance: string
+  /**
+   * Exact holding in base units. `balance` is a rounded, comma-grouped DISPLAY
+   * string — never do arithmetic on it. Absent for the read-only asset classes
+   * (Bitcoin runes/BRC-20, Midnight DUST); the send UI treats absent as
+   * "not sendable" rather than guessing.
+   */
+  rawBalance?: string
   usdValue: string | null
   nativeEquivalent: string | null
   nativeSymbol: string
@@ -203,7 +214,15 @@ export interface WalletCollectible {
   chainColor: string
   tokenId: string
   contractAddress: string
+  /**
+   * NOT normalized across sources — Alchemy writes "ERC721", Blockscout
+   * "ERC-721", Tron "TRC-721", Cardano "CIP25", Solana "NFT"/"cNFT", Bitcoin
+   * "inscription". Classify with nftStandard() in ../lib/asset-send, never by
+   * comparing this string directly.
+   */
   contractType: string
+  /** ERC-1155/TRC-1155 editions held. Absent on 1-of-1 standards. */
+  quantity?: string
   traits: NftTrait[]
   source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
   floorPrice?: number | null   // collection floor in the chain's native unit
@@ -319,6 +338,29 @@ export interface FeeEstimate {
   feeSymbol: string
   feeUsd: string | null
 }
+
+/**
+ * Which transfer semantics a send uses. Mirrors the definition in
+ * src/main/tx-sender.ts (this file deliberately duplicates main's types rather
+ * than importing across the renderer/main boundary — see WalletToken above).
+ *
+ * 'erc721'/'erc1155' also cover Tron's TRC-721/TRC-1155, which share the ABI.
+ * 'cardano' is a CIP-25 native asset. 'spl' is a Solana SPL mint held at
+ * quantity 1. Compressed Solana NFTs and Bitcoin ordinals are deliberately
+ * absent — they need data the fetcher does not capture, so the UI gates them.
+ */
+export type NftStandard = 'erc721' | 'erc1155' | 'spl' | 'cardano'
+
+export type SendAsset =
+  | { kind: 'token'; contractAddress: string; decimals: number; symbol?: string }
+  | {
+      kind: 'nft'
+      contractAddress: string
+      tokenId: string
+      standard: NftStandard
+      /** ERC-1155/TRC-1155 editions to move. Defaults to '1' elsewhere. */
+      quantity?: string
+    }
 
 export interface SendResult {
   txHash: string
@@ -442,6 +484,16 @@ export interface PasswordBioStatus {
  * after "Unlock with …". Android's BiometricPrompt can be a fingerprint or a
  * face depending on the device, so it stays generic rather than guessing.
  */
+/**
+ * Every biometric sensor any target can report. ONE definition — this union was
+ * previously copy-pasted into local useState declarations, and a copy that had
+ * drifted (missing 'face-id') is what made an iPhone render "Enable Windows
+ * Hello unlock": the local fallback mapped anything unrecognised to Windows.
+ * Import this rather than re-spelling it, and pair it with bioMethodLabel()
+ * below so the UI asks what the device reported instead of assuming a platform.
+ */
+export type BiometricMethod = 'windows-hello' | 'touch-id' | 'face-id' | 'android-biometric'
+
 export function bioMethodLabel(method: string | null | undefined): string {
   switch (method) {
     case 'windows-hello': return 'Windows Hello'
@@ -561,7 +613,7 @@ declare global {
       reportActivity?(): void
       // Biometric unlock — Windows Hello / Touch ID / Android BiometricPrompt
       // (optional; absent on the extension bridge).
-      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: 'windows-hello' | 'touch-id' | 'android-biometric' | null }>
+      helloStatus?(): Promise<{ supported: boolean; enrolled: boolean; method?: BiometricMethod | null }>
       // ── Android 14+ system passkey provider (Capacitor only) ──────────────
       // Optional, capability-probed like helloStatus above: only the Android
       // build implements these, and only Android 14+ can honour them. The row
@@ -594,13 +646,15 @@ declare global {
       revealSeed(password: string): Promise<string[]>
       // Phase 2
       validateAddress(chainId: string, to: string): Promise<{ valid: boolean; reason?: string }>
-      estimateFee(chainId: string, to: string, amount: string): Promise<FeeEstimate>
-      sendEvm(chainId: string, to: string, amount: string): Promise<SendResult>
-      sendAgw(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
-      sendSolana(to: string, amount: string): Promise<SendResult>
-      sendCardano(to: string, amount: string): Promise<SendResult>
+      // `asset` is omitted for a native send (every pre-existing call site), set
+      // for an ERC-20/SPL/native-asset token or an NFT. See SendAsset above.
+      estimateFee(chainId: string, to: string, amount: string, asset?: SendAsset): Promise<FeeEstimate>
+      sendEvm(chainId: string, to: string, amount: string, asset?: SendAsset): Promise<SendResult>
+      sendAgw(to: string, amount: string, asset?: SendAsset): Promise<SendResult>
+      sendSolana(to: string, amount: string, asset?: SendAsset): Promise<SendResult>
+      sendCardano(to: string, amount: string, asset?: SendAsset): Promise<SendResult>
       sendBitcoin(to: string, amount: string): Promise<SendResult>
-      sendTron(to: string, amount: string, token?: { contractAddress: string; decimals: number }): Promise<SendResult>
+      sendTron(to: string, amount: string, asset?: SendAsset): Promise<SendResult>
       sendDogecoin(to: string, amount: string): Promise<SendResult>
       sendMonero(to: string, amount: string): Promise<SendResult>
       sendZcash(to: string, amount: string): Promise<SendResult>
@@ -800,6 +854,14 @@ declare global {
       chainlensSync(): Promise<ChainlensSyncResult>
       chainlensUpdateProfile(updates: { display_name?: string; avatar_url?: string }): Promise<{ success: boolean; error: string | null }>
       chainlensPickAvatar(): Promise<string | null>
+      /**
+       * Hidden/spam asset list shared with the ChainLens website. Both resolve
+       * `entries: null` for "could not sync" — which is NOT an empty list, and
+       * callers must keep their local list rather than un-hiding everything.
+       * Absent on builds without profile sync (the extension stubs both out).
+       */
+      assetFiltersGet?(): Promise<AssetFilterEntries | null>
+      assetFiltersPush?(entries: AssetFilterEntries): Promise<{ entries: AssetFilterEntries | null; error: string | null }>
       // Phase 10: WalletConnect
       wcGetSessions(): Promise<WcSession[]>
       wcGetPendingProposals(): Promise<WcProposal[]>

@@ -10,6 +10,7 @@ import {
   ordinalsFetch, canOrdiscan, anvilFetch, canAnvil,
 } from './api-proxy'
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
+import { canonicalNftKey } from '../shared/asset-filter-key'
 
 export interface WalletToken {
   contractAddress: string
@@ -17,6 +18,18 @@ export interface WalletToken {
   symbol: string
   decimals: number
   balance: string
+  /**
+   * Exact holding in base units (no decimal point, no separators), e.g. "2877061234".
+   * `balance` above is a DISPLAY string — formatNum rounds it to ~4 significant
+   * digits and adds thousands separators — so it must never be used for arithmetic.
+   * Sends validate amounts and compute MAX against this field instead.
+   *
+   * Optional because the read-only asset classes (Bitcoin runes/BRC-20, Midnight
+   * DUST) never populate it. The send UI treats a missing rawBalance as
+   * "not sendable" and hides the Send action, so an absent value can only ever
+   * withhold the button — never produce a wrong amount.
+   */
+  rawBalance?: string
   usdValue: string | null
   nativeEquivalent: string | null
   nativeSymbol: string
@@ -56,6 +69,13 @@ export interface WalletCollectible {
   contractAddress: string
   contractType: string
   traits: NftTrait[]
+  /**
+   * How many of this token the wallet holds. Only meaningful for ERC-1155/TRC-1155,
+   * where a holder can own several editions of one id; every other standard is a
+   * 1-of-1 and omits it (the send UI defaults to '1'). Base units — 1155 ids have
+   * no decimals.
+   */
+  quantity?: string
   source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
   floorPrice?: number | null   // collection floor in the chain's native unit
   usdValue?: string | null     // floor × native price, e.g. "$42.10"
@@ -361,6 +381,7 @@ async function fetchTokensForChain(
         symbol:   meta?.symbol ?? '???',
         decimals,
         balance,
+        rawBalance: BigInt(t.tokenBalance).toString(),
         usdValue: null,
         nativeEquivalent: null,
         nativeSymbol: NATIVE_SYMBOL[chain.id] ?? 'ETH',
@@ -409,6 +430,8 @@ async function fetchSolanaTokens(address: string, config: WalletConfig): Promise
           contractAddress: item.id,
           name, symbol, decimals,
           balance: humanBalanceDecimal(balance, decimals),
+          // DAS reports token_info.balance already in base units.
+          rawBalance: BigInt(Math.round(balance)).toString(),
           usdValue: null,
           nativeEquivalent: null,
           nativeSymbol: 'SOL',
@@ -539,6 +562,8 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
             name, symbol,
             decimals,
             balance: humanBalance(a.quantity, decimals),
+            // Blockfrost quantities are already base units (decimal string).
+            rawBalance: a.quantity,
             usdValue: null, nativeEquivalent: null, nativeSymbol: 'ADA',
             logoUri: logo,
             chain: 'cardano', chainLabel: 'Cardano', chainColor: '#2A7DEA'
@@ -710,6 +735,7 @@ async function fetchMonadTokens(address: string): Promise<WalletToken[]> {
         contractAddress: t.address,
         name: t.name, symbol: t.symbol, decimals: t.decimals,
         balance: bal.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+        rawBalance: raw.toString(),
         usdValue: null, nativeEquivalent: null, nativeSymbol: 'MON',
         // Leave null — TrustWallet has no Monad assets. enrichWithPrices fills
         // this from the token's DexScreener image (same source ChainLens uses).
@@ -796,6 +822,7 @@ async function fetchBlockscoutTokens(chain: ChainDef, address: string): Promise<
         symbol,
         decimals,
         balance: humanBalance(`0x${raw.toString(16)}`, decimals),
+        rawBalance: raw.toString(),
         usdValue: null,
         nativeEquivalent: null,
         nativeSymbol: chain.nativeSymbol,
@@ -829,6 +856,7 @@ async function fetchImportedTokens(
         symbol: t.symbol,
         decimals: t.decimals,
         balance: humanBalance(`0x${raw.toString(16)}`, t.decimals),
+        rawBalance: raw.toString(),
         usdValue: null,
         nativeEquivalent: null,
         nativeSymbol: chain.nativeSymbol,
@@ -866,6 +894,8 @@ async function fetchCustomChainTokens(address: string, config: WalletConfig): Pr
 interface BlockscoutNftItem {
   id?: string | null
   token_type?: string | null
+  /** ERC-1155 editions held of this id; absent for ERC-721. */
+  value?: string | null
   image_url?: string | null
   animation_url?: string | null
   metadata?: { name?: string; description?: string; image?: string; animation_url?: string; attributes?: unknown[] } | null
@@ -902,6 +932,7 @@ async function fetchCustomChainNftsFor(chain: ChainDef, address: string): Promis
         tokenId: String(tokenId),
         contractAddress: contract.toLowerCase(),
         contractType: nft.token_type ?? nft.token?.type ?? 'ERC-721',
+        quantity: nft.value ?? undefined,
         traits: attrs
           .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
           .filter(a => a['trait_type'] != null && a['value'] != null)
@@ -1011,6 +1042,15 @@ async function nftTokenUri(
   return raw.replace(/\{id\}/g, hexWord(tokenId))
 }
 
+/** How many editions of an ERC-1155 id `holder` owns. null when unreadable. */
+async function erc1155Balance(
+  rpcUrl: string, contract: string, tokenId: bigint, holder: string
+): Promise<bigint | null> {
+  const hex = await ethCall(rpcUrl, contract, `${SEL.balanceOf1155}${addrWord(holder)}${hexWord(tokenId)}`)
+  if (!hex || hex === '0x') return null
+  try { return BigInt(hex) } catch { return null }
+}
+
 /** True when `holder` currently owns this token. */
 async function ownsNft(
   rpcUrl: string, contract: string, tokenId: bigint, type: 'ERC-721' | 'ERC-1155', holder: string
@@ -1031,7 +1071,8 @@ async function ownsNft(
 /** Turn on-chain metadata into the shape the Collectibles tab renders. */
 function toCollectible(
   chain: ChainDef, contract: string, tokenId: string,
-  type: 'ERC-721' | 'ERC-1155', meta: NftMetadata | null, collectionName: string | null
+  type: 'ERC-721' | 'ERC-1155', meta: NftMetadata | null, collectionName: string | null,
+  quantity?: string
 ): WalletCollectible {
   const attrs = Array.isArray(meta?.attributes) ? meta!.attributes : []
   return {
@@ -1047,6 +1088,7 @@ function toCollectible(
     tokenId,
     contractAddress: contract.toLowerCase(),
     contractType: type,
+    quantity,
     traits: attrs
       .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
       .filter(a => a['trait_type'] != null && a['value'] != null)
@@ -1064,12 +1106,18 @@ async function fetchImportedNfts(
     try {
       const tokenId = BigInt(n.tokenId)
       if (!(await ownsNft(url, n.contractAddress, tokenId, n.type, address))) return null
-      const [uri, collectionName] = await Promise.all([
+      const [uri, collectionName, quantity] = await Promise.all([
         nftTokenUri(url, n.contractAddress, tokenId, n.type),
         ethCall(url, n.contractAddress, SEL.name).then(decodeAbiString).catch(() => ''),
+        // 1155s can hold several editions of one id. Rides the same Promise.all
+        // as the metadata reads, so it costs no extra latency.
+        n.type === 'ERC-1155' ? erc1155Balance(url, n.contractAddress, tokenId, address) : Promise.resolve(null),
       ])
       const meta = uri ? await fetchNftMetadata(uri) : null
-      return toCollectible(chain, n.contractAddress, n.tokenId, n.type, meta, collectionName || null)
+      return toCollectible(
+        chain, n.contractAddress, n.tokenId, n.type, meta, collectionName || null,
+        quantity != null ? quantity.toString() : undefined
+      )
     } catch {
       return null
     }
@@ -1305,6 +1353,7 @@ async function fetchTronTokens(address: string, config: WalletConfig): Promise<W
         contractAddress: t.address,
         name: t.name, symbol: t.symbol, decimals: t.decimals,
         balance: bal.toLocaleString('en-US', { maximumFractionDigits: 6 }),
+        rawBalance: raw.toString(),
         usdValue: null, nativeEquivalent: null, nativeSymbol: 'TRX',
         logoUri: null,   // enrichWithPrices backfills from DexScreener
         chain: TRON_CHAIN.id, chainLabel: TRON_CHAIN.label, chainColor: TRON_CHAIN.color
@@ -1676,6 +1725,8 @@ interface ChainNftResult {
 
 interface AlchemyOwnedNft {
   tokenId: string
+  /** ERC-1155 editions held of this id. Alchemy returns "1" for ERC-721. */
+  balance?: string
   contract: {
     address: string
     name: string | null
@@ -1733,6 +1784,9 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
     tokenId: nft.tokenId,
     contractAddress: nft.contract.address,
     contractType: nft.contract.tokenType,
+    // Only ERC-1155 can hold more than one edition of an id; anything else is a
+    // 1-of-1 and leaves this undefined so the send UI defaults to 1.
+    quantity: /1155/.test(nft.contract.tokenType) ? (nft.balance ?? '1') : undefined,
     // Spam/malformed NFTs sometimes return `attributes` as an object or string
     // instead of an array. Guard with Array.isArray — without it, .filter throws
     // and the whole chain's .map aborts, dropping every NFT on that chain.
@@ -1974,6 +2028,18 @@ function scheduleFloorSave(): void {
 const _diskFloored = new WeakSet<WalletCollectible>()
 
 /**
+ * How an NFT is named in the renderer's hidden/spam list.
+ *
+ * The exclude list arrives from the dashboard, which keys on the canonical asset
+ * id it shares with ChainLens — NOT on `WalletCollectible.id`. Matching on `.id`
+ * here would silently stop excluding anything, and the wallet would spend its
+ * OpenSea rate-limit valuing the scam airdrops the user has already hidden.
+ */
+function nftExcludeKey(n: WalletCollectible): string {
+  return canonicalNftKey(n.chain, n.contractAddress, n.tokenId)
+}
+
+/**
  * Apply last-known-good floors to freshly-fetched items so the Collectibles tab
  * shows values IMMEDIATELY; the live enrichment pass then refreshes them in the
  * background and pushes the corrected list to the UI. Also USD-izes Alchemy
@@ -1984,7 +2050,7 @@ async function applyCachedFloors(items: WalletCollectible[], exclude?: Set<strin
   const now = Date.now()
   const withEntry: Array<[WalletCollectible, { floor: number; symbol: string }]> = []
   for (const i of items) {
-    if (exclude?.has(i.id)) continue
+    if (exclude?.has(nftExcludeKey(i))) continue
     if (i.floorPrice != null) {
       // Alchemy inline floor (native units) — just needs a USD conversion.
       withEntry.push([i, { floor: i.floorPrice, symbol: NATIVE_SYMBOL[i.chain] ?? 'ETH' }])
@@ -2222,7 +2288,7 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const { solanaAddress, evmAddress, agw, exclude } = opts
   // Only value what the user actually sees. Spam airdrops are often 1-off NFTs from
   // hundreds of distinct junk collections; valuing them wastes the rate-limit budget.
-  const visible = exclude && exclude.size ? items.filter(i => !exclude.has(i.id)) : items
+  const visible = exclude && exclude.size ? items.filter(i => !exclude.has(nftExcludeKey(i))) : items
   // Resolve UNVALUED collections FIRST. applyCachedFloors sorts `items` by USD
   // before this pass runs, so anything the disk cache couldn't price sinks to the
   // bottom of the array — and since the OpenSea lane is serialized at ~3 req/s,

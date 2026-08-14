@@ -12,10 +12,9 @@ import {
   fallback,
   parseEther,
   parseUnits,
-  encodeFunctionData,
-  parseAbi,
   defineChain,
   type Chain,
+  type PublicClient,
   type Transport
 } from 'viem'
 import {
@@ -55,6 +54,8 @@ import {
   getCardanoSpendingKey,
   buildCardanoTx,
   decodeCardanoAddress,
+  minAdaForOutput,
+  type CardanoAsset,
   type CardanoUtxo
 } from './cardano-pure'
 import type { WalletConfig } from './secure-store'
@@ -65,6 +66,11 @@ import {
   KOIOS_URL, TESTNET_KOIOS_URL, isTestnet
 } from './chain-config'
 import { koiosAddressUtxos, koiosSubmitTx } from './cardano-koios'
+import {
+  encodeErc20Transfer, encodeNftTransfer,
+  resolveEvmNftStandard, assertEvmNftOwnership,
+} from './asset-transfer'
+import { buildSplTransferIxs, getSplMintInfo, associatedTokenAddress } from './spl-transfer'
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 
@@ -78,6 +84,28 @@ export interface FeeEstimate {
   feeSymbol: string    // e.g. "ETH"
   feeUsd: string | null
 }
+
+/**
+ * Which transfer semantics a send uses. Omitted by every caller that moves the
+ * chain's native coin — that is the default and the pre-existing behaviour.
+ *
+ * Mirrored in src/renderer/types/wallet.ts; the renderer deliberately doesn't
+ * import across the main boundary (tsconfig.web.json scopes it to src/renderer),
+ * so the two definitions are kept in step by asset-send.contract.test.ts.
+ *
+ * 'erc721'/'erc1155' also cover Tron's TRC-721/TRC-1155, which share the ABI.
+ */
+export type NftStandard = 'erc721' | 'erc1155' | 'spl' | 'cardano'
+
+export type SendAsset =
+  | { kind: 'token'; contractAddress: string; decimals: number; symbol?: string }
+  | {
+      kind: 'nft'
+      contractAddress: string
+      tokenId: string
+      standard: NftStandard
+      quantity?: string
+    }
 
 // Tron + Dogecoin senders live in their own modules (TRON HTTP API / UTXO signing
 // are unlike the viem-centric EVM path here). Re-exported so callers import from one
@@ -235,23 +263,78 @@ function evmTransport(entry: EvmChainEntry, config: WalletConfig): Transport {
     : http(urls[0])
 }
 
+/**
+ * Turn a send request into the actual EVM call to make.
+ *
+ * Native sends pass value straight to the recipient. Token and NFT sends instead
+ * call the asset's own contract with encoded calldata and zero value — so `to`
+ * becomes the contract and the recipient moves into the arguments.
+ *
+ * Both estimateEvmFee and sendEvmTransaction go through here. That is the point:
+ * the fee the user is shown is measured against byte-for-byte the same calldata
+ * that later gets broadcast, and the on-chain standard/ownership checks happen
+ * once, at estimate time, rather than surfacing as a revert after they've paid.
+ */
+async function buildEvmAssetTx(
+  client: PublicClient,
+  from: string,
+  to: string,
+  amount: string,
+  asset?: SendAsset
+): Promise<{ to: `0x${string}`; data?: `0x${string}`; value: bigint }> {
+  if (!asset) {
+    return { to: to as `0x${string}`, value: parseEther(amount) }
+  }
+
+  if (asset.kind === 'token') {
+    return {
+      to: asset.contractAddress as `0x${string}`,
+      data: encodeErc20Transfer(to, amount, asset.decimals),
+      value: 0n
+    }
+  }
+
+  if (asset.standard !== 'erc721' && asset.standard !== 'erc1155') {
+    throw new Error(`Cannot send a ${asset.standard} asset on an EVM chain`)
+  }
+
+  // Never encode from the renderer's hint alone — re-derive it on-chain.
+  const standard = await resolveEvmNftStandard(client, asset.contractAddress, asset.standard)
+  await assertEvmNftOwnership({
+    client, standard, contract: asset.contractAddress,
+    tokenId: asset.tokenId, owner: from, quantity: asset.quantity
+  })
+
+  return {
+    to: asset.contractAddress as `0x${string}`,
+    data: encodeNftTransfer({
+      standard, from, to, tokenId: asset.tokenId, quantity: asset.quantity
+    }),
+    value: 0n
+  }
+}
+
 export async function estimateEvmFee(
   from: string,
   to: string,
   amountEth: string,
   config: WalletConfig,
-  chainId = 'ethereum'
+  chainId = 'ethereum',
+  asset?: SendAsset
 ): Promise<FeeEstimate> {
   const entries = evmEntries(config)
   const entry = entries[chainId] ?? entries.ethereum
   const transport = evmTransport(entry, config)
   const client = createPublicClient({ chain: entry.chain, transport })
 
+  const call = await buildEvmAssetTx(client as PublicClient, from, to, amountEth, asset)
+
   const [gasEstimate, feeData] = await Promise.all([
     client.estimateGas({
       account: from as `0x${string}`,
-      to: to as `0x${string}`,
-      value: parseEther(amountEth)
+      to: call.to,
+      value: call.value,
+      ...(call.data ? { data: call.data } : {})
     }),
     client.estimateFeesPerGas().catch(() => null)
   ])
@@ -298,7 +381,8 @@ export async function sendEvmTransaction(
   amountEth: string,
   config: WalletConfig,
   chainId = 'ethereum',
-  accountIndex = 0
+  accountIndex = 0,
+  asset?: SendAsset
 ): Promise<SendResult> {
   const entries = evmEntries(config)
   const entry = entries[chainId] ?? entries.ethereum
@@ -306,10 +390,16 @@ export async function sendEvmTransaction(
   const account = privateKeyToAccount(pk)
   const transport = evmTransport(entry, config)
   const walletClient = createWalletClient({ chain: entry.chain, transport, account })
+  const publicClient = createPublicClient({ chain: entry.chain, transport })
+
+  const call = await buildEvmAssetTx(
+    publicClient as PublicClient, account.address, to, amountEth, asset
+  )
 
   const hash = await walletClient.sendTransaction({
-    to: to as `0x${string}`,
-    value: parseEther(amountEth)
+    to: call.to,
+    value: call.value,
+    ...(call.data ? { data: call.data } : {})
   })
 
   // Custom chains may have no explorer — '' hides the link (SendModal guards on
@@ -376,13 +466,11 @@ export async function sendRawEvmTransaction(
 
 // ─── Abstract Global Wallet (smart account) send ──────────────────────────────
 
-const ERC20_TRANSFER_ABI = parseAbi(['function transfer(address to, uint256 amount) returns (bool)'])
-
 /**
- * Send native ETH or an ERC-20 FROM the Abstract Global Wallet (smart account)
- * on Abstract. The signer is this wallet's EOA, or `opts.signerKey` when the user
- * imported the AGW's own signer key from the Abstract portal — either way it must
- * be a K1 owner of the account, so callers MUST gate on `agwOwned`.
+ * Send native ETH, an ERC-20, or an NFT FROM the Abstract Global Wallet (smart
+ * account) on Abstract. The signer is this wallet's EOA, or `opts.signerKey` when
+ * the user imported the AGW's own signer key from the Abstract portal — either way
+ * it must be a K1 owner of the account, so callers MUST gate on `agwOwned`.
  * @abstract-foundation/agw-client builds + signs the zkSync EIP-712 (type-113)
  * account-abstraction transaction and auto-deploys the smart account on its first
  * send. The AGW pays its own gas, so it must hold a little ETH (no paymaster
@@ -394,7 +482,7 @@ export async function sendAgwTransaction(
   amount: string,
   config: WalletConfig,
   accountIndex = 0,
-  opts?: { token?: { contractAddress: string; decimals: number }; agwAddress?: string; signerKey?: string }
+  opts?: { asset?: SendAsset; agwAddress?: string; signerKey?: string }
 ): Promise<SendResult> {
   // AGW is hidden in Testnet Mode (renderer gates it too) — hard-stop here so a
   // stale renderer can't accidentally fire a MAINNET Abstract transaction.
@@ -418,17 +506,22 @@ export async function sendAgwTransaction(
 
   const explorer = EVM_CHAINS.abstract.explorer
 
-  let hash: `0x${string}`
-  if (opts?.token) {
-    const data = encodeFunctionData({
-      abi: ERC20_TRANSFER_ABI,
-      functionName: 'transfer',
-      args: [to as `0x${string}`, parseUnits(amount, opts.token.decimals)]
-    })
-    hash = await agwClient.sendTransaction({ to: opts.token.contractAddress as `0x${string}`, data })
-  } else {
-    hash = await agwClient.sendTransaction({ to: to as `0x${string}`, value: parseEther(amount) })
-  }
+  // The smart account is the token holder, so `from` in an NFT transfer is the
+  // AGW address — not the EOA that signs for it.
+  const holder = agwClient.account.address
+  const publicClient = createPublicClient({
+    chain: EVM_CHAINS.abstract.chain,
+    transport: evmTransport(EVM_CHAINS.abstract, config)
+  })
+  const call = await buildEvmAssetTx(
+    publicClient as PublicClient, holder, to, amount, opts?.asset
+  )
+
+  const hash = await agwClient.sendTransaction({
+    to: call.to,
+    value: call.value,
+    ...(call.data ? { data: call.data } : {})
+  })
 
   return { txHash: hash, explorerUrl: `${explorer}/${hash}` }
 }
@@ -443,9 +536,38 @@ export async function waitForEvmReceipt(chainId: number, hash: string, config: W
 
 // ─── Solana ───────────────────────────────────────────────────────────────────
 
-export async function estimateSolanaFee(config: WalletConfig): Promise<FeeEstimate> {
+export async function estimateSolanaFee(
+  config: WalletConfig,
+  opts?: { asset?: SendAsset; to?: string }
+): Promise<FeeEstimate> {
   // Simple transfers on Solana cost 5000 lamports (0.000005 SOL)
-  const feeLamports = 5000
+  let feeLamports = 5000
+
+  /**
+   * An SPL transfer to someone who has never held this token has to create their
+   * associated token account first, and the sender funds its rent — ~0.002 SOL,
+   * four hundred times the signature fee. Quoting the bare 5000 here would be
+   * flatly wrong, so probe whether the account already exists.
+   */
+  if (opts?.asset && opts.to) {
+    try {
+      const connection = new Connection(
+        isTestnet(config) ? 'https://api.devnet.solana.com' : heliusRpcUrl(config),
+        'confirmed'
+      )
+      const mint = new PublicKey(opts.asset.contractAddress)
+      const { programId } = await getSplMintInfo(connection, mint)
+      const destAta = associatedTokenAddress(mint, new PublicKey(opts.to), programId)
+      const exists = await connection.getAccountInfo(destAta)
+      if (!exists) {
+        // Rent-exempt minimum for a 165-byte token account.
+        feeLamports += await connection.getMinimumBalanceForRentExemption(165)
+      }
+    } catch {
+      // Probe is best-effort — an unreachable RPC shouldn't block the estimate.
+    }
+  }
+
   const feeSol = feeLamports / LAMPORTS_PER_SOL
 
   let feeUsd: string | null = null
@@ -468,7 +590,8 @@ export async function sendSolanaTransaction(
   to: string,
   amountSol: string,
   config: WalletConfig,
-  accountIndex = 0
+  accountIndex = 0,
+  asset?: SendAsset
 ): Promise<SendResult> {
   const keypair = await getSolanaKeypair(mnemonic, accountIndex)
   // Testnet Mode: devnet — same address, keyless canonical RPC.
@@ -477,16 +600,41 @@ export async function sendSolanaTransaction(
     'confirmed'
   )
 
-  const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL)
-  if (lamports <= 0) throw new Error('Amount must be greater than 0')
+  const tx = new Transaction()
 
-  const tx = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: keypair.publicKey,
-      toPubkey: new PublicKey(to),
-      lamports
+  if (asset) {
+    // Both an SPL token and an uncompressed NFT are the same instruction — an
+    // NFT is just a mint with 0 decimals and supply 1, so it moves as a
+    // transferChecked of exactly 1 base unit.
+    if (asset.kind === 'nft' && asset.standard !== 'spl') {
+      throw new Error(`Cannot send a ${asset.standard} asset on Solana`)
+    }
+    const mint = new PublicKey(asset.contractAddress)
+    const mintInfo = await getSplMintInfo(connection, mint)
+    // parseUnits is string-based, so an 18-decimal amount keeps every digit —
+    // parseFloat would silently drop the low-order ones.
+    const rawAmount = asset.kind === 'nft' ? 1n : parseUnits(amountSol, mintInfo.decimals)
+
+    const ixs = await buildSplTransferIxs({
+      connection, mint,
+      from: keypair.publicKey,
+      to: new PublicKey(to),
+      rawAmount,
+      mintInfo,
     })
-  )
+    for (const ix of ixs) tx.add(ix)
+  } else {
+    const lamports = Math.round(parseFloat(amountSol) * LAMPORTS_PER_SOL)
+    if (lamports <= 0) throw new Error('Amount must be greater than 0')
+
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: keypair.publicKey,
+        toPubkey: new PublicKey(to),
+        lamports
+      })
+    )
+  }
 
   const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash()
   tx.recentBlockhash = blockhash
@@ -662,20 +810,38 @@ export async function estimateCardanoFee(
 /** ~1 input, 2 outputs, 1 witness. Only used for the pre-send estimate. */
 const TYPICAL_TX_SIZE = 300
 
+/**
+ * SendAsset → the ledger's `unit` + quantity.
+ *
+ * The collectibles fetcher SPLITS a CNFT's unit for display — policy id into
+ * contractAddress, hex asset name into tokenId — because that's what the UI
+ * shows. Fungible tokens keep the whole unit in contractAddress. Rejoining the
+ * two halves here is what keeps that display decision out of the send path.
+ */
+export function cardanoAssetFor(asset: SendAsset, amount: string): CardanoAsset {
+  if (asset.kind === 'nft') {
+    if (asset.standard !== 'cardano') {
+      throw new Error(`Cannot send a ${asset.standard} asset on Cardano`)
+    }
+    return { unit: `${asset.contractAddress}${asset.tokenId}`, quantity: 1n }
+  }
+  const quantity = parseUnits(amount, asset.decimals)
+  if (quantity <= 0n) throw new Error('Amount must be greater than 0')
+  return { unit: asset.contractAddress, quantity }
+}
+
 export async function sendCardanoTransaction(
   mnemonic: string,
   fromAddress: string,
   toAddress: string,
   amountAda: string,
   config: WalletConfig,
-  accountIndex = 0
+  accountIndex = 0,
+  asset?: SendAsset
 ): Promise<SendResult> {
   const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
   const entropy = mnemonicToEntropy(cleaned, wordlist)
   const spendKey = getCardanoSpendingKey(entropy, accountIndex)
-
-  const amountLovelace = BigInt(Math.round(parseFloat(amountAda) * 1_000_000))
-  if (amountLovelace <= 0n) throw new Error('Amount must be greater than 0')
 
   // Fetch UTXOs and select enough to cover amount + fee
   const allUtxos = await fetchUtxos(fromAddress, config)
@@ -687,15 +853,39 @@ export async function sendCardanoTransaction(
   const toAddrBytes = decodeCardanoAddress(toAddress)
   const fromAddrBytes = decodeCardanoAddress(fromAddress)
 
+  /**
+   * Native assets never travel alone on Cardano: every output must carry enough
+   * ADA to cover its own size (the min-ADA / "token dust" rule). So for a token
+   * or CNFT send the user names no ADA amount at all — we compute the minimum
+   * the output needs and attach exactly that, and buildCardanoTx returns the
+   * rest as change. `amountAda` is ignored on this path.
+   */
+  const sendAssets = asset ? [cardanoAssetFor(asset, amountAda)] : undefined
+
+  const amountLovelace = sendAssets
+    ? minAdaForOutput(toAddrBytes, sendAssets, params.coinsPerUtxoByte)
+    : BigInt(Math.round(parseFloat(amountAda) * 1_000_000))
+  if (amountLovelace <= 0n) throw new Error('Amount must be greater than 0')
+
   // Prefer pure-ADA UTxOs. Every asset on a selected input has to be returned in
   // the change output, and an asset-bearing change output needs extra min-ADA —
   // so pulling in tokens we aren't sending only makes the transaction harder to
   // balance. Larger first within each group, to keep the input count down.
   const byValueDesc = (a: CardanoUtxo, b: CardanoUtxo): number =>
     a.lovelace === b.lovelace ? 0 : a.lovelace < b.lovelace ? 1 : -1
+
+  // When we're sending a native asset, that preference inverts for the UTxOs
+  // actually carrying it: the transaction cannot balance until they're in, so
+  // selecting them first avoids pulling in unrelated inputs (and their own
+  // min-ADA change burden) on the way there.
+  const sendUnits = new Set((sendAssets ?? []).map(a => a.unit))
+  const carriesSendAsset = (u: CardanoUtxo): boolean =>
+    (u.assets ?? []).some(a => sendUnits.has(a.unit))
+
   const ordered = [
-    ...allUtxos.filter(u => (u.assets?.length ?? 0) === 0).sort(byValueDesc),
-    ...allUtxos.filter(u => (u.assets?.length ?? 0) > 0).sort(byValueDesc),
+    ...allUtxos.filter(carriesSendAsset).sort(byValueDesc),
+    ...allUtxos.filter(u => !carriesSendAsset(u) && (u.assets?.length ?? 0) === 0).sort(byValueDesc),
+    ...allUtxos.filter(u => !carriesSendAsset(u) && (u.assets?.length ?? 0) > 0).sort(byValueDesc),
   ]
 
   /**
@@ -709,6 +899,7 @@ export async function sendCardanoTransaction(
     toAddress: toAddrBytes,
     changeAddress: fromAddrBytes,
     amountLovelace,
+    sendAssets,
     fee,
     ttl,
     coinsPerUtxoByte: params.coinsPerUtxoByte,
