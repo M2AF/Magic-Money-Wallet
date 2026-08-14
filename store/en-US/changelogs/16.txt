@@ -1,0 +1,8 @@
+Internal test build - please try sending and scanning.
+
+- Now targets Android 16, and supports 16 KB page sizes for newer devices.
+- Rebuilt the QR scanner on a newer camera library - please test WalletConnect pairing and scanning a send address.
+- Work in progress: sending tokens, NFTs and other assets. Expect rough edges here.
+- Fixed exiting fullscreen video in the in-app browser with the back gesture.
+
+Please report anything that looks broken or confusing.

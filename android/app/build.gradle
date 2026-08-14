@@ -18,7 +18,10 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Kept in sync with package.json by scripts/release.js
-        versionCode 15
+        // versionCode bumped by hand to 16 for the targetSdk-36 internal-track
+        // build; versionName stays 0.7.2 so package.json does not desync. The
+        // next scripts/release.js run bumps from here and stays valid.
+        versionCode 16
         versionName "0.7.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
