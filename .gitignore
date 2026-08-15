@@ -50,6 +50,12 @@ xcuserdata/
 .env.*
 .dev.vars
 *.enc
+
+# Wrangler local state. Never commit this: cache/cf.json is a captured request
+# object from a `wrangler dev` session and carries the developer's city, ISP and
+# coordinates, and cache/wrangler-account.json carries the Cloudflare account id
+# and email. state/ and tmp/ are just miniflare scratch. All of it regenerates.
+.wrangler/
 # Test-only Midnight Preprod wallet seed (dev tooling, never real funds)
 .midnight-preprod-test-wallet.json
 .midnight-preprod-dust-state.json
