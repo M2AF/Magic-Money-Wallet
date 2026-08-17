@@ -1,0 +1,8 @@
+Internal test build - ChainLens Messenger is here.
+
+- New Messenger tab: World Chat, friends by ChainLens ID, and direct messages. Open it from the chat icon in the top toolbar.
+- Send GIFs, and delete your own messages.
+- Unread counts sync with the ChainLens website, so reading a chat on one device clears the badge everywhere.
+- Needs a verified wallet plus Google or Discord on the same ChainLens account - open Profile if asked.
+
+Please report anything broken or confusing.

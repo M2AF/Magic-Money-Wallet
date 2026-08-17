@@ -403,6 +403,52 @@ async function cmdUpload(play, opts) {
   });
 }
 
+/**
+ * Put a bundle that is ALREADY on Play onto another track.
+ *
+ * `upload` cannot do this: Play rejects re-uploading a versionCode it has seen
+ * ("Version code N has already been used"), so promoting an internal build to
+ * alpha used to mean either a throwaway versionCode bump or a trip through the
+ * console. Assigning a track is just a PUT with the existing versionCode, which
+ * is the same call `upload` makes after it pushes the bytes.
+ *
+ * Release notes are re-read from store/<lang>/changelogs/<versionCode>.txt, so
+ * a track gets the same notes the first one did without retyping them.
+ */
+async function cmdPromote(play, opts) {
+  const versionCode = opts._[1];
+  const track = opts.track;
+  if (!versionCode || !track) {
+    fail('Usage: promote <versionCode> --track <internal|alpha|beta|production> [--commit]');
+  }
+  if (!/^\d+$/.test(String(versionCode))) fail(`Expected a numeric versionCode, got "${versionCode}".`);
+
+  const lang = opts.lang || 'en-US';
+  console.log(`  Assigning versionCode ${versionCode} to track "${track}"…`);
+
+  return withEdit(play, opts, async () => {
+    // Guard against a typo silently creating an empty release: the bundle has
+    // to actually exist on Play before a track can point at it.
+    const { bundles = [] } = await play.call('GET', play.edit('/bundles')) || {};
+    if (bundles.length && !bundles.some((b) => String(b.versionCode) === String(versionCode))) {
+      fail(`versionCode ${versionCode} is not uploaded to this app. ` +
+           `Known: ${bundles.map((b) => b.versionCode).join(', ') || '(none)'}`);
+    }
+
+    const release = { versionCodes: [String(versionCode)], status: opts.draft ? 'draft' : 'completed' };
+    const notes = readField(lang, join('changelogs', `${versionCode}.txt`));
+    if (notes) {
+      release.releaseNotes = [{ language: lang, text: notes }];
+      console.log(`  ✔ Release notes from store/${lang}/changelogs/${versionCode}.txt`);
+    } else {
+      console.log(`  ● No release notes (create store/${lang}/changelogs/${versionCode}.txt to add them)`);
+    }
+
+    await play.call('PUT', play.edit(`/tracks/${track}`), { body: { track, releases: [release] } });
+    console.log(`  ✔ Track "${track}" now serves versionCode ${versionCode} as ${release.status}`);
+  });
+}
+
 async function cmdTracks(play) {
   await play.openEdit();
   try {
@@ -460,6 +506,7 @@ const USAGE = `
     push-listing                Upload store/<lang>/*.txt
     push-images                 Upload store/<lang>/images/**
     upload <file.aab>           Upload a bundle and assign it to a track
+    promote <versionCode>       Point another track at a bundle already on Play
     tracks                      Show track + tester state
     testers --track <t>         Show or set (--groups) tester Google Groups
 
@@ -488,6 +535,7 @@ async function main() {
     'push-listing': cmdPushListing,
     'push-images': cmdPushImages,
     upload: cmdUpload,
+    promote: cmdPromote,
     tracks: cmdTracks,
     testers: cmdTesters,
   };
