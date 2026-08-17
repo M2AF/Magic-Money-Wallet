@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { MarketCoin, MarketResult } from '../types/wallet'
-import { HeaderToolbar } from '../components/HeaderToolbar'
+import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 
-interface TabProps {
-  onWcOpen?: () => void
-  wcActiveSessions?: number
-  wcPending?: boolean
-  onProfile?: () => void
-  onSettings?: () => void
-}
+// Carried as one bag and spread below, so a new toolbar action reaches this
+// page without an edit here — see HeaderToolbarProps.
+type TabProps = HeaderToolbarProps
 
 // ─── Module-level client cache — survives tab switches (component unmount/remount)
 let _pageCache: MarketResult | null = null
@@ -318,7 +314,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
-export function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: TabProps) {
+export function MarketPage(toolbar: TabProps) {
   // Seed state from module-level cache instantly — avoids loading flash on tab switch
   const [data, setData]             = useState<MarketResult | null>(_pageCache)
   const [loading, setLoading]       = useState(_pageCache === null)
@@ -410,13 +406,9 @@ export function MarketPage({ onWcOpen, wcActiveSessions, wcPending, onProfile, o
             )}
           </div>
           <HeaderToolbar
-            onWcOpen={onWcOpen}
-            wcActiveSessions={wcActiveSessions}
-            wcPending={wcPending}
+            {...toolbar}
             onRefresh={() => loadMarket(true)}
             refreshing={refreshing}
-            onProfile={onProfile}
-            onSettings={onSettings}
           />
         </div>
 

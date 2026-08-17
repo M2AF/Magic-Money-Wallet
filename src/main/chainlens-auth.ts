@@ -65,6 +65,93 @@ export function accountUserHandle(userId: string): string {
   return Buffer.from(userId, 'utf8').toString('base64url')
 }
 
+/** Why a session could not be issued, in words the UI can show as-is. */
+export interface ChainLensSessionError {
+  error: string
+  /** True when the account exists but this wallet is not verified on it. */
+  mismatch: boolean
+}
+
+/**
+ * A session for the account the wallet is ALREADY SHOWING — not whichever one
+ * the address happens to resolve to.
+ *
+ * This is what the Messenger signs in with, and the reason it exists is the
+ * warning at the top of this file. `wallet-login` upserts ('evm_wallet', addr)
+ * and hands back whatever that produces; for a user whose ChainLens account is
+ * keyed by a Solana wallet or a Google login, that is a DIFFERENT account from
+ * the one ProfilePage displays — a second identity with no social link, so
+ * permanently ineligible for chat, showing a ChainLens ID that nobody can add.
+ *
+ * So the caller names the account. `POST /api/auth/wallet-session` verifies the
+ * signing address is a proved (non-watch-only) wallet of exactly that account
+ * and issues a JWT for it, or refuses. It never creates or links anything, so
+ * unlike `chainlensWalletLogin` this one is safe to call speculatively.
+ *
+ * Returns the session, or a message to put in front of the user. The two failure
+ * shapes are distinguished because only one of them is worth a retry: a network
+ * blip says "try again", "not your account" says "open Profile and sync".
+ */
+export async function chainlensWalletSession(
+  fetchImpl: typeof fetch, origin: string, signer: WalletSigner, chainlensId: string,
+): Promise<ChainLensSession | ChainLensSessionError> {
+  const fail = (error: string, mismatch = false): ChainLensSessionError => ({ error, mismatch })
+  try {
+    const nonceRes = await fetchImpl(`${origin}/api/auth/nonce`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: signer.address }),
+    })
+    if (!nonceRes.ok) return fail('ChainLens is unreachable right now.')
+    const { nonce } = await nonceRes.json() as { nonce?: string }
+    if (typeof nonce !== 'string' || nonce.length === 0) return fail('ChainLens is unreachable right now.')
+
+    const signature = await signer.signMessage(loginMessage(signer.address, nonce))
+
+    const res = await fetchImpl(`${origin}/api/auth/wallet-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chainlens_id: chainlensId, address: signer.address, signature, nonce }),
+    })
+    const body = await res.json().catch(() => null) as { token?: string; profile?: { id?: string }; error?: string } | null
+
+    // A ChainLens error always arrives as JSON with an `error`. Anything else —
+    // Express's HTML "Cannot POST", a proxy page — means this build is talking
+    // to a backend that predates this route, which is a deployment state, not a
+    // rejected identity. Worth saying plainly: the two look identical otherwise
+    // (both land as a 404) and the generic wording sent us hunting the account.
+    if (!res.ok && !body?.error) {
+      return fail(
+        res.status === 404
+          ? 'This ChainLens server does not support wallet sign-in yet. Update the ChainLens backend.'
+          : `ChainLens returned an unexpected ${res.status}.`,
+      )
+    }
+    if (!res.ok) return fail(body!.error!, res.status === 403 || res.status === 404)
+    if (typeof body?.token !== 'string' || typeof body.profile?.id !== 'string') {
+      return fail('ChainLens returned an incomplete session.')
+    }
+
+    // Belt and braces. The server binds `sub` to the id we sent, but the whole
+    // point of this route is that chat runs as the identity the wallet displays
+    // — so verify it here too rather than trust the round trip.
+    if (body.profile.id.toLowerCase() !== chainlensId.toLowerCase()) {
+      return fail('ChainLens signed in as a different account. Open Profile and sync.', true)
+    }
+
+    return { token: body.token, userId: body.profile.id }
+  } catch {
+    return fail('ChainLens is unreachable right now.')
+  }
+}
+
+/** Narrow the union `chainlensWalletSession` returns. */
+export function isChainLensSession(
+  value: ChainLensSession | ChainLensSessionError,
+): value is ChainLensSession {
+  return typeof (value as ChainLensSession).token === 'string'
+}
+
 export async function chainlensWalletLogin(
   fetchImpl: typeof fetch, origin: string, signer: WalletSigner,
 ): Promise<ChainLensSession | null> {

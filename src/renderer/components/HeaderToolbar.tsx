@@ -1,24 +1,43 @@
 /**
  * HeaderToolbar.tsx — shared top-right toolbar for the main tabs.
  *
- * Renders the global wallet actions (sidebar toggle in the extension,
+ * Renders the global wallet actions (sidebar toggle in the extension, Messenger,
  * WalletConnect, Refresh, Profile, Settings) so Portfolio / Market / Swap / Apps
- * all share one consistent control cluster. WC / Profile / Settings are wired to
- * App-level state; Refresh is page-specific (omitted when a page has no refresh).
+ * all share one consistent control cluster. Chat / WC / Profile / Settings are
+ * wired to App-level state; Refresh is page-specific (omitted when a page has no
+ * refresh).
  *
  * The EVM NetworkSwitcher is extension-only (the Electron build has its own in the
  * browser chrome), gated on the same __EXT_SIDEBAR_FN__ marker as the sidebar toggle.
  */
 import { NetworkSwitcher } from './NetworkSwitcher'
 
-interface Props {
+/**
+ * The App-level actions every main tab shows.
+ *
+ * Exported so the pages can carry it as one unit instead of redeclaring each
+ * field: they used to list the props individually and forward them one by one,
+ * which meant a new toolbar action compiled cleanly everywhere and then simply
+ * did not appear. Pages take this as a bag and spread it.
+ */
+export interface HeaderToolbarProps {
+  onChat?: () => void
+  /** Incoming friend requests awaiting an answer. */
+  chatRequests?: number
+  /** Unread direct messages, server-side so every platform agrees. */
+  chatUnread?: number
+  chatActive?: boolean
   onWcOpen?: () => void
   wcActiveSessions?: number
   wcPending?: boolean
-  onRefresh?: () => void
-  refreshing?: boolean
   onProfile?: () => void
   onSettings?: () => void
+}
+
+/** Refresh is page-specific, so it is not part of the shared bag. */
+interface Props extends HeaderToolbarProps {
+  onRefresh?: () => void
+  refreshing?: boolean
 }
 
 const iconBtn: React.CSSProperties = {
@@ -27,9 +46,20 @@ const iconBtn: React.CSSProperties = {
 }
 
 export function HeaderToolbar({
+  onChat, chatRequests = 0, chatUnread = 0, chatActive = false,
   onWcOpen, wcActiveSessions = 0, wcPending = false,
   onRefresh, refreshing = false, onProfile, onSettings,
 }: Props) {
+  // The visible badge is a bare number, so the accessible name has to say what
+  // it counts. Prefixed with the control's own name so it reads as itself first
+  // and its state second.
+  const chatBadge = chatRequests + chatUnread
+  const chatLabel = chatBadge === 0
+    ? 'ChainLens Messenger'
+    : `ChainLens Messenger — ${[
+        chatRequests > 0 ? `${chatRequests} friend request${chatRequests === 1 ? '' : 's'}` : '',
+        chatUnread > 0 ? `${chatUnread} unread message${chatUnread === 1 ? '' : 's'}` : '',
+      ].filter(Boolean).join(', ')}`
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sidebarFn = (window as any).__EXT_SIDEBAR_FN__
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +96,45 @@ export function HeaderToolbar({
               <polyline points="10,6 7,8 10,10"/>
             </svg>
           )}
+        </button>
+      )}
+
+      {/* ChainLens Messenger — first in the row, left of WalletConnect */}
+      {onChat && (
+        <button
+          type="button"
+          onClick={onChat}
+          title={chatLabel}
+          aria-label={chatLabel}
+          style={{
+            ...iconBtn,
+            background: chatActive || chatBadge > 0 ? 'var(--accent-dim)' : 'transparent',
+            border: `1px solid ${chatActive ? 'var(--border-active)' : 'var(--border)'}`,
+            color: chatActive || chatBadge > 0 ? 'var(--accent)' : 'var(--text-muted)',
+            position: 'relative',
+          }}
+        >
+          {chatBadge > 0 && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute', top: 3, right: 3,
+                minWidth: 13, height: 13, padding: '0 3px', borderRadius: 7,
+                background: 'var(--accent)', color: 'var(--on-accent)',
+                fontSize: 8, fontWeight: 800, lineHeight: '13px', textAlign: 'center',
+                boxShadow: '0 0 6px var(--accent-glow)',
+              }}
+            >
+              {chatBadge > 9 ? '9+' : chatBadge}
+            </span>
+          )}
+          {/* Speech bubble with a tail — reads as "chat" at 15px where a more
+              detailed glyph would turn to mush next to the WC mark. */}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 5.5h16v11H8.5L4 20V5.5Z"/>
+            <path d="M8 10h8M8 13h5"/>
+          </svg>
         </button>
       )}
 

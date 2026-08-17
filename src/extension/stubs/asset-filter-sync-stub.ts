@@ -1,10 +1,10 @@
 /**
  * asset-filter-sync-stub.ts — No-op for browser extension context.
  *
- * Pairs with supabase-sync-stub.ts: ChainLens profile sync is not available in
- * the extension, and the real module reaches the wallet key through it to sign
- * an ownership proof. Aliased in vite.extension.config.ts so neither module ends
- * up in the extension bundle.
+ * Aliased in vite.extension.config.ts so the real module stays out of the
+ * extension bundle. Turning hidden-asset sync on here is a separate change with
+ * its own testing — note that supabase-sync, which it signs its ownership proof
+ * through, is no longer stubbed, so nothing structural is in the way any more.
  *
  * `null` entries means "could not read", NOT "nothing hidden" — the dashboard
  * keeps its local list on null, so hiding still works here, it just stays on

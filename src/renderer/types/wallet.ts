@@ -315,7 +315,66 @@ export interface ChainlensSyncResult {
   error: string | null
 }
 
-export type MainTab = 'portfolio' | 'market' | 'swap' | 'apphub' | 'profile'
+export type MainTab = 'portfolio' | 'market' | 'swap' | 'apphub' | 'profile' | 'chat'
+
+// ─── ChainLens Messenger ──────────────────────────────────────────────────────
+// Mirrors the wire shapes in src/main/chainlens-chat.ts, which mirror the
+// ChainLens backend. Kept as a separate declaration rather than imported from
+// main so the renderer's tsconfig never pulls a node-side module into the web
+// build — the same reason ClUser is redeclared here.
+
+export type ChatMessageType = 'text' | 'gif'
+
+export interface ChatProfileRef {
+  id: string
+  display_name: string | null
+  avatar_url: string | null
+}
+
+export interface ChatMessage {
+  id: number
+  message_type: ChatMessageType
+  content: string
+  created_at: string
+  author: ChatProfileRef
+}
+
+export interface ChatFriend extends ChatProfileRef {
+  friendship_id: number
+  created_at: string | null
+  accepted_at: string | null
+}
+
+export interface ChatFriends {
+  friends: ChatFriend[]
+  incoming: ChatFriend[]
+  outgoing: ChatFriend[]
+}
+
+export interface ChatStatus {
+  eligible: boolean
+  walletLinked: boolean
+  socialLinked: boolean
+  /** Whether the GIF picker will work — the key itself never leaves main. */
+  giphyAvailable: boolean
+  /** The account chat runs as. Always the id ProfilePage displays. */
+  userId: string
+  displayName: string | null
+  avatarUrl: string | null
+}
+
+export interface ChatUnread {
+  pending_requests: number
+  unread_direct: number
+  conversations: Array<{ friendship_id: number; friend_id: string; unread: number }>
+}
+
+export interface ChatGif {
+  id: string
+  title: string
+  url: string
+  preview: string
+}
 
 // ─── DEX swap types live in ./swap (re-exported here for convenience) ─────────
 export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
@@ -862,6 +921,33 @@ declare global {
        */
       assetFiltersGet?(): Promise<AssetFilterEntries | null>
       assetFiltersPush?(entries: AssetFilterEntries): Promise<{ entries: AssetFilterEntries | null; error: string | null }>
+      /**
+       * ChainLens Messenger. Every one of these rejects with the server's own
+       * wording on failure — unwrap with ipcErrorMessage() and show it.
+       *
+       * There is deliberately no way to obtain the session token or the GIPHY
+       * key from here: both stay in main (src/main/chainlens-chat.ts), so the
+       * renderer, an injected script, or a page in the built-in browser cannot
+       * reach a credential for the user's ChainLens account.
+       */
+      chatStatus(): Promise<ChatStatus>
+      /** Forget the session — used after a profile change. Next call re-signs. */
+      chatReset(): Promise<boolean>
+      chatWorld(after?: number | null): Promise<ChatMessage[]>
+      chatSendWorld(type: ChatMessageType, content: string): Promise<ChatMessage>
+      chatDeleteWorld(messageId: number): Promise<void>
+      chatFriends(): Promise<ChatFriends>
+      chatAddFriend(chainlensId: string): Promise<void>
+      chatAcceptFriend(friendshipId: number): Promise<void>
+      /** Decline an incoming request, cancel an outgoing one, or unfriend. */
+      chatRemoveFriend(friendshipId: number): Promise<void>
+      chatDirect(friendId: string, after?: number | null): Promise<ChatMessage[]>
+      chatSendDirect(friendId: string, type: ChatMessageType, content: string): Promise<ChatMessage>
+      chatDeleteDirect(friendId: string, messageId: number): Promise<void>
+      chatUnread(): Promise<ChatUnread>
+      /** Advance a read cursor. Omit `friendId` for World Chat. */
+      chatMarkRead(lastReadId: number, friendId?: string | null): Promise<void>
+      chatGifs(query: string): Promise<ChatGif[]>
       // Phase 10: WalletConnect
       wcGetSessions(): Promise<WcSession[]>
       wcGetPendingProposals(): Promise<WcProposal[]>

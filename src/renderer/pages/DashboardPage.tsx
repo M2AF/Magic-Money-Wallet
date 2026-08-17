@@ -6,7 +6,7 @@ import { AddChainModal } from '../components/AddChainModal'
 import { ImportTokenModal } from '../components/ImportTokenModal'
 import { ImportNftModal } from '../components/ImportNftModal'
 import { AgwPanel } from '../components/AgwPanel'
-import { HeaderToolbar } from '../components/HeaderToolbar'
+import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 import {
   canSendToken, canSendNft, nftSendBlockedReason,
   nftToSendAsset, tokenToSendAsset, formatUnits,
@@ -798,16 +798,13 @@ function PortfolioSparkline({ data }: { data: number[] }) {
   )
 }
 
-interface Props {
+// The shared toolbar actions are carried as one bag (see HeaderToolbarProps)
+// and spread below, so a new one reaches this page without an edit here.
+interface Props extends HeaderToolbarProps {
   addresses: WalletAddresses
   onNavigate: (page: AppPage) => void
   onWalletDeleted: () => void
   hidden?: boolean
-  onWcOpen?: () => void
-  onProfile?: () => void
-  onSettings?: () => void
-  wcActiveSessions?: number
-  wcPending?: boolean
 }
 
 const ALL_CHAINS = [
@@ -860,7 +857,7 @@ function getAddress(chainId: string, addresses: WalletAddresses, testnet = false
   return addresses.evm
 }
 
-export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, onWcOpen, onProfile, onSettings, wcActiveSessions = 0, wcPending = false }: Props) {
+export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, ...toolbar }: Props) {
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -1284,13 +1281,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
           <HeaderToolbar
-            onWcOpen={onWcOpen}
-            wcActiveSessions={wcActiveSessions}
-            wcPending={wcPending}
+            {...toolbar}
             onRefresh={() => { fetchBalances(true); fetchHistory() }}
             refreshing={refreshing}
-            onProfile={onProfile}
-            onSettings={onSettings}
           />
           {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
             <PortfolioSparkline data={balances.portfolioSparkline} />

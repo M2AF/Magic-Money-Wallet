@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 import APP_HUB, { AppEntry } from '../data/app-hub'
-import { HeaderToolbar } from '../components/HeaderToolbar'
+import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 import { chainColor, type ChainColor } from '../data/chain-colors'
 
 const ALL = 'All'
@@ -33,12 +33,9 @@ function accentGradient(colors: ChainColor[]): string {
 
 interface DropdownOption { value: string; label: string; count?: number }
 
-interface TabProps {
-  onWcOpen?: () => void
-  wcActiveSessions?: number
-  wcPending?: boolean
-  onProfile?: () => void
-  onSettings?: () => void
+// The shared toolbar actions are carried as one bag (see HeaderToolbarProps)
+// and spread below, so a new one reaches this page without an edit here.
+interface TabProps extends HeaderToolbarProps {
   browserOpen?: boolean
   onBrowserOpened?: () => void
 }
@@ -50,13 +47,9 @@ interface AppContextMenu {
 }
 
 export function AppHubPage({
-  onWcOpen,
-  wcActiveSessions,
-  wcPending,
-  onProfile,
-  onSettings,
   browserOpen = false,
   onBrowserOpened,
+  ...toolbar
 }: TabProps) {
   const [chainFilter, setChainFilter]       = useState<string>(ALL)
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
@@ -144,13 +137,7 @@ export function AppHubPage({
           <h2 className="apphub-title">App Hub</h2>
           <span className="apphub-count">{APP_HUB.apps.length} apps</span>
         </div>
-        <HeaderToolbar
-          onWcOpen={onWcOpen}
-          wcActiveSessions={wcActiveSessions}
-          wcPending={wcPending}
-          onProfile={onProfile}
-          onSettings={onSettings}
-        />
+        <HeaderToolbar {...toolbar} />
       </div>
 
       {/* ── Search ───────────────────────────────────────────── */}

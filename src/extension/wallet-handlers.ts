@@ -46,6 +46,12 @@ import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee,
 import { fetchMoneroHeight } from '../main/monero'
 import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from '../main/agw'
 import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabase-sync'
+import {
+  chatStatus, chatWorld, chatSendWorld, chatDeleteWorld,
+  chatFriends, chatAddFriend, chatAcceptFriend, chatRemoveFriend,
+  chatDirect, chatSendDirect, chatDeleteDirect,
+  chatUnread, chatMarkRead, chatSearchGifs, clearChatSession,
+} from '../main/chainlens-chat'
 import { fetchAssetFilters, pushAssetFilters } from '../main/asset-filter-sync'
 import type { AssetFilterEntries } from '../shared/asset-filter-key'
 import { HDKey } from '@scure/bip32'
@@ -1016,6 +1022,9 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await store.loadAddresses()
       if (!addresses) return { success: false, profile: null, error: 'No wallet' }
       const config = await store.loadConfig()
+      // A sync can move this address onto a different ChainLens account, which
+      // is exactly the case a stale chat token must not survive.
+      clearChatSession()
       return syncWallets(addresses, config)
     }
 
@@ -1024,12 +1033,36 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const addresses = await store.loadAddresses()
       if (!addresses) return { success: false, error: 'No wallet' }
       const config = await store.loadConfig()
-      return updateProfile(addresses.evm, updates, config)
+      const result = await updateProfile(addresses.evm, updates, config)
+      // The chat session snapshots name + picture at sign-in.
+      if (result.success) clearChatSession()
+      return result
     }
 
     // Extension can't open native file dialog — avatar picking not supported
     case 'chainlens:pick-avatar':
       return null
+
+    // ── ChainLens Messenger ────────────────────────────────────────────────
+    // Same pass-throughs as src/main/ipc-handlers.ts, against the same shared
+    // client. The session and the GIPHY key stay in this worker/bundle and are
+    // never returned to the UI.
+
+    case 'chat:status':        return chatStatus()
+    case 'chat:reset':         clearChatSession(); return true
+    case 'chat:world':         return chatWorld(a0 as number | null)
+    case 'chat:send-world':    return chatSendWorld(a0 as 'text' | 'gif', String(a1))
+    case 'chat:delete-world':  return chatDeleteWorld(Number(a0))
+    case 'chat:friends':       return chatFriends()
+    case 'chat:add-friend':    return chatAddFriend(String(a0))
+    case 'chat:accept-friend': return chatAcceptFriend(Number(a0))
+    case 'chat:remove-friend': return chatRemoveFriend(Number(a0))
+    case 'chat:direct':        return chatDirect(String(a0), a1 as number | null)
+    case 'chat:send-direct':   return chatSendDirect(String(a0), a1 as 'text' | 'gif', String(a2))
+    case 'chat:delete-direct': return chatDeleteDirect(String(a0), Number(a1))
+    case 'chat:unread':        return chatUnread()
+    case 'chat:mark-read':     return chatMarkRead(Number(a0), a1 as string | null)
+    case 'chat:gifs':          return chatSearchGifs(String(a0))
 
     // ── Hidden/spam asset list, carried on the ChainLens profile ───────────
     // Stubbed out in the extension build (see stubs/asset-filter-sync-stub.ts);

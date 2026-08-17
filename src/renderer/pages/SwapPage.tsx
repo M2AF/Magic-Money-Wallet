@@ -16,18 +16,16 @@ import { HeaderToolbar } from '../components/HeaderToolbar'
 import { SwapModeToggle } from '../components/SwapModeToggle'
 import { DexSwapWidget } from '../components/DexSwapWidget'
 import { SimpleSwapWidget } from '../components/SimpleSwapWidget'
+import type { HeaderToolbarProps } from '../components/HeaderToolbar'
 
-interface Props {
+// The shared toolbar actions are carried as one bag (see HeaderToolbarProps)
+// and spread below, so a new one reaches this page without an edit here.
+interface Props extends HeaderToolbarProps {
   addresses: WalletAddresses
   hidden?: boolean
-  onWcOpen?: () => void
-  wcActiveSessions?: number
-  wcPending?: boolean
-  onProfile?: () => void
-  onSettings?: () => void
 }
 
-export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions, wcPending, onProfile, onSettings }: Props) {
+export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
   const [mode, setMode] = useState<SwapMode>('dex')
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
@@ -52,13 +50,7 @@ export function SwapPage({ addresses, hidden = false, onWcOpen, wcActiveSessions
             {mode === 'dex' ? 'On-chain swaps, best-price aggregated' : 'Cross-chain exchange via SimpleSwap'}
           </div>
         </div>
-        <HeaderToolbar
-          onWcOpen={onWcOpen}
-          wcActiveSessions={wcActiveSessions}
-          wcPending={wcPending}
-          onProfile={onProfile}
-          onSettings={onSettings}
-        />
+        <HeaderToolbar {...toolbar} />
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px 16px 18px', display: 'flex', justifyContent: 'center' }}>

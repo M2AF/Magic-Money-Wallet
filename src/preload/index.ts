@@ -302,4 +302,24 @@ contextBridge.exposeInMainWorld('wallet', {
   // Hidden/spam asset list shared with ChainLens (src/shared/asset-filter-key.ts)
   assetFiltersGet:        ()                                                   => ipcRenderer.invoke('assetfilters:get'),
   assetFiltersPush:       (entries: unknown)                                   => ipcRenderer.invoke('assetfilters:push', entries),
+
+  // ── ChainLens Messenger ──────────────────────────────────────────────────
+  // No session token is exposed here by design — main holds it, and these calls
+  // return only messages, friends and counts (src/main/chainlens-chat.ts).
+  chatStatus:       ()                                            => ipcRenderer.invoke('chat:status'),
+  chatReset:        ()                                            => ipcRenderer.invoke('chat:reset'),
+  chatWorld:        (after?: number | null)                       => ipcRenderer.invoke('chat:world', after),
+  chatSendWorld:    (type: 'text' | 'gif', content: string)       => ipcRenderer.invoke('chat:send-world', type, content),
+  chatDeleteWorld:  (messageId: number)                           => ipcRenderer.invoke('chat:delete-world', messageId),
+  chatFriends:      ()                                            => ipcRenderer.invoke('chat:friends'),
+  chatAddFriend:    (chainlensId: string)                         => ipcRenderer.invoke('chat:add-friend', chainlensId),
+  chatAcceptFriend: (friendshipId: number)                        => ipcRenderer.invoke('chat:accept-friend', friendshipId),
+  chatRemoveFriend: (friendshipId: number)                        => ipcRenderer.invoke('chat:remove-friend', friendshipId),
+  chatDirect:       (friendId: string, after?: number | null)     => ipcRenderer.invoke('chat:direct', friendId, after),
+  chatSendDirect:   (friendId: string, type: 'text' | 'gif', content: string) =>
+    ipcRenderer.invoke('chat:send-direct', friendId, type, content),
+  chatDeleteDirect: (friendId: string, messageId: number)         => ipcRenderer.invoke('chat:delete-direct', friendId, messageId),
+  chatUnread:       ()                                            => ipcRenderer.invoke('chat:unread'),
+  chatMarkRead:     (lastReadId: number, friendId?: string | null) => ipcRenderer.invoke('chat:mark-read', lastReadId, friendId),
+  chatGifs:         (query: string)                               => ipcRenderer.invoke('chat:gifs', query),
 })

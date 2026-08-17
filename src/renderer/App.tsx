@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import type { AppPage, WalletAddresses, MainTab } from './types/wallet'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import type { AppPage, WalletAddresses, MainTab, ChatUnread } from './types/wallet'
 import logoUrl from './assets/logo.png'
 import bannerUrl from './assets/title-bar.png'
 import wordmarkUrl from './assets/wordmark.png'
@@ -15,6 +15,7 @@ import { MarketPage } from './pages/MarketPage'
 import { SwapPage } from './pages/SwapPage'
 import { AppHubPage } from './pages/AppHubPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { MessengerPage } from './pages/MessengerPage'
 import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
@@ -41,8 +42,23 @@ export function App() {
   // the create page runs the ceremony instead of the system RNG.
   const [startWithPasskey, setStartWithPasskey] = useState(false)
 
+  // ChainLens Messenger badge. Server-side counts, so the dot agrees with the
+  // ChainLens website and every other MagicMoney install on the same account.
+  const [chatUnread, setChatUnread] = useState<ChatUnread | null>(null)
+  // Consecutive failures, which back the poll off instead of switching it off.
+  // Most failures here are permanent for the session (no ChainLens profile, not
+  // eligible for chat) and must not be retried every 20s — but some are not
+  // (offline at launch, a profile connected a minute later), and latching off
+  // for good would leave the badge dead until the user opened the tab by hand.
+  const chatFailures = useRef(0)
+  const chatSkipTicks = useRef(0)
+
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {
+    onChat: () => setActiveTab('chat'),
+    chatRequests: chatUnread?.pending_requests ?? 0,
+    chatUnread: chatUnread?.unread_direct ?? 0,
+    chatActive: activeTab === 'chat',
     onWcOpen: () => setWcPanelOpen(true),
     onProfile: () => setActiveTab('profile'),
     onSettings: () => setShowSettings(true),
@@ -117,6 +133,44 @@ export function App() {
     for (const e of events) window.addEventListener(e, ping, { capture: true, passive: true })
     return () => { for (const e of events) window.removeEventListener(e, ping, { capture: true }) }
   }, [])
+
+  /**
+   * One lightweight aggregate for the whole badge — pending requests plus a
+   * total unread-DM count, computed server-side in a single grouped query. It
+   * deliberately does NOT walk each DM thread, and World Chat is excluded: that
+   * room is busy enough that a badge tied to it would never clear.
+   */
+  const refreshChatUnread = useCallback(async (force = false) => {
+    // Back-off: skip this tick unless the caller is an explicit refresh.
+    if (!force && chatSkipTicks.current > 0) { chatSkipTicks.current -= 1; return }
+    try {
+      setChatUnread(await window.wallet.chatUnread())
+      chatFailures.current = 0
+      chatSkipTicks.current = 0
+    } catch {
+      // Silent by design — a header dot is not worth an error surface, and the
+      // Messenger tab is where the user gets a real explanation. Doubles the
+      // wait each time, up to ~5 minutes.
+      chatFailures.current = Math.min(chatFailures.current + 1, 4)
+      chatSkipTicks.current = 2 ** chatFailures.current
+      setChatUnread(null)
+    }
+  }, [])
+
+  // Stable identity: MessengerPage takes this as an effect dependency, and a
+  // fresh arrow each render would re-run its scroll/mark-read effect constantly.
+  const handleUnreadRefresh = useCallback(() => { refreshChatUnread(true) }, [refreshChatUnread])
+
+  // Only while unlocked and on the dashboard: a locked wallet cannot mint a
+  // session anyway, and polling behind the unlock screen would just fail.
+  useEffect(() => {
+    if (page !== 'dashboard') return
+    chatFailures.current = 0
+    chatSkipTicks.current = 0
+    refreshChatUnread(true)
+    const interval = setInterval(() => refreshChatUnread(), 20_000)
+    return () => clearInterval(interval)
+  }, [page, refreshChatUnread])
 
   // New / imported wallet is derived; now require a password before going live.
   const handleWalletReady = (addrs: WalletAddresses) => {
@@ -241,6 +295,16 @@ export function App() {
         />
       )}
       {inDashboard && activeTab === 'profile' && <ProfilePage />}
+
+      {/* ChainLens Messenger — its own space, like Profile. Mounted only while
+          active so its polling stops the moment you leave the tab. */}
+      {inDashboard && activeTab === 'chat' && (
+        <MessengerPage
+          onProfile={() => setActiveTab('profile')}
+          unread={chatUnread}
+          onUnreadRefresh={handleUnreadRefresh}
+        />
+      )}
 
       {/* WalletConnect manager — proposal/request modals + session panel */}
       {inDashboard && (

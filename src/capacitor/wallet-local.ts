@@ -537,13 +537,31 @@ function buildWallet() {
     onBrowserAutofill:  (cb: (s: unknown) => void) => onUiEvent('cap:browser:autofill', cb as (d: unknown) => void),
     offBrowserAutofill: (cb: (s: unknown) => void) => offUiEvent('cap:browser:autofill', cb as (d: unknown) => void),
 
-    // ChainLens profile (supabase-sync is stubbed on Android, like the extension)
+    // ChainLens profile — the real supabase-sync runs here (it signs an
+    // ownership proof and calls the Worker; no key is bundled).
     chainlensGetProfile:    ()              => send('chainlens:get-profile'),
     chainlensSync:          ()              => send('chainlens:sync'),
     chainlensUpdateProfile: (u: unknown)    => send('chainlens:update-profile', u),
     assetFiltersGet:        ()              => send('assetfilters:get'),
     assetFiltersPush:       (e: unknown)    => send('assetfilters:push', e),
     chainlensPickAvatar:    ()              => send('chainlens:pick-avatar'),
+
+    // ── ChainLens Messenger ──────────────────────────────────────────────
+    chatStatus:       ()                                     => send('chat:status'),
+    chatReset:        ()                                     => send('chat:reset'),
+    chatWorld:        (after?: number | null)                => send('chat:world', after),
+    chatSendWorld:    (t: 'text' | 'gif', c: string)         => send('chat:send-world', t, c),
+    chatDeleteWorld:  (id: number)                           => send('chat:delete-world', id),
+    chatFriends:      ()                                     => send('chat:friends'),
+    chatAddFriend:    (id: string)                           => send('chat:add-friend', id),
+    chatAcceptFriend: (id: number)                           => send('chat:accept-friend', id),
+    chatRemoveFriend: (id: number)                           => send('chat:remove-friend', id),
+    chatDirect:       (f: string, after?: number | null)     => send('chat:direct', f, after),
+    chatSendDirect:   (f: string, t: 'text' | 'gif', c: string) => send('chat:send-direct', f, t, c),
+    chatDeleteDirect: (f: string, id: number)                => send('chat:delete-direct', f, id),
+    chatUnread:       ()                                     => send('chat:unread'),
+    chatMarkRead:     (id: number, f?: string | null)        => send('chat:mark-read', id, f),
+    chatGifs:         (q: string)                            => send('chat:gifs', q),
 
     // App version (SettingsModal footer + update check)
     getAppVersion: async () => (await CapacitorApp.getInfo()).version,

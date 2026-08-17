@@ -164,6 +164,12 @@ import { executeSwap } from './swap-executor'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from './xchange-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
+import {
+  chatStatus, chatWorld, chatSendWorld, chatDeleteWorld,
+  chatFriends, chatAddFriend, chatAcceptFriend, chatRemoveFriend,
+  chatDirect, chatSendDirect, chatDeleteDirect,
+  chatUnread, chatMarkRead, chatSearchGifs, clearChatSession,
+} from './chainlens-chat'
 import { fetchAssetFilters, pushAssetFilters } from './asset-filter-sync'
 import type { AssetFilterEntries } from '../shared/asset-filter-key'
 import {
@@ -348,10 +354,16 @@ function broadcastLocked(): void {
  * Every path that clears the mnemonic must also clear the saved-password vault —
  * otherwise the browser's password manager would stay open (and fillable) behind a
  * locked wallet, which is exactly the state a walk-away attacker wants.
+ *
+ * The ChainLens chat session goes for the same reason: it is a 30-day bearer
+ * token for the user's account, and leaving it live behind a lock screen would
+ * let a walk-away attacker read and send messages as them. Re-minting it needs
+ * the mnemonic, so a locked wallet genuinely cannot get back in.
  */
 function lockEverything(): void {
   lock()
   lockPasswords()
+  clearChatSession()
 }
 
 function touchActivity(): void {
@@ -2638,6 +2650,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('chainlens:sync', async () => {
     const addresses = loadAddresses()
     if (!addresses?.evm) return { success: false, profile: null, error: 'No wallet found' }
+    // A sync can move this address onto a different ChainLens account, which is
+    // exactly the case a stale chat token must not survive.
+    clearChatSession()
     return syncWallets(addresses, loadConfig())
   })
 
@@ -2646,8 +2661,33 @@ export function registerIpcHandlers(): void {
     if (!addresses?.evm) return { success: false, error: 'No wallet found' }
     const profile = await getProfileByAddress(addresses.evm, loadConfig())
     if (!profile) return { success: false, error: 'No ChainLens profile found' }
-    return updateProfile(profile.id, updates, loadConfig())
+    const result = await updateProfile(profile.id, updates, loadConfig())
+    // The session snapshots name + picture at sign-in, so an edit here has to
+    // invalidate it or the Messenger header keeps showing the old one.
+    if (result.success) clearChatSession()
+    return result
   })
+
+  // ── ChainLens Messenger ──────────────────────────────────────────────────
+  // Thin pass-throughs to src/main/chainlens-chat.ts. The session and the GIPHY
+  // key stay in main; the renderer only ever sees messages and counts. Errors
+  // are thrown so the page can show the server's own wording — the renderer
+  // unwraps them with ipcErrorMessage().
+  ipcMain.handle('chat:status',        () => chatStatus())
+  ipcMain.handle('chat:reset',         () => { clearChatSession(); return true })
+  ipcMain.handle('chat:world',         (_e, after?: number | null) => chatWorld(after))
+  ipcMain.handle('chat:send-world',    (_e, type: 'text' | 'gif', content: string) => chatSendWorld(type, content))
+  ipcMain.handle('chat:delete-world',  (_e, messageId: number) => chatDeleteWorld(messageId))
+  ipcMain.handle('chat:friends',       () => chatFriends())
+  ipcMain.handle('chat:add-friend',    (_e, chainlensId: string) => chatAddFriend(chainlensId))
+  ipcMain.handle('chat:accept-friend', (_e, friendshipId: number) => chatAcceptFriend(friendshipId))
+  ipcMain.handle('chat:remove-friend', (_e, friendshipId: number) => chatRemoveFriend(friendshipId))
+  ipcMain.handle('chat:direct',        (_e, friendId: string, after?: number | null) => chatDirect(friendId, after))
+  ipcMain.handle('chat:send-direct',   (_e, friendId: string, type: 'text' | 'gif', content: string) => chatSendDirect(friendId, type, content))
+  ipcMain.handle('chat:delete-direct', (_e, friendId: string, messageId: number) => chatDeleteDirect(friendId, messageId))
+  ipcMain.handle('chat:unread',        () => chatUnread())
+  ipcMain.handle('chat:mark-read',     (_e, lastReadId: number, friendId?: string | null) => chatMarkRead(lastReadId, friendId))
+  ipcMain.handle('chat:gifs',          (_e, query: string) => chatSearchGifs(query))
 
   // ── Hidden/spam asset list, carried on the ChainLens profile ──────────────
   // Both return null entries for "could not sync"; the dashboard keeps showing

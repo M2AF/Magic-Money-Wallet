@@ -100,13 +100,17 @@ export default defineConfig({
         find: /^\.\.\/main\/secure-store(\.ts)?$/,
         replacement: r('src/extension/chrome-store.ts')
       },
-      {
-        find: /^\.\.\/main\/supabase-sync(\.ts)?$/,
-        replacement: r('src/extension/stubs/supabase-sync-stub.ts')
-      },
-      // Hidden-asset sync signs an ownership proof through supabase-sync, so it
-      // has to be stubbed alongside it — otherwise the real module drags the
-      // stubbed-out one back into the bundle.
+      // NOTE: supabase-sync is NOT stubbed here any more. The stub existed
+      // because the module used to hold a Supabase service_role key, which has
+      // no business in a browser; since the Worker cutover it signs an ownership
+      // proof and calls the Worker like every other keyed provider, so it runs
+      // in the service worker exactly as it does on Android and iOS (neither of
+      // which ever stubbed it). Keeping the stub would have left the extension
+      // with no ChainLens profile — and therefore no Messenger, which is bound
+      // to the displayed profile id.
+      //
+      // Hidden-asset sync is still stubbed: it is unrelated to chat, and turning
+      // it on in the extension is a separate change with its own testing.
       {
         find: /^\.\.\/main\/asset-filter-sync(\.ts)?$/,
         replacement: r('src/extension/stubs/asset-filter-sync-stub.ts')
