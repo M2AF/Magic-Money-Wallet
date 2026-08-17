@@ -44,6 +44,14 @@ const BROWSER_HOSTS = new Set([
   'apilist.tronscanapi.com',    // *
   'api.blockcypher.com',        // *
   'api-mainnet.magiceden.dev',  // reflects origin (NFT floors)
+  // ChainLens Messenger. Verified 2026-08-17 (curl with Origin: https://localhost):
+  // the Express backend runs app.use(cors()) → ACAO: *, and GIPHY sends ACAO: *
+  // too. Both belong here rather than on the native path: chat polls every 3s
+  // per open conversation, and the bridge's per-call marshalling is exactly the
+  // overhead this list exists to avoid. It also keeps AbortSignal native, which
+  // the request timeouts in chainlens-chat.ts depend on.
+  'www.chainlensnft.info',
+  'api.giphy.com',
   // Monero (Privacy Mode): the wallet2 sync protocol uses BINARY RPC bodies/
   // responses, which the string-only native bridge would corrupt — Monero
   // traffic MUST stay on browser fetch, so only CORS-enabled nodes belong in
