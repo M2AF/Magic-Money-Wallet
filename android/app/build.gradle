@@ -21,8 +21,8 @@ android {
         // versionCode bumped by hand to 16 for the targetSdk-36 internal-track
         // build; versionName stays 0.7.2 so package.json does not desync. The
         // next scripts/release.js run bumps from here and stays valid.
-        versionCode 17
-        versionName "0.8.0"
+        versionCode 18
+        versionName "0.8.1"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
