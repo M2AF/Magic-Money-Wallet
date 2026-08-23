@@ -215,6 +215,24 @@
   box-shadow: 0 2px 14px rgba(90, 70, 20, 0.08);
 }
 
+/* A CUSTOM theme whose background is light gets the same treatment White & Gold
+   needs: the wordmark art is white-on-transparent, so on paper it has to be
+   outlined or it disappears. data-tone is stamped by theme.ts alongside
+   data-theme; the built-in themes carry their own rules and never set it. */
+:root[data-tone='light'] .titlebar-wordmark,
+:root[data-tone='light'] .tab-banner img {
+  filter:
+    drop-shadow(0 1px 1px rgba(40, 40, 40, 0.85))
+    drop-shadow(0 0 3px rgba(40, 40, 40, 0.6))
+    drop-shadow(0 0 10px rgba(var(--accent-rgb), 0.55));
+}
+/* Soft paper elevation instead of neon borders */
+:root[data-tone='light'] .card,
+:root[data-tone='light'] .chain-card,
+:root[data-tone='light'] .settings-group {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+}
+
 /* Midnight — pure black with white secondary */
 :root[data-theme='midnight'] {
   --bg-deep:        #000000;
@@ -1523,8 +1541,11 @@ h1, h2, h3 { font-family: var(--font-display); }
 .settings-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 /* ── Theme picker ─────────────────────────────────────────────────────────── */
+/* Six across, wrapping: the built-ins fill the first row and any custom themes
+   (plus the "New" tile) flow onto the next, so the row never squeezes. */
 .theme-picker {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
   padding: 12px 10px;
   background: var(--bg-card);
@@ -1532,8 +1553,46 @@ h1, h2, h3 { font-family: var(--font-display); }
   border-radius: var(--radius-md);
 }
 
+.theme-picker-note {
+  margin: 8px 4px 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Whether the themes are actually reaching the profile — see ThemeSyncNote */
+.theme-sync-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 4px 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--accent-text);
+}
+.theme-sync-note.bad { color: var(--warning); }
+
+.theme-sync-retry {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.theme-sync-retry:hover {
+  color: var(--accent-text);
+  border-color: var(--border-active);
+  background: var(--accent-dim);
+}
+
 .theme-swatch {
-  flex: 1;
+  position: relative;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1572,6 +1631,359 @@ h1, h2, h3 { font-family: var(--font-display); }
   line-height: 1.2;
 }
 .theme-swatch.active .theme-swatch-name { color: var(--accent-text); }
+
+/* "New" tile — a dashed slot so it reads as an empty space to fill, not a theme */
+.theme-swatch-new .theme-swatch-dot,
+.theme-swatch-plus {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px dashed var(--border-active);
+  box-shadow: none;
+  color: var(--accent-text);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1;
+}
+.theme-swatch-new:hover .theme-swatch-plus {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Pencil badge on a theme the user made. Sits on the tile rather than behind a
+   long-press so "you can edit this" is visible without being discovered. */
+.theme-swatch-edit {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-active);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--transition), border-color var(--transition);
+}
+.theme-swatch-edit:hover {
+  color: var(--accent-text);
+  border-color: var(--accent);
+}
+
+/* ── Theme editor ─────────────────────────────────────────────────────────── */
+.theme-editor {
+  padding: 4px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Which of the three colours the wheel is editing */
+.theme-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.theme-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 4px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.theme-slot:hover { background: var(--hover-faint); }
+.theme-slot.active {
+  background: var(--accent-dim);
+  border-color: var(--border-active);
+}
+
+.theme-slot-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--hover-flat);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.theme-slot-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.theme-slot.active .theme-slot-name { color: var(--accent-text); }
+
+.theme-slot-hint {
+  margin: -4px 4px 0;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.theme-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.theme-contrast {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+.theme-contrast strong {
+  display: inline-block;
+  min-width: 46px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.theme-contrast.ok { color: var(--warning); }
+.theme-contrast.bad { color: var(--error); }
+
+.theme-tone-note {
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+.theme-tone-note strong { color: var(--accent-text); }
+
+/* ── Colour picker ────────────────────────────────────────────────────────── */
+.color-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.color-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.color-picker-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.color-picker-chip {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-active);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.35);
+}
+
+.color-wheel {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto;
+  border-radius: 50%;
+  cursor: crosshair;
+  /* The wheel is dragged, so the WebView must not claim the gesture for a
+     scroll or a text selection (Android/iOS). */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.35);
+}
+.color-wheel canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.color-wheel-knob {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 5px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.color-value {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.color-value-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.color-value input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  outline: none;
+  cursor: pointer;
+  touch-action: none;
+}
+.color-value input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.color-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-format {
+  display: flex;
+  flex-shrink: 0;
+  padding: 2px;
+  gap: 2px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.color-format-btn {
+  padding: 5px 6px;
+  background: none;
+  border: none;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.color-format-btn:hover { color: var(--text-secondary); }
+.color-format-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent-text);
+}
+
+.color-hex {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.color-channels {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.color-channel {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 5px 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.color-channel > span {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.color-channel > em {
+  font-size: 9px;
+  font-style: normal;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.color-channel input {
+  width: 100%;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 0;
+  /* Spinners steal the little width these fields have */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+.color-channel input::-webkit-outer-spin-button,
+.color-channel input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.color-dropper {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.color-dropper:hover:not(:disabled) {
+  color: var(--accent-text);
+  border-color: var(--border-active);
+  background: var(--accent-dim);
+}
+.color-dropper:disabled { opacity: 0.5; cursor: default; }
+
+.color-error {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--error);
+}
+
+.color-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--accent-text);
+}
 
 /* Danger variant */
 .settings-group.danger { border-color: rgba(239, 68, 68, 0.25); }

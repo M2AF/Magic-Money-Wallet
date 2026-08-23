@@ -87,6 +87,92 @@ async function readFilters(userId, env) {
   return sanitizeEntries(rows[0]?.entries)
 }
 
+// ─── Custom themes (cl_themes) ────────────────────────────────────────────────
+//
+// HAND-KEPT PORT of src/shared/theme-sync-wire.ts. Drift is SILENT — a theme
+// simply never shows up on the other device — so change the two together.
+//
+// Same reason the merge lives server-side as the filters above: every client
+// pushes its whole list, so a plain overwrite would let the desktop undo a theme
+// made on the phone. `d: 1` is a TOMBSTONE; dropping the key instead would let
+// another device's copy resurrect a deleted theme forever.
+const MAX_THEME_ENTRIES = 64
+const THEME_ID_MAX = 64
+const THEME_NAME_MAX = 24
+const THEME_HEX = /^#[0-9a-f]{6}$/i
+
+function cleanThemeHex(value) {
+  if (typeof value !== 'string') return null
+  const v = value.trim()
+  return THEME_HEX.test(v) ? v.toLowerCase() : null
+}
+
+function sanitizeThemes(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  const out = {}
+  let seen = 0
+  for (const [id, e] of Object.entries(value)) {
+    if (seen >= MAX_THEME_ENTRIES) break
+    if (!id || id.length > THEME_ID_MAX || !id.startsWith('custom-')) continue
+    if (!e || typeof e !== 'object') continue
+    // typeof first: Number(null) is 0, a finite non-negative number, so a null
+    // timestamp would sail through as "oldest possible" instead of being
+    // rejected. t = 0 itself stays legal (migrated pre-sync themes use it).
+    if (typeof e.t !== 'number' || !Number.isFinite(e.t) || e.t < 0) continue
+
+    if (e.d === 1) {
+      out[id] = { n: '', c: { bg: '', accent: '', text: '' }, t: e.t, d: 1 }
+      seen++
+      continue
+    }
+    const bg = cleanThemeHex(e.c?.bg)
+    const accent = cleanThemeHex(e.c?.accent)
+    const text = cleanThemeHex(e.c?.text)
+    if (!bg || !accent || !text) continue
+    out[id] = {
+      n: (typeof e.n === 'string' ? e.n : '').trim().slice(0, THEME_NAME_MAX) || 'Custom',
+      c: { bg, accent, text },
+      t: e.t,
+    }
+    seen++
+  }
+  return out
+}
+
+function mergeThemes(base, incoming) {
+  const out = {}
+  for (const src of [sanitizeThemes(base), sanitizeThemes(incoming)]) {
+    for (const [id, e] of Object.entries(src)) {
+      if (!out[id] || e.t >= out[id].t) out[id] = e
+    }
+  }
+  const ids = Object.keys(out)
+  if (ids.length <= MAX_THEME_ENTRIES) return out
+  // Over the ceiling, live themes are kept and the OLDEST TOMBSTONES go first:
+  // dropping a live theme here would delete someone's work.
+  const live = ids.filter(id => out[id].d !== 1)
+  const dead = ids.filter(id => out[id].d === 1).sort((a, b) => out[b].t - out[a].t)
+  const kept = {}
+  for (const id of [...live, ...dead.slice(0, Math.max(0, MAX_THEME_ENTRIES - live.length))]) kept[id] = out[id]
+  return kept
+}
+
+/**
+ * Returns { entries, ok }. `ok: false` means the read itself failed — almost
+ * always because sql/cl_themes.sql has not been run yet.
+ *
+ * The two cases MUST be distinguishable. Collapsing them both to `{}`, the way
+ * readFilters does, makes "you have no themes" and "the table does not exist"
+ * look identical to every caller, which is precisely how a broken deployment
+ * hid behind a working-looking wallet.
+ */
+async function readThemes(userId, env) {
+  const res = await sb(env, `cl_themes?user_id=eq.${encodeURIComponent(userId)}&select=entries`, { method: 'GET' })
+  if (!res.ok) return { entries: {}, ok: false }
+  const rows = await res.json().catch(() => [])
+  return { entries: sanitizeThemes(rows[0]?.entries), ok: true }
+}
+
 /** Returns a Response for a db route, or null if this isn't a db route. */
 export async function handleDb(request, url, env, ctx) {
   const parts = pathParts(url.pathname)
@@ -144,6 +230,54 @@ export async function handleDb(request, url, env, ctx) {
       body: JSON.stringify({ user_id: userId, entries: merged, updated_at: new Date().toISOString() }),
     })
     if (!wRes.ok) return err(env, `DB ${wRes.status}`, 502)
+    return json(env, { entries: merged, error: null })
+  }
+
+  // GET /profile/themes?address=0x…  → { entries }
+  // Unsigned like GET /profile/filters: a colour scheme is not a secret, and the
+  // route is address-scoped so it can't be enumerated. No profile is an empty
+  // map, not an error — the client keeps the themes it has locally.
+  if (parts[0] === 'profile' && parts[1] === 'themes' && request.method === 'GET') {
+    const address = (url.searchParams.get('address') || '').toLowerCase()
+    if (!isEvm(address)) return err(env, 'Invalid address')
+    const userId = await pickOwner(await candidateOwners(address, env, false), env)
+    if (!userId) return json(env, { entries: {}, profile: false })
+    const read = await readThemes(userId, env)
+    // `unavailable` lets the wallet say "the table isn't there" instead of
+    // silently showing an empty list that looks like a working empty profile.
+    return json(env, { entries: read.entries, profile: true, unavailable: !read.ok })
+  }
+
+  // POST /profile/themes  { address, ts, signature, entries }  → { entries }
+  // Signature-gated and resolved against VERIFIED links only, same as filters:
+  // honouring a watch-only link would let anyone who adds your address to their
+  // profile rewrite the themes your wallet offers you.
+  if (parts[0] === 'profile' && parts[1] === 'themes' && request.method === 'POST') {
+    const b = await request.json().catch(() => null)
+    const addr = String(b?.address || '').toLowerCase()
+    if (!b || !isEvm(addr)) return err(env, 'Invalid address')
+    if (!verifyOwnership('themes-update', addr, b.ts, b.signature)) return err(env, 'Bad signature', 401)
+    if (await replayed(env, ctx, b.signature)) return err(env, 'Replay', 401)
+
+    const userId = await pickOwner(await candidateOwners(addr, env, true), env)
+    // Same contract as filters: 404 means "create a profile, then push again".
+    if (!userId) return err(env, 'No profile', 404)
+
+    const merged = mergeThemes((await readThemes(userId, env)).entries, b.entries)
+    const wRes = await sb(env, 'cl_themes?on_conflict=user_id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ user_id: userId, entries: merged, updated_at: new Date().toISOString() }),
+    })
+    if (!wRes.ok) {
+      // Pass Postgres's own words through — "relation cl_themes does not exist"
+      // is an instruction; "DB 404" is a riddle. Nothing sensitive: this is a
+      // schema error on a table whose shape is public in the repo.
+      const detail = await wRes.text().catch(() => '')
+      let hint = ''
+      try { hint = JSON.parse(detail).message || '' } catch { hint = detail.slice(0, 120) }
+      return err(env, `DB ${wRes.status}${hint ? `: ${hint}` : ''}`, 502)
+    }
     return json(env, { entries: merged, error: null })
   }
 

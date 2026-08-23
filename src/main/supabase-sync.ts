@@ -18,7 +18,7 @@ import { getEvmPrivateKey } from './wallet-core'
 import { privateKeyToAccount } from 'viem/accounts'
 
 /** Every write the Worker will verify a signature for. */
-export type OwnershipAction = 'sync' | 'profile-update' | 'filters-update'
+export type OwnershipAction = 'sync' | 'profile-update' | 'filters-update' | 'themes-update'
 
 // Canonical ownership message — MUST byte-match the Worker (cloudflare-worker/auth.js).
 function ownershipMessage(action: OwnershipAction, addressLower: string, ts: number): string {

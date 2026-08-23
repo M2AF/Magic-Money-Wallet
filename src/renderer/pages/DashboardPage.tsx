@@ -1297,7 +1297,11 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           box) stay pinned while the list underneath scrolls. */}
       <div style={{ padding: '0 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Portfolio sub-tab bar */}
-        <div style={{ display: 'flex', gap: 4, background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
+        {/* --input-bg, not a hardcoded black wash: on a dark theme the token IS
+            rgba(0,0,0,0.3), so this looks unchanged, but a light custom theme
+            tints it from the text colour instead of laying grey over paper.
+            Same fill as the address chip, which is what it has to match. */}
+        <div style={{ display: 'flex', gap: 4, background: 'var(--input-bg)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
           {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
             <button
               key={tab}
@@ -1328,7 +1332,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
               portfolioTab === 'tokens' ? 'Search tokens…' : 'Search collectibles…'
             }
             style={{
-              flex: 1, minWidth: 0, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border)',
+              flex: 1, minWidth: 0, background: 'var(--input-bg)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)',
               fontFamily: 'var(--font-body)', fontSize: 12, padding: '7px 10px', outline: 'none'
             }}
@@ -1347,7 +1351,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           )}
           {portfolioHiddenCount > 0 && (
             <button type="button" onClick={() => setShowManager(true)}
-              style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
+              style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
               Hidden ({portfolioHiddenCount})
             </button>
           )}

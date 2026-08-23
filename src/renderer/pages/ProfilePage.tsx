@@ -297,7 +297,7 @@ export function ProfilePage() {
   const socialAccounts = (profile.cl_linked_accounts ?? []).filter(a => !a.provider.endsWith('_wallet'))
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 8px' }}>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '28px 16px 8px' }}>
       {showAvatarModal && (
         <AvatarModal onClose={() => setShowAvatarModal(false)} onSave={handleAvatarSaved} />
       )}

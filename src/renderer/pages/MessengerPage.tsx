@@ -570,7 +570,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
   }
 
   const header = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 10px', flexShrink: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '26px 16px 10px', flexShrink: 0 }}>
       <span style={{
         width: 34, height: 34, borderRadius: 'var(--radius-sm)', flexShrink: 0,
         background: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%)',
@@ -879,8 +879,11 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
       )}
 
       <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+        {/* testids mirror the ChainLens website's Messenger, so a test written
+            against one reads the same against the other. */}
         <div
           ref={feedRef} onScroll={syncScrollState}
+          data-testid={selectedFriend ? 'direct-message-feed' : 'world-chat-feed'}
           style={{ height: '100%', overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}
         >
           {currentLoading && currentMessages.length === 0 ? (

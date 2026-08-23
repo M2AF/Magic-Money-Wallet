@@ -5,7 +5,22 @@ import { useState, useEffect } from 'react'
 import { onboardingStage, settingsRowCopy, settingsLandingNote, onboardingCopy } from '../lib/passkey-onboarding'
 import type { ApprovedOrigin, BiometricMethod, DappChain, DefaultBrowserState, UpdateStatus } from '../types/wallet'
 import { bioMethodLabel } from '../types/wallet'
-import { THEMES, getTheme, setTheme, type ThemeId } from '../theme'
+import {
+  THEMES,
+  MAX_CUSTOM_THEMES,
+  customSwatch,
+  getCustomThemes,
+  getTheme,
+  getThemeSyncStatus,
+  onCustomThemesChange,
+  retryThemeSync,
+  setTheme,
+  syncCustomThemes,
+  type CustomTheme,
+  type ThemeId,
+  type ThemeSyncStatus
+} from '../theme'
+import { ThemeEditorModal } from '../components/ThemeEditorModal'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 
 interface Props {
@@ -33,6 +48,10 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
+  const [customThemes, setCustomThemes] = useState<CustomTheme[]>(getCustomThemes)
+  const [themeSync, setThemeSync] = useState<ThemeSyncStatus>(getThemeSyncStatus)
+  // `editing: null` with the editor open = creating a new theme.
+  const [themeEditor, setThemeEditor] = useState<{ editing: CustomTheme | null } | null>(null)
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
   const [testnetError, setTestnetError] = useState<string | null>(null)
@@ -43,6 +62,20 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
   const [defaultBrowser, setDefaultBrowser] = useState<DefaultBrowserState | null>(null)
   const [defaultBrowserBusy, setDefaultBrowserBusy] = useState(false)
+
+  // Custom themes live on the ChainLens profile, so opening the picker is when
+  // this device catches up with themes made elsewhere. Deliberately here rather
+  // than at app start: Appearance is the only place they are visible, so there
+  // is no reason to spend a request before someone looks.
+  useEffect(() => {
+    const refresh = () => {
+      setCustomThemes(getCustomThemes())
+      setThemeSync(getThemeSyncStatus())
+    }
+    const off = onCustomThemesChange(refresh)
+    void syncCustomThemes().then(setThemeSync)
+    return off
+  }, [])
 
   // Software update is Electron-only — the extension bridge omits these methods
   // (extensions self-update via the Chrome store), so the whole section hides.
@@ -348,21 +381,48 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
         <SettingsSection label="Appearance">
           <div className="theme-picker">
             {THEMES.map(t => (
-              <button
+              <ThemeSwatch
                 key={t.id}
-                type="button"
-                className={`theme-swatch${theme === t.id ? ' active' : ''}`}
-                onClick={() => { setTheme(t.id); setThemeState(t.id) }}
-                title={t.name}
-              >
-                <span
-                  className="theme-swatch-dot"
-                  style={{ background: `linear-gradient(135deg, ${t.swatch[0]} 50%, ${t.swatch[1]} 50%)` }}
-                />
-                <span className="theme-swatch-name">{t.name}</span>
-              </button>
+                name={t.name}
+                swatch={t.swatch}
+                active={theme === t.id}
+                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
+              />
             ))}
+            {customThemes.map(t => (
+              <ThemeSwatch
+                key={t.id}
+                name={t.name}
+                swatch={customSwatch(t)}
+                active={theme === t.id}
+                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
+                onEdit={() => setThemeEditor({ editing: t })}
+              />
+            ))}
+            {customThemes.length < MAX_CUSTOM_THEMES && (
+              <button
+                type="button"
+                className="theme-swatch theme-swatch-new"
+                onClick={() => setThemeEditor({ editing: null })}
+                title="Create your own theme"
+              >
+                <span className="theme-swatch-dot theme-swatch-plus" aria-hidden>+</span>
+                <span className="theme-swatch-name">New</span>
+              </button>
+            )}
           </div>
+          <p className="theme-picker-note">
+            {customThemes.length === 0
+              ? 'Tap + to build your own: pick a background, an accent and a text colour, and the rest of the app is derived to match.'
+              : customThemes.length >= MAX_CUSTOM_THEMES
+                ? `Tap the pencil to change a theme you made. All ${MAX_CUSTOM_THEMES} custom slots are used — delete one to make another.`
+                : `Tap the pencil to change a theme you made. ${MAX_CUSTOM_THEMES - customThemes.length} of ${MAX_CUSTOM_THEMES} custom slots left.`}
+          </p>
+          <ThemeSyncNote
+            status={themeSync}
+            local={customThemes.length}
+            onRetry={() => { setThemeSync({ ...themeSync, state: 'syncing' }); void retryThemeSync().then(setThemeSync) }}
+          />
         </SettingsSection>
 
         <SettingsSection label="Security">
@@ -526,6 +586,13 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 
       {revealOpen && <RevealSeedModal onClose={() => setRevealOpen(false)} />}
       {sitesOpen && <ConnectedSitesModal onClose={() => { setSitesOpen(false); refreshSiteCount() }} />}
+      {themeEditor && (
+        <ThemeEditorModal
+          editing={themeEditor.editing}
+          onClose={() => setThemeEditor(null)}
+          onSaved={() => setThemeState(getTheme())}
+        />
+      )}
     </div>
   )
 }
@@ -805,6 +872,91 @@ function RevealSeedModal({ onClose }: { onClose: () => void }) {
         )}
       </div>
     </div>
+  )
+}
+
+/**
+ * Whether the custom themes are actually reaching the ChainLens profile.
+ *
+ * This exists because the failure mode it reports is otherwise INVISIBLE: a
+ * missing bridge, an unreachable Worker and an un-migrated database all end with
+ * the themes sitting quietly on one device and no way to tell which. Saying
+ * which one it is turns a debugging session into a glance.
+ */
+function ThemeSyncNote({ status, local, onRetry }: {
+  status: ThemeSyncStatus
+  local: number
+  onRetry: () => void
+}) {
+  if (local === 0 && status.state === 'idle') return null
+
+  const line =
+    status.state === 'syncing' ? 'Checking your ChainLens profile…'
+    : status.state === 'unavailable' ? 'Theme sync isn’t available in this build — restart the app if you just updated.'
+    : status.state === 'error' ? `Not synced — ${status.error ?? 'could not reach your profile'}`
+    : status.state === 'synced'
+      ? status.remote === 0 && local > 0
+        ? 'Your profile has no themes yet — sending them now.'
+        : `Synced with your ChainLens profile${status.remote !== null ? ` · ${status.remote} there` : ''}`
+      : ''
+  if (!line) return null
+
+  const bad = status.state === 'error' || status.state === 'unavailable'
+  return (
+    <p className={`theme-sync-note${bad ? ' bad' : ''}`}>
+      {line}
+      {bad && (
+        <button type="button" className="theme-sync-retry" onClick={onRetry}>Retry</button>
+      )}
+    </p>
+  )
+}
+
+/**
+ * One tile in the Appearance picker. Built-in themes are select-only; a custom
+ * one also carries a pencil badge, so editing is visible on the tile instead of
+ * hidden behind a long-press or a second selection.
+ */
+function ThemeSwatch({ name, swatch, active, onSelect, onEdit }: {
+  name: string
+  swatch: [string, string]
+  active: boolean
+  onSelect: () => void
+  onEdit?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`theme-swatch${active ? ' active' : ''}`}
+      onClick={onSelect}
+      title={name}
+    >
+      <span
+        className="theme-swatch-dot"
+        style={{ background: `linear-gradient(135deg, ${swatch[0]} 50%, ${swatch[1]} 50%)` }}
+      />
+      <span className="theme-swatch-name">{name}</span>
+      {onEdit && (
+        // Nested interactive element: a <span role="button"> rather than a
+        // <button>, which is invalid inside a button and gets dropped by React.
+        <span
+          role="button"
+          tabIndex={0}
+          className="theme-swatch-edit"
+          aria-label={`Edit ${name}`}
+          title={`Edit ${name}`}
+          onClick={e => { e.stopPropagation(); onEdit() }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEdit() }
+          }}
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+          </svg>
+        </span>
+      )}
+    </button>
   )
 }
 

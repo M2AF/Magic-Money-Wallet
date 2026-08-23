@@ -20,6 +20,7 @@
     // The asset-key contract the renderer shares with main and with ChainLens.
     // Named rather than globbed so the browser-only modules in src/shared don't
     // become roots of the renderer project too.
-    "src/shared/asset-filter-key.ts"
+    "src/shared/asset-filter-key.ts",
+    "src/shared/theme-sync-wire.ts"
   ]
 }

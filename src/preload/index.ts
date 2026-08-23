@@ -153,6 +153,11 @@ contextBridge.exposeInMainWorld('wallet', {
   defaultBrowserGetState: ()         => ipcRenderer.invoke('default-browser:get-state'),
   defaultBrowserRequest:  ()         => ipcRenderer.invoke('default-browser:request'),
 
+  // ── Screen colour picker (custom themes) ─────────────────────────────
+  // Electron has no window.EyeDropper, so main freezes the screen and runs
+  // the picker itself; resolves null when the user cancels.
+  pickScreenColor: ()                => ipcRenderer.invoke('theme:pick-screen-color'),
+
   // ── Danger zone ───────────────────────────────────────────────────────
   deleteWallet:  ()                  => ipcRenderer.invoke('wallet:delete'),
 
@@ -302,6 +307,9 @@ contextBridge.exposeInMainWorld('wallet', {
   // Hidden/spam asset list shared with ChainLens (src/shared/asset-filter-key.ts)
   assetFiltersGet:        ()                                                   => ipcRenderer.invoke('assetfilters:get'),
   assetFiltersPush:       (entries: unknown)                                   => ipcRenderer.invoke('assetfilters:push', entries),
+  // Custom themes on the same profile — see main/theme-sync.ts.
+  customThemesGet:        ()                                                   => ipcRenderer.invoke('themes:get'),
+  customThemesPush:       (entries: unknown)                                   => ipcRenderer.invoke('themes:push', entries),
 
   // ── ChainLens Messenger ──────────────────────────────────────────────────
   // No session token is exposed here by design — main holds it, and these calls

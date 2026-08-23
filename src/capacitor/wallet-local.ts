@@ -544,6 +544,8 @@ function buildWallet() {
     chainlensUpdateProfile: (u: unknown)    => send('chainlens:update-profile', u),
     assetFiltersGet:        ()              => send('assetfilters:get'),
     assetFiltersPush:       (e: unknown)    => send('assetfilters:push', e),
+    customThemesGet:        ()              => send('themes:get'),
+    customThemesPush:       (e: unknown)    => send('themes:push', e),
     chainlensPickAvatar:    ()              => send('chainlens:pick-avatar'),
 
     // ── ChainLens Messenger ──────────────────────────────────────────────

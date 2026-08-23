@@ -52,6 +52,11 @@ export function App() {
   // for good would leave the badge dead until the user opened the tab by hand.
   const chatFailures = useRef(0)
   const chatSkipTicks = useRef(0)
+  // Monotonic request id. A poll that fails on a 15s network timeout can land
+  // AFTER a later one that succeeded — opening the Messenger forces a refresh,
+  // so that overlap is the normal case, not a rare one — and without this the
+  // stale failure wipes the badge that the newer response had just populated.
+  const chatRequestId = useRef(0)
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {
@@ -143,11 +148,15 @@ export function App() {
   const refreshChatUnread = useCallback(async (force = false) => {
     // Back-off: skip this tick unless the caller is an explicit refresh.
     if (!force && chatSkipTicks.current > 0) { chatSkipTicks.current -= 1; return }
+    const id = ++chatRequestId.current
     try {
-      setChatUnread(await window.wallet.chatUnread())
+      const unread = await window.wallet.chatUnread()
+      if (id !== chatRequestId.current) return      // a newer poll already answered
+      setChatUnread(unread)
       chatFailures.current = 0
       chatSkipTicks.current = 0
     } catch {
+      if (id !== chatRequestId.current) return      // stale failure — do not clobber
       // Silent by design — a header dot is not worth an error surface, and the
       // Messenger tab is where the user gets a real explanation. Doubles the
       // wait each time, up to ~5 minutes.

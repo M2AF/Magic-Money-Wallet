@@ -4,6 +4,7 @@ import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenL
 // platform-neutral — no node, no electron — so importing it here typechecks
 // under every target's lib, even though it sits outside tsconfig.web's include.
 import type { AssetFilterEntries } from '../../shared/asset-filter-key'
+import type { ThemeEntries } from '../../shared/theme-sync-wire'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -813,6 +814,13 @@ declare global {
       // chosen as the system browser. Absent on the extension bridge.
       defaultBrowserGetState?(): Promise<DefaultBrowserState>
       defaultBrowserRequest?(): Promise<DefaultBrowserState>
+      // Pick a colour from anywhere on the screen (Settings -> Appearance).
+      // Electron only: window.EyeDropper exists in an Electron renderer but its
+      // open() rejects immediately (Electron ships no picker), so main freezes
+      // the screen and runs its own — see main/eyedropper.ts. The extension
+      // falls back to the real window.EyeDropper; the mobile WebViews have
+      // neither and hide the control. Resolves null when the user cancels.
+      pickScreenColor?(): Promise<string | null>
       // Phase 6: popup dApp browser
       openBrowser(): void
       // Open a specific URL in the built-in browser (Electron; Capacitor maps this
@@ -921,6 +929,13 @@ declare global {
        */
       assetFiltersGet?(): Promise<AssetFilterEntries | null>
       assetFiltersPush?(entries: AssetFilterEntries): Promise<{ entries: AssetFilterEntries | null; error: string | null }>
+      /**
+       * The user's custom themes, on the same profile — see main/theme-sync.ts.
+       * Same null contract as the filters pair: null is "could not sync", never
+       * "you have no themes", so a timeout must not empty anyone's picker.
+       */
+      customThemesGet?(): Promise<ThemeEntries | null>
+      customThemesPush?(entries: ThemeEntries): Promise<{ entries: ThemeEntries | null; error: string | null }>
       /**
        * ChainLens Messenger. Every one of these rejects with the server's own
        * wording on failure — unwrap with ipcErrorMessage() and show it.

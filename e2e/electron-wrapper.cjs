@@ -80,4 +80,88 @@ if (process.env.MM_TEST_FAKE_HELLO === '1') {
   }
 }
 
+// Optional: stand in for the ChainLens profile server on the /profile/themes
+// routes only.
+//
+// WHY THIS IS NOT OPTIONAL-IN-PRACTICE for the theme specs: the default config
+// points at the LIVE Worker, and pushing a theme with no profile auto-creates a
+// ChainLens account (theme-sync.ts). Left alone, every `npm run test:e2e:app`
+// would mint a real account for the public Anvil test key and write themes to
+// production. It also makes the specs hermetic — they pass whether or not the
+// Worker has been deployed.
+//
+// Everything downstream of this is production code: the wallet still builds the
+// entries map, signs, posts, and applies whatever comes back. MM_TEST_SYNC_STATE
+// is the fake server's stored row — a spec seeds it to play "a theme made on
+// another device" — and MM_TEST_SYNC_LOG records each push so a spec can assert
+// what the wallet actually sent (a tombstone on delete, for instance).
+if (process.env.MM_TEST_FAKE_PROFILE_SYNC === '1') {
+  const fs = require('fs')
+  const statePath = process.env.MM_TEST_SYNC_STATE
+  const logPath = process.env.MM_TEST_SYNC_LOG
+  const realFetch = globalThis.fetch
+
+  const readRaw = () => {
+    try { return JSON.parse(fs.readFileSync(statePath, 'utf8')) } catch { return {} }
+  }
+  // `__mode` is a control channel a spec can flip mid-run; it is never a theme.
+  const readState = () => {
+    const out = {}
+    for (const [k, v] of Object.entries(readRaw())) if (!k.startsWith('__')) out[k] = v
+    return out
+  }
+  const writeState = (entries) => {
+    try { fs.writeFileSync(statePath, JSON.stringify({ ...entries, __mode: readRaw().__mode })) }
+    catch { /* best effort */ }
+  }
+  const log = (record) => {
+    if (!logPath) return
+    try { fs.appendFileSync(logPath, JSON.stringify(record) + '\n') } catch { /* best effort */ }
+  }
+  const reply = (body, status = 200) => new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
+
+  globalThis.fetch = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || String(input)
+    const method = ((init && init.method) || 'GET').toUpperCase()
+
+    // /sync is intercepted too, and NOT because a spec needs it: it is the
+    // account-creating upsert theme-sync falls back to on a "No profile" 404.
+    // Left to the real network it would write a live ChainLens account for the
+    // public test key on any run that took that path. Logged so a spec can
+    // assert the wallet did NOT reach for it.
+    if (/\/sync(\?|$)/.test(url)) {
+      log({ sync: true })
+      return Promise.resolve(reply({ success: true, profile: null, error: null }))
+    }
+
+    if (!url.includes('/profile/themes')) return realFetch.call(this, input, init)
+
+    // Play a Worker that has not had this route deployed: the ROUTER's 404,
+    // which is a different thing from the handler's "No profile" 404 and must
+    // not be mistaken for it.
+    if (readRaw().__mode === 'missing-route') {
+      log({ missingRoute: method })
+      return Promise.resolve(reply({ error: 'Not found' }, 404))
+    }
+
+    if (method === 'GET') return Promise.resolve(reply({ entries: readState() }))
+
+    let pushed = {}
+    try { pushed = JSON.parse((init && init.body) || '{}').entries || {} } catch { /* malformed */ }
+    log(pushed)
+
+    // The same per-id newest-wins merge the Worker runs, so a spec sees the real
+    // convergence behaviour rather than a plain overwrite.
+    const merged = readState()
+    for (const [id, e] of Object.entries(pushed)) {
+      if (!merged[id] || (e && typeof e.t === 'number' && e.t >= merged[id].t)) merged[id] = e
+    }
+    writeState(merged)
+    return Promise.resolve(reply({ entries: merged, error: null }))
+  }
+}
+
 require(process.env.MM_REAL_MAIN)

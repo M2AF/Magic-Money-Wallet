@@ -9,7 +9,7 @@
   "main": "./out/main/index.js",
   "private": true,
   "scripts": {
-    "build:inject": "npx esbuild src/preload/web3-inject.ts src/preload/popup-chrome.ts src/preload/popup-connect.ts src/preload/approval-preload.ts src/preload/passkey-preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=out/inject && npx esbuild src/renderer/lib/passkey-ceremony-entry.ts --bundle --platform=browser --format=iife --outfile=out/inject/passkey-ceremony.js && npx esbuild src/shared/passkey-shim-entry.ts --bundle --platform=browser --format=iife --outfile=out/inject/passkey-shim.js",
+    "build:inject": "npx esbuild src/preload/web3-inject.ts src/preload/popup-chrome.ts src/preload/popup-connect.ts src/preload/approval-preload.ts src/preload/passkey-preload.ts src/preload/eyedropper-preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=out/inject && npx esbuild src/renderer/lib/passkey-ceremony-entry.ts --bundle --platform=browser --format=iife --outfile=out/inject/passkey-ceremony.js && npx esbuild src/shared/passkey-shim-entry.ts --bundle --platform=browser --format=iife --outfile=out/inject/passkey-shim.js",
     "apphub": "node scripts/convert-apphub.js",
     "icons": "node scripts/generate-icons.js",
     "icons:android": "node scripts/generate-android-icons.js",

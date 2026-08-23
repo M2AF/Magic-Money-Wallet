@@ -53,6 +53,8 @@ import {
   chatUnread, chatMarkRead, chatSearchGifs, clearChatSession,
 } from '../main/chainlens-chat'
 import { fetchAssetFilters, pushAssetFilters } from '../main/asset-filter-sync'
+import { fetchCustomThemes, pushCustomThemes } from '../main/theme-sync'
+import type { ThemeEntries } from '../shared/theme-sync-wire'
 import type { AssetFilterEntries } from '../shared/asset-filter-key'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
@@ -1072,6 +1074,17 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'assetfilters:push':
       return pushAssetFilters(a0 as AssetFilterEntries, await store.loadConfig())
+
+    // ── Custom themes, on the same profile ─────────────────────────────────
+    // NOT stubbed in the extension, unlike the filters above: those were held
+    // back because their keys have to agree with the ChainLens website's, and a
+    // theme has no counterpart there. supabase-sync (which signs the ownership
+    // proof) already runs in the extension, so this needs nothing extra.
+    case 'themes:get':
+      return fetchCustomThemes(await store.loadConfig())
+
+    case 'themes:push':
+      return pushCustomThemes(a0 as ThemeEntries, await store.loadConfig())
 
     // ── WalletConnect ──────────────────────────────────────────────────────
 

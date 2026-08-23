@@ -147,6 +147,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { downloadAsset } from './downloads'
 import { getDefaultBrowserState, requestDefaultBrowser } from './default-browser'
+import { pickScreenColor } from './eyedropper'
 import { MONAD_RPCS, activeEvmChains, activePublicRpcs, defaultDappChainId, isTestnet, isPrivacy, midnightNetworkFor } from './chain-config'
 import {
   buildCustomChain, chainRemovalPatch, assertTokenImportable, assertNftImportable,
@@ -172,6 +173,8 @@ import {
 } from './chainlens-chat'
 import { fetchAssetFilters, pushAssetFilters } from './asset-filter-sync'
 import type { AssetFilterEntries } from '../shared/asset-filter-key'
+import { fetchCustomThemes, pushCustomThemes } from './theme-sync'
+import type { ThemeEntries } from '../shared/theme-sync-wire'
 import {
   wcGetSessions, wcGetPendingProposals,
   wcPair, wcApproveSession, wcRejectSession,
@@ -1625,6 +1628,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('default-browser:get-state', () => getDefaultBrowserState())
   ipcMain.handle('default-browser:request', () => requestDefaultBrowser())
 
+  // ── Screen colour picker (Settings → Appearance → custom theme) ───────────
+  // Returns the picked colour as #rrggbb, or null when the user cancels. The
+  // capture never leaves the overlay window — only the six hex digits do.
+  ipcMain.handle('theme:pick-screen-color', event =>
+    pickScreenColor(BrowserWindow.fromWebContents(event.sender) ?? undefined))
+
   // ── Side-by-side window layout (Full Screen Mode) ─────────────────────────
   ipcMain.on('layout:snap',   (_event, side: 'left' | 'right') => layoutSnap(side === 'right' ? 'right' : 'left'))
   ipcMain.on('layout:detach', () => layoutDetach())
@@ -2696,4 +2705,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('assetfilters:push', (_e, entries: AssetFilterEntries) =>
     pushAssetFilters(entries, loadConfig()))
+
+  // ── Custom themes, carried on the same ChainLens profile ──────────────────
+  // Same null contract: "could not sync", never "you have no themes".
+  ipcMain.handle('themes:get', () => fetchCustomThemes(loadConfig()))
+
+  ipcMain.handle('themes:push', (_e, entries: ThemeEntries) =>
+    pushCustomThemes(entries, loadConfig()))
 }
