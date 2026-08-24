@@ -9,6 +9,16 @@
 // set and they are written as inline custom properties on <html>. Inline wins
 // over every :root rule, so no stylesheet has to know a custom theme exists.
 //
+// A BUILT-IN can be recoloured too, and it uses that same machinery: editing one
+// stores three colours under its id and the theme is then derived rather than
+// read from the stylesheet. <html> carries data-derived while that is true, and
+// the six hand-tuned blocks in index.css are written :not([data-derived]), so an
+// edited White & Gold cannot end up wearing the original's ivory gradients.
+// Reverting deletes the override, and the shipped theme — block and all — is
+// back exactly as it was. Deliberately LOCAL, unlike custom themes: the sync
+// wire is frozen around `custom-` ids (shared/theme-sync-wire.ts), and a recolour
+// of a shipped theme is a per-install preference rather than the user's own work.
+//
 // Custom themes are also carried on the user's ChainLens profile, so they follow
 // the person rather than the install (main/theme-sync.ts). Two storage layers,
 // in this order of authority:
@@ -37,33 +47,28 @@ import {
   sanitizeThemeEntries,
   type ThemeEntries
 } from '../shared/theme-sync-wire'
+import {
+  builtinSwatch,
+  isBuiltinThemeId,
+  planAbsorbShipped,
+  sanitizeBuiltinOverrides,
+  sameColors,
+  themeDef,
+  THEMES,
+  type BuiltinOverrides,
+  type BuiltinThemeId,
+  type ThemeDef
+} from './lib/builtin-themes'
 
-export type BuiltinThemeId = 'moonlight' | 'crimson' | 'grape' | 'matrix' | 'white-gold' | 'midnight'
 /** A user-made theme's id — also the value stamped into data-theme. */
 export type CustomThemeId = `custom-${string}`
 export type ThemeId = BuiltinThemeId | CustomThemeId
-
-export interface ThemeDef {
-  id: BuiltinThemeId
-  name: string
-  /** Swatch colors for the picker: [background, accent] */
-  swatch: [string, string]
-}
 
 export interface CustomTheme {
   id: CustomThemeId
   name: string
   colors: CustomThemeColors
 }
-
-export const THEMES: ThemeDef[] = [
-  { id: 'moonlight',  name: 'Moonlight',    swatch: ['#0a0f1e', '#00aaff'] },
-  { id: 'crimson',    name: 'Crimson',      swatch: ['#1e0a10', '#ff3355'] },
-  { id: 'grape',      name: 'Grape',        swatch: ['#120a1e', '#a24dff'] },
-  { id: 'matrix',     name: 'Matrix',       swatch: ['#000000', '#00ff41'] },
-  { id: 'white-gold', name: 'White & Gold', swatch: ['#fdfbf6', '#c9a227'] },
-  { id: 'midnight',   name: 'Midnight',     swatch: ['#000000', '#ffffff'] }
-]
 
 const STORAGE_KEY = 'mm.theme'
 /** Sync-shaped store: id -> { n, c, t, d? }. See shared/theme-sync-wire.ts. */
@@ -75,15 +80,18 @@ const ENTRIES_KEY = 'mm.themes.v2'
  */
 const LEGACY_KEY = 'mm.themes.custom'
 const MIGRATED_KEY = 'mm.themes.migrated.v2'
+/** Recoloured built-ins: id -> the three colours. Local to this install. */
+const BUILTIN_KEY = 'mm.themes.builtin.v1'
+/** Ran the one-time fold of user copies of a now-shipped theme (see absorbShipped). */
+const ABSORBED_KEY = 'mm.themes.absorbed.v1'
 const CUSTOM_PREFIX = 'custom-'
 const DEFAULT_THEME: BuiltinThemeId = 'moonlight'
 /** Hiding five colour tweaks behind one request; a save is deliberate, so short. */
 const PUSH_DEBOUNCE_MS = 800
 
-/** How many themes a user may keep alongside the six built-ins. */
+/** How many themes a user may keep alongside the built-ins. */
 export const MAX_CUSTOM_THEMES = 6
 
-const isBuiltinThemeId = (v: unknown): v is BuiltinThemeId => THEMES.some(t => t.id === v)
 export const isCustomThemeId = (v: unknown): v is CustomThemeId =>
   typeof v === 'string' && v.startsWith(CUSTOM_PREFIX)
 
@@ -186,6 +194,118 @@ function notify(): void {
   for (const cb of [...listeners]) {
     try { cb() } catch { /* a listener must not break a save */ }
   }
+}
+
+// ── Recoloured built-ins ─────────────────────────────────────────────────────
+//
+// Storing ONLY the colours, and only for the themes that were actually changed,
+// is what makes "revert" trivial: there is no default to restore, just an
+// override to delete. It also means a theme reshipped with new colours in a
+// later version reaches everyone who never touched it.
+
+function readOverrides(): BuiltinOverrides {
+  try {
+    const raw = localStorage.getItem(BUILTIN_KEY)
+    return raw ? sanitizeBuiltinOverrides(JSON.parse(raw)) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeOverrides(overrides: BuiltinOverrides): void {
+  try {
+    if (Object.keys(overrides).length === 0) localStorage.removeItem(BUILTIN_KEY)
+    else localStorage.setItem(BUILTIN_KEY, JSON.stringify(overrides))
+  } catch { /* private mode / quota — the recolour just won't persist */ }
+}
+
+/** The user's colours for this built-in, or null when it is still as shipped. */
+export function getBuiltinOverride(id: BuiltinThemeId): CustomThemeColors | null {
+  const found = readOverrides()[id]
+  return found ? { ...found } : null
+}
+
+/** What the editor opens with: the user's colours if any, else the shipped ones. */
+export function getBuiltinColors(id: BuiltinThemeId): CustomThemeColors {
+  return getBuiltinOverride(id) ?? { ...themeDef(id).colors }
+}
+
+export function isBuiltinEdited(id: BuiltinThemeId): boolean {
+  return getBuiltinOverride(id) !== null
+}
+
+/**
+ * Recolour a built-in.
+ *
+ * Colours equal to the shipped ones are stored as NO override rather than as a
+ * copy: otherwise "edit it back to how it was" would leave the theme flagged as
+ * edited forever, still derived, and still missing its hand-tuned CSS.
+ */
+export function saveBuiltinTheme(id: BuiltinThemeId, colors: CustomThemeColors): void {
+  const overrides = readOverrides()
+  if (sameColors(colors, themeDef(id).colors)) delete overrides[id]
+  else overrides[id] = { ...colors }
+  writeOverrides(overrides)
+  notify()
+  if (getTheme() === id) applyTheme(id)
+}
+
+/** Put a built-in back to the colours it shipped with. */
+export function resetBuiltinTheme(id: BuiltinThemeId): void {
+  const overrides = readOverrides()
+  if (!(id in overrides)) return
+  delete overrides[id]
+  writeOverrides(overrides)
+  notify()
+  if (getTheme() === id) applyTheme(id)
+}
+
+/**
+ * Which built-ins this install has recoloured. The picker holds this in state
+ * so a save or a revert redraws the tiles, rather than inferring it from the
+ * custom-theme list happening to change at the same time.
+ */
+export function getEditedBuiltins(): BuiltinThemeId[] {
+  return Object.keys(readOverrides()) as BuiltinThemeId[]
+}
+
+/** [background, accent] for a built-in's picker dot, honouring an override. */
+export function themeSwatch(def: ThemeDef): [string, string] {
+  return builtinSwatch(def, getBuiltinOverride(def.id))
+}
+
+/**
+ * One-time: fold away custom themes that are colour-for-colour a theme the app
+ * now ships, and move the selection onto the built-in if one of them was being
+ * worn.
+ *
+ * The six chain/collection themes were user-made before they were promoted to
+ * built-ins, so without this the people who made them open Appearance to find
+ * each one twice and every custom slot spent on a duplicate.
+ *
+ * ⚠ Tombstones, like every other delete here — dropping the key would let the
+ * next push from a device that still holds the theme resurrect it. The
+ * tombstones are NOT pushed from here: the next syncCustomThemes() sees them as
+ * newer than the server's copies and sends them, so this costs no request at
+ * startup.
+ */
+function absorbShipped(): void {
+  try {
+    if (localStorage.getItem(ABSORBED_KEY) === '1') return
+    localStorage.setItem(ABSORBED_KEY, '1')
+    const entries = readEntries()
+    const plan = planAbsorbShipped(entries, localStorage.getItem(STORAGE_KEY))
+    if (plan.tombstone.length === 0) return
+
+    const t = Date.now()
+    for (const id of plan.tombstone) {
+      entries[id] = { n: '', c: { bg: '', accent: '', text: '' }, t, d: 1 }
+    }
+    writeEntries(entries)
+    // Same theme, different tile: whoever was wearing the copy keeps the look.
+    if (plan.moveTo) localStorage.setItem(STORAGE_KEY, plan.moveTo)
+    notify()
+  } catch { /* a failed tidy-up must never stop the app from painting */ }
 }
 
 // ── Profile sync ─────────────────────────────────────────────────────────────
@@ -358,6 +478,7 @@ function clearCustomVars(): void {
   for (const name of appliedVars) el.style.removeProperty(name)
   appliedVars = []
   delete el.dataset.tone
+  delete el.dataset.derived
 }
 
 function writeCustomVars(colors: CustomThemeColors): ThemeTone {
@@ -371,6 +492,10 @@ function writeCustomVars(colors: CustomThemeColors): ThemeTone {
   // Light custom themes need the same treatment White & Gold gets for the
   // white-on-transparent wordmark art (see index.css).
   el.dataset.tone = tone
+  // "These tokens came from three colours, not from a stylesheet." The six
+  // hand-tuned blocks in index.css are :not([data-derived]) so that a
+  // recoloured built-in cannot inherit the original's baked-in gradients.
+  el.dataset.derived = '1'
   return tone
 }
 
@@ -397,6 +522,17 @@ export function applyTheme(id: ThemeId): void {
     }
     // Deleted in another window — fall through to the default.
     id = DEFAULT_THEME
+  }
+
+  const def = themeDef(id)
+  // A built-in is derived when it has no CSS block of its own, or when the user
+  // has recoloured it. Inline custom properties beat every :root rule, and
+  // data-derived takes the hand-tuned block out of the match.
+  const colors = def.css ? getBuiltinOverride(id) : getBuiltinColors(id)
+  if (colors) {
+    el.dataset.theme = id
+    writeCustomVars(colors)
+    return
   }
 
   clearCustomVars()
@@ -427,18 +563,22 @@ export function endPreview(): void {
 
 /** Apply the saved theme and follow changes made from other windows. */
 export function initTheme(): void {
+  // Before the first paint: it can move the selection off a custom theme that
+  // has since been promoted to a built-in, and painting twice would flash.
+  absorbShipped()
   applyTheme(getTheme())
   window.addEventListener('storage', e => {
-    // Either key can change the picture: the active id, or an edit to the
-    // colours of the custom theme that is already active. The entries key also
-    // moves when another window's sync pulls a theme in, so the picker in this
-    // window is told about it too.
-    if (e.key === STORAGE_KEY || e.key === ENTRIES_KEY) {
+    // Any of three keys can change the picture: the active id, an edit to the
+    // colours of the custom theme that is already active, or a recolour of the
+    // built-in being worn. The entries key also moves when another window's sync
+    // pulls a theme in, so the picker in this window is told about it too.
+    if (e.key === STORAGE_KEY || e.key === ENTRIES_KEY || e.key === BUILTIN_KEY) {
       applyTheme(getTheme())
-      if (e.key === ENTRIES_KEY) notify()
+      if (e.key !== STORAGE_KEY) notify()
     }
   })
 }
 
-export { DEFAULT_CUSTOM_COLORS }
+export { DEFAULT_CUSTOM_COLORS, THEMES }
 export type { CustomThemeColors, ThemeTone }
+export type { BuiltinThemeId, ThemeDef }

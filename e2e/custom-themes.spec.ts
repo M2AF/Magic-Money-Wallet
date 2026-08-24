@@ -1,9 +1,13 @@
 /**
- * custom-themes.spec.ts — Settings → Appearance → custom themes, end to end.
+ * custom-themes.spec.ts — Settings → Appearance, end to end.
  *
- * Covers the two things that can only be proven in the real app:
+ * Covers the things that can only be proven in the real app:
  *  1. a theme built from three colours actually repaints the app, persists, and
  *     leaves nothing behind when the editor is cancelled
+ *  1b. the same for the SHIPPED themes, which are editable too: the six promoted
+ *     ones have no stylesheet block and must paint from their colours alone, and
+ *     recolouring a hand-tuned one has to take that theme's baked-in gradients
+ *     out of the picture — and put them back on Revert
  *  2. the screen-colour dropper — Electron exposes window.EyeDropper but its
  *     open() rejects instantly (no picker behind it), so the wallet runs its own
  *     overlay windows via main/eyedropper.ts. This spec asserts the overlay
@@ -40,6 +44,13 @@ const PASSWORD = 'Theme-Test-2026!'
 
 test.describe('custom themes', () => {
   test.skip(!existsSync(MAIN), 'out/main missing — run `npm run build` first (use npm run test:e2e:app)')
+  // One worker, in order. The config is fullyParallel, which would otherwise
+  // split these cases across workers and stand up a whole extra wallet per case
+  // — and have two of them race for the full-screen always-on-top capture window
+  // the dropper case needs, which is exactly how that case started failing only
+  // when run alongside the others. `default` (not `serial`) so one failure still
+  // leaves the rest of the picker covered.
+  test.describe.configure({ mode: 'default' })
 
   let app: ElectronApplication
   let page: Page
@@ -111,6 +122,23 @@ test.describe('custom themes', () => {
     return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`
   }
 
+  /**
+   * A case that needs a user-made theme has to be able to make one: the config
+   * is fullyParallel, so any case can land in a fresh worker — and therefore on
+   * a freshly onboarded wallet — rather than inheriting the one built above.
+   */
+  async function ensureOwnTheme(name: string, colors: [string, string, string]): Promise<void> {
+    if (await vis(`.theme-swatch-own:has-text("${name}")`).count() > 0) return
+    await vis('.theme-swatch-new').first().click()
+    await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
+    await setSlot('Background', colors[0])
+    await setSlot('Accent', colors[1])
+    await setSlot('Text', colors[2])
+    await vis('input[aria-label="Theme name"]').first().fill(name)
+    await vis('button:has-text("Create theme")').first().click()
+    await expect(vis('.color-wheel')).toHaveCount(0)
+  }
+
   async function setSlot(slot: string, hex: string): Promise<void> {
     await vis(`.theme-slot:has-text("${slot}")`).first().click()
     await vis('.color-format-btn:has-text("HEX")').first().click()
@@ -164,9 +192,13 @@ test.describe('custom themes', () => {
     test.setTimeout(120_000)
     await ensureAppearance()
 
-    // Six built-ins ship; the seventh tile is the "New" slot.
+    // Twelve built-ins ship; the thirteenth tile is the "New" slot.
     await expect(vis('.theme-swatch-new')).toHaveCount(1)
-    expect(await vis('.theme-swatch').count()).toBe(7)
+    expect(await vis('.theme-swatch').count()).toBe(13)
+    // The six that were user-made before they were promoted, by their own names.
+    for (const name of ['Cardano', 'milady', 'Monad', 'Abstract', 'Bitcoin', 'Sappy Seals']) {
+      await expect(vis(`.theme-swatch:has-text("${name}")`)).toHaveCount(1)
+    }
 
     await vis('.theme-swatch-new').first().click()
     await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
@@ -203,8 +235,9 @@ test.describe('custom themes', () => {
     })
     expect(stored[ids[0]].t).toBeGreaterThan(0)
 
-    // It now sits in the picker with an edit affordance on it.
-    await expect(vis('.theme-swatch-edit')).toHaveCount(1)
+    // It now sits in the picker as the user's own, with an edit affordance on it.
+    await expect(vis('.theme-swatch-own')).toHaveCount(1)
+    await expect(vis('.theme-swatch-own .theme-swatch-edit')).toHaveCount(1)
 
     // …and it reached the profile, which is what makes it cross-device.
     expect(await waitForPush(p => Object.values(p).some(e => e.n === 'Sunset'))).toBe(true)
@@ -237,7 +270,7 @@ test.describe('custom themes', () => {
     test.setTimeout(120_000)
     await ensureAppearance()
     const before = await cssVar('--accent')
-    const savedCount = await vis('.theme-swatch-edit').count()
+    const savedCount = await vis('.theme-swatch-own').count()
 
     await vis('.theme-swatch-new').first().click()
     await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
@@ -248,13 +281,14 @@ test.describe('custom themes', () => {
     await expect(vis('.color-wheel')).toHaveCount(0)
 
     expect(await cssVar('--accent')).toBe(before)
-    expect(await vis('.theme-swatch-edit').count()).toBe(savedCount)
+    expect(await vis('.theme-swatch-own').count()).toBe(savedCount)
   })
 
   test('the pencil reopens a saved theme for editing', async () => {
     test.setTimeout(120_000)
     await ensureAppearance()
-    await vis('.theme-swatch-edit').first().click()
+    await ensureOwnTheme('Sunset', ['#121a2c', '#ff9500', '#ffe9cf'])
+    await vis('.theme-swatch-own:has-text("Sunset") .theme-swatch-edit').first().click()
     await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
     await expect(vis('.settings-title').last()).toHaveText('Edit theme')
     await expect(vis('input[aria-label="Theme name"]').first()).toHaveValue('Sunset')
@@ -348,6 +382,92 @@ test.describe('custom themes', () => {
     setServerMode(null)
   })
 
+  /**
+   * The six promoted themes have no CSS block at all — they are three colours
+   * expanded at runtime, exactly as a user-made theme is. So "it ships" is only
+   * true if selecting one actually repaints the app from those colours.
+   */
+  test('a promoted theme ships as a built-in and paints its own colours', async () => {
+    test.setTimeout(120_000)
+    await ensureAppearance()
+
+    await vis('.theme-swatch:has-text("Bitcoin")').first().click()
+    expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe('bitcoin')
+    expect(await cssVar('--accent')).toBe('#f2a900')
+    expect(await cssVar('--bg-deep')).toBe('#000000')
+    // Derived, not read from a stylesheet.
+    expect(await page.evaluate(() => document.documentElement.dataset.derived)).toBe('1')
+    expect(await page.evaluate(() => document.documentElement.dataset.tone)).toBe('dark')
+
+    // A light one flips the whole app over, same as a light custom theme does.
+    await vis('.theme-swatch:has-text("milady")').first().click()
+    expect(await page.evaluate(() => document.documentElement.dataset.tone)).toBe('light')
+    expect(await cssVar('--accent')).toBe('#ff4b97')
+    expect(await cssVar('--blur')).toBe('none')
+  })
+
+  /**
+   * Recolouring a HAND-TUNED built-in is the case with teeth: White & Gold's
+   * block in index.css names its ivory and gold outright — an app-shell
+   * gradient, a metallic button, a wordmark filter. If those rules survived the
+   * edit, the "recoloured" theme would keep painting itself ivory. They are
+   * written :not([data-derived]) precisely so they cannot.
+   */
+  test('recolouring a built-in replaces its hand-tuned block, and Revert brings it back', async () => {
+    test.setTimeout(120_000)
+    await ensureAppearance()
+
+    const shellImage = () => page.evaluate(
+      () => getComputedStyle(document.querySelector('.app-shell')!).backgroundImage,
+    )
+
+    await vis('.theme-swatch:has-text("White & Gold")').first().click()
+    expect(await cssVar('--accent')).toBe('#c9a227')
+    // The ivory sweep is on screen, and no override is recorded yet.
+    expect(await shellImage()).toContain('linear-gradient')
+    expect(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1'))).toBeNull()
+    await expect(vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit.edited')).toHaveCount(0)
+
+    await vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit').first().click()
+    await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
+    // A built-in's name is fixed — the six custom slots are where a user's own
+    // names live — so the sheet offers no name field.
+    await expect(vis('.settings-title').last()).toHaveText('Recolour White & Gold')
+    await expect(vis('input[aria-label="Theme name"]')).toHaveCount(0)
+    // Nothing to revert to yet, so nothing is offered.
+    await expect(vis('button:has-text("Revert to default")')).toHaveCount(0)
+
+    await setSlot('Accent', '#1f7a4d')
+    await vis('button:has-text("Save colours")').first().click()
+    await expect(vis('.color-wheel')).toHaveCount(0)
+
+    // Worn, stored under the built-in's own id, and now derived…
+    expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe('white-gold')
+    expect(await cssVar('--accent')).toBe('#1f7a4d')
+    expect(await page.evaluate(() => document.documentElement.dataset.derived)).toBe('1')
+    expect(JSON.parse(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1') ?? '{}')))
+      .toMatchObject({ 'white-gold': { accent: '#1f7a4d' } })
+    // …so the block that hardcodes ivory no longer applies.
+    expect(await shellImage()).not.toContain('linear-gradient')
+    // A recolour of a built-in stays on this install: the sync wire is frozen
+    // around `custom-` ids, and nothing here may leak onto the profile.
+    expect(Object.keys(serverThemes()).some(k => k.startsWith('white'))).toBe(false)
+
+    // The tile says so, and is the way back.
+    await expect(vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit.edited')).toHaveCount(1)
+    await vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit').first().click()
+    await expect(vis('.color-wheel').first()).toBeVisible({ timeout: 10_000 })
+    await vis('button:has-text("Revert to default")').first().click()
+    await expect(vis('.color-wheel')).toHaveCount(0)
+
+    // Exactly as it shipped: the tokens, the stylesheet block, and the store.
+    expect(await cssVar('--accent')).toBe('#c9a227')
+    expect(await shellImage()).toContain('linear-gradient')
+    expect(await page.evaluate(() => document.documentElement.dataset.derived)).toBeUndefined()
+    expect(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1'))).toBeNull()
+    await expect(vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit.edited')).toHaveCount(0)
+  })
+
   test('the dropper samples the real screen and hands back that exact pixel', async () => {
     test.setTimeout(180_000)
     await ensureAppearance()
@@ -422,5 +542,44 @@ test.describe('custom themes', () => {
     await expect(vis('.color-wheel').first()).toBeVisible()
 
     await vis('button:has-text("Cancel")').first().click()
+  })
+
+  /**
+   * The six promoted themes were user-made first, so the people who made them
+   * already hold a copy in their custom slots. On first run after the upgrade
+   * those copies are folded into the built-in — otherwise the picker shows every
+   * one of them twice and there is not a free slot left.
+   *
+   * ⚠ Deliberately last: it reloads the renderer, which locks the wallet.
+   */
+  test('folds a custom theme that has since become a built-in into that built-in', async () => {
+    test.setTimeout(120_000)
+    // Play that install: the copies still in the custom store, one being worn.
+    await page.evaluate(() => {
+      const t = Date.now()
+      localStorage.setItem('mm.themes.v2', JSON.stringify({
+        'custom-copy': { n: 'Bitcoin', c: { bg: '#000000', accent: '#f2a900', text: '#ababab' }, t },
+        'custom-mine': { n: 'Keeper', c: { bg: '#101018', accent: '#8be9fd', text: '#f0f0ff' }, t },
+      }))
+      localStorage.setItem('mm.theme', 'custom-copy')
+      localStorage.removeItem('mm.themes.absorbed.v1')
+    })
+    await page.reload()
+    await page.waitForFunction(
+      () => localStorage.getItem('mm.themes.absorbed.v1') === '1', null, { timeout: 30_000 },
+    )
+
+    const stored = JSON.parse(await page.evaluate(() => localStorage.getItem('mm.themes.v2') ?? '{}'))
+    // A TOMBSTONE, not a missing key: dropping it would let another device that
+    // still holds the copy push it straight back.
+    expect(stored['custom-copy'].d).toBe(1)
+    // Only the copy. A theme that is the user's own work is untouched.
+    expect(stored['custom-mine'].d).toBeUndefined()
+    expect(stored['custom-mine'].n).toBe('Keeper')
+    // The selection followed it, so nothing changed on screen — same colours,
+    // different tile.
+    expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe('bitcoin')
+    expect(await cssVar('--accent')).toBe('#f2a900')
+    expect(await cssVar('--bg-deep')).toBe('#000000')
   })
 })

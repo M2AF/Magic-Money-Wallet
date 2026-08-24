@@ -1,10 +1,16 @@
 /**
- * ThemeEditorModal.tsx — build or edit one custom theme.
+ * ThemeEditorModal.tsx — build a custom theme, or recolour a built-in one.
  *
  * The user picks three colours (page background, accent, text); everything else
  * in the token set is derived from them (lib/theme-tokens.ts), which is what
- * keeps a custom theme inside the app's design language instead of turning into
- * a free-for-all recolour.
+ * keeps a theme inside the app's design language instead of turning into a
+ * free-for-all recolour.
+ *
+ * A built-in is edited through exactly the same three controls. The difference
+ * is what saving costs and what it can undo: the shipped colours are never
+ * overwritten, only shadowed by an override, so Revert is always available and
+ * always exact. Its name is fixed — a built-in is a shipped identity, and the
+ * six custom slots are where a user's own names belong.
  *
  * The whole app is repainted live while the editor is open — the sheet itself
  * IS the preview — and the preview is dropped on cancel, so a theme that was
@@ -17,11 +23,16 @@ import {
   DEFAULT_CUSTOM_COLORS,
   deleteCustomTheme,
   endPreview,
+  getBuiltinColors,
+  isBuiltinEdited,
   previewCustomTheme,
+  resetBuiltinTheme,
+  saveBuiltinTheme,
   saveCustomTheme,
   setTheme,
   type CustomTheme,
-  type CustomThemeColors
+  type CustomThemeColors,
+  type ThemeDef
 } from '../theme'
 import { accentContrast, textContrast, toneOf } from '../lib/theme-tokens'
 
@@ -33,11 +44,16 @@ const SLOTS: { key: Slot; label: string; hint: string }[] = [
   { key: 'text',   label: 'Text',       hint: 'Body text. Secondary and muted tiers are derived from it.' }
 ]
 
+/** What the sheet was opened on. */
+export type ThemeEditorTarget =
+  | { kind: 'new' }
+  | { kind: 'custom'; theme: CustomTheme }
+  | { kind: 'builtin'; def: ThemeDef }
+
 interface Props {
-  /** The theme being edited, or null to create a new one. */
-  editing: CustomTheme | null
+  target: ThemeEditorTarget
   onClose: () => void
-  /** Fires after a successful save or delete so the picker can refresh. */
+  /** Fires after a successful save, delete or revert so the picker can refresh. */
   onSaved: () => void
 }
 
@@ -49,12 +65,24 @@ function contrastNote(ratio: number): { text: string; level: 'good' | 'ok' | 'ba
   return { text: 'Very low contrast — this will be hard to read', level: 'bad' }
 }
 
-export function ThemeEditorModal({ editing, onClose, onSaved }: Props) {
-  const [name, setName] = useState(editing?.name ?? 'My theme')
-  const [colors, setColors] = useState<CustomThemeColors>(editing?.colors ?? DEFAULT_CUSTOM_COLORS)
+function initialColors(target: ThemeEditorTarget): CustomThemeColors {
+  if (target.kind === 'builtin') return getBuiltinColors(target.def.id)
+  if (target.kind === 'custom') return target.theme.colors
+  return DEFAULT_CUSTOM_COLORS
+}
+
+export function ThemeEditorModal({ target, onClose, onSaved }: Props) {
+  const builtin = target.kind === 'builtin' ? target.def : null
+  const custom = target.kind === 'custom' ? target.theme : null
+
+  const [name, setName] = useState(builtin?.name ?? custom?.name ?? 'My theme')
+  const [colors, setColors] = useState<CustomThemeColors>(() => initialColors(target))
   const [slot, setSlot] = useState<Slot>('bg')
   const [error, setError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // Read once, on open: the sheet is the only thing that can change it, and it
+  // decides whether Revert is offered at all.
+  const [wasEdited] = useState(() => (builtin ? isBuiltinEdited(builtin.id) : false))
 
   // Paint the app in the theme being built. endPreview() on unmount covers every
   // way out of here — Cancel, the ×, the backdrop — so only an explicit Save
@@ -67,7 +95,14 @@ export function ThemeEditorModal({ editing, onClose, onSaved }: Props) {
   const set = (hex: string) => setColors(c => ({ ...c, [slot]: hex }))
 
   const save = () => {
-    const saved = saveCustomTheme({ id: editing?.id, name, colors })
+    if (builtin) {
+      saveBuiltinTheme(builtin.id, colors)
+      setTheme(builtin.id)
+      onSaved()
+      onClose()
+      return
+    }
+    const saved = saveCustomTheme({ id: custom?.id, name, colors })
     if (!saved) {
       setError('You already have six custom themes. Delete one to make room.')
       return
@@ -78,10 +113,18 @@ export function ThemeEditorModal({ editing, onClose, onSaved }: Props) {
     onClose()
   }
 
+  const revert = () => {
+    if (!builtin) return
+    resetBuiltinTheme(builtin.id)
+    setTheme(builtin.id)
+    onSaved()
+    onClose()
+  }
+
   const remove = () => {
-    if (!editing) return
+    if (!custom) return
     if (!confirmDelete) { setConfirmDelete(true); return }
-    deleteCustomTheme(editing.id)
+    deleteCustomTheme(custom.id)
     onSaved()
     onClose()
   }
@@ -96,19 +139,29 @@ export function ThemeEditorModal({ editing, onClose, onSaved }: Props) {
       <div className="settings-sheet fade-in" onClick={e => e.stopPropagation()}>
         <div className="settings-grip" />
         <div className="settings-header">
-          <div className="settings-title">{editing ? 'Edit theme' : 'New theme'}</div>
+          <div className="settings-title">
+            {builtin ? `Recolour ${builtin.name}` : custom ? 'Edit theme' : 'New theme'}
+          </div>
           <button type="button" className="settings-close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         <div className="theme-editor">
-          <input
-            className="input"
-            value={name}
-            maxLength={24}
-            placeholder="Theme name"
-            aria-label="Theme name"
-            onChange={e => { setName(e.target.value); setError(null) }}
-          />
+          {builtin ? (
+            <p className="theme-slot-hint">
+              {builtin.css
+                ? 'Saving re-derives this built-in from your three colours, in place of its hand-tuned original. Revert brings the original back, exactly as it shipped.'
+                : 'Saving keeps the name and gives it your colours. Revert brings the shipped ones back at any time.'}
+            </p>
+          ) : (
+            <input
+              className="input"
+              value={name}
+              maxLength={24}
+              placeholder="Theme name"
+              aria-label="Theme name"
+              onChange={e => { setName(e.target.value); setError(null) }}
+            />
+          )}
 
           <div className="theme-slots" role="tablist" aria-label="Which colour to edit">
             {SLOTS.map(s => (
@@ -139,16 +192,21 @@ export function ThemeEditorModal({ editing, onClose, onSaved }: Props) {
             </div>
             <div className="theme-tone-note">
               Reading as a <strong>{tone}</strong> theme — cards, borders and shadows are
-              tuned to match, exactly as the built-in themes do.
+              tuned to match{builtin ? '.' : ', exactly as the built-in themes do.'}
             </div>
           </div>
 
           {error && <div className="color-error">{error}</div>}
 
           <button type="button" className="btn btn-primary" onClick={save}>
-            {editing ? 'Save changes' : 'Create theme'}
+            {builtin ? 'Save colours' : custom ? 'Save changes' : 'Create theme'}
           </button>
-          {editing && (
+          {builtin && wasEdited && (
+            <button type="button" className="btn btn-ghost" onClick={revert}>
+              Revert to default
+            </button>
+          )}
+          {custom && (
             <button type="button" className="btn btn-ghost" style={{ color: 'var(--error)' }} onClick={remove}>
               {confirmDelete ? 'Tap again to delete' : 'Delete theme'}
             </button>

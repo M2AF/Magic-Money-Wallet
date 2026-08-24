@@ -77,10 +77,19 @@
    Each theme re-skins the app by overriding the base tokens above; derived
    tokens (--accent-dim, --border, …) cascade from --accent-rgb automatically.
    The active theme is set as data-theme on <html> by src/renderer/theme.ts.
-   Default (no attribute) = "Moonlight", the original blue look. */
+   Default (no attribute) = "Moonlight", the original blue look.
+
+   ⚠ Every block below is :not([data-derived]). These six are the hand-tuned
+   themes, and the user can RECOLOUR them — at which point theme.ts derives the
+   whole token set from their three colours and stamps data-derived, and none of
+   this may apply: the gradients, glows and filters here name their original
+   colours outright, so an edited White & Gold would keep painting itself ivory.
+   Reverting drops the override, data-derived goes, and the block is back.
+   The other six built-ins (lib/builtin-themes.ts) are derived from the start and
+   have no block here at all. */
 
 /* Crimson — the Moonlight structure, hue-shifted to red */
-:root[data-theme='crimson'] {
+:root[data-theme='crimson']:not([data-derived]) {
   --bg-deep:        #18060a;
   --bg-dark:        #1e0a10;
   --bg-surface:     #35111c;
@@ -104,7 +113,7 @@
 }
 
 /* Matrix — pure-black terminal with glowing code-rain green */
-:root[data-theme='matrix'] {
+:root[data-theme='matrix']:not([data-derived]) {
   --bg-deep:        #000000;
   --bg-dark:        #020602;
   --bg-surface:     #051207;
@@ -133,17 +142,17 @@
 }
 
 /* Phosphor glow on the key figures, like glyphs lit on a black screen */
-:root[data-theme='matrix'] .page-title,
-:root[data-theme='matrix'] .chain-amount,
-:root[data-theme='matrix'] .bottom-nav-btn.active {
+:root[data-theme='matrix']:not([data-derived]) .page-title,
+:root[data-theme='matrix']:not([data-derived]) .chain-amount,
+:root[data-theme='matrix']:not([data-derived]) .bottom-nav-btn.active {
   text-shadow: 0 0 8px rgba(0, 255, 65, 0.45), 0 0 20px rgba(0, 255, 65, 0.2);
 }
-:root[data-theme='matrix'] .btn-primary {
+:root[data-theme='matrix']:not([data-derived]) .btn-primary {
   box-shadow: 0 0 20px rgba(0, 255, 65, 0.35), 0 0 45px rgba(0, 255, 65, 0.15);
 }
 
 /* White & Gold — warm layered ivory with metallic gradient gold (luxury) */
-:root[data-theme='white-gold'] {
+:root[data-theme='white-gold']:not([data-derived]) {
   --bg-deep:        #f6f2ea;
   --bg-dark:        #efe9dc;
   --bg-surface:     #fffdf8;
@@ -183,42 +192,44 @@
 }
 
 /* Layered warm-white sweep with a champagne sheen, echoing the reference art */
-:root[data-theme='white-gold'] .app-shell {
+:root[data-theme='white-gold']:not([data-derived]) .app-shell {
   background:
     radial-gradient(ellipse 70% 45% at 50% -10%, rgba(212, 175, 55, 0.16) 0%, transparent 70%),
     radial-gradient(ellipse 90% 60% at 85% 110%, rgba(200, 185, 150, 0.35) 0%, transparent 60%),
     linear-gradient(165deg, #fdfbf6 0%, #f6f1e6 55%, #efe7d5 100%);
 }
 /* Metallic gold: vertical highlight→tone→shadow gradient + inner shine line */
-:root[data-theme='white-gold'] .btn-primary {
+:root[data-theme='white-gold']:not([data-derived]) .btn-primary {
   background: linear-gradient(180deg, #ecd479 0%, #cfa62f 48%, #ab7d15 100%);
   color: #3a2a05;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65), 0 2px 10px rgba(171, 125, 21, 0.3);
 }
-:root[data-theme='white-gold'] .btn-primary:hover {
+:root[data-theme='white-gold']:not([data-derived]) .btn-primary:hover {
   background: linear-gradient(180deg, #f4e08e 0%, #dab440 48%, #b98a1d 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 3px 14px rgba(171, 125, 21, 0.4);
 }
 /* The wordmark art is white-on-transparent — outline it so it reads on ivory,
    with a warm gold halo so it pops like foil stamping */
-:root[data-theme='white-gold'] .titlebar-wordmark,
-:root[data-theme='white-gold'] .tab-banner img {
+:root[data-theme='white-gold']:not([data-derived]) .titlebar-wordmark,
+:root[data-theme='white-gold']:not([data-derived]) .tab-banner img {
   filter:
     drop-shadow(0 1px 1px rgba(58, 51, 37, 0.85))
     drop-shadow(0 0 3px rgba(58, 51, 37, 0.6))
     drop-shadow(0 0 10px rgba(201, 162, 39, 0.55));
 }
 /* Soft paper elevation instead of neon borders */
-:root[data-theme='white-gold'] .card,
-:root[data-theme='white-gold'] .chain-card,
-:root[data-theme='white-gold'] .settings-group {
+:root[data-theme='white-gold']:not([data-derived]) .card,
+:root[data-theme='white-gold']:not([data-derived]) .chain-card,
+:root[data-theme='white-gold']:not([data-derived]) .settings-group {
   box-shadow: 0 2px 14px rgba(90, 70, 20, 0.08);
 }
 
-/* A CUSTOM theme whose background is light gets the same treatment White & Gold
+/* A DERIVED theme whose background is light gets the same treatment White & Gold
    needs: the wordmark art is white-on-transparent, so on paper it has to be
    outlined or it disappears. data-tone is stamped by theme.ts alongside
-   data-theme; the built-in themes carry their own rules and never set it. */
+   data-theme, on anything built from three colours — a custom theme, a built-in
+   with no block of its own (Abstract, milady, Sappy Seals), or a recoloured one.
+   The six hand-tuned themes above carry their own rules and never set it. */
 :root[data-tone='light'] .titlebar-wordmark,
 :root[data-tone='light'] .tab-banner img {
   filter:
@@ -234,7 +245,7 @@
 }
 
 /* Midnight — pure black with white secondary */
-:root[data-theme='midnight'] {
+:root[data-theme='midnight']:not([data-derived]) {
   --bg-deep:        #000000;
   --bg-dark:        #0a0a0a;
   --bg-surface:     #141414;
@@ -264,7 +275,7 @@
 }
 
 /* Grape — the Moonlight structure, hue-shifted to deep purple */
-:root[data-theme='grape'] {
+:root[data-theme='grape']:not([data-derived]) {
   --bg-deep:        #0d0618;
   --bg-dark:        #120a1e;
   --bg-surface:     #241135;
@@ -1541,8 +1552,8 @@ h1, h2, h3 { font-family: var(--font-display); }
 .settings-chevron { color: var(--text-muted); flex-shrink: 0; }
 
 /* ── Theme picker ─────────────────────────────────────────────────────────── */
-/* Six across, wrapping: the built-ins fill the first row and any custom themes
-   (plus the "New" tile) flow onto the next, so the row never squeezes. */
+/* Six across, wrapping: the twelve built-ins fill two exact rows and any custom
+   themes (plus the "New" tile) flow onto the next, so the row never squeezes. */
 .theme-picker {
   display: grid;
   grid-template-columns: repeat(6, 1fr);
@@ -1552,6 +1563,29 @@ h1, h2, h3 { font-family: var(--font-display); }
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
+
+/* Eighteen tiles is too many to scan as one block — these split the shipped
+   themes from the user's own without a second card or a second scroll. */
+.theme-picker-group {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.theme-picker-group::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* The first group heading sits flush against the card's own padding. */
+.theme-picker-group + .theme-swatch { margin-top: -2px; }
+.theme-picker-group:not(:first-child) { margin-top: 6px; }
 
 .theme-picker-note {
   margin: 8px 4px 0;
@@ -1672,6 +1706,17 @@ h1, h2, h3 { font-family: var(--font-display); }
 .theme-swatch-edit:hover {
   color: var(--accent-text);
   border-color: var(--accent);
+}
+/* A built-in the user has recoloured. The only place that fact is visible, and
+   it doubles as the way back: the pencil opens the sheet that holds Revert. */
+.theme-swatch-edit.edited {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.theme-swatch-edit.edited:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
 }
 
 /* ── Theme editor ─────────────────────────────────────────────────────────── */

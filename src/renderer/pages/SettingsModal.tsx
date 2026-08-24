@@ -10,17 +10,20 @@ import {
   MAX_CUSTOM_THEMES,
   customSwatch,
   getCustomThemes,
+  getEditedBuiltins,
   getTheme,
   getThemeSyncStatus,
   onCustomThemesChange,
   retryThemeSync,
   setTheme,
   syncCustomThemes,
+  themeSwatch,
+  type BuiltinThemeId,
   type CustomTheme,
   type ThemeId,
   type ThemeSyncStatus
 } from '../theme'
-import { ThemeEditorModal } from '../components/ThemeEditorModal'
+import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 
 interface Props {
@@ -49,9 +52,11 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>(getCustomThemes)
+  // Built-ins this install has recoloured — the pencil badge lights up for these,
+  // and they are the only ones the editor offers Revert on.
+  const [editedBuiltins, setEditedBuiltins] = useState<BuiltinThemeId[]>(getEditedBuiltins)
   const [themeSync, setThemeSync] = useState<ThemeSyncStatus>(getThemeSyncStatus)
-  // `editing: null` with the editor open = creating a new theme.
-  const [themeEditor, setThemeEditor] = useState<{ editing: CustomTheme | null } | null>(null)
+  const [themeEditor, setThemeEditor] = useState<ThemeEditorTarget | null>(null)
   const [testnet, setTestnet] = useState<boolean | null>(null)
   const [testnetBusy, setTestnetBusy] = useState(false)
   const [testnetError, setTestnetError] = useState<string | null>(null)
@@ -70,6 +75,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   useEffect(() => {
     const refresh = () => {
       setCustomThemes(getCustomThemes())
+      setEditedBuiltins(getEditedBuiltins())
       setThemeSync(getThemeSyncStatus())
     }
     const off = onCustomThemesChange(refresh)
@@ -385,30 +391,35 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 
         <SettingsSection label="Appearance">
           <div className="theme-picker">
+            <div className="theme-picker-group">Built-in</div>
             {THEMES.map(t => (
               <ThemeSwatch
                 key={t.id}
                 name={t.name}
-                swatch={t.swatch}
+                swatch={themeSwatch(t)}
                 active={theme === t.id}
+                edited={editedBuiltins.includes(t.id)}
                 onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
+                onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
               />
             ))}
+            <div className="theme-picker-group">Yours</div>
             {customThemes.map(t => (
               <ThemeSwatch
                 key={t.id}
                 name={t.name}
                 swatch={customSwatch(t)}
                 active={theme === t.id}
+                own
                 onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
-                onEdit={() => setThemeEditor({ editing: t })}
+                onEdit={() => setThemeEditor({ kind: 'custom', theme: t })}
               />
             ))}
             {customThemes.length < MAX_CUSTOM_THEMES && (
               <button
                 type="button"
                 className="theme-swatch theme-swatch-new"
-                onClick={() => setThemeEditor({ editing: null })}
+                onClick={() => setThemeEditor({ kind: 'new' })}
                 title="Create your own theme"
               >
                 <span className="theme-swatch-dot theme-swatch-plus" aria-hidden>+</span>
@@ -417,11 +428,12 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             )}
           </div>
           <p className="theme-picker-note">
+            {`Tap the pencil to recolour any theme — a built-in can be reverted to how it shipped at any time. `}
             {customThemes.length === 0
-              ? 'Tap + to build your own: pick a background, an accent and a text colour, and the rest of the app is derived to match.'
+              ? 'Tap + to build one of your own from a background, an accent and a text colour; the rest of the app is derived to match.'
               : customThemes.length >= MAX_CUSTOM_THEMES
-                ? `Tap the pencil to change a theme you made. All ${MAX_CUSTOM_THEMES} custom slots are used — delete one to make another.`
-                : `Tap the pencil to change a theme you made. ${MAX_CUSTOM_THEMES - customThemes.length} of ${MAX_CUSTOM_THEMES} custom slots left.`}
+                ? `All ${MAX_CUSTOM_THEMES} custom slots are used — delete one to make another.`
+                : `${MAX_CUSTOM_THEMES - customThemes.length} of ${MAX_CUSTOM_THEMES} custom slots left.`}
           </p>
           <ThemeSyncNote
             status={themeSync}
@@ -593,9 +605,9 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
       {sitesOpen && <ConnectedSitesModal onClose={() => { setSitesOpen(false); refreshSiteCount() }} />}
       {themeEditor && (
         <ThemeEditorModal
-          editing={themeEditor.editing}
+          target={themeEditor}
           onClose={() => setThemeEditor(null)}
-          onSaved={() => setThemeState(getTheme())}
+          onSaved={() => { setThemeState(getTheme()); setEditedBuiltins(getEditedBuiltins()) }}
         />
       )}
     </div>
@@ -918,21 +930,25 @@ function ThemeSyncNote({ status, local, onRetry }: {
 }
 
 /**
- * One tile in the Appearance picker. Built-in themes are select-only; a custom
- * one also carries a pencil badge, so editing is visible on the tile instead of
- * hidden behind a long-press or a second selection.
+ * One tile in the Appearance picker. Every theme carries a pencil badge, so
+ * editing is visible on the tile instead of hidden behind a long-press or a
+ * second selection; `edited` fills the badge in on a built-in that has been
+ * recoloured, which is the only cue that it is no longer as it shipped.
  */
-function ThemeSwatch({ name, swatch, active, onSelect, onEdit }: {
+function ThemeSwatch({ name, swatch, active, edited, own, onSelect, onEdit }: {
   name: string
   swatch: [string, string]
   active: boolean
+  edited?: boolean
+  /** A theme the user made, rather than one that ships. */
+  own?: boolean
   onSelect: () => void
   onEdit?: () => void
 }) {
   return (
     <button
       type="button"
-      className={`theme-swatch${active ? ' active' : ''}`}
+      className={`theme-swatch${own ? ' theme-swatch-own' : ''}${active ? ' active' : ''}`}
       onClick={onSelect}
       title={name}
     >
@@ -947,9 +963,9 @@ function ThemeSwatch({ name, swatch, active, onSelect, onEdit }: {
         <span
           role="button"
           tabIndex={0}
-          className="theme-swatch-edit"
-          aria-label={`Edit ${name}`}
-          title={`Edit ${name}`}
+          className={`theme-swatch-edit${edited ? ' edited' : ''}`}
+          aria-label={edited ? `Edit ${name} (changed from default)` : `Edit ${name}`}
+          title={edited ? `${name} — changed from default` : `Edit ${name}`}
           onClick={e => { e.stopPropagation(); onEdit() }}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onEdit() }
