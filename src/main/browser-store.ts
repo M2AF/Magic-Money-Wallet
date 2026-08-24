@@ -1,7 +1,8 @@
 /**
  * browser-store.ts — MagicMoney Wallet
  *
- * Persistence for BROWSER-only data: bookmarks and installed web apps.
+ * Persistence for BROWSER-only data: bookmarks, installed web apps and
+ * browsing history.
  *
  * Deliberately NOT part of WalletConfig (config.json), for the same reason
  * magic-guard.ts keeps its site-exception list separate: these are variable-sized,
@@ -16,6 +17,7 @@
 import { app } from 'electron'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { historyHost, type HistoryEntry } from '../shared/history-wire'
 
 export interface Bookmark {
   id: string
@@ -42,14 +44,22 @@ function bookmarksPath(): string {
 function webAppsPath(): string {
   return join(browserDir(), 'web-apps.json')
 }
+function historyPath(): string {
+  return join(browserDir(), 'history.json')
+}
 
 // Hard ceilings so a runaway import (a 50k-bookmark Chrome profile) can't turn
 // every read into a multi-megabyte JSON.parse on the main thread.
 const MAX_BOOKMARKS = 5000
 const MAX_WEB_APPS = 500
+// History is the one list that grows on its own, so its ceiling is the one that
+// actually gets hit. 3000 entries is a few weeks of ordinary browsing and keeps
+// the file well under a megabyte.
+const MAX_HISTORY = 3000
 
 let bookmarksCache: Bookmark[] | null = null
 let webAppsCache: WebApp[] | null = null
+let historyCache: HistoryEntry[] | null = null
 
 /** Stable-ish unique id — the list is small and single-process, so this is enough. */
 export function newId(): string {
@@ -222,4 +232,107 @@ export function findWebApp(url: string): WebApp | undefined {
 
 export function forgetWebApp(id: string): WebApp[] {
   return saveWebApps(getWebApps().filter(a => a.id !== id))
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+//
+// Newest-first, one entry per canonical URL. Re-visiting a page bumps its
+// counter and moves it to the front rather than appending a duplicate — which
+// is what makes `visits` meaningful for ranking address-bar suggestions, and
+// what stops a page you reload twenty times from burying everything else.
+//
+// NOT written while Tor Mode is on. That gate lives in browser-manager, at the
+// navigation handlers, because this module has no idea what the proxy is doing.
+
+function pickHistory(v: unknown): HistoryEntry | null {
+  if (!v || typeof v !== 'object') return null
+  const h = v as Record<string, unknown>
+  const url = typeof h.url === 'string' ? canonicalUrl(h.url) : null
+  if (!url) return null
+  return {
+    id: typeof h.id === 'string' && h.id ? h.id : newId(),
+    url,
+    title: typeof h.title === 'string' ? h.title.slice(0, 300) : '',
+    host: typeof h.host === 'string' && h.host ? h.host : historyHost(url),
+    lastVisitedAt: Number.isFinite(h.lastVisitedAt) ? Number(h.lastVisitedAt) : Date.now(),
+    visits: Number.isFinite(h.visits) && Number(h.visits) > 0 ? Math.floor(Number(h.visits)) : 1,
+  }
+}
+
+export function getHistory(): HistoryEntry[] {
+  if (!historyCache) historyCache = readJsonArray(historyPath(), pickHistory, MAX_HISTORY)
+  return historyCache
+}
+
+function saveHistory(list: HistoryEntry[]): HistoryEntry[] {
+  historyCache = list
+  writeJson(historyPath(), list)
+  return list
+}
+
+/**
+ * Record a visit. `canonicalUrl` rejects anything that isn't http(s), so the
+ * browser's own about: pages and data: URLs never reach the list.
+ *
+ * The title is often empty here — `did-navigate` fires before the document has
+ * one — so an empty title never overwrites a title already known for that URL;
+ * `updateHistoryTitle` fills it in when page-title-updated arrives.
+ */
+export function recordVisit(rawUrl: string, title = ''): HistoryEntry[] {
+  const url = canonicalUrl(rawUrl)
+  if (!url) return getHistory()
+  const clean = title.trim().slice(0, 300)
+  const list = getHistory()
+  const existing = list.findIndex(h => h.url === url)
+  if (existing >= 0) {
+    const prev = list[existing]
+    const next: HistoryEntry = {
+      ...prev,
+      title: clean || prev.title,
+      lastVisitedAt: Date.now(),
+      visits: prev.visits + 1,
+    }
+    return saveHistory([next, ...list.slice(0, existing), ...list.slice(existing + 1)])
+  }
+  const fresh: HistoryEntry = {
+    id: newId(),
+    url,
+    title: clean,
+    host: historyHost(url),
+    lastVisitedAt: Date.now(),
+    visits: 1,
+  }
+  return saveHistory([fresh, ...list].slice(0, MAX_HISTORY))
+}
+
+/**
+ * Fill in the title once the document has one. Deliberately does NOT count as a
+ * visit or reorder the list — a page that renames its own tab repeatedly (a
+ * chat app showing an unread count) would otherwise churn the history file.
+ */
+export function updateHistoryTitle(rawUrl: string, title: string): void {
+  const url = canonicalUrl(rawUrl)
+  const clean = title.trim().slice(0, 300)
+  if (!url || !clean) return
+  const list = getHistory()
+  const at = list.findIndex(h => h.url === url)
+  if (at < 0 || list[at].title === clean) return
+  const next = [...list]
+  next[at] = { ...next[at], title: clean }
+  saveHistory(next)
+}
+
+export function removeHistoryEntry(id: string): HistoryEntry[] {
+  return saveHistory(getHistory().filter(h => h.id !== id))
+}
+
+/** "Forget this site" — every page from one host at once. */
+export function removeHistoryByHost(host: string): HistoryEntry[] {
+  const target = host.trim().toLowerCase()
+  if (!target) return getHistory()
+  return saveHistory(getHistory().filter(h => h.host !== target))
+}
+
+export function clearHistory(): HistoryEntry[] {
+  return saveHistory([])
 }

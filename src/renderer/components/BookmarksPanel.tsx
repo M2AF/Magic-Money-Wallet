@@ -1,9 +1,11 @@
 /**
  * BookmarksPanel.tsx — the dApp browser's bookmarks + installed-apps manager
  *
- * A full-area ContentPanel (not a dropdown): the list can be long and the rename
- * flow needs a real text field. Rendered inside BrowserApp's content div while
- * the active dApp view is detached — see browser-ui.tsx.
+ * A ContentPanel in the browser chrome — anchored card on desktop (`floating`,
+ * so it reads as a dropdown from the ☰ it was opened from), full-bleed sheet on
+ * the touch targets, which have nowhere smaller to put it. Rendered inside
+ * BrowserApp's content div while the active dApp view is detached — see
+ * browser-ui.tsx.
  *
  * Two tabs:
  *   Bookmarks — open / rename / remove, plus "Import from another browser"
@@ -16,7 +18,9 @@ import type { Bookmark, ImportSource, WebApp } from '../types/wallet'
 
 type Tab = 'bookmarks' | 'apps'
 
-export function BookmarksPanel({ onClose, onNavigate, onToast, importEmptyText, appsEmptyBody }: {
+export function BookmarksPanel({
+  onClose, onNavigate, onToast, importEmptyText, appsEmptyBody, floating, onDismiss,
+}: {
   onClose: () => void
   onNavigate: (url: string) => void
   onToast: (message: string) => void
@@ -24,6 +28,9 @@ export function BookmarksPanel({ onClose, onNavigate, onToast, importEmptyText, 
    *  home-screen shortcuts rather than Start-menu ones. */
   importEmptyText?: string
   appsEmptyBody?: string
+  /** Anchored card (desktop) rather than the full-bleed sheet (touch targets). */
+  floating?: boolean
+  onDismiss?: () => void
 }) {
   const [tab, setTab] = useState<Tab>('bookmarks')
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([])
@@ -102,6 +109,11 @@ export function BookmarksPanel({ onClose, onNavigate, onToast, importEmptyText, 
         ? `${bookmarks.length} saved`
         : `${apps.length} installed app${apps.length === 1 ? '' : 's'}`}
       onClose={onClose}
+      floating={floating}
+      // Never dismiss on an outside click mid-rename — the click would discard
+      // whatever had been typed into the row's field.
+      onDismiss={editing ? undefined : onDismiss}
+      width={480}
       actions={<TabSwitch tab={tab} onChange={setTab} appCount={apps.length} />}
     >
       {tab === 'bookmarks' ? (
@@ -246,18 +258,34 @@ function TabSwitch({ tab, onChange, appCount }: { tab: Tab; onChange: (t: Tab) =
 }
 
 /** Small text button used at the end of every list row. */
-export function RowButton({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
+export function RowButton({ label, onClick, danger, disabled, ariaLabel }: {
+  label: string
+  onClick: () => void
+  danger?: boolean
+  /** Downloads rows disable actions while one is in flight; the others never do. */
+  disabled?: boolean
+  /**
+   * What the button is for, when "Open" or "Delete" on its own says nothing.
+   * Rows repeat the same three or four labels, so a screen reader hears
+   * "Delete, Delete, Delete" without this.
+   */
+  ariaLabel?: string
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
       style={{
         flexShrink: 0, padding: '4px 8px', fontSize: 10, fontWeight: 700,
         background: 'transparent', border: '1px solid var(--border)', borderRadius: 7,
-        color: danger ? '#ef4444' : 'var(--text-secondary)', cursor: 'pointer',
+        color: disabled ? 'var(--text-muted)' : danger ? '#ef4444' : 'var(--text-secondary)',
+        cursor: disabled ? 'default' : 'pointer',
+        opacity: disabled ? 0.6 : 1,
         transition: 'background 0.12s, border-color 0.12s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.borderColor = danger ? '#ef4444' : 'var(--accent)' }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = 'var(--surface-raised)'; e.currentTarget.style.borderColor = danger ? '#ef4444' : 'var(--accent)' } }}
       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)' }}
     >
       {label}

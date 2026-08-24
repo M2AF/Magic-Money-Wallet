@@ -1,13 +1,22 @@
 package info.chainlens.magicmoney;
 
+import android.app.DownloadManager;
+import android.content.ActivityNotFoundException;
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.MediaStore;
+import android.text.TextUtils;
 import android.util.Base64;
 import android.webkit.MimeTypeMap;
+
+import androidx.core.content.FileProvider;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -31,7 +40,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * Downloader — saves NFT media into the phone's public Downloads folder.
+ * Downloader — saves NFT media into the phone's public Downloads folder, and
+ * owns the browser's downloads tray (list / open / delete / clear / cancel).
+ *
+ * The tray half is the Android counterpart of src/main/downloads-manager.ts and
+ * speaks the same wire contract (src/shared/downloads-wire.ts), because one
+ * React panel — DownloadsPanel.tsx — renders both. Records live in
+ * DownloadsStore, which this plugin and DappBrowserPlugin both write to.
  *
  * Android's WebView has no download support at all unless the host app supplies
  * a DownloadListener, so the wallet's "Download Image" anchor was a no-op here
@@ -57,6 +72,22 @@ public class DownloaderPlugin extends Plugin {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
 
+    /** Poller cadence while a browser download is in flight. */
+    private static final long POLL_MS = 700;
+    private final Handler poller = new Handler(Looper.getMainLooper());
+    // Written from the UI thread and from the io executor (a record added by a
+    // finished NFT save fires the change listener on that thread).
+    private volatile boolean polling = false;
+
+    @Override
+    public void load() {
+        // This plugin owns the tray's read/manage API, so it is also the one
+        // that can push changes into the WebView. DappBrowserPlugin and this one
+        // both WRITE records; only this one broadcasts them.
+        DownloadsStore.setChangeListener(this::emitDownloads);
+        ensurePolling();
+    }
+
     @PluginMethod
     public void downloadFile(PluginCall call) {
         final String url = call.getString("url", "");
@@ -76,6 +107,228 @@ public class DownloaderPlugin extends Plugin {
                 emitProgress(false, 100);
             }
         });
+    }
+
+    // ── Downloads tray ──────────────────────────────────────────────────────
+    //
+    // The read/manage half of the browser's downloads manager. Records come from
+    // two writers — DappBrowserPlugin (links in a dApp tab, via DownloadManager)
+    // and this plugin (NFT media, via MediaStore) — and DownloadsStore is the
+    // single memory both share. Retry is the one action that lives in
+    // DappBrowserPlugin instead: it re-requests over the network, so it has to
+    // clear the same Tor gate.
+    //
+    // Only ids cross the bridge; paths and content URIs stay on this side, so
+    // the WebView cannot ask for a file outside the tray to be opened or deleted.
+
+    @PluginMethod
+    public void listDownloads(PluginCall call) {
+        DownloadsStore.refreshFromDownloadManager(getContext());
+        call.resolve(snapshotObject(getContext()));
+    }
+
+    @PluginMethod
+    public void openDownload(PluginCall call) {
+        DownloadsStore.Record record = DownloadsStore.find(getContext(), call.getString("id", ""));
+        if (record == null) { call.resolve(trayResult(getContext(), false, "That download is no longer listed.")); return; }
+        if (!DownloadsStore.fileExists(getContext(), record)) {
+            call.resolve(trayResult(getContext(), false, "That file has been moved or deleted."));
+            return;
+        }
+        Uri viewUri = viewableUri(record);
+        if (viewUri == null) { call.resolve(trayResult(getContext(), false, "That file cannot be opened.")); return; }
+        try {
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            String mime = TextUtils.isEmpty(record.mimeType)
+                    ? guessMime(record.fileName)
+                    : record.mimeType.split(";")[0].trim();
+            view.setDataAndType(viewUri, TextUtils.isEmpty(mime) ? "*/*" : mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(view);
+            call.resolve(trayResult(getContext(), true, null));
+        } catch (ActivityNotFoundException e) {
+            call.resolve(trayResult(getContext(), false, "No app on this phone can open that file."));
+        } catch (Exception e) {
+            call.resolve(trayResult(getContext(), false, "That file could not be opened."));
+        }
+    }
+
+    /** Delete the file AND its row — what "Delete" does in every browser. */
+    @PluginMethod
+    public void deleteDownload(PluginCall call) {
+        String id = call.getString("id", "");
+        DownloadsStore.Record record = DownloadsStore.find(getContext(), id);
+        if (record == null) { call.resolve(trayResult(getContext(), false, "That download is no longer listed.")); return; }
+        try {
+            if (record.dmId >= 0) {
+                // DownloadManager.remove deletes the file it wrote and forgets
+                // the row — which is also how a running download is cancelled.
+                DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+                if (dm != null) dm.remove(record.dmId);
+            } else if (!TextUtils.isEmpty(record.uri)) {
+                Uri uri = Uri.parse(record.uri);
+                if ("file".equalsIgnoreCase(uri.getScheme())) {
+                    String path = uri.getPath();
+                    if (path != null) new File(path).delete();
+                } else {
+                    getContext().getContentResolver().delete(uri, null, null);
+                }
+            } else if (!TextUtils.isEmpty(record.path) && record.path.startsWith("/")) {
+                // API 26-28 writes land in the app's own external files dir with
+                // no URI of any kind — a plain path is the only handle there is.
+                new File(record.path).delete();
+            }
+        } catch (Exception e) {
+            call.resolve(trayResult(getContext(), false, "That file could not be deleted."));
+            return;
+        }
+        DownloadsStore.remove(getContext(), id);
+        call.resolve(trayResult(getContext(), true, null));
+    }
+
+    /** Forget the row, leave the file where it is. */
+    @PluginMethod
+    public void removeDownload(PluginCall call) {
+        DownloadsStore.remove(getContext(), call.getString("id", ""));
+        call.resolve(trayResult(getContext(), true, null));
+    }
+
+    @PluginMethod
+    public void clearDownloads(PluginCall call) {
+        DownloadsStore.clearFinished(getContext());
+        call.resolve(trayResult(getContext(), true, null));
+    }
+
+    /**
+     * Cancel a running download. DownloadManager.remove is the only stop
+     * control it offers — there is no pause/resume, which is why the snapshot
+     * reports canPause: false and the panel hides those buttons.
+     */
+    @PluginMethod
+    public void cancelDownload(PluginCall call) {
+        String id = call.getString("id", "");
+        DownloadsStore.Record record = DownloadsStore.find(getContext(), id);
+        if (record == null) { call.resolve(trayResult(getContext(), false, "That download is no longer listed.")); return; }
+        if (record.dmId >= 0) {
+            DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+            if (dm != null) dm.remove(record.dmId);
+        }
+        record.state = "cancelled";
+        record.error = "Cancelled";
+        record.finishedAt = System.currentTimeMillis();
+        DownloadsStore.save(getContext());
+        call.resolve(trayResult(getContext(), true, null));
+    }
+
+    /** Android's own Downloads screen — the closest thing to "show in folder". */
+    @PluginMethod
+    public void openDownloadsFolder(PluginCall call) {
+        try {
+            Intent intent = new Intent(DownloadManager.ACTION_VIEW_DOWNLOADS);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve(trayResult(getContext(), true, null));
+        } catch (Exception e) {
+            call.resolve(trayResult(getContext(), false, "This phone has no Downloads app."));
+        }
+    }
+
+    // ── Tray helpers ────────────────────────────────────────────────────────
+
+    /**
+     * The DownloadsSnapshot shape from src/shared/downloads-wire.ts. Package
+     * -visible because DappBrowserPlugin's retryDownload returns the same shape.
+     */
+    static JSObject snapshotObject(Context context) {
+        JSObject out = new JSObject();
+        out.put("items", DownloadsStore.toWireArray(context));
+        // Android has neither: DownloadManager exposes no pause/resume, and the
+        // system Downloads app is offered as its own action rather than per row.
+        out.put("canShowInFolder", false);
+        out.put("canPause", false);
+        return out;
+    }
+
+    /** The DownloadActionResult shape — ok/error plus the fresh snapshot. */
+    static JSObject trayResult(Context context, boolean ok, String error) {
+        JSObject out = new JSObject();
+        out.put("ok", ok);
+        if (error != null) out.put("error", error);
+        out.put("snapshot", snapshotObject(context));
+        return out;
+    }
+
+    /**
+     * A URI another app can actually open. A raw file:// path would throw
+     * FileUriExposedException on API 24+, so app-written files go through the
+     * FileProvider already declared in AndroidManifest.
+     */
+    private Uri viewableUri(DownloadsStore.Record record) {
+        if (record.dmId >= 0) {
+            DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+            if (dm != null) {
+                try {
+                    Uri fromDm = dm.getUriForDownloadedFile(record.dmId);
+                    if (fromDm != null) return fromDm;
+                } catch (Exception ignored) { }
+            }
+        }
+        if (!TextUtils.isEmpty(record.uri)) {
+            Uri uri = Uri.parse(record.uri);
+            if (!"file".equalsIgnoreCase(uri.getScheme())) return uri;
+            String path = uri.getPath();
+            if (path != null) return fileProviderUri(new File(path));
+        }
+        if (!TextUtils.isEmpty(record.path) && record.path.startsWith("/")) {
+            return fileProviderUri(new File(record.path));
+        }
+        return null;
+    }
+
+    private Uri fileProviderUri(File file) {
+        try {
+            return FileProvider.getUriForFile(
+                    getContext(), getContext().getPackageName() + ".fileprovider", file);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String guessMime(String fileName) {
+        int dot = fileName.lastIndexOf('.');
+        if (dot < 0 || dot == fileName.length() - 1) return "";
+        String mime = MimeTypeMap.getSingleton()
+                .getMimeTypeFromExtension(fileName.substring(dot + 1).toLowerCase(Locale.US));
+        return mime == null ? "" : mime;
+    }
+
+    private void emitDownloads() {
+        notifyListeners("downloadsChanged", snapshotObject(getContext()));
+        ensurePolling();
+    }
+
+    /**
+     * DownloadManager reports progress by polling only — it has no per-download
+     * callback — so the tray runs its own tick, and ONLY while something is
+     * actually in flight. An idle tray costs nothing.
+     */
+    private void ensurePolling() {
+        if (polling || !DownloadsStore.anyRunning(getContext())) return;
+        polling = true;
+        poller.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                boolean changed = DownloadsStore.refreshFromDownloadManager(getContext());
+                if (changed) notifyListeners("downloadsChanged", snapshotObject(getContext()));
+                if (DownloadsStore.anyRunning(getContext())) {
+                    poller.postDelayed(this, POLL_MS);
+                } else {
+                    polling = false;
+                    // One last push so the row settles on its real end state.
+                    notifyListeners("downloadsChanged", snapshotObject(getContext()));
+                }
+            }
+        }, POLL_MS);
     }
 
     /**
@@ -121,8 +374,30 @@ public class DownloaderPlugin extends Plugin {
 
         String fileName = baseName + extensionFor(url, mime);
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                ? writeToMediaStore(fileName, mime, bytes)
-                : writeToAppExternalDir(fileName, bytes);
+                ? writeToMediaStore(url, fileName, mime, bytes)
+                : writeToAppExternalDir(url, fileName, mime, bytes);
+    }
+
+    /**
+     * Put a file this plugin wrote itself into the browser's downloads tray.
+     *
+     * These never touch DownloadManager, so without this they would be invisible
+     * there — and a user who saves an NFT and then a PDF expects to find both in
+     * one place, since both land in the same Downloads folder.
+     */
+    private void recordSaved(String url, String fileName, String mime, Uri uri, String displayPath, int bytes) {
+        DownloadsStore.Record record = new DownloadsStore.Record();
+        record.url = url;
+        record.fileName = fileName;
+        record.mimeType = mime == null ? "" : mime;
+        record.path = displayPath;
+        record.uri = uri == null ? null : uri.toString();
+        record.state = "completed";
+        record.receivedBytes = bytes;
+        record.totalBytes = bytes;
+        record.finishedAt = System.currentTimeMillis();
+        record.host = DownloadsStore.hostOf(url);
+        DownloadsStore.add(getContext(), record);
     }
 
     private static final class Fetched {
@@ -193,7 +468,7 @@ public class DownloaderPlugin extends Plugin {
     }
 
     /** API 29+: public Downloads via MediaStore — no storage permission needed. */
-    private JSObject writeToMediaStore(String fileName, String mime, byte[] bytes) throws IOException {
+    private JSObject writeToMediaStore(String sourceUrl, String fileName, String mime, byte[] bytes) throws IOException {
         ContentResolver resolver = getContext().getContentResolver();
         ContentValues values = new ContentValues();
         values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
@@ -215,11 +490,12 @@ public class DownloaderPlugin extends Plugin {
             resolver.delete(item, null, null);   // never leave a pending stub behind
             throw e;
         }
+        recordSaved(sourceUrl, fileName, mime, item, "Downloads/" + fileName, bytes.length);
         return ok(fileName, "Downloads/" + fileName);
     }
 
     /** API 26–28: app-scoped external storage, the only permission-free option. */
-    private JSObject writeToAppExternalDir(String fileName, byte[] bytes) throws IOException {
+    private JSObject writeToAppExternalDir(String sourceUrl, String fileName, String mime, byte[] bytes) throws IOException {
         File dir = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
         if (dir == null) throw new IOException("No storage available.");
         if (!dir.exists() && !dir.mkdirs()) throw new IOException("No storage available.");
@@ -227,6 +503,7 @@ public class DownloaderPlugin extends Plugin {
         try (FileOutputStream out = new FileOutputStream(target)) {
             out.write(bytes);
         }
+        recordSaved(sourceUrl, target.getName(), mime, null, target.getAbsolutePath(), bytes.length);
         return ok(target.getName(), target.getAbsolutePath());
     }
 

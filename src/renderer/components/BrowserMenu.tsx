@@ -47,6 +47,8 @@ const Ico = {
   save: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></svg>,
   camera: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   install: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>,
+  download: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>,
+  clock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>,
   plus: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>,
 }
 
@@ -244,7 +246,8 @@ function ShareActions({ page, onPageState, onToast, onDone, webAppsSupported = t
 
 export function BrowserMenu({
   page, tor, open, onOpen, onClose, onPageState, onToast,
-  onOpenBookmarks, onOpenPasswords, onSetTor, webAppsSupported,
+  onOpenBookmarks, onOpenPasswords, onOpenDownloads, onOpenHistory,
+  activeDownloads, historyPaused, onSetTor, webAppsSupported,
 }: {
   page: BrowserPageState
   tor: TorBrowserState
@@ -255,6 +258,12 @@ export function BrowserMenu({
   onToast: (message: string) => void
   onOpenBookmarks: () => void
   onOpenPasswords: () => void
+  onOpenDownloads: () => void
+  onOpenHistory: () => void
+  /** In-flight count, so the row reads like Chrome's while something is saving. */
+  activeDownloads: number
+  /** True while Tor Mode is suppressing history — said on the row, not hidden. */
+  historyPaused: boolean
   onSetTor: (enabled: boolean) => void
   webAppsSupported: boolean
 }) {
@@ -290,6 +299,22 @@ export function BrowserMenu({
             icon={Ico.book}
             label="Bookmarks"
             onClick={() => { onClose(); onOpenBookmarks() }}
+          />
+          <MenuRow
+            icon={Ico.clock}
+            label="History"
+            hint={historyPaused ? 'Paused — Tor Mode is on' : undefined}
+            trailing="Ctrl+H"
+            onClick={() => { onClose(); onOpenHistory() }}
+          />
+          <MenuRow
+            icon={Ico.download}
+            label="Downloads"
+            hint={activeDownloads > 0
+              ? `${activeDownloads} in progress`
+              : undefined}
+            trailing="Ctrl+J"
+            onClick={() => { onClose(); onOpenDownloads() }}
           />
 
           <Divider />

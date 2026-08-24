@@ -21,11 +21,23 @@
 
 import { WebContentsView, BrowserWindow, dialog, shell, app, ipcMain, screen, session } from 'electron'
 import type { IpcMainEvent, HandlerDetails, WindowOpenHandlerResponse, WebContents, Rectangle, Session } from 'electron'
-import { join, basename } from 'path'
+import { join } from 'path'
 import { writeFileSync, existsSync } from 'fs'
 import { Socket } from 'net'
 import { showBrowserContextMenu } from './browser-context-menu'
-import { addBookmark, isBookmarked, removeBookmarkByUrl, getWebApps } from './browser-store'
+import {
+  addBookmark, isBookmarked, removeBookmarkByUrl, getWebApps,
+  recordVisit, updateHistoryTitle, getHistory, clearHistory,
+} from './browser-store'
+import type { HistorySnapshot } from '../shared/history-wire'
+import {
+  trackDownload,
+  recordSavedFile,
+  onDownloadsChanged,
+  listDownloads,
+  retryDownload,
+  type DownloadActionResult,
+} from './downloads-manager'
 // Shared with the Android fill path so the two can never drift (password-fill.ts).
 import { buildFillScript } from './password-fill'
 import { installWebApp, isWebAppInstalled, type WebAppInstallResult } from './web-apps'
@@ -189,6 +201,32 @@ export async function clearBrowsingData(): Promise<void> {
     wipe(session.defaultSession),
     session.defaultSession.clearCache(),
   ])
+  // Browsing history is browsing data by any reading: leaving it behind would
+  // keep the new wallet linkable to the previous identity through every site
+  // the old one visited, which is exactly what this call exists to prevent.
+  clearHistory()
+}
+
+// ─── History ─────────────────────────────────────────────────────────────────
+
+/**
+ * Whether visits are being written down right now.
+ *
+ * FALSE WHILE TOR MODE IS ON, and that is the whole point: a session the user
+ * deliberately anonymised must not leave a permanent local trail that outlives
+ * it. The panel surfaces `pausedReason` rather than just showing an empty list,
+ * so the silence is explained instead of looking broken.
+ */
+function historyRecording(): boolean {
+  return !torState.enabled
+}
+
+export function browserGetHistory(): HistorySnapshot {
+  return {
+    items: getHistory(),
+    recording: historyRecording(),
+    ...(historyRecording() ? {} : { pausedReason: 'Tor Mode is on — pages are not being added to history.' }),
+  }
 }
 
 function publishTorState(): void {
@@ -433,6 +471,10 @@ export function browserSetMagicGuardForSite(protect: boolean): MagicGuardState {
  * dappSession() and Electron only honours the last listener per session event.
  */
 export function initBrowserDownloads(): void {
+  // The tray renders from one pushed snapshot rather than polling; downloads
+  // finish on their own schedule, so the chrome must be told, not asked.
+  onDownloadsChanged(snapshot => sendToChrome('browser:downloads', snapshot))
+
   dappSession().on('will-download', (_event, item) => {
     const saveAs = saveAsNextDownload
     saveAsNextDownload = false
@@ -440,6 +482,14 @@ export function initBrowserDownloads(): void {
     if (!saveAs) {
       item.setSavePath(uniqueDownloadPath(item.getFilename() || 'download'))
     }
+
+    // The tray owns the record, the progress bar and the toasts stay here: this
+    // module is what knows which window the browser chrome lives in.
+    trackDownload(item, record => {
+      if (record.state === 'completed') sendToChrome('browser:toast', `Saved ${record.fileName}`)
+      else if (record.state === 'cancelled') sendToChrome('browser:toast', 'Download cancelled')
+      else sendToChrome('browser:toast', 'The download failed')
+    })
 
     item.on('updated', (_e, state) => {
       if (state !== 'progressing') return
@@ -450,13 +500,24 @@ export function initBrowserDownloads(): void {
       })
     })
 
-    item.once('done', (_e, state) => {
+    item.once('done', () => {
       sendToChrome('download:progress', { active: false, percent: null })
-      if (state === 'completed') sendToChrome('browser:toast', `Saved ${basename(item.getSavePath())}`)
-      else if (state === 'cancelled') sendToChrome('browser:toast', 'Download cancelled')
-      else sendToChrome('browser:toast', 'The download failed')
     })
   })
+}
+
+/**
+ * Downloads-tray reads and the one action that needs a tab. Everything else in
+ * the tray is pure file/record work and is handled straight from
+ * downloads-manager by ipc-handlers; retry is here because it must re-request
+ * through a dApp tab's webContents, which only this module can reach.
+ */
+export function browserListDownloads(): ReturnType<typeof listDownloads> {
+  return listDownloads()
+}
+
+export function browserRetryDownload(id: string): DownloadActionResult {
+  return retryDownload(id, activeView()?.webContents ?? null)
 }
 
 /** "photo.png" → "photo (1).png" when the first name is taken. */
@@ -928,6 +989,10 @@ function wireTab(tab: Tab): void {
 
   wc.on('did-navigate', (_e, url) => {
     tab.url = url
+    // The title is usually still the OLD document's here, so pass nothing and
+    // let page-title-updated fill it in; recordVisit never overwrites a known
+    // title with an empty one.
+    if (historyRecording()) recordVisit(url)
     // New document ⇒ its preload will re-report any login form; allow one fresh
     // auto-fill for it. In-page (SPA) navigations keep the guard.
     tab.autofilledHost = null
@@ -960,6 +1025,9 @@ function wireTab(tab: Tab): void {
 
   wc.on('did-navigate-in-page', (_e, url) => {
     tab.url = url
+    // An SPA route change is a page visit to the user even though no document
+    // was fetched — without this, a whole session inside one app records once.
+    if (historyRecording()) recordVisit(url, tab.title)
     const nav = navCanGo(wc)
     tab.canBack = nav.canBack
     tab.canForward = nav.canForward
@@ -972,6 +1040,9 @@ function wireTab(tab: Tab): void {
 
   wc.on('page-title-updated', (_e, title) => {
     tab.title = title || 'Untitled'
+    // Backfill the entry recorded by did-navigate, which fired before the
+    // document had a title. Not a visit — see updateHistoryTitle.
+    if (historyRecording() && title) updateHistoryTitle(tab.url, title)
     if (isActive()) {
       sendToChrome('browser:title', tab.title)
       if (popupWin && !popupWin.isDestroyed()) popupWin.setTitle(tab.title)
@@ -1373,6 +1444,9 @@ export async function browserSavePage(): Promise<PageSaveResult> {
   try {
     // HTMLComplete writes the document plus a "<name>_files" folder of assets.
     await t.view.webContents.savePage(filePath, 'HTMLComplete')
+    // Chromium's download stack is bypassed here, so the tray never sees this
+    // file unless it is recorded explicitly.
+    recordSavedFile({ url: t.url, path: filePath, mimeType: 'text/html' })
     return { ok: true, path: filePath }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'The page could not be saved' }
@@ -1389,6 +1463,7 @@ export async function browserCapturePage(): Promise<PageSaveResult> {
     const base = sanitizeFileBase(t.title || hostnameFromUrl(t.url) || 'screenshot')
     const target = join(app.getPath('downloads'), `${base} ${Date.now()}.png`)
     writeFileSync(target, image.toPNG())
+    recordSavedFile({ url: t.url, path: target, mimeType: 'image/png' })
     return { ok: true, path: target }
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'The page could not be captured' }

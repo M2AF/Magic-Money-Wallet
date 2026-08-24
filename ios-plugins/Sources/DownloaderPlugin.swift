@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 import Photos
 import UniformTypeIdentifiers
@@ -28,11 +29,30 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
     public let jsName = "Downloader"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "downloadFile", returnType: CAPPluginReturnPromise),
+        // Downloads tray — same method names the Android plugin exposes, because
+        // the same React panel calls them. `retryDownload` lives on DappBrowser.
+        CAPPluginMethod(name: "listDownloads", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openDownload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteDownload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "removeDownload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "clearDownloads", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "cancelDownload", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openDownloadsFolder", returnType: CAPPluginReturnPromise),
     ]
 
     private static let maxBytes = 64 * 1024 * 1024
     private static let timeout: TimeInterval = 30
     private static let maxRedirects = 5
+
+    override public func load() {
+        // This plugin owns the tray's read/manage API, so it is also the one
+        // that pushes changes into the WebView. DappBrowserPlugin writes records
+        // too (WKDownload); only this one broadcasts them.
+        DownloadsStore.shared.onChanged = { [weak self] in
+            guard let self else { return }
+            self.notifyListeners("downloadsChanged", data: Self.snapshot())
+        }
+    }
 
     @objc func downloadFile(_ call: CAPPluginCall) {
         let rawUrl = call.getString("url") ?? ""
@@ -69,6 +89,146 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
         notifyListeners("progress", data: event)
     }
 
+    // ── Downloads tray ──────────────────────────────────────────────────────
+    //
+    // The read/manage half of the browser's downloads manager. Only ids cross
+    // the bridge; paths stay on this side, so the WebView cannot ask for a file
+    // outside the tray to be opened or deleted.
+
+    @objc func listDownloads(_ call: CAPPluginCall) {
+        call.resolve(Self.snapshot())
+    }
+
+    @objc func openDownload(_ call: CAPPluginCall) {
+        guard let record = DownloadsStore.shared.find(call.getString("id") ?? "") else {
+            call.resolve(Self.trayResult(false, "That download is no longer listed."))
+            return
+        }
+        // Photos assets are opaque to this app (add-only authorization), so the
+        // only honest "open" is to hand the user off to the Photos app.
+        if record.location == DownloadsStore.photos {
+            DispatchQueue.main.async {
+                if let photos = URL(string: "photos-redirect://"),
+                   UIApplication.shared.canOpenURL(photos) {
+                    UIApplication.shared.open(photos)
+                    call.resolve(Self.trayResult(true, nil))
+                } else {
+                    call.resolve(Self.trayResult(false, "Open the Photos app to see this file."))
+                }
+            }
+            return
+        }
+        guard let path = record.path, FileManager.default.fileExists(atPath: path) else {
+            call.resolve(Self.trayResult(false, "That file has been moved or deleted."))
+            return
+        }
+        // iOS has no "open with the default app" call. A share sheet is the
+        // system-sanctioned way to hand a file to whatever can display it, and
+        // it is what Files itself offers.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let vc = self.bridge?.viewController else {
+                call.resolve(Self.trayResult(false, "That file could not be opened."))
+                return
+            }
+            let sheet = UIActivityViewController(
+                activityItems: [URL(fileURLWithPath: path)], applicationActivities: nil)
+            // iPad requires an anchor or the presentation traps.
+            sheet.popoverPresentationController?.sourceView = vc.view
+            sheet.popoverPresentationController?.sourceRect = CGRect(
+                x: vc.view.bounds.midX, y: vc.view.bounds.midY, width: 0, height: 0)
+            vc.present(sheet, animated: true)
+            call.resolve(Self.trayResult(true, nil))
+        }
+    }
+
+    @objc func deleteDownload(_ call: CAPPluginCall) {
+        let id = call.getString("id") ?? ""
+        guard let record = DownloadsStore.shared.find(id) else {
+            call.resolve(Self.trayResult(false, "That download is no longer listed."))
+            return
+        }
+        if record.location == DownloadsStore.photos {
+            call.resolve(Self.trayResult(false, "Media saved to Photos has to be deleted in the Photos app."))
+            return
+        }
+        if let path = record.path, FileManager.default.fileExists(atPath: path) {
+            do {
+                try FileManager.default.removeItem(atPath: path)
+            } catch {
+                call.resolve(Self.trayResult(false, "That file could not be deleted."))
+                return
+            }
+        }
+        DownloadsStore.shared.remove(id)
+        call.resolve(Self.trayResult(true, nil))
+    }
+
+    /// Forget the row, leave the file where it is.
+    @objc func removeDownload(_ call: CAPPluginCall) {
+        DownloadsStore.shared.remove(call.getString("id") ?? "")
+        call.resolve(Self.trayResult(true, nil))
+    }
+
+    @objc func clearDownloads(_ call: CAPPluginCall) {
+        DownloadsStore.shared.clearFinished()
+        call.resolve(Self.trayResult(true, nil))
+    }
+
+    @objc func cancelDownload(_ call: CAPPluginCall) {
+        let id = call.getString("id") ?? ""
+        guard DownloadsStore.shared.find(id) != nil else {
+            call.resolve(Self.trayResult(false, "That download is no longer listed."))
+            return
+        }
+        // The WKDownload itself is owned by DappBrowserPlugin, which cancels it
+        // when it sees the record flip; marking the record is what stops the row
+        // claiming to still be running either way.
+        DappBrowserPlugin.cancelActiveDownload(recordId: id)
+        DownloadsStore.shared.update(id) { r in
+            r.state = "cancelled"
+            r.error = "Cancelled"
+            r.finishedAt = Date().timeIntervalSince1970 * 1000
+        }
+        call.resolve(Self.trayResult(true, nil))
+    }
+
+    /// Open the app's folder in Files — the nearest thing iOS has to a
+    /// Downloads folder, and where every non-media download lands.
+    @objc func openDownloadsFolder(_ call: CAPPluginCall) {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        // shareddocuments:// is what the Files app registers for a directory.
+        guard let url = URL(string: "shareddocuments://" + docs.path) else {
+            call.resolve(Self.trayResult(false, "The Files app is not available."))
+            return
+        }
+        DispatchQueue.main.async {
+            guard UIApplication.shared.canOpenURL(url) else {
+                call.resolve(Self.trayResult(false, "The Files app is not available."))
+                return
+            }
+            UIApplication.shared.open(url)
+            call.resolve(Self.trayResult(true, nil))
+        }
+    }
+
+    /// The DownloadsSnapshot shape from src/shared/downloads-wire.ts.
+    static func snapshot() -> [String: Any] {
+        [
+            "items": DownloadsStore.shared.wireItems(),
+            // No file manager to reveal into, and no pause control — see the
+            // canResume note in DownloadsStore.
+            "canShowInFolder": false,
+            "canPause": false,
+        ]
+    }
+
+    /// The DownloadActionResult shape — ok/error plus the fresh snapshot.
+    static func trayResult(_ ok: Bool, _ error: String?) -> [String: Any] {
+        var out: [String: Any] = ["ok": ok, "snapshot": snapshot()]
+        if let error { out["error"] = error }
+        return out
+    }
+
     // ── Core ────────────────────────────────────────────────────────────────
 
     private func save(_ rawUrl: String, baseName: String) async throws -> [String: Any] {
@@ -91,9 +251,9 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
         let fileName = baseName + Self.extensionFor(url: url, mime: mime)
 
         if Self.isPhotoLibraryType(fileName: fileName, mime: mime) {
-            return try await saveToPhotos(bytes, fileName: fileName)
+            return try await saveToPhotos(bytes, fileName: fileName, sourceUrl: url)
         }
-        return try saveToDocuments(bytes, fileName: fileName)
+        return try saveToDocuments(bytes, fileName: fileName, sourceUrl: url)
     }
 
     private static func decodeDataUrl(_ url: String) throws -> (Data, String?) {
@@ -180,14 +340,14 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
         return ["png", "jpg", "jpeg", "gif", "heic", "webp", "mp4", "mov", "m4v"].contains(ext)
     }
 
-    private func saveToPhotos(_ data: Data, fileName: String) async throws -> [String: Any] {
+    private func saveToPhotos(_ data: Data, fileName: String, sourceUrl: String) async throws -> [String: Any] {
         let status = await withCheckedContinuation { (c: CheckedContinuation<PHAuthorizationStatus, Never>) in
             PHPhotoLibrary.requestAuthorization(for: .addOnly) { c.resume(returning: $0) }
         }
         guard status == .authorized || status == .limited else {
             // Not an error state worth a crash — fall back to Files, which
             // needs no permission at all, so the download still succeeds.
-            return try saveToDocuments(data, fileName: fileName)
+            return try saveToDocuments(data, fileName: fileName, sourceUrl: sourceUrl)
         }
 
         // WebP and some IPFS payloads aren't valid Photos assets; a failed
@@ -198,9 +358,12 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
                 request.addResource(with: Self.isVideo(fileName) ? .video : .photo, data: data, options: nil)
             }
         } catch {
-            return try saveToDocuments(data, fileName: fileName)
+            return try saveToDocuments(data, fileName: fileName, sourceUrl: sourceUrl)
         }
 
+        recordSaved(url: sourceUrl, fileName: fileName, mime: nil,
+                    path: "Photos/\(fileName)", bytes: data.count,
+                    location: DownloadsStore.photos)
         return Self.ok(fileName: fileName, path: "Photos/\(fileName)")
     }
 
@@ -208,7 +371,7 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
         ["mp4", "mov", "m4v"].contains((fileName as NSString).pathExtension.lowercased())
     }
 
-    private func saveToDocuments(_ data: Data, fileName: String) throws -> [String: Any] {
+    private func saveToDocuments(_ data: Data, fileName: String, sourceUrl: String) throws -> [String: Any] {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let target = Self.uniqueUrl(in: dir, fileName: fileName)
         do {
@@ -216,7 +379,29 @@ public class DownloaderPlugin: CAPPlugin, CAPBridgedPlugin {
         } catch {
             throw DownloadError("Could not write the file.")
         }
+        recordSaved(url: sourceUrl, fileName: target.lastPathComponent, mime: nil,
+                    path: target.path, bytes: data.count,
+                    location: DownloadsStore.documents)
         return Self.ok(fileName: target.lastPathComponent, path: "Files/MagicMoney/\(target.lastPathComponent)")
+    }
+
+    /**
+     * Put a file this plugin wrote itself into the browser's downloads tray.
+     *
+     * These never go through WKDownload, so without this they would be invisible
+     * there — and a user who saves an NFT and then a PDF expects to find both in
+     * one place.
+     */
+    private func recordSaved(url: String, fileName: String, mime: String?,
+                             path: String, bytes: Int, location: String) {
+        var record = DownloadsStore.newRecord(url: url, fileName: fileName, location: location)
+        record.path = path
+        record.mimeType = mime ?? ""
+        record.state = "completed"
+        record.receivedBytes = Int64(bytes)
+        record.totalBytes = Int64(bytes)
+        record.finishedAt = Date().timeIntervalSince1970 * 1000
+        DownloadsStore.shared.add(record)
     }
 
     // ── Helpers (ported 1:1 from the Java) ──────────────────────────────────

@@ -20,6 +20,8 @@
     // against this project's node-only lib. This module is deliberately free of
     // both node and DOM so every target can share the one asset-key contract.
     "src/shared/asset-filter-key.ts",
-    "src/shared/theme-sync-wire.ts"
+    "src/shared/theme-sync-wire.ts",
+    "src/shared/downloads-wire.ts",
+    "src/shared/history-wire.ts"
   ]
 }

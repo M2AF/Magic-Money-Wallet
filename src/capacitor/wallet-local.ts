@@ -40,6 +40,7 @@ import { registerLockListener } from './capacitor-store'
 import { buildFillScript } from '../main/password-fill'
 import { parsePasswordCsv } from '../main/password-csv'
 import type { DefaultBrowserState, DownloadProgress, DownloadResult } from '../renderer/types/wallet'
+import type { DownloadActionResult, DownloadsSnapshot } from '../shared/downloads-wire'
 
 // Our own UI is the privileged caller — same classification the extension gives
 // its popup pages, so the PAGE_RPC_TYPES gate stays closed to dApp content only.
@@ -250,6 +251,40 @@ function ensureDownloadProgressWired(): void {
   }).catch(() => { downloadProgressWired = false })
 }
 
+// ── Downloads tray ───────────────────────────────────────────────────────────
+// Same lazy single-native-listener fan-out as the progress bar above: the
+// plugin gets exactly one subscriber, wired on the first interested component.
+
+const EMPTY_DOWNLOADS: DownloadsSnapshot = { items: [], canShowInFolder: false, canPause: false }
+
+const downloadsListeners = new Set<(s: DownloadsSnapshot) => void>()
+let downloadsWired = false
+
+function ensureDownloadsWired(): void {
+  if (downloadsWired) return
+  downloadsWired = true
+  Downloader.addListener('downloadsChanged', s => {
+    for (const cb of downloadsListeners) {
+      try { cb(s) } catch { /* one bad subscriber must not stop the rest */ }
+    }
+  }).catch(() => { downloadsWired = false })
+}
+
+/**
+ * A tray action always resolves with a snapshot, never rejects — the panel
+ * renders straight from the returned value, so a thrown UNIMPLEMENTED (older
+ * native build) or a native exception has to come back as a normal failure with
+ * whatever the list currently looks like.
+ */
+async function trayCall(fn: () => Promise<DownloadActionResult>): Promise<DownloadActionResult> {
+  try {
+    return await fn()
+  } catch (e) {
+    const snapshot = await Downloader.listDownloads().catch(() => EMPTY_DOWNLOADS)
+    return { ok: false, error: e instanceof Error ? e.message : 'That did not work.', snapshot }
+  }
+}
+
 // ── window.wallet implementation ──────────────────────────────────────────────
 
 export function createCapacitorWallet() {
@@ -366,6 +401,25 @@ function buildWallet() {
     onDownloadProgress:  (cb: (p: DownloadProgress) => void) => { ensureDownloadProgressWired(); downloadProgressListeners.add(cb) },
     offDownloadProgress: (cb: (p: DownloadProgress) => void) => { downloadProgressListeners.delete(cb) },
 
+    // Downloads tray. Same method names the Electron preload exposes, because
+    // the same DownloadsPanel renders on both — see shared/downloads-wire.ts.
+    // Every call is wrapped: a plugin method missing on an older native build
+    // rejects with UNIMPLEMENTED, and a tray that throws is worse than one that
+    // reports the failure in its own notice line.
+    browserListDownloads:  () => Downloader.listDownloads().catch(() => EMPTY_DOWNLOADS),
+    browserOpenDownload:   (id: string) => trayCall(() => Downloader.openDownload({ id })),
+    browserDeleteDownload: (id: string) => trayCall(() => Downloader.deleteDownload({ id })),
+    browserRemoveDownload: (id: string) => trayCall(() => Downloader.removeDownload({ id })),
+    browserClearDownloads: () => trayCall(() => Downloader.clearDownloads()),
+    browserCancelDownload: (id: string) => trayCall(() => Downloader.cancelDownload({ id })),
+    // Android's system Downloads screen — the nearest thing to "show in folder".
+    browserOpenDownloadsFolder: () => trayCall(() => Downloader.openDownloadsFolder()),
+    // Retry lives on DappBrowser: it re-requests over the network, so it must
+    // clear the same fail-closed Tor gate the first attempt did.
+    browserRetryDownload:  (id: string) => trayCall(() => DappBrowser.retryDownload({ id })),
+    onBrowserDownloads:  (cb: (s: DownloadsSnapshot) => void) => { ensureDownloadsWired(); downloadsListeners.add(cb) },
+    offBrowserDownloads: (cb: (s: DownloadsSnapshot) => void) => { downloadsListeners.delete(cb) },
+
     // Default browser — the manifest already declares the http/https filter, so
     // this is purely "ask Android to hand us the browser role".
     defaultBrowserGetState: (): Promise<DefaultBrowserState> =>
@@ -440,6 +494,19 @@ function buildWallet() {
     },
     browserListBookmarks:  () => Bm.getBookmarks(),
     browserRemoveBookmark: (id: string) => Bm.removeBookmark(id),
+
+    // ── Browsing history ──────────────────────────────────────────────────
+    // Same method names the Electron preload exposes, because HistoryPanel and
+    // SuggestList are the same components on both. Every mutation resolves with
+    // the fresh snapshot so the panel re-renders from one value.
+    //
+    // `recording` is answered by browser-data-local: BrowserOverlay owns the Tor
+    // state and decides whether a visit gets written down, so it stamps the flag
+    // there through setHistoryRecording().
+    browserListHistory:       async () => Bm.historySnapshot(await Bm.getHistory()),
+    browserRemoveHistory:     async (id: string) => Bm.historySnapshot(await Bm.removeHistoryEntry(id)),
+    browserRemoveHistoryHost: async (host: string) => Bm.historySnapshot(await Bm.removeHistoryByHost(host)),
+    browserClearHistory:      async () => Bm.historySnapshot(await Bm.clearHistory()),
     browserRenameBookmark: (id: string, title: string) => Bm.renameBookmark(id, title),
     // Android apps are sandboxed: another browser's profile is unreadable, so
     // there is no bookmark/password profile import here — CSV only.

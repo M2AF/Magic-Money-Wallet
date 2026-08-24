@@ -124,8 +124,25 @@ import {
   browserAutofillFormFound,
   browserTryAutofillActiveTab,
   clearBrowsingData,
+  browserListDownloads,
+  browserRetryDownload,
+  browserGetHistory,
 } from './browser-manager'
-import { getBookmarks, removeBookmark, renameBookmark, mergeBookmarks, getWebApps } from './browser-store'
+import {
+  openDownload,
+  showDownload,
+  openDownloadsFolder,
+  deleteDownloadFile,
+  removeDownload,
+  clearDownloads,
+  pauseDownload,
+  resumeDownload,
+  cancelDownload,
+} from './downloads-manager'
+import {
+  getBookmarks, removeBookmark, renameBookmark, mergeBookmarks, getWebApps,
+  removeHistoryEntry, removeHistoryByHost, clearHistory,
+} from './browser-store'
 import { webAppsSupported, uninstallWebApp } from './web-apps'
 import {
   passwordVaultStatus,
@@ -1480,6 +1497,25 @@ export function registerIpcHandlers(): void {
   // navigation: is this page bookmarked, is it installed as an app, and do we
   // hold logins for it. Main derives all of that from the ACTIVE TAB itself.
   ipcMain.handle('browser:page-state', () => browserGetPageState())
+
+  // ── History ───────────────────────────────────────────────────────────────
+  // The whole (capped) list goes over in one read: the chrome renderer filters
+  // it locally for address-bar suggestions, so typing costs no IPC at all.
+  // Every mutation returns the fresh snapshot, like the downloads tray.
+  ipcMain.handle('browser:history:list', () => browserGetHistory())
+  ipcMain.handle('browser:history:remove', (_event, id: string) => {
+    removeHistoryEntry(String(id ?? ''))
+    return browserGetHistory()
+  })
+  ipcMain.handle('browser:history:remove-host', (_event, host: string) => {
+    removeHistoryByHost(String(host ?? ''))
+    return browserGetHistory()
+  })
+  ipcMain.handle('browser:history:clear', () => {
+    clearHistory()
+    return browserGetHistory()
+  })
+
   ipcMain.handle('browser:bookmarks:list', () => getBookmarks())
   ipcMain.handle('browser:bookmarks:toggle', () => browserToggleBookmark())
   ipcMain.handle('browser:bookmarks:remove', (_event, id: string) => removeBookmark(String(id ?? '')))
@@ -1623,6 +1659,24 @@ export function registerIpcHandlers(): void {
     downloadAsset(String(url ?? ''), String(suggestedName ?? 'download'), p => {
       if (!event.sender.isDestroyed()) event.sender.send('download:progress', p)
     }))
+
+  // ── Downloads manager (the browser's tray) ────────────────────────────────
+  // Every mutation returns the whole fresh snapshot so the panel re-renders
+  // from one value and can never drift from main's record of what is on disk.
+  // The id is the ONLY thing the renderer passes: paths live in main, so the
+  // chrome cannot ask for a file outside the tray to be opened or deleted.
+  const asId = (v: unknown): string => String(v ?? '')
+  ipcMain.handle('browser:downloads:list',    () => browserListDownloads())
+  ipcMain.handle('browser:downloads:open',    (_e, id: string) => openDownload(asId(id)))
+  ipcMain.handle('browser:downloads:show',    (_e, id: string) => showDownload(asId(id)))
+  ipcMain.handle('browser:downloads:delete',  (_e, id: string) => deleteDownloadFile(asId(id)))
+  ipcMain.handle('browser:downloads:remove',  (_e, id: string) => removeDownload(asId(id)))
+  ipcMain.handle('browser:downloads:clear',   () => clearDownloads())
+  ipcMain.handle('browser:downloads:pause',   (_e, id: string) => pauseDownload(asId(id)))
+  ipcMain.handle('browser:downloads:resume',  (_e, id: string) => resumeDownload(asId(id)))
+  ipcMain.handle('browser:downloads:cancel',  (_e, id: string) => cancelDownload(asId(id)))
+  ipcMain.handle('browser:downloads:retry',   (_e, id: string) => browserRetryDownload(asId(id)))
+  ipcMain.handle('browser:downloads:open-folder', () => openDownloadsFolder())
 
   // ── Default browser (Windows) ─────────────────────────────────────────────
   ipcMain.handle('default-browser:get-state', () => getDefaultBrowserState())

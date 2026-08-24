@@ -14,8 +14,14 @@ import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
 import { BookmarksPanel } from '../renderer/components/BookmarksPanel'
 import { PasswordManager } from '../renderer/components/PasswordManager'
+import { DownloadsPanel } from '../renderer/components/DownloadsPanel'
+import { HistoryPanel } from '../renderer/components/HistoryPanel'
+import { SuggestList } from '../renderer/components/SuggestList'
+import * as Bm from './browser-data-local'
 import mascotUrl from '../renderer/assets/magic-guard.png'
 import type { TorBrowserState, MagicGuardState, BrowserPageState } from '../renderer/types/wallet'
+import type { DownloadsSnapshot } from '../shared/downloads-wire'
+import type { HistoryEntry } from '../shared/history-wire'
 import { WEB_APPS_SUPPORTED, BLOCK_COUNTS_SUPPORTED } from './platform-caps'
 
 // Phone app sandboxes (Android AND iOS alike) can't read another app's profile,
@@ -29,6 +35,12 @@ const MOBILE_PASSWORD_IMPORT_EMPTY =
 // pointing at a file format this panel doesn't accept.
 const MOBILE_BOOKMARK_IMPORT_EMPTY =
   'Apps on this device can’t read another browser’s bookmarks. Add pages here with the ☆ in the address bar.'
+// Where the files actually land differs per platform, and "your Downloads
+// folder" means nothing on a phone. WEB_APPS_SUPPORTED doubles as the
+// Android/iOS discriminator here: only Android has a shared Downloads folder.
+const DOWNLOADS_EMPTY = WEB_APPS_SUPPORTED
+  ? 'Files you download in this browser appear here — along with NFT artwork you save. They go to your phone’s Downloads folder.'
+  : 'Files you download in this browser appear here — along with NFT artwork you save. They are kept inside MagicMoney, and you can open or share them from this list.'
 // Two texts: only one platform can pin sites to the home screen.
 const APPS_EMPTY = WEB_APPS_SUPPORTED
   ? 'Open the ☰ menu and choose “Install …” to pin a site to your home screen. It opens straight back into the MagicMoney browser.'
@@ -79,12 +91,26 @@ export function BrowserOverlay() {
   // Full-screen panels. These can't be inline (they'd squash the page to nothing),
   // so while one is open the native WebViews are tucked away — the same move
   // CapApp makes for approval overlays.
-  const [panel, setPanel] = useState<null | 'passwords' | 'bookmarks'>(null)
+  const [panel, setPanel] = useState<null | 'passwords' | 'bookmarks' | 'downloads' | 'history'>(null)
   const [page, setPage] = useState<BrowserPageState>({
     url: '', title: '', host: '', bookmarked: false, installed: false,
     savedLogins: [], passwordsUnlocked: false,
   })
   const [toast, setToast] = useState<string | null>(null)
+  // Downloads tray. Held here rather than inside DownloadsPanel because the ☰
+  // row shows a live count whether or not the panel is open.
+  const [downloads, setDownloads] = useState<DownloadsSnapshot>({ items: [], canShowInFolder: false, canPause: false })
+  // Browsing history: the panel reads it through window.wallet like every other
+  // target, but the address bar needs it in hand to rank as you type.
+  const [history, setHistory] = useState<HistoryEntry[]>([])
+  // The suggestions surface. Deliberately NOT derived from `inputFocused`: a
+  // blur fires before a tap on a row lands, and the desktop's
+  // onMouseDown-preventDefault trick does not survive touch scrolling — so this
+  // stays up until something explicitly closes it.
+  const [suggestOpen, setSuggestOpen] = useState(false)
+  const activeDownloads = downloads.items.filter(
+    d => d.state === 'progressing' || d.state === 'paused'
+  ).length
 
   const sessionRef = useRef<Session>('closed')
   const pendingUrlRef = useRef<string>(HOME_URL)
@@ -96,12 +122,19 @@ export function BrowserOverlay() {
 
   // Read by the hardware-back handler, whose effect has no deps (it is installed
   // once) — so it must see current values through refs, not a stale closure.
-  const panelRef = useRef<null | 'passwords' | 'bookmarks'>(null)
+  const panelRef = useRef<null | 'passwords' | 'bookmarks' | 'downloads' | 'history'>(null)
   const menuOpenRef = useRef(false)
   const guardOpenRef = useRef(false)
+  const suggestOpenRef = useRef(false)
+  // The titleChanged listener is installed once, so it reads the current url and
+  // Tor state through refs rather than a closure captured at mount.
+  const urlRef = useRef('')
+  const recordingRef = useRef(true)
   panelRef.current = panel
   menuOpenRef.current = menuOpen
   guardOpenRef.current = guardOpen
+  suggestOpenRef.current = suggestOpen
+  urlRef.current = url
 
   const measureBounds = () => {
     const r = contentRef.current?.getBoundingClientRect()
@@ -194,9 +227,11 @@ export function BrowserOverlay() {
     }
     const onHide = () => hide()
     const onClose = () => { if (sessionRef.current !== 'closed') close() }
-    // Hardware back: dismiss whatever is layered on top first (panel, then ☰
-    // menu), then page history, and only at the root hide the browser.
+    // Hardware back: dismiss whatever is layered on top first (suggestions, then
+    // a panel, then the ☰ menu), then page history, and only at the root hide
+    // the browser. Suggestions come first because they cover everything else.
     const onBack = () => {
+      if (suggestOpenRef.current) { setSuggestOpen(false); return }
       if (panelRef.current) { setPanel(null); return }
       if (menuOpenRef.current) { setMenuOpen(false); return }
       if (guardOpenRef.current) { setGuardOpen(false); return }
@@ -282,12 +317,64 @@ export function BrowserOverlay() {
 
   useEffect(() => { if (visible) refreshPageState() }, [url, visible, refreshPageState])
 
+  // ── History ───────────────────────────────────────────────────────────────
+  //
+  // Recorded here rather than natively: DappBrowserPlugin already emits
+  // urlChanged and titleChanged on BOTH Android and iOS, so the WebView layer
+  // has everything it needs and no Java or Swift is involved.
+  //
+  // NOT recorded while Tor Mode is on — a session the user deliberately
+  // anonymised must not leave a permanent local trail that outlives it. The flag
+  // is stamped onto wallet-local so every history read carries it and the panel
+  // can explain the silence instead of looking broken.
+  const recording = !tor.enabled
+  recordingRef.current = recording
+  useEffect(() => { Bm.setHistoryRecording(recording) }, [recording])
+
+  const refreshHistory = useCallback(() => {
+    Bm.getHistory().then(setHistory).catch(() => {})
+  }, [])
+
+  // Last URL actually written down. Without it, anything else in this effect's
+  // deps (hiding and re-showing the browser, turning Tor Mode off) would record
+  // the page currently on screen a second time and inflate its visit count,
+  // which is what ranks address-bar suggestions.
+  const recordedUrlRef = useRef('')
+  useEffect(() => {
+    if (!visible || !recording) return
+    if (!/^https?:\/\//i.test(url)) return
+    if (recordedUrlRef.current === url) return
+    recordedUrlRef.current = url
+    // The title is usually still the previous document's here; recordVisit never
+    // overwrites a known title with an empty one, and the titleChanged listener
+    // below backfills it.
+    Bm.recordVisit(url).then(setHistory).catch(() => {})
+  }, [url, visible, recording])
+
+  useEffect(() => {
+    const handle = DappBrowser.addListener('titleChanged', e => {
+      if (!recordingRef.current) return
+      Bm.updateHistoryTitle(urlRef.current, e.title).then(refreshHistory).catch(() => {})
+    })
+    return () => { handle.then(h => h.remove()).catch(() => {}) }
+  }, [refreshHistory])
+
   const showToast = useCallback((message: string) => setToast(message), [])
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 2600)
     return () => clearTimeout(t)
   }, [toast])
+
+  // Downloads tray. The native plugin pushes a fresh snapshot whenever a record
+  // changes (and polls DownloadManager while anything is in flight), so the ☰
+  // count stays live without this component running a timer of its own.
+  useEffect(() => {
+    const onDownloads = (s: DownloadsSnapshot) => setDownloads(s)
+    window.wallet.browserListDownloads?.().then(onDownloads).catch(() => {})
+    window.wallet.onBrowserDownloads?.(onDownloads)
+    return () => window.wallet.offBrowserDownloads?.(onDownloads)
+  }, [])
 
   // Auto-fill confirmation — surfaced so a fill is never silent.
   useEffect(() => {
@@ -301,16 +388,18 @@ export function BrowserOverlay() {
     return () => window.wallet.offBrowserAutofill?.(onFilled)
   }, [])
 
-  // While a full-screen panel is up the native dApp WebViews must be hidden —
-  // they render ABOVE this WebView and would cover the panel entirely.
+  // While a full-screen panel OR the suggestions list is up, the native dApp
+  // WebViews must be hidden — they render ABOVE this WebView and would cover it
+  // entirely. That layering is also why the suggestions cannot be a dropdown
+  // here the way they are on the desktop.
   useEffect(() => {
-    if (panel) { DappBrowser.hide().catch(() => {}); return }
+    if (panel || suggestOpen) { DappBrowser.hide().catch(() => {}); return }
     if (sessionRef.current === 'open') {
       DappBrowser.show().catch(() => {})
       DappBrowser.setBounds(measureBounds()).catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panel])
+  }, [panel, suggestOpen])
 
   const toggleBookmark = async () => {
     const next = await window.wallet.browserToggleBookmark?.()
@@ -350,6 +439,18 @@ export function BrowserOverlay() {
     } catch { /* not a URL */ }
     if (!target) target = `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`
     DappBrowser.navigate({ url: target }).catch(() => {})
+    dismissSuggest()
+  }
+
+  /** Open a suggestion. Same semantics as typing its address and pressing go. */
+  const openSuggestion = (target: string) => {
+    DappBrowser.navigate({ url: target }).catch(() => {})
+    dismissSuggest()
+  }
+
+  /** Put the address bar back to rest and hand the page area back to the page. */
+  const dismissSuggest = () => {
+    setSuggestOpen(false)
     setInputFocused(false)
     ;(document.activeElement as HTMLElement | null)?.blur?.()
   }
@@ -406,7 +507,17 @@ export function BrowserOverlay() {
           <input
             value={inputFocused ? urlInput : (url || urlInput)}
             onChange={e => setUrlInput(e.target.value)}
-            onFocus={e => { setInputFocused(true); setUrlInput(url); e.target.select() }}
+            onFocus={e => {
+              setInputFocused(true)
+              setUrlInput(url)
+              e.target.select()
+              // Opening the list hides the native WebViews, so refresh what it
+              // ranks from first — a page visited seconds ago should be there.
+              refreshHistory()
+              setSuggestOpen(true)
+            }}
+            // Deliberately does NOT close the suggestions: a blur fires before a
+            // tap on a row lands. dismissSuggest() is what closes them.
             onBlur={() => setInputFocused(false)}
             placeholder="Search or enter address"
             autoCapitalize="off" autoCorrect="off" spellCheck={false}
@@ -438,6 +549,22 @@ export function BrowserOverlay() {
             {page.bookmarked ? '★' : '☆'}
           </button>
         </form>
+
+        {/* Escape hatch out of the suggestions. Hardware back does the same, but
+            iOS has none — without this the list would only close by navigating. */}
+        {suggestOpen && (
+          <button
+            type="button"
+            aria-label="Cancel"
+            onMouseDown={e => e.preventDefault()}
+            onClick={dismissSuggest}
+            style={{
+              ...navBtn, width: 'auto', padding: '0 8px', fontSize: 11, fontWeight: 700,
+            }}
+          >
+            Cancel
+          </button>
+        )}
         {/* ☰ — password manager, bookmarks, Magic Guard, Tor, save and share.
             It sits where the old "back to wallet" ✕ was: that ✕ was redundant
             (the wallet's bottom nav stays visible over the browser, and hardware
@@ -522,6 +649,16 @@ export function BrowserOverlay() {
             onClick={() => { setMenuOpen(false); setPanel('passwords') }} />
           <MenuRow icon="🔖" label="Bookmarks"
             onClick={() => { setMenuOpen(false); setPanel('bookmarks') }} />
+          <MenuRow icon="🕘" label="History"
+            hint={recording ? undefined : 'Paused — Tor Mode is on'}
+            onClick={() => { setMenuOpen(false); setPanel('history') }} />
+          <MenuRow icon="⬇️" label="Downloads"
+            hint={activeDownloads > 0
+              ? `${activeDownloads} in progress`
+              : downloads.items.length > 0
+                ? `${downloads.items.length} file${downloads.items.length === 1 ? '' : 's'}`
+                : undefined}
+            onClick={() => { setMenuOpen(false); setPanel('downloads') }} />
 
           <MenuDivider />
           <MenuLabel>Privacy</MenuLabel>
@@ -709,6 +846,43 @@ export function BrowserOverlay() {
             onToast={showToast}
             onChanged={refreshPageState}
             importEmptyText={MOBILE_PASSWORD_IMPORT_EMPTY}
+          />
+        </div>
+      )}
+      {panel === 'downloads' && (
+        <div style={panelHost}>
+          <DownloadsPanel
+            onClose={() => setPanel(null)}
+            onToast={showToast}
+            emptyBody={DOWNLOADS_EMPTY}
+          />
+        </div>
+      )}
+      {/* Address-bar suggestions. A full surface rather than a dropdown because
+          the native dApp WebViews render ABOVE this one — the same reason every
+          menu in this file is an inline panel. The WebViews are already hidden
+          by the `suggestOpen` effect, so this sits over an empty content area,
+          which is also how Chrome on Android behaves with the omnibox focused. */}
+      {suggestOpen && (
+        <div style={{
+          ...panelHost, overflowY: 'auto', padding: 6,
+          background: 'var(--bg, #0b0b0f)',
+        }}>
+          <SuggestList
+            history={history}
+            query={urlInput}
+            typed={urlInput.trim() !== url.trim()}
+            onOpen={openSuggestion}
+          />
+        </div>
+      )}
+
+      {panel === 'history' && (
+        <div style={panelHost}>
+          <HistoryPanel
+            onClose={() => setPanel(null)}
+            onNavigate={(target) => { DappBrowser.navigate({ url: target }).catch(() => {}) }}
+            onToast={showToast}
           />
         </div>
       )}

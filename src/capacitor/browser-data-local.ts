@@ -21,6 +21,7 @@
  */
 
 import { Preferences } from '@capacitor/preferences'
+import { historyHost, type HistoryEntry, type HistorySnapshot } from '../shared/history-wire'
 import {
   encryptSecret, decryptSecret, isEncryptedBlob,
   encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob,
@@ -83,11 +84,15 @@ export interface PasswordBioStatus {
 }
 
 const BOOKMARKS_KEY = 'browser.bookmarks'
+const HISTORY_KEY = 'browser.history'
 const APPS_KEY = 'browser.apps'
 const VAULT_KEY = 'passwords.enc'
 const VAULT_BIO_KEY = 'passwords.hello.enc'
 
 const MAX_BOOKMARKS = 5000
+// Lower than the desktop's 3000: this whole list is one Preferences string that
+// is JSON-parsed on a phone, and 2000 entries is already weeks of browsing.
+const MAX_HISTORY = 2000
 const MAX_APPS = 500
 const MAX_ENTRIES = 10_000
 
@@ -196,6 +201,141 @@ export async function renameBookmark(id: string, title: string): Promise<Bookmar
   const list = (await getBookmarks()).map(b =>
     b.id === id ? { ...b, title: title.trim().slice(0, 300) || b.url } : b)
   return saveBookmarks(list)
+}
+
+// ── History ─────────────────────────────────────────────────────────────────
+//
+// The mobile half of the desktop's browser-store.ts history, over the same wire
+// contract (shared/history-wire.ts) because one React panel renders both. There
+// is no native counterpart: DappBrowserPlugin already emits urlChanged and
+// titleChanged on Android AND iOS, so BrowserOverlay records from the WebView
+// layer and no Java or Swift is involved.
+//
+// NOT written while Tor Mode is on. That gate lives in BrowserOverlay, which is
+// what holds the Tor state; this module has no idea what the proxy is doing.
+
+let historyCache: HistoryEntry[] | null = null
+
+function pickHistory(v: unknown): HistoryEntry | null {
+  if (!v || typeof v !== 'object') return null
+  const h = v as Record<string, unknown>
+  const url = typeof h.url === 'string' ? canonicalUrl(h.url) : null
+  if (!url) return null
+  return {
+    id: typeof h.id === 'string' && h.id ? h.id : newId(),
+    url,
+    title: typeof h.title === 'string' ? h.title.slice(0, 300) : '',
+    host: typeof h.host === 'string' && h.host ? h.host : historyHost(url),
+    lastVisitedAt: Number.isFinite(h.lastVisitedAt) ? Number(h.lastVisitedAt) : Date.now(),
+    visits: Number.isFinite(h.visits) && Number(h.visits) > 0 ? Math.floor(Number(h.visits)) : 1,
+  }
+}
+
+export async function getHistory(): Promise<HistoryEntry[]> {
+  if (historyCache) return historyCache
+  const raw = await prefGet<unknown[]>(HISTORY_KEY)
+  historyCache = (Array.isArray(raw) ? raw : [])
+    .map(pickHistory)
+    .filter((h): h is HistoryEntry => h !== null)
+    .slice(0, MAX_HISTORY)
+  return historyCache
+}
+
+async function saveHistory(list: HistoryEntry[]): Promise<HistoryEntry[]> {
+  historyCache = list
+  await prefSet(HISTORY_KEY, list)
+  return list
+}
+
+/**
+ * Record a visit. A repeat of the same canonical URL bumps its counter and moves
+ * to the front rather than appending a duplicate — that is what makes `visits`
+ * meaningful for ranking suggestions, and what stops a page reloaded twenty
+ * times from burying everything else.
+ *
+ * An empty title never overwrites one already known for the URL: urlChanged
+ * arrives before the document has a title, and updateHistoryTitle fills it in.
+ */
+export async function recordVisit(rawUrl: string, title = ''): Promise<HistoryEntry[]> {
+  const url = canonicalUrl(rawUrl)
+  if (!url) return getHistory()
+  const clean = title.trim().slice(0, 300)
+  const list = await getHistory()
+  const existing = list.findIndex(h => h.url === url)
+  if (existing >= 0) {
+    const prev = list[existing]
+    const next: HistoryEntry = {
+      ...prev,
+      title: clean || prev.title,
+      lastVisitedAt: Date.now(),
+      visits: prev.visits + 1,
+    }
+    return saveHistory([next, ...list.slice(0, existing), ...list.slice(existing + 1)])
+  }
+  const fresh: HistoryEntry = {
+    id: newId(),
+    url,
+    title: clean,
+    host: historyHost(url),
+    lastVisitedAt: Date.now(),
+    visits: 1,
+  }
+  return saveHistory([fresh, ...list].slice(0, MAX_HISTORY))
+}
+
+/**
+ * Fill in the title once the document has one. Deliberately not a visit and not
+ * a reorder — a page that renames its own tab repeatedly (a chat app showing an
+ * unread count) would otherwise churn this store on every update.
+ */
+export async function updateHistoryTitle(rawUrl: string, title: string): Promise<void> {
+  const url = canonicalUrl(rawUrl)
+  const clean = title.trim().slice(0, 300)
+  if (!url || !clean) return
+  const list = await getHistory()
+  const at = list.findIndex(h => h.url === url)
+  if (at < 0 || list[at].title === clean) return
+  const next = [...list]
+  next[at] = { ...next[at], title: clean }
+  await saveHistory(next)
+}
+
+export async function removeHistoryEntry(id: string): Promise<HistoryEntry[]> {
+  return saveHistory((await getHistory()).filter(h => h.id !== id))
+}
+
+/** "Forget this site" — every page from one host at once. */
+export async function removeHistoryByHost(host: string): Promise<HistoryEntry[]> {
+  const target = host.trim().toLowerCase()
+  if (!target) return getHistory()
+  return saveHistory((await getHistory()).filter(h => h.host !== target))
+}
+
+export async function clearHistory(): Promise<HistoryEntry[]> {
+  return saveHistory([])
+}
+
+/**
+ * Whether visits are being written down right now.
+ *
+ * Set by BrowserOverlay, which is what holds the Tor state — visits made with
+ * Tor Mode on are deliberately never recorded. It lives here rather than in
+ * wallet-local because wallet-local already imports BrowserOverlay (for
+ * HOME_URL), and importing back the other way would close a module cycle.
+ */
+let _recording = true
+
+export function setHistoryRecording(recording: boolean): void {
+  _recording = recording
+}
+
+/** Wrap a list as the snapshot every history read returns. */
+export function historySnapshot(items: HistoryEntry[]): HistorySnapshot {
+  return {
+    items,
+    recording: _recording,
+    ...(_recording ? {} : { pausedReason: 'Tor Mode is on — pages are not being added to history.' }),
+  }
 }
 
 // ── Installed web apps (home-screen shortcuts) ───────────────────────────────

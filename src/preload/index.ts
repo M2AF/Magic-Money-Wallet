@@ -225,6 +225,30 @@ contextBridge.exposeInMainWorld('wallet', {
   browserCopyLink:         ()          => ipcRenderer.invoke('browser:page:copy-link'),
   browserShareByEmail:     ()          => ipcRenderer.invoke('browser:page:share-email'),
 
+  // ── Browsing history (panel + address-bar suggestions) ────────────────
+  // One read hands over the whole capped list; the chrome filters it locally,
+  // so typing in the address bar costs no IPC. Mutations return the fresh
+  // snapshot so the panel re-renders from one value.
+  browserListHistory:       ()             => ipcRenderer.invoke('browser:history:list'),
+  browserRemoveHistory:     (id: string)   => ipcRenderer.invoke('browser:history:remove', id),
+  browserRemoveHistoryHost: (host: string) => ipcRenderer.invoke('browser:history:remove-host', host),
+  browserClearHistory:      ()             => ipcRenderer.invoke('browser:history:clear'),
+
+  // ── Downloads tray (browser chrome) ───────────────────────────────────
+  // Every mutation resolves with the fresh snapshot, so the panel never has to
+  // re-list after acting. Only ids cross the boundary — see ipc-handlers.
+  browserListDownloads:    ()           => ipcRenderer.invoke('browser:downloads:list'),
+  browserOpenDownload:     (id: string) => ipcRenderer.invoke('browser:downloads:open', id),
+  browserShowDownload:     (id: string) => ipcRenderer.invoke('browser:downloads:show', id),
+  browserDeleteDownload:   (id: string) => ipcRenderer.invoke('browser:downloads:delete', id),
+  browserRemoveDownload:   (id: string) => ipcRenderer.invoke('browser:downloads:remove', id),
+  browserClearDownloads:   ()           => ipcRenderer.invoke('browser:downloads:clear'),
+  browserPauseDownload:    (id: string) => ipcRenderer.invoke('browser:downloads:pause', id),
+  browserResumeDownload:   (id: string) => ipcRenderer.invoke('browser:downloads:resume', id),
+  browserCancelDownload:   (id: string) => ipcRenderer.invoke('browser:downloads:cancel', id),
+  browserRetryDownload:    (id: string) => ipcRenderer.invoke('browser:downloads:retry', id),
+  browserOpenDownloadsFolder: ()        => ipcRenderer.invoke('browser:downloads:open-folder'),
+
   // ── Password manager (browser logins; never the wallet seed) ───────────
   passwordsStatus:        ()                 => ipcRenderer.invoke('passwords:status'),
   passwordsUnlock:        (password: string) => ipcRenderer.invoke('passwords:unlock', password),
@@ -258,6 +282,9 @@ contextBridge.exposeInMainWorld('wallet', {
   // Transient status text from main (download finished, etc).
   onBrowserToast:  (cb: (m: string) => void) => ipcRenderer.on('browser:toast', (_e, v) => cb(v)),
   offBrowserToast: (cb: (m: string) => void) => ipcRenderer.removeListener('browser:toast', cb as never),
+
+  onBrowserDownloads:  (cb: (s: unknown) => void) => ipcRenderer.on('browser:downloads', (_e, v) => cb(v)),
+  offBrowserDownloads: (cb: (s: unknown) => void) => ipcRenderer.removeListener('browser:downloads', cb as never),
   // True while a page is in HTML5 fullscreen — the chrome hides itself.
   onBrowserFullscreen:  (cb: (v: boolean) => void) => ipcRenderer.on('browser:fullscreen', (_e, v) => cb(v)),
   offBrowserFullscreen: (cb: (v: boolean) => void) => ipcRenderer.removeListener('browser:fullscreen', cb as never),

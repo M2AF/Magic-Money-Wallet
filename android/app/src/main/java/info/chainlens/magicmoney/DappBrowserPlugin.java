@@ -2,7 +2,6 @@ package info.chainlens.magicmoney;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.app.DownloadManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ComponentName;
@@ -11,7 +10,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.net.Uri;
-import android.os.Environment;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -20,7 +18,6 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
-import android.webkit.CookieManager;
 import android.webkit.URLUtil;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -136,6 +133,21 @@ public class DappBrowserPlugin extends Plugin {
     // continue on separate executor workers while WebView remains fail-closed.
     private final ExecutorService torExecutor = Executors.newCachedThreadPool();
     private volatile boolean torEnabled = false;
+    /**
+     * Process-wide mirror of torEnabled, read by DownloadsStore before it hands
+     * anything to DownloadManager. Static because the downloads tray is a
+     * different Capacitor plugin instance and has no other way to see this
+     * browser's proxy state; kept in lockstep by setTorFlag() below.
+     */
+    private static volatile boolean torModeActive = false;
+
+    static boolean isTorModeActive() { return torModeActive; }
+
+    /** The ONLY writer of torEnabled, so the static mirror can never fall behind. */
+    private void setTorFlag(boolean enabled) {
+        torEnabled = enabled;
+        torModeActive = enabled;
+    }
     private volatile String torStatus = "off";
     private volatile String torMessage = "Tor Mode is off";
     private volatile int torPort = 19050;
@@ -507,7 +519,7 @@ public class DappBrowserPlugin extends Plugin {
     public void setTorMode(PluginCall call) {
         boolean enabled = call.getBoolean("enabled", false);
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            torEnabled = false;
+            setTorFlag(false);
             torStatus = "unsupported";
             torMessage = "Update Android System WebView to use Tor Mode";
             pushTorState();
@@ -517,7 +529,7 @@ public class DappBrowserPlugin extends Plugin {
 
         if (!enabled) {
             torGeneration.incrementAndGet();
-            torEnabled = false;
+            setTorFlag(false);
             torStatus = "connecting";
             torMessage = "Disconnecting from Tor…";
             pushTorState();
@@ -535,7 +547,7 @@ public class DappBrowserPlugin extends Plugin {
         }
 
         final int generation = torGeneration.incrementAndGet();
-        torEnabled = true;
+        setTorFlag(true);
         torStatus = "connecting";
         torMessage = "Starting embedded Tor… first connection can take up to a minute";
         torPort = 19050;
@@ -1207,42 +1219,46 @@ public class DappBrowserPlugin extends Plugin {
 
     /**
      * Save a URL through Android's DownloadManager (notification + Downloads
-     * folder, like any other browser).
+     * folder, like any other browser) and record it in the downloads tray.
      *
-     * REFUSED WHILE TOR MODE IS ON: DownloadManager is a separate system process
-     * that does NOT use this app's WebView proxy, so letting it run would send a
-     * direct, de-anonymized request — exactly the leak Tor Mode's fail-closed
-     * design exists to prevent.
+     * The enqueue itself lives in DownloadsStore — including the fail-closed
+     * refusal while Tor Mode is on, which now guards the tray's Retry too rather
+     * than only this call site.
      */
     private void startDownload(String url, String fileName) {
-        if (torEnabled) {
-            toast("Downloads are blocked while Tor Mode is on — they would bypass Tor");
+        Tab active = active();
+        String referer = active != null ? active.url : null;
+        DownloadsStore.EnqueueResult result =
+                DownloadsStore.enqueueBrowserDownload(getContext(), url, fileName, referer);
+        if (result.error != null) toast(result.error);
+        else toast("Saving " + result.record.fileName + "…");
+    }
+
+    /**
+     * Retry from the downloads tray. It lives here rather than in
+     * DownloaderPlugin (which owns the rest of the tray) because a retry is a
+     * fresh page-context request: it wants this browser's referer, and it has to
+     * clear the SAME fail-closed Tor gate the first attempt did.
+     */
+    @PluginMethod
+    public void retryDownload(PluginCall call) {
+        String id = call.getString("id", "");
+        DownloadsStore.Record record = DownloadsStore.find(getContext(), id);
+        if (record == null) {
+            call.resolve(DownloaderPlugin.trayResult(getContext(), false, "That download is no longer listed."));
             return;
         }
-        if (!isDownloadableUrl(url)) {
-            toast("This item can't be downloaded");
+        Tab active = active();
+        String referer = active != null ? active.url : null;
+        DownloadsStore.EnqueueResult result =
+                DownloadsStore.enqueueBrowserDownload(getContext(), record.url, record.fileName, referer);
+        if (result.error != null) {
+            call.resolve(DownloaderPlugin.trayResult(getContext(), false, result.error));
             return;
         }
-        try {
-            DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
-            if (dm == null) { toast("Downloads are unavailable on this device"); return; }
-
-            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-            String name = (fileName == null || fileName.isEmpty()) ? "download" : fileName;
-            req.setTitle(name);
-            req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            // Carry the page's cookies/UA so login-gated media saves correctly.
-            String cookie = CookieManager.getInstance().getCookie(url);
-            if (cookie != null) req.addRequestHeader("Cookie", cookie);
-            Tab active = active();
-            if (active != null && active.url != null) req.addRequestHeader("Referer", active.url);
-
-            dm.enqueue(req);
-            toast("Saving " + name + "…");
-        } catch (Exception e) {
-            toast("Could not start the download");
-        }
+        // The old row is dropped in favour of the new attempt's, matching Chrome.
+        DownloadsStore.remove(getContext(), id);
+        call.resolve(DownloaderPlugin.trayResult(getContext(), true, null));
     }
 
     private void toast(String message) {
@@ -1272,7 +1288,7 @@ public class DappBrowserPlugin extends Plugin {
     @Override
     protected void handleOnDestroy() {
         torGeneration.incrementAndGet();
-        torEnabled = false;
+        setTorFlag(false);
         stopEmbeddedTorRuntime();
         torExecutor.shutdownNow();
         super.handleOnDestroy();

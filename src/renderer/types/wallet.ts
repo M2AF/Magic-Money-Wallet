@@ -5,6 +5,8 @@ import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenL
 // under every target's lib, even though it sits outside tsconfig.web's include.
 import type { AssetFilterEntries } from '../../shared/asset-filter-key'
 import type { ThemeEntries } from '../../shared/theme-sync-wire'
+import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downloads-wire'
+import type { HistorySnapshot } from '../../shared/history-wire'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -34,7 +36,17 @@ export interface CustomChain {
   explorerUrl: string   // explorer origin ('' when none)
 }
 
-// A manually imported ERC-20 on a custom chain. Mirrors secure-store.ts.
+/**
+ * A network the import modals can target. Deliberately narrower than
+ * CustomChain: importing works on the built-in chains too, and those are known
+ * to the renderer only by id + display name (their RPC lives in main).
+ */
+export interface ImportChain {
+  id: string
+  name: string
+}
+
+// A manually imported ERC-20. Mirrors secure-store.ts.
 export interface CustomToken {
   chain: string
   contractAddress: string
@@ -43,7 +55,7 @@ export interface CustomToken {
   decimals: number
 }
 
-// A manually imported NFT on a custom chain. Mirrors secure-store.ts — only the
+// A manually imported NFT. Mirrors secure-store.ts — only the
 // identity is stored; artwork/traits are re-resolved on each portfolio fetch.
 export interface CustomNft {
   chain: string
@@ -479,6 +491,23 @@ export interface DownloadProgress {
   percent: number | null
 }
 
+// ─── Downloads manager ───────────────────────────────────────────────────────
+
+// One definition, shared with the Electron main process and both native
+// targets — see shared/downloads-wire.ts for why it lives there.
+export type {
+  DownloadState,
+  DownloadRecord,
+  DownloadsSnapshot,
+  DownloadActionResult,
+} from '../../shared/downloads-wire'
+
+// ─── Browsing history ────────────────────────────────────────────────────────
+
+// Same arrangement as the downloads contract above, and for the same reason —
+// see shared/history-wire.ts.
+export type { HistoryEntry, HistorySnapshot } from '../../shared/history-wire'
+
 /**
  * Whether MagicMoney can be — and currently is — the system's default browser.
  * `supported` is false wherever we can't verify or influence it (macOS/Linux,
@@ -865,6 +894,28 @@ declare global {
       browserCapturePage?(): Promise<PageSaveResult>
       browserCopyLink?(): Promise<{ ok: boolean; url?: string; error?: string }>
       browserShareByEmail?(): Promise<{ ok: boolean; error?: string }>
+      // ── Downloads tray. Present on Electron and the native mobile targets;
+      // absent from the extension bridge, which has no browser of its own (the
+      // host browser owns its downloads). Every mutation resolves with the
+      // fresh snapshot so the panel re-renders from one value.
+      browserListDownloads?(): Promise<DownloadsSnapshot>
+      browserOpenDownload?(id: string): Promise<DownloadActionResult>
+      browserShowDownload?(id: string): Promise<DownloadActionResult>
+      browserDeleteDownload?(id: string): Promise<DownloadActionResult>
+      browserRemoveDownload?(id: string): Promise<DownloadActionResult>
+      browserClearDownloads?(): Promise<DownloadActionResult>
+      browserPauseDownload?(id: string): Promise<DownloadActionResult>
+      browserResumeDownload?(id: string): Promise<DownloadActionResult>
+      browserCancelDownload?(id: string): Promise<DownloadActionResult>
+      browserRetryDownload?(id: string): Promise<DownloadActionResult>
+      browserOpenDownloadsFolder?(): Promise<DownloadActionResult>
+      // ── Browsing history. Present wherever the app has a browser of its own
+      // (Electron + the native mobile targets), absent from the extension
+      // bridge. Every mutation resolves with the fresh snapshot.
+      browserListHistory?(): Promise<HistorySnapshot>
+      browserRemoveHistory?(id: string): Promise<HistorySnapshot>
+      browserRemoveHistoryHost?(host: string): Promise<HistorySnapshot>
+      browserClearHistory?(): Promise<HistorySnapshot>
       passwordsStatus?(): Promise<PasswordVaultStatus>
       passwordsUnlock?(password: string): Promise<PasswordVaultStatus>
       passwordsLock?(): Promise<PasswordVaultStatus>
@@ -888,6 +939,8 @@ declare global {
       offBrowserAutofill?(cb: (s: { host: string; username: string; more: number }) => void): void
       onBrowserToast?(cb: (message: string) => void): void
       offBrowserToast?(cb: (message: string) => void): void
+      onBrowserDownloads?(cb: (snapshot: DownloadsSnapshot) => void): void
+      offBrowserDownloads?(cb: (snapshot: DownloadsSnapshot) => void): void
       onBrowserFullscreen?(cb: (fullscreen: boolean) => void): void
       offBrowserFullscreen?(cb: (fullscreen: boolean) => void): void
       onBrowserUrl(cb: (url: string) => void): void

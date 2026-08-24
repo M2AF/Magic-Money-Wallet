@@ -1,26 +1,22 @@
-import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { FullScreenButton, SnapMenu } from './components/WindowLayout'
 import { MagicGuardControl } from './components/MagicGuardControl'
 import { AddressBarStar, ShareControl, BrowserMenu } from './components/BrowserMenu'
 import { BookmarksPanel } from './components/BookmarksPanel'
 import { PasswordManager } from './components/PasswordManager'
-import APP_HUB, { type AppEntry } from './data/app-hub'
+import { DownloadsPanel } from './components/DownloadsPanel'
+import { HistoryPanel } from './components/HistoryPanel'
+import { SuggestList } from './components/SuggestList'
+import { ToolbarButton } from './components/browser-ui'
+import { DownloadProgressBar } from './components/DownloadProgressBar'
+
 import wordmarkUrl from './assets/wordmark.png'
 import logoUrl from './assets/logo.png'
-import type { TorBrowserState, MagicGuardState, BrowserPageState } from './types/wallet'
+import type {
+  TorBrowserState, MagicGuardState, BrowserPageState, DownloadsSnapshot, HistorySnapshot,
+} from './types/wallet'
 
 const HOME = 'https://chainlensnft.info'
-
-// Address-bar suggestions: same matching as the App Hub search (name/website
-// substring), same "Featured" set as the popular default when nothing is typed.
-const SUGGEST_LIMIT = 8
-function suggestApps(query: string): AppEntry[] {
-  const q = query.trim().toLowerCase()
-  const pool = q
-    ? APP_HUB.apps.filter(a => a.name.toLowerCase().includes(q) || a.website.toLowerCase().includes(q))
-    : APP_HUB.apps.filter(a => a.featured)
-  return pool.slice(0, SUGGEST_LIMIT)
-}
 
 interface TabInfo { id: number; title: string; url: string; loading: boolean }
 
@@ -39,7 +35,7 @@ export function BrowserApp() {
   // covers, so at most one may be open at a time — opening any of them detaches
   // that view and paints a snapshot behind it (see openOverlay), and closing
   // re-attaches it.
-  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard' | 'menu' | 'share' | 'bookmarks' | 'passwords'
+  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard' | 'menu' | 'share' | 'bookmarks' | 'passwords' | 'downloads' | 'history'
   const [overlay, setOverlay]   = useState<OverlayKind | null>(null)
   const [snapshot, setSnapshot] = useState<string | null>(null)
   const [typed, setTyped]       = useState(false)
@@ -65,6 +61,16 @@ export function BrowserApp() {
     savedLogins: [], passwordsUnlocked: false,
   })
   const [webAppsSupported, setWebAppsSupported] = useState(false)
+  // Downloads tray. Held here rather than inside DownloadsPanel because the
+  // toolbar button has to show a live count whether or not the panel is open.
+  const [downloads, setDownloads] = useState<DownloadsSnapshot>({ items: [], canShowInFolder: false, canPause: false })
+  const activeDownloadCount = downloads.items.filter(
+    d => d.state === 'progressing' || d.state === 'paused'
+  ).length
+  // Browsing history. Held here rather than inside HistoryPanel because the
+  // address bar's suggestions read the same list — one fetch feeds both, and
+  // typing then costs no IPC at all.
+  const [history, setHistory] = useState<HistorySnapshot>({ items: [], recording: true })
   const [toast, setToast] = useState<string | null>(null)
   const [fullscreen, setFullscreen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -125,6 +131,14 @@ export function BrowserApp() {
 
   useEffect(() => { refreshPageState() }, [url, refreshPageState])
 
+  // History is re-read on every navigation for the same reason page state is:
+  // main has just recorded the page we landed on, and the address bar should be
+  // able to suggest it immediately.
+  const refreshHistory = useCallback(() => {
+    window.wallet.browserListHistory?.().then(setHistory).catch(() => {})
+  }, [])
+  useEffect(() => { refreshHistory() }, [url, refreshHistory])
+
   useEffect(() => {
     window.wallet.browserWebAppsSupported?.().then(setWebAppsSupported).catch(() => {})
   }, [])
@@ -146,6 +160,16 @@ export function BrowserApp() {
     const onToast = (message: string) => setToast(message)
     window.wallet.onBrowserToast?.(onToast)
     return () => window.wallet.offBrowserToast?.(onToast)
+  }, [])
+
+  // Downloads tray. Main pushes a fresh snapshot on every change (throttled), so
+  // the toolbar button stays live even while the panel is closed; the initial
+  // read is what populates it on a cold browser open.
+  useEffect(() => {
+    const onDownloads = (s: DownloadsSnapshot) => setDownloads(s)
+    window.wallet.browserListDownloads?.().then(onDownloads).catch(() => {})
+    window.wallet.onBrowserDownloads?.(onDownloads)
+    return () => window.wallet.offBrowserDownloads?.(onDownloads)
   }, [])
 
   // HTML5 fullscreen: main gives the tab's view the whole window and puts the
@@ -222,6 +246,22 @@ export function BrowserApp() {
   }, [])
 
   const openTabsMenu = useCallback(() => openOverlay('tabs'), [openOverlay])
+  const openDownloads = useCallback(() => { void openOverlay('downloads') }, [openOverlay])
+  const openHistory = useCallback(() => { void openOverlay('history') }, [openOverlay])
+
+  // Ctrl/Cmd+J and Ctrl/Cmd+H — the tray and history shortcuts in every Chromium
+  // browser. Registered on the CHROME renderer only: a dApp tab is a separate
+  // WebContents, so a page can neither see nor swallow these.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return
+      const key = e.key.toLowerCase()
+      if (key === 'j') { e.preventDefault(); openDownloads() }
+      else if (key === 'h') { e.preventDefault(); openHistory() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [openDownloads, openHistory])
 
   // Address-bar App Hub suggestions reuse the same suspend/snapshot machinery, but
   // need an extra focus recheck: focus may have moved on while the snapshot was
@@ -240,14 +280,6 @@ export function BrowserApp() {
   }, [])
 
   const closeSuggest = closeOverlay
-
-  // Nothing typed yet → App Hub "Featured" (popular); typing narrows exactly
-  // like the App Hub search. Always current: the data is regenerated from
-  // ChainLens_Files/app-hub-data.js on every dev run and build.
-  const suggestions = useMemo(
-    () => (sugOpen ? suggestApps(typed ? inputUrl : '') : []),
-    [sugOpen, typed, inputUrl]
-  )
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -282,6 +314,10 @@ export function BrowserApp() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+      {/* Same top-edge progress line the wallet window uses. Main already pushes
+          `download:progress` to this renderer; nothing was rendering it here. */}
+      <DownloadProgressBar />
+
       {/* ── Custom titlebar ────────────────────────────────────────────
           Hidden entirely during HTML5 fullscreen so the video really is
           fullscreen (the view already covers the window; leaving these mounted
@@ -418,22 +454,12 @@ export function BrowserApp() {
                 padding: 4, maxHeight: 340, overflowY: 'auto',
               }}
             >
-              <div style={{
-                padding: '6px 8px 8px', fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-                textTransform: 'uppercase', color: 'var(--text-muted)',
-              }}>
-                {typed && inputUrl.trim() ? `Apps (${suggestions.length})` : 'Popular apps'}
-              </div>
-
-              {suggestions.map(a => (
-                <SuggestRow key={a.id} app={a} onOpen={navigate} />
-              ))}
-
-              {suggestions.length === 0 && (
-                <div style={{ padding: '4px 8px 10px', fontSize: 12, color: 'var(--text-muted)' }}>
-                  No matching apps — press Enter to open the address
-                </div>
-              )}
+              <SuggestList
+                history={history.items}
+                query={inputUrl}
+                typed={typed}
+                onOpen={navigate}
+              />
             </div>
           )}
         </form>
@@ -465,7 +491,17 @@ export function BrowserApp() {
           }} />
         )}
 
-        {/* ☰ — password manager, bookmarks, Tor Mode, save and share */}
+        {/* Downloads tray — appears once anything has been downloaded, exactly
+            like Chrome's. The ☰ always carries a Downloads row, so nothing is
+            unreachable while this is hidden. */}
+        <DownloadsButton
+          snapshot={downloads}
+          open={overlay === 'downloads'}
+          onOpen={openDownloads}
+          onClose={closeOverlay}
+        />
+
+        {/* ☰ — password manager, bookmarks, downloads, Tor Mode, save and share */}
         <BrowserMenu
           page={page}
           tor={tor}
@@ -476,6 +512,10 @@ export function BrowserApp() {
           onToast={showToast}
           onOpenBookmarks={() => openOverlay('bookmarks')}
           onOpenPasswords={() => openOverlay('passwords')}
+          onOpenDownloads={openDownloads}
+          onOpenHistory={openHistory}
+          activeDownloads={activeDownloadCount}
+          historyPaused={!history.recording}
           onSetTor={setTorMode}
           webAppsSupported={webAppsSupported}
         />
@@ -502,7 +542,16 @@ export function BrowserApp() {
             sit over the page snapshot exactly like the Tor block screen above —
             bookmarks full-area, passwords as an anchored card. */}
         {overlay === 'bookmarks' && (
-          <BookmarksPanel onClose={closeOverlay} onNavigate={navigate} onToast={showToast} />
+          <BookmarksPanel
+            onClose={closeOverlay}
+            onNavigate={navigate}
+            onToast={showToast}
+            // Anchored card under the ☰ it came from, matching passwords,
+            // downloads and history. The touch targets pass no `floating` and
+            // keep the full-bleed sheet — there is nowhere smaller on a phone.
+            floating
+            onDismiss={closeOverlay}
+          />
         )}
         {overlay === 'passwords' && (
           <PasswordManager
@@ -515,10 +564,69 @@ export function BrowserApp() {
             floating
           />
         )}
+        {overlay === 'downloads' && (
+          <DownloadsPanel onClose={closeOverlay} onToast={showToast} floating onDismiss={closeOverlay} />
+        )}
+        {overlay === 'history' && (
+          <HistoryPanel
+            onClose={closeOverlay}
+            onNavigate={navigate}
+            onToast={showToast}
+            floating
+            onDismiss={closeOverlay}
+          />
+        )}
 
         {toast && <Toast message={toast} />}
       </div>
     </div>
+  )
+}
+
+/**
+ * Toolbar downloads tray button. Hidden until the tray has something in it —
+ * an empty tray button is noise, and the ☰ always carries a Downloads row, so
+ * nothing becomes unreachable.
+ *
+ * While anything is in flight it shows the aggregate percentage as a ring
+ * around the arrow, which is the only place the browser window reports overall
+ * download progress once several files are saving at once.
+ */
+function DownloadsButton({ snapshot, open, onOpen, onClose }: {
+  snapshot: DownloadsSnapshot
+  open: boolean
+  onOpen: () => void
+  onClose: () => void
+}) {
+  const running = snapshot.items.filter(d => d.state === 'progressing' || d.state === 'paused')
+  if (snapshot.items.length === 0) return null
+
+  // Aggregate across every running item, skipping the ones whose server sent no
+  // Content-Length — averaging in a fabricated 0% would make the ring lie.
+  const measured = running.filter(d => d.totalBytes > 0)
+  const percent = measured.length > 0
+    ? Math.min(100, Math.round(
+        (measured.reduce((sum, d) => sum + d.receivedBytes, 0) /
+         measured.reduce((sum, d) => sum + d.totalBytes, 0)) * 100))
+    : null
+
+  const label = running.length > 0
+    ? `Downloads — ${running.length} in progress${percent === null ? '' : ` (${percent}%)`}`
+    : 'Downloads'
+
+  return (
+    <ToolbarButton open={open} active={running.length > 0} title={label} ariaLabel={label} onClick={() => (open ? onClose() : onOpen())}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      {running.length > 0 && (
+        <span style={{ fontSize: 10, fontWeight: 800, fontFamily: 'var(--font-mono)', color: 'var(--accent)' }}>
+          {percent === null ? `${running.length}` : `${percent}%`}
+        </span>
+      )}
+    </ToolbarButton>
   )
 }
 
@@ -594,72 +702,6 @@ function TorStatusPanel({ state, onChange }: { state: TorBrowserState; onChange:
   )
 }
 
-// One row of the address-bar App Hub dropdown: favicon, name, hostname, category.
-// Clicking navigates the ACTIVE tab to the app — same semantics as typing its URL.
-function SuggestRow({ app, onOpen }: { app: AppEntry; onOpen: (url: string) => void }) {
-  const [imgErr, setImgErr] = useState(false)
-  let host = app.website
-  try { host = new URL(app.website).hostname } catch { /* keep raw website */ }
-
-  return (
-    <div
-      onClick={() => onOpen(app.website)}
-      title={app.website}
-      style={{
-        display: 'flex', alignItems: 'center', gap: 8,
-        padding: '7px 8px', borderRadius: 8, cursor: 'pointer',
-        transition: 'background 0.12s',
-      }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-    >
-      {imgErr || !app.favicon ? (
-        <div style={{
-          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--surface-raised)', border: '1px solid var(--border)',
-          fontSize: 10, fontWeight: 700, color: 'var(--text-secondary)',
-        }}>
-          {app.name.charAt(0).toUpperCase()}
-        </div>
-      ) : (
-        <img
-          src={app.favicon}
-          alt=""
-          width={20}
-          height={20}
-          style={{ borderRadius: 6, flexShrink: 0 }}
-          onError={() => setImgErr(true)}
-          loading="lazy"
-        />
-      )}
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <span style={{
-          fontSize: 12, fontWeight: 600, color: 'var(--text-primary)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {app.name}
-        </span>
-        <span style={{
-          fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>
-          {host}
-        </span>
-      </div>
-
-      <span style={{
-        fontSize: 9, fontWeight: 600, flexShrink: 0, padding: '2px 6px',
-        borderRadius: 8, background: 'var(--surface-raised)',
-        border: '1px solid var(--border)', color: 'var(--text-secondary)',
-        whiteSpace: 'nowrap',
-      }}>
-        {app.category}
-      </span>
-    </div>
-  )
-}
 
 // Active EVM network for the dApp browser. Shows the current network and lets the
 // user switch it manually — which fires chainChanged to the dApp exactly like a

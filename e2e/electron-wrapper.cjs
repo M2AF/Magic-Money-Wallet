@@ -6,6 +6,19 @@ const { app } = require('electron')
 app.setName('MagicMoneyE2E')
 app.setPath('userData', process.env.MM_TEST_USERDATA)
 
+// Optional: send downloads somewhere disposable.
+//
+// Everything that saves a file — the browser's will-download handler, NFT media,
+// screenshots — resolves its destination through app.getPath('downloads'), which
+// is the developer's REAL Downloads folder. A downloads-tray spec both writes
+// and deletes files, so it must never be pointed there. Overridden in-process
+// for the same reason userData is: the path comes from an OS known-folder API,
+// not from the environment.
+if (process.env.MM_TEST_DOWNLOADS_DIR) {
+  require('fs').mkdirSync(process.env.MM_TEST_DOWNLOADS_DIR, { recursive: true })
+  app.setPath('downloads', process.env.MM_TEST_DOWNLOADS_DIR)
+}
+
 // Optional: make this look like a machine with no Windows Hello enrolled.
 //
 // The passkey gate shells out to PowerShell (hello-bridge.ts) and, where Hello

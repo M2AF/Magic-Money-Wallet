@@ -70,6 +70,9 @@ public class DappBrowserPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "installShortcut", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "respond", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "emitEvent", returnType: CAPPluginReturnPromise),
+        // Downloads-tray retry. The rest of the tray is on the Downloader
+        // plugin; this one needs a browser tab to re-request through.
+        CAPPluginMethod(name: "retryDownload", returnType: CAPPluginReturnPromise),
     ]
 
     /// Matches Android's MAX_TABS. WKWebViews are memory-hungry and iOS jetsams
@@ -743,15 +746,126 @@ extension DappBrowserPlugin: WKDownloadDelegate {
         let safe = suggestedFilename.isEmpty ? "download" : suggestedFilename
         // WKDownload REQUIRES a destination that does not already exist — it
         // fails the download rather than overwriting.
-        completionHandler(DownloaderPlugin.uniqueUrl(in: docs, fileName: safe))
+        let target = DownloaderPlugin.uniqueUrl(in: docs, fileName: safe)
+
+        // The tray record is created HERE rather than when the download starts,
+        // because this is the first callback that knows the real file name.
+        var record = DownloadsStore.newRecord(
+            url: download.originalRequest?.url?.absoluteString ?? "",
+            fileName: target.lastPathComponent,
+            location: DownloadsStore.documents)
+        record.path = target.path
+        record.mimeType = response.mimeType ?? ""
+        record.totalBytes = response.expectedContentLength > 0 ? response.expectedContentLength : 0
+        let stored = DownloadsStore.shared.add(record)
+        Self.activeDownloads[ObjectIdentifier(download)] = (download, stored.id)
+        Self.startDownloadPolling()
+
+        completionHandler(target)
     }
 
     public func downloadDidFinish(_ download: WKDownload) {
-        CAPLog.print("[DappBrowser] download finished")
+        guard let entry = Self.activeDownloads.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        DownloadsStore.shared.update(entry.recordId) { r in
+            r.state = "completed"
+            r.finishedAt = Date().timeIntervalSince1970 * 1000
+            let written = download.progress.completedUnitCount
+            r.receivedBytes = written
+            if r.totalBytes <= 0 { r.totalBytes = written }
+        }
     }
 
     public func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
         CAPLog.print("[DappBrowser] download failed: \(error.localizedDescription)")
+        guard let entry = Self.activeDownloads.removeValue(forKey: ObjectIdentifier(download)) else { return }
+        // A user-driven cancel arrives here too; the record already says
+        // "cancelled" in that case and must not be relabelled as a failure.
+        DownloadsStore.shared.update(entry.recordId) { r in
+            if r.state != "cancelled" {
+                r.state = "interrupted"
+                r.error = error.localizedDescription
+            }
+            r.finishedAt = Date().timeIntervalSince1970 * 1000
+        }
+    }
+}
+
+// MARK: - Downloads tray (the parts that need a browser)
+
+extension DappBrowserPlugin {
+    /// WKDownloads still running, keyed by identity so the delegate callbacks
+    /// can find their tray record. Static because the tray plugin needs to
+    /// reach them to cancel, and it is a different plugin instance.
+    static var activeDownloads: [ObjectIdentifier: (download: WKDownload, recordId: String)] = [:]
+    private static var downloadPollTimer: Timer?
+
+    /**
+     * WKDownload reports progress through a Foundation Progress object with no
+     * delegate callback, so the tray ticks it — and ONLY while something is
+     * actually in flight, matching the Android poller.
+     */
+    static func startDownloadPolling() {
+        DispatchQueue.main.async {
+            guard downloadPollTimer == nil else { return }
+            downloadPollTimer = Timer.scheduledTimer(withTimeInterval: 0.7, repeats: true) { timer in
+                guard !activeDownloads.isEmpty else {
+                    timer.invalidate()
+                    downloadPollTimer = nil
+                    return
+                }
+                for (_, entry) in activeDownloads {
+                    let progress = entry.download.progress
+                    DownloadsStore.shared.update(entry.recordId) { r in
+                        r.receivedBytes = progress.completedUnitCount
+                        if progress.totalUnitCount > 0 { r.totalBytes = progress.totalUnitCount }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Called by DownloaderPlugin's cancelDownload — the tray owns the button,
+    /// this plugin owns the WKDownload.
+    ///
+    /// Hopped to main because every other reader and writer of activeDownloads
+    /// is a WKDownload delegate callback or the poll timer, both of which are
+    /// main-thread; a Capacitor plugin call is not.
+    static func cancelActiveDownload(recordId: String) {
+        DispatchQueue.main.async {
+            guard let key = activeDownloads.first(where: { $0.value.recordId == recordId })?.key else { return }
+            let entry = activeDownloads.removeValue(forKey: key)
+            entry?.download.cancel { _ in }
+        }
+    }
+
+    /**
+     * Retry from the downloads tray. It lives here rather than in
+     * DownloaderPlugin because a retry is a fresh page-context request: it goes
+     * through the active tab's web view, so it carries that tab's cookies and
+     * whatever proxy configuration the browser is running under.
+     */
+    @objc func retryDownload(_ call: CAPPluginCall) {
+        let id = call.getString("id") ?? ""
+        guard let record = DownloadsStore.shared.find(id),
+              let url = URL(string: record.url),
+              url.scheme == "http" || url.scheme == "https" else {
+            call.resolve(DownloaderPlugin.trayResult(false, "This download cannot be retried."))
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            // activeTab is private, but this extension is in the same file.
+            guard let webView = self?.activeTab?.webView else {
+                call.resolve(DownloaderPlugin.trayResult(false, "Open a browser tab before retrying a download."))
+                return
+            }
+            webView.startDownload(using: URLRequest(url: url)) { download in
+                download.delegate = self
+            }
+            // The old row is dropped in favour of the new attempt's, matching
+            // every other browser.
+            DownloadsStore.shared.remove(id)
+            call.resolve(DownloaderPlugin.trayResult(true, nil))
+        }
     }
 }
 

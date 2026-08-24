@@ -5,6 +5,7 @@
 
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import type { TorBrowserState, MagicGuardState } from '../renderer/types/wallet'
+import type { DownloadActionResult } from '../shared/downloads-wire'
 
 export interface Bounds { x: number; y: number; width: number; height: number }  // CSS px
 
@@ -54,6 +55,10 @@ export interface DappBrowserPlugin {
   sharePage(o: { url: string; title?: string }): Promise<void>
   // "Install as app" → a pinned home-screen shortcut that re-enters this browser.
   installShortcut(o: { url: string; name?: string }): Promise<void>
+  // Downloads-tray retry. The rest of the tray lives on the Downloader plugin;
+  // this one is here because a retry re-requests over the network, so it needs
+  // this browser's referer AND has to clear the same fail-closed Tor gate.
+  retryDownload(o: { id: string }): Promise<DownloadActionResult>
   respond(o: { requestId: string; json: string }): Promise<void>
   emitEvent(o: { origin?: string; json: string }): Promise<void>
   addListener(event: 'pageRequest', cb: (e: PageRequestEvent) => void): Promise<PluginListenerHandle>
