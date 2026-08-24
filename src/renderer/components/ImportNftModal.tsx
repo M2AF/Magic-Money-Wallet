@@ -1,19 +1,20 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CustomChain, CustomNft, CustomNftPreview } from '../types/wallet'
+import type { ImportChain, CustomNft, CustomNftPreview } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
 
 interface Props {
-  /** Custom networks available to import into (mainnet mode only). */
-  chains: CustomChain[]
+  /** Networks available to import into — built-in + user-added (mainnet only). */
+  chains: ImportChain[]
   onClose: () => void
   /** Fired whenever the imported-NFT list changes. */
   onChanged: (nfts: CustomNft[]) => void
 }
 
 /**
- * "Import NFT" for user-added networks — the ERC-721/1155 counterpart of
- * ImportTokenModal. NFTs on Blockscout explorers are detected automatically, so
- * this covers chains whose explorer has no usable API.
+ * "Import NFT" on any EVM network — the ERC-721/1155 counterpart of
+ * ImportTokenModal. Auto-detection (Alchemy on built-in chains, Blockscout on
+ * user-added ones) covers most collections; this is the fallback for the ones it
+ * misses.
  *
  * Paste a contract and the wallet reads the artwork off-chain and shows it, so
  * the confirmation is visual rather than a hex address. Leaving Token ID blank
@@ -110,7 +111,7 @@ export function ImportNftModal({ chains, onClose, onChanged }: Props) {
               Import an NFT
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              For NFTs your custom network doesn’t list automatically
+              For NFTs the network doesn’t list automatically
             </div>
           </div>
           <button
@@ -129,6 +130,7 @@ export function ImportNftModal({ chains, onClose, onChanged }: Props) {
           <div className="label">Network</div>
           <select
             className="input"
+            aria-label="Network to import the NFT on"
             value={chainId}
             onChange={e => { setChainId(e.target.value); setPreview(null); setPicked(null) }}
             disabled={busy}

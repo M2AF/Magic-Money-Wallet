@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, SendAsset } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset } from '../types/wallet'
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AddChainModal } from '../components/AddChainModal'
@@ -814,6 +814,14 @@ const ALL_CHAINS = [
   'soneium', 'worldchain', 'zora', 'hyperevm'
 ]
 
+// EVM chains a token/NFT can be imported on by contract address — derived from
+// ALL_CHAINS so it can't drift as chains are added. The rest are omitted because
+// the import path is eth_call-based and has nothing to read on them. Main
+// re-validates the id, so a mistake here can't write a bad import; it would only
+// hide a chain from the picker.
+const NON_EVM_CHAIN_IDS = ['cardano', 'solana', 'bitcoin', 'polkadot', 'tron', 'dogecoin']
+const EVM_IMPORT_CHAINS = ALL_CHAINS.filter(id => !NON_EVM_CHAIN_IDS.includes(id))
+
 // Testnet Mode: Polkadot + Dogecoin have no testnet data provider (hidden), and
 // Bitcoin appears twice — Testnet3 + Testnet4 share the same tb1 addresses.
 // Midnight (Preprod) rides this toggle too — its own network selector was
@@ -904,6 +912,17 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const [showImportToken, setShowImportToken] = useState(false)
   const [showImportNft, setShowImportNft] = useState(false)
   useEffect(() => { window.wallet.getCustomChains?.().then(setCustomChains).catch(() => {}) }, [])
+  // Networks the import modals offer. The user's OWN networks come first, and
+  // the modals default to the first entry: a built-in chain auto-detects its
+  // assets, so anyone opening this dialog is usually on a chain where detection
+  // does not run at all — which is exactly the user-added ones. With built-ins
+  // first the dialog opened on Ethereum and looked up the pasted contract
+  // against the wrong RPC. Built-ins carry no RPC here; main resolves that from
+  // the id (see importableChains in token-fetcher).
+  const importChains = useMemo<ImportChain[]>(() => [
+    ...customChains.map(c => ({ id: c.id, name: c.name })),
+    ...EVM_IMPORT_CHAINS.map(id => ({ id, name: getChainName(id) })),
+  ], [customChains])
 
   // Spam filter state — per account, and carried on the ChainLens profile so the
   // same list applies on every device and on the ChainLens website.
@@ -1339,12 +1358,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             onFocus={e => (e.target.style.borderColor = 'var(--border-active)')}
             onBlur={e => (e.target.style.borderColor = 'var(--border)')}
           />
-          {/* Import a token / NFT — only meaningful with a custom network present,
-              since every supported chain's assets are already auto-detected. */}
-          {(portfolioTab === 'tokens' || portfolioTab === 'collectibles') && customChains.length > 0 && !testnet && !privacyMode && (
+          {/* Import a token / NFT by contract address, on any EVM network. Hidden in
+              Testnet Mode (testnet chain ids are the SAME as mainnet's, so a stored
+              import would resurface as a mainnet holding — main rejects it too) and
+              in Privacy Mode (the portfolio is filtered to XMR/ZEC/NIGHT there). */}
+          {(portfolioTab === 'tokens' || portfolioTab === 'collectibles') && canCustomChains && !testnet && !privacyMode && (
             <button type="button"
               onClick={() => portfolioTab === 'tokens' ? setShowImportToken(true) : setShowImportNft(true)}
-              title={`Import ${portfolioTab === 'tokens' ? 'a token' : 'an NFT'} on a custom network`}
+              title={`Import ${portfolioTab === 'tokens' ? 'a token' : 'an NFT'} by contract address`}
               style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'var(--accent-dim)', border: '1px solid var(--border)', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>
               + Import
             </button>
@@ -1535,19 +1556,19 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         />
       )}
 
-      {/* Import token modal (custom networks) */}
+      {/* Import token modal (any EVM network) */}
       {showImportToken && (
         <ImportTokenModal
-          chains={customChains}
+          chains={importChains}
           onClose={() => setShowImportToken(false)}
           onChanged={() => fetchTokens(true)}
         />
       )}
 
-      {/* Import NFT modal (custom networks) */}
+      {/* Import NFT modal (any EVM network) */}
       {showImportNft && (
         <ImportNftModal
-          chains={customChains}
+          chains={importChains}
           onClose={() => setShowImportNft(false)}
           onChanged={() => fetchCollectibles(true)}
         />

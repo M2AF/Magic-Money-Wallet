@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import type { CustomChain, CustomToken } from '../types/wallet'
+import type { ImportChain, CustomToken } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
 
 interface Props {
-  /** Custom networks available to import into (mainnet mode only). */
-  chains: CustomChain[]
+  /** Networks available to import into — built-in + user-added (mainnet only). */
+  chains: ImportChain[]
   onClose: () => void
   /** Fired whenever the imported-token list changes. */
   onChanged: (tokens: CustomToken[]) => void
@@ -18,10 +18,13 @@ interface Resolved {
 }
 
 /**
- * MetaMask-style "Import tokens" for user-added networks. Tokens on Blockscout
- * explorers are detected automatically, so this is the fallback for chains whose
- * explorer has no usable API — paste a contract address, confirm what the chain
- * reports, save.
+ * MetaMask-style "Import tokens", on any EVM network the wallet knows.
+ *
+ * Auto-detection covers most holdings — Alchemy on the built-in chains,
+ * Blockscout on user-added ones — but it is provider-driven and misses things: a
+ * fresh deploy, a thin-liquidity ERC-20, an explorer with no usable API. This is
+ * the universal fallback: paste a contract address, confirm what the chain
+ * itself reports, save.
  */
 export function ImportTokenModal({ chains, onClose, onChanged }: Props) {
   const [chainId, setChainId] = useState(chains[0]?.id ?? '')
@@ -101,7 +104,7 @@ export function ImportTokenModal({ chains, onClose, onChanged }: Props) {
               Import a Token
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-              For tokens your custom network doesn’t list automatically
+              For tokens the network doesn’t list automatically
             </div>
           </div>
           <button
@@ -120,6 +123,7 @@ export function ImportTokenModal({ chains, onClose, onChanged }: Props) {
           <div className="label">Network</div>
           <select
             className="input"
+            aria-label="Network to import the token on"
             value={chainId}
             onChange={e => setChainId(e.target.value)}
             disabled={busy}

@@ -1,5 +1,5 @@
 import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft } from './secure-store'
-import { isTestnet, isPrivacy, customChainDefs, type ChainDef } from './chain-config'
+import { isTestnet, isPrivacy, customChainDefs, EVM_CHAINS, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
@@ -837,6 +837,31 @@ async function fetchBlockscoutTokens(chain: ChainDef, address: string): Promise<
   }
 }
 
+/**
+ * Every EVM network an asset can be imported on — the built-ins plus the
+ * user-added ones. Mirrors custom-chains.ts's importableChainIds(), but returns
+ * the ChainDefs because the resolve/fetch paths need an RPC URL, not just an id.
+ *
+ * Deliberately the MAINNET set even in Testnet Mode: a stored import records
+ * only the chain id, and the testnet defs reuse mainnet ids, so reading it
+ * against a testnet RPC would attribute a Sepolia holding to Ethereum. Imports
+ * are blocked in Testnet Mode for the same reason (see assertImportableChain).
+ */
+function importableChains(config: WalletConfig): ChainDef[] {
+  return [...EVM_CHAINS, ...customChainDefs(config)]
+}
+
+/** Group imported assets by chain id — one RPC pass per chain, not per asset. */
+function byChainId<T extends { chain: string }>(imports: T[]): Map<string, T[]> {
+  const map = new Map<string, T[]>()
+  for (const item of imports) {
+    const list = map.get(item.chain)
+    if (list) list.push(item)
+    else map.set(item.chain, [item])
+  }
+  return map
+}
+
 /** Manually imported ERC-20s for one custom chain (metadata already persisted). */
 async function fetchImportedTokens(
   chain: ChainDef,
@@ -870,6 +895,38 @@ async function fetchImportedTokens(
     }
   }))
   return results.filter((t): t is WalletToken => t !== null)
+}
+
+/**
+ * Manually imported ERC-20s that live on a BUILT-IN chain.
+ *
+ * Those chains already have an auto-detect source (Alchemy / Moralis), so this
+ * is purely the fallback for what the indexer missed — a fresh deploy, a
+ * thin-liquidity pair, anything Alchemy hasn't picked up yet. The caller dedupes
+ * against the auto-detected rows before merging, so a token both sources return
+ * still renders once.
+ */
+async function fetchImportedBuiltinTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
+  const imports = config.customTokens ?? []
+  if (imports.length === 0 || !address) return []
+  const mine = byChainId(imports)
+  const perChain = await Promise.all(
+    EVM_CHAINS.filter(c => mine.has(c.id))
+      .map(chain => fetchImportedTokens(chain, address, mine.get(chain.id)!, config))
+  )
+  return perChain.flat()
+}
+
+/** Manually imported NFTs that live on a BUILT-IN chain. Deduped by the caller. */
+async function fetchImportedBuiltinNfts(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
+  const imports = config.customNfts ?? []
+  if (imports.length === 0 || !address) return []
+  const mine = byChainId(imports)
+  const perChain = await Promise.all(
+    EVM_CHAINS.filter(c => mine.has(c.id))
+      .map(chain => fetchImportedNfts(chain, address, mine.get(chain.id)!, config))
+  )
+  return perChain.flat()
 }
 
 /** All tokens across every custom chain — auto-detected plus manually imported. */
@@ -1141,8 +1198,8 @@ export async function resolveCustomNft(
   collectionName: string | null
   owned: Array<{ tokenId: string; name: string; image: string | null }>
 }> {
-  const chain = customChainDefs(config).find(c => c.id === chainId)
-  if (!chain) throw new Error('Unknown custom network')
+  const chain = importableChains(config).find(c => c.id === chainId)
+  if (!chain) throw new Error('Unknown network')
   const url = chain.rpcUrl(config)
   const contract = contractAddress.toLowerCase()
 
@@ -1236,8 +1293,8 @@ export async function resolveCustomToken(
   holder: string,
   config: WalletConfig
 ): Promise<{ name: string; symbol: string; decimals: number; balance: string }> {
-  const chain = customChainDefs(config).find(c => c.id === chainId)
-  if (!chain) throw new Error('Unknown custom network')
+  const chain = importableChains(config).find(c => c.id === chainId)
+  if (!chain) throw new Error('Unknown network')
   const url = chain.rpcUrl(config)
   const contract = contractAddress.toLowerCase()
 
@@ -1498,7 +1555,7 @@ export async function fetchAllTokens(
       return p.finally(() => { timings.push([label, Date.now() - start]) })
     }
     const tTokens = Date.now()
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens, importedTokens] = await Promise.all([
       Promise.all(tokenChains.map(chain => timed(chain.id, fetchTokensForChain(addresses.evm, chain, config)))),
       (addresses.solana && !testnet)  ? timed('solana', fetchSolanaTokens(addresses.solana,   config)) : Promise.resolve([] as WalletToken[]),
       (addresses.cardano && !testnet) ? timed('cardano', fetchCardanoTokens(addresses.cardano, config)) : Promise.resolve([] as WalletToken[]),
@@ -1507,6 +1564,8 @@ export async function fetchAllTokens(
       testnet ? Promise.resolve([] as WalletToken[]) : timed('bitcoin', fetchBitcoinTokens(addresses.bitcoinTaproot, config)),
       // User-added networks: Blockscout auto-detect + manual ERC-20 imports.
       testnet ? Promise.resolve([] as WalletToken[]) : timed('custom', fetchCustomChainTokens(addresses.evm, config)),
+      // Manual imports on a BUILT-IN chain — the fallback for what Alchemy missed.
+      testnet ? Promise.resolve([] as WalletToken[]) : timed('imported', fetchImportedBuiltinTokens(addresses.evm, config)),
     ])
     timings.sort((a, b) => b[1] - a[1])
     console.log(`[TOKEN] all sources in ${Date.now() - tTokens}ms — slowest: ${timings.slice(0, 6).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
@@ -1518,7 +1577,13 @@ export async function fetchAllTokens(
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const raw = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
+    const auto = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
+    // A built-in chain's indexer usually DOES list an imported token — appending
+    // it again would render the holding twice and double it in the portfolio
+    // total. Only what auto-detect actually missed gets added.
+    const tokenKeyOf = (t: WalletToken) => `${t.chain}:${t.contractAddress.toLowerCase()}`
+    const autoTokenKeys = new Set(auto.map(tokenKeyOf))
+    const raw = [...auto, ...importedTokens.filter(t => !autoTokenKeys.has(tokenKeyOf(t)))]
     // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
     // mainnet contracts, so a testnet address could collide with an unrelated
     // mainnet token and show a bogus USD value.
@@ -2489,7 +2554,7 @@ export async function fetchAllCollectibles(
     // Testnet Mode gates: Helius DAS (Solana), Blockfrost (Cardano), Moralis
     // Monad route, TronScan, and Ordiscan are mainnet-scoped — skipped. EVM NFTs
     // keep working via the Alchemy testnet slugs.
-    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals, customNfts] = await Promise.all([
+    const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals, customNfts, importedNfts] = await Promise.all([
       Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config))),
       (solanaAddress && !testnet)  ? fetchSolanaNFTs(solanaAddress, config)   : Promise.resolve([] as WalletCollectible[]),
       (cardanoAddress && !testnet) ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
@@ -2502,9 +2567,17 @@ export async function fetchAllCollectibles(
       // User-added networks — Blockscout explorers only; no floor pricing exists
       // for arbitrary chains, so these render without a USD value.
       testnet ? Promise.resolve([] as WalletCollectible[]) : fetchCustomChainNfts(evmAddress, config),
+      // Manual imports on a BUILT-IN chain — the fallback for what Alchemy missed.
+      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchImportedBuiltinNfts(evmAddress, config),
     ])
 
-    const items = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals, ...customNfts]
+    const auto = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals, ...customNfts]
+    // Same dedupe rule as the token merge: keep only imports the chain's own
+    // indexer didn't already return, or the NFT renders twice.
+    const nftKeyOf = (n: WalletCollectible) => `${n.chain}:${n.contractAddress.toLowerCase()}:${n.tokenId}`
+    const autoNftKeys = new Set(auto.map(nftKeyOf))
+    const extraImportedNfts = importedNfts.filter(n => !autoNftKeys.has(nftKeyOf(n)))
+    const items = [...auto, ...extraImportedNfts]
     const chainResults: Record<string, { count: number; error: string | null }> = {}
     for (const r of evmResults) {
       chainResults[r.chain.id] = { count: r.items.length, error: r.error }
@@ -2512,6 +2585,13 @@ export async function fetchAllCollectibles(
     chainResults['monad']   = { count: monadNfts.length,  error: null }
     for (const chain of customChainDefs(config)) {
       chainResults[chain.id] = { count: customNfts.filter(n => n.chain === chain.id).length, error: null }
+    }
+    // Built-in-chain imports land after their chain's count is already set (and
+    // after monad's), so fold them in here rather than letting the tab under-report.
+    for (const n of extraImportedNfts) {
+      const entry = chainResults[n.chain]
+      if (entry) entry.count += 1
+      else chainResults[n.chain] = { count: 1, error: null }
     }
     if (solanaAddress) {
       chainResults['solana'] = { count: solanaNfts.length, error: null }

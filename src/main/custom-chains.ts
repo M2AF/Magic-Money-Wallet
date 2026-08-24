@@ -24,10 +24,11 @@ export interface CustomChainInput {
 }
 
 /** The subset of config these helpers read — keeps them store-agnostic. */
-interface CustomAssetConfig {
+export interface CustomAssetConfig {
   customChains?: CustomChain[]
   customTokens?: CustomToken[]
   customNfts?: CustomNft[]
+  testnetMode?: boolean
 }
 
 export function normalizeContractAddress(value: unknown): string {
@@ -121,9 +122,37 @@ export function chainRemovalPatch(config: CustomAssetConfig, id: string): {
   }
 }
 
+/**
+ * Every EVM network an asset can be imported on: the built-in chains plus the
+ * user-added ones. Import was custom-network-only at first — the built-ins are
+ * auto-detected, so it read as redundant — but auto-detection is provider-driven
+ * and misses plenty (fresh deploys, thin-liquidity ERC-20s, NFTs the indexer
+ * hasn't picked up). A manual import is the fallback on ANY EVM network now.
+ */
+export function importableChainIds(config: CustomAssetConfig): Set<string> {
+  return new Set([
+    ...EVM_CHAINS.map(c => c.id),
+    ...(config.customChains ?? []).map(c => c.id),
+  ])
+}
+
+/**
+ * Shared front half of both import guards.
+ *
+ * The Testnet Mode check is not cosmetic: chain-config's testnet defs reuse the
+ * SAME chain ids as mainnet ('ethereum' is Sepolia in Testnet Mode), and a
+ * stored import records only that id — so a token imported on Sepolia would
+ * resurface on mainnet Ethereum as a bogus holding. The UI hides the button in
+ * Testnet Mode; this is the matching backend guard.
+ */
+function assertImportableChain(config: CustomAssetConfig, chain: string): void {
+  if (config.testnetMode) throw new Error('Turn off Testnet Mode to import an asset')
+  if (!importableChainIds(config).has(chain)) throw new Error('Unknown network')
+}
+
 /** Guard a token import: known network, not already imported. */
 export function assertTokenImportable(config: CustomAssetConfig, chain: string, contractAddress: string): void {
-  if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
+  assertImportableChain(config, chain)
   if ((config.customTokens ?? []).some(t => t.chain === chain && t.contractAddress === contractAddress)) {
     throw new Error('That token is already imported')
   }
@@ -133,7 +162,7 @@ export function assertTokenImportable(config: CustomAssetConfig, chain: string, 
 export function assertNftImportable(
   config: CustomAssetConfig, chain: string, contractAddress: string, tokenId: string
 ): void {
-  if (!(config.customChains ?? []).some(c => c.id === chain)) throw new Error('Unknown custom network')
+  assertImportableChain(config, chain)
   if ((config.customNfts ?? []).some(n => n.chain === chain && n.contractAddress === contractAddress && n.tokenId === tokenId)) {
     throw new Error('That NFT is already imported')
   }

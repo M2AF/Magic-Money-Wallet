@@ -80,24 +80,70 @@ async function launchWithExtension(): Promise<{ ctx: BrowserContext; sw: Worker 
   return { ctx, sw }
 }
 
+/** Fresh install → imported wallet → dashboard. Shared by both tests below. */
+async function openDashboard(ctx: BrowserContext, extId: string) {
+  const page = await ctx.newPage()
+  await page.goto(`chrome-extension://${extId}/popup.html`)
+
+  await page.getByText('Import Existing Wallet').click()
+  for (let i = 0; i < 12; i++) await page.locator(`[placeholder="word ${i + 1}"]`).fill(MNEMONIC[i])
+  await page.getByRole('button', { name: /Import Wallet/i }).click()
+  await page.getByPlaceholder(/Password \(min/).fill('e2e-test-password-1')
+  await page.getByPlaceholder('Confirm password').fill('e2e-test-password-1')
+  await page.getByText('Encrypt & Continue').click()
+  await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
+  return page
+}
+
 test.describe('extension custom chains (real extension)', () => {
+  /**
+   * The reported bug: Import was gated on `customChains.length > 0`, so on a
+   * fresh extension/Android install — where nobody has added a network — the
+   * button simply wasn't there, and a token Alchemy missed had no fallback.
+   * Import is an any-EVM-chain feature now, so it must show with ZERO custom
+   * networks. No fake node here on purpose: this asserts the button and the
+   * picker, which must not depend on a custom network existing.
+   */
+  test('offers Import on tokens and collectibles with no custom networks', async () => {
+    test.setTimeout(300_000)
+    const { ctx, sw } = await launchWithExtension()
+    try {
+      const page = await openDashboard(ctx, new URL(sw.url()).host)
+      const vis = (sel: string) => page.locator(sel).filter({ visible: true })
+
+      await vis('button:has-text("tokens")').click()
+      const importBtn = vis('button:has-text("+ Import")')
+      await expect(importBtn).toBeVisible({ timeout: 20_000 })
+      await importBtn.click()
+
+      await expect(vis('text=Import a Token').first()).toBeVisible({ timeout: 10_000 })
+      // The picker is the proof the built-in chains actually reached the modal —
+      // a visible button over an empty dropdown would be a dead end.
+      const options = await page.getByLabel('Network to import the token on')
+        .locator('option').allTextContents()
+      expect(options).toContain('Ethereum')
+      expect(options).toContain('Base')
+      await page.getByLabel('Close import token dialog').click()
+
+      // Same on the Collectibles tab — the NFT half of the same gate.
+      await vis('button:has-text("collectibles")').click()
+      const nftImport = vis('button:has-text("+ Import")')
+      await expect(nftImport).toBeVisible({ timeout: 20_000 })
+      await nftImport.click()
+      await expect(vis('text=Import an NFT').first()).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByLabel('Network to import the NFT on')
+        .locator('option', { hasText: 'Ethereum' })).toHaveCount(1)
+    } finally {
+      await ctx.close()
+    }
+  })
+
   test('adds a custom network and imports a token on it', async () => {
     test.setTimeout(300_000)
     const node = await startFakeNode()
     const { ctx, sw } = await launchWithExtension()
     try {
-      const extId = new URL(sw.url()).host
-      const page = await ctx.newPage()
-      await page.goto(`chrome-extension://${extId}/popup.html`)
-
-      await page.getByText('Import Existing Wallet').click()
-      for (let i = 0; i < 12; i++) await page.locator(`[placeholder="word ${i + 1}"]`).fill(MNEMONIC[i])
-      await page.getByRole('button', { name: /Import Wallet/i }).click()
-      await page.getByPlaceholder(/Password \(min/).fill('e2e-test-password-1')
-      await page.getByPlaceholder('Confirm password').fill('e2e-test-password-1')
-      await page.getByText('Encrypt & Continue').click()
-      await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
-
+      const page = await openDashboard(ctx, new URL(sw.url()).host)
       const vis = (sel: string) => page.locator(sel).filter({ visible: true })
 
       // The "+" button must exist here now — that's the whole point of the port.
@@ -119,6 +165,8 @@ test.describe('extension custom chains (real extension)', () => {
       await vis('button:has-text("tokens")').click()
       await vis('button:has-text("+ Import")').click()
       await expect(vis('text=Import a Token').first()).toBeVisible({ timeout: 10_000 })
+      // Built-in chains lead the picker now, so the custom one has to be chosen.
+      await page.getByLabel('Network to import the token on').selectOption({ label: 'Ext Chain' })
       await vis('input[placeholder="0x…"]').fill(TOKEN)
       await expect(vis('text=FAKE').first()).toBeVisible({ timeout: 40_000 })
       await vis('button:has-text("Import Token")').click()
