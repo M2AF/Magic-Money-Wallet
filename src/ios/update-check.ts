@@ -113,3 +113,44 @@ export async function updateGetState(): Promise<UpdateStatus> {
 export function updateInstall(): void {
   if (_downloadUrl) window.open(_downloadUrl, '_system')
 }
+
+// ── Update-status push channel ──────────────────────────────────────────
+//
+// wallet-local.ts imports these from './update-check', which the alias table in
+// vite.ios.config.ts points HERE on the iOS build. They exist because Android's
+// updater downloads the APK itself and has to push progress at the Settings
+// row; iOS cannot install its own unsigned .ipa, so updateInstall() just opens
+// the release page and the status never moves after the check. Subscribing is
+// therefore a no-op rather than a lie about progress that will never arrive.
+//
+// They are NOT optional: without them the iOS bundle fails to build, because
+// Rollup resolves the alias even though tsc never does.
+
+export function onUpdateStatus(_cb: (s: UpdateStatus) => void): void {
+  /* no status changes after the check on this platform - see above */
+}
+
+export function offUpdateStatus(_cb: (s: UpdateStatus) => void): void {
+  /* nothing was ever subscribed */
+}
+
+// ── Drop-in check against the Android module ────────────────────────────
+//
+// Same guard as src/ios/biometric.ts, and for the same reason: tsc only ever
+// checks the shared importers against the ANDROID shapes (see tsconfig.ios.json),
+// so a signature that drifts from capacitor/update-check.ts would compile clean
+// here and break the iOS bundle at build time. Type-only; nothing is emitted.
+
+type Assert<T extends true> = T
+
+export type UpdateCheckMatchesAndroid = Assert<{
+  isPlayStoreInstall: typeof isPlayStoreInstall
+  updateCheck: typeof updateCheck
+  updateGetState: typeof updateGetState
+  updateInstall: typeof updateInstall
+  onUpdateStatus: typeof onUpdateStatus
+  offUpdateStatus: typeof offUpdateStatus
+} extends Pick<
+  typeof import('../capacitor/update-check'),
+  'isPlayStoreInstall' | 'updateCheck' | 'updateGetState' | 'updateInstall' | 'onUpdateStatus' | 'offUpdateStatus'
+> ? true : false>

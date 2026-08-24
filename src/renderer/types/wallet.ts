@@ -14,6 +14,14 @@ export interface UpdateStatus {
   version?: string
   percent?: number
   error?: string
+  /**
+   * Platform overrides for the Settings button's text. Absent everywhere except
+   * Android, whose sideload updater ends by INSTALLING an APK rather than
+   * relaunching — the shared "Restart to Update" copy would be simply wrong
+   * there. Any platform may set these; nobody has to.
+   */
+  actionLabel?: string
+  actionHint?: string
 }
 
 // Per-chain dApp grant. Mirrors main/dapp-permissions.ts — declared here rather

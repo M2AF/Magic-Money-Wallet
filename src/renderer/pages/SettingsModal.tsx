@@ -128,16 +128,21 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
     if (updateBusy) return
     window.wallet.updateCheck?.().then(setUpdate).catch(() => {})
   }
-  const updateLabel = update.state === 'checking' ? 'Checking for updates…'
+  // actionLabel/actionHint let a platform correct this copy — Android's
+  // sideload updater installs an APK rather than relaunching, so "Restart to
+  // Update" would be wrong there. Absent everywhere else, hence the fallbacks.
+  const updateLabel = update.actionLabel
+    ?? (update.state === 'checking' ? 'Checking for updates…'
     : update.state === 'available' ? 'Update available — preparing…'
     : update.state === 'downloading' ? `Downloading update… ${update.percent ?? 0}%`
     : update.state === 'downloaded' ? 'Restart to Update'
     : update.state === 'mac-available' ? `Download update${update.version ? ` v${update.version}` : ''}`
-    : 'Check for Updates'
-  const updateSub = update.state === 'downloaded' ? 'A new version is ready — relaunch to apply.'
+    : 'Check for Updates')
+  const updateSub = update.actionHint
+    ?? (update.state === 'downloaded' ? 'A new version is ready — relaunch to apply.'
     : update.state === 'mac-available' ? 'Opens the download page (macOS installs manually).'
     : update.state === 'not-available' ? (update.error ?? `You're on the latest version${appVersion ? ` (v${appVersion})` : ''}.`)
-    : appVersion ? `Current version v${appVersion}` : 'Keep the wallet up to date.'
+    : appVersion ? `Current version v${appVersion}` : 'Keep the wallet up to date.')
 
   const refreshSiteCount = () => {
     window.wallet.getConnectedSites().then(s => setSiteCount(s.length)).catch(() => setSiteCount(null))

@@ -2,19 +2,26 @@
  * update-check.ts — Sideload update check against GitHub Releases (Android)
  *
  * Maps onto the existing UpdateStatus contract so SettingsModal works
- * unchanged: a newer release reports state 'mac-available', which the shared
- * UI already renders as "Download update vX / opens the download page" —
- * exactly the sideload semantics (download the APK, Android installs over the
- * existing app, data intact because the signing key matches).
+ * unchanged: a newer release first reports 'mac-available' (the shared UI's
+ * "Download update vX" button), then drives 'downloading' → 'downloaded', at
+ * which point the same button installs.
+ *
+ * THE DOWNLOAD IS NATIVE. It used to be `Browser.open(apkUrl)`, which handed
+ * the APK to a Custom Tab: that download runs in whichever browser owns the
+ * tab, stalls part-way on plenty of devices, and even when it completes leaves
+ * the user to open a file manager, find the APK and tap it. Now DownloadManager
+ * fetches it into the app's own external files dir (no storage permission, not
+ * dumped in the user's Downloads folder) with progress reported in-app, and the
+ * finished file goes straight to the system installer from the same button.
  *
  * Prereleases are included: beta tags (a '-' in the version) are how this
  * project ships, same as electron-updater's prerelease releaseType.
  */
 
 import { App as CapacitorApp } from '@capacitor/app'
-import { Browser } from '@capacitor/browser'
 import type { UpdateStatus } from '../renderer/types/wallet'
 import { AppInfo } from './app-info'
+import { Downloader } from './downloader'
 
 /**
  * True when this install came from Google Play. Play policy forbids apps
@@ -35,6 +42,50 @@ const RELEASES_API = 'https://api.github.com/repos/M2AF/Magic-Money-Wallet/relea
 
 let _state: UpdateStatus = { state: 'idle' }
 let _downloadUrl: string | null = null
+
+// Push channel for the Settings row. The shared SettingsModal already
+// subscribes via window.wallet.onUpdateStatus; on Android that was a no-op, so
+// a native download would have advanced with the button frozen on its old text.
+const statusListeners = new Set<(s: UpdateStatus) => void>()
+let progressWired = false
+
+export function onUpdateStatus(cb: (s: UpdateStatus) => void): void {
+  ensureProgressWired()
+  statusListeners.add(cb)
+}
+export function offUpdateStatus(cb: (s: UpdateStatus) => void): void {
+  statusListeners.delete(cb)
+}
+
+function publish(next: UpdateStatus): void {
+  _state = next
+  for (const cb of statusListeners) {
+    try { cb(next) } catch { /* one bad subscriber must not stop the rest */ }
+  }
+}
+
+/** One native listener, wired on the first subscriber — nothing runs at import. */
+function ensureProgressWired(): void {
+  if (progressWired) return
+  progressWired = true
+  Downloader.addListener('updateProgress', e => {
+    if (e.state === 'downloading') {
+      publish({ state: 'downloading', percent: e.percent, version: _state.version })
+    } else if (e.state === 'downloaded') {
+      publish({
+        state: 'downloaded',
+        version: _state.version,
+        // The shared copy says "Restart to Update", which is Electron's story.
+        // Android installs a new APK over the old one; the app is replaced, not
+        // relaunched, so both strings are overridden here.
+        actionLabel: 'Install update',
+        actionHint: 'Opens Android’s installer. Your wallet data is kept.',
+      })
+    } else {
+      publish({ state: 'not-available', error: e.error ?? 'The update download failed' })
+    }
+  }).catch(() => { progressWired = false })
+}
 
 type GhRelease = {
   tag_name: string
@@ -80,7 +131,11 @@ export async function updateCheck(): Promise<UpdateStatus> {
     }
     const apk = latest.assets.find(a => a.name.endsWith('.apk'))
     _downloadUrl = apk?.browser_download_url ?? latest.html_url
-    _state = { state: 'mac-available', version: remote }
+    publish({
+      state: 'mac-available',
+      version: remote,
+      actionHint: 'Downloads the APK in the app, then installs it.',
+    })
     return _state
   } catch (e) {
     _state = { state: 'not-available', error: 'Could not check for updates' }
@@ -93,6 +148,44 @@ export async function updateGetState(): Promise<UpdateStatus> {
   return _state
 }
 
+/**
+ * The Settings button's one action, whatever stage it is at:
+ *   found     → start the native download
+ *   downloaded → hand the APK to the system installer
+ *
+ * Installing needs the user's one-time "install unknown apps" grant for
+ * MagicMoney. Without it the intent bounces silently, so this checks first and
+ * sends them to the exact Settings screen rather than appearing to do nothing.
+ */
 export function updateInstall(): void {
-  if (_downloadUrl) Browser.open({ url: _downloadUrl }).catch(() => {})
+  if (_state.state === 'downloaded') {
+    void (async () => {
+      try {
+        const { granted } = await Downloader.canInstallUpdates()
+        if (!granted) {
+          publish({
+            ..._state,
+            actionLabel: 'Allow installs, then tap again',
+            actionHint: 'Android needs permission to install apps from MagicMoney.',
+          })
+          await Downloader.openInstallPermissionSettings()
+          return
+        }
+        await Downloader.installUpdate()
+      } catch (e) {
+        publish({ state: 'not-available', error: 'Could not open the installer' })
+        console.error('[update] install failed:', e)
+      }
+    })()
+    return
+  }
+
+  if (!_downloadUrl) return
+  ensureProgressWired()
+  publish({ state: 'downloading', percent: 0, version: _state.version })
+  Downloader.downloadUpdate({ url: _downloadUrl, version: _state.version ?? '' })
+    .catch(e => {
+      publish({ state: 'not-available', error: 'Could not start the update download' })
+      console.error('[update] download failed:', e)
+    })
 }

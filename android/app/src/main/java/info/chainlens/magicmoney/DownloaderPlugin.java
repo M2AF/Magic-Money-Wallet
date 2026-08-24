@@ -6,12 +6,14 @@ import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Base64;
 import android.webkit.MimeTypeMap;
@@ -231,6 +233,201 @@ public class DownloaderPlugin extends Plugin {
         } catch (Exception e) {
             call.resolve(trayResult(getContext(), false, "This phone has no Downloads app."));
         }
+    }
+
+    // ── App update download + install ────────────────────────────────────
+    //
+    // The sideload updater used to hand the APK URL to Browser.open(), i.e. a
+    // Custom Tab. That downloads through whatever browser handles the tab,
+    // which on many phones stalls part-way -- and when it does finish, the user
+    // is left to find the file in a file manager and tap it themselves. Doing
+    // it here instead means one progress bar inside the app and one button at
+    // the end that opens the system installer directly.
+    //
+    // NOT gated on Tor Mode, unlike browser downloads (see
+    // DownloadsStore.enqueueBrowserDownload). Tor Mode anonymises BROWSING; the
+    // update check itself already reaches api.github.com directly from the
+    // WebView, so refusing only the download would cost the user their update
+    // without hiding anything that was not already exposed.
+
+    private static final String UPDATE_PREFIX = "magicmoney-update-";
+    private long updateDownloadId = -1;
+    private final Handler updatePoller = new Handler(Looper.getMainLooper());
+    private volatile boolean pollingUpdate = false;
+
+    /** Where update APKs live: app-private, no permission, cleared on uninstall. */
+    private File updateDir() {
+        return getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+    }
+
+    /**
+     * True when the user has granted "install unknown apps" to MagicMoney. The
+     * install intent silently bounces without it, so the UI asks first rather
+     * than looking broken.
+     */
+    @PluginMethod
+    public void canInstallUpdates(PluginCall call) {
+        JSObject out = new JSObject();
+        out.put("granted", hasInstallPermission());
+        call.resolve(out);
+    }
+
+    private boolean hasInstallPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true;
+        try {
+            return getContext().getPackageManager().canRequestPackageInstalls();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /** Send the user to the one Settings screen that can grant it. */
+    @PluginMethod
+    public void openInstallPermissionSettings(PluginCall call) {
+        try {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getContext().getPackageName()));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open the install-permission screen");
+        }
+    }
+
+    /**
+     * Download an update APK through DownloadManager. Progress rides the
+     * `updateProgress` event, which also carries the terminal state, so the JS
+     * side never has to poll.
+     */
+    @PluginMethod
+    public void downloadUpdate(PluginCall call) {
+        String url = call.getString("url", "");
+        String version = call.getString("version", "");
+        if (url == null || url.isEmpty()) { call.reject("No update URL"); return; }
+
+        DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+        if (dm == null) { call.reject("Downloads are unavailable on this device"); return; }
+
+        // A part-downloaded or superseded APK from a previous attempt is dead
+        // weight, and would confuse installUpdate's newest-file pick.
+        purgeUpdateApks();
+
+        String name = UPDATE_PREFIX + (version.isEmpty() ? "latest" : version) + ".apk";
+        try {
+            DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+            req.setTitle("MagicMoney " + version);
+            req.setDescription("Downloading update");
+            req.setMimeType("application/vnd.android.package-archive");
+            req.setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, name);
+            req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            updateDownloadId = dm.enqueue(req);
+        } catch (Exception e) {
+            call.reject("Could not start the update download");
+            return;
+        }
+        emitUpdate("downloading", 0, null);
+        startUpdatePolling();
+        call.resolve();
+    }
+
+    /** Hand the downloaded APK to the system package installer. */
+    @PluginMethod
+    public void installUpdate(PluginCall call) {
+        File apk = newestUpdateApk();
+        if (apk == null) { call.reject("No downloaded update to install"); return; }
+        if (!hasInstallPermission()) { call.reject("PERMISSION_REQUIRED"); return; }
+        try {
+            Uri uri = FileProvider.getUriForFile(
+                    getContext(), getContext().getPackageName() + ".fileprovider", apk);
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "application/vnd.android.package-archive");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            call.resolve();
+        } catch (Exception e) {
+            call.reject("Could not open the installer");
+        }
+    }
+
+    /** Newest downloaded update APK, or null when there is none. */
+    private File newestUpdateApk() {
+        File dir = updateDir();
+        if (dir == null) return null;
+        File[] files = dir.listFiles((d, n) -> n.startsWith(UPDATE_PREFIX) && n.endsWith(".apk"));
+        if (files == null || files.length == 0) return null;
+        File newest = files[0];
+        for (File f : files) if (f.lastModified() > newest.lastModified()) newest = f;
+        return newest.length() > 0 ? newest : null;
+    }
+
+    private void purgeUpdateApks() {
+        File dir = updateDir();
+        if (dir == null) return;
+        File[] files = dir.listFiles((d, n) -> n.startsWith(UPDATE_PREFIX) && n.endsWith(".apk"));
+        if (files == null) return;
+        for (File f : files) { try { f.delete(); } catch (Exception ignored) { } }
+    }
+
+    /**
+     * DownloadManager reports progress by polling only. This runs while the
+     * update download is in flight and stops the moment it settles.
+     */
+    private void startUpdatePolling() {
+        if (pollingUpdate) return;
+        pollingUpdate = true;
+        updatePoller.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                if (!tickUpdate()) {
+                    pollingUpdate = false;
+                    return;
+                }
+                updatePoller.postDelayed(this, POLL_MS);
+            }
+        }, POLL_MS);
+    }
+
+    /** One poll. Returns false once the download has reached a terminal state. */
+    private boolean tickUpdate() {
+        DownloadManager dm = (DownloadManager) getContext().getSystemService(Context.DOWNLOAD_SERVICE);
+        if (dm == null || updateDownloadId < 0) return false;
+        Cursor c = null;
+        try {
+            c = dm.query(new DownloadManager.Query().setFilterById(updateDownloadId));
+            if (c == null || !c.moveToFirst()) {
+                emitUpdate("error", 0, "The update download was cancelled");
+                return false;
+            }
+            int status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            long soFar = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+            long total = c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                emitUpdate("downloaded", 100, null);
+                return false;
+            }
+            if (status == DownloadManager.STATUS_FAILED) {
+                int reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                emitUpdate("error", 0, "The update download failed (" + reason + ")");
+                return false;
+            }
+            int percent = total > 0 ? (int) Math.min(99, (soFar * 100L) / total) : 0;
+            emitUpdate("downloading", percent, null);
+            return true;
+        } catch (Exception e) {
+            emitUpdate("error", 0, "The update download failed");
+            return false;
+        } finally {
+            if (c != null) c.close();
+        }
+    }
+
+    private void emitUpdate(String state, int percent, String error) {
+        JSObject event = new JSObject();
+        event.put("state", state);
+        event.put("percent", percent);
+        if (error != null) event.put("error", error);
+        notifyListeners("updateProgress", event);
     }
 
     // ── Tray helpers ────────────────────────────────────────────────────────

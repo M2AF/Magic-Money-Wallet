@@ -28,7 +28,10 @@ import {
   linkPasskeyToWallet, passkeyLinked, passkeyUnlink,
 } from './passkey'
 import { WEB_APPS_SUPPORTED } from './platform-caps'
-import { updateCheck, updateGetState, updateInstall, isPlayStoreInstall } from './update-check'
+import {
+  updateCheck, updateGetState, updateInstall, isPlayStoreInstall,
+  onUpdateStatus, offUpdateStatus,
+} from './update-check'
 import { setSecureScreen } from './app-info'
 import { scanQr } from './qr-scan'
 import { DappBrowser } from './dapp-browser'
@@ -300,6 +303,8 @@ export function createCapacitorWallet() {
     delete w.updateCheck
     delete w.updateGetState
     delete w.updateInstall
+    delete w.onUpdateStatus
+    delete w.offUpdateStatus
   }).catch(() => {})
   return wallet
 }
@@ -653,6 +658,11 @@ function buildWallet() {
     updateCheck,
     updateGetState,
     updateInstall,
+    // The APK download reports progress natively, so the Settings row has to be
+    // pushed to. Without this it froze on "Download update" for the whole
+    // download and only changed on the next manual check.
+    onUpdateStatus,
+    offUpdateStatus,
 
     // Camera QR scan (WalletConnect pairing, send-address entry)
     scanQr,

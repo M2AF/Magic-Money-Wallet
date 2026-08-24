@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <external-path name="my_images" path="." />
+    <!-- Update APKs land in the app's OWN external files dir: no storage
+         permission, invisible in the user's Downloads folder, and removed with
+         the app. FileProvider has to be able to hand one to the package
+         installer, which is what this entry is for. -->
+    <external-files-path name="updates" path="Download/" />
     <cache-path name="my_cache_images" path="." />
 </paths>

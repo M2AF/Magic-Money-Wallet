@@ -132,6 +132,13 @@
          calling app to be allowed to set the request origin. Normal protection
          level — no runtime prompt, no user-visible permission. -->
     <uses-permission android:name="android.permission.CREDENTIAL_MANAGER_SET_ORIGIN" />
+    <!-- Installing a downloaded update APK from inside the app. Without this
+         the package installer refuses to launch on API 26+ and the user is left
+         hunting for the file in a file manager. Normal protection level: the
+         user still has to grant "install unknown apps" to MagicMoney once, and
+         still confirms every install in the system dialog. Play builds never
+         reach this path — the updater is stripped for them (update-check.ts). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Saving images/files from the dApp browser via DownloadManager. Scoped
          storage (API 29+) needs no permission for the public Downloads folder,
          so this is capped at 28 rather than requested on modern devices. -->
