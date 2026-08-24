@@ -1,0 +1,8 @@
+Closed test build - the built-in browser grows up.
+
+- Downloads tray in the dApp browser (menu, Ctrl+J, or the toolbar progress button): open, pause/resume, retry, delete.
+- History panel with search, grouped by day. Local only - never synced, and nothing is recorded in Tor Mode.
+- Address bar now suggests recent sites, a first on phones.
+- "+ Import" works on every EVM network now, not just custom ones.
+
+Please report anything broken or confusing.
