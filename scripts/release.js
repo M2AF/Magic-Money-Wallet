@@ -38,6 +38,16 @@ const next =
 pkg.version = next
 fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n')
 
+// package-lock.json carries the same version twice and nothing was keeping it in
+// step: it still said 0.6.1 three releases after 0.6.1. Harmless to npm, which
+// rewrites both fields on its next install — which is exactly the problem, since
+// that lands as an unrelated version diff in whoever's branch installs first.
+const lockPath = 'package-lock.json'
+const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'))
+lock.version = next
+if (lock.packages?.['']) lock.packages[''].version = next
+fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n')
+
 // Chrome Web Store rejects a re-upload with the same version — keep manifest.json
 // in sync. Chrome manifests only allow dotted integers, so prerelease tags keep
 // the numeric core here (betas ship via GitHub Releases, not the CWS).
@@ -58,7 +68,7 @@ console.log(`\n  Releasing v${next}...\n`)
 
 const run = cmd => { console.log(`  > ${cmd}`); execSync(cmd, { stdio: 'inherit' }) }
 
-run(`git add package.json ${manifestPath} ${gradlePath}`)
+run(`git add package.json ${lockPath} ${manifestPath} ${gradlePath}`)
 run(`git commit -m "chore: release v${next}"`)
 run(`git tag v${next}`)
 run('git push')

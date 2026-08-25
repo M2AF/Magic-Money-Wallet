@@ -197,9 +197,17 @@ one. **Never revert to a flow where any single job creates/publishes the
 release before all builders have finished.**
 
 Version bumps go through `node scripts/release.js [patch|minor|major|beta]`
-— it keeps `package.json`, the extension manifest, and
-`android/app/build.gradle`'s versionCode/versionName in sync. Don't bump
-these by hand in only one place.
+— it keeps `package.json`, `package-lock.json`, the extension manifest, and
+`android/app/build.gradle`'s versionName in sync, and increments the Android
+versionCode. Don't bump these by hand in only one place. iOS is deliberately
+absent from that list: `scripts/patch-ios-native.js` derives it from
+`package.json` at build time (see the iOS notes above).
+
+The Play listing's release notes are **not** in that list either, because they
+have to be written: `store/en-US/changelogs/<versionCode>.txt`, keyed on the
+Android versionCode the release lands on, not on the version name. Add it before
+tagging so the tag contains it — v0.9.0's went in afterwards and its tag does
+not.
 
 ## Real-funds QA gate
 

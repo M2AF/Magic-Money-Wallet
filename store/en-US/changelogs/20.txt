@@ -1,0 +1,9 @@
+Closed test build - make the wallet yours.
+
+- Six new themes: Cardano, milady, Monad, Abstract, Bitcoin and Sappy Seals.
+- Every theme is now editable - pick your own three colours, or revert to the original.
+- Your themes follow your ChainLens account, so one you build here shows up on the website too.
+- Themed launcher icon, so the app matches your wallpaper.
+- New builds now download inside the app.
+
+Please report anything broken or confusing.
