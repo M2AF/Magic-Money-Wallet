@@ -85,6 +85,17 @@ import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
 import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
+import { personalSignMessage, personalSignPreview } from '../main/personal-sign'
+// STATIC imports — same reason as the chain-config note above, and the one that
+// bit the Solana signing path: a runtime import() inside a handler throws
+// "import() is disallowed on ServiceWorkerGlobalScope", and Vite's __vitePreload
+// wrapper then MASKS that rejection — its error path calls window.dispatchEvent,
+// and a service worker has no window, so the dApp receives the useless
+// "ReferenceError: window is not defined" instead of the real cause.
+// Both of these already sit in the eagerly-imported wallet-core chunk
+// (wallet-core.ts imports them statically), so hoisting costs no bundle weight.
+import { ed25519 } from '@noble/curves/ed25519'
+import { VersionedTransaction, Connection as SolanaConnection } from '@solana/web3.js'
 
 // ── In-memory pending mnemonic (lives only during the create/import flow) ────
 
@@ -1164,11 +1175,11 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
             chain: 'EVM',
             method: 'personal_sign',
             summary: 'Sign message',
-            details: previewBytes(String(params[0] ?? '')),
+            details: previewBytes(personalSignPreview(String(params[0] ?? ''))),
           })
           const key = await deriveEvmKey()
           const acct = privateKeyToAccount(key)
-          return acct.signMessage({ message: { raw: String(params[0]) as `0x${string}` } })
+          return acct.signMessage({ message: personalSignMessage(String(params[0] ?? '')) })
         }
 
         case 'eth_sign':
@@ -1478,12 +1489,10 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const dotMnemonic = await store.loadMnemonic()
       const dotAddrs = await store.loadAddresses()
       const { privateKey: dotPriv } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
-      const { ed25519: dotEd } = await import('@noble/curves/ed25519')
-      const { blake2b: dotBlake } = await import('@noble/hashes/blake2b')
       const methodHex = (dotPayload.method ?? '').replace(/^0x/, '')
       const dataBytes = new Uint8Array((methodHex.match(/.{2}/g) ?? []).map(h => parseInt(h, 16)))
-      const toSign = dataBytes.length > 256 ? dotBlake(dataBytes, { dkLen: 32 }) : dataBytes
-      const sig = dotEd.sign(toSign, dotPriv)
+      const toSign = dataBytes.length > 256 ? blake2bHash(dataBytes, { dkLen: 32 }) : dataBytes
+      const sig = ed25519.sign(toSign, dotPriv)
       return { id: Math.floor(Math.random() * 0xffffff), signature: `0x${Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join('')}` }
     }
 
@@ -1498,10 +1507,9 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const dotMnemonic = await store.loadMnemonic()
       const dotAddrs = await store.loadAddresses()
       const { privateKey: dotPriv2 } = await getPolkadotKey(dotMnemonic, dotAddrs?.accountIndex ?? 0)
-      const { ed25519: dotEd2 } = await import('@noble/curves/ed25519')
       const dataHex = (dotRaw.data ?? '').replace(/^0x/, '')
       const dataBytes = new Uint8Array((dataHex.match(/.{2}/g) ?? []).map(h => parseInt(h, 16)))
-      const sig = dotEd2.sign(dataBytes, dotPriv2)
+      const sig = ed25519.sign(dataBytes, dotPriv2)
       return { id: Math.floor(Math.random() * 0xffffff), signature: `0x${Array.from(sig).map(b => b.toString(16).padStart(2, '0')).join('')}` }
     }
 
@@ -1646,7 +1654,6 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const keypair = await getSolanaKeypair(mnemonic, addresses?.accountIndex ?? 0)
       // @solana/web3.js Keypair has NO .sign() method. Ed25519-sign the raw
       // message bytes with the 32-byte seed (secretKey = seed||pubkey).
-      const { ed25519 } = await import('@noble/curves/ed25519')
       return Array.from(ed25519.sign(bytes, keypair.secretKey.slice(0, 32)))
     }
 
@@ -1664,11 +1671,10 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const solMnemonic = await store.loadMnemonic()
       const solAddresses = await store.loadAddresses()
       const solConfig = await store.loadConfig()
-      const { VersionedTransaction, Connection: SolConnection } = await import('@solana/web3.js')
       const solKeypair = await getSolanaKeypair(solMnemonic, solAddresses?.accountIndex ?? 0)
       const solTx = VersionedTransaction.deserialize(txBytes)
       solTx.sign([solKeypair])
-      const solConn = new SolConnection(heliusRpcUrl(solConfig), 'confirmed')
+      const solConn = new SolanaConnection(heliusRpcUrl(solConfig), 'confirmed')
       const solSig = await solConn.sendRawTransaction(solTx.serialize(), { skipPreflight: false, preflightCommitment: 'confirmed' })
       return { signature: solSig }
     }
@@ -1684,9 +1690,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       })
       const solMnemonic2 = await store.loadMnemonic()
       const solAddresses2 = await store.loadAddresses()
-      const { VersionedTransaction: VT2 } = await import('@solana/web3.js')
       const solKeypair2 = await getSolanaKeypair(solMnemonic2, solAddresses2?.accountIndex ?? 0)
-      const solTx2 = VT2.deserialize(txBytes)
+      const solTx2 = VersionedTransaction.deserialize(txBytes)
       solTx2.sign([solKeypair2])
       return Array.from(solTx2.serialize())
     }

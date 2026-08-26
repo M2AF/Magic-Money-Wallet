@@ -37,6 +37,7 @@ import { BrowserWindow } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
+import { personalSignMessage } from './personal-sign'
 import nacl from 'tweetnacl'
 import { loadConfig, loadMnemonic, loadAddresses } from './secure-store'
 import { getSolanaKeypair } from './wallet-core'
@@ -445,8 +446,7 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
     let result: string
 
     if (method === 'personal_sign') {
-      const raw = String(params[0]) as `0x${string}`
-      result = await account.signMessage({ message: { raw } })
+      result = await account.signMessage({ message: personalSignMessage(String(params[0] ?? '')) })
     } else if (method === 'eth_sign') {
       const raw = String(params[1]) as `0x${string}`
       result = await account.signMessage({ message: { raw } })

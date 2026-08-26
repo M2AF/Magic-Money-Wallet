@@ -17,11 +17,16 @@ import { getSdkError } from '@walletconnect/utils'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
+// STATIC — a runtime import() inside an MV3 service-worker handler throws
+// "import() is disallowed on ServiceWorkerGlobalScope", and Vite's
+// __vitePreload masks it as "ReferenceError: window is not defined".
+import { createWalletClient, http } from 'viem'
 import nacl from 'tweetnacl'
 import { loadConfig, loadAddresses, loadMnemonic } from './chrome-store'
 import { pushToUi, wcKv } from './platform'
 import { getSolanaKeypair } from '../main/wallet-core'
 import { alchemyRpcUrl } from '../main/api-proxy'
+import { personalSignMessage } from '../main/personal-sign'
 
 // ── Base58 encode/decode (inline — avoids bundler issues with bs58 in service workers) ────
 
@@ -353,7 +358,7 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
     let result: string
 
     if (method === 'personal_sign') {
-      result = await account.signMessage({ message: { raw: String(params[0]) as `0x${string}` } })
+      result = await account.signMessage({ message: personalSignMessage(String(params[0] ?? '')) })
     } else if (method === 'eth_sign') {
       result = await account.signMessage({ message: { raw: String(params[1]) as `0x${string}` } })
     } else if (method === 'eth_signTypedData_v4' || method === 'eth_signTypedData') {
@@ -361,7 +366,6 @@ export async function wcApproveRequest(requestId: number): Promise<void> {
       const { EIP712Domain: _dom, ...types } = td.types ?? {}
       result = await account.signTypedData({ domain: td.domain ?? {}, types, primaryType: td.primaryType, message: td.message })
     } else if (method === 'eth_sendTransaction') {
-      const { createWalletClient, http } = await import('viem')
       const chainId = parseInt(req.params.chainId.split(':')[1] ?? '1')
       const tx = params[0] as { to?: `0x${string}`; value?: string; data?: `0x${string}`; gas?: string }
       const wc = createWalletClient({ account, transport: http(await getRpc(chainId)) })

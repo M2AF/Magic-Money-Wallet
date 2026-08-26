@@ -24,6 +24,12 @@
  */
 
 import { base58 } from '@scure/base'
+// STATIC — this decoder runs inside the extension's MV3 service worker, where a
+// runtime import() throws "import() is disallowed on ServiceWorkerGlobalScope"
+// and Vite's __vitePreload then reports it as "ReferenceError: window is not
+// defined". @solana/web3.js is already eager here (wallet-core imports it), so
+// this costs no bundle weight.
+import { VersionedTransaction } from '@solana/web3.js'
 import type { WalletConfig } from './secure-store'
 import { heliusRpcUrl } from './api-proxy'
 import { activeSolanaRpcs, isTestnet } from './chain-config'
@@ -270,7 +276,6 @@ export async function summarizeSolanaTx(
   let accountKeys: string[] = []
   let numRequiredSignatures = 0
   try {
-    const { VersionedTransaction } = await import('@solana/web3.js')
     const tx = VersionedTransaction.deserialize(txBytes)
     const msg = tx.message
 

@@ -12,6 +12,7 @@ import { mnemonicToSeedSync, mnemonicToEntropy } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b } from '@noble/hashes/blake2b'
 import { privateKeyToAccount } from 'viem/accounts'
+import { personalSignMessage, personalSignPreview } from './personal-sign'
 import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
@@ -1859,13 +1860,10 @@ export function registerIpcHandlers(): void {
       // ── Message signing ─────────────────────────────────────────────────
       case 'personal_sign': {
         await ensureConnectedOrigin(origin, addresses)
-        const hexMsg = params[0] as string
-        let displayText: string
-        try {
-          displayText = Buffer.from(hexMsg.replace(/^0x/, ''), 'hex').toString('utf8')
-        } catch {
-          displayText = hexMsg
-        }
+        const hexMsg = String(params[0] ?? '')
+        // Not necessarily hex — see ./personal-sign. Decoding a plain-text
+        // payload as hex used to yield '' and show a BLANK message to approve.
+        const displayText = personalSignPreview(hexMsg)
         const approved = await showApprovalWindow({
           title: 'Sign Message',
           heading: 'A dApp wants you to sign a message',
@@ -1880,7 +1878,7 @@ export function registerIpcHandlers(): void {
         const accountIndex = addresses?.accountIndex ?? 0
         const pk = deriveEvmKey(mnemonic, accountIndex)
         const account = privateKeyToAccount(pk)
-        return account.signMessage({ message: { raw: hexMsg as `0x${string}` } })
+        return account.signMessage({ message: personalSignMessage(hexMsg) })
       }
 
       case 'eth_sign':
