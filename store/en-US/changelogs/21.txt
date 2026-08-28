@@ -1,0 +1,7 @@
+Closed test build - see it in your own money.
+
+- Display currency: every balance and price in any of 46 currencies. Settings > Currency.
+- Your tokens keep loading when a data provider runs out of quota - a new keyless fallback reads them straight off the chain.
+- Fixed dApp signing: requests that showed a blank message to approve, or failed with "signature mismatch", now work.
+
+Please report anything broken or confusing.
