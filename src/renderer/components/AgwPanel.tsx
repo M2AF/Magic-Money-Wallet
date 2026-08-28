@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { WalletAddresses, ChainBalance } from '../types/wallet'
+import { useDisplayCurrency } from '../lib/currency'
 
 interface Props {
   addresses: WalletAddresses
@@ -20,6 +21,7 @@ const AGW_GREEN = '#1FCE92'
  * watch-only AGW into a spendable one.
  */
 export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
+  const { fmt } = useDisplayCurrency()
   const [copied, setCopied]   = useState(false)
   const [editing, setEditing] = useState<'address' | 'signer' | null>(null)
   const [input, setInput]     = useState(addresses.agw ?? '')
@@ -113,7 +115,7 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
             <div className="chain-amount">
               {balance.native} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)' }}>{balance.symbol}</span>
             </div>
-            <div className="chain-usd">{balance.usdValue ?? '$0.00'}</div>
+            <div className="chain-usd">{fmt(balance.usdValue) ?? fmt(0)}</div>
           </div>
         )}
       </div>

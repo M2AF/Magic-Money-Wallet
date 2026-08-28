@@ -1551,6 +1551,46 @@ h1, h2, h3 { font-family: var(--font-display); }
 
 .settings-chevron { color: var(--text-muted); flex-shrink: 0; }
 
+/* A settings row that holds a control instead of being one — the row itself is
+   not clickable, so it must not wear the row's pointer cursor. */
+.settings-row-static { cursor: default; }
+
+/* The currency row is two lines: label + note, then the control beneath them.
+   Inline, the note truncated to "Balances, prices and fe…" and the select
+   clipped its own option text — and the note is where "Rates unavailable" has
+   to be legible. */
+.settings-currency { flex-wrap: wrap; }
+.settings-currency .settings-row-sub { white-space: normal; overflow: visible; }
+.settings-currency .settings-select {
+  /* Shrinkable, or the 46px indent pushes it past the card's clipped edge. */
+  flex: 1 1 100%;
+  min-width: 0;
+  margin-left: 46px;   /* clears the icon, so it lines up with the label */
+  margin-top: 8px;
+}
+
+/* Native <select> so Android and iOS get their own wheel/sheet picker rather
+   than a hand-rolled list that has to reimplement scroll and search. */
+.settings-select {
+  flex-shrink: 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+.settings-select:hover { border-color: var(--border-active); }
+.settings-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* The popup list is painted by the OS, which does not inherit our tokens — give
+   it explicit colours or a light-on-light theme renders white text on white. */
+.settings-select option,
+.settings-select optgroup { background: var(--bg-card); color: var(--text-primary); }
+
 /* ── Theme picker ─────────────────────────────────────────────────────────── */
 /* Six across, wrapping: the twelve built-ins fill two exact rows and any custom
    themes (plus the "New" tile) flow onto the next, so the row never squeezes. */

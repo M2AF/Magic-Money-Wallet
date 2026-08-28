@@ -18,8 +18,10 @@ import { ExtApp } from './ExtApp'
 import '../renderer/index.css'
 import './popup.css'
 import { initTheme } from '../renderer/theme'
+import { initCurrency } from '../renderer/lib/currency'
 
 initTheme()
+initCurrency()
 
 // The floating approval window (platform.ts opens it with ?windowed=1) has an
 // OUTER size that must fit popup.css's fixed 400×600 content box PLUS the OS

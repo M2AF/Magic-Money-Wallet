@@ -116,6 +116,7 @@ contextBridge.exposeInMainWorld('wallet', {
     ipcRenderer.invoke('wallet:remove-agw-signer', accountIndex),
 
   // ── Phase 5: Market Watch + Tokens + Collectibles ────────────────────
+  getFxRates:      ()                  => ipcRenderer.invoke('wallet:get-fx-rates'),
   getMarket:       ()                  => ipcRenderer.invoke('wallet:get-market'),
   searchMarket:    (query: string)     => ipcRenderer.invoke('wallet:search-market', query),
   getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ChainBalance, ChainHistory } from '../types/wallet'
 import { CHAIN_ICONS } from '../data/chain-icons'
 import { TxList } from './TxList'
+import { useDisplayCurrency } from '../lib/currency'
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
   const W = 300, H = 50
@@ -118,6 +119,7 @@ interface Props {
 }
 
 export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false, meta: metaOverride }: Props) {
+  const { fmt } = useDisplayCurrency()
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const baseMeta = metaOverride ?? CHAIN_META[chainId] ?? FALLBACK_META
@@ -201,7 +203,7 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
                     {balance.priceChange24h >= 0 ? '▲' : '▼'} {Math.abs(balance.priceChange24h).toFixed(2)}%
                   </div>
                 )}
-                <div className="chain-usd">{balance?.usdValue ?? '$0.00'}</div>
+                <div className="chain-usd">{fmt(balance?.usdValue) ?? fmt(0)}</div>
               </div>
             </>
           )}

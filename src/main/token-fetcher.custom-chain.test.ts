@@ -13,6 +13,8 @@ vi.mock('./secure-store', () => ({
   saveFloorCache: vi.fn(),
   loadTokenBalanceCache: vi.fn(async () => ({})),
   saveTokenBalanceCache: vi.fn(),
+  loadTokenMetaCache: vi.fn(async () => ({})),
+  saveTokenMetaCache: vi.fn(),
 }))
 
 vi.mock('./native-prices', () => ({

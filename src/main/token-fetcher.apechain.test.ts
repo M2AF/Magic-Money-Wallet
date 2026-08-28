@@ -6,6 +6,8 @@ vi.mock('./secure-store', () => ({
   saveFloorCache: vi.fn(),
   loadTokenBalanceCache: vi.fn(async () => ({})),
   saveTokenBalanceCache: vi.fn(),
+  loadTokenMetaCache: vi.fn(async () => ({})),
+  saveTokenMetaCache: vi.fn(),
 }))
 
 vi.mock('./native-prices', () => ({
@@ -204,6 +206,7 @@ describe('ApeChain portfolio assets', () => {
       `/opensea/chain/ape_chain/contract/${NFT_CONTRACT}`,
       '/opensea/collections/ape-collection/stats',
     ])
-    expect(result).toEqual({ floor: '2.6500', currency: 'APE', floorUsd: '$5.30' })
+    // Raw USD number, not display text — the renderer converts and formats it.
+    expect(result).toEqual({ floor: '2.6500', currency: 'APE', floorUsd: 5.3 })
   })
 })

@@ -54,12 +54,12 @@ export async function estimateMoneroFee(_to: string, _config: WalletConfig): Pro
   const perByte = json.result?.fee ?? 0
   const feeXmr = (perByte * TYPICAL_TX_BYTES) / XMR_ATOMIC
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   try {
     const priceRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=monero&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
     const priceJson = await priceRes.json() as { monero?: { usd?: number } }
     const price = priceJson.monero?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeXmr * price).toFixed(4)}`
+    if (price > 0) feeUsd = feeXmr * price
   } catch { /* price optional */ }
 
   return { fee: feeXmr.toFixed(8), feeSymbol: 'XMR', feeUsd }

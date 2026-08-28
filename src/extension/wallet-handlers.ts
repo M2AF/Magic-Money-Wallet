@@ -16,6 +16,7 @@ import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTrans
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
+import { getFxRates } from '../main/fx-rates'
 import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor, resolveCustomToken, resolveCustomNft } from '../main/token-fetcher'
 import {
   buildCustomChain, chainRemovalPatch, assertTokenImportable, assertNftImportable,
@@ -946,6 +947,11 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     // ── Market ─────────────────────────────────────────────────────────────
+
+    // Display-currency rates. Only reached when the user has picked a non-USD
+    // currency, so the default install makes no request. See fx-rates.ts.
+    case 'wallet:get-fx-rates':
+      return getFxRates()
 
     case 'wallet:get-market':
       return fetchMarketTop100(await store.loadConfig())

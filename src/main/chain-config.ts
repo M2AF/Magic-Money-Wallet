@@ -360,11 +360,16 @@ export const CHAIN_ORDER: string[] = ALL_CHAINS.map(c => c.id)
 // fallback at the call sites that have `config` (balance-fetcher, tx-sender) via
 // api-proxy `ankrRpcUrl()`.
 export const PUBLIC_RPCS: Record<string, string[]> = {
-  ethereum:   ['https://cloudflare-eth.com', 'https://eth.llamarpc.com'],
+  // Verified 2026-08-28: cloudflare-eth.com now answers "Cannot fulfill request"
+  // and eth.llamarpc.com is gone, so this list was entirely dead — the keyless
+  // failover for our BIGGEST chain silently had nothing to fail over to.
+  ethereum:   ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org', 'https://1rpc.io/eth'],
   arbitrum:   ['https://arb1.arbitrum.io/rpc', 'https://arbitrum.llamarpc.com'],
   optimism:   ['https://mainnet.optimism.io', 'https://optimism.llamarpc.com'],
   base:       ['https://mainnet.base.org', 'https://base.llamarpc.com'],
-  polygon:    ['https://polygon-rpc.com', 'https://polygon.llamarpc.com'],
+  // Same 2026-08-28 sweep: polygon-rpc.com now 403s ("tenant disabled") and
+  // polygon.llamarpc.com is gone.
+  polygon:    ['https://polygon-bor-rpc.publicnode.com', 'https://polygon.drpc.org', 'https://1rpc.io/matic'],
   avalanche:  ['https://api.avax.network/ext/bc/C/rpc', 'https://avalanche.public-rpc.com'],
   blast:      ['https://rpc.blast.io', 'https://blast.blockpi.network/v1/rpc/public'],
   gnosis:     ['https://rpc.gnosischain.com', 'https://gnosis.public-rpc.com'],

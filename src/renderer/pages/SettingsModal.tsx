@@ -25,6 +25,10 @@ import {
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
+import {
+  useDisplayCurrency, setCurrency, currencyOf,
+  CURRENCIES, CURRENCY_GROUPS, BASE_CURRENCY,
+} from '../lib/currency'
 
 interface Props {
   onClose: () => void
@@ -390,6 +394,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
         </SettingsSection>
 
         <SettingsSection label="Appearance">
+          <CurrencyPicker />
           <div className="theme-picker">
             <div className="theme-picker-group">Built-in</div>
             {THEMES.map(t => (
@@ -978,6 +983,56 @@ function ThemeSwatch({ name, swatch, active, edited, own, onSelect, onEdit }: {
         </span>
       )}
     </button>
+  )
+}
+
+/**
+ * Display currency. Every value in the wallet is stored in USD and converted at
+ * paint time (lib/currency.ts), so this is a pure display preference — nothing
+ * is re-fetched and no balance changes.
+ *
+ * It sits at the TOP of Appearance on purpose: a control tucked under the theme
+ * grid is a control nobody finds.
+ */
+function CurrencyPicker() {
+  const cur = useDisplayCurrency()
+  const active = currencyOf(cur.code)
+
+  // "Rates unavailable" is worth saying out loud — the numbers on screen are
+  // USD in that case, and silently showing them under a euro sign would be a lie.
+  const note = cur.code === BASE_CURRENCY
+    ? 'Balances, prices and fees are shown in US dollars.'
+    : cur.ready
+      ? "Balances, prices and fees are converted from USD at today's rate."
+      : `Rates unavailable — showing US dollars until ${active?.name ?? cur.code.toUpperCase()} rates load.`
+
+  return (
+    <div className="settings-row settings-row-static settings-currency">
+      <span className="settings-icon">💱</span>
+      <div className="settings-row-text">
+        <div className="settings-row-label">Currency</div>
+        <div className="settings-row-sub">{note}</div>
+      </div>
+      {/* Wraps onto its own full-width line — see .settings-currency. Option
+          text is "CAD — Canadian Dollar", which no inline control has room
+          for, and the note beside it is a warning worth reading in full. */}
+      <select
+        className="settings-select"
+        aria-label="Display currency"
+        value={cur.code}
+        onChange={e => setCurrency(e.target.value)}
+      >
+        {CURRENCY_GROUPS.map(group => (
+          <optgroup key={group} label={group}>
+            {CURRENCIES.filter(c => c.group === group).map(c => (
+              <option key={c.code} value={c.code}>
+                {c.code.toUpperCase()} — {c.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
   )
 }
 

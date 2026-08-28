@@ -29,7 +29,13 @@ import { tronApiPost } from './tron'
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
   symbol: string            // e.g. "ETH"
-  usdValue: string | null   // e.g. "$2,341.22" — null if price unavailable
+  /**
+   * USD value of the native holding. RAW NUMBER — the wallet prices everything
+   * in USD but displays it in the user's chosen currency, so both the FX
+   * conversion and the formatting happen in the renderer (lib/currency.ts).
+   * null if no price is available.
+   */
+  usdValue: number | null
   tokenCount: number
   error: string | null
   priceChange24h: number | null  // e.g. 2.34 (percent)
@@ -103,8 +109,8 @@ async function fetchMarketData(ids: string[]): Promise<Record<string, MarketData
   return out
 }
 
-function usd(amount: number, price: number): string {
-  return `$${(amount * price).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
+function usd(amount: number, price: number): number {
+  return amount * price
 }
 
 // ─── EVM via JSON-RPC ─────────────────────────────────────────────────────────

@@ -93,12 +93,12 @@ export async function estimateDogecoinFee(
   const selected = await selectDoge(fromAddress, to, sats, feeRate)
   const feeDoge = Number(selected.fee ?? 0n) / 1e8
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=dogecoin&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
     const json = await res.json() as { dogecoin?: { usd?: number } }
     const price = json.dogecoin?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeDoge * price).toFixed(4)}`
+    if (price > 0) feeUsd = feeDoge * price
   } catch { /* price optional */ }
 
   return { fee: feeDoge.toFixed(8), feeSymbol: 'DOGE', feeUsd }

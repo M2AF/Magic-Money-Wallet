@@ -457,6 +457,57 @@ export function saveTokenBalanceCache(map: Record<string, TokenBalanceCacheEntry
   prefSet('wallet.token_balance_cache', map).catch(() => { /* display-only cache */ })
 }
 
+// ── ERC-20 metadata cache (name/symbol/decimals/logo) ────────────────────────
+// Mirrors secure-store.ts's token-meta-cache.json. Immutable data, so entries
+// never expire: spares the quota AND keeps the token list rendering when
+// alchemy_getTokenMetadata is throttled.
+
+export interface TokenMetaCacheEntry {
+  name: string
+  /** Empty string = resolved but no symbol (cached so it is not re-queried). */
+  symbol: string
+  decimals: number
+  logo: string | null
+  at: number
+}
+
+export async function loadTokenMetaCache(): Promise<Record<string, TokenMetaCacheEntry>> {
+  const m = await prefGet<Record<string, TokenMetaCacheEntry>>('wallet.token_meta_cache')
+  return (m && typeof m === 'object') ? m : {}
+}
+
+export function saveTokenMetaCache(map: Record<string, TokenMetaCacheEntry>): void {
+  prefSet('wallet.token_meta_cache', map).catch(() => { /* display-only cache */ })
+}
+
+// ─── On-chain token discovery state (Transfer-log sweep) ─────────────────────
+// The third asset tier reads balances straight off the chain via Multicall3, but
+// first it has to LEARN which contracts to ask about — an ERC-20 balance lives in
+// the token's own storage, so no node can enumerate an address's holdings. That
+// discovery is a backward `eth_getLogs` sweep for incoming Transfers, which is
+// far too expensive to redo per refresh, so both the contracts it found and how
+// far it has swept persist here. Keyed `network:address` (lowercased).
+
+export interface OnchainScanCacheEntry {
+  /** ERC-20 contracts seen transferring INTO this address (lowercased). */
+  contracts: string[]
+  /** Lowest block already swept — the sweep walks BACKWARD from the tip, so
+   *  recent holdings surface on the first pass and history fills in later. */
+  scannedDownTo: number
+  /** Highest block already swept, so later passes only add new blocks on top. */
+  scannedUpTo: number
+  at: number
+}
+
+export async function loadOnchainScanCache(): Promise<Record<string, OnchainScanCacheEntry>> {
+  const m = await prefGet<Record<string, OnchainScanCacheEntry>>('wallet.onchain_scan_cache')
+  return (m && typeof m === 'object') ? m : {}
+}
+
+export function saveOnchainScanCache(map: Record<string, OnchainScanCacheEntry>): void {
+  prefSet('wallet.onchain_scan_cache', map).catch(() => { /* display-only cache */ })
+}
+
 // ── Abstract Global Wallet manual override (per account) ──────────────────────
 
 export async function loadAgwOverride(accountIndex: number): Promise<string | null> {

@@ -177,4 +177,39 @@ if (process.env.MM_TEST_FAKE_PROFILE_SYNC === '1') {
   }
 }
 
+// Optional: a deterministic FX table for the display-currency picker.
+//
+// main/fx-rates.ts reads CoinGecko's keyless /exchange_rates, so left alone a
+// spec that picks CAD would assert against whatever the market did this morning
+// — and fail outright on a machine with no network. Only that ONE url is
+// intercepted; everything downstream is production code, including the
+// BTC-relative rebasing, the sanitising and the cache. The numbers are round on
+// purpose so a spec can assert an exact converted figure:
+//
+//   1 BTC = $50,000 = CA$70,000 = €45,000 = ¥7,500,000
+//   → USD→CAD 1.4, USD→EUR 0.9, USD→JPY 150
+if (process.env.MM_TEST_FAKE_FX === '1') {
+  const realFetch = globalThis.fetch
+  const fiat = (value) => ({ unit: '', value, type: 'fiat' })
+  const table = {
+    rates: {
+      btc: { unit: 'BTC', value: 1, type: 'crypto' },
+      usd: fiat(50_000),
+      cad: fiat(70_000),
+      eur: fiat(45_000),
+      jpy: fiat(7_500_000),
+    },
+  }
+  globalThis.fetch = function (input, init) {
+    const url = typeof input === 'string' ? input : (input && input.url) || String(input)
+    if (url.includes('/api/v3/exchange_rates')) {
+      return Promise.resolve(new Response(JSON.stringify(table), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }))
+    }
+    return realFetch.call(this, input, init)
+  }
+}
+
 require(process.env.MM_REAL_MAIN)

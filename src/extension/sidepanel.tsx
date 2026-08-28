@@ -16,8 +16,10 @@ import { ExtApp } from './ExtApp'
 import '../renderer/index.css'
 import './sidepanel.css'
 import { initTheme } from '../renderer/theme'
+import { initCurrency } from '../renderer/lib/currency'
 
 initTheme()
+initCurrency()
 
 const root = document.getElementById('root')!
 createRoot(root).render(

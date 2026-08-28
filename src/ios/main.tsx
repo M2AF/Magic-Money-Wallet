@@ -30,8 +30,10 @@ import '../renderer/index.css'
 import '../capacitor/cap.css'
 import './ios.css'
 import { initTheme } from '../renderer/theme'
+import { initCurrency } from '../renderer/lib/currency'
 
 initTheme()
+initCurrency()
 
 initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 

@@ -456,6 +456,94 @@ export function saveTokenBalanceCache(map: Record<string, TokenBalanceCacheEntry
   } catch { /* display-only cache — losing a write is harmless */ }
 }
 
+// ─── ERC-20 metadata cache (name/symbol/decimals/logo) ───────────────────────
+// The companion to the balance cache above, and the piece that was missing: a
+// throttled alchemy_getTokenMetadata left every token with symbol '???', and the
+// token fetcher drops those — so a provider outage blanked the list even while
+// the balance cache was serving good holdings. ERC-20 metadata is immutable, so
+// entries never expire; re-reading them from disk also removes the single
+// largest repeat call the wallet makes. Keyed `network:contract` (lowercased).
+
+export interface TokenMetaCacheEntry {
+  name: string
+  /** Empty string = the contract resolved but exposes no symbol (cached so it is not re-queried). */
+  symbol: string
+  decimals: number
+  logo: string | null
+  at: number
+}
+
+const tokenMetaCachePath = () => join(userData(), 'token-meta-cache.json')
+let tokenMetaCacheDisk: Record<string, TokenMetaCacheEntry> | null = null
+
+export async function loadTokenMetaCache(): Promise<Record<string, TokenMetaCacheEntry>> {
+  if (tokenMetaCacheDisk) return tokenMetaCacheDisk
+  try {
+    if (existsSync(tokenMetaCachePath())) {
+      const parsed = JSON.parse(readFileSync(tokenMetaCachePath(), 'utf-8'))
+      tokenMetaCacheDisk = (parsed && typeof parsed === 'object') ? parsed as Record<string, TokenMetaCacheEntry> : {}
+    } else {
+      tokenMetaCacheDisk = {}
+    }
+  } catch {
+    tokenMetaCacheDisk = {}
+  }
+  return tokenMetaCacheDisk
+}
+
+export function saveTokenMetaCache(map: Record<string, TokenMetaCacheEntry>): void {
+  tokenMetaCacheDisk = map
+  try {
+    mkdirSync(userData(), { recursive: true })
+    writeFileSync(tokenMetaCachePath(), JSON.stringify(map))
+  } catch { /* display-only cache — losing a write is harmless */ }
+}
+
+// ─── On-chain token discovery state (Transfer-log sweep) ─────────────────────
+// The third asset tier reads balances straight off the chain via Multicall3, but
+// first it has to LEARN which contracts to ask about — an ERC-20 balance lives in
+// the token's own storage, so no node can enumerate an address's holdings. That
+// discovery is a backward `eth_getLogs` sweep for incoming Transfers, which is
+// far too expensive to redo per refresh, so both the contracts it found and how
+// far it has swept persist here. Keyed `network:address` (lowercased).
+
+export interface OnchainScanCacheEntry {
+  /** ERC-20 contracts seen transferring INTO this address (lowercased). */
+  contracts: string[]
+  /** Lowest block already swept — the sweep walks BACKWARD from the tip, so
+   *  recent holdings surface on the first pass and history fills in later. */
+  scannedDownTo: number
+  /** Highest block already swept, so later passes only add new blocks on top. */
+  scannedUpTo: number
+  at: number
+}
+
+const onchainScanCachePath = () => join(userData(), 'onchain-scan-cache.json')
+let onchainScanCacheDisk: Record<string, OnchainScanCacheEntry> | null = null
+
+export async function loadOnchainScanCache(): Promise<Record<string, OnchainScanCacheEntry>> {
+  if (onchainScanCacheDisk) return onchainScanCacheDisk
+  try {
+    if (existsSync(onchainScanCachePath())) {
+      const parsed = JSON.parse(readFileSync(onchainScanCachePath(), 'utf-8'))
+      onchainScanCacheDisk = (parsed && typeof parsed === 'object') ? parsed as Record<string, OnchainScanCacheEntry> : {}
+    } else {
+      onchainScanCacheDisk = {}
+    }
+  } catch {
+    onchainScanCacheDisk = {}
+  }
+  return onchainScanCacheDisk
+}
+
+export function saveOnchainScanCache(map: Record<string, OnchainScanCacheEntry>): void {
+  onchainScanCacheDisk = map
+  try {
+    mkdirSync(userData(), { recursive: true })
+    writeFileSync(onchainScanCachePath(), JSON.stringify(map))
+  } catch { /* display-only cache — losing a write is harmless */ }
+}
+
 // ─── AGW overrides (per-account manual Abstract Global Wallet address) ───────
 // Stored separately from addresses.json because switching accounts re-derives
 // addresses wholesale. Map: accountIndex (string) → AGW address. A null/missing

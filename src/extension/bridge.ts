@@ -179,6 +179,7 @@ export function createExtensionWallet() {
     registerMidnightDust:  ()                         => send('wallet:register-midnight-dust'),
 
     // Market
+    getFxRates:     ()                      => send('wallet:get-fx-rates'),
     getMarket:      ()                      => send('wallet:get-market'),
     searchMarket:   (q: string)             => send('wallet:search-market', q),
     getCoinChart:   (id: string, d: string) => send('wallet:get-coin-chart', id, d),

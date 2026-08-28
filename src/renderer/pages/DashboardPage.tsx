@@ -12,6 +12,7 @@ import {
   nftToSendAsset, tokenToSendAsset, formatUnits,
 } from '../lib/asset-send'
 import { useAssetFilters } from '../lib/asset-filters'
+import { useDisplayCurrency } from '../lib/currency'
 import { canonicalTokenKey, canonicalNftKey } from '../../shared/asset-filter-key'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
@@ -186,6 +187,7 @@ interface TokenRowProps {
 }
 
 function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam, onSend }: TokenRowProps) {
+  const { fmt } = useDisplayCurrency()
   return (
     <div
       style={{ display: 'flex', alignItems: 'center', gap: 0 }}
@@ -221,7 +223,7 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
             {token.nativeEquivalent ?? ''}
           </div>
           <div style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: 2, minHeight: 14 }}>
-            {token.usdValue ?? ''}
+            {fmt(token.usdValue) ?? ''}
           </div>
         </div>
       </div>
@@ -262,6 +264,7 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, o
   const visible = q
     ? baseVisible.filter(t => t.name.toLowerCase().includes(q) || t.symbol.toLowerCase().includes(q) || t.chainLabel.toLowerCase().includes(q))
     : baseVisible
+  const chainErrors = Object.entries(result?.chainErrors ?? {})
 
   if (loading) return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -284,7 +287,25 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, o
         <div style={{ padding: '32px 0', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
           {q
             ? 'No tokens match your search.'
-            : result?.tokens.length ? 'All tokens are hidden.' : 'No tokens found across all chains.'}
+            : result?.tokens.length ? 'All tokens are hidden.'
+            : chainErrors.length ? 'No tokens could be loaded.'
+            : 'No tokens found across all chains.'}
+        </div>
+      )}
+
+      {/* A provider outage must not masquerade as an empty wallet: name the
+          chains that failed, the same way the Collectibles tab already does. */}
+      {!q && chainErrors.length > 0 && (
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>
+            Networks unavailable — balances may be incomplete
+          </div>
+          {chainErrors.map(([chain, err]) => (
+            <div key={chain} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+              <span style={{ color: 'var(--text-secondary)', minWidth: 80 }}>{chain}</span>
+              <span style={{ color: '#ef4444', fontFamily: 'var(--font-mono)', fontSize: 10, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{err}</span>
+            </div>
+          ))}
         </div>
       )}
 
@@ -384,6 +405,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
   onClose: () => void
   onSend: (nft: WalletCollectible) => void
 }) {
+  const { fmt } = useDisplayCurrency()
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [download, setDownload] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
@@ -497,13 +519,13 @@ function NftDetailModal({ nft, onClose, onSend }: {
             {/* Precomputed floor on the object — covers every chain incl. Monad/Solana. */}
             {nft.floorPrice != null && (
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                Floor: {formatFloor(nft.floorPrice)} {NFT_NATIVE_SYMBOL[nft.chain] ?? ''}{nft.usdValue ? ` · ${nft.usdValue}` : ''}
+                Floor: {formatFloor(nft.floorPrice)} {NFT_NATIVE_SYMBOL[nft.chain] ?? ''}{nft.usdValue ? ` · ${fmt(nft.usdValue)}` : ''}
               </span>
             )}
             {/* Fallback: per-NFT IPC lookup, only when the object had no floor. */}
             {nft.floorPrice == null && floor?.floor != null && (
               <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-mono)' }}>
-                Floor: {floor.floor} {floor.currency}{floor.floorUsd ? ` · ${floor.floorUsd}` : ''}
+                Floor: {floor.floor} {floor.currency}{floor.floorUsd ? ` · ${fmt(floor.floorUsd)}` : ''}
               </span>
             )}
           </div>
@@ -639,6 +661,7 @@ interface CollectiblesViewProps {
 }
 
 function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam, onSelectNft }: CollectiblesViewProps) {
+  const { fmt } = useDisplayCurrency()
   const [hovered, setHovered] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
@@ -716,8 +739,8 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onH
               <div style={{ padding: '8px 10px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{nft.name}</div>
-                  {nft.usdValue && (
-                    <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flexShrink: 0 }}>{nft.usdValue}</div>
+                  {nft.usdValue != null && (
+                    <div style={{ fontSize: 10, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', flexShrink: 0 }}>{fmt(nft.usdValue)}</div>
                   )}
                 </div>
                 {/* Collection name shares the last line with the chain tag, which
@@ -840,8 +863,8 @@ const PRIVACY_CHAINS = ['monero', 'zcash', 'midnight']
 function sortedChains(balances: AllBalances | null, chains: string[]): string[] {
   if (!balances) return chains
   return [...chains].sort((a, b) => {
-    const usdA = parseFloat(balances.chains[a]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
-    const usdB = parseFloat(balances.chains[b]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
+    const usdA = balances.chains[a]?.usdValue ?? 0
+    const usdB = balances.chains[b]?.usdValue ?? 0
     if (usdB !== usdA) return usdB - usdA
     const natA = parseFloat(balances.chains[a]?.native ?? '0') || 0
     const natB = parseFloat(balances.chains[b]?.native ?? '0') || 0
@@ -866,6 +889,7 @@ function getAddress(chainId: string, addresses: WalletAddresses, testnet = false
 }
 
 export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, ...toolbar }: Props) {
+  const { fmt } = useDisplayCurrency()
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
   const [loading, setLoading]               = useState(true)
@@ -1105,12 +1129,14 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
   // Memoized so it recomputes only when the underlying data changes — not on every
   // render (hover, tab switch). Iterating balances + all tokens + all NFTs (hundreds)
-  // on each render was the source of the "calculating" lag.
+  // on each render was the source of the "calculating" lag. Deliberately a raw USD
+  // NUMBER, not display text: switching display currency then costs one reformat
+  // instead of re-summing the whole portfolio.
   const totalUsd = useMemo(() => {
     if (!balances) return null
 
     const chainTotal = Object.values(balances.chains)
-      .map(b => b?.usdValue ? parseFloat(b.usdValue.replace(/[$,]/g, '')) : 0)
+      .map(b => b?.usdValue ?? 0)
       .reduce((a, b) => a + b, 0)
 
     const tokenTotal = (tokensResult?.tokens ?? [])
@@ -1118,18 +1144,20 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         const k = tokenKey(t)
         return !hiddenItems.has(k) && !effectiveSpamItems.has(k)
       })
-      .map(t => t.usdValue ? parseFloat(t.usdValue.replace(/[$,]/g, '')) : 0)
+      .map(t => t.usdValue ?? 0)
       .reduce((a, b) => a + b, 0)
 
     // NFTs valued at collection floor (hidden/spam excluded).
     const nftTotal = (collectibles?.items ?? [])
       .filter(n => { const k = nftKey(n); return !hiddenItems.has(k) && !spamItems.has(k) })
-      .map(n => n.usdValue ? parseFloat(n.usdValue.replace(/[$,]/g, '')) : 0)
+      .map(n => n.usdValue ?? 0)
       .reduce((a, b) => a + b, 0)
 
     const total = chainTotal + tokenTotal + nftTotal
-    return total > 0 ? `$${total.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : null
+    return total > 0 ? total : null
   }, [balances, tokensResult, collectibles, hiddenItems, effectiveSpamItems])
+
+  const totalDisplay = fmt(totalUsd)
 
   const lastUpdated = balances
     ? new Date(balances.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
@@ -1239,10 +1267,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
               Calculating…
             </div>
-          ) : totalUsd ? (
+          ) : totalDisplay ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
-                {balanceHidden ? '••••••' : totalUsd}
+                {balanceHidden ? '••••••' : totalDisplay}
               </div>
               {/* Eye stacked ABOVE the 7d % — keeps the cluster narrow so it doesn't
                   push the toolbar/network switcher off-screen in the extension. */}
@@ -1387,7 +1415,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
         // The AGW smart-wallet card is interleaved with the regular chain cards
         // and sorted by USD value (then native) exactly like any other chain —
         // its value comes from the synthetic 'abstract-agw' balance entry.
-        const usdOf = (id: string) => parseFloat(balances?.chains[id]?.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
+        const usdOf = (id: string) => balances?.chains[id]?.usdValue ?? 0
         const natOf = (id: string) => parseFloat(balances?.chains[id]?.native ?? '0') || 0
         // User-added networks join the mainnet set only — white placeholder
         // accent until the chain is supported natively with its brand color.

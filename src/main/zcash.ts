@@ -369,12 +369,12 @@ export async function estimateZcashFee(
   const plan = planTransaction(utxos, zcashScript(to), zcashScript(fromAddress), zats)
   const feeZec = Number(plan.fee) / ZATS
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=zcash&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
     const json = await res.json() as { zcash?: { usd?: number } }
     const price = json.zcash?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeZec * price).toFixed(4)}`
+    if (price > 0) feeUsd = feeZec * price
   } catch { /* price optional */ }
 
   return { fee: feeZec.toFixed(8), feeSymbol: 'ZEC', feeUsd }

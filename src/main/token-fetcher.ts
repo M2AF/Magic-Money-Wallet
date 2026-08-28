@@ -1,12 +1,13 @@
-import { loadFloorCache, saveFloorCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft } from './secure-store'
+import { loadFloorCache, saveFloorCache, loadTokenMetaCache, saveTokenMetaCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft, type TokenMetaCacheEntry } from './secure-store'
 import { isTestnet, isPrivacy, customChainDefs, EVM_CHAINS, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
-import { getTokenBalances } from './alchemy-cache'
+import { getTokenBalances, getTokenBalancesResult } from './alchemy-cache'
+import { fetchOnchainTokens } from './onchain-tokens'
 import {
   alchemyRpcUrl, alchemyNftUrl, heliusRpcUrl,
-  blockfrostFetch, moralisFetch, openseaFetch, canOpensea,
+  blockfrostFetch, moralisFetch, canMoralis, openseaFetch, canOpensea,
   ordinalsFetch, canOrdiscan, anvilFetch, canAnvil,
 } from './api-proxy'
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
@@ -30,7 +31,12 @@ export interface WalletToken {
    * withhold the button — never produce a wrong amount.
    */
   rawBalance?: string
-  usdValue: string | null
+  /**
+   * USD value of the holding. RAW NUMBER — the wallet prices everything in USD
+   * but displays it in the user's chosen currency, so both the FX conversion
+   * and the `Intl` formatting happen in the renderer (lib/currency.ts).
+   */
+  usdValue: number | null
   nativeEquivalent: string | null
   nativeSymbol: string
   logoUri: string | null
@@ -48,6 +54,8 @@ export interface TokensResult {
   tokens: WalletToken[]
   fetchedAt: number
   error: string | null
+  /** chain id -> why that chain returned nothing. Absent when every chain answered. */
+  chainErrors?: Record<string, string>
 }
 
 export interface NftTrait {
@@ -78,7 +86,8 @@ export interface WalletCollectible {
   quantity?: string
   source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
   floorPrice?: number | null   // collection floor in the chain's native unit
-  usdValue?: string | null     // floor × native price, e.g. "$42.10"
+  /** floor × native price, in USD. Raw number — see WalletToken.usdValue. */
+  usdValue?: number | null
 }
 
 export interface CollectiblesResult {
@@ -91,7 +100,8 @@ export interface CollectiblesResult {
 export interface NftFloorResult {
   floor: string | null
   currency: string
-  floorUsd: string | null
+  /** Floor in USD. Raw number — see WalletToken.usdValue. */
+  floorUsd: number | null
 }
 
 // All EVM chains with Alchemy token support
@@ -333,52 +343,278 @@ async function fetchNativePrices(chainIds: string[]): Promise<Record<string, num
 
 // ─── EVM token fetch ──────────────────────────────────────────────────────────
 
+/** One chain's token list, plus why it came back short (throttle/outage). */
+interface ChainTokenResult {
+  chain: typeof TOKEN_CHAINS[0]
+  tokens: WalletToken[]
+  error: string | null
+}
+
+/**
+ * name/symbol/decimals/logo for a set of contracts on one network.
+ *
+ * ERC-20 metadata is immutable, so each contract is resolved ONCE and then read
+ * from disk forever. That matters twice over:
+ *
+ *  1. Quota. `alchemy_getTokenMetadata` was re-issued for every held token on
+ *     every refresh — by far the largest repeat call the wallet made, and pure
+ *     waste against a shared key's monthly capacity.
+ *  2. Resilience. A throttled batch returns HTTP 200 with a per-entry JSON-RPC
+ *     `error` instead of a `result`, which left every token at symbol '???' —
+ *     and the caller drops those, so the WHOLE token list blanked even while
+ *     alchemy-cache.ts was serving good balances from its own disk cache. Same
+ *     doctrine as that module: a throttled provider must never blank the wallet.
+ *
+ * `error` is non-null only when the live batch failed and left contracts
+ * unresolved — a contract that answered with no symbol is a resolved answer.
+ */
+async function fetchTokenMetadata(
+  network: string,
+  contracts: string[],
+  url: string
+): Promise<{ meta: Map<string, TokenMetaCacheEntry>; error: string | null }> {
+  const key = (c: string) => `${network}:${c.toLowerCase()}`
+  // The cache is an optimisation and a safety net — never a failure mode. An
+  // unreadable store degrades to "resolve everything live", not to a lost chain.
+  let disk: Record<string, TokenMetaCacheEntry> = {}
+  try { disk = await loadTokenMetaCache() } catch { disk = {} }
+  const meta = new Map<string, TokenMetaCacheEntry>()
+  const missing: string[] = []
+  for (const c of contracts) {
+    const hit = disk[key(c)]
+    if (hit) meta.set(c.toLowerCase(), hit)
+    else missing.push(c)
+  }
+  if (missing.length === 0) return { meta, error: null }
+
+  let error: string | null = null
+  try {
+    const payload = missing.map((c, i) => ({
+      jsonrpc: '2.0', id: i + 1,
+      method: 'alchemy_getTokenMetadata',
+      params: [c]
+    }))
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15_000)
+    })
+    if (!res.ok) {
+      error = `HTTP ${res.status}`
+    } else {
+      const json = await res.json() as Array<{
+        id?: number
+        result?: { name: string | null; symbol: string | null; decimals: number | null; logo: string | null } | null
+        error?: { message?: string }
+      }>
+      const rows = Array.isArray(json) ? json : []
+      if (rows.length === 0) error = 'empty metadata response'
+      let changed = false
+      const at = Date.now()
+      for (const row of rows) {
+        // JSON-RPC batch responses may arrive in any order. Match on the request
+        // id so balances never inherit another contract's symbol/decimals/logo.
+        if (typeof row.id !== 'number') continue
+        const contract = missing[row.id - 1]
+        if (!contract) continue
+        if (row.error || !row.result) {
+          error ??= row.error?.message ?? 'metadata unavailable'
+          continue
+        }
+        const entry: TokenMetaCacheEntry = {
+          name: row.result.name ?? 'Unknown Token',
+          // '' is a RESOLVED answer meaning "this contract exposes no symbol".
+          // Cached like any other so the dead lookup is never repeated.
+          symbol: row.result.symbol ?? '',
+          decimals: row.result.decimals ?? 18,
+          logo: row.result.logo ?? null,
+          at,
+        }
+        disk[key(contract)] = entry
+        meta.set(contract.toLowerCase(), entry)
+        changed = true
+      }
+      if (changed) try { saveTokenMetaCache(pruneTokenMeta(disk)) } catch { /* cache write is best-effort */ }
+    }
+  } catch (e) {
+    error = String(e)
+  }
+  return { meta, error }
+}
+
+// Immutable entries never expire, so bound the file by count instead: keep the
+// most recently resolved. Well past any real wallet's holdings.
+const TOKEN_META_MAX = 5_000
+
+function pruneTokenMeta(map: Record<string, TokenMetaCacheEntry>): Record<string, TokenMetaCacheEntry> {
+  const keys = Object.keys(map)
+  if (keys.length <= TOKEN_META_MAX) return map
+  const keep = keys
+    .sort((a, b) => (map[b]?.at ?? 0) - (map[a]?.at ?? 0))
+    .slice(0, TOKEN_META_MAX)
+  return Object.fromEntries(keep.map(k => [k, map[k]]))
+}
+
+/**
+ * Moralis chain hex for the built-in chains Moralis actually indexes.
+ *
+ * This is the SECOND source for tokens and NFTs, and the reason Monad's assets
+ * survived the Alchemy outage that emptied every other EVM chain: Monad's NFTs
+ * were already coming from Moralis, on a separate key and a separate quota.
+ *
+ * Note what this is NOT: reading holdings "directly on-chain". Monad's TOKEN
+ * list is a plain RPC `balanceOf` sweep, but only over KNOWN_MONAD_TOKENS — a
+ * hand-maintained list. A stock RPC node cannot answer "which ERC-20s does this
+ * address hold", so that approach can never discover an unknown holding and is
+ * useless as a general fallback. An indexer is the only thing that can.
+ *
+ * Deliberately partial: Moralis rejects blast/zora/worldchain/soneium/apechain/
+ * abstract/robinhood ("chain must be a valid enum value"), so those chains have
+ * no second source and still surface the outage in the UI.
+ */
+const MORALIS_CHAIN_HEX: Record<string, string> = {
+  ethereum: '0x1', base: '0x2105', polygon: '0x89', arbitrum: '0xa4b1',
+  optimism: '0xa', avalanche: '0xa86a', gnosis: '0x64', ronin: '0x7e4',
+}
+
+interface MoralisErc20Row {
+  token_address: string
+  symbol: string | null
+  name: string | null
+  logo: string | null
+  decimals: number | null
+  balance: string
+  possible_spam?: boolean
+}
+
+/**
+ * Whole token list for one chain from Moralis — balances AND metadata in a
+ * single call, so it replaces both halves of the Alchemy path at once (which is
+ * what makes it a usable fallback: the metadata batch is the step that fails).
+ * `undefined` = the fallback itself failed; the caller keeps the Alchemy error.
+ */
+async function fetchMoralisTokensForChain(
+  address: string,
+  chain: typeof TOKEN_CHAINS[0],
+  config: WalletConfig
+): Promise<WalletToken[] | undefined> {
+  // Testnet chains reuse their mainnet chain id, so an unguarded lookup here
+  // would answer a Sepolia request with MAINNET holdings. Same landmine the
+  // asset-import path has to dodge — no fallback on testnets.
+  const hex = isTestnet(config) ? undefined : MORALIS_CHAIN_HEX[chain.id]
+  if (!hex || !canMoralis(config)) return undefined
+  try {
+    const res = await moralisFetch(`${address}/erc20?chain=${hex}`, config, 15_000)
+    if (!res.ok) {
+      console.warn(`[TOKEN] ${chain.label} Moralis fallback HTTP ${res.status}`)
+      return undefined
+    }
+    const rows = await res.json() as MoralisErc20Row[]
+    if (!Array.isArray(rows)) return undefined
+    const tokens = rows
+      // Moralis flags known airdrop spam itself. Our own spam-filter still runs
+      // downstream; this just avoids importing a pile of junk on the way in.
+      .filter(r => !r.possible_spam && r.symbol && r.balance && r.balance !== '0')
+      .map(r => {
+        const decimals = r.decimals ?? 18
+        return {
+          contractAddress: r.token_address,
+          name: r.name || 'Unknown Token',
+          symbol: r.symbol as string,
+          decimals,
+          balance: humanBalance(r.balance, decimals),
+          rawBalance: BigInt(r.balance).toString(),
+          usdValue: null,
+          nativeEquivalent: null,
+          nativeSymbol: NATIVE_SYMBOL[chain.id] ?? 'ETH',
+          logoUri: normalizeImageUrl(r.logo),
+          chain: chain.id,
+          chainLabel: chain.label,
+          chainColor: chain.color,
+        }
+      })
+    console.log(`[TOKEN] ${chain.label} Moralis fallback recovered ${tokens.length} tokens`)
+    return tokens
+  } catch (e) {
+    console.warn(`[TOKEN] ${chain.label} Moralis fallback failed: ${String(e)}`)
+    return undefined
+  }
+}
+
+/**
+ * Tier 3: read the chain directly (onchain-tokens.ts) — keyless public RPC plus
+ * Multicall3, so it has no quota to exhaust. Covers what Moralis will not,
+ * notably Abstract/Robinhood/Soneium/ApeChain/Zora/Blast, whose RPCs happen to
+ * allow the Transfer-log sweep that discovery needs.
+ */
+async function fetchOnchainTokensForChain(
+  address: string,
+  chain: typeof TOKEN_CHAINS[0],
+  config: WalletConfig
+): Promise<WalletToken[] | undefined> {
+  // PUBLIC_RPCS are mainnet endpoints and the on-disk candidate caches are keyed
+  // by a chain id that testnets reuse — same collision the Moralis tier dodges.
+  if (isTestnet(config)) return undefined
+  const rows = await fetchOnchainTokens(chain.id, address, config)
+  if (!rows) return undefined
+  return rows.map(r => ({
+    contractAddress: r.contractAddress,
+    name: r.name,
+    symbol: r.symbol,
+    decimals: r.decimals,
+    balance: humanBalance(r.rawBalance, r.decimals),
+    rawBalance: r.rawBalance,
+    usdValue: null,
+    nativeEquivalent: null,
+    nativeSymbol: NATIVE_SYMBOL[chain.id] ?? 'ETH',
+    logoUri: null,   // enrichWithPrices fills this from DexScreener
+    chain: chain.id,
+    chainLabel: chain.label,
+    chainColor: chain.color,
+  }))
+}
+
 async function fetchTokensForChain(
   address: string,
   chain: typeof TOKEN_CHAINS[0],
   config: WalletConfig
-): Promise<WalletToken[]> {
+): Promise<ChainTokenResult> {
   const url = rpcUrl(chain.network, config)
+  // Alchemy could not answer — walk down the tiers: Moralis (indexer, keyed but
+  // a separate quota), then the chain itself (keyless, no quota at all).
+  const viaFallbacks = async (why: string): Promise<ChainTokenResult> => {
+    const recovered = await fetchMoralisTokensForChain(address, chain, config)
+      ?? await fetchOnchainTokensForChain(address, chain, config)
+    return recovered
+      ? { chain, tokens: recovered, error: null }
+      : { chain, tokens: [], error: why }
+  }
   try {
     // Shared, coalesced alchemy_getTokenBalances (alchemy-cache.ts) — reuses the
     // same call the balance fetcher makes for its token count on mount.
-    const nonZero = (await getTokenBalances(chain.network, address, config)).slice(0, 100)
-    if (nonZero.length === 0) return []
+    const balances = await getTokenBalancesResult(chain.network, address, config)
+    const nonZero = balances.balances.slice(0, 100)
+    // An empty list is only trustworthy when the provider actually answered.
+    if (nonZero.length === 0) {
+      return balances.failed ? viaFallbacks('balance lookup unavailable') : { chain, tokens: [], error: null }
+    }
 
-    const metaPayload = nonZero.map((t, i) => ({
-      jsonrpc: '2.0', id: i + 1,
-      method: 'alchemy_getTokenMetadata',
-      params: [t.contractAddress]
-    }))
-    const metaRes = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(metaPayload),
-      signal: AbortSignal.timeout(15_000)
-    })
-    const metaJson: Array<{ id?: number; result?: { name: string | null; symbol: string | null; decimals: number | null; logo: string | null } }> =
-      metaRes.ok ? await metaRes.json() : []
-    // JSON-RPC batch responses may arrive in any order. Match on the request id
-    // so balances never inherit another contract's symbol/decimals/logo.
-    const metadataById = new Map(
-      (Array.isArray(metaJson) ? metaJson : [])
-        .filter(m => typeof m.id === 'number')
-        .map(m => [m.id as number, m.result] as const)
-    )
+    const { meta, error } = await fetchTokenMetadata(chain.network, nonZero.map(t => t.contractAddress), url)
 
-    return nonZero.map((t, i) => {
-      const meta = metadataById.get(i + 1) ?? null
-      const decimals = meta?.decimals ?? 18
+    const tokens = nonZero.map(t => {
+      const m = meta.get(t.contractAddress.toLowerCase()) ?? null
+      const decimals = m?.decimals ?? 18
       const balance  = humanBalance(t.tokenBalance, decimals)
       // Only the REAL metadata logo here. The TrustWallet fallback is a guessed
       // URL that 404s for most tokens, so it's applied LAST in enrichWithPrices —
       // after the DexScreener image — otherwise it preempts a real logo (this is
       // what hid PIXL, which has no Alchemy logo but does have a DexScreener one).
-      const alchemyLogo = normalizeImageUrl(meta?.logo ?? null)
+      const alchemyLogo = normalizeImageUrl(m?.logo ?? null)
       return {
         contractAddress: t.contractAddress,
-        name:     meta?.name   ?? 'Unknown Token',
-        symbol:   meta?.symbol ?? '???',
+        name:     m?.name || 'Unknown Token',
+        symbol:   m?.symbol || '???',
         decimals,
         balance,
         rawBalance: BigInt(t.tokenBalance).toString(),
@@ -391,8 +627,23 @@ async function fetchTokensForChain(
         chainColor: chain.color
       }
     }).filter(t => t.symbol !== '???')
-  } catch {
-    return []
+
+    // Only report an error when it actually cost the user holdings — a partial
+    // batch that still resolved every token the wallet holds is not a failure.
+    const dropped = nonZero.length - tokens.length
+    if (error && dropped > 0) {
+      // Balances survived (cache or live) but they cannot be NAMED, so the list
+      // would render short or empty. Moralis carries metadata inline, and the
+      // on-chain tier reads symbol/name/decimals off the contract itself, so
+      // either can rebuild the whole chain.
+      const recovered = await fetchMoralisTokensForChain(address, chain, config)
+        ?? await fetchOnchainTokensForChain(address, chain, config)
+      if (recovered) return { chain, tokens: recovered, error: null }
+      return { chain, tokens, error }
+    }
+    return { chain, tokens, error: null }
+  } catch (e) {
+    return viaFallbacks(String(e))
   }
 }
 
@@ -648,16 +899,17 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
     const sym = NATIVE_SYMBOL[t.chain] ?? ''
 
     // Custom (user-added) chains have NO price source — no CoinGecko native id
-    // and no DexScreener slug — so "$0.00" there would read as "worthless"
-    // instead of "unknown", and nativeEquivalent would render a bare number with
-    // no symbol. Leave both null for those chains (the token list and the
-    // portfolio total already handle null — that's what Testnet Mode produces).
-    // Supported chains keep their existing "$0.00"-when-unpriced behaviour.
+    // and no DexScreener slug — so a rendered zero there would read as
+    // "worthless" instead of "unknown", and nativeEquivalent would render a
+    // bare number with no symbol. Leave both null for those chains (the token
+    // list and the portfolio total already handle null — that's what Testnet
+    // Mode produces). Supported chains keep their existing zero-when-unpriced
+    // behaviour.
     const hasPriceSource = !!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain]
 
     return {
       ...t,
-      usdValue: hasPriceSource ? `$${totalUsd.toFixed(2)}` : null,
+      usdValue: hasPriceSource ? totalUsd : null,
       nativeEquivalent: hasPriceSource ? `${nativeEq.toFixed(4)} ${sym}` : null,
       // Logo priority: real metadata logo (Alchemy/Cardano registry) → DexScreener
       // image (verified to exist) → TrustWallet (a guessed path that 404s for most
@@ -1574,10 +1826,10 @@ export async function fetchAllTokens(
     // tagging each so the UI can badge it as living in the smart wallet.
     const abstractChainCfg = tokenChains.find(c => c.id === 'abstract')!
     const agwTokens = (agwAddress && agwAddress.toLowerCase() !== addresses.evm.toLowerCase() && abstractChainCfg)
-      ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).map(t => ({ ...t, source: 'agw' as const }))
+      ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).tokens.map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const auto = [...evmResults.flat(), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
+    const auto = [...evmResults.flatMap(r => r.tokens), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
     // A built-in chain's indexer usually DOES list an imported token — appending
     // it again would render the holding twice and double it in the portfolio
     // total. Only what auto-detect actually missed gets added.
@@ -1600,12 +1852,20 @@ export async function fetchAllTokens(
         ? { ...t, suspectedSpam: true }
         : t
     )
-    tokens.sort((a, b) => {
-      const ua = parseFloat(a.usdValue?.replace('$', '') ?? '0') || 0
-      const ub = parseFloat(b.usdValue?.replace('$', '') ?? '0') || 0
-      return ub - ua || a.symbol.localeCompare(b.symbol)
-    })
-    return { tokens, fetchedAt: Date.now(), error: null }
+    tokens.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0) || a.symbol.localeCompare(b.symbol))
+    // A chain that failed must not read as "you hold nothing there". Report it
+    // so the empty state can say why instead of the flatly wrong "No tokens
+    // found across all chains" (which is what a spent Alchemy quota looked like).
+    const chainErrors: Record<string, string> = {}
+    for (const r of evmResults) if (r.error) chainErrors[r.chain.id] = r.error
+    const failed = Object.keys(chainErrors)
+    if (failed.length) console.warn(`[TOKEN] ${failed.length} chain(s) failed: ${failed.join(', ')}`)
+    return {
+      tokens,
+      fetchedAt: Date.now(),
+      error: failed.length ? `${failed.length} network${failed.length > 1 ? 's' : ''} unavailable` : null,
+      chainErrors: failed.length ? chainErrors : undefined,
+    }
   } catch (e) {
     return { tokens: [], fetchedAt: Date.now(), error: String(e) }
   }
@@ -1863,7 +2123,7 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
   }
 }
 
-async function fetchNftsForChain(
+async function fetchAlchemyNftsForChain(
   address: string,
   chain: typeof NFT_CHAINS[0],
   config: WalletConfig
@@ -1910,72 +2170,127 @@ async function fetchNftsForChain(
   }
 }
 
-// ─── Monad NFTs via Blockscout v2 ────────────────────────────────────────────
+/**
+ * Alchemy first, Moralis second — the same two-provider split that kept Monad's
+ * collectibles on screen while every Alchemy chain went blank on a spent quota.
+ * Only chains Moralis actually indexes get a second chance (MORALIS_CHAIN_HEX);
+ * the rest still report the outage rather than silently showing an empty tab.
+ */
+async function fetchNftsForChain(
+  address: string,
+  chain: typeof NFT_CHAINS[0],
+  config: WalletConfig
+): Promise<ChainNftResult> {
+  const primary = await fetchAlchemyNftsForChain(address, chain, config)
+  // Partial pages are kept by the Alchemy path on a late failure; only fall back
+  // when it recovered nothing at all, so a good partial is never thrown away.
+  if (!primary.error || primary.items.length > 0) return primary
 
-async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
-  // chain=0x8f is Monad mainnet (chainId 143)
-  console.log(`[NFT] Monad Moralis: fetching NFTs for ${address.slice(0, 10)}…`)
+  // See fetchMoralisTokensForChain: testnet ids collide with mainnet ones.
+  const hex = isTestnet(config) ? undefined : MORALIS_CHAIN_HEX[chain.id]
+  if (!hex) return primary
+  const recovered = await fetchMoralisNfts(address, chain, hex, config)
+  return recovered
+    ? { chain, items: recovered, error: null }
+    : primary
+}
+
+// ─── Monad NFTs via Moralis ──────────────────────────────────────────────────
+
+interface MoralisNftRow {
+  token_address: string
+  token_id: string
+  contract_type?: string | null
+  amount?: string | null
+  name: string | null
+  normalized_metadata?: { name?: string; description?: string; image?: string; animation_url?: string; attributes?: unknown[] } | null
+  media?: { media_collection?: { medium?: { url?: string } }; original_media_url?: string } | null
+}
+
+const MORALIS_NFT_MAX_PAGES = 5
+
+/**
+ * NFTs for one chain from Moralis. `undefined` = the call failed, as opposed to
+ * `[]` which means the wallet genuinely holds nothing here.
+ *
+ * Shared by Monad (its only NFT source) and by the Alchemy chains as a fallback
+ * — the same provider split that kept Monad's collectibles visible through the
+ * Alchemy capacity outage.
+ */
+async function fetchMoralisNfts(
+  address: string,
+  chain: { id: string; label: string; color: string },
+  hex: string,
+  config: WalletConfig
+): Promise<WalletCollectible[] | undefined> {
+  if (!address || !canMoralis(config)) return undefined
+  const items: WalletCollectible[] = []
+  let cursor: string | undefined
   try {
-    // One retry on throttling (429 from the Worker's shared rate bucket or
-    // Moralis itself, 5xx transients). The dashboard-mount burst — especially
-    // with a second wallet instance open — can trip the per-minute limit, and
-    // without a retry this silently returned [] until the next full refresh.
-    let res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
-    if (res.status === 429 || res.status >= 500) {
-      console.warn(`[NFT] Monad Moralis HTTP ${res.status} — retrying once in 1.5s`)
-      await new Promise(r => setTimeout(r, 1_500))
-      res = await moralisFetch(`${address}/nft?chain=0x8f&format=decimal&media_items=true`, config, 15_000)
-    }
-    console.log(`[NFT] Monad Moralis HTTP ${res.status}`)
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      console.error(`[NFT] Monad Moralis error: ${body.slice(0, 200)}`)
-      return []
-    }
+    for (let page = 0; page < MORALIS_NFT_MAX_PAGES; page++) {
+      const q = `${address}/nft?chain=${hex}&format=decimal&media_items=true&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`
+      // One retry on throttling (429 from the Worker's shared rate bucket or
+      // Moralis itself, 5xx transients). The dashboard-mount burst — especially
+      // with a second wallet instance open — can trip the per-minute limit, and
+      // without a retry this silently returned [] until the next full refresh.
+      let res = await moralisFetch(q, config, 15_000)
+      if (res.status === 429 || res.status >= 500) {
+        console.warn(`[NFT] ${chain.label} Moralis HTTP ${res.status} — retrying once in 1.5s`)
+        await new Promise(r => setTimeout(r, 1_500))
+        res = await moralisFetch(q, config, 15_000)
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '')
+        console.error(`[NFT] ${chain.label} Moralis error: ${body.slice(0, 200)}`)
+        // Keep whatever earlier pages returned rather than losing the lot.
+        return items.length ? items : undefined
+      }
 
-    const data = await res.json() as {
-      result?: Array<{
-        token_address: string
-        token_id: string
-        name: string | null
-        normalized_metadata?: { name?: string; description?: string; image?: string; attributes?: unknown[] } | null
-        media?: { media_collection?: { medium?: { url?: string } }; original_media_url?: string } | null
-      }>
+      const data = await res.json() as { result?: MoralisNftRow[]; cursor?: string | null }
+      for (const nft of data.result ?? []) {
+        const meta = nft.normalized_metadata ?? {}
+        const rawImage = nft.media?.media_collection?.medium?.url
+          ?? nft.media?.original_media_url
+          ?? meta.image
+          ?? null
+        // Spam/malformed NFTs sometimes return `attributes` as an object or
+        // string instead of an array — guard before iterating (see mapAlchemyNft).
+        const attrs = Array.isArray(meta.attributes) ? meta.attributes : []
+        const type = nft.contract_type ?? 'ERC-721'
+        items.push({
+          id: `${chain.id}:${nft.token_address}:${nft.token_id}`,
+          name: meta.name ?? nft.name ?? `#${nft.token_id}`,
+          description: meta.description ?? null,
+          image: normalizeImageUrl(rawImage ?? null),
+          animationUrl: normalizeImageUrl(meta.animation_url ?? null),
+          collectionName: nft.name ?? null,
+          chain: chain.id,
+          chainLabel: chain.label,
+          chainColor: chain.color,
+          tokenId: nft.token_id,
+          contractAddress: nft.token_address,
+          contractType: type,
+          quantity: /1155/.test(type) ? (nft.amount ?? '1') : undefined,
+          traits: attrs
+            .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
+            .filter(a => a['trait_type'] != null && a['value'] != null)
+            .map(a => ({ trait_type: String(a['trait_type']), value: String(a['value']) }))
+        })
+      }
+      cursor = data.cursor || undefined
+      if (!cursor) break
     }
-
-    const items = data.result ?? []
-    console.log(`[NFT] Monad: found ${items.length} NFTs via Moralis`)
-
-    return items.map(nft => {
-      const meta = nft.normalized_metadata ?? {}
-      const rawImage = nft.media?.media_collection?.medium?.url
-        ?? nft.media?.original_media_url
-        ?? meta.image
-        ?? null
-      const attrs = Array.isArray(meta.attributes) ? meta.attributes : []
-      return {
-        id: `monad:${nft.token_address}:${nft.token_id}`,
-        name: meta.name ?? nft.name ?? `#${nft.token_id}`,
-        description: meta.description ?? null,
-        image: normalizeImageUrl(rawImage ?? null),
-        animationUrl: null,
-        collectionName: nft.name ?? null,
-        chain: 'monad',
-        chainLabel: 'Monad',
-        chainColor: '#836EF9',
-        tokenId: nft.token_id,
-        contractAddress: nft.token_address,
-        contractType: 'ERC-721',
-        traits: attrs
-          .filter((a): a is Record<string, unknown> => a != null && typeof a === 'object')
-          .filter(a => a['trait_type'] != null && a['value'] != null)
-          .map(a => ({ trait_type: String(a['trait_type']), value: String(a['value']) }))
-      } satisfies WalletCollectible
-    })
+    console.log(`[NFT] ${chain.label}: ${items.length} NFTs via Moralis`)
+    return items
   } catch (e) {
-    console.error('[NFT] Monad Moralis fetch failed:', e)
-    return []
+    console.error(`[NFT] ${chain.label} Moralis fetch failed:`, e)
+    return items.length ? items : undefined
   }
+}
+
+/** Monad's only NFT source. Moralis chain 0x8f = Monad mainnet (chainId 143). */
+async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
+  return (await fetchMoralisNfts(address, { id: 'monad', label: 'Monad', color: '#836EF9' }, '0x8f', config)) ?? []
 }
 
 // ─── Tron TRC-721 NFTs via TronScan (best-effort, keyless) ───────────────────
@@ -2038,6 +2353,12 @@ const OPENSEA_NFT_CHAIN: Record<string, string> = {
   polygon: 'matic', abstract: 'abstract', blast: 'blast', avalanche: 'avalanche',
   zora: 'zora', apechain: 'ape_chain', ronin: 'ronin', soneium: 'soneium',
   gnosis: 'gnosis', monad: 'monad', solana: 'solana',
+  // Robinhood is an Alchemy NFT chain (ALCHEMY_NFT_CHAIN_IDS) and OpenSea lists
+  // it in GET /chains, but it was never mapped here — so every Robinhood NFT
+  // took the `!osChain` branch in enrichNftFloors, got no floor task, and could
+  // never show a price. Alchemy's inline openSeaMetadata.floorPrice does not
+  // cover the chain either, so this map WAS the only route to a floor.
+  robinhood: 'robinhood',
 }
 
 // Floor-price currency symbol → CoinGecko id, for converting a floor to USD.
@@ -2133,10 +2454,9 @@ async function applyCachedFloors(items: WalletCollectible[], exclude?: Set<strin
   for (const [i, e] of withEntry) {
     const cg = FLOOR_SYMBOL_CG[e.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]
     const price = prices[cg] ?? 0
-    if (price > 0) i.usdValue = `$${(e.floor * price).toFixed(2)}`
+    if (price > 0) i.usdValue = e.floor * price
   }
-  const usd = (i: WalletCollectible) => parseFloat(i.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
-  items.sort((a, b) => usd(b) - usd(a))
+  items.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0))
 }
 
 // ── OpenSea pacing ────────────────────────────────────────────────────────────
@@ -2231,7 +2551,7 @@ export async function fetchNftFloor(
   return {
     floor: entry.floor.toFixed(4),
     currency: entry.symbol,
-    floorUsd: usd > 0 ? `$${(entry.floor * usd).toFixed(2)}` : null,
+    floorUsd: usd > 0 ? entry.floor * usd : null,
   }
 }
 
@@ -2478,7 +2798,7 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
     const cg = FLOOR_SYMBOL_CG[f.symbol.toUpperCase()] ?? NATIVE_CG[i.chain]
     const price = prices[cg] ?? 0
     i.floorPrice = f.floor
-    if (price > 0) i.usdValue = `$${(f.floor * price).toFixed(2)}`
+    if (price > 0) i.usdValue = f.floor * price
     lastGood[floorKeyOf(i)] = { floor: f.floor, symbol: f.symbol, at: now }
   }
   scheduleFloorSave()
@@ -2490,8 +2810,7 @@ async function enrichNftFloors(items: WalletCollectible[], config: WalletConfig,
   const valued = items.filter(i => i.usdValue != null).length
   console.log(`[NFT] floors: ${tasks.size} collections → ${floorsFound} floors, prices for ${Object.keys(prices).length} ids → ${valued}/${items.length} NFTs valued`)
 
-  const usd = (i: WalletCollectible) => parseFloat(i.usdValue?.replace(/[$,]/g, '') ?? '0') || 0
-  items.sort((a, b) => usd(b) - usd(a))
+  items.sort((a, b) => (b.usdValue ?? 0) - (a.usdValue ?? 0))
   return items
 }
 

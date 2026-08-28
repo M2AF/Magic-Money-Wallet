@@ -82,7 +82,13 @@ export interface SendResult {
 export interface FeeEstimate {
   fee: string          // human-readable, e.g. "0.000021"
   feeSymbol: string    // e.g. "ETH"
-  feeUsd: string | null
+  /**
+   * Fee in USD. RAW NUMBER — the renderer converts it to the user's display
+   * currency and formats it (lib/currency.ts). Fees are routinely worth a
+   * fraction of a cent, so the formatter picks the precision; the per-chain
+   * `.toFixed(4)`/`.toFixed(6)` guesses that used to live here are gone.
+   */
+  feeUsd: number | null
 }
 
 /**
@@ -345,7 +351,7 @@ export async function estimateEvmFee(
   const feeNative = Number(feeWei) / 1e18
   const feeSymbol = entry.nativeSymbol
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   // Custom chains have no known CoinGecko id — the 'ethereum' fallback in
   // getCoingeckoId would price their native token as ETH, so skip USD entirely.
   if (!isTestnet(config) && !chainId.startsWith('custom-')) {
@@ -356,7 +362,7 @@ export async function estimateEvmFee(
       )
       const priceJson = await priceRes.json() as Record<string, { usd?: number }>
       const price = Object.values(priceJson)[0]?.usd ?? 0
-      if (price > 0) feeUsd = `$${(feeNative * price).toFixed(4)}`
+      if (price > 0) feeUsd = feeNative * price
     } catch { /* price optional */ }
   }
 
@@ -570,7 +576,7 @@ export async function estimateSolanaFee(
 
   const feeSol = feeLamports / LAMPORTS_PER_SOL
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   if (!isTestnet(config)) {
     try {
       const priceRes = await fetch(
@@ -578,7 +584,7 @@ export async function estimateSolanaFee(
       )
       const priceJson = await priceRes.json() as { solana?: { usd: number } }
       const price = priceJson.solana?.usd ?? 0
-      if (price > 0) feeUsd = `$${(feeSol * price).toFixed(6)}`
+      if (price > 0) feeUsd = feeSol * price
     } catch { /* price optional */ }
   }
 
@@ -794,14 +800,14 @@ export async function estimateCardanoFee(
   const feeLovelace = feeForSize(TYPICAL_TX_SIZE, params)
   const feeAda = Number(feeLovelace) / 1e6
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   try {
     const priceRes = await fetch(
       'https://api.coingecko.com/api/v3/simple/price?ids=cardano&vs_currencies=usd'
     )
     const priceJson = await priceRes.json() as { cardano?: { usd: number } }
     const price = priceJson.cardano?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeAda * price).toFixed(4)}`
+    if (price > 0) feeUsd = feeAda * price
   } catch { /* price optional */ }
 
   return { fee: feeAda.toFixed(6), feeSymbol: 'ADA', feeUsd }

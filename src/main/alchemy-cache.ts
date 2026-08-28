@@ -28,10 +28,21 @@ export interface RawTokenBalance {
 // 32-byte zero word Alchemy returns for an empty balance.
 const ZERO = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-interface Entry { balances: RawTokenBalance[]; exp: number }
+interface Entry { balances: RawTokenBalance[]; failed: boolean; exp: number }
 
-const cache = new Map<string, Entry>()                          // network:address → balances
-const inflight = new Map<string, Promise<RawTokenBalance[]>>()  // network:address → in-flight fetch
+/**
+ * `failed` distinguishes "the provider refused us" from "this wallet holds
+ * nothing here". Both look like an empty list, but only the first should send
+ * the caller to a fallback provider — firing one on every genuinely-empty chain
+ * would burn a second quota for no reason.
+ */
+export interface TokenBalancesResult {
+  balances: RawTokenBalance[]
+  failed: boolean
+}
+
+const cache = new Map<string, Entry>()                            // network:address → balances
+const inflight = new Map<string, Promise<TokenBalancesResult>>()  // network:address → in-flight fetch
 // 10s: long enough to collapse the concurrent mount burst, short enough that a
 // manual refresh a few seconds later still does a fresh fetch.
 const TTL = 10_000
@@ -72,11 +83,16 @@ function scheduleSave(map: Record<string, { balances: RawTokenBalance[]; at: num
  * successful fetch).
  */
 export async function getTokenBalances(network: string, address: string, config: WalletConfig): Promise<RawTokenBalance[]> {
+  return (await getTokenBalancesResult(network, address, config)).balances
+}
+
+/** As `getTokenBalances`, but also reports whether the live call actually failed. */
+export async function getTokenBalancesResult(network: string, address: string, config: WalletConfig): Promise<TokenBalancesResult> {
   const k = `${network}:${address.toLowerCase()}`
   const now = Date.now()
 
   const hit = cache.get(k)
-  if (hit && hit.exp > now) return hit.balances
+  if (hit && hit.exp > now) return { balances: hit.balances, failed: hit.failed }
 
   const existing = inflight.get(k)
   if (existing) return existing
@@ -104,8 +120,9 @@ export async function getTokenBalances(network: string, address: string, config:
     }
     // Cache whatever we're serving (stale included) so the mount burst and any
     // immediate retries don't re-hit a provider that just refused us.
-    cache.set(k, { balances, exp: Date.now() + TTL })
-    return balances
+    const failed = live === undefined
+    cache.set(k, { balances, failed, exp: Date.now() + TTL })
+    return { balances, failed }
   })().finally(() => { if (inflight.get(k) === p) inflight.delete(k) })
 
   inflight.set(k, p)

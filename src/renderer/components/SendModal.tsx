@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import type { FeeEstimate, SendResult, SendAsset } from '../types/wallet'
 import { formatUnits, parseUnits, getChainType } from '../lib/asset-send'
+import { useDisplayCurrency } from '../lib/currency'
 
 interface Props {
   chainId: string       // chain-config id, e.g. 'ethereum', 'arbitrum', 'solana'
@@ -65,6 +66,7 @@ export function SendModal({
   chainId, balance, symbol, onClose, source = 'eoa',
   asset, rawBalance, assetLabel, chainLabel, onSent,
 }: Props) {
+  const { fmt } = useDisplayCurrency()
   const networkName = chainLabel ?? getChainLabel(chainId, symbol)
   // A 1-of-1 NFT has no amount to choose — the quantity is fixed at 1, so the
   // amount field and MAX button are omitted entirely rather than shown disabled.
@@ -399,8 +401,10 @@ export function SendModal({
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Network Fee</div>
                 <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 15 }}>
                   {fee.fee} {fee.feeSymbol}
-                  {fee.feeUsd && (
-                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 8 }}>{fee.feeUsd}</span>
+                  {/* `precise`: a fee is often worth a fraction of a cent, and a
+                      rendered zero would read as free. */}
+                  {fee.feeUsd != null && (
+                    <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-secondary)', marginLeft: 8 }}>{fmt(fee.feeUsd, { precise: true })}</span>
                   )}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>

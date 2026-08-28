@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import type { MarketCoin, MarketResult } from '../types/wallet'
 import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
+import { useDisplayCurrency, type DisplayCurrency } from '../lib/currency'
 
 // Carried as one bag and spread below, so a new toolbar action reaches this
 // page without an edit here — see HeaderToolbarProps.
@@ -14,19 +15,30 @@ const PAGE_CACHE_FRESH_TTL = 60 * 1000       // silently refresh if older than 1
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function fmtPrice(p: number): string {
-  if (p >= 1000) return `$${p.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-  if (p >= 1)    return `$${p.toFixed(4)}`
-  if (p >= 0.01) return `$${p.toFixed(5)}`
-  return `$${p.toFixed(6)}`
+/**
+ * The table's column track, shared by the header, the rows and the loading
+ * skeleton so they cannot drift apart. Fixed widths, not `auto`: every row is
+ * its own grid container, so content-sized tracks would line up with nothing.
+ *
+ * Price and market cap are wider than they were because both the symbol and the
+ * magnitude move with the display currency — "$80,522.00" becomes
+ * "CA$112,730.80" — and against the old 66px the CAD figure ran straight
+ * through the 24h column. The other half of that fit is in formatFiatPrice,
+ * which goes compact above ten million so the high-magnitude currencies (VND,
+ * IDR, KRW) cannot outgrow the track either. The asset name pays for the extra
+ * width and already ellipsizes.
+ */
+const MARKET_COLUMNS = '20px minmax(0,1fr) 96px 44px 58px 58px'
+
+// Market data is quoted in USD (see main/market-fetcher.ts); the display
+// currency is applied on top of it, exactly as it is for portfolio values.
+function fmtPrice(p: number, cur: DisplayCurrency): string {
+  return cur.fmtPrice(p) ?? '—'
 }
 
-function fmtCap(n: number | null): string {
+function fmtCap(n: number | null, cur: DisplayCurrency): string {
   if (!n) return '—'
-  if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`
-  if (n >= 1e9)  return `$${(n / 1e9).toFixed(1)}B`
-  if (n >= 1e6)  return `$${(n / 1e6).toFixed(0)}M`
-  return `$${n.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+  return cur.fmtCompact(n) ?? '—'
 }
 
 function fmtChange(pct: number | null) {
@@ -111,6 +123,7 @@ const TIMEFRAMES: Array<{ key: Timeframe; label: string }> = [
 ]
 
 function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }) {
+  const cur = useDisplayCurrency()
   const [tf, setTf]           = useState<Timeframe>('7')
   const [chartData, setChartData] = useState<Array<[number, number]>>([])
   const [loading, setLoading] = useState(true)
@@ -126,7 +139,10 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
   }, [coin.id, tf])
 
   const usdVal = parseFloat(convertAmt || '0') * coin.price
-  const coinVal = parseFloat(convertAmt || '0') / (coin.price || 1)
+  // Per-unit-of-display-currency, not per-USD: with CAD selected the line
+  // below reads "1 CAD = …", so the divisor has to move with the rate.
+  const pricePerUnit = coin.price * (cur.rate ?? 1)
+  const coinVal = parseFloat(convertAmt || '0') / (pricePerUnit || 1)
 
   const prices = chartData.map(d => d[1])
   const first = prices[0] ?? coin.price
@@ -169,7 +185,7 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
         {/* Price + change */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
           <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            {fmtPrice(coin.price)}
+            {fmtPrice(coin.price, cur)}
           </div>
           {!loading && chartData.length > 1 && (
             <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isUp ? '#22c55e' : '#ef4444' }}>
@@ -230,7 +246,7 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
             </span>
           </div>
 
-          {/* Row 2 — USD output */}
+          {/* Row 2 — fiat output, in the user's display currency */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <div style={{
               flex: 1, background: 'rgba(0,0,0,0.25)', border: '1px solid var(--border)',
@@ -238,18 +254,16 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
               fontSize: 13, color: 'var(--text-primary)', fontWeight: 700, minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}>
-              {usdVal >= 0.01
-                ? `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}`
-                : `$${usdVal.toFixed(6)}`}
+              {cur.fmt(usdVal, { precise: true })}
             </div>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600, minWidth: 48, textAlign: 'right' }}>
-              USD
+              {cur.shownCode.toUpperCase()}
             </span>
           </div>
 
           {/* Rate */}
           <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', borderTop: '1px solid var(--border)', paddingTop: 8 }}>
-            1 USD = {coinVal >= 0.000001 ? coinVal.toPrecision(5) : coinVal.toExponential(2)} {coin.symbol}
+            1 {cur.shownCode.toUpperCase()} = {coinVal >= 0.000001 ? coinVal.toPrecision(5) : coinVal.toExponential(2)} {coin.symbol}
           </div>
         </div>
       </div>
@@ -260,12 +274,13 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
 // ─── Market table row ────────────────────────────────────────────────────────
 
 function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
+  const cur = useDisplayCurrency()
   return (
     <div
       onClick={onClick}
       style={{
         display: 'grid',
-        gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
+        gridTemplateColumns: MARKET_COLUMNS,
         gap: 6, alignItems: 'center',
         padding: '8px 12px',
         borderBottom: '1px solid var(--border)',
@@ -293,7 +308,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
 
       {/* Price */}
       <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', textAlign: 'right' }}>
-        {fmtPrice(coin.price)}
+        {fmtPrice(coin.price, cur)}
       </div>
 
       {/* 24h */}
@@ -301,7 +316,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
 
       {/* Market cap */}
       <div style={{ fontSize: 10, color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', textAlign: 'right' }}>
-        {fmtCap(coin.marketCap)}
+        {fmtCap(coin.marketCap, cur)}
       </div>
 
       {/* Sparkline */}
@@ -442,7 +457,7 @@ export function MarketPage(toolbar: TabProps) {
       {/* Table header */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
+        gridTemplateColumns: MARKET_COLUMNS,
         gap: 6, padding: '6px 12px',
         borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, background: 'rgba(0,0,0,0.2)'
@@ -459,7 +474,7 @@ export function MarketPage(toolbar: TabProps) {
         {loading ? (
           Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={{
-              display: 'grid', gridTemplateColumns: '20px minmax(0,1fr) 66px 44px 54px 64px',
+              display: 'grid', gridTemplateColumns: MARKET_COLUMNS,
               gap: 6, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--border)'
             }}>
               {[16, 100, 60, 40, 50, 50].map((w, j) => (

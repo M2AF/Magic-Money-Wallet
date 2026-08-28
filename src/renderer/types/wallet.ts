@@ -7,6 +7,7 @@ import type { AssetFilterEntries } from '../../shared/asset-filter-key'
 import type { ThemeEntries } from '../../shared/theme-sync-wire'
 import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downloads-wire'
 import type { HistorySnapshot } from '../../shared/history-wire'
+import type { FxRates } from '../../shared/currencies'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -135,7 +136,14 @@ export interface WalletAddresses {
 export interface ChainBalance {
   native: string
   symbol: string
-  usdValue: string | null
+  /**
+   * USD value of the holding. RAW NUMBER, not a display string: the wallet prices
+   * everything in USD but can DISPLAY it in any currency, so the conversion and
+   * the `Intl` formatting both happen at the last moment in the renderer
+   * (lib/currency.ts). Sorting and portfolio totals read this directly — they used
+   * to parse it back out of a "$1,234.56" string, which no non-USD format survives.
+   */
+  usdValue: number | null
   tokenCount: number
   error: string | null
   priceChange24h: number | null
@@ -199,7 +207,14 @@ export interface WalletToken {
    * "not sendable" rather than guessing.
    */
   rawBalance?: string
-  usdValue: string | null
+  /**
+   * USD value of the holding. RAW NUMBER, not a display string: the wallet prices
+   * everything in USD but can DISPLAY it in any currency, so the conversion and
+   * the `Intl` formatting both happen at the last moment in the renderer
+   * (lib/currency.ts). Sorting and portfolio totals read this directly — they used
+   * to parse it back out of a "$1,234.56" string, which no non-USD format survives.
+   */
+  usdValue: number | null
   nativeEquivalent: string | null
   nativeSymbol: string
   logoUri: string | null
@@ -216,6 +231,8 @@ export interface TokensResult {
   tokens: WalletToken[]
   fetchedAt: number
   error: string | null
+  /** chain id -> why that chain returned nothing. Absent when every chain answered. */
+  chainErrors?: Record<string, string>
 }
 
 export interface NftTrait {
@@ -247,13 +264,15 @@ export interface WalletCollectible {
   traits: NftTrait[]
   source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
   floorPrice?: number | null   // collection floor in the chain's native unit
-  usdValue?: string | null     // floor × native price, e.g. "$42.10"
+  /** floor × native price, in USD. Raw number — see ChainBalance.usdValue. */
+  usdValue?: number | null
 }
 
 export interface NftFloorPrice {
   floor: string | null
   currency: string
-  floorUsd: string | null
+  /** Floor in USD. Raw number — see ChainBalance.usdValue. */
+  floorUsd: number | null
 }
 
 export interface CollectiblesResult {
@@ -416,7 +435,8 @@ export type SendChain = string
 export interface FeeEstimate {
   fee: string
   feeSymbol: string
-  feeUsd: string | null
+  /** Fee in USD. Raw number — see ChainBalance.usdValue. */
+  feeUsd: number | null
 }
 
 /**
@@ -801,6 +821,13 @@ declare global {
       revokeAllSites(): Promise<ApprovedOrigin[]>
       deleteWallet(): Promise<boolean>
       // Phase 5
+      /**
+       * USD → fiat rates for the display-currency picker. Only called when the
+       * user has chosen a non-USD currency; see renderer/lib/currency.ts.
+       * Optional so an older host build (extension/mobile shell that predates
+       * this method) degrades to USD instead of throwing.
+       */
+      getFxRates?(): Promise<FxRates>
       getMarket(): Promise<MarketResult>
       searchMarket(query: string): Promise<MarketCoin[]>
       getCoinChart(coinId: string, days: string): Promise<Array<[number, number]>>

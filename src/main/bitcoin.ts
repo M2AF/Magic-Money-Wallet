@@ -117,13 +117,13 @@ export async function estimateBitcoinFee(
   const selected = await buildSegwitSend(publicKey, fromAddress, to, sats, await feePerVByte(), mode.network)
   const feeBtc = Number(selected.fee ?? 0n) / 1e8
 
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   if (!mode.testnet) {
     try {
       const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
       const j = await res.json() as { bitcoin?: { usd?: number } }
       const price = j.bitcoin?.usd ?? 0
-      if (price > 0) feeUsd = `$${(feeBtc * price).toFixed(2)}`
+      if (price > 0) feeUsd = feeBtc * price
     } catch { /* price optional */ }
   }
 

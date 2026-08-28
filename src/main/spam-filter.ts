@@ -18,7 +18,7 @@
 export interface SpamCheckToken {
   name: string
   symbol: string
-  usdValue: string | null
+  usdValue: number | null
 }
 
 // Common TLDs seen in wallet-drainer airdrops. Deliberately NOT "every TLD" —
@@ -36,10 +36,18 @@ const DOMAIN_RE = new RegExp(
 // Call-to-action bait: "claim", "airdrop", "visit … to redeem", etc.
 const BAIT_RE = /\b(?:claim|airdrop|voucher|give?away|rewards?|redeem|bonus|visit)\b/i
 
-function hasPositiveUsd(usdValue: string | null): boolean {
-  if (!usdValue) return false
-  const n = parseFloat(usdValue.replace(/[$,]/g, ''))
-  return Number.isFinite(n) && n > 0
+/**
+ * Dust does not count as a valuation. The guardrail exists to spare REAL
+ * holdings from the name heuristics, and a scam mint that prices at a
+ * millionth of a cent is not a real holding — it is a drainer that happened to
+ * land on a DEX pair. The threshold is half a cent, i.e. anything that would
+ * still display as zero at two decimals; when usdValue was a preformatted
+ * "$0.00" string this fell out of the rounding, and it is now deliberate.
+ */
+const DUST_USD = 0.005
+
+function hasPositiveUsd(usdValue: number | null): boolean {
+  return usdValue != null && Number.isFinite(usdValue) && usdValue >= DUST_USD
 }
 
 /** True when a token looks like a phishing airdrop (see module doc). */

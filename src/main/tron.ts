@@ -230,12 +230,12 @@ export async function estimateTronFee(
   isToken = false
 ): Promise<FeeEstimate> {
   const feeTrx = isToken ? 30 : 1.1
-  let feeUsd: string | null = null
+  let feeUsd: number | null = null
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=tron&vs_currencies=usd', { signal: AbortSignal.timeout(5_000) })
     const json = await res.json() as { tron?: { usd?: number } }
     const price = json.tron?.usd ?? 0
-    if (price > 0) feeUsd = `$${(feeTrx * price).toFixed(4)}`
+    if (price > 0) feeUsd = feeTrx * price
   } catch { /* price optional */ }
   return { fee: feeTrx.toFixed(2), feeSymbol: 'TRX', feeUsd }
 }

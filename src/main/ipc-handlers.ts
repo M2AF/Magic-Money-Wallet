@@ -177,6 +177,7 @@ import { heliusRpcUrl, tatumRpcUrl } from './api-proxy'
 import { fetchAllBalances } from './balance-fetcher'
 import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
+import { getFxRates } from './fx-rates'
 import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor, resolveCustomToken, resolveCustomNft } from './token-fetcher'
 import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from './swap-proxy'
 import { executeSwap } from './swap-executor'
@@ -1384,6 +1385,10 @@ export function registerIpcHandlers(): void {
     }
     return current
   })
+
+  // Display-currency rates. Only ever called when the user has picked a
+  // non-USD currency, so the default install makes no request. See fx-rates.ts.
+  ipcMain.handle('wallet:get-fx-rates', () => getFxRates())
 
   // ── Phase 5: Market Watch ────────────────────────────────────────────────
   ipcMain.handle('wallet:get-market', () => fetchMarketTop100(loadConfig()))
