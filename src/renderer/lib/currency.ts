@@ -338,6 +338,13 @@ export function formatFiatCompact(
       style: 'currency',
       currency: intlCode(useCode),
       notation: 'compact',
+      // Both bounds are explicit because the currency's own digit count would
+      // otherwise supply the minimum, and ICU versions disagree about whether
+      // compact notation honours it: Node 20 renders 1e9 USD as '$1.00B', Node
+      // 24 as '$1B'. Pinning min to 0 gives the trimmed form everywhere, which
+      // is what this function is for — and Electron ships its own ICU, so the
+      // packaged app is a third opinion we would rather not have to poll.
+      minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     }).format(value)
   } catch {
