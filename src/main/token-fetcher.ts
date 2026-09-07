@@ -1,10 +1,10 @@
 import { loadFloorCache, saveFloorCache, loadTokenMetaCache, saveTokenMetaCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft, type TokenMetaCacheEntry } from './secure-store'
-import { isTestnet, isPrivacy, customChainDefs, EVM_CHAINS, type ChainDef } from './chain-config'
+import { isTestnet, isPrivacy, customChainDefs, activePublicRpcs, EVM_CHAINS, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
 import { getTokenBalances, getTokenBalancesResult } from './alchemy-cache'
-import { fetchOnchainTokens } from './onchain-tokens'
+import { fetchOnchainTokens, batchReadTokenUris, type TokenUriRequest } from './onchain-tokens'
 import {
   alchemyRpcUrl, alchemyNftUrl, heliusRpcUrl,
   blockfrostFetch, moralisFetch, canMoralis, openseaFetch, canOpensea,
@@ -2052,6 +2052,9 @@ interface AlchemyOwnedNft {
   tokenId: string
   /** ERC-1155 editions held of this id. Alchemy returns "1" for ERC-721. */
   balance?: string
+  /** Alchemy's cached view of the token's metadata pointer. Compared against the
+   *  chain in verifyNftMetadata() — when they disagree, Alchemy is stale. */
+  tokenUri?: string
   contract: {
     address: string
     name: string | null
@@ -2123,13 +2126,150 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
   }
 }
 
+/**
+ * Repairs at most this many NFTs per chain per refresh. A wallet holding a whole
+ * stale collection would otherwise fire hundreds of gateway fetches on a free
+ * tier; the cap keeps the cost bounded and the rest correct themselves on the
+ * next refresh.
+ */
+const NFT_REPAIR_LIMIT = 25
+/** Matches the concurrency gate alchemy-cache.ts uses for balance batches. */
+const NFT_REPAIR_CONCURRENCY = 4
+
+/**
+ * Repaired metadata, keyed by the on-chain URI it came from.
+ *
+ * Collectibles are refetched every 5 minutes, and while an indexer stays stale
+ * the same mismatch is detected every time — without this the wallet would
+ * re-fetch the same gateway documents all day. Keying on the URI makes the entry
+ * self-invalidating: a `baseURI` change produces a different key, so a genuine
+ * reveal is picked up on the next pass rather than being served from here.
+ */
+const nftRepairCache = new Map<string, { meta: NftMetadata | null; exp: number }>()
+const NFT_REPAIR_TTL = 30 * 60_000
+/** A 404 is cached too, briefly — a dead gateway shouldn't be retried every pass,
+ *  but a fresh Arweave upload that 404s now may well resolve in a few minutes. */
+const NFT_REPAIR_MISS_TTL = 5 * 60_000
+/** Bounds the map in a long-lived session; oldest inserts go first (Map is ordered). */
+const NFT_REPAIR_CACHE_MAX = 500
+
+function rememberRepair(uri: string, meta: NftMetadata | null): void {
+  if (nftRepairCache.size >= NFT_REPAIR_CACHE_MAX) {
+    for (const k of nftRepairCache.keys()) {
+      nftRepairCache.delete(k)
+      if (nftRepairCache.size < NFT_REPAIR_CACHE_MAX) break
+    }
+  }
+  nftRepairCache.set(uri, { meta, exp: Date.now() + (meta ? NFT_REPAIR_TTL : NFT_REPAIR_MISS_TTL) })
+}
+
+/** Shared across every chain in one refresh, so the cap is global, not per-chain. */
+interface RepairBudget { left: number }
+
+/**
+ * Cross-check the indexer's metadata pointer against the chain, and repair the
+ * items where it lied.
+ *
+ * Alchemy caches `tokenURI` and can serve a stale one indefinitely: a collection
+ * whose `baseURI` changed during launch kept a four-day-old pointer through both
+ * `refreshCache=true` and the contract's own ERC-4906 events, so every token in
+ * it rendered the wrong artwork. Reordering the image fallbacks cannot fix that —
+ * `raw.metadata` is Alchemy's copy of the same wrong document.
+ *
+ * The chain is the authority and reading it is free (keyless RPC + Multicall3),
+ * so the happy path is ONE `eth_call` per chain and zero gateway fetches. Only a
+ * genuine mismatch costs a metadata fetch.
+ *
+ * Mutates `items` in place. Every failure path leaves the indexer's data intact —
+ * a flaky RPC or a 404 on a fresh Arweave upload must never blank an NFT.
+ */
+async function verifyNftMetadata(
+  items: WalletCollectible[],
+  indexerUris: Map<string, string>,
+  chain: typeof NFT_CHAINS[0],
+  config: WalletConfig,
+  budget: RepairBudget,
+): Promise<void> {
+  if (!items.length || !indexerUris.size || budget.left <= 0) return
+
+  // Testnet chain ids collide with mainnet ones, so the endpoint list has to come
+  // from the active mode — otherwise a testnet NFT is checked against mainnet.
+  const endpoints = activePublicRpcs(config)[chain.id] ?? []
+  if (!endpoints.length) return
+
+  const requests: TokenUriRequest[] = items.map(it => ({
+    contract: it.contractAddress,
+    tokenId: it.tokenId,
+    isErc1155: /1155/.test(it.contractType ?? ''),
+  }))
+
+  const onchain = await batchReadTokenUris(chain.id, requests, endpoints)
+  if (!onchain.size) return  // no Multicall3, or every RPC down — keep Alchemy's
+
+  // A pointer differs only if BOTH sides resolved to something and they disagree.
+  // Compare post-resolution so ipfs:// vs gateway form isn't a false positive.
+  const stale = items.filter(it => {
+    const chainUri = onchain.get(`${it.contractAddress.toLowerCase()}:${it.tokenId}`)
+    if (!chainUri) return false
+    const said = indexerUris.get(it.id)
+    if (!said) return false
+    const a = resolveMetadataUri(chainUri)
+    const b = resolveMetadataUri(said)
+    return !!a && !!b && a !== b
+  })
+  if (!stale.length) return
+
+  const batch = stale.slice(0, Math.min(NFT_REPAIR_LIMIT, budget.left))
+  // Charged up front so one chain's dead gateway cannot eat the other chains'
+  // allowance by failing fast and looping.
+  budget.left -= batch.length
+  if (stale.length > batch.length) {
+    console.warn(`[NFT] ${chain.label}: ${stale.length} stale, repairing first ${batch.length} this pass`)
+  } else {
+    console.log(`[NFT] ${chain.label}: ${batch.length} stale metadata pointer(s), repairing from chain`)
+  }
+
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < batch.length) {
+      const it = batch[cursor++]
+      const uri = onchain.get(`${it.contractAddress.toLowerCase()}:${it.tokenId}`)
+      if (!uri) continue
+      const now = Date.now()
+      const hit = nftRepairCache.get(uri)
+      const fresh = hit && hit.exp > now
+      const meta = fresh ? hit.meta : await fetchNftMetadata(uri)
+      if (!fresh) rememberRepair(uri, meta)
+      if (!meta) continue  // gateway down or 404 — Alchemy's copy stays
+      // image_url is read here because on-chain metadata uses it as often as
+      // image; mapAlchemyNft only ever sees Alchemy's normalised `image`.
+      const img = normalizeImageUrl(meta.image ?? meta.image_url ?? null)
+      if (img) it.image = img
+      const anim = normalizeImageUrl(meta.animation_url ?? null)
+      if (anim) it.animationUrl = anim
+      if (meta.name) it.name = meta.name
+      if (meta.description) it.description = meta.description
+      if (Array.isArray(meta.attributes)) {
+        it.traits = (meta.attributes as Array<{ trait_type?: unknown; value?: unknown }>)
+          .filter(a => a?.trait_type != null && a?.value != null)
+          .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(NFT_REPAIR_CONCURRENCY, batch.length) }, worker)
+  )
+}
+
 async function fetchAlchemyNftsForChain(
   address: string,
   chain: typeof NFT_CHAINS[0],
-  config: WalletConfig
+  config: WalletConfig,
+  budget?: RepairBudget
 ): Promise<ChainNftResult> {
   console.log(`[NFT] Fetching ${chain.label} for ${address.slice(0, 10)}…`)
   const items: WalletCollectible[] = []
+  const indexerUris = new Map<string, string>()
   let pageKey: string | undefined
   try {
     for (let page = 0; page < ALCHEMY_NFT_MAX_PAGES; page++) {
@@ -2156,12 +2296,21 @@ async function fetchAlchemyNftsForChain(
         return { chain, items, error: json.error }
       }
 
-      items.push(...(json.ownedNfts ?? []).map(nft => mapAlchemyNft(nft, chain)))
+      for (const nft of json.ownedNfts ?? []) {
+        const item = mapAlchemyNft(nft, chain)
+        // Kept beside the item rather than on it: this is the indexer's claim
+        // about the pointer, not part of the collectible the UI renders.
+        if (nft.tokenUri) indexerUris.set(item.id, nft.tokenUri)
+        items.push(item)
+      }
       pageKey = json.pageKey || undefined
       if (!pageKey) break
     }
 
     console.log(`[NFT] ${chain.label}: found ${items.length} NFTs`)
+    // Verification is best-effort and must never turn a successful fetch into an
+    // error, so its own failures are swallowed inside verifyNftMetadata.
+    if (budget) await verifyNftMetadata(items, indexerUris, chain, config, budget)
     return { chain, items, error: null }
   } catch (e) {
     const msg = String(e)
@@ -2179,9 +2328,13 @@ async function fetchAlchemyNftsForChain(
 async function fetchNftsForChain(
   address: string,
   chain: typeof NFT_CHAINS[0],
-  config: WalletConfig
+  config: WalletConfig,
+  budget?: RepairBudget
 ): Promise<ChainNftResult> {
-  const primary = await fetchAlchemyNftsForChain(address, chain, config)
+  // The Moralis fallback below is deliberately left unverified: it only runs when
+  // Alchemy returned nothing at all, and piling RPC work onto the degraded path
+  // is the wrong trade.
+  const primary = await fetchAlchemyNftsForChain(address, chain, config, budget)
   // Partial pages are kept by the Alchemy path on a late failure; only fall back
   // when it recovered nothing at all, so a good partial is never thrown away.
   if (!primary.error || primary.items.length > 0) return primary
@@ -2869,16 +3022,19 @@ export async function fetchAllCollectibles(
     const agwAddress = testnet ? null : (agw ?? null)
     const nftChains = testnet ? TESTNET_NFT_CHAINS : NFT_CHAINS
     const abstractChainCfg = nftChains.find(c => c.id === 'abstract')!
+    // One budget object shared by the whole fan-out, so the repair cap is global
+    // per refresh rather than per chain.
+    const repairBudget: RepairBudget = { left: NFT_REPAIR_LIMIT }
 
     // Testnet Mode gates: Helius DAS (Solana), Blockfrost (Cardano), Moralis
     // Monad route, TronScan, and Ordiscan are mainnet-scoped — skipped. EVM NFTs
     // keep working via the Alchemy testnet slugs.
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals, customNfts, importedNfts] = await Promise.all([
-      Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config))),
+      Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config, repairBudget))),
       (solanaAddress && !testnet)  ? fetchSolanaNFTs(solanaAddress, config)   : Promise.resolve([] as WalletCollectible[]),
       (cardanoAddress && !testnet) ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
-        ? fetchNftsForChain(agwAddress, abstractChainCfg, config).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
+        ? fetchNftsForChain(agwAddress, abstractChainCfg, config, repairBudget).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
       testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config),
       (tronAddress && !testnet) ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),

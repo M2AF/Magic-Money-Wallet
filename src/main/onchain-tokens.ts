@@ -117,8 +117,16 @@ interface RpcError { message?: string }
  * Throws only when every endpoint failed, so callers treat that as "this tier is
  * unavailable" rather than "the wallet is empty".
  */
-async function publicRpc<T>(chainId: string, method: string, params: unknown[], timeoutMs = 15_000): Promise<T> {
-  const urls = PUBLIC_RPCS[chainId] ?? []
+async function publicRpc<T>(
+  chainId: string,
+  method: string,
+  params: unknown[],
+  timeoutMs = 15_000,
+  // Testnet defs reuse mainnet chain ids, so a caller in Testnet Mode must pass
+  // its own endpoints — defaulting to PUBLIC_RPCS would read mainnet state.
+  endpoints?: string[],
+): Promise<T> {
+  const urls = endpoints ?? PUBLIC_RPCS[chainId] ?? []
   let lastErr: unknown = new Error(`no public RPC for ${chainId}`)
   for (const url of urls) {
     try {
@@ -144,9 +152,9 @@ async function publicRpc<T>(chainId: string, method: string, params: unknown[], 
 type Call = { target: `0x${string}`; allowFailure: boolean; callData: `0x${string}` }
 
 /** One `aggregate3` round-trip. Individual failures come back as success:false. */
-async function aggregate3(chainId: string, calls: Call[]): Promise<Array<{ success: boolean; returnData: `0x${string}` }>> {
+async function aggregate3(chainId: string, calls: Call[], endpoints?: string[]): Promise<Array<{ success: boolean; returnData: `0x${string}` }>> {
   const data = encodeFunctionData({ abi: MULTICALL_ABI, functionName: 'aggregate3', args: [calls] })
-  const raw = await publicRpc<`0x${string}`>(chainId, 'eth_call', [{ to: MULTICALL3, data }, 'latest'], 20_000)
+  const raw = await publicRpc<`0x${string}`>(chainId, 'eth_call', [{ to: MULTICALL3, data }, 'latest'], 20_000, endpoints)
   return decodeFunctionResult({ abi: MULTICALL_ABI, functionName: 'aggregate3', data: raw }) as Array<{ success: boolean; returnData: `0x${string}` }>
 }
 
@@ -384,4 +392,80 @@ export async function fetchOnchainTokens(
     console.warn(`[TOKEN] ${chainId} on-chain tier failed: ${String(e)}`)
     return undefined
   }
+}
+
+// ── NFT metadata pointers ────────────────────────────────────────────────────
+
+const ERC721_URI_ABI = parseAbi([
+  'function tokenURI(uint256) view returns (string)',
+  'function uri(uint256) view returns (string)',
+])
+
+export interface TokenUriRequest {
+  contract: string
+  tokenId: string
+  /** ERC-1155 reads `uri(uint256)`; everything else reads `tokenURI(uint256)`. */
+  isErc1155: boolean
+}
+
+/**
+ * The real metadata pointer for each NFT, straight off the chain.
+ *
+ * Indexers cache `tokenURI` and can serve a stale one indefinitely — Alchemy held
+ * a four-day-old pointer for a collection whose `baseURI` changed during launch,
+ * ignoring both `refreshCache` and the contract's ERC-4906 events. The chain is
+ * the only authority, and reading it here costs nothing: `publicRpc` uses the
+ * keyless endpoints, so this consumes no indexer quota.
+ *
+ * Returns a map keyed `contract.toLowerCase():tokenId`. Missing entries mean the
+ * read failed for that token; callers must treat that as "unknown", never as
+ * "no metadata", so a flaky RPC can't blank an NFT.
+ */
+export async function batchReadTokenUris(
+  chainId: string,
+  requests: TokenUriRequest[],
+  endpoints?: string[],
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  // A non-numeric id would throw in BigInt() and abort the whole chunk, taking
+  // every other token on the chain down with it.
+  const valid = requests.filter(r => /^\d+$/.test(r.tokenId))
+  if (!valid.length) return out
+
+  try {
+    for (const part of chunk(valid, MULTICALL_CHUNK)) {
+      const results = await aggregate3(chainId, part.map(r => ({
+        target: r.contract as `0x${string}`,
+        allowFailure: true,
+        callData: encodeFunctionData({
+          abi: ERC721_URI_ABI,
+          functionName: r.isErc1155 ? 'uri' : 'tokenURI',
+          args: [BigInt(r.tokenId)],
+        }),
+      })), endpoints)
+
+      results.forEach((res, i) => {
+        if (!res.success || !res.returnData || res.returnData === '0x') return
+        const req = part[i]
+        try {
+          const uri = decodeFunctionResult({
+            abi: ERC721_URI_ABI,
+            functionName: req.isErc1155 ? 'uri' : 'tokenURI',
+            data: res.returnData,
+          }) as string
+          if (!uri) return
+          // ERC-1155 allows a single `{id}` template shared by every token.
+          const expanded = uri.replace(/\{id\}/g, BigInt(req.tokenId).toString(16).padStart(64, '0'))
+          out.set(`${req.contract.toLowerCase()}:${req.tokenId}`, expanded)
+        } catch { /* not a URI-bearing contract, or a malformed return */ }
+      })
+    }
+  } catch (e) {
+    // No Multicall3 on this chain, or every keyless RPC is down. The caller keeps
+    // the indexer's data rather than showing nothing.
+    console.warn(`[NFT] ${chainId} on-chain tokenURI read failed: ${String(e)}`)
+    return new Map()
+  }
+
+  return out
 }
