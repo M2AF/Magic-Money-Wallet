@@ -1,0 +1,5 @@
+Closed test build - see it in your own money.
+
+- NFTs now show the right artwork even when a data provider's copy is out of date. The wallet checks each collection against the blockchain itself and corrects anything stale.
+
+Please report anything broken or confusing.
