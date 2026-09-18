@@ -75,6 +75,20 @@ const ownedNfts = (claimed: string) => ({
   pageKey: null,
 })
 
+/** A fresh mint as Alchemy first returns it: pointer indexed, document not fetched. */
+const unfetchedNfts = (claimed: string) => ({
+  ownedNfts: [{
+    tokenId: '45',
+    tokenUri: claimed,
+    contract: { address: CONTRACT, name: 'REDACTED', tokenType: 'ERC721' },
+    name: null,
+    description: null,
+    image: { cachedUrl: null, thumbnailUrl: null, originalUrl: null, pngUrl: null },
+    raw: { metadata: {} },
+  }],
+  pageKey: null,
+})
+
 /** An aggregate3 response carrying one successful tokenURI return. */
 const multicallReturning = (uri: string) => json({
   jsonrpc: '2.0',
@@ -100,19 +114,23 @@ interface Counts { rpc: number; gateway: number }
  * @param onchain what the chain returns, or 'rpc-down'
  * @param gateway the metadata document, or 404
  */
-function stub(claimed: string, onchain: string | 'rpc-down', gateway: unknown | 404): Counts {
+function stub(claimed: string, onchain: string | 'rpc-down', gateway: unknown | 404, owned: (claimed: string) => unknown = ownedNfts): Counts {
   const counts: Counts = { rpc: 0, gateway: 0 }
   vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
     const url = new URL(String(input))
     if (url.pathname.includes('/alchemy-nft/') && url.pathname.includes('getNFTsForOwner')) {
       return url.pathname.includes('robinhood-mainnet')
-        ? json(ownedNfts(claimed))
+        ? json(owned(claimed))
         : json({ ownedNfts: [], pageKey: null })
     }
     if (url.hostname === 'rpc.mainnet.chain.robinhood.com') {
       counts.rpc++
       if (onchain === 'rpc-down') return new Response('boom', { status: 500 })
       return multicallReturning(onchain)
+    }
+    if (url.hostname === 'tracker.example') {
+      counts.gateway++
+      return json({ image: 'https://tracker.example/pixel.png' })
     }
     if (url.hostname === 'arweave.net') {
       counts.gateway++
@@ -190,6 +208,30 @@ describe('on-chain NFT metadata verification', () => {
 
     expect(counts.rpc).toBe(2)      // the chain is re-read every pass (free)
     expect(counts.gateway).toBe(1)  // the document is not
+  }, 30_000)
+
+  it('fills in a fresh mint the indexer has not fetched yet', async () => {
+    // Pointer indexed and CORRECT, document never fetched - no mismatch to find,
+    // but nothing to show either. This was every newly minted token.
+    const uri = 'ar://6H-mWZG-fresh/45'
+    const counts = stub(uri, uri, { name: 'REDACTED #45', image: 'ar://images/45.png' }, unfetchedNfts)
+
+    const items = robinhoodItems(await fetchAllCollectibles(nextAddress(), undefined, config))
+
+    expect(items[0]).toMatchObject({ name: 'REDACTED #45', image: 'https://arweave.net/images/45.png' })
+    expect(counts.gateway).toBe(1)
+  }, 30_000)
+
+  it('does not follow an https pointer just because an NFT has no image', async () => {
+    // Imageless NFTs are mostly spam; fetching a stranger's metadata server from
+    // the user's device leaks their IP. Only content-addressed pointers qualify.
+    const uri = 'https://tracker.example/meta/45'
+    const counts = stub(uri, uri, {}, unfetchedNfts)
+
+    const items = robinhoodItems(await fetchAllCollectibles(nextAddress(), undefined, config))
+
+    expect(items).toHaveLength(1)
+    expect(counts.gateway).toBe(0)
   }, 30_000)
 
   it('keeps the indexer image when the repair gateway 404s', async () => {

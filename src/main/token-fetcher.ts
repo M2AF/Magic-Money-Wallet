@@ -2166,6 +2166,11 @@ function rememberRepair(uri: string, meta: NftMetadata | null): void {
 /** Shared across every chain in one refresh, so the cap is global, not per-chain. */
 interface RepairBudget { left: number }
 
+/** ar://, ipfs:// and data: URIs name their content; any https host can log who asked. */
+function isContentAddressed(uri: string): boolean {
+  return /^(ar|ipfs|data):/i.test(uri.trim())
+}
+
 /**
  * Cross-check the indexer's metadata pointer against the chain, and repair the
  * items where it lied.
@@ -2190,7 +2195,7 @@ async function verifyNftMetadata(
   config: WalletConfig,
   budget: RepairBudget,
 ): Promise<void> {
-  if (!items.length || !indexerUris.size || budget.left <= 0) return
+  if (!items.length || budget.left <= 0) return
 
   // Testnet chain ids collide with mainnet ones, so the endpoint list has to come
   // from the active mode — otherwise a testnet NFT is checked against mainnet.
@@ -2211,6 +2216,17 @@ async function verifyNftMetadata(
   const stale = items.filter(it => {
     const chainUri = onchain.get(`${it.contractAddress.toLowerCase()}:${it.tokenId}`)
     if (!chainUri) return false
+
+    // The indexer can have the RIGHT pointer and still show nothing: it indexes a
+    // fresh mint's tokenURI immediately but fetches the document later, sometimes
+    // much later. Those items arrive with no image at all and the pointers agree,
+    // so the mismatch test below would never catch them.
+    //
+    // Only content-addressed pointers qualify here. Imageless NFTs are mostly spam
+    // airdrops, and following their arbitrary https metadata servers from the
+    // user's device would hand a stranger the user's IP on every refresh.
+    if (!it.image && !it.animationUrl) return isContentAddressed(chainUri)
+
     const said = indexerUris.get(it.id)
     if (!said) return false
     const a = resolveMetadataUri(chainUri)
