@@ -1,0 +1,8 @@
+Closed test build - charts you can read, and a new chain.
+
+- Arc is now supported: USDC balances, tokens, NFTs, history and sends.
+- Market charts: switch between line and candles, and drag across any chart to read the price at that point.
+- The browser keeps your tabs when Android closes the app in the background, and plain http links now open over https.
+- Freshly minted NFTs no longer show up blank.
+
+Please report anything broken or confusing.
