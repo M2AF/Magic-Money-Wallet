@@ -13,7 +13,7 @@ import {
   EVM_CHAINS, CHAIN_MAP, PUBLIC_RPCS, SOLANA_RPCS, BITCOIN_ESPLORA, DOGE_API_BASE,
   TESTNET_EVM_CHAINS, TESTNET_CHAIN_MAP, TESTNET_PUBLIC_RPCS, TESTNET_SOLANA_RPCS,
   TESTNET_BITCOIN_ESPLORA, TESTNET4_BITCOIN_ESPLORA, TESTNET_KOIOS_URL, isTestnet,
-  PRIVACY_CHAINS, PRIVACY_CHAIN_MAP, isPrivacy, customChainDefs,
+  PRIVACY_CHAINS, PRIVACY_CHAIN_MAP, isPrivacy, customChainDefs, ARC_USDC_MIRROR,
   type ChainDef
 } from './chain-config'
 import { fetchZcashBalance } from './zcash'
@@ -149,7 +149,9 @@ async function fetchEvmNative(
     // hit this expensive method twice per chain.
     let tokenCount = 0
     if (chain.alchemyNetwork) {
-      tokenCount = (await getTokenBalances(chain.alchemyNetwork, address, config)).length
+      // Arc's USDC mirror is the native balance, not a separate token.
+      tokenCount = (await getTokenBalances(chain.alchemyNetwork, address, config))
+        .filter(t => !(chain.id === 'arc' && t.contractAddress.toLowerCase() === ARC_USDC_MIRROR)).length
     } else if (chain.blockscoutUrl) {
       try {
         const tokRes = await fetch(

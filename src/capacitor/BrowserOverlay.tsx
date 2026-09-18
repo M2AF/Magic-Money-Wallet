@@ -9,6 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Preferences } from '@capacitor/preferences'
 import { DappBrowser, type DappBrowserState } from './dapp-browser'
 import { onUiEvent, offUiEvent, emitUiEvent } from './platform-capacitor'
 import { NetworkSwitcher } from '../renderer/components/NetworkSwitcher'
@@ -55,8 +56,43 @@ export const HOME_URL = 'https://www.chainlensnft.info/'
 // safe-area handling changes.
 const NAV_STRIP = '54px'
 
-/** CapApp's hardware-back handler consults this to route back-presses here. */
-export const browserUiState = { open: false }
+/**
+ * CapApp's hardware-back handler consults `open` to route back-presses here.
+ * `resumeVisible` is set by CapApp when the lock screen tucks away a VISIBLE
+ * browser, so the remounted overlay can reveal it again after unlock.
+ */
+export const browserUiState = { open: false, resumeVisible: false }
+
+// Open tab URLs, persisted so tabs survive Android killing the app in the
+// background. URLs only — never page content — and never while Tor Mode is on.
+const SESSION_KEY = 'browser.session'
+type SavedSession = { urls: string[]; activeIndex: number }
+
+function saveSession(tabs: DappBrowserState['tabs'], activeTabId: number): void {
+  const urls = tabs.map(t => t.url).filter(u => /^https?:\/\//i.test(u))
+  if (urls.length === 0) { clearSession(); return }
+  const activeIndex = Math.max(0, tabs.findIndex(t => t.id === activeTabId))
+  Preferences.set({ key: SESSION_KEY, value: JSON.stringify({ urls, activeIndex: Math.min(activeIndex, urls.length - 1) }) })
+    .catch(() => {})
+}
+
+function clearSession(): void {
+  Preferences.remove({ key: SESSION_KEY }).catch(() => {})
+}
+
+async function loadSession(): Promise<SavedSession | null> {
+  try {
+    const { value } = await Preferences.get({ key: SESSION_KEY })
+    if (!value) return null
+    const s = JSON.parse(value) as SavedSession
+    const urls = Array.isArray(s?.urls) ? s.urls.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u)) : []
+    if (urls.length === 0) return null
+    const activeIndex = Number.isInteger(s.activeIndex) ? Math.min(Math.max(s.activeIndex, 0), urls.length - 1) : 0
+    return { urls, activeIndex }
+  } catch {
+    return null
+  }
+}
 
 // 'open' = session alive + shown; 'hidden' = session alive but tucked behind the
 // wallet (native WebViews hidden, TABS PRESERVED); 'closed' = no tabs.
@@ -114,6 +150,15 @@ export function BrowserOverlay() {
 
   const sessionRef = useRef<Session>('closed')
   const pendingUrlRef = useRef<string>(HOME_URL)
+  // Resolves once the mount-time rehydrate (below) has read the native tabs.
+  // Bus commands wait on it, or a deep link landing right after unlock would
+  // see 'closed' and start a second session over the surviving tabs.
+  const hydratedRef = useRef<Promise<void>>(Promise.resolve())
+  // Tabs from a previous app process, reopened lazily on the next show. The
+  // follow-up is what the triggering command wanted on top (a link to open).
+  const restoreRef = useRef<SavedSession | null>(null)
+  const restoreFollowUpRef = useRef<null | { kind: 'open' | 'newtab'; url: string }>(null)
+  const torEnabledRef = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const canBackRef = useRef(false)
 
@@ -150,6 +195,8 @@ export function BrowserOverlay() {
     setTabs([])
     setUrl(''); setUrlInput('')
     DappBrowser.close().catch(() => {})
+    restoreRef.current = null
+    clearSession()
     emitUiEvent('cap:browser:tabs', 0)
     emitUiEvent('cap:browser:closed', null)
   }
@@ -180,11 +227,74 @@ export function BrowserOverlay() {
     })
   }
 
+  // Start a session from a previous process's saved tabs: the open effect loads
+  // the first one, then restoreRest() adds the others.
+  const startRestore = (followUp: null | { kind: 'open' | 'newtab'; url: string }) => {
+    const saved = restoreRef.current
+    if (!saved) return false
+    restoreFollowUpRef.current = followUp
+    pendingUrlRef.current = saved.urls[0]
+    sessionRef.current = 'opening'
+    setVisible(true)
+    return true
+  }
+
+  const restoreRest = async () => {
+    const saved = restoreRef.current
+    restoreRef.current = null
+    const followUp = restoreFollowUpRef.current
+    restoreFollowUpRef.current = null
+    if (saved) {
+      for (const u of saved.urls.slice(1)) await DappBrowser.newTab({ url: u }).catch(() => {})
+      const st = await DappBrowser.getState().catch(() => null)
+      const target = st?.tabs[saved.activeIndex]
+      if (target && !followUp) await DappBrowser.selectTab({ tabId: target.id }).catch(() => {})
+    }
+    if (followUp?.kind === 'newtab') {
+      // At the tab limit, reuse the active tab rather than dropping the link.
+      await DappBrowser.newTab({ url: followUp.url })
+        .catch(() => DappBrowser.navigate({ url: followUp.url }).catch(() => {}))
+    } else if (followUp?.kind === 'open') {
+      await DappBrowser.navigate({ url: followUp.url }).catch(() => {})
+    }
+  }
+
+  // Mount: adopt tabs that outlived this component. The overlay unmounts with
+  // the rest of the wallet UI while the lock screen is up, but the native tab
+  // WebViews do not — without this the chrome would think nothing is open.
+  // After a full process restart there are no native tabs; fall back to the
+  // saved session instead.
+  useEffect(() => {
+    hydratedRef.current = (async () => {
+      const st = await DappBrowser.getState().catch(() => null)
+      if (st && st.tabs.length > 0) {
+        sessionRef.current = 'hidden'
+        setTabs(st.tabs); setActiveTabId(st.activeTabId)
+        setUrl(st.url); setUrlInput(st.url)
+        setCanBack(st.canBack); setCanForward(st.canForward); setLoading(st.loading)
+        emitUiEvent('cap:browser:tabs', st.tabs.length)
+        if (browserUiState.resumeVisible) {
+          browserUiState.resumeVisible = false
+          show()
+        }
+        return
+      }
+      browserUiState.resumeVisible = false
+      const saved = await loadSession()
+      if (saved && sessionRef.current === 'closed') {
+        restoreRef.current = saved
+        emitUiEvent('cap:browser:tabs', saved.urls.length)   // saved-tabs dot
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Bus commands from wallet-local (open / navigate / show / hide / close / back)
   useEffect(() => {
     // Open (or navigate to) a specific URL — from the App Hub or a deep link.
     const onOpen = (d: unknown) => {
       const target = (d as { url?: string })?.url || HOME_URL
+      if (sessionRef.current === 'closed' && startRestore({ kind: 'open', url: target })) return
       if (sessionRef.current === 'open') {
         DappBrowser.navigate({ url: target }).catch(() => {})
         return
@@ -204,6 +314,7 @@ export function BrowserOverlay() {
     // Show the existing session (Browser nav tap). Opens home if none yet.
     const onShow = () => {
       if (sessionRef.current === 'hidden' || sessionRef.current === 'open') { show(); return }
+      if (sessionRef.current === 'closed' && startRestore(null)) return
       pendingUrlRef.current = HOME_URL
       sessionRef.current = 'opening'
       setVisible(true)
@@ -220,6 +331,7 @@ export function BrowserOverlay() {
         show()
         return
       }
+      if (sessionRef.current === 'closed' && startRestore({ kind: 'newtab', url: target })) return
       // No session yet → start the browser with this URL as its first tab.
       pendingUrlRef.current = target
       sessionRef.current = 'opening'
@@ -238,16 +350,21 @@ export function BrowserOverlay() {
       if (canBackRef.current) DappBrowser.goBack().catch(() => {})
       else hide()
     }
-    onUiEvent('cap:browser:open', onOpen)
-    onUiEvent('cap:browser:newtab', onNewTab)
-    onUiEvent('cap:browser:show', onShow)
+    // Session-changing commands wait for the mount-time rehydrate (see above).
+    const gated = (fn: (d: unknown) => void) => (d: unknown) => {
+      hydratedRef.current.then(() => fn(d)).catch(() => {})
+    }
+    const gOpen = gated(onOpen), gNewTab = gated(onNewTab), gShow = gated(onShow)
+    onUiEvent('cap:browser:open', gOpen)
+    onUiEvent('cap:browser:newtab', gNewTab)
+    onUiEvent('cap:browser:show', gShow)
     onUiEvent('cap:browser:hide', onHide)
     onUiEvent('cap:browser:close', onClose)
     onUiEvent('cap:browser:back', onBack)
     return () => {
-      offUiEvent('cap:browser:open', onOpen)
-      offUiEvent('cap:browser:newtab', onNewTab)
-      offUiEvent('cap:browser:show', onShow)
+      offUiEvent('cap:browser:open', gOpen)
+      offUiEvent('cap:browser:newtab', gNewTab)
+      offUiEvent('cap:browser:show', gShow)
       offUiEvent('cap:browser:hide', onHide)
       offUiEvent('cap:browser:close', onClose)
       offUiEvent('cap:browser:back', onBack)
@@ -262,11 +379,19 @@ export function BrowserOverlay() {
     requestAnimationFrame(() => {
       if (cancelled) return
       DappBrowser.open({ url: pendingUrlRef.current, bounds: measureBounds() })
-        .then(() => { if (!cancelled) sessionRef.current = 'open' })
+        .then(() => {
+          if (cancelled) return
+          sessionRef.current = 'open'
+          if (restoreRef.current || restoreFollowUpRef.current) void restoreRest()
+        })
         .catch(() => { if (!cancelled) close() })
     })
     return () => { cancelled = true }
   }, [visible])
+
+  // Tell the wallet nav the browser is the visible view — it can be revealed
+  // without the Browser button (deep link, post-unlock resume).
+  useEffect(() => { if (visible) emitUiEvent('cap:browser:shown', null) }, [visible])
 
   // Track toolbar/keyboard/rotation layout changes → keep native bounds in step
   useEffect(() => {
@@ -289,6 +414,7 @@ export function BrowserOverlay() {
       DappBrowser.addListener('navState', e => { setCanBack(e.canBack); setCanForward(e.canForward) }),
       DappBrowser.addListener('tabsChanged', e => {
         setTabs(e.tabs); setActiveTabId(e.activeTabId)
+        if (!torEnabledRef.current) saveSession(e.tabs, e.activeTabId)
         emitUiEvent('cap:browser:tabs', e.tabs.length)   // drives the App's saved-tabs dot
         // Closing the last tab exits the browser entirely (nothing left to show).
         if (e.tabs.length === 0 && sessionRef.current !== 'closed') close()
@@ -329,7 +455,10 @@ export function BrowserOverlay() {
   // can explain the silence instead of looking broken.
   const recording = !tor.enabled
   recordingRef.current = recording
+  torEnabledRef.current = tor.enabled
   useEffect(() => { Bm.setHistoryRecording(recording) }, [recording])
+  // A Tor session must not leave its tabs on disk (same rule as history).
+  useEffect(() => { if (tor.enabled) clearSession() }, [tor.enabled])
 
   const refreshHistory = useCallback(() => {
     Bm.getHistory().then(setHistory).catch(() => {})
@@ -821,6 +950,26 @@ export function BrowserOverlay() {
             </div>
           </div>
         )}
+        {/* Address-bar suggestions. A full surface rather than a dropdown because
+            the native dApp WebViews render ABOVE this one — the same reason every
+            menu in this file is an inline panel. The WebViews are already hidden
+            by the `suggestOpen` effect, so this sits over an empty content area,
+            which is also how Chrome on Android behaves with the omnibox focused.
+            It lives inside the content area, not the overlay root, so it never
+            covers the toolbar and the address bar being typed into. */}
+        {suggestOpen && (
+          <div style={{
+            ...panelHost, overflowY: 'auto', padding: 6,
+            background: 'var(--bg, #0b0b0f)',
+          }}>
+            <SuggestList
+              history={history}
+              query={urlInput}
+              typed={urlInput.trim() !== url.trim()}
+              onOpen={openSuggestion}
+            />
+          </div>
+        )}
       </div>
 
       {/* Full-screen panels — the native WebViews are hidden while these are up
@@ -858,25 +1007,6 @@ export function BrowserOverlay() {
           />
         </div>
       )}
-      {/* Address-bar suggestions. A full surface rather than a dropdown because
-          the native dApp WebViews render ABOVE this one — the same reason every
-          menu in this file is an inline panel. The WebViews are already hidden
-          by the `suggestOpen` effect, so this sits over an empty content area,
-          which is also how Chrome on Android behaves with the omnibox focused. */}
-      {suggestOpen && (
-        <div style={{
-          ...panelHost, overflowY: 'auto', padding: 6,
-          background: 'var(--bg, #0b0b0f)',
-        }}>
-          <SuggestList
-            history={history}
-            query={urlInput}
-            typed={urlInput.trim() !== url.trim()}
-            onOpen={openSuggestion}
-          />
-        </div>
-      )}
-
       {panel === 'history' && (
         <div style={panelHost}>
           <HistoryPanel

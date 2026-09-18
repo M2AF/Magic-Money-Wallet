@@ -23,7 +23,7 @@ const SIZE = 48 // rendered at 22px, so 48px covers 2x DPI
 const SLUGS = {
   ethereum: 'ethereum', arbitrum: 'arbitrum', optimism: 'optimism', base: 'base',
   polygon: 'polygon', avalanche: 'avalanche', blast: 'blast', gnosis: 'gnosis',
-  monad: 'monad', abstract: 'abstract', apechain: 'apechain', robinhood: 'robinhood',
+  monad: 'monad', abstract: 'abstract', apechain: 'apechain', robinhood: 'robinhood', arc: 'arc',
   ronin: 'ronin', soneium: 'soneium', worldchain: 'world-chain', zora: 'zora',
   hyperevm: 'hyperevm', solana: 'solana', cardano: 'cardano', bitcoin: 'bitcoin',
   polkadot: 'polkadot', tron: 'tron', dogecoin: 'doge', monero: 'monero', zcash: 'zcash',

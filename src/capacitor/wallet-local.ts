@@ -456,6 +456,10 @@ function buildWallet() {
     },
     onBrowserHidden: (cb: () => void) => onUiEvent('cap:browser:hidden', cb as (d: unknown) => void),
     offBrowserHidden:(cb: () => void) => offUiEvent('cap:browser:hidden', cb as (d: unknown) => void),
+    // The browser became the visible view without the Browser button (deep link,
+    // resume after unlock) — lets the nav highlight it and hide it on tab switch.
+    onBrowserShown:  (cb: () => void) => onUiEvent('cap:browser:shown', cb as (d: unknown) => void),
+    offBrowserShown: (cb: () => void) => offUiEvent('cap:browser:shown', cb as (d: unknown) => void),
     // Live open-tab count → App shows a "saved tabs" dot on the Browser nav button.
     onBrowserTabCount:  (cb: (n: number) => void) => onUiEvent('cap:browser:tabs', cb as (d: unknown) => void),
     offBrowserTabCount: (cb: (n: number) => void) => offUiEvent('cap:browser:tabs', cb as (d: unknown) => void),

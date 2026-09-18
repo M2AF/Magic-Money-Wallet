@@ -214,7 +214,16 @@ export function __setDisplayLocale(locale: string | null): void {
  * Symbols stay ambiguity-free on purpose: the default `currencyDisplay` renders
  * CAD as "CA$1,234.56" rather than narrowSymbol's "$1,234.56", and in a wallet
  * the difference between US and Canadian dollars is not decoration.
+ *
+ * One exception: when the user's OWN pick is USD, it is plain "$". Outside the
+ * US the locale default is "US$" (en-CA, en-AU on Android), which is noise when
+ * every figure on screen is in the one currency they chose — and it matches
+ * the desktop. A USD fallback for a missing rate keeps "US$": there the reader
+ * picked something else, and a bare "$" could pass for their own dollars.
  */
+function narrowFor(pick: string, useCode: string): boolean {
+  return useCode === BASE_CURRENCY && pick.toLowerCase() === BASE_CURRENCY
+}
 
 /**
  * How many decimals the currency itself uses — 2 for dollars and euros, 0 for
@@ -239,18 +248,19 @@ function currencyDigits(code: string): { min: number; max: number } {
  * hundredth of a yen may need extra digits, but nothing may ask for fewer than
  * the currency defines, which is what would throw.
  */
-function formatter(code: string, wantMax?: number): Intl.NumberFormat | null {
+function formatter(code: string, wantMax?: number, narrow = false): Intl.NumberFormat | null {
   const d = currencyDigits(code)
   const max = wantMax == null ? d.max : Math.max(wantMax, d.max)
   const min = Math.min(d.min, max)
 
-  const key = `${code}:${min}:${max}`
+  const key = `${code}:${min}:${max}:${narrow ? 'n' : 's'}`
   if (fmtCache.has(key)) return fmtCache.get(key) ?? null
   let f: Intl.NumberFormat | null = null
   try {
     f = new Intl.NumberFormat(displayLocale(), {
       style: 'currency',
       currency: intlCode(code),
+      currencyDisplay: narrow ? 'narrowSymbol' : 'symbol',
       minimumFractionDigits: min,
       maximumFractionDigits: max,
     })
@@ -295,7 +305,8 @@ export function formatFiat(
     if (abs > 0 && abs < 0.01) wantMax = Math.min(8, 2 + Math.ceil(-Math.log10(abs)))
   }
 
-  const f = formatter(useCode, wantMax) ?? formatter(BASE_CURRENCY, wantMax)
+  const narrow = narrowFor(code, useCode)
+  const f = formatter(useCode, wantMax, narrow) ?? formatter(BASE_CURRENCY, wantMax)
   if (!f) return `$${value.toFixed(2)}`   // no Intl at all — vanishingly unlikely
   return f.format(value)
 }
@@ -320,7 +331,8 @@ export function formatFiatPrice(
   // coin that is CA$112,730.80. Those, and only those, go compact.
   if (abs >= 1e7) return formatFiatCompact(usd, code, rate)
   const wantMax = abs >= 1000 ? undefined : abs >= 1 ? 4 : abs >= 0.01 ? 5 : 6
-  const f = formatter(useCode, wantMax) ?? formatter(BASE_CURRENCY, wantMax)
+  const narrow = narrowFor(code, useCode)
+  const f = formatter(useCode, wantMax, narrow) ?? formatter(BASE_CURRENCY, wantMax)
   return f ? f.format(value) : `$${value.toFixed(wantMax ?? 2)}`
 }
 
@@ -337,6 +349,7 @@ export function formatFiatCompact(
     return new Intl.NumberFormat(displayLocale(), {
       style: 'currency',
       currency: intlCode(useCode),
+      currencyDisplay: narrowFor(code, useCode) ? 'narrowSymbol' : 'symbol',
       notation: 'compact',
       // Both bounds are explicit because the currency's own digit count would
       // otherwise supply the minimum, and ICU versions disagree about whether

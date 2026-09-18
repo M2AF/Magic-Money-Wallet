@@ -1,12 +1,16 @@
 package info.chainlens.magicmoney;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 
 import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 
 public class MainActivity extends BridgeActivity {
     @Override
@@ -25,6 +29,33 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(info.chainlens.magicmoney.passkey.PasskeyProviderPlugin.class);
         super.onCreate(savedInstanceState);
         enableWebAuthn();
+        surviveRendererLoss();
+    }
+
+    /**
+     * The WebView renderer is shared by every WebView in the app, and Android
+     * reclaims it under memory pressure — typically while we sit in the
+     * background. Capacitor's default answer (false) crashes the whole process.
+     *
+     * The wallet WebView cannot be revived in place (a WebView whose renderer
+     * died is unusable), so relaunch the activity cleanly instead: the wallet
+     * comes back locked — exactly as after a crash, minus the crash — and the
+     * browser's saved tab list (BrowserOverlay) restores the tabs after unlock.
+     * dApp tab WebViews recover themselves in DappBrowserPlugin.
+     */
+    private void surviveRendererLoss() {
+        getBridge().addWebViewListener(new WebViewListener() {
+            @Override
+            public boolean onRenderProcessGone(WebView webView, RenderProcessGoneDetail detail) {
+                Intent relaunch = getPackageManager().getLaunchIntentForPackage(getPackageName());
+                if (relaunch != null) {
+                    relaunch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(relaunch);
+                }
+                finish();
+                return true;
+            }
+        });
     }
 
     /**

@@ -121,3 +121,20 @@ describe('currency catalogue', () => {
     expect(intlCode('cad')).toBe('CAD')
   })
 })
+
+describe('USD symbol outside the US', () => {
+  // Android WebViews report the phone's locale; en-CA writes USD as "US$".
+  beforeAll(() => __setDisplayLocale('en-CA'))
+  afterAll(() => __setDisplayLocale('en-US'))
+
+  it('renders the user\'s own USD pick as plain "$"', () => {
+    expect(formatFiat(1234.5, 'usd', 1)).toBe('$1,234.50')
+    expect(formatFiatPrice(81217, 'usd', 1)).toBe('$81,217.00')
+    expect(formatFiatCompact(1.63e12, 'usd', 1)).toBe('$1.63T')
+  })
+
+  it('keeps "US$" when USD is only a fallback for another pick', () => {
+    // No CAD rate → a USD figure; a bare "$" would read as Canadian dollars.
+    expect(formatFiat(1000, 'cad', null)).toBe('US$1,000.00')
+  })
+})

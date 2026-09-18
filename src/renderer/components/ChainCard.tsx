@@ -64,6 +64,7 @@ const CHAIN_META: Record<string, ChainMeta> = {
   abstract:   { name: 'Abstract',     networks: 'L2 · Ethereum',              color: '#1FCE92', colorRgb: '31, 206, 146'   },
   apechain:   { name: 'ApeChain',     networks: 'L3 · ApeChain',              color: '#0066FF', colorRgb: '0, 102, 255'    },
   robinhood:  { name: 'Robinhood',    networks: 'L2 · Ethereum',              color: '#00C805', colorRgb: '0, 200, 5'      },
+  arc:        { name: 'Arc',          networks: 'L1 · Stablecoin',            color: '#3D6FB6', colorRgb: '61, 111, 182'   },
   ronin:      { name: 'Ronin',        networks: 'Mainnet',                    color: '#1273EA', colorRgb: '18, 115, 234'   },
   soneium:    { name: 'Soneium',      networks: 'L2 · Ethereum',              color: '#5B5EA6', colorRgb: '91, 94, 166'    },
   worldchain: { name: 'WorldChain',   networks: 'L2 · Ethereum',              color: '#5A64C8', colorRgb: '90, 100, 200'   },

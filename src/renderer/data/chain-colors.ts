@@ -12,6 +12,7 @@ export const CHAIN_COLORS: Record<string, ChainColor> = {
   abstract:   { hex: '#1FCE92', rgb: '31, 206, 146'   },
   apechain:   { hex: '#0066FF', rgb: '0, 102, 255'   },
   arbitrum:   { hex: '#28A0F0', rgb: '40, 160, 240'  },
+  arc:        { hex: '#3D6FB6', rgb: '61, 111, 182'  },
   avalanche:  { hex: '#E84142', rgb: '232, 65, 66'   },
   base:       { hex: '#0052FF', rgb: '0, 82, 255'    },
   bitcoin:    { hex: '#F7931A', rgb: '247, 147, 26'  },

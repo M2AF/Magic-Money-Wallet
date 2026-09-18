@@ -1,5 +1,5 @@
 import { loadFloorCache, saveFloorCache, loadTokenMetaCache, saveTokenMetaCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft, type TokenMetaCacheEntry } from './secure-store'
-import { isTestnet, isPrivacy, customChainDefs, activePublicRpcs, EVM_CHAINS, type ChainDef } from './chain-config'
+import { isTestnet, isPrivacy, customChainDefs, activePublicRpcs, EVM_CHAINS, ARC_USDC_MIRROR, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
@@ -117,6 +117,7 @@ const TOKEN_CHAINS = [
   { id: 'abstract',   label: 'Abstract',   network: 'abstract-mainnet',  color: '#6B7280' },
   { id: 'apechain',   label: 'ApeChain',   network: 'apechain-mainnet',  color: '#0066FF' },
   { id: 'robinhood',  label: 'Robinhood',  network: 'robinhood-mainnet', color: '#00C805' },
+  { id: 'arc',        label: 'Arc',        network: 'arc-mainnet',       color: '#3D6FB6' },
   { id: 'ronin',      label: 'Ronin',      network: 'ronin-mainnet',     color: '#1273EA' },
   { id: 'soneium',    label: 'Soneium',    network: 'soneium-mainnet',   color: '#5B5EA6' },
   { id: 'worldchain', label: 'WorldChain', network: 'worldchain-mainnet',color: '#5A64C8' },
@@ -127,7 +128,7 @@ const TOKEN_CHAINS = [
 // positions in TOKEN_CHAINS: token support and NFT support are separate product
 // matrices, and positional selection previously left ApeChain out entirely.
 const ALCHEMY_NFT_CHAIN_IDS = new Set([
-  'ethereum', 'arbitrum', 'base', 'polygon', 'optimism', 'abstract', 'apechain', 'robinhood',
+  'ethereum', 'arbitrum', 'base', 'polygon', 'optimism', 'abstract', 'apechain', 'robinhood', 'arc',
 ])
 
 const NFT_CHAINS = TOKEN_CHAINS.filter(c => ALCHEMY_NFT_CHAIN_IDS.has(c.id))
@@ -160,7 +161,7 @@ const NATIVE_CG: Record<string, string> = {
   ethereum: 'ethereum',    arbitrum: 'ethereum',    optimism: 'ethereum',
   base: 'ethereum',        blast: 'ethereum',       abstract: 'ethereum',
   soneium: 'ethereum',     worldchain: 'ethereum',  zora: 'ethereum',
-  robinhood: 'ethereum',
+  robinhood: 'ethereum',   arc: 'usd-coin',
   polygon: 'polygon-ecosystem-token', avalanche: 'avalanche-2',
   gnosis: 'xdai',          apechain: 'apecoin',     ronin: 'ronin',
   monad: 'monad',
@@ -172,7 +173,7 @@ const NATIVE_CG: Record<string, string> = {
 const NATIVE_SYMBOL: Record<string, string> = {
   ethereum: 'ETH',  arbitrum: 'ETH',  optimism: 'ETH', base: 'ETH',
   blast: 'ETH',     abstract: 'ETH',  soneium: 'ETH',  worldchain: 'ETH', zora: 'ETH',
-  robinhood: 'ETH',
+  robinhood: 'ETH',  arc: 'USDC',
   polygon: 'POL',   avalanche: 'AVAX', gnosis: 'xDAI',
   apechain: 'APE',  ronin: 'RON',     monad: 'MON',
   solana: 'SOL',    cardano: 'ADA',   tron: 'TRX',
@@ -185,13 +186,14 @@ const DS_CHAIN: Record<string, string> = {
   polygon: 'polygon',   avalanche: 'avalanche', blast: 'blast',    gnosis: 'gnosis',
   abstract: 'abstract', apechain: 'apechain',   ronin: 'ronin',    soneium: 'soneium',
   worldchain: 'worldchain', zora: 'zora',       monad: 'monad',    solana: 'solana',
-  tron: 'tron',             cardano: 'cardano',
+  tron: 'tron',             cardano: 'cardano',    arc: 'arc',
 }
 
 // DefiLlama Coins API chain slugs — free, no key. Used to backfill prices for
 // chains where DexScreener coverage is thin (notably Monad, which is new).
 const LLAMA_CHAIN: Record<string, string> = {
   monad: 'monad',
+  arc: 'arc',
 }
 
 const NATIVE_ADDR = '0x0000000000000000000000000000000000000000'
@@ -1835,7 +1837,11 @@ export async function fetchAllTokens(
     // total. Only what auto-detect actually missed gets added.
     const tokenKeyOf = (t: WalletToken) => `${t.chain}:${t.contractAddress.toLowerCase()}`
     const autoTokenKeys = new Set(auto.map(tokenKeyOf))
+    // Arc's system USDC ERC-20 is the native balance seen through a second
+    // interface — the native row already carries it, so listing it would double
+    // the holding in the portfolio total.
     const raw = [...auto, ...importedTokens.filter(t => !autoTokenKeys.has(tokenKeyOf(t)))]
+      .filter(t => !(t.chain === 'arc' && t.contractAddress.toLowerCase() === ARC_USDC_MIRROR))
     // No price enrichment on testnets — DexScreener/DefiLlama/CoinGecko index
     // mainnet contracts, so a testnet address could collide with an unrelated
     // mainnet token and show a bogus USD value.

@@ -27,6 +27,7 @@ const MAINNET_EVM_CHAINS: EvmChainOption[] = [
   { chainId: 2741, id: 'abstract', name: 'Abstract', color: '#6B7280' },
   { chainId: 33139, id: 'apechain', name: 'ApeChain', color: '#0066FF' },
   { chainId: 4663, id: 'robinhood', name: 'Robinhood Chain', color: '#00C805' },
+  { chainId: 5042, id: 'arc', name: 'Arc', color: '#3D6FB6' },
   { chainId: 2020, id: 'ronin', name: 'Ronin', color: '#1273EA' },
   { chainId: 1868, id: 'soneium', name: 'Soneium', color: '#5B5EA6' },
   { chainId: 480, id: 'worldchain', name: 'WorldChain', color: '#1A1B1F' },
@@ -60,7 +61,7 @@ const TESTNET_EVM_CHAINS: EvmChainOption[] = [
 const SHORT_LABELS: Record<string, string> = {
   ethereum: 'ETH', arbitrum: 'ARB', optimism: 'OP', base: 'BASE',
   polygon: 'POL', avalanche: 'AVAX', blast: 'BLAST', gnosis: 'GNO',
-  monad: 'MON', abstract: 'ABS', apechain: 'APE', robinhood: 'RHC', ronin: 'RON',
+  monad: 'MON', abstract: 'ABS', apechain: 'APE', robinhood: 'RHC', arc: 'ARC', ronin: 'RON',
   soneium: 'SONE', worldchain: 'WLD', zora: 'ZORA', hyperevm: 'HYPE',
 }
 

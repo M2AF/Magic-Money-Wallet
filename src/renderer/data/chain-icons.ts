@@ -9,6 +9,7 @@
 import abstract from '../assets/chains/abstract.webp'
 import apechain from '../assets/chains/apechain.webp'
 import arbitrum from '../assets/chains/arbitrum.webp'
+import arc from '../assets/chains/arc.webp'
 import avalanche from '../assets/chains/avalanche.webp'
 import base from '../assets/chains/base.webp'
 import bitcoin from '../assets/chains/bitcoin.webp'
@@ -34,7 +35,7 @@ import zcash from '../assets/chains/zcash.webp'
 import zora from '../assets/chains/zora.webp'
 
 export const CHAIN_ICONS: Record<string, string> = {
-  abstract, apechain, arbitrum, avalanche, base, bitcoin, blast, cardano,
+  abstract, apechain, arbitrum, arc, avalanche, base, bitcoin, blast, cardano,
   dogecoin, ethereum, gnosis, hyperevm, midnight, monad, monero, optimism,
   polkadot, polygon, robinhood, ronin, solana, soneium, tron, worldchain,
   zcash, zora,

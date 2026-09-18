@@ -996,6 +996,8 @@ declare global {
       openBrowserInNewTab?(url: string): void
       onBrowserHidden?(cb: () => void): void
       offBrowserHidden?(cb: () => void): void
+      onBrowserShown?(cb: () => void): void
+      offBrowserShown?(cb: () => void): void
       onBrowserTabCount?(cb: (n: number) => void): void
       offBrowserTabCount?(cb: (n: number) => void): void
       // dApp browser: active EVM network (toolbar switcher + awareness)

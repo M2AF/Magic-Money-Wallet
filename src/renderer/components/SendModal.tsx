@@ -54,7 +54,7 @@ function getChainLabel(chainId: string, symbol: string): string {
     ethereum: 'Ethereum', arbitrum: 'Arbitrum One', optimism: 'Optimism',
     base: 'Base', polygon: 'Polygon', avalanche: 'Avalanche',
     blast: 'Blast', gnosis: 'Gnosis', monad: 'Monad', abstract: 'Abstract',
-    apechain: 'ApeChain', robinhood: 'Robinhood', ronin: 'Ronin', soneium: 'Soneium',
+    apechain: 'ApeChain', robinhood: 'Robinhood', arc: 'Arc', ronin: 'Ronin', soneium: 'Soneium',
     worldchain: 'WorldChain', zora: 'Zora', hyperevm: 'HyperEVM',
     solana: 'Solana', cardano: 'Cardano', tron: 'Tron', dogecoin: 'Dogecoin',
     monero: 'Monero', zcash: 'Zcash', midnight: 'Midnight'

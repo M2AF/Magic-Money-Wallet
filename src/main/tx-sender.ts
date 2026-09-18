@@ -131,6 +131,8 @@ const monad = defineChain({ id: 143, name: 'Monad', nativeCurrency: { name: 'Mon
 const abstractChain = defineChain({ id: 2741, name: 'Abstract', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://api.mainnet.abs.xyz'] } } })
 const apeChain = defineChain({ id: 33139, name: 'ApeChain', nativeCurrency: { name: 'ApeCoin', symbol: 'APE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.apechain.com/http'] } } })
 const robinhood = defineChain({ id: 4663, name: 'Robinhood Chain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.mainnet.chain.robinhood.com'] } } })
+// Arc's gas token is native USDC, carried with 18 decimals at the protocol level.
+const arc = defineChain({ id: 5042, name: 'Arc', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } } })
 const soneium = defineChain({ id: 1868, name: 'Soneium', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.soneium.org'] } } })
 const worldchain = defineChain({ id: 480, name: 'WorldChain', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } } })
 const hyperEvm = defineChain({ id: 998, name: 'HyperEVM', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid.xyz/evm'] } } })
@@ -162,6 +164,7 @@ export const EVM_CHAINS: Record<string, EvmChainEntry> = {
   abstract:   { chain: abstractChain, rpcUrl: () => 'https://api.mainnet.abs.xyz',                                  explorer: 'https://abscan.org/tx',                                 nativeSymbol: 'ETH'  },
   apechain:   { chain: apeChain,      rpcUrl: () => 'https://rpc.apechain.com/http',                                explorer: 'https://apescan.io/tx',                                 nativeSymbol: 'APE'  },
   robinhood:  { chain: robinhood,     rpcUrl: cfg => alchemyRpcUrl('robinhood-mainnet', cfg), explorer: 'https://robinhoodchain.blockscout.com/tx',              nativeSymbol: 'ETH'  },
+  arc:        { chain: arc,           rpcUrl: cfg => alchemyRpcUrl('arc-mainnet', cfg),     explorer: 'https://explorer.arc.io/tx',                            nativeSymbol: 'USDC' },
   ronin:      { chain: ronin,         rpcUrl: () => 'https://api.roninchain.com/rpc',                               explorer: 'https://app.roninchain.com/tx',                         nativeSymbol: 'RON'  },
   soneium:    { chain: soneium,       rpcUrl: () => 'https://rpc.soneium.org',                                      explorer: 'https://soneium.blockscout.com/tx',                     nativeSymbol: 'ETH'  },
   worldchain: { chain: worldchain,    rpcUrl: () => 'https://worldchain-mainnet.g.alchemy.com/public',              explorer: 'https://worldchain-mainnet.explorer.alchemy.com/tx',    nativeSymbol: 'WLD'  },
@@ -373,7 +376,7 @@ function getCoingeckoId(chainId: string): string {
   const map: Record<string, string> = {
     ethereum: 'ethereum', arbitrum: 'ethereum', optimism: 'ethereum',
     base: 'ethereum', blast: 'ethereum', soneium: 'ethereum', zora: 'ethereum', abstract: 'ethereum',
-    robinhood: 'ethereum',
+    robinhood: 'ethereum', arc: 'usd-coin',
     polygon: 'matic-network', avalanche: 'avalanche-2', gnosis: 'xdai',
     monad: 'monad-token', apechain: 'apecoin', ronin: 'ronin',
     worldchain: 'worldcoin-wld', hyperevm: 'hyperliquid'

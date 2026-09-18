@@ -25,7 +25,7 @@ import { json, err, passthrough, cacheGet, cachePut, clientOk, rateLimit, pathPa
 const ALCHEMY_NETWORKS = new Set([
   'eth-mainnet', 'arb-mainnet', 'opt-mainnet', 'base-mainnet', 'polygon-mainnet',
   'avax-mainnet', 'blast-mainnet', 'gnosis-mainnet', 'abstract-mainnet',
-  'apechain-mainnet', 'robinhood-mainnet', 'ronin-mainnet', 'soneium-mainnet', 'worldchain-mainnet', 'zora-mainnet',
+  'apechain-mainnet', 'robinhood-mainnet', 'arc-mainnet', 'ronin-mainnet', 'soneium-mainnet', 'worldchain-mainnet', 'zora-mainnet',
   // Testnet Mode (chain-config.ts TESTNET_EVM_CHAINS)
   'eth-sepolia', 'arb-sepolia', 'opt-sepolia', 'base-sepolia', 'polygon-amoy',
   'avax-fuji', 'blast-sepolia', 'abstract-testnet',

@@ -292,9 +292,34 @@ public class DappBrowserPlugin extends Plugin {
         String url = call.getString("url", "");
         getActivity().runOnUiThread(() -> {
             Tab t = active();
-            if (t != null && url != null && !url.isEmpty()) t.webView.loadUrl(url);
+            if (t != null && url != null && !url.isEmpty()) t.webView.loadUrl(upgradeScheme(url));
             call.resolve();
         });
+    }
+
+    /**
+     * http:// → https:// for ordinary web hosts.
+     *
+     * targetSdk 28+ blocks cleartext traffic in every WebView (there is no
+     * network security config opting out, deliberately), so a plain http link —
+     * common from messaging apps that auto-link "example.com" — would otherwise
+     * just fail. Chrome's HTTPS-First does the same upgrade.
+     *
+     * Left alone: .onion (Tor encrypts those itself and they are served over
+     * http), localhost, and literal IPs (LAN devices rarely have a certificate
+     * for their address — they fail either way, but an upgrade would mislead).
+     */
+    static String upgradeScheme(String url) {
+        if (url == null) return null;
+        Uri uri;
+        try { uri = Uri.parse(url); } catch (Exception e) { return url; }
+        if (!"http".equalsIgnoreCase(uri.getScheme())) return url;
+        String host = uri.getHost();
+        if (host == null || host.isEmpty()) return url;
+        String h = host.toLowerCase(Locale.US);
+        if (h.endsWith(".onion") || h.equals("localhost") || h.endsWith(".localhost")) return url;
+        if (h.matches("[0-9.]+") || h.contains(":")) return url;  // IPv4 / IPv6 literal
+        return uri.buildUpon().scheme("https").build().toString();
     }
 
     @PluginMethod
@@ -1491,11 +1516,31 @@ public class DappBrowserPlugin extends Plugin {
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 String scheme = uri.getScheme();
+                // Main-frame http (in-page links, redirects) → https; cleartext
+                // would be blocked anyway. See upgradeScheme.
+                if ("http".equals(scheme) && request.isForMainFrame()) {
+                    String upgraded = upgradeScheme(uri.toString());
+                    if (!upgraded.equals(uri.toString())) {
+                        view.loadUrl(upgraded);
+                        return true;
+                    }
+                    return false;
+                }
                 if ("http".equals(scheme) || "https".equals(scheme)) return false;
                 // intent:, market:, wc:, mailto:, … → hand to the OS
                 try {
                     getActivity().startActivity(new Intent(Intent.ACTION_VIEW, uri));
                 } catch (Exception ignored) { }
+                return true;
+            }
+
+            // Android reclaims the WebView renderer under memory pressure (often
+            // while the app sits in the background). The default (false) kills
+            // the whole app process — every tab and the wallet session with it.
+            // A dead WebView can never be reused, so rebuild the tab in place.
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                recoverCrashedTab(tab);
                 return true;
             }
         });
@@ -1540,8 +1585,37 @@ public class DappBrowserPlugin extends Plugin {
         container.addView(wv, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         tabs.put(tab.id, tab);
-        wv.loadUrl(url);
+        wv.loadUrl(upgradeScheme(url));
         return tab;
+    }
+
+    /**
+     * Replace a tab whose renderer died with a fresh WebView on the same URL,
+     * keeping its position in the tab strip. Back history is lost (as with
+     * Chrome's "Aw, Snap" reload); everything else survives.
+     */
+    private void recoverCrashedTab(Tab dead) {
+        if (getActivity() == null || !tabs.containsKey(dead.id)) return;
+        String url = (dead.url == null || dead.url.isEmpty())
+                ? "https://www.chainlensnft.info/" : dead.url;
+        boolean wasActive = activeTabId == dead.id;
+        if (container != null) container.removeView(dead.webView);
+        try { dead.webView.destroy(); } catch (Exception ignored) { }
+
+        // Rebuild the map so the replacement takes the dead tab's slot.
+        Map<Integer, Tab> before = new LinkedHashMap<>(tabs);
+        tabs.clear();
+        Tab fresh = createTab(url);  // appends to `tabs`
+        tabs.clear();
+        for (Tab t : before.values()) {
+            if (t.id == dead.id) tabs.put(fresh.id, fresh);
+            else tabs.put(t.id, t);
+        }
+        if (wasActive) selectTabInternal(fresh.id);
+        else {
+            fresh.webView.setVisibility(View.GONE);
+            pushTabsChanged();
+        }
     }
 
     private JSArray tabsArray() {

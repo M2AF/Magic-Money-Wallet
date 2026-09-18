@@ -30,6 +30,9 @@ export interface ChainDef {
 // (e.g. nad.fun) exhausts a single one instantly → throttled, slow, timeouts.
 // Reads rotate across these and sends fall back through them, multiplying the
 // effective throughput and surviving any one endpoint being slow/down.
+// Arc's system USDC ERC-20 — mirrors the native balance (see the 'arc' entry).
+export const ARC_USDC_MIRROR = '0x3600000000000000000000000000000000000000'
+
 export const MONAD_RPCS = [
   'https://rpc.monad.xyz',              // QuickNode  25 rps
   'https://rpc1.monad.xyz',             // Alchemy    15 rps
@@ -196,6 +199,22 @@ export const EVM_CHAINS: ChainDef[] = [
     color: '#00C805',
     colorRgb: '0, 200, 5',
     alchemyNetwork: 'robinhood-mainnet'
+  },
+  {
+    // Circle's stablecoin L1. Gas is native USDC with 18 decimals; the same
+    // balance is ALSO exposed as a 6-decimal ERC-20 at ARC_USDC_MIRROR, which
+    // token-fetcher drops so the holding isn't counted twice.
+    id: 'arc',
+    name: 'Arc',
+    type: 'evm',
+    chainId: 5042,
+    nativeSymbol: 'USDC',
+    coingeckoId: 'usd-coin',
+    rpcUrl: (cfg) => alchemyRpcUrl('arc-mainnet', cfg),
+    explorerTx: 'https://explorer.arc.io/tx',
+    color: '#3D6FB6',
+    colorRgb: '61, 111, 182',
+    alchemyNetwork: 'arc-mainnet'
   },
   {
     id: 'ronin',
@@ -376,6 +395,8 @@ export const PUBLIC_RPCS: Record<string, string[]> = {
   abstract:   ['https://api.mainnet.abs.xyz', 'https://2741.rpc.thirdweb.com'],
   apechain:   ['https://rpc.apechain.com/http', 'https://apechain.calderachain.xyz/http'],
   robinhood:  ['https://rpc.mainnet.chain.robinhood.com'],
+  // Verified 2026-09-18 (eth_chainId → 0x13b2).
+  arc:        ['https://rpc.mainnet.arc.io', 'https://arc-rpc.publicnode.com', 'https://arc.drpc.org'],
   ronin:      ['https://api.roninchain.com/rpc', 'https://ronin.rpc.thirdweb.com'],
   soneium:    ['https://rpc.soneium.org', 'https://soneium.rpc.thirdweb.com'],
   worldchain: ['https://worldchain-mainnet.g.alchemy.com/public', 'https://worldchain.rpc.thirdweb.com'],

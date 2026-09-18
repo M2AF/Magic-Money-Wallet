@@ -103,6 +103,18 @@ export function CapApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page])
 
+  // The native dApp WebViews render ABOVE this WebView, so anything other than
+  // the app view (lock screen, password setup) must tuck them away — otherwise a
+  // page left open covers the lock screen and its fingerprint prompt, with the
+  // browser chrome gone (it unmounts with <App/>). Note whether the browser was
+  // the visible view so BrowserOverlay can bring it straight back after unlock.
+  useEffect(() => {
+    if (page === 'app' || page === 'checking') return
+    if (browserUiState.open) browserUiState.resumeVisible = true
+    browserUiState.open = false
+    DappBrowser.hide().catch(() => {})
+  }, [page])
+
   // Auto-lock push from capacitor-store (sliding session window expired)
   useEffect(() => {
     const onLocked = () => {

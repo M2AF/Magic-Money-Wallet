@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { MarketCoin, MarketResult } from '../types/wallet'
 import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 import { useDisplayCurrency, type DisplayCurrency } from '../lib/currency'
+import { buildCandles, type Candle, type ChartTimeframe } from '../lib/candles'
 
 // Carried as one bag and spread below, so a new toolbar action reaches this
 // page without an edit here — see HeaderToolbarProps.
@@ -28,7 +29,19 @@ const PAGE_CACHE_FRESH_TTL = 60 * 1000       // silently refresh if older than 1
  * IDR, KRW) cannot outgrow the track either. The asset name pays for the extra
  * width and already ellipsizes.
  */
-const MARKET_COLUMNS = '20px minmax(0,1fr) 96px 44px 58px 58px'
+const MARKET_COLUMNS_WIDE = '20px minmax(0,1fr) 96px 44px 58px 58px'
+/**
+ * Phones. A ~390px viewport left the name track about 30px after the fixed
+ * columns — "B…" for Bitcoin. Rank, gaps and the sparkline give up width so a
+ * typical name fits; 24h gets MORE, since "▲ 11.98%" in the phone's wider
+ * monospace ran into the market-cap column.
+ */
+const MARKET_COLUMNS_NARROW = '16px minmax(0,1fr) 86px 54px 54px 44px'
+const MARKET_COLUMNS = 'var(--market-cols)'
+const MARKET_GAP = 'var(--market-gap)'
+const MARKET_GRID_CSS =
+  `.market-grid{--market-cols:${MARKET_COLUMNS_WIDE};--market-gap:6px}` +
+  `@media (max-width:419px){.market-grid{--market-cols:${MARKET_COLUMNS_NARROW};--market-gap:4px}}`
 
 // Market data is quoted in USD (see main/market-fetcher.ts); the display
 // currency is applied on top of it, exactly as it is for portfolio values.
@@ -64,56 +77,254 @@ function RowSparkline({ data, change24h }: { data: number[] | null; change24h: n
     .join(' ')
   const color = (change24h ?? 0) >= 0 ? '#22c55e' : '#ef4444'
   return (
-    <svg width={W} height={H} style={{ display: 'block' }}>
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+      style={{ display: 'block', maxWidth: W }}>
       <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
-        strokeLinejoin="round" strokeLinecap="round" opacity={0.85} />
+        strokeLinejoin="round" strokeLinecap="round" opacity={0.85}
+        vectorEffect="non-scaling-stroke" />
     </svg>
   )
 }
 
 // ─── Full chart for modal ────────────────────────────────────────────────────
 
-function FullChart({ data, color }: { data: Array<[number, number]>; color: string }) {
-  if (data.length < 2) return (
-    <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+type Timeframe = ChartTimeframe
+type ChartKind = 'line' | 'candle'
+
+const CHART_W = 380, CHART_H = 130
+const UP = '#22c55e', DOWN = '#ef4444'
+
+// Remembered per viewer — a convenience, so failure just means "line".
+const CHART_KIND_KEY = 'mm.market.chartKind'
+function loadChartKind(): ChartKind {
+  try { return localStorage.getItem(CHART_KIND_KEY) === 'candle' ? 'candle' : 'line' } catch { return 'line' }
+}
+function saveChartKind(k: ChartKind): void {
+  try { localStorage.setItem(CHART_KIND_KEY, k) } catch { /* private mode etc. */ }
+}
+
+/**
+ * Scrub label for one chart point. Intraday ranges need the time; longer ones
+ * the date, and a year or more also needs the year.
+ */
+function fmtScrubTime(ms: number, tf: Timeframe): string {
+  const d = new Date(ms)
+  if (tf === '1') return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  if (tf === '7') return d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+  if (tf === '30') return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
+/**
+ * Touch (or hover) and drag across the chart to read the value at any point —
+ * ChainLens's Market chart does the same through Chart.js's index tooltip.
+ * Shared by the line and candle charts, which only differ in what they draw
+ * and where each index sits along x.
+ *
+ * The guide and dot are HTML over the SVG rather than inside it: the SVG is
+ * stretched (preserveAspectRatio="none"), so a circle drawn in it would be an
+ * ellipse. `touch-action: pan-y` keeps vertical page scrolling working; a
+ * horizontal drag scrubs.
+ */
+function ScrubArea({ n, slotted, scrubIdx, onScrub, yAt, label, color, children }: {
+  /** Number of scrubbable points. */
+  n: number
+  /** Candles sit in the middle of equal slots; line points run edge to edge. */
+  slotted: boolean
+  scrubIdx: number | null
+  onScrub: (idx: number | null) => void
+  /** Dot height for index i, in px from the top. */
+  yAt: (i: number) => number
+  label: (i: number) => string
+  color: string
+  children: React.ReactNode
+}) {
+  const boxRef = useRef<HTMLDivElement>(null)
+
+  const idxAt = (clientX: number): number | null => {
+    const r = boxRef.current?.getBoundingClientRect()
+    if (!r || r.width <= 0 || n < 1) return null
+    const f = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
+    // Snap to the nearest point, like Chart.js index mode.
+    return slotted ? Math.min(n - 1, Math.floor(f * n)) : Math.round(f * (n - 1))
+  }
+  const xPctOf = (i: number) => (slotted ? ((i + 0.5) / n) : (n > 1 ? i / (n - 1) : 0.5)) * 100
+  const end = () => onScrub(null)
+
+  const i = scrubIdx != null && scrubIdx < n ? scrubIdx : null
+  const xPct = i == null ? 0 : xPctOf(i)
+
+  return (
+    <div
+      ref={boxRef}
+      onPointerDown={e => {
+        if (e.pointerType !== 'mouse') e.currentTarget.setPointerCapture(e.pointerId)
+        onScrub(idxAt(e.clientX))
+      }}
+      onPointerMove={e => {
+        // A mouse scrubs on hover; touch/pen only while pressed.
+        if (e.pointerType !== 'mouse' && e.buttons === 0) return
+        onScrub(idxAt(e.clientX))
+      }}
+      onPointerUp={e => { if (e.pointerType !== 'mouse') end() }}
+      onPointerCancel={end}
+      onPointerLeave={e => { if (e.pointerType === 'mouse') end() }}
+      style={{ position: 'relative', height: CHART_H, touchAction: 'pan-y', cursor: 'crosshair', userSelect: 'none' }}
+    >
+      {children}
+      {i != null && (
+        <>
+          {/* Guide line */}
+          <div style={{
+            position: 'absolute', top: 0, bottom: 0, left: `${xPct}%`, width: 1,
+            background: 'var(--text-muted)', opacity: 0.55, pointerEvents: 'none',
+          }} />
+          {/* Point */}
+          <div style={{
+            position: 'absolute', left: `${xPct}%`, top: yAt(i), width: 10, height: 10,
+            marginLeft: -5, marginTop: -5, borderRadius: '50%',
+            background: color, border: '2px solid #fff', pointerEvents: 'none',
+            boxShadow: '0 0 0 3px rgba(0,0,0,0.25)',
+          }} />
+          {/* Time label — pinned above the chart, clamped inside its edges */}
+          <div style={{
+            position: 'absolute', top: -22, left: `${xPct}%`,
+            transform: `translateX(${xPct < 15 ? '0' : xPct > 85 ? '-100%' : '-50%'})`,
+            padding: '2px 7px', borderRadius: 5, whiteSpace: 'nowrap', pointerEvents: 'none',
+            background: 'rgba(0,0,0,0.8)', border: `1px solid ${color}`,
+            color: '#fff', fontSize: 10, fontFamily: 'var(--font-mono)',
+          }}>
+            {label(i)}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function NoChartData() {
+  return (
+    <div style={{ height: CHART_H, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
       No chart data
     </div>
   )
-  const W = 380, H = 130
+}
+
+function LineChart({ data, tf, scrubIdx, onScrub }: {
+  data: Array<[number, number]>
+  tf: Timeframe
+  scrubIdx: number | null
+  onScrub: (idx: number | null) => void
+}) {
+  if (data.length < 2) return <NoChartData />
+  const W = CHART_W, H = CHART_H
   const prices = data.map(d => d[1])
   const min = Math.min(...prices)
   const max = Math.max(...prices)
   const range = max - min || 1
-  const pts = prices
-    .map((v, i) => `${(i / (prices.length - 1)) * W},${H - ((v - min) / range) * (H - 8) - 4}`)
-    .join(' ')
-
-  const first = prices[0]
-  const last = prices[prices.length - 1]
-  const isUp = last >= first
-
-  // Gradient fill path
-  const fillPts = `${pts} ${W},${H} 0,${H}`
+  const yOf = (v: number) => H - ((v - min) / range) * (H - 8) - 4
+  const pts = prices.map((v, i) => `${(i / (prices.length - 1)) * W},${yOf(v)}`).join(' ')
+  const color = prices[prices.length - 1] >= prices[0] ? UP : DOWN
 
   return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
-      style={{ display: 'block', height: H, borderRadius: 6 }}>
-      <defs>
-        <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={fillPts} fill="url(#chartFill)" />
-      <polyline points={pts} fill="none" stroke={isUp ? '#22c55e' : '#ef4444'} strokeWidth="1.8"
-        strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
+    <ScrubArea n={prices.length} slotted={false} scrubIdx={scrubIdx} onScrub={onScrub}
+      yAt={i => yOf(prices[i])} label={i => fmtScrubTime(data[i][0], tf)} color={color}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+        style={{ display: 'block', height: H, borderRadius: 6 }}>
+        <defs>
+          <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <polygon points={`${pts} ${W},${H} 0,${H}`} fill="url(#chartFill)" />
+        <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8"
+          strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+    </ScrubArea>
+  )
+}
+
+function CandleChart({ candles, tf, scrubIdx, onScrub }: {
+  candles: Candle[]
+  tf: Timeframe
+  scrubIdx: number | null
+  onScrub: (idx: number | null) => void
+}) {
+  if (candles.length < 2) return <NoChartData />
+  const W = CHART_W, H = CHART_H
+  const min = Math.min(...candles.map(c => c.l))
+  const max = Math.max(...candles.map(c => c.h))
+  const range = max - min || 1
+  const yOf = (v: number) => H - ((v - min) / range) * (H - 8) - 4
+  const slot = W / candles.length
+  const body = Math.max(1, slot * 0.64)
+
+  return (
+    <ScrubArea n={candles.length} slotted scrubIdx={scrubIdx} onScrub={onScrub}
+      yAt={i => yOf(candles[i].c)} label={i => fmtScrubTime(candles[i].t, tf)}
+      color={candles[candles.length - 1].c >= candles[0].o ? UP : DOWN}>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"
+        style={{ display: 'block', height: H, borderRadius: 6 }}>
+        {candles.map((c, i) => {
+          const col = c.c >= c.o ? UP : DOWN
+          const cx = (i + 0.5) * slot
+          const top = yOf(Math.max(c.o, c.c))
+          const bottom = yOf(Math.min(c.o, c.c))
+          return (
+            <g key={c.t}>
+              <line x1={cx} x2={cx} y1={yOf(c.h)} y2={yOf(c.l)} stroke={col} strokeWidth="1"
+                vectorEffect="non-scaling-stroke" />
+              <rect x={cx - body / 2} y={top} width={body} height={Math.max(1, bottom - top)} fill={col} />
+            </g>
+          )
+        })}
+      </svg>
+    </ScrubArea>
+  )
+}
+
+/** Line / candles switch — sits at the end of the timeframe row. */
+function ChartKindToggle({ kind, onChange }: { kind: ChartKind; onChange: (k: ChartKind) => void }) {
+  const btn = (k: ChartKind, label: string, icon: React.ReactNode) => (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={kind === k}
+      title={label}
+      onClick={() => onChange(k)}
+      style={{
+        width: 30, padding: '4px 0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: `1px solid ${kind === k ? 'var(--border-active)' : 'var(--border)'}`,
+        borderRadius: 6, background: kind === k ? 'var(--accent-dim)' : 'transparent',
+        color: kind === k ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer',
+        transition: 'all var(--transition)',
+      }}
+    >
+      {icon}
+    </button>
+  )
+  return (
+    <div style={{ display: 'flex', gap: 4, marginLeft: 4 }}>
+      {btn('line', 'Line chart', (
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="1 12 5 7 9 9 15 3" />
+        </svg>
+      ))}
+      {btn('candle', 'Candlestick chart', (
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" stroke="currentColor"
+          strokeWidth="1.2" aria-hidden="true">
+          <line x1="4" y1="2" x2="4" y2="14" /><rect x="2.5" y="5" width="3" height="6" stroke="none" />
+          <line x1="11" y1="1" x2="11" y2="12" /><rect x="9.5" y="3" width="3" height="5" stroke="none" />
+        </svg>
+      ))}
+    </div>
   )
 }
 
 // ─── Chart modal ─────────────────────────────────────────────────────────────
 
-type Timeframe = '1' | '7' | '30' | '365' | 'max'
 const TIMEFRAMES: Array<{ key: Timeframe; label: string }> = [
   { key: '1',   label: '1D' },
   { key: '7',   label: '7D' },
@@ -128,10 +339,15 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
   const [chartData, setChartData] = useState<Array<[number, number]>>([])
   const [loading, setLoading] = useState(true)
   const [convertAmt, setConvertAmt] = useState('1')
+  // Index of the chart point (or candle) under the user's finger/pointer.
+  const [scrubIdx, setScrubIdx] = useState<number | null>(null)
+  const [kind, setKind] = useState<ChartKind>(loadChartKind)
+  const changeKind = (k: ChartKind) => { setKind(k); saveChartKind(k); setScrubIdx(null) }
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setScrubIdx(null)
     window.wallet.getCoinChart(coin.id, tf).then(data => {
       if (!cancelled) { setChartData(data); setLoading(false) }
     })
@@ -148,7 +364,18 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
   const first = prices[0] ?? coin.price
   const last  = prices[prices.length - 1] ?? coin.price
   const changePct = first > 0 ? ((last - first) / first) * 100 : 0
-  const isUp = changePct >= 0
+  const candles = useMemo(() => buildCandles(chartData, tf), [chartData, tf])
+  // While scrubbing, the header reads the point (or candle close) under the
+  // finger and its change from the start of the range.
+  const scrubValues = kind === 'candle' ? candles.map(c => c.c) : prices
+  const scrubbing = scrubIdx != null && scrubIdx < scrubValues.length
+  const shownPrice = scrubbing ? scrubValues[scrubIdx!] : coin.price
+  const shownPct = scrubbing && first > 0 ? ((scrubValues[scrubIdx!] - first) / first) * 100 : changePct
+  const shownUp = shownPct >= 0
+  // Candle mode's OHLC readout: the scrubbed candle, else the latest one.
+  const ohlc = kind === 'candle' && candles.length > 0
+    ? candles[scrubbing ? scrubIdx! : candles.length - 1]
+    : null
 
   return (
     <div
@@ -185,11 +412,11 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
         {/* Price + change */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
           <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>
-            {fmtPrice(coin.price, cur)}
+            {fmtPrice(shownPrice, cur)}
           </div>
           {!loading && chartData.length > 1 && (
-            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: isUp ? '#22c55e' : '#ef4444' }}>
-              {isUp ? '▲' : '▼'} {Math.abs(changePct).toFixed(2)}%
+            <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-mono)', color: shownUp ? '#22c55e' : '#ef4444' }}>
+              {shownUp ? '▲' : '▼'} {Math.abs(shownPct).toFixed(2)}%
             </span>
           )}
         </div>
@@ -211,16 +438,31 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
               {label}
             </button>
           ))}
+          <ChartKindToggle kind={kind} onChange={changeKind} />
         </div>
 
         {/* Chart */}
-        <div style={{ marginBottom: 16, minHeight: 130 }}>
+        <div style={{ marginTop: 26, marginBottom: 16, minHeight: 130 }}>
           {loading ? (
             <div style={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 20, height: 20, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
+          ) : kind === 'candle' ? (
+            <CandleChart candles={candles} tf={tf} scrubIdx={scrubIdx} onScrub={setScrubIdx} />
           ) : (
-            <FullChart data={chartData} color={isUp ? '#22c55e' : '#ef4444'} />
+            <LineChart data={chartData} tf={tf} scrubIdx={scrubIdx} onScrub={setScrubIdx} />
+          )}
+          {!loading && ohlc && (
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', gap: 6, marginTop: 6,
+              fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', whiteSpace: 'nowrap',
+            }}>
+              {([['O', ohlc.o], ['H', ohlc.h], ['L', ohlc.l], ['C', ohlc.c]] as const).map(([k, v]) => (
+                <span key={k} style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                  {k} <span style={{ color: 'var(--text-secondary)' }}>{fmtPrice(v, cur)}</span>
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
@@ -281,7 +523,7 @@ function CoinRow({ coin, onClick }: { coin: MarketCoin; onClick: () => void }) {
       style={{
         display: 'grid',
         gridTemplateColumns: MARKET_COLUMNS,
-        gap: 6, alignItems: 'center',
+        gap: MARKET_GAP, alignItems: 'center',
         padding: '8px 12px',
         borderBottom: '1px solid var(--border)',
         cursor: 'pointer',
@@ -401,7 +643,8 @@ export function MarketPage(toolbar: TabProps) {
     : null
 
   return (
-    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden' }}>
+    <div className="page fade-in market-grid" style={{ gap: 0, padding: 0, overflow: 'hidden' }}>
+      <style>{MARKET_GRID_CSS}</style>
       {/* Header */}
       <div style={{ padding: '16px 16px 10px', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -458,7 +701,7 @@ export function MarketPage(toolbar: TabProps) {
       <div style={{
         display: 'grid',
         gridTemplateColumns: MARKET_COLUMNS,
-        gap: 6, padding: '6px 12px',
+        gap: MARKET_GAP, padding: '6px 12px',
         borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, background: 'rgba(0,0,0,0.2)'
       }}>
@@ -475,7 +718,7 @@ export function MarketPage(toolbar: TabProps) {
           Array.from({ length: 12 }).map((_, i) => (
             <div key={i} style={{
               display: 'grid', gridTemplateColumns: MARKET_COLUMNS,
-              gap: 6, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--border)'
+              gap: MARKET_GAP, alignItems: 'center', padding: '10px 12px', borderBottom: '1px solid var(--border)'
             }}>
               {[16, 100, 60, 40, 50, 50].map((w, j) => (
                 <div key={j} style={{ height: 10, width: w, background: 'var(--border)', borderRadius: 4, animation: 'pulse 1.4s ease infinite', justifySelf: j > 1 ? 'end' : 'start' }} />

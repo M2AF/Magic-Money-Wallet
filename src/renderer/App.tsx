@@ -103,11 +103,15 @@ export function App() {
     // highlight but NOT the saved-tabs dot; the tab-count drives that dot.
     const onHidden = () => setBrowserOpen(false)
     const onTabCount = (n: number) => setBrowserHasTabs(n > 0)
+    // The browser can surface on its own (deep link, resume after unlock).
+    const onShown = () => setBrowserOpen(true)
     window.wallet?.onBrowserHidden?.(onHidden)
+    window.wallet?.onBrowserShown?.(onShown)
     window.wallet?.onBrowserTabCount?.(onTabCount)
     return () => {
       window.wallet?.offBrowserClosed?.(onClosed)
       window.wallet?.offBrowserHidden?.(onHidden)
+      window.wallet?.offBrowserShown?.(onShown)
       window.wallet?.offBrowserTabCount?.(onTabCount)
     }
   }, [])
