@@ -72,6 +72,23 @@ const DAPP_SESSION_PARTITION = 'persist:mm-dapp-browser'
 const TOR_HOST = '127.0.0.1'
 const TOR_PORTS = [9050, 9150] as const
 
+// Slim rounded scrollbar for dApp pages, matching the wallet UI's own (index.css
+// "Custom scrollbar") instead of the OS default. A neutral grey rather than the
+// theme accent, because it has to read on any site's light or dark background.
+// The thumb is drawn 4px wide inside an 8px hit area so it stays easy to grab.
+// Injected at user origin, so any site that styles its own scrollbar keeps it.
+const DAPP_SCROLLBAR_CSS = `
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.45);
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background-color: rgba(128, 128, 128, 0.7); }
+`
+
 export interface TorBrowserState {
   enabled: boolean
   status: 'off' | 'connecting' | 'connected' | 'error'
@@ -976,6 +993,11 @@ function handleWindowOpen(details: HandlerDetails): WindowOpenHandlerResponse {
 function wireTab(tab: Tab): void {
   const wc = tab.view.webContents
   const isActive = () => tab.id === activeTabId
+
+  // Each new document starts with no injected CSS, so re-apply per load.
+  wc.on('dom-ready', () => {
+    wc.insertCSS(DAPP_SCROLLBAR_CSS, { cssOrigin: 'user' }).catch(() => { /* page gone */ })
+  })
 
   // Magic Guard: blockedThisPage resets at the start of a top-level navigation,
   // before subresources begin loading (plan section 8 "Counter semantics").
