@@ -23,6 +23,7 @@
     "src/shared/theme-sync-wire.ts",
     "src/shared/downloads-wire.ts",
     "src/shared/history-wire.ts",
+    "src/shared/address-input.ts",
     "src/shared/currencies.ts"
   ]
 }

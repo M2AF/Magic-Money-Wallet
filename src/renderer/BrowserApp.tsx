@@ -9,6 +9,7 @@ import { HistoryPanel } from './components/HistoryPanel'
 import { SuggestList } from './components/SuggestList'
 import { ToolbarButton } from './components/browser-ui'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
+import { resolveAddressInput } from '../shared/address-input'
 
 import wordmarkUrl from './assets/wordmark.png'
 import logoUrl from './assets/logo.png'
@@ -283,7 +284,9 @@ export function BrowserApp() {
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    navigate(inputUrl)
+    // Typed text that isn't an address becomes a ChainLens search.
+    const target = resolveAddressInput(inputUrl)
+    if (target) navigate(target)
   }
 
   // Report the real chrome height (titlebar + address bar) to the main process so

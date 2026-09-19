@@ -13,6 +13,7 @@
 
 import { Menu, clipboard, shell } from 'electron'
 import type { BrowserWindow, ContextMenuParams, MenuItemConstructorOptions, WebContents } from 'electron'
+import { chainlensSearchUrl } from '../shared/address-input'
 
 export interface ContextMenuHooks {
   /** Open `url` as a new tab in the browser. */
@@ -92,7 +93,7 @@ export function showBrowserContextMenu(
       const query = text.length > 80 ? `${text.slice(0, 77)}…` : text
       push({
         label: `Search the web for “${query}”`,
-        click: () => hooks.openInNewTab(`https://duckduckgo.com/?q=${encodeURIComponent(text)}`),
+        click: () => hooks.openInNewTab(chainlensSearchUrl(text)),
       })
     }
     separator()

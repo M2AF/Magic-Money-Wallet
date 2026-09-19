@@ -23,6 +23,7 @@ import mascotUrl from '../renderer/assets/magic-guard.png'
 import type { TorBrowserState, MagicGuardState, BrowserPageState } from '../renderer/types/wallet'
 import type { DownloadsSnapshot } from '../shared/downloads-wire'
 import type { HistoryEntry } from '../shared/history-wire'
+import { resolveAddressInput } from '../shared/address-input'
 import { WEB_APPS_SUPPORTED, BLOCK_COUNTS_SUPPORTED } from './platform-caps'
 
 // Phone app sandboxes (Android AND iOS alike) can't read another app's profile,
@@ -187,6 +188,18 @@ export function BrowserOverlay() {
     return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) }
   }
 
+  // Put the native page back on screen — but only while the session is open
+  // AND this chrome is mounted to measure against. show() defers this a frame,
+  // and a hide() can land in that frame (taps queue up while a heavy page
+  // stalls the WebView, then run in one burst). Without the guard the deferred
+  // call re-showed the page after the hide, sized to measureBounds()' fallback
+  // — covering the wallet with no toolbar, tabs or nav left to escape by.
+  const revealNative = () => {
+    if (sessionRef.current !== 'open' || !contentRef.current) return
+    DappBrowser.show().catch(() => {})
+    DappBrowser.setBounds(measureBounds()).catch(() => {})
+  }
+
   // Fully tear down the session (destroys native tab WebViews). Only reached by
   // closing the LAST tab — never by leaving the browser view.
   const close = () => {
@@ -221,10 +234,7 @@ export function BrowserOverlay() {
   const show = () => {
     sessionRef.current = 'open'
     setVisible(true)
-    requestAnimationFrame(() => {
-      DappBrowser.show().catch(() => {})
-      DappBrowser.setBounds(measureBounds()).catch(() => {})
-    })
+    requestAnimationFrame(revealNative)
   }
 
   // Start a session from a previous process's saved tabs: the open effect loads
@@ -523,10 +533,7 @@ export function BrowserOverlay() {
   // here the way they are on the desktop.
   useEffect(() => {
     if (panel || suggestOpen) { DappBrowser.hide().catch(() => {}); return }
-    if (sessionRef.current === 'open') {
-      DappBrowser.show().catch(() => {})
-      DappBrowser.setBounds(measureBounds()).catch(() => {})
-    }
+    revealNative()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [panel, suggestOpen])
 
@@ -558,15 +565,9 @@ export function BrowserOverlay() {
   }
 
   const go = () => {
-    const raw = urlInput.trim()
-    if (!raw) return
-    let target: string | null = null
-    try {
-      const scheme = /\.onion(?:[/?#]|$)/i.test(raw) ? 'http' : 'https'
-      const u = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `${scheme}://${raw}`)
-      if (u.protocol === 'http:' || u.protocol === 'https:') target = u.toString()
-    } catch { /* not a URL */ }
-    if (!target) target = `https://duckduckgo.com/?q=${encodeURIComponent(raw)}`
+    // Typed text that isn't an address becomes a ChainLens search.
+    const target = resolveAddressInput(urlInput)
+    if (!target) return
     DappBrowser.navigate({ url: target }).catch(() => {})
     dismissSuggest()
   }
@@ -719,9 +720,15 @@ export function BrowserOverlay() {
         </button>
       </div>
 
-      {/* Tab row — tabs scroll in the left region; Tor + chain switcher stay
-          pinned on the right (outside the scroller) so they're always visible. */}
+      {/* Tab row — tabs scroll in the middle region; the new-tab ＋ is pinned on
+          the left and the chain switcher on the right (both outside the
+          scroller) so they stay in sight however many tabs are open. The ＋ is
+          disabled rather than removed at the tab limit, so the tabs don't jump. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px 8px' }}>
+        <button type="button" aria-label="New tab"
+          disabled={tabs.length >= 5}
+          onClick={() => DappBrowser.newTab({ url: HOME_URL }).catch(() => {})}
+          style={{ ...navBtn, flexShrink: 0, opacity: tabs.length >= 5 ? 0.35 : 1 }}>＋</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, overflowX: 'auto' }}>
           {tabs.map(t => (
             <div key={t.id}
@@ -744,11 +751,6 @@ export function BrowserOverlay() {
               )}
             </div>
           ))}
-          {tabs.length < 5 && (
-            <button type="button" aria-label="New tab"
-              onClick={() => DappBrowser.newTab({ url: HOME_URL }).catch(() => {})}
-              style={{ ...navBtn, flexShrink: 0 }}>＋</button>
-          )}
         </div>
         <NetworkSwitcher compact />
       </div>
