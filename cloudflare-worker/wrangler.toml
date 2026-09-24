@@ -12,6 +12,57 @@ compatibility_date = "2024-11-01"
 binding = "CACHE"
 id = "91f84d4789c14f998fb0e3c1efdf5f75"
 
+# ── Rate Limiting bindings (Wrangler >= 4.36) ─────────────────────────────────
+# Workers Rate Limiting: counted per Cloudflare location, eventually consistent,
+# period must be 10 or 60 s. Keys are `<class>:<caller IP>` except the global
+# create cap. Budgets are PER IP and sized for the ChainLens backend, whose users
+# all arrive from its server IP (ChainLens limits each end user itself first).
+# namespace_id values must be unique within the Cloudflare account.
+# Deposit-address exchange (/ss/*, /cn/*; see xchange.js):
+[[ratelimits]]
+name = "XCHANGE_QUOTE_LIMITER"       # /ss/estimate /ss/ranges /cn/estimate /cn/range
+namespace_id = "1101"
+  [ratelimits.simple]
+  limit = 300
+  period = 60
+[[ratelimits]]
+name = "XCHANGE_STATUS_LIMITER"      # /ss/status/:id /cn/status/:id
+namespace_id = "1102"
+  [ratelimits.simple]
+  limit = 300
+  period = 60
+[[ratelimits]]
+name = "XCHANGE_CREATE_LIMITER"      # POST /ss/exchange /cn/exchange (+200/hour per IP in KV)
+namespace_id = "1103"
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+[[ratelimits]]
+name = "XCHANGE_CREATE_GLOBAL_LIMITER"  # all creates at one location, every caller
+namespace_id = "1104"
+  [ratelimits.simple]
+  limit = 120
+  period = 60
+[[ratelimits]]
+name = "XCHANGE_LIST_LIMITER"        # /ss/pairs /ss/currencies (no client uses these)
+namespace_id = "1105"
+  [ratelimits.simple]
+  limit = 30
+  period = 60
+# DEX routes that spend keyed aggregator quota:
+[[ratelimits]]
+name = "SWAP_QUOTE_LIMITER"          # /quote
+namespace_id = "1106"
+  [ratelimits.simple]
+  limit = 300
+  period = 60
+[[ratelimits]]
+name = "SWAP_STATUS_LIMITER"         # /swap/status
+namespace_id = "1107"
+  [ratelimits.simple]
+  limit = 600
+  period = 60
+
 # ── Cron: global Market Watch refresh ─────────────────────────────────────────
 # Refreshes the top-500 coin list into KV (market.js refreshTop500) so every
 # user reads the same cached data. Every 15 min = 96 runs × 2 CoinGecko calls

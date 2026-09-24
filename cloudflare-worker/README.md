@@ -20,6 +20,7 @@ quotas aren't burned per-user.
 | `read.js` | Keyed read providers (RPC + NFT/REST) + KV cache. |
 | `db.js` | Supabase profile/wallet sync (service key server-side). |
 | `lib.js` | CORS/JSON, KV cache, rate limit, client gate. |
+| `xchange.js` | SimpleSwap `/ss/*` + ChangeNOW `/cn/*`: validation and rate limits. |
 
 ## Routes
 
@@ -112,8 +113,19 @@ Verify **no key/secret** appears in any response body or header.
 ## Hardening notes
 
 - The new read/db routes are rate-limited per IP and gated by an optional
-  `x-mm-client` header (not a secret — it filters casual abuse). Swap routes are
-  unchanged.
+  `x-mm-client` header (not a secret — it filters casual abuse).
+- **Exchange routes** (`/ss/*`, `/cn/*`, see `xchange.js`) and the DEX `/quote` and
+  `/swap/status` routes spend server-held provider keys, so they are metered per
+  caller IP by Workers Rate Limiting bindings (`[[ratelimits]]` in wrangler.toml;
+  Wrangler >= 4.36). Budgets are per IP, per Cloudflare location, per minute:
+  exchange quote/range 300, status 300, create 20 (plus 200/hour per IP in KV and
+  120/minute for all callers at one location), pairs/currencies 30; DEX quote 300,
+  DEX status 600. They are sized for the ChainLens backend, whose users all reach
+  the Worker from its server IP — ChainLens limits each end user first. Exchange
+  requests are validated and rebuilt: only known query parameters and body fields
+  reach SimpleSwap/ChangeNOW. A missing binding fails open. Neither CORS nor
+  `x-mm-client` is authentication; these routes are callable by anyone within the
+  limits.
 - **Supabase write auth:** `/sync` and `/profile/update` are gated by an EVM
   EIP-191 ownership signature (recovered in `auth.js` via `@noble/curves`), with a
   ±10-min freshness window and a KV replay-nonce — only the EVM key owner can write

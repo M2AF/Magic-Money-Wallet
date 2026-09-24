@@ -13,6 +13,8 @@
  *   GET  /ss/status/:id
  *   GET  /ss/pairs    ?fixed
  *   GET  /ss/currencies
+ *   GET  /cn/estimate, /cn/range; POST /cn/exchange; GET /cn/status/:id
+ *   (/ss/* and /cn/* are validated and rate limited in xchange.js)
  *
  * Required env (wrangler secret put …):
  *   ZEROX_API_KEY        — 0x Swap API v2
@@ -40,6 +42,7 @@ import { handleRead } from './read.js'
 import { handleDb } from './db.js'
 import { handleMarket, refreshTop500 } from './market.js'
 import { handleTokens } from './tokens.js'
+import { handleXchange, bindingAllows } from './xchange.js'
 import {
   SWAP_FEE_POLICY_VERSION, policyFeeBps, policyFeeRecipient, policyLifiIntegrator,
   emptyFeeRecord, feeFreeRecord, feeAmountMatches, effectiveBps, recipientBoundInCalldata,
@@ -253,20 +256,24 @@ async function handleFetch(request, env, ctx) {
       const market = await handleMarket(request, url, env, ctx)
       if (market) return market
 
-      if (pathname === '/quote') return await handleQuote(url, env)
-      if (pathname === '/swap/status') return await handleStatus(url, env)
+      // Exchange (/ss/*, /cn/*): validated and rate limited in xchange.js.
+      const xchange = await handleXchange(request, url, env, ctx)
+      if (xchange) return xchange
+
+      // DEX quote and status spend keyed provider quota (0x, 1inch, Uniswap,
+      // LI.FI, Rango, SwapKit, Relay) on every call, so they are metered per IP.
+      if (pathname === '/quote' || pathname === '/swap/status') {
+        const quote = pathname === '/quote'
+        const ip = request.headers.get('CF-Connecting-IP') || 'unknown'
+        if (!(await bindingAllows(env, quote ? 'SWAP_QUOTE_LIMITER' : 'SWAP_STATUS_LIMITER', `${quote ? 'quote' : 'status'}:${ip}`))) {
+          return new Response(JSON.stringify({ error: 'Too many swap requests. Please wait a minute and try again.' }), {
+            status: 429, headers: { 'Content-Type': 'application/json', 'Retry-After': '60', ...cors(env) },
+          })
+        }
+        return quote ? await handleQuote(url, env) : await handleStatus(url, env)
+      }
       if (pathname === '/swap/chains') return await handleSwapChains(request, url, env, ctx)
       if (pathname === '/tokens') return await handleTokens(request, url, env, ctx)
-      if (pathname === '/ss/estimate') return await ssEstimate(url, env)
-      if (pathname === '/ss/ranges') return await ssRanges(url, env)
-      if (pathname === '/ss/exchange' && request.method === 'POST') return await ssExchange(request, env)
-      if (pathname.startsWith('/ss/status/')) return await ssStatus(pathname.split('/').pop(), env)
-      if (pathname === '/ss/pairs') return await ssPassthrough('pairs', url, env)
-      if (pathname === '/ss/currencies') return await ssPassthrough('currencies', url, env)
-      if (pathname === '/cn/estimate') return await cnEstimate(url, env)
-      if (pathname === '/cn/range') return await cnRange(url, env)
-      if (pathname === '/cn/exchange' && request.method === 'POST') return await cnExchange(request, env)
-      if (pathname.startsWith('/cn/status/')) return await cnStatus(pathname.split('/').pop(), env)
       return err(env, 'Not found', 404)
     } catch (e) {
       return err(env, e && e.message ? e.message : 'Proxy error', 500)
@@ -1393,89 +1400,6 @@ async function muesliQuote(_q, _env) {
 // Discovery lives in tokens.js (Jupiter / Relay / LI.FI + KV cache). It used to
 // be a stub here that returned an empty list unconditionally, which is why the
 // picker never had more than its bundled entries.
-
-// ─── SimpleSwap passthrough (key injection) ──────────────────────────────────
-
-const SS = 'https://api.simpleswap.io/v3'
-function ssKey(env) {
-  if (!env.SIMPLESWAP_API_KEY) throw new Error('SimpleSwap key not configured')
-  return env.SIMPLESWAP_API_KEY
-}
-
-async function ssEstimate(url, env) {
-  const p = url.searchParams
-  const params = new URLSearchParams({
-    tickerFrom: p.get('from') || '', networkFrom: p.get('fromNet') || '',
-    tickerTo: p.get('to') || '', networkTo: p.get('toNet') || '',
-    amount: p.get('amount') || '', fixed: p.get('fixed') || 'false', reverse: 'false',
-  })
-  const res = await fetch(`${SS}/estimates?${params}`, { headers: { 'x-api-key': ssKey(env) } })
-  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-}
-
-async function ssRanges(url, env) {
-  const p = url.searchParams
-  const params = new URLSearchParams({
-    tickerFrom: p.get('from') || '', networkFrom: p.get('fromNet') || '',
-    tickerTo: p.get('to') || '', networkTo: p.get('toNet') || '',
-    fixed: p.get('fixed') || 'false',
-  })
-  const res = await fetch(`${SS}/ranges?${params}`, { headers: { 'x-api-key': ssKey(env) } })
-  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-}
-
-async function ssExchange(request, env) {
-  const body = await request.json()
-  const res = await fetch(`${SS}/exchanges`, {
-    method: 'POST',
-    headers: { 'x-api-key': ssKey(env), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-}
-
-async function ssStatus(id, env) {
-  const res = await fetch(`${SS}/exchanges/${encodeURIComponent(id)}`, { headers: { 'x-api-key': ssKey(env) } })
-  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-}
-
-async function ssPassthrough(path, url, env) {
-  const qs = url.searchParams.toString()
-  const res = await fetch(`${SS}/${path}${qs ? `?${qs}` : ''}`, { headers: { 'x-api-key': ssKey(env) } })
-  return new Response(await res.text(), { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-}
-
-// ─── ChangeNOW v2 passthrough (key injection) ────────────────────────────────
-// Second deposit-address provider. Used as a FALLBACK behind SimpleSwap for pairs
-// SimpleSwap can't do (e.g. Polkadot/DOT). The client sends ChangeNOW-native query
-// params; the worker only injects the key. Affiliate commission is configured on
-// the ChangeNOW partner account, not per-request.
-
-const CN = 'https://api.changenow.io/v2'
-function cnHeaders(env) {
-  if (!env.CHANGENOW_API_KEY) throw new Error('ChangeNOW key not configured')
-  return { 'x-changenow-api-key': env.CHANGENOW_API_KEY, accept: 'application/json' }
-}
-const cnJson = (env, res, body) =>
-  new Response(body, { status: res.status, headers: { 'Content-Type': 'application/json', ...cors(env) } })
-
-async function cnEstimate(url, env) {
-  const res = await fetch(`${CN}/exchange/estimated-amount?${url.searchParams.toString()}`, { headers: cnHeaders(env) })
-  return cnJson(env, res, await res.text())
-}
-async function cnRange(url, env) {
-  const res = await fetch(`${CN}/exchange/range?${url.searchParams.toString()}`, { headers: cnHeaders(env) })
-  return cnJson(env, res, await res.text())
-}
-async function cnExchange(request, env) {
-  const body = await request.text()
-  const res = await fetch(`${CN}/exchange`, { method: 'POST', headers: { ...cnHeaders(env), 'content-type': 'application/json' }, body })
-  return cnJson(env, res, await res.text())
-}
-async function cnStatus(id, env) {
-  const res = await fetch(`${CN}/exchange/by-id?id=${encodeURIComponent(id)}`, { headers: cnHeaders(env) })
-  return cnJson(env, res, await res.text())
-}
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
