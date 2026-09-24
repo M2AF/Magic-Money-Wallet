@@ -15,9 +15,8 @@
 // the six hand-tuned blocks in index.css are written :not([data-derived]), so an
 // edited White & Gold cannot end up wearing the original's ivory gradients.
 // Reverting deletes the override, and the shipped theme — block and all — is
-// back exactly as it was. Deliberately LOCAL, unlike custom themes: the sync
-// wire is frozen around `custom-` ids (shared/theme-sync-wire.ts), and a recolour
-// of a shipped theme is a per-install preference rather than the user's own work.
+// back exactly as it was. Overrides sync as reserved custom-builtin-* entries;
+// they do not consume a custom theme slot.
 //
 // Custom themes are also carried on the user's ChainLens profile, so they follow
 // the person rather than the install (main/theme-sync.ts). Two storage layers,
@@ -41,6 +40,7 @@ import {
   type ThemeTone
 } from './lib/theme-tokens'
 import {
+  BUILTIN_OVERRIDE_PREFIX,
   liveThemeEntries,
   mergeThemeEntries,
   pruneThemeEntries,
@@ -80,7 +80,7 @@ const ENTRIES_KEY = 'mm.themes.v2'
  */
 const LEGACY_KEY = 'mm.themes.custom'
 const MIGRATED_KEY = 'mm.themes.migrated.v2'
-/** Recoloured built-ins: id -> the three colours. Local to this install. */
+/** Recoloured built-ins: id -> the three colours. Kept for instant local paint. */
 const BUILTIN_KEY = 'mm.themes.builtin.v1'
 /** Ran the one-time fold of user copies of a now-shipped theme (see absorbShipped). */
 const ABSORBED_KEY = 'mm.themes.absorbed.v1'
@@ -110,7 +110,19 @@ const isColors = (v: unknown): v is CustomThemeColors => {
 function readEntries(): ThemeEntries {
   try {
     const raw = localStorage.getItem(ENTRIES_KEY)
-    return migrateLegacy(raw ? sanitizeThemeEntries(JSON.parse(raw)) : {})
+    const entries = migrateLegacy(raw ? sanitizeThemeEntries(JSON.parse(raw)) : {})
+    // Older installs kept built-in recolours only in BUILTIN_KEY. Give them the
+    // oldest legal timestamp so any later profile edit or revert wins.
+    let seeded = false
+    for (const [id, colors] of Object.entries(readOverrides())) {
+      const key = `${BUILTIN_OVERRIDE_PREFIX}${id}`
+      if (!entries[key]) {
+        entries[key] = { n: themeDef(id as BuiltinThemeId).name, c: colors, t: 0 }
+        seeded = true
+      }
+    }
+    if (seeded) writeEntries(entries)
+    return entries
   } catch {
     return {}
   }
@@ -243,21 +255,26 @@ export function isBuiltinEdited(id: BuiltinThemeId): boolean {
  */
 export function saveBuiltinTheme(id: BuiltinThemeId, colors: CustomThemeColors): void {
   const overrides = readOverrides()
-  if (sameColors(colors, themeDef(id).colors)) delete overrides[id]
+  const reverted = sameColors(colors, themeDef(id).colors)
+  if (reverted) delete overrides[id]
   else overrides[id] = { ...colors }
+  const entries = readEntries()
+  const key = `${BUILTIN_OVERRIDE_PREFIX}${id}`
+  const t = Math.max(Date.now(), (entries[key]?.t ?? 0) + 1)
+  entries[key] = reverted
+    ? { n: '', c: { bg: '', accent: '', text: '' }, t, d: 1 }
+    : { n: themeDef(id).name, c: { ...colors }, t }
+  writeEntries(entries)
   writeOverrides(overrides)
   notify()
+  schedulePush()
   if (getTheme() === id) applyTheme(id)
 }
 
 /** Put a built-in back to the colours it shipped with. */
 export function resetBuiltinTheme(id: BuiltinThemeId): void {
-  const overrides = readOverrides()
-  if (!(id in overrides)) return
-  delete overrides[id]
-  writeOverrides(overrides)
-  notify()
-  if (getTheme() === id) applyTheme(id)
+  if (!isBuiltinEdited(id)) return
+  saveBuiltinTheme(id, themeDef(id).colors)
 }
 
 /**
@@ -341,7 +358,16 @@ let pushTimer: ReturnType<typeof setTimeout> | null = null
 /** Merge a server reply in. Returns whether anything actually changed here. */
 function absorb(remote: ThemeEntries): boolean {
   const before = localStorage.getItem(ENTRIES_KEY)
-  writeEntries(mergeThemeEntries(readEntries(), sanitizeThemeEntries(remote)))
+  const merged = mergeThemeEntries(readEntries(), sanitizeThemeEntries(remote))
+  writeEntries(merged)
+  const overrides = readOverrides()
+  for (const def of THEMES) {
+    const entry = merged[`${BUILTIN_OVERRIDE_PREFIX}${def.id}`]
+    if (!entry) continue
+    if (entry.d === 1) delete overrides[def.id]
+    else overrides[def.id] = { ...entry.c }
+  }
+  writeOverrides(overrides)
   if (localStorage.getItem(ENTRIES_KEY) === before) return false
   notify()
   // An edit to the theme currently being worn arrives as new colours.

@@ -31,14 +31,24 @@ crons = ["*/15 * * * *"]
 # For local wrangler dev only, set ALLOW_INSECURE_DEV = "true".
 # ALLOWED_ORIGIN = "https://magicmoneywallet.com"
 # Optional per-IP rate limits (requests/min). Defaults: READ_RPM=600, DB_RPM=60,
-# MARKET_RPM=120.
+# MARKET_RPM=120, TOKENS_RPM=120.
 # READ_RPM = "600"
 # DB_RPM = "60"
 # MARKET_RPM = "120"
+# TOKENS_RPM guards /tokens (token discovery). Every cache MISS spends Jupiter or
+# Relay quota, and those quotas are per-key for the whole user base, not per user.
+# TOKENS_RPM = "120"
 #
-# ── Swap fee / monetization (non-secret: public receiving addresses + integrator)
-# Fee in basis points (90 = 0.9%). Recipients are the chain the user spends FROM.
-FEE_BPS = "90"
+# -- Swap fee / monetization (non-secret: public receiving addresses + integrator)
+# These are MIRRORED in src/shared/swap-fee-policy.ts and cloudflare-worker/swap-fee.js.
+# The wallet validates every recipient against its own copy before it will sign, so a
+# value changed HERE alone does not take effect -- it makes the Worker refuse to quote
+# (see policyFeeRecipient). Change the policy module, ship clients, then change this.
+#
+# App fee in basis points: 100 = 1%, charged to the user and disclosed in the quote.
+# REPLACES the former 90 bps; it is not added to it. Provider revenue shares reduce
+# what the app nets and are reported separately -- never added on top of this.
+FEE_BPS = "100"
 FEE_EVM = "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13"
 FEE_SOLANA = "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d"
 FEE_CARDANO = "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h"

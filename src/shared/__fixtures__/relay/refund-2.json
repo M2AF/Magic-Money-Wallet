@@ -1,0 +1,61 @@
+{
+  "_recorded": "2026-09-20 read-only from api.relay.link (public history); user/recipient addresses removed",
+  "id": "0x1789950951fceb0d9c0c1da9485e15b499963d9de4915861eb5bd673f0f9933c",
+  "status": "refund",
+  "data": {
+    "failReason": "SLIPPAGE",
+    "refundFailReason": "N/A",
+    "inTxs": [
+      {
+        "chainId": 56,
+        "hash": "0x4db87162d33414b5ff1ea7855e603a8eae481e9e8cbaed67272a82311aea959d"
+      }
+    ],
+    "outTxs": [
+      {
+        "chainId": 56,
+        "hash": "0x9c1a346daf43b7a7563e083f8ff2c2ded2bdebea6289971804ddcef4c70b6b5e"
+      }
+    ],
+    "appFees": [],
+    "paidAppFees": [],
+    "metadata": {
+      "currencyIn": {
+        "currency": {
+          "chainId": 56,
+          "address": "0x55d398326f99059ff775485246999027b3197955",
+          "symbol": "USDT",
+          "name": "Tether USD",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/39963/large/usdt.png?1724952731",
+            "verified": true
+          }
+        },
+        "amount": "100000000000000000000",
+        "amountFormatted": "100.0",
+        "amountUsd": "99.979700",
+        "amountUsdCurrent": "99.973500",
+        "minimumAmount": "100000000000000000000"
+      },
+      "currencyOut": {
+        "currency": {
+          "chainId": 4663,
+          "address": "0x6245e67affa44a23077f0ea7f981a8dc743a0c47",
+          "symbol": "FRONG",
+          "name": "frong",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://assets.geckoterminal.com/clj6685npl15jt93yyw7tge6hm4z",
+            "verified": false
+          }
+        },
+        "amount": "16941112479863548096395",
+        "amountFormatted": "16941.112479863548096395",
+        "amountUsd": "99.766042",
+        "amountUsdCurrent": "99.766211",
+        "minimumAmount": "16856406917464230355913"
+      }
+    }
+  }
+}

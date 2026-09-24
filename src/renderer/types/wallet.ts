@@ -1,5 +1,6 @@
 import type { SsEstimateParams, SsEstimate, SsCreateParams, SsExchange, XchangeEstimate, XchangeCreateParams, ExchangeProvider } from './simpleswap'
-import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, NormalizedSwapQuote, SwapChain, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
+import type { SwapQuoteRequest, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, SwapTokenSearchRequest, NormalizedSwapQuote, SwapChain, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
+import type { SwapNetworkOption } from '../../shared/swap-networks'
 // Unlike src/main (deliberately not reachable from the renderer), src/shared is
 // platform-neutral — no node, no electron — so importing it here typechecks
 // under every target's lib, even though it sits outside tsconfig.web's include.
@@ -8,6 +9,7 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downloads-wire'
 import type { HistorySnapshot } from '../../shared/history-wire'
 import type { FxRates } from '../../shared/currencies'
+import type { SettledSwapSession } from '../../shared/swap-settlement'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -169,6 +171,10 @@ export interface TxRecord {
 export interface ChainHistory {
   records: TxRecord[]
   error: string | null
+  /** No provider can index this network (not a temporary failure). */
+  unsupported?: boolean
+  /** What the answering provider does not index. */
+  coverage?: string | null
 }
 
 export type AllHistory = Record<string, ChainHistory>
@@ -417,7 +423,8 @@ export interface ChatGif {
 }
 
 // ─── DEX swap types live in ./swap (re-exported here for convenience) ─────────
-export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
+export type { SwapNetworkOption } from '../../shared/swap-networks'
+export type { SwapMode, SwapProvider, SwapChain, SwapToken, SwapQuoteRequest, NormalizedSwapQuote, SwapQuoteResponse, SwapExecuteResult, SwapTokenListResponse, SwapTokenSearchRequest, CrossSwapStatusRequest, CrossSwapStatus } from './swap'
 
 export type AppPage =
   | 'loading'
@@ -840,7 +847,15 @@ declare global {
       swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>
       swapCrossStatus(req: CrossSwapStatusRequest): Promise<CrossSwapStatus>
-      swapGetTokens(chain: SwapChain): Promise<SwapTokenListResponse>
+      /**
+       * Swaps that reached the network, with their settlement outcome. Read-only
+       * evidence -- these can never start or re-authorize a spend.
+       */
+      swapSessions?(): Promise<SettledSwapSession[]>
+      /** Poll every unresolved cross-chain session and record what the bridge says. */
+      swapReconcile?(): Promise<SettledSwapSession[]>
+      swapGetNetworks(): Promise<SwapNetworkOption[]>
+      swapGetTokens(req: SwapTokenSearchRequest): Promise<SwapTokenListResponse>
       ssEstimate(params: SsEstimateParams): Promise<SsEstimate>
       ssCreateExchange(params: SsCreateParams): Promise<SsExchange>
       ssStatus(id: string): Promise<SsExchange>

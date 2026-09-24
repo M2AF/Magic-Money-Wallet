@@ -1,6 +1,7 @@
 import type { TxRecord } from '../types/wallet'
 
 function timeAgo(ts: number): string {
+  if (!ts) return ''                       // the provider gave no time for this block
   const diff = Date.now() - ts
   if (diff < 60_000)          return 'just now'
   if (diff < 3_600_000)       return `${Math.floor(diff / 60_000)}m ago`
@@ -28,7 +29,7 @@ export function TxList({ records }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-      {records.map(tx => {
+      {records.map((tx, i) => {
         const isIn  = tx.direction === 'in'
         const isOut = tx.direction === 'out'
         const color = isIn ? 'var(--success)' : isOut ? 'var(--error)' : 'var(--text-muted)'
@@ -36,7 +37,8 @@ export function TxList({ records }: Props) {
 
         return (
           <div
-            key={tx.hash}
+            // One transaction can hold several transfers (a swap: one out, one in).
+            key={`${tx.hash}:${i}`}
             style={{
               display: 'flex',
               alignItems: 'center',

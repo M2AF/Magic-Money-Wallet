@@ -1,0 +1,38 @@
+{
+  "_recorded": "2026-09-20 via GET https://li.quest/v1/status (read-only; public historical transfer)",
+  "status": "DONE",
+  "substatus": "REFUNDED",
+  "substatusMessage": "The tokens were refunded to the user.",
+  "tool": "relaydepository",
+  "sending": {
+    "txHash": "0x17ebed27082a1e9ff4913ff0818425e69678725b71ecd885adb744fa3d074809",
+    "chainId": 8453,
+    "amount": "100000000000000",
+    "token": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18
+    }
+  },
+  "receiving": {
+    "txHash": "0x3ab342571670a3df56eec39723c526e02bece7d17fdab53edaa03ca022e65f65",
+    "txLink": "https://basescan.org/tx/0x3ab342571670a3df56eec39723c526e02bece7d17fdab53edaa03ca022e65f65",
+    "chainId": 8453,
+    "amount": "97791519623968",
+    "token": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18
+    }
+  },
+  "quote": {
+    "action": {
+      "toChainId": 999,
+      "toToken": {
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "HYPE",
+        "decimals": 18
+      }
+    }
+  }
+}

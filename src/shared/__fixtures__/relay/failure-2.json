@@ -1,0 +1,56 @@
+{
+  "_recorded": "2026-09-20 read-only from api.relay.link (public history); user/recipient addresses removed",
+  "id": "0x1789950622a65eb839644171ca94afc8895661ef7672c2f76aef6e8dd97dc1bb",
+  "status": "failure",
+  "data": {
+    "failReason": "TRANSACTION_REVERTED",
+    "refundFailReason": "N/A",
+    "inTxs": [
+      {
+        "chainId": 8453,
+        "hash": "0x51013eabe1cb16fa14e74fd93426d87d396e60bda76aace93e5429a49f2dc21f"
+      }
+    ],
+    "outTxs": [],
+    "appFees": [],
+    "paidAppFees": [],
+    "metadata": {
+      "currencyIn": {
+        "currency": {
+          "chainId": 8453,
+          "address": "0x0000000000000000000000000000000000000000",
+          "symbol": "ETH",
+          "name": "Ether",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://assets.relay.link/icons/1/light.png",
+            "verified": true
+          }
+        },
+        "amount": "0",
+        "amountFormatted": "0.0",
+        "amountUsd": "0.000000",
+        "amountUsdCurrent": "0",
+        "minimumAmount": "0"
+      },
+      "currencyOut": {
+        "currency": {
+          "chainId": 8453,
+          "address": "0x0000000000000000000000000000000000000000",
+          "symbol": "ETH",
+          "name": "Ether",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://assets.relay.link/icons/1/light.png",
+            "verified": true
+          }
+        },
+        "amount": "0",
+        "amountFormatted": "0.0",
+        "amountUsd": "0.000000",
+        "amountUsdCurrent": "0",
+        "minimumAmount": "0"
+      }
+    }
+  }
+}

@@ -1,18 +1,26 @@
 # Magic Money Wallet
 
-A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase shipping as a **desktop app** (Electron, Windows/macOS/Linux), **Chrome browser extension** (Manifest V3), and **Android app** (Capacitor).
+A self-custody, multi-chain crypto wallet by **ChainLens** — one codebase for **desktop** (Electron, Windows/macOS/Linux), a **Chrome extension** (Manifest V3), and **Android and iOS** apps (Capacitor). Installers and mobile packages are distributed through GitHub Releases; iOS uses an unsigned IPA for sideloading.
 
-It manages **22 default mainnet networks** from a single seed phrase (plus any **custom EVM network** you add yourself), adds focused **Privacy Mode** and **Testnet Mode** network sets, connects to dApps (EVM, Solana, and Cardano), swaps tokens same-chain and cross-chain, doubles as your **system default browser** on Windows and Android, and never lets your keys leave your device.
+It manages **24 default mainnet networks** from a single seed phrase (plus user-added EVM networks), adds focused **Privacy Mode** and **Testnet Mode** network sets, connects to dApps, offers same-chain and cross-chain swaps, and can act as the system default browser on Windows and Android. Wallet keys remain on the device.
 
 > **Ecosystems:** EVM · Solana · Cardano · Bitcoin · Polkadot · Tron · Dogecoin · Monero · Zcash · Midnight
+
+**Start here:** [Install](#install) · [Supported networks](#supported-networks) · [Development](#quick-start-development) · [Security and architecture](#architecture) · [dApp connectivity](#dapp-connectivity) · [Swaps](#swaps) · [Build and release](#build--release)
+
+The network catalog below describes portfolio visibility, not equal transaction support on every network. Swap and send capabilities depend on each chain and route; see [release QA](docs/RELEASE-QA.md) and the [swap evidence notes](docs/SWAP-DISCOVERY.md) when evaluating a funds-moving path. The newer swap changes described here are currently in the local working tree, after the last commit.
 
 ---
 
 ## Highlights
 
-- **One seed, 22 default chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
+- **One seed, 24 default chains** — BIP-39/32/44 derivation for EVM, Solana, Cardano, Bitcoin, Polkadot, Tron, and Dogecoin, all in one portfolio with a unified USD total.
 - **Custom networks** — add any EVM-compatible chain (name, RPC URL, chain ID, symbol, explorer) from the **+** button next to the account switcher. The RPC is verified via `eth_chainId` before the chain is saved, and custom chains get balances, sends, and dApp chain-switching like built-ins (desktop).
 - **Portfolio search** — a search bar on the Dashboard filters networks, tokens, or collectibles in whichever portfolio tab is active.
+- **Transaction history** — per-network activity is shown on chain cards, with an AGW history section when an Abstract Global Wallet is linked.
+- **Themes and asset filters** — built-in and editable custom themes, plus hidden/spam asset choices that can sync through a ChainLens profile when signed in.
+- **Passkey recovery where supported** — a passkey can be linked to restore a wallet; the recovery words remain the essential backup, and the app checks whether the passkey can reproduce the wallet before presenting it as recoverable.
+- **Magic Guard** — the built-in dApp browser includes ad blocking. The iOS implementation uses WKContentRuleList and does not report per-page match counts.
 - **Privacy Mode** — a focused portfolio for Monero (XMR), Zcash transparent (ZEC), and Midnight (NIGHT), derived lazily from the same mnemonic and kept mutually exclusive with Testnet Mode.
 - **Testnet Mode** — flips the wallet to Sepolia / devnet / preprod / Bitcoin testnet / Shasta networks for no-real-funds testing, with testnet-safe address substitution where encodings differ.
 - **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
@@ -46,6 +54,8 @@ It manages **22 default mainnet networks** from a single seed phrase (plus any *
 | Gnosis | EVM L1 | xDAI | Alchemy |
 | Abstract | EVM L2 | ETH | Alchemy |
 | ApeChain | EVM L2 | APE | Alchemy |
+| Robinhood Chain | EVM L2 | ETH | Alchemy |
+| Arc | EVM L1 | USDC | Alchemy |
 | Ronin | EVM L2 | RON | Alchemy |
 | Soneium | EVM L2 | ETH | Alchemy |
 | WorldChain | EVM L2 | WLD | Alchemy |
@@ -94,6 +104,7 @@ Testnet Mode swaps the active network set for no-real-funds testing. Prices, NFT
 | Monad | Monad Testnet |
 | Abstract | Abstract Testnet |
 | ApeChain | Curtis |
+| Robinhood Chain | Robinhood Chain Testnet |
 | Ronin | Saigon |
 | Soneium | Minato |
 | WorldChain | Sepolia |
@@ -103,6 +114,7 @@ Testnet Mode swaps the active network set for no-real-funds testing. Prices, NFT
 | Cardano | Preprod |
 | Bitcoin | Testnet3 + Testnet4 |
 | Tron | Shasta |
+| Midnight | Preprod |
 
 Polkadot and Dogecoin stay hidden in Testnet Mode until reliable testnet data providers are wired in.
 
@@ -137,14 +149,18 @@ Download `magicmoney-android-vX.Y.Z.apk` from [GitHub Releases](../../releases),
 
 Android releases are update-over-install compatible as long as they are signed with the same release key. The in-app **Software Update** row checks GitHub Releases and opens the newest APK download page. Google Play distribution is planned; APK sideloading is the current public path.
 
+### iOS App
+
+Download the unsigned `.ipa` from [GitHub Releases](../../releases) and sideload it using Sideloadly or AltStore with your own Apple ID. It is not distributed through the App Store. Free Apple ID provisioning expires after seven days and needs re-signing from a computer; Apple's three-app sideload limit also applies. The iOS build has no Tor Mode. The separate `.github/workflows/ios.yml` checks an unsigned simulator build on CI; Windows cannot compile the native iOS target locally.
+
 ---
 
 ## Quick Start (Development)
 
-**Prerequisites:** Node.js 20+, npm 10+
+**Prerequisites:** Node.js 20+, npm 10+. `npm ci` uses the lockfile; native dependencies may also need Rust and platform build tools. Android requires JDK 24, Android SDK Platform 37, and Build Tools 37.0.0.
 
 ```bash
-npm install
+npm ci
 
 # Desktop (Electron) with hot reload
 npm run dev
@@ -162,8 +178,9 @@ npm run android
 Useful checks:
 
 ```bash
-npm run typecheck     # tsc on node + web + extension + capacitor tsconfigs
-npm test              # vitest (wallet-core, crypto-vault, tx-describe, secure-store)
+npm run typecheck     # node, web, extension, Android, and iOS TypeScript
+npm test              # Vitest unit and integration tests
+npm run test:e2e      # Playwright extension flows
 ```
 
 ---
@@ -226,7 +243,7 @@ WalletConnect v2 URI              ──► @walletconnect/sign-client
 ```
 
 **Guarantees:**
-- Mnemonic encrypted at rest — OS keychain (`safeStorage`) on desktop, AES-256 behind a user password in the extension and Android app.
+- Mnemonic encrypted at rest using platform storage and the wallet vault; the extension and Android use password-backed encryption, while iOS has its own native secure-vault path.
 - Private keys are derived transiently for signing and never persisted in the clear; the renderer/popup only ever receives public addresses and balance strings.
 - Desktop hardening: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`.
 - The extension's `MAIN`-world inject script provides the dApp APIs but has **no access** to wallet storage — every privileged action crosses the message bridge.
@@ -272,12 +289,12 @@ This is Tor routing, not a claim of Tor Browser anonymity: the embedded Chromium
 
 ## Swaps
 
-The Swap page is dual-mode, covering both on-chain and cross-chain trades:
+The Swap page is dual-mode, covering on-chain routes and deposit-address exchange:
 
-- **DEX (sign locally)** — same-chain swaps aggregate the best price across **0x / 1inch** (EVM) and **Jupiter** (Solana). Cross-chain routes use **LI.FI / Rango / SwapKit (THORChain)** with a Phantom-style auto-router (independent From/To network selectors). Transactions are signed locally with your own keys.
+- **DEX (sign locally)** — quotes can be compared across applicable same-chain providers, including **0x, 1inch, Uniswap, LI.FI, Rango, and Jupiter**; cross-chain candidates include **LI.FI, Relay, Rango, and SwapKit** where the route and wallet pass capability and safety checks. The selected on-chain route is signed locally.
 - **Cross-chain exchange (deposit address)** — **SimpleSwap** with a **ChangeNOW** fallback, used for assets that can't be signed locally as a source (e.g. BTC, ADA, DOT).
 
-Quotes, slippage, gas preflight, and a periodic price-refresh guard are handled in the swap widgets. Cardano on-chain DEX execution is stubbed.
+Token discovery, quotes, slippage, gas preflight, route validation, and in-progress swap tracking are handled in the swap flow. A network or token appearing in the picker does not mean every pair or direction can execute. Cross-chain route safety and settlement coverage vary by provider; [swap discovery and QA notes](docs/SWAP-DISCOVERY.md) record the current evidence. The newer DEX routing and fee work is present in the **uncommitted working tree** at this documentation update; it has not been validated by a real-money swap. Cardano on-chain DEX execution remains stubbed.
 
 ---
 
@@ -294,6 +311,7 @@ MagicMoney can display your **Abstract Global Wallet** (a zkSync smart account o
 npm run dev                    # Electron + hot reload (regenerates App Hub, builds injects)
 npm run build:extension        # Chrome extension → dist-extension/
 npm run build:capacitor        # Android web bundle → dist-capacitor/ + cap sync
+npm run build:ios              # iOS web bundle; native sync requires macOS/Xcode
 npm run android                # Build and deploy to a connected device/AVD
 
 # Production builds
@@ -302,6 +320,7 @@ npm run package                # Electron installer → dist/
 npm run package:publish        # Build + publish to GitHub Releases (requires GH_TOKEN)
 npm run android:apk            # Android release APK (requires android/keystore.properties)
 npm run android:aab            # Android release AAB for Play Console
+npm run check:swap-core        # Verify the shared swap browser bundle is current
 
 # Release (bump version + tag + push → GitHub Actions builds everything)
 npm run release:patch          # 0.1.1 → 0.1.2
@@ -318,6 +337,9 @@ Pushing a version tag triggers `.github/workflows/release.yml`, which:
 2. Publishes installers to GitHub Releases via `electron-builder --publish always`.
 3. Builds the Android APK/AAB and uploads them to the same release.
 4. Builds the Chrome extension and uploads the `.zip` to the same release.
+5. Builds an unsigned iOS `.ipa` for sideloading.
+
+The workflow prepares a **draft** release first and publishes it only after checking the required assets. The separate iOS workflow runs simulator build checks on pushes and pull requests.
 
 The release scripts handle the whole flow — bump, commit, tag, push. `electron-builder --publish always` also uploads the `latest.yml` / `latest-mac.yml` / `latest-linux.yml` update feeds that the in-app **Software Update** button reads, so publishing a release is all it takes for existing installs to update themselves.
 
@@ -352,7 +374,7 @@ src/
 │   ├── tron.ts              ← TRON HTTP API client (TronGrid fallback)
 │   ├── dogecoin.ts          ← Dogecoin (BlockCypher + @scure/btc-signer)
 │   ├── agw.ts               ← Abstract Global Wallet resolution/linking
-│   ├── swap-proxy.ts        ← DEX/bridge quote routing (LI.FI client-side)
+│   ├── swap-proxy.ts        ← DEX/bridge quote routing and provider aggregation
 │   ├── swap-executor.ts     ← Local signing for DEX swaps
 │   ├── simpleswap-client.ts / changenow-client.ts / xchange-client.ts ← Cross-chain exchange
 │   ├── browser-manager.ts   ← Pop-out dApp browser (WebContentsView)
@@ -378,8 +400,8 @@ src/
 │   ├── ExtApp.tsx           ← Popup wrapper (lock screen, password setup)
 │   ├── popup.* / sidepanel.*← Popup and side-panel entries
 │   └── manifest.json        ← MV3 manifest
-├── capacitor/               ← Android/Capacitor adapters
-│   ├── CapApp.tsx           ← Android app shell, lifecycle, biometric lock screen
+├── capacitor/               ← Shared Android/iOS Capacitor adapters
+│   ├── CapApp.tsx           ← Native app shell, lifecycle, biometric lock screen
 │   ├── wallet-local.ts      ← Local wallet bridge/router for the WebView runtime
 │   ├── capacitor-store.ts   ← Preferences-backed encrypted storage
 │   ├── dapp-browser.ts      ← Typed bridge to the native DappBrowser plugin
@@ -387,7 +409,9 @@ src/
 │   ├── monero-browser.ts    ← Browser-compatible Monero backend
 │   ├── qr-scan.ts           ← ML Kit QR scanner wrapper
 │   └── update-check.ts      ← GitHub Releases APK update helper
-└── renderer/                ← React UI (shared across desktop, extension, and Android)
+├── ios/                     ← iOS entry, styles, platform overrides, and CI self-check
+├── shared/                  ← Swap policy, identity, lifecycle, and platform-neutral checks
+└── renderer/                ← React UI shared across all targets
     ├── App.tsx / main.tsx   ← Router + entry
     ├── BrowserApp.tsx       ← Desktop dApp-browser chrome
     ├── pages/               ← Dashboard, Market, Swap, AppHub, Profile, Settings, onboarding…
@@ -401,6 +425,9 @@ android/
     ├── DefaultBrowserPlugin.java  ← RoleManager browser-role request (set as default)
     ├── DownloaderPlugin.java      ← Native downloads into the Downloads folder
     └── AppInfoPlugin.java         ← Installer/source metadata for update checks
+
+ios-plugins/
+└── Sources/                 ← Native iOS DappBrowser, SecureVault, downloads, and Magic Guard
 ```
 
 ---
@@ -419,7 +446,7 @@ Edit the source file (`ChainLens_Files/app-hub-data.js`) to add or remove apps; 
 
 ## Android (Capacitor)
 
-The Android app is a third build target beside Electron and the MV3 extension: the same
+The Android app is one of four build targets beside Electron, the MV3 extension, and iOS: the same
 React UI and pure-JS chain core run in a Capacitor WebView, with `src/capacitor/` providing
 the platform layer (Preferences-backed vault storage, in-process wallet router, biometric
 unlock, ML Kit QR scanning, `wc:` deep links) and a native `DappBrowser` plugin hosting

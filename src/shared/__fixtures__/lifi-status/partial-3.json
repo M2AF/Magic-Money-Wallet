@@ -1,0 +1,38 @@
+{
+  "_recorded": "2026-09-20 via GET https://li.quest/v1/status (read-only; public historical transfer)",
+  "status": "DONE",
+  "substatus": "PARTIAL",
+  "substatusMessage": "Some of the received tokens are not the requested destination tokens.",
+  "tool": "across",
+  "sending": {
+    "txHash": "0xd74b53da31796af5d8d65435e5cf50dc86c4885c671e0dfbf2632117401f440a",
+    "chainId": 4663,
+    "amount": "38597827360308577",
+    "token": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18
+    }
+  },
+  "receiving": {
+    "txHash": "0xc278da7226787a864951e6f56a4ef539e9807f4ceccbff0e871712f54d9f27a6",
+    "txLink": "https://bscscan.com/tx/0xc278da7226787a864951e6f56a4ef539e9807f4ceccbff0e871712f54d9f27a6",
+    "chainId": 56,
+    "amount": "38581163391863784",
+    "token": {
+      "address": "0x2170Ed0880ac9A755fd29B2688956BD959F933F8",
+      "symbol": "WETH",
+      "decimals": 18
+    }
+  },
+  "quote": {
+    "action": {
+      "toChainId": 56,
+      "toToken": {
+        "address": "0x55d398326f99059fF775485246999027B3197955",
+        "symbol": "USDT",
+        "decimals": 18
+      }
+    }
+  }
+}

@@ -15,11 +15,15 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { WalletAddresses, AllBalances, TokensResult, NormalizedSwapQuote, SwapToken, SwapChain } from '../types/wallet'
+import type { WalletAddresses, AllBalances, TokensResult, WalletToken, NormalizedSwapQuote, SwapToken, SwapChain } from '../types/wallet'
 import { SWAP_TOKEN_LISTS, DEX_CHAINS, takerKeyForChain, isDexSignableSource } from '../types/swap-tokens'
+import type { SwapNetworkOption } from '../types/wallet'
+import { swapAssetKey } from '../../shared/swap-token-identity'
+import { solanaShortfallMessage, maxSolSaleLamports } from '../../shared/solana-upfront-cost'
 import { SwapQuoteCard } from './SwapQuoteCard'
 import { SwapSettings } from './SwapSettings'
 import { CrossChainStatusCard } from './CrossChainStatusCard'
+import { TokenPicker } from './TokenPicker'
 
 interface Props { addresses: WalletAddresses; active: boolean; onUseCrossChain?: () => void }
 
@@ -31,9 +35,26 @@ const MIN_NATIVE_FEE: Record<string, number> = {
   polygon: 0.05, avalanche: 0.02, bsc: 0.002, monad: 0.05, solana: 0.001,
 }
 
-function getAutoSlippageBps(fromSymbol: string, toSymbol: string): number {
-  if (STABLES.has(fromSymbol) && STABLES.has(toSymbol)) return 5
-  if (BLUE_CHIP.has(fromSymbol)) return 50
+/** Every curated address per chain — the set whose symbols we are willing to trust. */
+const CURATED_KEYS = new Set(
+  Object.entries(SWAP_TOKEN_LISTS).flatMap(([chain, list]) =>
+    list.map(t => swapAssetKey(chain, t.address))),
+)
+
+/**
+ * Auto-slippage.
+ *
+ * The tight stablecoin tolerance keys on the token's ADDRESS being one we ship,
+ * not on its symbol. Now that any token on the chain is selectable, a symbol is
+ * attacker-chosen: minting a token called "USDC" costs a few cents, and quoting
+ * it at 5 bps against a real stablecoin would hand the difference to whoever
+ * built the pool. An unrecognised token gets the wide default instead.
+ */
+function getAutoSlippageBps(from: SwapToken | undefined, to: SwapToken | undefined): number {
+  if (!from || !to) return 250
+  const trusted = (t: SwapToken) => CURATED_KEYS.has(swapAssetKey(t.chain, t.address))
+  if (trusted(from) && trusted(to) && STABLES.has(from.symbol) && STABLES.has(to.symbol)) return 5
+  if (trusted(from) && BLUE_CHIP.has(from.symbol)) return 50
   return 250
 }
 
@@ -44,9 +65,20 @@ function humanToRaw(human: string, decimals: number): string {
   const digits = ((i || '0').replace(/^0+/, '') || '0') + frac
   try { return BigInt(digits).toString() } catch { return '0' }
 }
+/**
+ * Raw base units → a human number for DISPLAY only.
+ *
+ * The integer and fractional parts are divided separately in the BigInt domain:
+ * `Number(BigInt(raw))` alone loses precision above 2^53, which a token with 18
+ * decimals and a large supply passes easily.
+ */
 function rawToHuman(raw: string, decimals: number): number {
-  if (!raw) return 0
-  try { return Number(BigInt(raw)) / 10 ** decimals } catch { return Number(raw) / 10 ** decimals }
+  if (!raw || !/^[0-9]+$/.test(raw)) return 0
+  try {
+    const v = BigInt(raw)
+    const d = BigInt(10) ** BigInt(decimals)
+    return Number(v / d) + Number(v % d) / Number(d)
+  } catch { return 0 }
 }
 
 type ExecState = 'idle' | 'swapping' | 'success' | 'error'
@@ -54,11 +86,20 @@ type ExecState = 'idle' | 'swapping' | 'success' | 'error'
 export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   const [fromChain, setFromChain] = useState<SwapChain>('ethereum')
   const [toChain, setToChain] = useState<SwapChain>('ethereum')
-  const fromTokens = SWAP_TOKEN_LISTS[fromChain] ?? []
-  const toTokens = SWAP_TOKEN_LISTS[toChain] ?? []
-  const [fromToken, setFromToken] = useState<SwapToken>(fromTokens[0])
-  const [toToken, setToToken] = useState<SwapToken>(toTokens[1] ?? toTokens[0])
+  const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[0])
+  const [toToken, setToToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[1])
   const [amount, setAmount] = useState('')
+  /**
+   * Networks the wallet says are swappable, joined from its own registry and the
+   * measured capability matrix in the privileged layer. DEX_CHAINS is only the
+   * pre-load fallback now: the hand-kept copy had drifted from the registry in
+   * both directions (it offered BSC, which this wallet has no network for, and
+   * omitted Robinhood Chain, Arc, Abstract and HyperEVM, which providers route).
+   */
+  const [networks, setNetworks] = useState<SwapNetworkOption[]>([])
+
+  /** Holdings, for picker balances and so a held token needs no discovery to appear. */
+  const [owned, setOwned] = useState<WalletToken[]>([])
 
   const [overrideBps, setOverrideBps] = useState<number | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -68,6 +109,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   const [fetching, setFetching] = useState(false)
 
   const [nativeBal, setNativeBal] = useState<number>(0)
+  /**
+   * Native balance per chain, from ONE balances read. The receive picker needs
+   * the DESTINATION chain's native balance; it used to be handed a literal 0,
+   * so SOL showed no balance there even with SOL in the wallet. A chain missing
+   * from this map is unknown (null), never zero.
+   */
+  const [nativeByChain, setNativeByChain] = useState<Record<string, number>>({})
+  /** Bumped when a swap settles (or is dismissed), to re-read balances and holdings. */
+  const [balanceNonce, setBalanceNonce] = useState(0)
+  const refreshBalances = useCallback(() => setBalanceNonce(n => n + 1), [])
   const [fromBal, setFromBal] = useState<number | null>(null)
 
   const [refreshIn, setRefreshIn] = useState<number | null>(null)
@@ -77,6 +128,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   const [execState, setExecState] = useState<ExecState>('idle')
   const [execResult, setExecResult] = useState<{ txHash: string; explorerUrl: string; approvalTxHash: string | null } | null>(null)
   const [execError, setExecError] = useState<string | null>(null)
+  /** Destination token as it was at execution time (see run()). */
+  const [executedTo, setExecutedTo] = useState<{ symbol: string; decimals: number } | null>(null)
 
   // Set true on (re)mount AND clear on unmount. Without the explicit `= true`, React
   // StrictMode's dev-only mount→cleanup→mount cycle leaves it stuck `false`, which
@@ -86,30 +139,54 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   const isAuto = overrideBps === null
-  const autoBps = getAutoSlippageBps(fromToken.symbol, toToken.symbol)
+  const autoBps = getAutoSlippageBps(fromToken, toToken)
   const slippageBps = isAuto ? autoBps : overrideBps
 
   const sourceSignable = isDexSignableSource(fromChain)
   const isCrossChain = fromChain !== toChain
   const addrFor = useCallback((c: SwapChain) => addresses[takerKeyForChain(c)], [addresses])
+  /**
+   * Numeric EVM chain id for a wallet chain-id STRING, from the resolver's
+   * registry join. Built-ins resolve through the same per-provider maps the
+   * Worker already has, so this is only load-bearing for an IMPORTED network —
+   * see SwapQuoteRequest.fromChainId.
+   */
+  const chainIdFor = useCallback(
+    (c: SwapChain) => networks.find(n => n.id === c)?.chainId ?? undefined, [networks])
+
+  /**
+   * Chains offered on one side of the swap. A network the wallet reports as
+   * unswappable is left out entirely rather than shown and then refused — the
+   * reason travels with the quote error if one is somehow requested anyway.
+   */
+  const networkOptions = (side: 'source' | 'destination') => {
+    const usable = networks.filter(n => (side === 'source' ? n.source : n.destination))
+    return usable.length
+      ? usable.map(n => ({ id: n.id as SwapChain, label: n.label }))
+      : DEX_CHAINS
+  }
 
   const clearQuote = () => { setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false) }
 
   // ── Network change handlers (reset the picked token; keep from/to distinct) ──
+  const sameToken = (a: SwapToken | undefined, b: SwapToken | undefined) =>
+    !!a && !!b && swapAssetKey(a.chain, a.address) === swapAssetKey(b.chain, b.address)
+
   const onFromChain = (c: SwapChain) => {
     setFromChain(c)
     const list = SWAP_TOKEN_LISTS[c] ?? []
-    setFromToken(list[0])
-    if (c === toChain && list[0]) {
-      setToToken(prev => prev.address === list[0].address ? (list.find(t => t.address !== list[0].address) ?? list[0]) : prev)
+    const next = list[0]
+    setFromToken(next)
+    if (c === toChain && next) {
+      setToToken(prev => sameToken(prev, next) ? list.find(t => !sameToken(t, next)) : prev)
     }
     setAmount(''); clearQuote()
   }
   const onToChain = (c: SwapChain) => {
     setToChain(c)
     const list = SWAP_TOKEN_LISTS[c] ?? []
-    let next = list[0]
-    if (c === fromChain && next && next.address === fromToken.address) next = list.find(t => t.address !== fromToken.address) ?? list[0]
+    let next: SwapToken | undefined = list[0]
+    if (c === fromChain && sameToken(next, fromToken)) next = list.find(t => !sameToken(t, fromToken))
     setToToken(next)
     clearQuote()
   }
@@ -121,30 +198,76 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
     ;(async () => {
       try {
         const bals: AllBalances = await window.wallet.getBalances()
-        if (on) setNativeBal(parseFloat(bals.chains[fromChain]?.native ?? '0') || 0)
+        if (!on) return
+        const byChain: Record<string, number> = {}
+        for (const [c, b] of Object.entries(bals.chains ?? {})) {
+          const v = parseFloat((b as { native?: string } | undefined)?.native ?? '')
+          if (Number.isFinite(v)) byChain[c] = v
+        }
+        setNativeByChain(byChain)
+        setNativeBal(byChain[fromChain] ?? 0)
       } catch { /* ignore */ }
     })()
     return () => { on = false }
-  }, [fromChain, active])
+  }, [fromChain, active, balanceNonce])
+
+  // Settle anything a previous session left mid-bridge. The status card only
+  // lives while this screen shows it, so a swap left bridging (navigation, app
+  // restart) never reached a final state in the persisted record. Reconciling
+  // reads provider status and records outcomes; it never signs anything.
+  useEffect(() => {
+    if (!active) return
+    window.wallet.swapReconcile?.().then(() => refreshBalances()).catch(() => { /* evidence store; never blocks swaps */ })
+  }, [active, refreshBalances])
 
   useEffect(() => {
     if (!active) return
     let on = true
     ;(async () => {
-      if (fromToken.isNative) { setFromBal(nativeBal); return }
       try {
-        const res: TokensResult = await window.wallet.getTokens()
-        const match = res.tokens.find(t => t.chain === fromChain && t.contractAddress.toLowerCase() === fromToken.address.toLowerCase())
-        if (on) setFromBal(match ? parseFloat(match.balance) || 0 : 0)
-      } catch { if (on) setFromBal(null) }
+        const list = await window.wallet.swapGetNetworks()
+        if (on && Array.isArray(list)) setNetworks(list)
+      } catch { /* the bundled fallback below still renders a usable picker */ }
     })()
     return () => { on = false }
-  }, [fromToken, fromChain, nativeBal, active])
+  }, [active])
+
+  // Holdings feed both the sell balance and the picker (a token you already hold
+  // is selectable even when no provider lists it).
+  useEffect(() => {
+    if (!active) return
+    let on = true
+    ;(async () => {
+      try {
+        const res: TokensResult = await window.wallet.getTokens()
+        // Holdings in the Abstract Global Wallet are a SEPARATE smart account
+        // that the swap signer (your Abstract EOA) cannot spend. Listing them
+        // here showed that balance as swappable, then the route — quoted and
+        // signed for the EOA, which held none — reverted in simulation.
+        if (on) setOwned((res.tokens ?? []).filter(t => t.source !== 'agw'))
+      } catch { /* picker falls back to curated entries */ }
+    })()
+    return () => { on = false }
+  }, [active, balanceNonce])
+
+  useEffect(() => {
+    if (!fromToken) { setFromBal(null); return }
+    if (fromToken.isNative) { setFromBal(nativeBal); return }
+    // Match on the chain-qualified key, NOT a blanket .toLowerCase(): lowercasing a
+    // Solana mint produces a string that matches nothing, so every SPL balance read
+    // as zero. And the exact holding comes from `rawBalance` — `balance` is a
+    // comma-grouped DISPLAY string, so parseFloat("1,234.5") silently yields 1.
+    const want = swapAssetKey(fromChain, fromToken.address)
+    const match = owned.find(t => t.chain === fromChain && swapAssetKey(fromChain, t.contractAddress) === want)
+    if (!match) { setFromBal(0); return }
+    setFromBal(rawToHuman(match.rawBalance ?? '0', match.decimals))
+  }, [fromToken, fromChain, nativeBal, owned])
 
   // ── Quote fetch ───────────────────────────────────────────────────────────
   const fetchQuote = useCallback(async (silent = false): Promise<NormalizedSwapQuote | null> => {
+    if (!fromToken || !toToken) return null
     if (!(parseFloat(amount) > 0)) return null
-    if (fromChain === toChain && fromToken.address === toToken.address) return null
+    if (sameToken(fromToken, toToken)) return null
     if (!silent) { setFetching(true); setQuoteError(null) }
     try {
       const r = await window.wallet.swapGetQuote({
@@ -154,6 +277,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
         sellAmountRaw: humanToRaw(amount, fromToken.decimals),
         slippageBps, taker: addrFor(fromChain), toAddress: addrFor(toChain),
         fromDecimals: fromToken.decimals, toDecimals: toToken.decimals,
+        fromChainId: chainIdFor(fromChain), toChainId: chainIdFor(toChain),
       })
       if (!alive.current) return null
       if (r.error || !r.quote) { if (!silent) setQuoteError(r.error ?? 'No route available.'); return null }
@@ -164,7 +288,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
     } finally {
       if (!silent && alive.current) setFetching(false)
     }
-  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor])
+  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor, chainIdFor])
 
   const getQuote = async () => {
     setPriceChanged(false)
@@ -181,20 +305,46 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
       const q = await fetchQuote(true)
       if (!q || !alive.current) return
       const prev = acceptedBuyRaw.current
-      const dropped = prev ? rawToHuman(q.buyAmountRaw, toToken.decimals) < rawToHuman(prev, toToken.decimals) * 0.995 : false
+      const dec = toToken?.decimals ?? 18
+      const dropped = prev ? rawToHuman(q.buyAmountRaw, dec) < rawToHuman(prev, dec) * 0.995 : false
       if (dropped) { setQuote(q); setPriceChanged(true) }
       else { setQuote(q); acceptedBuyRaw.current = q.buyAmountRaw; setRefreshIn(12) }
     }, 12_000)
     return () => { clearInterval(countdown); clearInterval(refresh) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [quote, priceChanged, execState, active, fetchQuote, toToken.decimals])
+  }, [quote, priceChanged, execState, active, fetchQuote, toToken?.decimals])
 
   const acceptNewPrice = () => { if (quote) { acceptedBuyRaw.current = quote.buyAmountRaw; setPriceChanged(false) } }
 
   // ── Guard 4: Max with native dust buffer ──────────────────────────────────
-  const onMax = () => {
+  const onMax = async () => {
     if (fromBal == null) return
-    if (fromToken.isNative) {
+    if (fromToken?.isNative && fromChain === 'solana' && toToken) {
+      // Solana: leave exactly what THIS route needs besides the sale — fees and
+      // any new or temporary token accounts at current rent — computed by the
+      // privileged layer from a quote for the full balance. The same record then
+      // drives the button and the pre-signing check, so all three agree.
+      const lamports = BigInt(Math.floor(fromBal * 1e9))
+      try {
+        const r = await window.wallet.swapGetQuote({
+          fromChain, toChain, fromToken: fromToken.address, toToken: toToken.address,
+          fromSymbol: fromToken.symbol, toSymbol: toToken.symbol, sellAmountRaw: lamports.toString(),
+          slippageBps, taker: addrFor(fromChain), toAddress: addrFor(toChain),
+          fromDecimals: fromToken.decimals, toDecimals: toToken.decimals,
+          fromChainId: chainIdFor(fromChain), toChainId: chainIdFor(toChain),
+        })
+        const cost = r.quote?.solanaCost
+        if (cost?.balanceLamports != null) {
+          const max = maxSolSaleLamports(cost, BigInt(cost.balanceLamports))
+          setAmount(max > 0n ? (Number(max) / 1e9).toFixed(9).replace(/0+$/, '').replace(/\.$/, '') : '0')
+          setQuote(null); acceptedBuyRaw.current = null
+          return
+        }
+      } catch { /* fall through to the conservative reserve below */ }
+    }
+    if (fromToken?.isNative) {
+      // No cost record for this route: a conservative reserve. The quote that
+      // follows, and the pre-signing check, still judge the real requirement.
       const buffer = (MIN_NATIVE_FEE[fromChain] ?? 0.001) * 1.5
       const safe = Math.max(0, fromBal - buffer)
       setAmount(safe > 0 ? String(safe) : '0')
@@ -213,26 +363,45 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   // ── Guard 1: gas preflight (source chain) ─────────────────────────────────
   const feeReserve = MIN_NATIVE_FEE[fromChain] ?? 0.001
   const sellHuman = parseFloat(amount) || 0
-  const nativeSpend = fromToken.isNative ? sellHuman : 0
-  const insufficientGas = !!quote && (nativeBal < nativeSpend + feeReserve)
+  const nativeSpend = fromToken?.isNative ? sellHuman : 0
+  // Solana: judged against the quote's own cost record, with the SAME shared
+  // rule and wording the pre-signing check uses. Other chains: the flat reserve.
+  const solanaShortfall = quote?.solanaCost ? solanaShortfallMessage(quote.solanaCost) : null
+  const insufficientGas = !!quote && (quote.solanaCost
+    ? solanaShortfall != null
+    : nativeBal < nativeSpend + feeReserve)
 
   const run = async () => {
-    if (!quote) return
+    if (!quote || !toToken) return
     setExecState('swapping'); setExecError(null); setExecResult(null)
+    // Freeze the destination token: the tracker below formats the RECEIVED amount
+    // with these decimals, and the user can change the picker while a cross-chain
+    // swap is still bridging.
+    setExecutedTo({ symbol: toToken.symbol, decimals: toToken.decimals })
     try {
       const r = await window.wallet.swapExecute(quote)
       if (!alive.current) return
       setExecResult(r); setExecState('success')
+      if (!quote.isCrossChain) {
+        // Same-chain settles in the source transaction. Solana returns once it is
+        // confirmed; an EVM swap returns at broadcast and is mined shortly after,
+        // so read again once it has had time to land.
+        refreshBalances()
+        setTimeout(() => { if (alive.current) refreshBalances() }, 15_000)
+      }
     } catch (e) {
       if (!alive.current) return
       setExecError(e instanceof Error ? e.message : 'Swap failed'); setExecState('error')
     }
   }
 
-  const reset = () => { setExecState('idle'); setExecResult(null); setExecError(null); setQuote(null); setAmount(''); acceptedBuyRaw.current = null }
+  const reset = () => {
+    setExecState('idle'); setExecResult(null); setExecError(null); setQuote(null); setAmount(''); acceptedBuyRaw.current = null
+    refreshBalances()
+  }
 
-  const expectedBuy = quote ? rawToHuman(quote.buyAmountRaw, toToken.decimals) : null
-  const canQuote = parseFloat(amount) > 0 && !(fromChain === toChain && fromToken.address === toToken.address) && !fetching && sourceSignable
+  const expectedBuy = quote && toToken ? rawToHuman(quote.buyAmountRaw, toToken.decimals) : null
+  const canQuote = parseFloat(amount) > 0 && !!fromToken && !!toToken && !sameToken(fromToken, toToken) && !fetching && sourceSignable
 
   // ── Cross-chain success → bridge tracker ──────────────────────────────────
   if (execState === 'success' && execResult && quote?.isCrossChain) {
@@ -241,9 +410,10 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
         quote={quote}
         txHash={execResult.txHash}
         explorerUrl={execResult.explorerUrl}
-        toSymbol={toToken.symbol}
-        toDecimals={toToken.decimals}
+        toSymbol={executedTo?.symbol ?? quote.toTokenSymbol}
+        toDecimals={executedTo?.decimals ?? 18}
         onDone={reset}
+        onSettled={refreshBalances}
       />
     )
   }
@@ -281,10 +451,19 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
       return <button type="button" onClick={acceptNewPrice} style={btn(true, '#facc15', '#0d0d0d')}>Accept New Price</button>
     }
     if (insufficientGas) {
-      return <button type="button" disabled style={btn(false)}>Insufficient {nativeSymbolFor(fromChain)} for fee</button>
+      return (
+        <>
+          <button type="button" disabled style={btn(false)}>
+            Not enough {nativeSymbolFor(fromChain)} {solanaShortfall ? 'for this route' : 'for fee'}
+          </button>
+          {solanaShortfall && (
+            <div role="alert" style={{ fontSize: 12, color: '#fca5a5', lineHeight: 1.5 }}>{solanaShortfall}</div>
+          )}
+        </>
+      )
     }
     const verb = isCrossChain ? 'Swap cross-chain' : 'Swap'
-    return <button type="button" onClick={run} style={btn(true)}>{verb} {fromToken.symbol} → {toToken.symbol}</button>
+    return <button type="button" onClick={run} style={btn(true)}>{verb} {fromToken?.symbol} → {toToken?.symbol}</button>
   }
 
   return (
@@ -294,7 +473,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU PAY</span>
           <select aria-label="From network" value={fromChain} onChange={e => onFromChain(e.target.value as SwapChain)} style={netSelectStyle}>
-            {DEX_CHAINS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {networkOptions('source').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -302,13 +481,19 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
             onChange={e => { setAmount(e.target.value); setQuote(null); acceptedBuyRaw.current = null }}
             disabled={!sourceSignable}
             style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)' }} />
-          <select aria-label="Pay token" value={fromToken.symbol} onChange={e => { setFromToken(fromTokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
-            {fromTokens.map(t => <option key={t.symbol} value={t.symbol}>{t.symbol}</option>)}
-          </select>
+          <TokenPicker
+            chain={fromChain}
+            value={fromToken}
+            onSelect={t => { setFromToken(t); setAmount(''); clearQuote() }}
+            owned={owned}
+            nativeBalance={nativeByChain[fromChain] ?? null}
+            label="Pay token"
+            disabled={!sourceSignable}
+          />
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           {fromBal != null
-            ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Balance: {fromBal.toLocaleString('en-US', { maximumFractionDigits: 6 })} {fromToken.symbol}</span>
+            ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Balance: {fromBal.toLocaleString('en-US', { maximumFractionDigits: 6 })} {fromToken?.symbol}</span>
             : <span />}
           {fromBal != null && sourceSignable && <button type="button" onClick={onMax} style={maxBtn}>MAX</button>}
         </div>
@@ -325,16 +510,21 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU RECEIVE</span>
           <select aria-label="To network" value={toChain} onChange={e => onToChain(e.target.value as SwapChain)} style={netSelectStyle}>
-            {DEX_CHAINS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            {networkOptions('destination').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: expectedBuy != null ? 'var(--text-primary)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {expectedBuy != null ? expectedBuy.toLocaleString('en-US', { maximumFractionDigits: 6 }) : '—'}
           </div>
-          <select aria-label="Receive token" value={toToken.symbol} onChange={e => { setToToken(toTokens.find(t => t.symbol === e.target.value)!); setQuote(null) }} style={selectStyle}>
-            {toTokens.map(t => <option key={t.symbol} value={t.symbol}>{t.symbol}</option>)}
-          </select>
+          <TokenPicker
+            chain={toChain}
+            value={toToken}
+            onSelect={t => { setToToken(t); clearQuote() }}
+            owned={owned}
+            nativeBalance={nativeByChain[toChain] ?? null}
+            label="Receive token"
+          />
         </div>
       </div>
 
@@ -342,7 +532,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
       {!sourceSignable && (
         <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
-            Spending from <strong>{fromToken.symbol}</strong> on {fromChain} uses the Cross-Chain exchange (deposit-address flow).
+            Spending from <strong>{fromToken?.symbol}</strong> on {fromChain} uses the Cross-Chain exchange (deposit-address flow).
           </div>
           {onUseCrossChain && (
             <button type="button" onClick={onUseCrossChain} style={btn(true, 'rgba(56,189,248,0.9)', '#04121d')}>Switch to Cross-Chain</button>
@@ -358,7 +548,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
         <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', fontSize: 12, color: '#fca5a5' }}>{quoteError}</div>
       )}
 
-      {quote && (
+      {quote && fromToken && toToken && (
         <SwapQuoteCard quote={quote} fromSymbol={fromToken.symbol} toSymbol={toToken.symbol} fromDecimals={fromToken.decimals} toDecimals={toToken.decimals} autoBps={autoBps} isAuto={isAuto} refreshIn={refreshIn} priceChanged={priceChanged} />
       )}
 
@@ -377,7 +567,6 @@ const Spinner = () => <span style={{ width: 14, height: 14, border: '2px solid r
 const cardStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }
 const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }
 const inputStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0 }
-const selectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', fontSize: 14, cursor: 'pointer', outline: 'none', flexShrink: 0, width: 104 }
 const netSelectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 8px', fontSize: 12, cursor: 'pointer', outline: 'none', flexShrink: 0 }
 const maxBtn: React.CSSProperties = { padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--accent-dim)', color: 'var(--accent)' }
 function btn(enabled: boolean, bg = 'var(--accent)', color = '#0d0d0d'): React.CSSProperties {

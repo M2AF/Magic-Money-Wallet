@@ -34,6 +34,8 @@
     "package:publish": "npm run build && electron-builder --publish always",
     "prebuild:extension": "node scripts/convert-apphub.js",
     "build:extension": "vite build --config vite.extension.config.ts",
+    "build:swap-core": "node scripts/build-swap-core.mjs",
+    "check:swap-core": "node scripts/build-swap-core.mjs --check",
     "prebuild:capacitor": "node scripts/convert-apphub.js",
     "build:capacitor": "vite build --config vite.capacitor.config.ts && npx cap sync android",
     "android": "npm run build:capacitor && npx cap run android",

@@ -1,0 +1,91 @@
+{
+  "_recorded": "2026-09-20 read-only from api.relay.link (public history); user/recipient addresses removed",
+  "id": "0x1789950985e22725dcb58c7bec90f477d3e8448936b284a725fca684a0d433c1",
+  "status": "success",
+  "data": {
+    "failReason": "N/A",
+    "refundFailReason": "N/A",
+    "inTxs": [
+      {
+        "chainId": 4663,
+        "hash": "0x80c76bb2ea9cdb2a1561d03af6420f39154408f8f49971469897f04078b364c2"
+      }
+    ],
+    "outTxs": [
+      {
+        "chainId": 792703809,
+        "hash": "2iqaiGGYkkbojUuNc4fHd44wThSLftx4WtnGGk18wddD4DNNwXNmjzNjmRMupPAAmnCzsFR9H9H19QzqnTLSnXFn"
+      }
+    ],
+    "appFees": [
+      {
+        "recipient": "0x9fc4e320a181e88644a302d11f1f158ef0699e37",
+        "bps": "64",
+        "amount": "159277",
+        "amountUsd": "0.159276",
+        "amountUsdCurrent": "0.159276"
+      },
+      {
+        "recipient": "0xd67d64afc4e0337613cd31bd76b69e9887b7d26c",
+        "bps": "20",
+        "amount": "49774",
+        "amountUsd": "0.049773",
+        "amountUsdCurrent": "0.049773"
+      }
+    ],
+    "paidAppFees": [
+      {
+        "recipient": "0x9fc4e320a181e88644a302d11f1f158ef0699e37",
+        "bps": "64",
+        "amount": "159277",
+        "amountUsd": "0.159276",
+        "amountUsdCurrent": "0.159276"
+      },
+      {
+        "recipient": "0xd67d64afc4e0337613cd31bd76b69e9887b7d26c",
+        "bps": "20",
+        "amount": "49774",
+        "amountUsd": "0.049773",
+        "amountUsdCurrent": "0.049773"
+      }
+    ],
+    "metadata": {
+      "currencyIn": {
+        "currency": {
+          "chainId": 4663,
+          "address": "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3",
+          "symbol": "ORBIO",
+          "name": "Orbio.so",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/102176665/large/orbio.jpg?1788424660",
+            "verified": false
+          }
+        },
+        "amount": "439478240627944772860",
+        "amountFormatted": "439.47824062794477286",
+        "amountUsd": "25.028286",
+        "amountUsdCurrent": "25.028286",
+        "minimumAmount": "439478240627944772860"
+      },
+      "currencyOut": {
+        "currency": {
+          "chainId": 792703809,
+          "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "symbol": "USDC",
+          "name": "USD Coin",
+          "decimals": 6,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/6319/large/usdc.png?1696506694",
+            "verified": true
+          }
+        },
+        "amount": "24592704",
+        "amountFormatted": "24.592704",
+        "amountUsd": "24.589728",
+        "amountUsdCurrent": "24.589728",
+        "minimumAmount": "24592704"
+      }
+    }
+  }
+}

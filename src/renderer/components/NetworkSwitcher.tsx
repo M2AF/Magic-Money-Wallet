@@ -32,7 +32,8 @@ const MAINNET_EVM_CHAINS: EvmChainOption[] = [
   { chainId: 1868, id: 'soneium', name: 'Soneium', color: '#5B5EA6' },
   { chainId: 480, id: 'worldchain', name: 'WorldChain', color: '#1A1B1F' },
   { chainId: 7777777, id: 'zora', name: 'Zora', color: '#2B5DF0' },
-  { chainId: 998, id: 'hyperevm', name: 'HyperEVM', color: '#00BF7D' },
+  // 999 is HyperEVM MAINNET (eth_chainId returns 0x3e7); 998 is its testnet.
+  { chainId: 999, id: 'hyperevm', name: 'HyperEVM', color: '#00BF7D' },
 ]
 
 const TESTNET_EVM_CHAINS: EvmChainOption[] = [
@@ -66,7 +67,11 @@ const SHORT_LABELS: Record<string, string> = {
 }
 
 function fallbackChains(chainId: number): EvmChainOption[] {
-  return TESTNET_EVM_CHAINS.some(c => c.chainId === chainId && chainId !== 998)
+  // The `chainId !== 998` exception that used to live here existed only because
+  // HyperEVM mainnet was mislabelled 998 — the same id as its testnet — so a
+  // mainnet user looked like a testnet one. Mainnet is 999, so 998 now means
+  // testnet and nothing else.
+  return TESTNET_EVM_CHAINS.some(c => c.chainId === chainId)
     ? TESTNET_EVM_CHAINS
     : MAINNET_EVM_CHAINS
 }

@@ -1,0 +1,61 @@
+{
+  "_recorded": "2026-09-20 read-only from api.relay.link (public history); user/recipient addresses removed",
+  "id": "0x1789950952f291f01f3ae3effcced33666d39032e858afd5ed07ed3244ba6444",
+  "status": "refund",
+  "data": {
+    "failReason": "CONTRACT_PAUSED",
+    "refundFailReason": "N/A",
+    "inTxs": [
+      {
+        "chainId": 8453,
+        "hash": "0xe0a12be4e8400f2690faf4e09214867ee14191004921ad29cd4e0c8b2e0de1bb"
+      }
+    ],
+    "outTxs": [
+      {
+        "chainId": 8453,
+        "hash": "0xbb9d6fcfe5811521c0c1ca1a928bd370013de07b1cf7497b13ec5de193cc0069"
+      }
+    ],
+    "appFees": [],
+    "paidAppFees": [],
+    "metadata": {
+      "currencyIn": {
+        "currency": {
+          "chainId": 8453,
+          "address": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+          "symbol": "USDC",
+          "name": "USD Coin",
+          "decimals": 6,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/6319/large/usdc.png?1696506694",
+            "verified": true
+          }
+        },
+        "amount": "74212875",
+        "amountFormatted": "74.212875",
+        "amountUsd": "74.209089",
+        "amountUsdCurrent": "74.203895",
+        "minimumAmount": "74212875"
+      },
+      "currencyOut": {
+        "currency": {
+          "chainId": 1,
+          "address": "0x80122c6a83c8202ea365233363d3f4837d13e888",
+          "symbol": "M87",
+          "name": "Messier",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/25957/large/MESSIERlogonew_%281%29.png?1696525036",
+            "verified": true
+          }
+        },
+        "amount": "2998528692377096735473002",
+        "amountFormatted": "2998528.692377096735473002",
+        "amountUsd": "71.964689",
+        "amountUsdCurrent": "71.964689",
+        "minimumAmount": "2968543405453325768118271"
+      }
+    }
+  }
+}

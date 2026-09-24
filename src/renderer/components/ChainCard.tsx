@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ChainBalance, ChainHistory } from '../types/wallet'
 import { CHAIN_ICONS } from '../data/chain-icons'
-import { TxList } from './TxList'
+import { HistorySection } from './HistorySection'
 import { useDisplayCurrency } from '../lib/currency'
 
 function Sparkline({ data, color }: { data: number[]; color: string }) {
@@ -122,7 +122,6 @@ interface Props {
 export function ChainCard({ chainId, balance, address, altAddresses, loading, onSend, history, testnet = false, meta: metaOverride }: Props) {
   const { fmt } = useDisplayCurrency()
   const [copiedAddr, setCopiedAddr] = useState<string | null>(null)
-  const [historyOpen, setHistoryOpen] = useState(false)
   const baseMeta = metaOverride ?? CHAIN_META[chainId] ?? FALLBACK_META
   const meta = testnet ? { ...baseMeta, networks: TESTNET_NETWORKS[chainId] ?? baseMeta.networks } : baseMeta
 
@@ -272,40 +271,7 @@ export function ChainCard({ chainId, balance, address, altAddresses, loading, on
       )}
 
       {/* Transaction history */}
-      {history !== undefined && !loading && (
-        <div style={{ marginTop: 10 }}>
-          <div style={{ height: 1, background: 'var(--border)', marginBottom: 8 }} />
-          {history === null ? (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', border: '1px solid var(--border)', borderTopColor: 'var(--accent)', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-              Loading history…
-            </div>
-          ) : history.error ? (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>History unavailable</div>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setHistoryOpen(o => !o)}
-                style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--font-body)' }}
-              >
-                <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" style={{ transition: 'transform 0.18s', transform: historyOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-                {history.records.length === 0
-                  ? 'No recent transactions'
-                  : `${history.records.length} recent transaction${history.records.length !== 1 ? 's' : ''}`
-                }
-              </button>
-              {historyOpen && (
-                <div style={{ maxHeight: 200, overflowY: 'auto', marginTop: 2 }}>
-                  <TxList records={history.records} />
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      )}
+      {history !== undefined && !loading && <HistorySection history={history} />}
     </div>
   )
 }

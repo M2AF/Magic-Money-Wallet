@@ -1,0 +1,32 @@
+{
+  "_recorded": "2026-09-20 GET li.quest/v1/quote Base ETH -> Arbitrum ARB (read-only, dead address)",
+  "tool": "layerswap",
+  "includedSteps": [
+    {
+      "type": "protocol",
+      "tool": "feeCollection",
+      "action": {
+        "fromChainId": 8453,
+        "toChainId": 8453,
+        "toToken": {
+          "address": "0x0000000000000000000000000000000000000000",
+          "symbol": "ETH",
+          "decimals": 18
+        }
+      }
+    },
+    {
+      "type": "cross",
+      "tool": "layerswap",
+      "action": {
+        "fromChainId": 8453,
+        "toChainId": 42161,
+        "toToken": {
+          "address": "0x912CE59144191C1204E64559FE8253a0e49E6548",
+          "symbol": "ARB",
+          "decimals": 18
+        }
+      }
+    }
+  ]
+}

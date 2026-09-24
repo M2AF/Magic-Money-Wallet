@@ -1,0 +1,6 @@
+{
+  "_recorded": "2026-09-20 POST api.relay.link/quote EMO(143)->PIXL(1) amount=100000000000000000000, appFees 100bps, burn address",
+  "_amount": "100000000000000000000",
+  "message": "Swap output amount is too small to cover fees required to execute swap",
+  "errorCode": "AMOUNT_TOO_LOW"
+}

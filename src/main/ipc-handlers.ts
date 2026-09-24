@@ -79,6 +79,8 @@ import {
   removeHello,
   bioSupported,
   bioMethod,
+  loadSwapSessions,
+  saveSwapSessions,
   type WalletConfig,
   type CustomToken,
   type CustomNft
@@ -179,8 +181,14 @@ import { fetchAllHistory } from './tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from './market-fetcher'
 import { getFxRates } from './fx-rates'
 import { fetchAllTokens, fetchAllCollectibles, fetchNftFloor, resolveCustomToken, resolveCustomNft } from './token-fetcher'
-import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from './swap-proxy'
-import { executeSwap } from './swap-executor'
+import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest, type SwapTokenSearchRequest } from './swap-proxy'
+import { bindSwapIntent, buildSwapIdentity, invalidateSwapIntents } from './swap-intent'
+import { resolveSwapNetworks } from './swap-network-resolver'
+import { measureDelivery } from './swap-delivery'
+import { executeBoundSwap } from './swap-executor'
+import {
+  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions,
+} from './swap-sessions'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from './xchange-client'
 import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync'
@@ -386,6 +394,9 @@ function lockEverything(): void {
   lock()
   lockPasswords()
   clearChatSession()
+  // A pending swap authorization must not outlive the unlocked session that
+  // granted it — including when the idle timer locks the wallet mid-quote.
+  invalidateSwapIntents()
 }
 
 function touchActivity(): void {
@@ -538,6 +549,12 @@ async function forwardEvmRpc(method: string, params: unknown[], config: WalletCo
 }
 
 export function registerIpcHandlers(): void {
+  // Swap settlement sessions persist to userData so a bridge that was still in
+  // flight when the app closed is reconciled on the next launch instead of being
+  // forgotten. Installed here rather than inside the module so the same
+  // lifecycle code serves Electron, the extension and Android unchanged.
+  setSwapSessionPersistence({ load: loadSwapSessions, save: saveSwapSessions })
+
   // ── Check if wallet is already configured ──────────────────────────────
   ipcMain.handle('wallet:is-setup', () => walletExists())
 
@@ -673,6 +690,8 @@ export function registerIpcHandlers(): void {
     if (!validateMnemonic(mnemonic)) {
       throw new Error('Invalid mnemonic phrase — check your words and try again')
     }
+    // Replacing the wallet invalidates every quote prepared for the old one.
+    invalidateSwapIntents()
     const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
     const addresses = await deriveAddresses(cleaned)
     saveAddresses(addresses)
@@ -1429,20 +1448,66 @@ export function registerIpcHandlers(): void {
 
   // ── Phantom-style DEX swap (proxy quote + local signing) ─────────────────
   ipcMain.handle('swap:getQuote', async (_e, req: SwapQuoteRequest) => {
-    return getSwapQuote(req, loadConfig())
+    const config = loadConfig()
+    const stored = await getFullAddresses()
+    // Canonical source/destination come from the WALLET's derived addresses, so
+    // a forged `taker` in the request cannot describe a different account.
+    const identity = buildSwapIdentity(stored, req.fromChain, req.toChain, isTestnet(config))
+    const canonical: SwapQuoteRequest = {
+      ...req, taker: identity.sourceAddress, toAddress: identity.destinationAddress,
+    }
+    const res = await getSwapQuote(canonical, config)
+    if (res.quote) res.quote = bindSwapIntent(canonical, res.quote, identity)
+    return res
   })
 
   ipcMain.handle('swap:execute', async (_e, quote: NormalizedSwapQuote) => {
+    const config = loadConfig()
     const stored = await getFullAddresses()
-    return executeSwap(quote, loadMnemonic(), loadConfig(), stored.accountIndex ?? 0)
+    return executeBoundSwap(quote, loadMnemonic(), config, stored, isTestnet(config))
   })
 
   ipcMain.handle('swap:crossStatus', async (_e, req: CrossSwapStatusRequest) => {
     return getCrossSwapStatus(req, loadConfig())
   })
 
-  ipcMain.handle('swap:getTokenList', async (_e, chain: SwapChain) => {
-    return getSwapTokenList(chain, loadConfig())
+  // ---- Settlement tracking -------------------------------------------------
+  // Sessions are EVIDENCE: they answer "what happened to this swap, and were we
+  // paid for it?". Listing and reconciling never sign anything, so they are safe
+  // to call on a restart -- which is the point, since the previous tracker lived
+  // in a React component and forgot every in-flight bridge the moment the app
+  // closed.
+  ipcMain.handle('swap:sessions', async () => {
+    const stored = await getFullAddresses()
+    return listSwapSessions(buildSwapIdentity(stored, '', '', isTestnet(loadConfig())))
+  })
+
+  ipcMain.handle('swap:reconcile', async () => {
+    const config = loadConfig()
+    const stored = await getFullAddresses()
+    const identity = buildSwapIdentity(stored, '', '', isTestnet(config))
+    return reconcileSessions(identity, (session) => getCrossSwapStatus({
+      provider: session.provider as CrossSwapStatusRequest['provider'],
+      txHash: session.sourceTxHash as string,
+      fromChain: session.fromChain,
+      toChain: session.toChain,
+      bridgeTool: session.bridgeTool,
+      requestId: session.providerRequestId,
+      expectedToTokenAddress: session.toTokenAddress,
+      recipient: session.recipient,
+      minBuyAmountRaw: session.minBuyAmountRaw,
+    }, config),
+      // One-time on-chain re-measure of finished deliveries saved before measurement existed.
+      (session) => measureDelivery({
+        toChain: session.toChain, destTxHash: session.destTxHash ?? '', recipient: session.recipient ?? '',
+        tokenAddress: session.toTokenAddress,
+      }, config))
+  })
+
+  ipcMain.handle('swap:getNetworks', async () => resolveSwapNetworks(loadConfig()))
+
+  ipcMain.handle('swap:getTokenList', async (_e, req: SwapTokenSearchRequest) => {
+    return getSwapTokenList(req, loadConfig())
   })
 
   // ── SimpleSwap cross-chain exchange (off-chain, deposit-address) ─────────

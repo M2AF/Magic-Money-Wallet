@@ -247,8 +247,11 @@ export const EVM_CHAINS: ChainDef[] = [
     name: 'WorldChain',
     type: 'evm',
     chainId: 480,
-    nativeSymbol: 'WLD',
-    coingeckoId: 'worldcoin-wld',
+    // Gas on World Chain is ETH. WLD is an ERC-20 on it, not the native asset -
+    // verified 2026-09-20 against LI.FI's chain metadata (native ETH, 18 dp).
+    // Naming WLD here mispriced the gas reserve and mislabelled native swaps.
+    nativeSymbol: 'ETH',
+    coingeckoId: 'ethereum',
     rpcUrl: (cfg) => alchemyRpcUrl('worldchain-mainnet', cfg),
     explorerTx: 'https://worldchain-mainnet.explorer.alchemy.com/tx',
     color: '#1A1B1F',
@@ -272,7 +275,11 @@ export const EVM_CHAINS: ChainDef[] = [
     id: 'hyperevm',
     name: 'HyperEVM',
     type: 'evm',
-    chainId: 998,
+    // 999, not 998: 998 is HyperEVM TESTNET. Verified 2026-09-20 by calling
+    // eth_chainId on rpc.hyperliquid.xyz/evm, which answers 0x3e7 (999), and
+    // cross-checked against LI.FI's chain list. A mainnet transaction signed
+    // for 998 would be rejected for wrong-chain replay protection.
+    chainId: 999,
     nativeSymbol: 'HYPE',
     coingeckoId: 'hyperliquid',
     rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',

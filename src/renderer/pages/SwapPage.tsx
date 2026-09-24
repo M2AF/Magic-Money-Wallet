@@ -17,6 +17,8 @@ import { SwapModeToggle } from '../components/SwapModeToggle'
 import { DexSwapWidget } from '../components/DexSwapWidget'
 import { SimpleSwapWidget } from '../components/SimpleSwapWidget'
 import type { HeaderToolbarProps } from '../components/HeaderToolbar'
+import magicSwapUrl from '../assets/magic-swap.png'
+import magicSwapTextUrl from '../assets/magic-swap-text.png'
 
 // The shared toolbar actions are carried as one bag (see HeaderToolbarProps)
 // and spread below, so a new one reaches this page without an edit here.
@@ -55,8 +57,12 @@ export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
 
       <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '14px 16px 18px', display: 'flex', justifyContent: 'center' }}>
         {/* Centered, max-width column so the layout is identical across popup (400px),
-            docked sidebar (fluid), and the resizable Electron window. */}
-        <div style={{ width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            docked sidebar (fluid), and the resizable Electron window. `margin: auto 0`
+            centres it vertically too once the window is taller than the widget — a
+            maximised portrait display otherwise left it pinned to the top of ~1400px
+            of empty space. Auto margins only consume POSITIVE free space, so a short
+            window still scrolls from the top rather than clipping the first field. */}
+        <div style={{ width: '100%', maxWidth: 520, margin: 'auto 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {testnet || privacyMode ? (
             <div style={{
               marginTop: 24, padding: '22px 18px', textAlign: 'center',
@@ -76,6 +82,11 @@ export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
             </div>
           ) : (
             <>
+              <div className="swap-hero">
+                <img src={magicSwapUrl} alt="" className="swap-hero-icon" draggable={false} />
+                <img src={magicSwapTextUrl} alt="Magic Swap" className="swap-hero-text" draggable={false} />
+              </div>
+
               {mode === 'dex'
                 ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')} />
                 : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}

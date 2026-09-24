@@ -1,0 +1,105 @@
+{
+  "_recorded": "2026-09-20 read-only from api.relay.link (public history); user/recipient addresses removed",
+  "id": "0x1789950987ec1164f1b2d9c9b6b50b5369a91b69cb4e7938c7cce9ed776ac4dd",
+  "status": "success",
+  "data": {
+    "failReason": "N/A",
+    "refundFailReason": "N/A",
+    "inTxs": [
+      {
+        "chainId": 792703809,
+        "hash": "4iUPzLHH5N4kaRBuBbV3sDDB67MukE6zTvPAMbRgQHPE9GgHCJvsSSXj8PJQzwpxjn4e1sBqgYikPqBvh2NA2jzZ"
+      }
+    ],
+    "outTxs": [
+      {
+        "chainId": 4663,
+        "hash": "0xbee0e7f2adc7eb193afa34672112018620031a322aaddd021744c2c8e2fd0209"
+      }
+    ],
+    "appFees": [
+      {
+        "recipient": "0x9fc4e320a181e88644a302d11f1f158ef0699e37",
+        "bps": "16",
+        "amount": "8000",
+        "amountUsd": "0.007999",
+        "amountUsdCurrent": "0.007999"
+      },
+      {
+        "recipient": "0xb76d28678a29c196e246b8eb05708bce128a215b",
+        "bps": "11",
+        "amount": "5500",
+        "amountUsd": "0.005499",
+        "amountUsdCurrent": "0.005499"
+      },
+      {
+        "recipient": "0x11942c17b429eec75b44e2a6fb0fcaf4f002b2cf",
+        "bps": "18",
+        "amount": "9000",
+        "amountUsd": "0.008999",
+        "amountUsdCurrent": "0.008999"
+      }
+    ],
+    "paidAppFees": [
+      {
+        "recipient": "0x9fc4e320a181e88644a302d11f1f158ef0699e37",
+        "bps": "16",
+        "amount": "8000",
+        "amountUsd": "0.007999",
+        "amountUsdCurrent": "0.007999"
+      },
+      {
+        "recipient": "0xb76d28678a29c196e246b8eb05708bce128a215b",
+        "bps": "11",
+        "amount": "5500",
+        "amountUsd": "0.005499",
+        "amountUsdCurrent": "0.005499"
+      },
+      {
+        "recipient": "0x11942c17b429eec75b44e2a6fb0fcaf4f002b2cf",
+        "bps": "18",
+        "amount": "9000",
+        "amountUsd": "0.008999",
+        "amountUsdCurrent": "0.008999"
+      }
+    ],
+    "metadata": {
+      "currencyIn": {
+        "currency": {
+          "chainId": 792703809,
+          "address": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "symbol": "USDC",
+          "name": "USD Coin",
+          "decimals": 6,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/6319/large/usdc.png?1696506694",
+            "verified": true
+          }
+        },
+        "amount": "5000000",
+        "amountFormatted": "5.0",
+        "amountUsd": "4.999395",
+        "amountUsdCurrent": "4.999395",
+        "minimumAmount": "5000000"
+      },
+      "currencyOut": {
+        "currency": {
+          "chainId": 4663,
+          "address": "0xaa07a0e9209e16ac99708c3ec70159c6ef3128a3",
+          "symbol": "ORBIO",
+          "name": "Orbio.so",
+          "decimals": 18,
+          "metadata": {
+            "logoURI": "https://coin-images.coingecko.com/coins/images/102176665/large/orbio.jpg?1788424660",
+            "verified": false
+          }
+        },
+        "amount": "83964374198219442628",
+        "amountFormatted": "83.964374198219442628",
+        "amountUsd": "4.781770",
+        "amountUsdCurrent": "4.781771",
+        "minimumAmount": "80934195395086782839"
+      }
+    }
+  }
+}

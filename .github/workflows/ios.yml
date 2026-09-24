@@ -32,6 +32,11 @@ on:
       - 'src/renderer/**'
       - 'src/main/**'
       - 'src/extension/**'
+      # src/shared holds the platform-neutral modules every target compiles in
+      # (asset keys, swap token identity + curated set). A change to one of
+      # those alone reaches the iOS bundle without touching any path above, so
+      # without this line it would ship unbuilt.
+      - 'src/shared/**'
       - 'ios-plugins/**'
       - 'ios/**'
       - 'vite.ios.config.ts'

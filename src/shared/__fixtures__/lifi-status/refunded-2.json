@@ -1,0 +1,38 @@
+{
+  "_recorded": "2026-09-20 via GET https://li.quest/v1/status (read-only; public historical transfer)",
+  "status": "DONE",
+  "substatus": "REFUNDED",
+  "substatusMessage": "The tokens were refunded to the user.",
+  "tool": "lifiIntents",
+  "sending": {
+    "txHash": "0x6c698a44ab15bb111199077cf98a2cd5d275bd8eb6026bfde5525f740f2ccaf1",
+    "chainId": 999,
+    "amount": "5000000",
+    "token": {
+      "address": "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+      "symbol": "USD₮0",
+      "decimals": 6
+    }
+  },
+  "receiving": {
+    "txHash": "0xf4a0dc9cb2d259466ff37c8f0b7bc36c9c29ca65236f537a24ad372821c2cf99",
+    "txLink": "https://hyperevmscan.io/tx/0xf4a0dc9cb2d259466ff37c8f0b7bc36c9c29ca65236f537a24ad372821c2cf99",
+    "chainId": 999,
+    "amount": "5000000",
+    "token": {
+      "address": "0xB8CE59FC3717ada4C02eaDF9682A9e934F625ebb",
+      "symbol": "USD₮0",
+      "decimals": 6
+    }
+  },
+  "quote": {
+    "action": {
+      "toChainId": 56,
+      "toToken": {
+        "address": "0x55d398326f99059fF775485246999027B3197955",
+        "symbol": "USDT",
+        "decimals": 18
+      }
+    }
+  }
+}

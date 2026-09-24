@@ -1,0 +1,6 @@
+{
+  "_recorded": "2026-09-20 POST api.relay.link/quote EMO(143)->PIXL(1) amount=10000000000000000000000000, appFees 100bps, burn address",
+  "_amount": "10000000000000000000000000",
+  "message": "Swap impact is too high: -37.06%",
+  "errorCode": "SWAP_IMPACT_TOO_HIGH"
+}

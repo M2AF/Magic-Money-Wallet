@@ -423,6 +423,31 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
 // Same doctrine as the floor cache above: a provider FAILURE (429/outage) must
 // never present as "you own zero tokens". alchemy-cache.ts serves these when the
 // live call fails, so a throttled launch shows last-known holdings instead of an
+// -- Swap settlement sessions (evidence, never authority) ----------------------
+// What happened to swaps that reached the network, and whether the Magic Money
+// fee was collected for them. Persisted BECAUSE it is not signable: it holds
+// hashes, ids, amounts and states, and deliberately no calldata, serialized
+// transactions or intent handles. Contrast swap-intent.ts, which holds signable
+// payloads and is therefore never written to disk.
+
+const swapSessionsPath = () => join(userData(), 'swap-sessions.json')
+
+export async function loadSwapSessions(): Promise<unknown> {
+  try {
+    if (!existsSync(swapSessionsPath())) return {}
+    return JSON.parse(readFileSync(swapSessionsPath(), 'utf-8'))
+  } catch {
+    return {}
+  }
+}
+
+export function saveSwapSessions(map: unknown): void {
+  try {
+    mkdirSync(userData(), { recursive: true })
+    writeFileSync(swapSessionsPath(), JSON.stringify(map))
+  } catch { /* evidence store: a lost write costs resumability, never safety */ }
+}
+
 // empty token list. Keyed `network:address` (lowercased).
 
 export interface TokenBalanceCacheEntry {

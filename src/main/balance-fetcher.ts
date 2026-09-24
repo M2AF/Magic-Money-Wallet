@@ -293,12 +293,29 @@ async function fetchDogecoinNative(
   return { native: 0, tokenCount: 0, error: lastErr ?? 'Network error' }
 }
 
-// ─── Polkadot via Substrate RPC (Tatum gateway) + SCALE decode ───────────────
+// ─── Polkadot: relay chain (Tatum gateway) + Asset Hub, SCALE decode ─────────
 // Storage key: TWOX_128("System") + TWOX_128("Account") + BLAKE2_128_CONCAT(pubkey32)
 // Both TWOX_128 portions are constants derivable from the Polkadot runtime source.
+//
+// DOT balances moved from the relay chain to Polkadot Asset Hub in the November
+// 2025 migration; reading the relay chain alone would show a migrated balance
+// as 0. The same address and the same System.Account layout apply on both, so
+// both are read and summed. If either cannot be read the total would be
+// understated, so the balance is reported unavailable rather than shown low.
 const DOT_SYSTEM_ACCOUNT_PREFIX = '26aa394eea5630e07c48ae0c9558cef7b99d880ec681799c0cf30e8886371da9'
+/** Parity's public Asset Hub RPC — keyless, CORS-open (measured 2026-09-24). */
+export const POLKADOT_ASSET_HUB_RPC = 'https://polkadot-asset-hub-rpc.polkadot.io'
 
-async function fetchPolkadotNative(
+/** Free planck in a SCALE AccountInfo: nonce(4) consumers(4) providers(4) sufficients(4) free(16) … */
+export function dotFreePlanck(hex: string | null | undefined): bigint {
+  // null or 0x = account not on-chain on this chain (zero balance)
+  if (!hex || hex === '0x') return 0n
+  const bytes = Buffer.from(hex.slice(2), 'hex')
+  if (bytes.length < 32) return 0n
+  return bytes.readBigUInt64LE(16) + bytes.readBigUInt64LE(24) * 18446744073709551616n
+}
+
+export async function fetchPolkadotNative(
   address: string,
   config: WalletConfig
 ): Promise<{ native: number; tokenCount: number; error: string | null }> {
@@ -315,24 +332,22 @@ async function fetchPolkadotNative(
     const storageKey = '0x' + DOT_SYSTEM_ACCOUNT_PREFIX +
       Buffer.from(hash128).toString('hex') +
       Buffer.from(pubkey).toString('hex')
+    const body = { jsonrpc: '2.0', id: 1, method: 'state_getStorage', params: [storageKey] }
 
-    const res = await tatumFetch('polkadot',
-      { jsonrpc: '2.0', id: 1, method: 'state_getStorage', params: [storageKey] },
-      config, 10_000)
-    if (!res.ok) return { native: 0, tokenCount: 0, error: `RPC ${res.status}` }
+    const [relayRes, hubRes] = await Promise.all([
+      tatumFetch('polkadot', body, config, 10_000),
+      fetch(POLKADOT_ASSET_HUB_RPC, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        signal: AbortSignal.timeout(10_000),
+      }),
+    ])
+    if (!relayRes.ok) return { native: 0, tokenCount: 0, error: `RPC ${relayRes.status}` }
+    if (!hubRes.ok) return { native: 0, tokenCount: 0, error: `Asset Hub RPC ${hubRes.status}` }
+    const relay = await relayRes.json() as { result?: string | null; error?: unknown }
+    const hub = await hubRes.json() as { result?: string | null; error?: unknown }
+    if (relay.error || hub.error) return { native: 0, tokenCount: 0, error: 'RPC error' }
 
-    const json = await res.json() as { result?: string | null }
-    const hex = json.result
-    // null or 0x = account not yet on-chain (zero balance)
-    if (!hex || hex === '0x') return { native: 0, tokenCount: 0, error: null }
-
-    // SCALE AccountInfo: nonce(4) consumers(4) providers(4) sufficients(4) free(16) reserved(16) ...
-    const bytes = Buffer.from(hex.slice(2), 'hex')
-    if (bytes.length < 32) return { native: 0, tokenCount: 0, error: null }
-
-    const lo = bytes.readBigUInt64LE(16)
-    const hi = bytes.readBigUInt64LE(24)
-    const planck = lo + hi * BigInt('18446744073709551616')  // hi * 2^64
+    const planck = dotFreePlanck(relay.result) + dotFreePlanck(hub.result)
     return { native: Number(planck) / 1e10, tokenCount: 0, error: null }
   } catch (err) {
     const msg = String(err)

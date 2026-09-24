@@ -211,7 +211,8 @@
 /* The wordmark art is white-on-transparent — outline it so it reads on ivory,
    with a warm gold halo so it pops like foil stamping */
 :root[data-theme='white-gold']:not([data-derived]) .titlebar-wordmark,
-:root[data-theme='white-gold']:not([data-derived]) .tab-banner img {
+:root[data-theme='white-gold']:not([data-derived]) .tab-banner img,
+:root[data-theme='white-gold']:not([data-derived]) .swap-hero-text {
   filter:
     drop-shadow(0 1px 1px rgba(58, 51, 37, 0.85))
     drop-shadow(0 0 3px rgba(58, 51, 37, 0.6))
@@ -231,7 +232,8 @@
    with no block of its own (Abstract, milady, Sappy Seals), or a recoloured one.
    The six hand-tuned themes above carry their own rules and never set it. */
 :root[data-tone='light'] .titlebar-wordmark,
-:root[data-tone='light'] .tab-banner img {
+:root[data-tone='light'] .tab-banner img,
+:root[data-tone='light'] .swap-hero-text {
   filter:
     drop-shadow(0 1px 1px rgba(40, 40, 40, 0.85))
     drop-shadow(0 0 3px rgba(40, 40, 40, 0.6))
@@ -451,6 +453,27 @@ html, body, #root {
   pointer-events: none;
 }
 
+/* "Magic Swap" mark + wordmark, centred above the swap widget. */
+.swap-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+.swap-hero-icon {
+  width: 72px;
+  height: auto;
+}
+.swap-hero-text {
+  width: 180px;
+  max-width: 70%;
+  height: auto;
+}
+
 /* ── Page container ──────────────────────────────────────────────────────────── */
 .page {
   flex: 1;
@@ -667,6 +690,33 @@ h1, h2, h3 { font-family: var(--font-display); }
 }
 .address-chip:hover { border-color: var(--border-active); color: var(--text-primary); }
 .address-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+/* ── Networks tab grid ──────────────────────────────────────────────────── */
+/* A chain card is designed around a phone-width column: name + sparkline on the
+   left, balance on the right, then a full-width address chip and Send button.
+   Stretched across a maximised desktop window (portrait fullscreen especially)
+   that geometry falls apart — a 20-character address chip runs a thousand pixels
+   wide and the sparkline drifts into the middle of the card. So the list tiles
+   instead of stretching: as many ~360px columns as fit, one on a popup/phone.
+   `min(360px, 100%)` keeps the single-column case working below 360px (auto-fill
+   would otherwise overflow), and `align-items: start` stops a tall card — Bitcoin
+   has three addresses, any card can expand its history — from stretching the
+   shorter card beside it. */
+.network-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  align-items: start;
+  gap: 16px;
+}
+/* The in-between widths — wide enough that one column stretches, too narrow for
+   two — would put us back where we started with a 700px-wide card. Capping the
+   card itself and centring it in its track covers that without a breakpoint: the
+   cap only bites when a track is wider than a card ever wants to be. */
+.network-grid > * {
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
 
 /* ── Chain card ──────────────────────────────────────────────────────────────── */
 .chain-card {

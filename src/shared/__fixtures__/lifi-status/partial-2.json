@@ -1,0 +1,38 @@
+{
+  "_recorded": "2026-09-20 via GET https://li.quest/v1/status (read-only; public historical transfer)",
+  "status": "DONE",
+  "substatus": "PARTIAL",
+  "substatusMessage": "Some of the received tokens are not the requested destination tokens.",
+  "tool": "mayanFastMCTP",
+  "sending": {
+    "txHash": "49A1X76jPfLsNs4GrdDWWzHUbsDVzrZRKaVsc8DfarDHWxEmhJbC91WzJMwtQeE6udL96B8uHk4iiP9SFYT9cVKK",
+    "chainId": 1151111081099710,
+    "amount": "1050224530",
+    "token": {
+      "address": "So11111111111111111111111111111111111111112",
+      "symbol": "wSOL",
+      "decimals": 9
+    }
+  },
+  "receiving": {
+    "txHash": "0xad9f244873b2f1c24a059b3b1557fc11289171976ba4589e323076765bf58aba",
+    "txLink": "https://basescan.org/tx/0xad9f244873b2f1c24a059b3b1557fc11289171976ba4589e323076765bf58aba",
+    "chainId": 8453,
+    "amount": "116151518",
+    "token": {
+      "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "symbol": "USDC",
+      "decimals": 6
+    }
+  },
+  "quote": {
+    "action": {
+      "toChainId": 8453,
+      "toToken": {
+        "address": "0x0000000000000000000000000000000000000000",
+        "symbol": "ETH",
+        "decimals": 18
+      }
+    }
+  }
+}

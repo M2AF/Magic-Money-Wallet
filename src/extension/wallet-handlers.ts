@@ -37,8 +37,14 @@ import { isTestnet, activeEvmChains, defaultDappChainId, midnightNetworkFor, EVM
 import {
   getMidnightDustStatus, registerMidnightDustIfNeeded, sendMidnightNight,
 } from './midnight-send-manager'
-import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest } from '../main/swap-proxy'
-import { executeSwap } from '../main/swap-executor'
+import { getSwapQuote, getSwapTokenList, getCrossSwapStatus, type SwapQuoteRequest, type SwapChain, type NormalizedSwapQuote, type CrossSwapStatusRequest, type SwapTokenSearchRequest } from '../main/swap-proxy'
+import { executeBoundSwap } from '../main/swap-executor'
+import { bindSwapIntent, buildSwapIdentity, invalidateSwapIntents } from '../main/swap-intent'
+import { resolveSwapNetworks } from '../main/swap-network-resolver'
+import { measureDelivery } from '../main/swap-delivery'
+import {
+  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions,
+} from '../main/swap-sessions'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
 import { estimateEvmFee, estimateSolanaFee, estimateCardanoFee, estimateTronFee, estimateDogecoinFee, estimateBitcoinFee, estimateZcashFee, estimateMoneroFee, sendEvmTransaction, sendRawEvmTransaction, sendAgwTransaction, sendSolanaTransaction, sendCardanoTransaction, sendTronTransaction, sendDogecoinTransaction, sendBitcoinTransaction, sendZcashTransaction, sendMoneroTransaction, type SendAsset } from '../main/tx-sender'
@@ -61,6 +67,13 @@ import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync } from '@scure/bip39'
 import { privateKeyToAccount } from 'viem/accounts'
 import * as store from './chrome-store'
+
+// Swap settlement sessions persist through the platform store (chrome.storage on
+// the extension, Capacitor Preferences on Android, via the build-time alias), so
+// an MV3 service-worker suspension or an app restart resumes reconciliation
+// instead of losing an in-flight bridge. Evidence only -- nothing here can
+// authorize a spend.
+setSwapSessionPersistence({ load: store.loadSwapSessions, save: store.saveSwapSessions })
 import * as platform from './platform'
 import {
   wcGetSessions, wcGetPendingProposals, wcGetPendingRequests,
@@ -415,6 +428,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'wallet:lock':
+      // A pending swap authorization must not outlive the unlocked session.
+      invalidateSwapIntents()
       await store.lock()
       return true
 
@@ -464,6 +479,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wallet:import': {
       const mnemonic = String(a0)
       if (!validateMnemonic(mnemonic)) throw new Error('Invalid mnemonic phrase')
+      // Replacing the wallet invalidates every quote prepared for the old one.
+      invalidateSwapIntents()
       const addresses = await deriveAddresses(mnemonic, 0)
       await store.saveAddresses(addresses)
       _pendingMnemonic = mnemonic
@@ -986,7 +1003,18 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     case 'swap:getQuote': {
       const config = await store.loadConfig()
-      return getSwapQuote(a0 as SwapQuoteRequest, config)
+      const addresses = await store.loadAddresses()
+      if (!addresses) throw new Error('No wallet')
+      const req = a0 as SwapQuoteRequest
+      // Canonical source/destination come from the WALLET's derived addresses,
+      // so a forged `taker` cannot describe a different account.
+      const identity = buildSwapIdentity(addresses, req.fromChain, req.toChain, isTestnet(config))
+      const canonical: SwapQuoteRequest = {
+        ...req, taker: identity.sourceAddress, toAddress: identity.destinationAddress,
+      }
+      const res = await getSwapQuote(canonical, config)
+      if (res.quote) res.quote = bindSwapIntent(canonical, res.quote, identity)
+      return res
     }
 
     case 'swap:crossStatus': {
@@ -994,17 +1022,51 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return getCrossSwapStatus(a0 as CrossSwapStatusRequest, config)
     }
 
+    case 'swap:sessions': {
+      const addresses = await store.loadAddresses()
+      if (!addresses) throw new Error('No wallet')
+      const config = await store.loadConfig()
+      return listSwapSessions(buildSwapIdentity(addresses, '', '', isTestnet(config)))
+    }
+
+    case 'swap:reconcile': {
+      const addresses = await store.loadAddresses()
+      if (!addresses) throw new Error('No wallet')
+      const config = await store.loadConfig()
+      const identity = buildSwapIdentity(addresses, '', '', isTestnet(config))
+      return reconcileSessions(identity, (session) => getCrossSwapStatus({
+        provider: session.provider as CrossSwapStatusRequest['provider'],
+        txHash: session.sourceTxHash as string,
+        fromChain: session.fromChain,
+        toChain: session.toChain,
+        bridgeTool: session.bridgeTool,
+        requestId: session.providerRequestId,
+        expectedToTokenAddress: session.toTokenAddress,
+      recipient: session.recipient,
+      minBuyAmountRaw: session.minBuyAmountRaw,
+      }, config),
+      // One-time on-chain re-measure of finished deliveries saved before measurement existed.
+      (session) => measureDelivery({
+        toChain: session.toChain, destTxHash: session.destTxHash ?? '', recipient: session.recipient ?? '',
+        tokenAddress: session.toTokenAddress,
+      }, config))
+    }
+
     case 'swap:execute': {
       const addresses = await store.loadAddresses()
       if (!addresses) throw new Error('No wallet')
       const config = await store.loadConfig()
       const mnemonic = await store.loadMnemonic()
-      return executeSwap(a0 as NormalizedSwapQuote, mnemonic, config, addresses.accountIndex ?? 0)
+      return executeBoundSwap(a0, mnemonic, config, addresses, isTestnet(config))
+    }
+
+    case 'swap:getNetworks': {
+      return resolveSwapNetworks(await store.loadConfig())
     }
 
     case 'swap:getTokenList': {
       const config = await store.loadConfig()
-      return getSwapTokenList(a0 as SwapChain, config)
+      return getSwapTokenList(a0 as SwapTokenSearchRequest, config)
     }
 
     case 'ss:estimate':

@@ -91,7 +91,10 @@ function RowSparkline({ data, change24h }: { data: number[] | null; change24h: n
 type Timeframe = ChartTimeframe
 type ChartKind = 'line' | 'candle'
 
-const CHART_W = 380, CHART_H = 130
+// Viewbox units, not pixels: both charts stretch to the modal's width. The
+// height IS pixels — tall enough that the chart does not read as a flat band
+// once the modal widens past ~500px on a desktop window.
+const CHART_W = 380, CHART_H = 150
 const UP = '#22c55e', DOWN = '#ef4444'
 
 // Remembered per viewer — a convenience, so failure just means "line".
@@ -390,7 +393,7 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
       <div
         style={{
           background: 'var(--bg-surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', padding: 20, width: '100%', maxWidth: 420
+          borderRadius: 'var(--radius-lg)', padding: 20, width: '100%', maxWidth: 560
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -442,9 +445,9 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
         </div>
 
         {/* Chart */}
-        <div style={{ marginTop: 26, marginBottom: 16, minHeight: 130 }}>
+        <div style={{ marginTop: 26, marginBottom: 16, minHeight: CHART_H }}>
           {loading ? (
-            <div style={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ height: CHART_H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 20, height: 20, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           ) : kind === 'candle' ? (

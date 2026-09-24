@@ -47,6 +47,8 @@ export const THEME_ID_MAX = 64
 export const THEME_NAME_MAX = 24
 /** Tombstones are small; this is the ceiling on the whole map, live + deleted. */
 export const MAX_THEME_ENTRIES = 64
+/** Reserved entries for recoloured shipped themes; they do not use custom slots. */
+export const BUILTIN_OVERRIDE_PREFIX = 'custom-builtin-'
 
 const HEX = /^#[0-9a-f]{6}$/i
 
@@ -115,7 +117,7 @@ export function mergeThemeEntries(a: ThemeEntries, b: ThemeEntries): ThemeEntrie
 /** Live (non-tombstoned) entries, newest first, capped at MAX_SYNCED_THEMES. */
 export function liveThemeEntries(entries: ThemeEntries): [string, ThemeWireEntry][] {
   return Object.entries(entries)
-    .filter(([, e]) => e.d !== 1)
+    .filter(([id, e]) => e.d !== 1 && !id.startsWith(BUILTIN_OVERRIDE_PREFIX))
     .sort((x, y) => y[1].t - x[1].t)
     .slice(0, MAX_SYNCED_THEMES)
 }

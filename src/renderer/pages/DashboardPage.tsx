@@ -1164,17 +1164,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     ? new Date(balances.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
     : null
 
-  // All chains with a supported history API
-  const HISTORY_CHAINS = new Set([
-    'ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'blast',
-    'gnosis', 'monad', 'abstract', 'apechain', 'robinhood', 'arc', 'ronin', 'soneium', 'worldchain', 'zora', 'hyperevm',
-    'solana', 'cardano', 'bitcoin', 'polkadot'
-  ])
-
   const historyFor = (chainId: string): ChainHistory | null | undefined => {
-    if (!HISTORY_CHAINS.has(chainId)) return undefined  // hide section entirely
     if (!history) return null                            // loading spinner
-    return history[chainId] ?? null
+    return history[chainId]                               // only render when the fetcher has a chain entry
   }
 
   // Find active send chain balance & symbol for the modal
@@ -1496,7 +1488,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                 addresses={localAddresses}
                 balance={balances?.chains['abstract-agw'] ?? null}
                 onSend={() => setSendChain('abstract-agw')}
-                onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles() }}
+                onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles(); fetchHistory() }}
+                history={historyFor('abstract-agw')}
               />
             )
           })
@@ -1511,7 +1504,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             </div>
           )
         }
-        return filtered.map(r => r.node)
+        // Wrapped, not spread into the scroll column: the cards tile into as many
+        // columns as the window is wide (see .network-grid) instead of each one
+        // stretching to the full width of a maximised desktop window.
+        return <div className="network-grid">{filtered.map(r => r.node)}</div>
       })()}
       {portfolioTab === 'tokens' && (
         <TokensView

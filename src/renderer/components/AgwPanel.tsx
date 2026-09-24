@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { WalletAddresses, ChainBalance } from '../types/wallet'
+import type { WalletAddresses, ChainBalance, ChainHistory } from '../types/wallet'
+import { HistorySection } from './HistorySection'
 import { useDisplayCurrency } from '../lib/currency'
 
 interface Props {
@@ -7,6 +8,8 @@ interface Props {
   balance: ChainBalance | null     // abstract-agw native balance entry, if any
   onSend: () => void               // open the Send modal (source = AGW)
   onAgwChanged: (updated: WalletAddresses) => void
+  /** The AGW's own history (its address, not the regular Abstract account's). */
+  history?: ChainHistory | null
 }
 
 const AGW_GREEN = '#1FCE92'
@@ -20,7 +23,7 @@ const AGW_GREEN = '#1FCE92'
  * exports (Settings → Export Signer Private Key) — which is what turns a
  * watch-only AGW into a spendable one.
  */
-export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
+export function AgwPanel({ addresses, balance, onSend, onAgwChanged, history }: Props) {
   const { fmt } = useDisplayCurrency()
   const [copied, setCopied]   = useState(false)
   const [editing, setEditing] = useState<'address' | 'signer' | null>(null)
@@ -266,6 +269,9 @@ export function AgwPanel({ addresses, balance, onSend, onAgwChanged }: Props) {
           </div>
         </div>
       )}
+
+      {/* Transaction history, under the AGW's own address */}
+      {agw && history !== undefined && <HistorySection history={history} />}
     </div>
   )
 }

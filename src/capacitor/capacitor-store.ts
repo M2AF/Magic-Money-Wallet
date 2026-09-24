@@ -441,6 +441,22 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
   prefSet('wallet.floor_cache', map).catch(() => { /* display-only cache */ })
 }
 
+// -- Swap settlement sessions (evidence, never authority) ----------------------
+// What happened to swaps that reached the network, and whether the Magic Money
+// fee was collected for them. Persisted BECAUSE it is not signable: it holds
+// hashes, ids, amounts and states, and deliberately no calldata, serialized
+// transactions or intent handles. Contrast swap-intent.ts, which holds signable
+// payloads and is therefore never written to disk.
+
+export async function loadSwapSessions(): Promise<unknown> {
+  const m = await prefGet<Record<string, unknown>>('wallet.swap_sessions')
+  return (m && typeof m === 'object') ? m : {}
+}
+
+export function saveSwapSessions(map: unknown): void {
+  prefSet('wallet.swap_sessions', map).catch(() => { /* see above */ })
+}
+
 // ── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ───────────
 
 export interface TokenBalanceCacheEntry {

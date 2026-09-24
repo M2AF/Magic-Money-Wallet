@@ -111,6 +111,13 @@ describe('mergeThemeEntries', () => {
 })
 
 describe('liveThemeEntries', () => {
+  it('does not spend custom slots on built-in recolours', () => {
+    const list = liveThemeEntries({
+      'custom-builtin-crimson': entry(10),
+      'custom-ocean': entry(5),
+    })
+    expect(list.map(([id]) => id)).toEqual(['custom-ocean'])
+  })
   it('hides tombstones and returns newest first', () => {
     const list = liveThemeEntries({
       'custom-a': entry(1),

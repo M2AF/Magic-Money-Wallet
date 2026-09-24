@@ -134,8 +134,10 @@ const robinhood = defineChain({ id: 4663, name: 'Robinhood Chain', nativeCurrenc
 // Arc's gas token is native USDC, carried with 18 decimals at the protocol level.
 const arc = defineChain({ id: 5042, name: 'Arc', nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.mainnet.arc.io'] } } })
 const soneium = defineChain({ id: 1868, name: 'Soneium', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.soneium.org'] } } })
-const worldchain = defineChain({ id: 480, name: 'WorldChain', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } } })
-const hyperEvm = defineChain({ id: 998, name: 'HyperEVM', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid.xyz/evm'] } } })
+// Native gas asset is ETH; WLD is an ERC-20 on this chain (verified 2026-09-20).
+const worldchain = defineChain({ id: 480, name: 'WorldChain', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-mainnet.g.alchemy.com/public'] } } })
+// 999 = HyperEVM mainnet (998 is its testnet) - verified by eth_chainId 2026-09-20.
+const hyperEvm = defineChain({ id: 999, name: 'HyperEVM', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid.xyz/evm'] } } })
 
 interface EvmChainEntry {
   chain: Chain
@@ -167,7 +169,7 @@ export const EVM_CHAINS: Record<string, EvmChainEntry> = {
   arc:        { chain: arc,           rpcUrl: cfg => alchemyRpcUrl('arc-mainnet', cfg),     explorer: 'https://explorer.arc.io/tx',                            nativeSymbol: 'USDC' },
   ronin:      { chain: ronin,         rpcUrl: () => 'https://api.roninchain.com/rpc',                               explorer: 'https://app.roninchain.com/tx',                         nativeSymbol: 'RON'  },
   soneium:    { chain: soneium,       rpcUrl: () => 'https://rpc.soneium.org',                                      explorer: 'https://soneium.blockscout.com/tx',                     nativeSymbol: 'ETH'  },
-  worldchain: { chain: worldchain,    rpcUrl: () => 'https://worldchain-mainnet.g.alchemy.com/public',              explorer: 'https://worldchain-mainnet.explorer.alchemy.com/tx',    nativeSymbol: 'WLD'  },
+  worldchain: { chain: worldchain,    rpcUrl: () => 'https://worldchain-mainnet.g.alchemy.com/public',              explorer: 'https://worldchain-mainnet.explorer.alchemy.com/tx',    nativeSymbol: 'ETH'  },
   zora:       { chain: zora,          rpcUrl: () => 'https://rpc.zora.energy',                                      explorer: 'https://explorer.zora.energy/tx',                       nativeSymbol: 'ETH'  },
   hyperevm:   { chain: hyperEvm,      rpcUrl: () => 'https://rpc.hyperliquid.xyz/evm',                              explorer: 'https://purrsec.com/tx',                                nativeSymbol: 'HYPE' }
 }
@@ -181,7 +183,7 @@ const apeChainCurtis = defineChain({ id: 33111, name: 'ApeChain Curtis', nativeC
 const robinhoodTestnet = defineChain({ id: 46630, name: 'Robinhood Chain Testnet', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.testnet.chain.robinhood.com'] } }, testnet: true })
 const roninSaigon = defineChain({ id: 2021, name: 'Ronin Saigon', nativeCurrency: { name: 'Ronin', symbol: 'RON', decimals: 18 }, rpcUrls: { default: { http: ['https://saigon-testnet.roninchain.com/rpc'] } }, testnet: true })
 const soneiumMinato = defineChain({ id: 1946, name: 'Soneium Minato', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.minato.soneium.org'] } }, testnet: true })
-const worldchainSepolia = defineChain({ id: 4801, name: 'World Chain Sepolia', nativeCurrency: { name: 'Worldcoin', symbol: 'WLD', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-sepolia.g.alchemy.com/public'] } }, testnet: true })
+const worldchainSepolia = defineChain({ id: 4801, name: 'World Chain Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://worldchain-sepolia.g.alchemy.com/public'] } }, testnet: true })
 const hyperEvmTestnet = defineChain({ id: 998, name: 'HyperEVM Testnet', nativeCurrency: { name: 'Hyperliquid', symbol: 'HYPE', decimals: 18 }, rpcUrls: { default: { http: ['https://rpc.hyperliquid-testnet.xyz/evm'] } }, testnet: true })
 
 export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
@@ -199,7 +201,7 @@ export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
   robinhood:  { chain: robinhoodTestnet,  rpcUrl: cfg => alchemyRpcUrl('robinhood-testnet', cfg),  explorer: 'https://explorer.testnet.chain.robinhood.com/tx',       nativeSymbol: 'ETH'  },
   ronin:      { chain: roninSaigon,       rpcUrl: () => 'https://saigon-testnet.roninchain.com/rpc', explorer: 'https://saigon-app.roninchain.com/tx',                nativeSymbol: 'RON'  },
   soneium:    { chain: soneiumMinato,     rpcUrl: () => 'https://rpc.minato.soneium.org',          explorer: 'https://soneium-minato.blockscout.com/tx',              nativeSymbol: 'ETH'  },
-  worldchain: { chain: worldchainSepolia, rpcUrl: () => 'https://worldchain-sepolia.g.alchemy.com/public', explorer: 'https://worldchain-sepolia.explorer.alchemy.com/tx', nativeSymbol: 'WLD' },
+  worldchain: { chain: worldchainSepolia, rpcUrl: () => 'https://worldchain-sepolia.g.alchemy.com/public', explorer: 'https://worldchain-sepolia.explorer.alchemy.com/tx', nativeSymbol: 'ETH' },
   zora:       { chain: zoraSepolia,       rpcUrl: () => 'https://sepolia.rpc.zora.energy',         explorer: 'https://sepolia.explorer.zora.energy/tx',               nativeSymbol: 'ETH'  },
   hyperevm:   { chain: hyperEvmTestnet,   rpcUrl: () => 'https://rpc.hyperliquid-testnet.xyz/evm', explorer: 'https://testnet.purrsec.com/tx',                        nativeSymbol: 'HYPE' }
 }
@@ -207,7 +209,7 @@ export const TESTNET_EVM_SENDERS: Record<string, EvmChainEntry> = {
 // User-added networks (config.customChains) get a sender entry built on the fly,
 // so estimate/send resolve them instead of silently falling back to the
 // `entries.ethereum` default (which would broadcast on the wrong chain).
-function customEvmSenders(config: WalletConfig): Record<string, EvmChainEntry> {
+export function customEvmSenders(config: WalletConfig): Record<string, EvmChainEntry> {
   const out: Record<string, EvmChainEntry> = {}
   for (const c of config.customChains ?? []) {
     out[c.id] = {
@@ -379,7 +381,7 @@ function getCoingeckoId(chainId: string): string {
     robinhood: 'ethereum', arc: 'usd-coin',
     polygon: 'matic-network', avalanche: 'avalanche-2', gnosis: 'xdai',
     monad: 'monad-token', apechain: 'apecoin', ronin: 'ronin',
-    worldchain: 'worldcoin-wld', hyperevm: 'hyperliquid'
+    worldchain: 'ethereum', hyperevm: 'hyperliquid'
   }
   return map[chainId] ?? 'ethereum'
 }
@@ -430,6 +432,165 @@ export interface RawEvmTx {
   value?: string   // hex ("0x..") or decimal string of wei
   gas?: string     // hex or decimal gas limit
   chainId: number
+  /**
+   * Pin the nonce instead of letting viem pick one.
+   *
+   * Used by the swap executor to make an ambiguous broadcast recoverable: if a
+   * send times out, the same nonce is re-checked and re-used rather than a fresh
+   * one being taken, so a transaction that actually landed cannot be sent twice
+   * as two different transactions.
+   */
+  nonce?: number
+}
+
+export type EvmSimulationOutcome =
+  /** The node executed the call and it did not revert. */
+  | { status: 'pass' }
+  /** The node executed the call and it REVERTED — the transaction would fail. */
+  | { status: 'revert'; reason: string }
+  /** Could not get an answer (RPC down, method unsupported, timeout). Not a verdict. */
+  | { status: 'unavailable'; reason: string }
+
+/**
+ * Dry-run an EVM transaction with `eth_call` from the address that would sign it.
+ *
+ * The three outcomes are kept apart on purpose. "Reverted" is evidence the
+ * transaction fails; "unavailable" is the absence of evidence. Collapsing them
+ * into a boolean would either block every swap whenever an RPC hiccups, or wave
+ * through a transaction that is known to fail. The swap policy decides which
+ * outcomes are acceptable for which tier.
+ */
+export async function simulateRawEvmTransaction(
+  from: string,
+  tx: RawEvmTx,
+  config: WalletConfig,
+): Promise<EvmSimulationOutcome> {
+  const entry = evmEntryByChainId(tx.chainId, config)
+  if (!entry) return { status: 'unavailable', reason: `Unsupported EVM network (chainId ${tx.chainId})` }
+  try {
+    const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+    await client.call({
+      account: from as `0x${string}`,
+      to: tx.to as `0x${string}`,
+      data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
+      value: toBig(tx.value) ?? 0n,
+      ...(toBig(tx.gas) != null ? { gas: toBig(tx.gas) } : {}),
+    })
+    return { status: 'pass' }
+  } catch (err) {
+    const e = err as { name?: string; shortMessage?: string; message?: string; details?: string }
+    const text = `${e.name ?? ''} ${e.shortMessage ?? ''} ${e.details ?? ''} ${e.message ?? ''}`.toLowerCase()
+    // viem raises the same error class for "the contract reverted" and for "the
+    // node refused to answer", so the distinction has to come from the text.
+    const reverted =
+      text.includes('revert') || text.includes('execution reverted') ||
+      e.name === 'ContractFunctionExecutionError' || e.name === 'CallExecutionError' && text.includes('revert')
+    const reason = e.shortMessage || e.details || e.message || 'unknown error'
+    if (reverted) return { status: 'revert', reason }
+    return { status: 'unavailable', reason }
+  }
+}
+
+const ALLOWANCE_SELECTOR = '0xdd62ed3e'   // allowance(address,address)
+
+/**
+ * Current ERC-20 allowance, or null when it cannot be read.
+ *
+ * Lets the executor skip an approval that is already in place — which is not
+ * just a gas saving: some tokens (USDT is the classic) revert on a non-zero to
+ * non-zero approve, so blindly re-approving can fail a swap that would have
+ * worked.
+ */
+export async function readErc20Allowance(
+  token: string, owner: string, spender: string, chainId: number, config: WalletConfig,
+): Promise<bigint | null> {
+  const entry = evmEntryByChainId(chainId, config)
+  if (!entry) return null
+  try {
+    const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+    const pad = (a: string) => a.toLowerCase().replace(/^0x/, '').padStart(64, '0')
+    const result = await client.call({
+      to: token as `0x${string}`,
+      data: `${ALLOWANCE_SELECTOR}${pad(owner)}${pad(spender)}` as `0x${string}`,
+    })
+    if (!result.data || result.data === '0x') return null
+    return BigInt(result.data)
+  } catch {
+    return null
+  }
+}
+
+/** Next nonce for an address, counting transactions already in the mempool. */
+/**
+ * What `owner` actually holds of the asset a swap sells: an ERC-20 balance, or
+ * the native balance when `token` is null. Null when it could not be read — an
+ * RPC failure is not evidence of a zero balance, so callers must not treat it as
+ * one.
+ */
+export async function readEvmSellBalance(
+  token: string | null, owner: string, chainId: number, config: WalletConfig,
+): Promise<bigint | null> {
+  const entry = evmEntryByChainId(chainId, config)
+  if (!entry) return null
+  try {
+    const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+    if (!token) return await client.getBalance({ address: owner as `0x${string}` })
+    const pad = (a: string) => a.toLowerCase().replace(/^0x/, '').padStart(64, '0')
+    const result = await client.call({
+      to: token as `0x${string}`,
+      data: `0x70a08231${pad(owner)}` as `0x${string}`,   // balanceOf(address)
+    })
+    if (!result.data || result.data === '0x') return null
+    return BigInt(result.data)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * How much of `token` a CONFIRMED transaction credited to `recipient`: the sum
+ * of that token's Transfer events to the recipient in the receipt. Null when it
+ * cannot be determined (no receipt yet, reverted, RPC failure) — never 0 for
+ * "unknown". Native coin moved by a contract leaves no event, so it is not
+ * measurable here and callers must not pass a native sentinel.
+ */
+export async function readEvmTokenCredit(
+  chainId: number, txHash: string, token: string, recipient: string, config: WalletConfig,
+): Promise<bigint | null> {
+  const entry = evmEntryByChainId(chainId, config)
+  if (!entry) return null
+  try {
+    const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+    const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` })
+    if (receipt.status !== 'success') return null
+    const TRANSFER = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef'
+    const to = recipient.toLowerCase().replace(/^0x/, '').padStart(64, '0')
+    let total = 0n
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() !== token.toLowerCase()) continue
+      if ((log.topics[0] ?? '').toLowerCase() !== TRANSFER) continue
+      if ((log.topics[2] ?? '').toLowerCase().replace(/^0x/, '') !== to) continue
+      total += BigInt(log.data)
+    }
+    return total
+  } catch {
+    return null
+  }
+}
+
+export async function getEvmPendingNonce(
+  address: string,
+  chainId: number,
+  config: WalletConfig,
+): Promise<number | null> {
+  const entry = evmEntryByChainId(chainId, config)
+  if (!entry) return null
+  try {
+    const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+    return await client.getTransactionCount({ address: address as `0x${string}`, blockTag: 'pending' })
+  } catch {
+    return null
+  }
 }
 
 const toBig = (v?: string): bigint | undefined =>
@@ -460,6 +621,7 @@ export async function sendRawEvmTransaction(
       data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
       value: toBig(tx.value) ?? 0n,
       gas: toBig(tx.gas),
+      ...(tx.nonce != null ? { nonce: tx.nonce } : {}),
     })
   } catch (err) {
     // viem wraps RPC failures as a generic "unknown RPC error". Log the full chain
@@ -535,12 +697,24 @@ export async function sendAgwTransaction(
   return { txHash: hash, explorerUrl: `${explorer}/${hash}` }
 }
 
-/** Block until an EVM tx is mined (used to sequence ERC-20 approval before the swap). */
+/**
+ * Block until an EVM tx is mined, and THROW if it reverted.
+ *
+ * This used to discard the receipt. A mined-but-reverted transaction has a
+ * receipt just like a successful one, so an ERC-20 approval that reverted was
+ * read as "approved" and the swap was fired against an allowance that was never
+ * granted — which then failed on-chain, at the user's expense, one step later.
+ * The caller sequences an approval before a swap precisely because the second
+ * step depends on the first, so the status has to be checked.
+ */
 export async function waitForEvmReceipt(chainId: number, hash: string, config: WalletConfig): Promise<void> {
   const entry = evmEntryByChainId(chainId, config)
   if (!entry) return
   const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
-  await client.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 })
+  const receipt = await client.waitForTransactionReceipt({ hash: hash as `0x${string}`, timeout: 120_000 })
+  if (receipt.status === 'reverted') {
+    throw new Error(`Transaction ${hash} reverted on-chain.`)
+  }
 }
 
 // ─── Solana ───────────────────────────────────────────────────────────────────

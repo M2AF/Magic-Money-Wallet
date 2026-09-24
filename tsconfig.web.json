@@ -25,6 +25,25 @@
     "src/shared/downloads-wire.ts",
     "src/shared/history-wire.ts",
     "src/shared/address-input.ts",
-    "src/shared/currencies.ts"
+    "src/shared/currencies.ts",
+    "src/shared/swap-token-identity.ts",
+    "src/shared/swap-curated-tokens.ts",
+    "src/shared/swap-lifecycle.ts",
+    "src/shared/swap-fee-policy.ts",
+    "src/shared/swap-session.ts",
+    "src/shared/swap-settlement.ts",
+    "src/shared/swap-destination.ts",
+    "src/shared/swap-networks.ts",
+    "src/shared/swap-routing-policy.ts",
+    "src/shared/solana-upfront-cost.ts",
+    "src/shared/history-state.ts",
+    "src/shared/swap-quote.ts",
+    "src/shared/solana-transaction.ts",
+    "src/shared/swap-fee-checks.ts",
+    "src/shared/swap-policy-checks.ts",
+    "src/shared/swap-execution-checks.ts",
+    "src/shared/swap-candidates.ts",
+    "src/shared/swap-signing-checks.ts",
+    "src/shared/swap-core-browser.ts"
   ]
 }

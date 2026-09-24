@@ -1,0 +1,38 @@
+{
+  "_recorded": "2026-09-20 via GET https://li.quest/v1/status (read-only; public historical transfer)",
+  "status": "DONE",
+  "substatus": "PARTIAL",
+  "substatusMessage": "Some of the received tokens are not the requested destination tokens.",
+  "tool": "across",
+  "sending": {
+    "txHash": "0xb31ba332b8462186bdf7362ebfee9c895c3116354e839c0cc09be2d2d4be1a9c",
+    "chainId": 1,
+    "amount": "230000000000000000",
+    "token": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "symbol": "ETH",
+      "decimals": 18
+    }
+  },
+  "receiving": {
+    "txHash": "0xbce705db67fadc3ddfeaf18824d354e5df19ac0cb0853c86563f8004706c2e18",
+    "txLink": "https://robin.etherscan.io/tx/0xbce705db67fadc3ddfeaf18824d354e5df19ac0cb0853c86563f8004706c2e18",
+    "chainId": 4663,
+    "amount": "229889872623107371",
+    "token": {
+      "address": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
+      "symbol": "WETH",
+      "decimals": 18
+    }
+  },
+  "quote": {
+    "action": {
+      "toChainId": 4663,
+      "toToken": {
+        "address": "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168",
+        "symbol": "USDG",
+        "decimals": 6
+      }
+    }
+  }
+}
