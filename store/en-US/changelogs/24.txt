@@ -1,0 +1,9 @@
+Closed test build - meet Magic Swap.
+
+- Search any token by name or paste its address; unverified tokens are labelled, not hidden.
+- More networks and cross-chain routes, including Relay.
+- Swaps are tracked until they finish, showing what actually arrived.
+- Solana swap fees are worked out up front, so you're warned before a swap fails.
+- Typing a search in the browser address bar now opens ChainLens search.
+
+Please report anything broken or confusing.
