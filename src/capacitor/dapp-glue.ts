@@ -106,6 +106,20 @@ async function onPageRequest(e: PageRequestEvent): Promise<void> {
     return
   }
 
+  // Native WebViews keep background tabs alive. A dApp in one of those tabs
+  // must not switch the wallet's single active EVM network while the user is
+  // signing in another tab (for example, a ChainLens swap). The tab id comes
+  // from the native bridge, not from the page payload.
+  const method = (Array.isArray(payload.args) ? payload.args[0] : null) as { method?: unknown } | null
+  if (type === 'web3:request' &&
+      (method?.method === 'wallet_switchEthereumChain' || method?.method === 'wallet_addEthereumChain')) {
+    const browser = await DappBrowser.getState().catch(() => null)
+    if (!browser || browser.activeTabId !== e.tabId) {
+      reply(undefined, 'Open this browser tab before switching wallet networks.')
+      return
+    }
+  }
+
   const msg: Msg = { type, args: Array.isArray(payload.args) ? payload.args : [] }
   try {
     const result = await handle(msg, { origin: e.origin, tabId: e.tabId, kind: 'page' })
