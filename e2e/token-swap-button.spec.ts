@@ -170,3 +170,40 @@ test.describe('account switch reaches the Swap tab (real extension)', () => {
     }
   })
 })
+
+test.describe('amount presets on the pay side (real extension)', () => {
+  test.setTimeout(150_000)
+
+  test('25/50/75% fill exact shares of the holding; the pressed one is marked', async () => {
+    const { ctx, page } = await launch(stubHoldings)
+    try {
+      await openTokensTab(page)
+      await tokenRow(page, 'emonad').hover()
+      await page.getByRole('button', { name: 'Swap this token' }).filter({ visible: true }).click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+      const amountField = page.getByPlaceholder('0.0').filter({ visible: true }).first()
+      const presets = page.getByRole('group', { name: 'Amount presets' })
+      await expect(presets.getByRole('button')).toHaveText(['25%', '50%', '75%', 'MAX'])
+
+      // The stubbed EMO holding is exactly 1 (1e18 base units).
+      for (const [label, want] of [['25%', '0.25'], ['50%', '0.5'], ['75%', '0.75']] as const) {
+        await presets.getByRole('button', { name: label }).click()
+        await expect(amountField).toHaveValue(want)
+        await expect(presets.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true')
+      }
+      await expect(presets.getByRole('button', { name: '25%' })).toHaveAttribute('aria-pressed', 'false')
+      await page.screenshot({ path: 'test-results/swap-amount-presets.png' })
+
+      // A token takes its full balance on MAX.
+      await presets.getByRole('button', { name: 'MAX' }).click()
+      await expect(amountField).toHaveValue('1')
+      await expect(presets.getByRole('button', { name: 'MAX' })).toHaveAttribute('aria-pressed', 'true')
+
+      // Typing clears the pressed state.
+      await amountField.fill('0.3')
+      await expect(presets.getByRole('button', { name: 'MAX' })).toHaveAttribute('aria-pressed', 'false')
+    } finally {
+      await ctx.close()
+    }
+  })
+})

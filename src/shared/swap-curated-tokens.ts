@@ -27,7 +27,7 @@
  * Platform-neutral (no Electron, Chrome, Capacitor, node: or DOM).
  */
 
-import { swapAssetKey } from './swap-token-identity'
+import { swapAssetKey, CARDANO_USDCX_UNIT } from './swap-token-identity'
 
 export interface CuratedSwapToken {
   chain: string
@@ -97,9 +97,13 @@ export const CURATED_SWAP_TOKENS: CuratedSwapToken[] = [
   t('worldchain', 'ETH', 'Ethereum', NATIVE_EVM_SENTINEL, 18, true),
   t('zora', 'ETH', 'Ethereum', NATIVE_EVM_SENTINEL, 18, true),
   t('hyperevm', 'HYPE', 'Hyperliquid', NATIVE_EVM_SENTINEL, 18, true),
-  // ── Cardano (exchange flow only; no DEX execution) ──
+  // ── Cardano (same-chain via Minswap V2 orders; full asset units) ──
   t('cardano', 'ADA', 'Cardano', 'lovelace', 6, true),
   t('cardano', 'MIN', 'Minswap', '29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e', 6),
+  // Circle's USDCx: unit from Circle's xReserve domain reference; 6 decimals per
+  // the Cardano token registry (as read by token-fetcher) and Minswap's index.
+  // Assets named "USDCx" under other policies exist and are NOT this token.
+  t('cardano', 'USDCx', 'USDCx (Circle)', CARDANO_USDCX_UNIT.mainnet, 6),
   // ── Bitcoin / Polkadot (exchange flow only) ──
   t('bitcoin', 'BTC', 'Bitcoin', 'bitcoin', 8, true),
   t('polkadot', 'DOT', 'Polkadot', 'polkadot', 10, true),

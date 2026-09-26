@@ -70,9 +70,11 @@ export function takerKeyForChain(chain: SwapChain): 'evm' | 'solana' | 'cardano'
 
 /**
  * True when the wallet can locally sign a swap that SPENDS from this chain
- * (all EVM chains + Solana). Bitcoin/Cardano/Polkadot need PSBT/CBOR/Substrate
- * signing the executor doesn't have, so as a source they route via SimpleSwap.
+ * (all EVM chains, Solana, and Cardano via validated Minswap orders).
+ * Bitcoin/Polkadot need PSBT/Substrate signing the executor doesn't have, so as
+ * a source they route via SimpleSwap. Whether a chain is actually offered is
+ * still decided by the privileged layer's network list, not by this.
  */
 export function isDexSignableSource(chain: SwapChain): boolean {
-  return chain !== 'bitcoin' && chain !== 'cardano' && chain !== 'polkadot'
+  return chain !== 'bitcoin' && chain !== 'polkadot'
 }

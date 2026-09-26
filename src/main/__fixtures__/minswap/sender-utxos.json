@@ -1,0 +1,159 @@
+{
+ "recordedAt": "2026-09-26T04:27:00Z",
+ "source": "api.koios.rest address_utxos",
+ "address": "addr1q8008tnk6x22qh7xl38znc5p6c52hp8wtfrxaq0yrer9az8fahsvrvjs2nte6d95crak93gphy32u868qqtx3s4r5dxqxpj8mk",
+ "utxos": [
+  {
+   "txHash": "b4dc31e71550ad9251b6c7894dbfffc1c407c4e6310460144c045caf15baae90",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": []
+  },
+  {
+   "txHash": "f2a9051fcb6f7aa4814598b998cc9d0b948c782bcfab8b5e102be02e454091b8",
+   "txIndex": 1,
+   "lovelace": "4815095",
+   "assets": []
+  },
+  {
+   "txHash": "f2a9051fcb6f7aa4814598b998cc9d0b948c782bcfab8b5e102be02e454091b8",
+   "txIndex": 3,
+   "lovelace": "1797510",
+   "assets": []
+  },
+  {
+   "txHash": "054dd4f282af19fde8a0a17fb9eed5092d9c01527bd686e89e853dd1dd90ce84",
+   "txIndex": 3,
+   "lovelace": "1220623",
+   "assets": []
+  },
+  {
+   "txHash": "25722e60abf3816a7f04b3d7fb17ab247aa7e671430081d92b63189ac9f97553",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+     "quantity": "2000000"
+    }
+   ]
+  },
+  {
+   "txHash": "25722e60abf3816a7f04b3d7fb17ab247aa7e671430081d92b63189ac9f97553",
+   "txIndex": 1,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+     "quantity": "2000000"
+    }
+   ]
+  },
+  {
+   "txHash": "a0e328c0dd7a192b01266d60defa7348fb6493ae466cba0109fe58ac63089589",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+     "quantity": "3000000"
+    }
+   ]
+  },
+  {
+   "txHash": "ad0e09ecc2e30d6d40213b008f0898e48fafe0e6416b37542114d8e856c7330b",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+     "quantity": "2000000"
+    }
+   ]
+  },
+  {
+   "txHash": "c76e19a84ad3ee7b4e313836f65aa09cc990147ea423f8270569abe10d8236ce",
+   "txIndex": 2,
+   "lovelace": "2816561",
+   "assets": []
+  },
+  {
+   "txHash": "8435e6325a9e4f46550d83c3bfaec86bb1638a25c59089fd24da6a888ae80203",
+   "txIndex": 1,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+     "quantity": "1"
+    },
+    {
+     "unit": "d9d5985e0657933005d6eb953aeadad29aa8c36f17e493e2962584ec0014df10062ed639ee7ac7e9d3727ab52c605e88bcab80dd32dd3ab4c9617bc0",
+     "quantity": "7999637"
+    }
+   ]
+  },
+  {
+   "txHash": "a6a62e094018a32fab021193b3d34a078e4354f848b91cf1d4651102d488f188",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+     "quantity": "3000000"
+    }
+   ]
+  },
+  {
+   "txHash": "dfd6e087d5fba7f31e920ea4f2c728896858475b4f4f047f2ea30fa74da9b95b",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+     "quantity": "2000000"
+    }
+   ]
+  },
+  {
+   "txHash": "96a923f25faa0edc5db9b2705632f6970fe54a1b4796138abce697963e751724",
+   "txIndex": 1,
+   "lovelace": "3720000",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+     "quantity": "1999000"
+    }
+   ]
+  },
+  {
+   "txHash": "44f50e5973489bb03ee48e838e8e83ee2afe10a707f2e8407ff0abe3e576edb1",
+   "txIndex": 2,
+   "lovelace": "4256589",
+   "assets": [
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+     "quantity": "6999999"
+    },
+    {
+     "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+     "quantity": "1000000"
+    },
+    {
+     "unit": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+     "quantity": "585999999"
+    }
+   ]
+  },
+  {
+   "txHash": "e2fb72254eaadfc69eb989f9444c2a72793c315bd28786eb503143137fd0a0d8",
+   "txIndex": 0,
+   "lovelace": "2000000",
+   "assets": [
+    {
+     "unit": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+     "quantity": "4000000"
+    }
+   ]
+  }
+ ]
+}

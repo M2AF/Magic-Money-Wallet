@@ -109,6 +109,15 @@ export function classifySwapTier(quote: NormalizedSwapQuote): SwapTier {
  *                                     VERIFIED live 2026-09-20: exactly the
  *                                     quoted `slippageTolerance` below
  *                                     `currencyOut.amount`.
+ *   minswap  `min_amount_out`, WRITTEN INTO the V2 order datum
+ *                                     (`minimum_receive`), which the order
+ *                                     script makes the batcher honour. The
+ *                                     wallet does not take the figure on trust:
+ *                                     it decodes the datum out of the exact
+ *                                     transaction before signing and refuses it
+ *                                     below the approved floor
+ *                                     (src/main/cardano-swap-validate.ts).
+ *                                     Measured live 2026-09-26.
  *
  * Deliberately absent: 1inch v6 /swap returns no floor at all, so its minimum
  * can only ever be derived. Uniswap, Rango and SwapKit have documented fields
@@ -117,7 +126,7 @@ export function classifySwapTier(quote: NormalizedSwapQuote): SwapTier {
  * list restricts which providers may carry a BROAD token, not which providers
  * work.
  */
-const MIN_ENFORCEABLE_PROVIDERS = new Set(['jupiter', 'lifi', '0x', 'relay'])
+const MIN_ENFORCEABLE_PROVIDERS = new Set(['jupiter', 'lifi', '0x', 'relay', 'minswap'])
 
 /**
  * Providers whose CROSS-CHAIN lifecycle is VERIFIED against real provider

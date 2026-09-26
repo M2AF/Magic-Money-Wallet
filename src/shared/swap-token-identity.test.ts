@@ -4,6 +4,7 @@ import {
   isValidSwapAddress, looksLikeSwapAddress, sanitizeDiscoveredToken,
   mergeDiscoveredTokens, rankDiscoveredTokens, isToken2022,
   NATIVE_EVM_SENTINEL, EVM_ZERO_ADDRESS, SOL_NATIVE_MINT, TOKEN_2022_PROGRAM,
+  CARDANO_LOVELACE, CARDANO_USDCX_UNIT, splitCardanoUnit,
   type DiscoveredToken,
 } from './swap-token-identity'
 
@@ -205,5 +206,67 @@ describe('rankDiscoveredTokens', () => {
     const before = list.map(t => t.symbol)
     rankDiscoveredTokens(list, 'b')
     expect(list.map(t => t.symbol)).toEqual(before)
+  })
+})
+
+/**
+ * Cardano units measured live 2026-09-26 (Minswap aggregator /tokens). The
+ * imposters are REAL: each carries the asset name `USDCx` (hex 5553444378) or
+ * `USDCX` under a policy that is not Circle's.
+ */
+describe('Cardano asset identity', () => {
+  const USDCX = CARDANO_USDCX_UNIT.mainnet
+  const USDCX_PREPROD = CARDANO_USDCX_UNIT.preprod
+  const IMPOSTER_SAME_NAME = '82db3e78cea2810a39a97a65820d19621848d132db566ae88105813e5553444378'
+  const IMPOSTER_UPPER_X = '1ecb116ddd0b118b436325054c2e6d2bd803d8f2f801b8793736d5355553444358'
+  const SNEK = '279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b'
+
+  it('accepts a full unit and ADA, and nothing shaped like another chain', () => {
+    expect(isValidSwapAddress('cardano', USDCX)).toBe(true)
+    expect(isValidSwapAddress('cardano', SNEK)).toBe(true)
+    expect(isValidSwapAddress('cardano', CARDANO_LOVELACE)).toBe(true)
+    expect(isValidSwapAddress('cardano', DEGEN_LOWER)).toBe(false)
+    expect(isValidSwapAddress('cardano', BONK_MINT)).toBe(false)
+    // A Cardano unit is not an address anywhere else either.
+    expect(isValidSwapAddress('base', USDCX)).toBe(false)
+    expect(isValidSwapAddress('solana', USDCX)).toBe(false)
+  })
+
+  it('rejects a malformed asset name instead of guessing at it', () => {
+    expect(isValidSwapAddress('cardano', USDCX.slice(0, -1))).toBe(false)          // half a byte
+    expect(isValidSwapAddress('cardano', USDCX.slice(0, 55))).toBe(false)          // short policy
+    expect(isValidSwapAddress('cardano', USDCX.slice(0, 56) + '00'.repeat(33))).toBe(false) // name > 32 bytes
+    expect(isValidSwapAddress('cardano', USDCX.replace('1f', 'zz'))).toBe(false)   // not hex
+    expect(isValidSwapAddress('cardano', 'USDCx')).toBe(false)                     // a ticker
+    expect(isValidSwapAddress('cardano', 'asset1e7eewpjw8ua3f2gpfx7y34ww9vjl63hayn80kl')).toBe(false) // fingerprint
+  })
+
+  it('accepts a policy with an EMPTY asset name, which is a real unit', () => {
+    expect(isValidSwapAddress('cardano', USDCX.slice(0, 56))).toBe(true)
+    expect(splitCardanoUnit(USDCX.slice(0, 56))).toEqual({ policyId: USDCX.slice(0, 56), assetNameHex: '' })
+  })
+
+  it('splits a unit exactly, preserving the name bytes', () => {
+    expect(splitCardanoUnit(USDCX)).toEqual({
+      policyId: '1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34', assetNameHex: '5553444378',
+    })
+  })
+
+  it('never treats an imposter that shares the name as USDCx', () => {
+    expect(swapAssetKey('cardano', IMPOSTER_SAME_NAME)).not.toBe(swapAssetKey('cardano', USDCX))
+    expect(swapAssetKey('cardano', IMPOSTER_UPPER_X)).not.toBe(swapAssetKey('cardano', USDCX))
+  })
+
+  it('keeps the mainnet and preprod units distinct', () => {
+    expect(USDCX).not.toBe(USDCX_PREPROD)
+    expect(USDCX.slice(56)).toBe(USDCX_PREPROD.slice(56))   // same name, different policy
+    expect(swapAssetKey('cardano', USDCX)).not.toBe(swapAssetKey('cardano', USDCX_PREPROD))
+  })
+
+  it('folds hex case (safe for hex) and treats ADA as native only on Cardano', () => {
+    expect(swapAssetKey('cardano', USDCX.toUpperCase())).toBe(swapAssetKey('cardano', USDCX))
+    expect(isNativeSwapAddress('cardano', 'lovelace')).toBe(true)
+    expect(isNativeSwapAddress('cardano', USDCX)).toBe(false)
+    expect(isNativeSwapAddress('base', 'lovelace')).toBe(false)
   })
 })

@@ -10,7 +10,42 @@ import type { SolanaUpfrontCost } from './solana-upfront-cost'
 import type { RouteStep, DestinationTerms } from './swap-destination'
 import type { AppFeeRecord, ExternalFeeRecord } from './swap-fee-policy'
 
-export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap'
+export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap'
+
+/**
+ * A Cardano batcher order as the provider priced it. These are CLAIMS: the
+ * privileged layer re-reads every one of them out of the transaction before it
+ * signs (src/main/cardano-swap-validate.ts). Lovelace amounts are integer strings.
+ */
+export interface CardanoOrderTerms {
+  protocol: 'MinswapV2'
+  /** Token units the route crosses, in order: sell, any intermediates, buy. */
+  path: string[]
+  /** Maximum batcher fee committed in the order datum. */
+  batcherFeeLovelace: string
+  /** ADA locked with the order and returned when it is filled or cancelled. */
+  depositLovelace: string
+  /** The aggregator's own fee output. Not a Magic Money fee. */
+  aggregatorFeeLovelace: string
+}
+
+/**
+ * What the order transaction actually costs, READ FROM THE TRANSACTION by the
+ * privileged layer — never taken from the provider. Integer strings (lovelace).
+ */
+export interface CardanoSwapCost {
+  txFeeLovelace: string
+  batcherFeeLovelace: string
+  depositLovelace: string
+  aggregatorFeeLovelace: string
+  /** Net ADA leaving the wallet: fees + deposit, plus the sell amount when selling ADA. */
+  adaSpentLovelace: string
+  validUntilSlot: string
+  /** The floor the order datum commits the batcher to. */
+  orderMinimumRaw: string
+  /** Single-hop orders: whether an unfillable order is refunded by the batcher. */
+  killable: boolean | null
+}
 
 export interface NormalizedSwapQuote {
   provider: SwapProvider
@@ -103,4 +138,8 @@ export interface NormalizedSwapQuote {
    * judge the balance against it with the same shared rule.
    */
   solanaCost?: SolanaUpfrontCost | null
+  /** Cardano source only: the order terms the provider described (claims). */
+  cardanoOrder?: CardanoOrderTerms | null
+  /** Cardano source only: costs read from the validated transaction itself. */
+  cardanoCost?: CardanoSwapCost | null
 }

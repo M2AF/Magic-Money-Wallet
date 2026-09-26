@@ -167,6 +167,8 @@ export interface OpenSessionInput {
   minBuyAmountRaw: string | null
   recipient: string
   isCrossChain: boolean
+  /** See SwapSession.settlesAfterSource. */
+  settlesAfterSource?: boolean
   bridgeTool: string | null
   providerRequestId: string | null
   appFee: AppFeeRecord | null
@@ -236,6 +238,7 @@ export function openSwapSession(
     minBuyAmountRaw: input.minBuyAmountRaw,
     recipient: input.recipient,
     isCrossChain: input.isCrossChain,
+    settlesAfterSource: input.settlesAfterSource === true,
     bridgeTool: input.bridgeTool,
     providerRequestId: input.providerRequestId,
     approvalTxHash: null,
@@ -428,8 +431,12 @@ export function recordSourceReceipt(
       sourceTxHash: args.txHash,
       sourceTxState,
       // A confirmed source tx on a same-chain swap IS the completed swap; a
-      // cross-chain one has only reached the bridge.
-      state: !args.success ? 'failed' : s.isCrossChain ? 'bridging' : 'completed',
+      // cross-chain one has only reached the bridge, and a batcher order has
+      // only been PLACED — the batcher has not traded it yet.
+      state: !args.success ? 'failed'
+        : s.isCrossChain ? 'bridging'
+        : s.settlesAfterSource ? 'source-confirmed'
+        : 'completed',
       updatedAt: now,
       fee,
     },
@@ -663,7 +670,7 @@ export function applyPaidAppFees(
 /** Sessions still worth polling, for the reconcile loop. */
 export function sessionsNeedingReconcile(map: SettledSwapSessionMap): SettledSwapSession[] {
   return Object.values(map).filter(s =>
-    s.isCrossChain
+    (s.isCrossChain || s.settlesAfterSource === true)
     && !!s.sourceTxHash
     && !isTerminalSwapState(s.state as SwapLifecycleState))
 }

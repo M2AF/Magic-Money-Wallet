@@ -14,6 +14,10 @@
  *           Relay returns lowercase, LI.FI returns checksummed, same token.
  *   Solana  base58, case-SENSITIVE. `So111…112` and `so111…112` are different
  *           strings and only one is a real mint. Lowercasing a mint destroys it.
+ *   Cardano the FULL unit: 56-hex policy id + 0-32 bytes of asset-name hex,
+ *           lowercased (hex). ADA is the separate identity `lovelace`. A policy
+ *           id alone, a ticker, or a decoded name is never an identity — the
+ *           same name is minted under many policies.
  *
  * Providers also disagree about how to spell a chain's own coin: Relay says the
  * zero address, 0x/1inch/LI.FI say the 0xeee… sentinel, Jupiter says the wrapped
@@ -50,8 +54,33 @@ export const EVM_ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 /** Wrapped-SOL mint. Jupiter treats it as native SOL, and so do our curated lists. */
 export const SOL_NATIVE_MINT = 'So11111111111111111111111111111111111111112'
 
+/**
+ * Cardano's own coin. Not an asset unit — ADA has no policy — so it is a
+ * distinct identity that can never collide with one.
+ */
+export const CARDANO_LOVELACE = 'lovelace'
+
+/**
+ * Circle's USDCx, pinned by FULL unit (policy id + asset-name hex "USDCx").
+ * Measured 2026-09-26: Minswap search returns other assets named `USDCx`
+ * (`5553444378`) under different policies, so neither the symbol nor the name
+ * identifies it. Source: developers.circle.com/xreserve/references/
+ * supported-blockchains-and-domains. The two networks' units differ, and a
+ * swap is only ever quoted on mainnet (see swap-network-resolver.ts).
+ */
+export const CARDANO_USDCX_UNIT = {
+  mainnet: '1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378',
+  preprod: '31dde3db98ad05feb688d4dbb146b3b6054e1246cbcef98c79b0bf665553444378',
+} as const
+
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]+$/
+/**
+ * A Cardano native-asset unit: a 28-byte policy id followed by an asset name of
+ * 0-32 BYTES, all hex. The name is bytes, not text — it is kept exactly, and a
+ * half byte (odd length) is not a name at all.
+ */
+const CARDANO_UNIT_RE = /^[0-9a-f]{56}(?:[0-9a-f]{2}){0,32}$/
 
 /** True when this address means "the chain's own coin" in ANY provider's spelling. */
 export function isNativeSwapAddress(chain: string, address: string): boolean {
@@ -65,11 +94,23 @@ export function isNativeSwapAddress(chain: string, address: string): boolean {
     // LI.FI spells native SOL as the system program; Jupiter uses wrapped SOL.
     return raw === SOL_NATIVE_MINT || raw === '11111111111111111111111111111111'
   }
+  if (isCardanoSwapChain(chain)) return raw.toLowerCase() === CARDANO_LOVELACE
   return false
 }
 
 export function isSolanaSwapChain(chain: string): boolean {
   return (chain ?? '').trim().toLowerCase() === 'solana'
+}
+
+export function isCardanoSwapChain(chain: string): boolean {
+  return (chain ?? '').trim().toLowerCase() === 'cardano'
+}
+
+/** Split a validated Cardano unit into its policy id and asset-name hex. */
+export function splitCardanoUnit(unit: string): { policyId: string; assetNameHex: string } | null {
+  const raw = (unit ?? '').trim().toLowerCase()
+  if (!CARDANO_UNIT_RE.test(raw)) return null
+  return { policyId: raw.slice(0, 56), assetNameHex: raw.slice(56) }
 }
 
 /**
@@ -86,6 +127,8 @@ export function normalizeSwapAddress(chain: string, address: string): string {
   if (isSolanaSwapChain(chain)) {
     return isNativeSwapAddress(chain, raw) ? SOL_NATIVE_MINT : raw
   }
+  // Hex is case-insensitive, so folding is safe; the name BYTES are unchanged.
+  if (isCardanoSwapChain(chain)) return raw.toLowerCase()
   return raw
 }
 
@@ -135,6 +178,9 @@ export function isValidSwapAddress(chain: string, address: string): boolean {
   if (!raw) return false
   if (isEvmSwapChain(chain)) return EVM_ADDRESS_RE.test(raw)
   if (isSolanaSwapChain(chain)) return base58ByteLength(raw) === 32
+  if (isCardanoSwapChain(chain)) {
+    return raw.toLowerCase() === CARDANO_LOVELACE || splitCardanoUnit(raw) != null
+  }
   return false
 }
 

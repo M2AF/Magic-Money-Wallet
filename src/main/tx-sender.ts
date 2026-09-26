@@ -837,7 +837,7 @@ export async function sendSolanaTransaction(
 
 // ─── Cardano ──────────────────────────────────────────────────────────────────
 
-async function fetchUtxos(address: string, config: WalletConfig): Promise<CardanoUtxo[]> {
+export async function fetchUtxos(address: string, config: WalletConfig): Promise<CardanoUtxo[]> {
   // Testnet Mode: Blockfrost keys are network-scoped (mainnet key 403s on
   // preprod), so preprod UTXOs come from keyless Koios preprod directly.
   if (isTestnet(config)) {
@@ -937,7 +937,7 @@ async function fetchCardanoParams(config: WalletConfig): Promise<CardanoParams> 
 }
 
 /** Current absolute slot, or null when neither backend answers. */
-async function fetchCardanoTip(config: WalletConfig): Promise<bigint | null> {
+export async function fetchCardanoTip(config: WalletConfig): Promise<bigint | null> {
   if (!isTestnet(config)) {
     try {
       const res = await blockfrostFetch('blocks/latest', config, 10_000)

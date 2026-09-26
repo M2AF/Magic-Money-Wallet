@@ -8,7 +8,7 @@
  *
  *   EVM     — ERC-20 approval (if needed) → swap calldata, via tx-sender.
  *   Solana  — deserialize Jupiter VersionedTransaction, sign, send.
- *   Cardano — stub (CBOR witness signing not yet wired).
+ *   Cardano — Minswap V2 batcher order: validated CBOR, local key witness, submit.
  *
  * Private keys are derived inside this process and never leave it.
  */
@@ -39,6 +39,14 @@ import {
   validateSwapQuoteForExecution as validateSharedQuote,
   isSameEvmAddress, isNativeEvmAddress, approvalSpender,
 } from '../shared/swap-execution-checks'
+import { blake2b } from '@noble/hashes/blake2b'
+import { mnemonicToEntropy } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english'
+import { getCardanoSpendingKey, decodeCardanoAddress } from './cardano-pure'
+import { cip30SignTx, cip30SubmitTx } from './cardano-cip30'
+import { decodeCbor, CborMap } from './cardano-tx-inspect'
+import { splitTxRoot, assembleSignedTx, hexToBytesStrict, CardanoSwapValidationError } from './cardano-swap-validate'
+import { checkCardanoSwapTx, cardanoscanTx, CardanoSwapError } from './cardano-swap'
 
 // Wallet chain id → numeric EVM chainId (matches tx-sender's supported set).
 // These double as the source chains the executor can locally sign for a swap —
@@ -132,7 +140,9 @@ export async function executeBoundSwap(
   }
 
   try {
-    return await executeSwap(intent.quote, mnemonic, config, identity.accountIndex, intent.intentId, identity)
+    return await executeSwap(intent.quote, mnemonic, config, identity.accountIndex, intent.intentId, identity, {
+      from: intent.request.fromDecimals, to: intent.request.toDecimals,
+    })
   } catch (e) {
     // Release ONLY when nothing reached the network. `markSwapIntentBroadcast`
     // is set the instant any transaction is sent, and `releaseSwapIntent`
@@ -159,6 +169,8 @@ export async function executeSwap(
   accountIndex = 0,
   intentId?: string,
   identity?: SwapSigningIdentity,
+  /** Token decimals from the bound request; recorded on the session for display. */
+  decimals?: { from?: number; to?: number },
 ): Promise<SwapExecuteResult> {
   validateSwapQuoteForExecution(quote, Date.now(), config)
 
@@ -181,10 +193,113 @@ export async function executeSwap(
   const chain = quote.fromChain
   if (isSupportedEvmChain(chain, config)) return executeEvmSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
   if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
-  if (chain === 'cardano') {
-    throw new SwapPreflightError('Cardano DEX execution is not enabled yet — use Cross-Chain mode for ADA.')
-  }
+  if (chain === 'cardano') return executeCardanoSwap(quote, mnemonic, config, accountIndex, intentId, identity, decimals)
   throw new SwapPreflightError(`Unsupported swap source chain: ${chain}`)
+}
+
+/**
+ * Sign and submit a Minswap V2 order.
+ *
+ * Order of operations, each a gate:
+ *   1. the key this wallet will sign with must control the address the order
+ *      was built for (owner, receiver and every spent input);
+ *   2. the transaction is re-validated against the wallet's coins and the
+ *      chain tip read NOW — the quote-time check is not reused;
+ *   3. the witness is checked to be exactly one signature by that key;
+ *   4. the provider's body bytes are kept verbatim, so the id computed before
+ *      submitting is the id that lands.
+ *
+ * There is no simulation step to apply: an order-creation transaction runs no
+ * scripts (the validator refuses any that would), so the ledger's phase-1 rules
+ * are the whole of its validity, and the submit call enforces them.
+ */
+async function executeCardanoSwap(
+  quote: NormalizedSwapQuote,
+  mnemonic: string,
+  config: WalletConfig,
+  accountIndex: number,
+  intentId?: string,
+  identity?: SwapSigningIdentity,
+  decimals?: { from?: number; to?: number },
+): Promise<SwapExecuteResult> {
+  const walletAddress = identity?.sourceAddress ?? ''
+  if (!walletAddress) throw new SwapPreflightError('This account has no Cardano address to swap from. Nothing was sent.')
+  if (!quote.txData.cbor) throw new SwapPreflightError('Quote did not include a Cardano transaction to sign.')
+
+  // ── 1. The signing key controls the quoted address ─────────────────────────
+  const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
+  const spendKey = getCardanoSpendingKey(mnemonicToEntropy(cleaned, wordlist), accountIndex)
+  const keyHash = toHex(blake2b(spendKey.pub, { dkLen: 28 }))
+  let addrBytes: Uint8Array
+  try {
+    addrBytes = decodeCardanoAddress(walletAddress)
+  } catch {
+    throw new SwapPreflightError('This account\'s Cardano address could not be read. Nothing was sent.')
+  }
+  if (toHex(addrBytes.slice(1, 29)) !== keyHash) {
+    throw new SwapPreflightError(
+      'This swap was quoted for a different Cardano address than the one this wallet would sign with. '
+      + 'Nothing was sent — refresh the quote and try again.')
+  }
+
+  // ── 2. Fresh validation against live coins and the current slot ────────────
+  let validated
+  try {
+    validated = await checkCardanoSwapTx(quote, walletAddress, config)
+  } catch (e) {
+    if (e instanceof CardanoSwapValidationError || e instanceof CardanoSwapError) {
+      throw new SwapPreflightError(`${e.message.replace(/\.$/, '')}. Nothing was sent — refresh the quote and try again.`)
+    }
+    throw new SwapPreflightError(`Could not check the Cardano transaction before signing (${
+      e instanceof Error ? e.message : 'network error'}). Nothing was sent.`)
+  }
+  assertQuoteStillFresh(quote, null, [])
+
+  // ── 3. Sign, and check exactly what was signed ─────────────────────────────
+  const witnessHex = await cip30SignTx(quote.txData.cbor, cleaned, accountIndex)
+  const witnessBytes = hexToBytesStrict(witnessHex)
+  const witness = decodeCbor(witnessBytes)
+  const vkeys = witness instanceof CborMap && witness.size === 1 ? witness.getInt(0) : null
+  const first = Array.isArray(vkeys) && vkeys.length === 1 && Array.isArray(vkeys[0]) ? vkeys[0][0] : null
+  if (!(first instanceof Uint8Array) || toHex(blake2b(first, { dkLen: 28 })) !== keyHash) {
+    throw new SwapPreflightError('The Cardano signature did not come out as a single payment-key witness. Nothing was sent.')
+  }
+  const signed = assembleSignedTx(splitTxRoot(hexToBytesStrict(quote.txData.cbor)), witnessBytes)
+  const txId = validated.txId
+  const explorerUrl = cardanoscanTx(txId)
+
+  // ── 4. Submit. From here the intent can never be re-authorized. ────────────
+  if (intentId) markSwapIntentBroadcast(intentId)
+  const track = (fn: () => Promise<void>) => {
+    if (!intentId || !identity) return
+    fn().catch(() => { /* evidence store must never break a swap */ })
+  }
+  const decimalsOf = (unit: string, d?: number) => (unit === 'lovelace' ? 6 : typeof d === 'number' ? d : 0)
+  track(() => openSession(intentId as string, quote, identity as SwapSigningIdentity, {
+    from: decimalsOf(quote.fromTokenAddress, decimals?.from),
+    to: decimalsOf(quote.toTokenAddress, decimals?.to),
+  }))
+  try {
+    const accepted: unknown = await cip30SubmitTx(toHex(signed), config)
+    if (typeof accepted === 'string' && accepted && accepted.toLowerCase() !== txId) {
+      console.warn('[swap] Cardano node returned a different tx id than the one computed before submitting:', accepted)
+    }
+  } catch (e) {
+    // The node may have taken it and the answer been lost. The id is known, so
+    // the user can check it; resubmitting is never done automatically.
+    track(() => noteSwapBroadcast(intentId as string, txId, explorerUrl, null))
+    track(() => noteUncertainBroadcast(intentId as string, null))
+    throw new Error(
+      `The order transaction ${txId} was submitted but the network did not confirm receipt, so it may or may not `
+      + `have been accepted. Check it on Cardanoscan before trying again — do not send it again. (${
+        e instanceof Error ? e.message : 'submit failed'})`)
+  }
+  track(() => noteSwapBroadcast(intentId as string, txId, explorerUrl, null))
+  return { txHash: txId, explorerUrl, approvalTxHash: null }
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 }
 
 /**

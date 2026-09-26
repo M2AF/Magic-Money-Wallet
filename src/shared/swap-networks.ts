@@ -34,6 +34,8 @@ export type SwapSigningKind =
   | 'evm-eoa'
   /** Ed25519 Solana VersionedTransaction. */
   | 'solana'
+  /** Cardano CBOR transaction, key-witnessed by the account's payment key. */
+  | 'cardano'
   /** Requires a smart-account path the swap executor does not have. */
   | 'smart-account'
   /** PSBT / CBOR / Substrate — not wired into the swap executor. */
@@ -283,13 +285,19 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
       + 'signing the swap executor does not have. Use the Cross-Chain tab for BTC.',
     evidence: 'executor has no PSBT path for swap payloads',
   },
+  // Same-chain only, through Minswap V2 batcher orders. NOT 'verified': every
+  // piece below was measured live, but no swap has yet been executed with real
+  // funds from this wallet (docs/RELEASE-QA.md). Cross-chain in or out needs the
+  // xReserve leg, which is not enabled (docs/CARDANO-SWAP-DISCOVERY.md).
   cardano: {
-    id: 'cardano', chainId: null, signing: 'other',
-    sameChain: [], crossChainSource: [], crossChainDestination: [],
-    discovery: false, status: 'blocked',
-    reason: 'Cardano DEX execution needs CBOR witness signing, which the swap executor does not have. '
-      + 'Use the Cross-Chain tab for ADA.',
-    evidence: 'executor rejects cardano source explicitly',
+    id: 'cardano', chainId: null, signing: 'cardano',
+    sameChain: ['minswap'], crossChainSource: [], crossChainDestination: [],
+    discovery: true, status: 'implemented-unverified',
+    reason: null,
+    evidence: 'measured 2026-09-26, agg-api.minswap.org (keyless): exact-unit search; estimate + unsigned '
+      + 'build-tx for USDCx->SNEK (2-hop via NIGHT), ADA->USDCx (1-hop and 2-hop) as Minswap V2 orders; '
+      + 'order script c3e28c36... matches the published minswap-dex-v2 README; every recorded build passes '
+      + 'the pre-signing validator. Not yet executed with real funds.',
   },
   polkadot: {
     id: 'polkadot', chainId: null, signing: 'other',
@@ -357,6 +365,12 @@ export interface SwapNetworkOption {
   reason: string | null
   status: SwapCoverageStatus | 'unsupported'
   isCustom: boolean
+  /**
+   * Swaps here must start AND end on this network (Cardano: no bridge leg is
+   * enabled). The picker pairs it with itself; the privileged gate refuses
+   * anything else regardless.
+   */
+  sameChainOnly?: boolean
 }
 
 /** Capability for a wallet chain id, or null when the chain has no entry. */
@@ -374,9 +388,12 @@ export function swappableSourceChains(): SwapNetworkCapability[] {
 
 /** Chains a swap may DELIVER to, which is a strictly larger set than the above. */
 export function swappableDestinationChains(): SwapNetworkCapability[] {
+  // A same-chain-only destination (Cardano) is reachable only from a source on
+  // the same chain, which this helper's consumers (ChainLens) cannot sign for.
   return Object.values(SWAP_NETWORKS).filter(c =>
     c.status !== 'blocked'
-    && (c.sameChain.length > 0 || c.crossChainDestination.length > 0))
+    && (c.crossChainDestination.length > 0
+      || (c.sameChain.length > 0 && (c.signing === 'evm-eoa' || c.signing === 'solana'))))
 }
 
 /** Match an imported network to capability by VERIFIED chain id, never by name. */

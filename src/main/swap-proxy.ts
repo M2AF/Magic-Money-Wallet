@@ -34,6 +34,8 @@ import {
   type AppFeeRecord, type ExternalFeeRecord,
 } from '../shared/swap-fee-policy'
 import { resolveJupiterFeeAccount, classifyQuoteFee } from './swap-fee'
+import { prepareCardanoSwapQuote, getMinswapOrderStatus, CardanoSwapError } from './cardano-swap'
+import { minswapTokenSearch } from './minswap-client'
 
 // The app fee rate and the beneficiaries come from the shared policy, not from
 // constants here. The previous arrangement hardcoded 90 bps in this file AND
@@ -421,6 +423,8 @@ type WorkerQuoteResponse = SwapQuoteResponse & { candidates?: NormalizedSwapQuot
  * source is exempt, and a verified fee no longer short-circuits the comparison.
  */
 export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig): Promise<SwapQuoteResponse> {
+  if (req.fromChain === 'cardano' || req.toChain === 'cardano') return getCardanoSwapQuote(req, config)
+
   const base = proxyBase(config)
   if (!base) return { quote: null, error: NOT_CONFIGURED }
 
@@ -538,6 +542,38 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
 }
 
 /**
+ * Cardano: Minswap only, fetched from this device (see minswap-client.ts for why
+ * not through the Worker), and offered only when its transaction already passes
+ * the pre-signing check. It then goes through the SAME candidate filter as every
+ * other route, so the policy gate decides it exactly as it will at signing.
+ *
+ * Cross-chain to or from Cardano is not offered here: it needs the xReserve
+ * bridge leg, which is not enabled (docs/CARDANO-SWAP-DISCOVERY.md, gates 2-3).
+ */
+async function getCardanoSwapQuote(req: SwapQuoteRequest, config: WalletConfig): Promise<SwapQuoteResponse> {
+  if (req.fromChain !== req.toChain) {
+    return {
+      quote: null,
+      error: 'Swapping between Cardano and another network is not available in Swap yet. Swap on Cardano, '
+        + 'or use the Cross-Chain tab for ADA.',
+    }
+  }
+  const excluded: string[] = []
+  let quote: NormalizedSwapQuote | null = null
+  try {
+    quote = await prepareCardanoSwapQuote(req, config,
+      (url, init) => fetchWithDeadline(url, init, 15_000, 'Minswap'))
+  } catch (e) {
+    const why = e instanceof CardanoSwapError ? e.message : msg(e)
+    return { quote: null, error: why }
+  }
+  const ready = withMinReceived(quote)
+  const why = ready ? unsignableReason(ready) : 'no output amount'
+  if (!ready || why) return { quote: null, error: joinReasons('No route could be offered safely for this swap.', [`minswap: ${why}`]) }
+  return selectSafeRoute([ready], excluded)
+}
+
+/**
  * Attach the SOL a Solana-source quote needs up front, read from ITS transaction
  * (see solana-swap-cost.ts). Best-effort: when it cannot be read the quote is
  * still offered without a cost record, and simulation stays the final check.
@@ -571,6 +607,31 @@ async function withSolanaCost(
  * a returned asset is indistinguishable from a delivered one.
  */
 export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: WalletConfig): Promise<CrossSwapStatus> {
+  // A Minswap order is measured on Cardano itself; there is no provider status to ask.
+  if (req.provider === 'minswap') {
+    const status = await getMinswapOrderStatus(req, config)
+    const report = applyShortfallToReport(req.minBuyAmountRaw, mapStatusForProvider('minswap', {
+      provider: 'minswap',
+      status: status.providerStatus ?? null,
+      substatus: status.providerSubstatus ?? null,
+      receivedAmountRaw: status.delivered?.amountRaw ?? null,
+      receivedTokenAddress: status.delivered?.address ?? null,
+      receivedTokenChain: status.delivered?.chain ?? null,
+      destTxHash: status.destTxHash ?? null,
+      destExplorerUrl: status.destExplorerUrl ?? null,
+    }, req.expectedToTokenAddress ?? ''))
+    return {
+      ...status,
+      state: report.state,
+      message: report.message,
+      providerStatus: report.providerStatus,
+      providerSubstatus: report.providerSubstatus,
+      delivered: report.delivered,
+      destTxHash: report.destTxHash,
+      destExplorerUrl: report.destExplorerUrl,
+    }
+  }
+
   const base = proxyBase(config)
   if (!base) return { status: 'unknown', state: 'unknown', error: NOT_CONFIGURED }
   const params = new URLSearchParams({
@@ -806,8 +867,20 @@ export async function getSwapTokenList(
   req: SwapTokenSearchRequest,
   config: WalletConfig,
 ): Promise<SwapTokenListResponse> {
-  const base = proxyBase(config)
   const chain = req?.chain
+  // Cardano discovery is Minswap's index, read from this device like its quotes.
+  if (chain === 'cardano') {
+    const found = await minswapTokenSearch(req.address || req.query || '',
+      Math.min(50, Math.max(1, req.limit ?? 20)),
+      (url, init) => fetchWithDeadline(url, init, 8_000, 'Minswap tokens'))
+    const tokens: SwapToken[] = []
+    for (const raw of found) {
+      const clean = sanitizeDiscoveredToken(raw, chain)
+      if (clean) tokens.push({ ...clean, chain })
+    }
+    return { tokens, error: null }
+  }
+  const base = proxyBase(config)
   if (!base || !chain) return { tokens: [], error: null }
 
   const params = new URLSearchParams({ chain })

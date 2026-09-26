@@ -205,6 +205,8 @@ export interface WalletToken {
   name: string
   symbol: string
   decimals: number
+  /** False when Cardano metadata has no registered decimals and display uses 0. */
+  decimalsKnown?: boolean
   balance: string
   /**
    * Exact holding in base units. `balance` is a rounded, comma-grouped DISPLAY

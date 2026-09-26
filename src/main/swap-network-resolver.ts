@@ -233,5 +233,17 @@ export async function resolveSwapNetworks(
 
   // Solana is not in the EVM registry and has no chain id to join on.
   if (!testnet) out.push(SOLANA_OPTION)
+
+  // Cardano likewise: capability comes from the matrix, same-chain only. It is
+  // left out of Testnet Mode because the Minswap aggregator quotes mainnet only.
+  const cardano = swapCapability('cardano')
+  if (!testnet && cardano && cardano.status !== 'blocked' && cardano.sameChain.length > 0) {
+    out.push({
+      id: 'cardano', label: 'Cardano', chainId: null, color: '#2A7DEA',
+      source: true, destination: true,
+      reason: cardano.reason, status: cardano.status, isCustom: false,
+      sameChainOnly: cardano.crossChainSource.length === 0 && cardano.crossChainDestination.length === 0,
+    })
+  }
   return out
 }

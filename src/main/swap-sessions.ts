@@ -124,6 +124,9 @@ export async function openSession(
     minBuyAmountRaw: quote.minBuyAmountRaw ?? null,
     recipient: quote.toAddress ?? identity.destinationAddress,
     isCrossChain: quote.fromChain !== quote.toChain,
+    // A Cardano batcher order is placed by the source transaction and traded
+    // later, so its session must stay open until the order is filled or cancelled.
+    settlesAfterSource: !!quote.cardanoOrder,
     bridgeTool: quote.bridgeTool ?? null,
     providerRequestId: quote.requestId ?? null,
     appFee: quote.appFee ?? null,

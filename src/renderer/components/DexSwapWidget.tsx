@@ -7,14 +7,15 @@
  * wallet signs the source-chain tx locally (window.wallet.swapExecute) and, for
  * cross-chain, tracks bridge delivery (window.wallet.swapCrossStatus).
  *
- * Spending FROM Bitcoin/Cardano/Polkadot needs signing the executor doesn't have,
- * so those sources hand off to the Cross-Chain (SimpleSwap) tab.
+ * Spending FROM Bitcoin/Polkadot needs signing the executor doesn't have, so
+ * those sources hand off to the Cross-Chain (SimpleSwap) tab. Cardano swaps stay
+ * on Cardano (Minswap orders) and are tracked until a batcher fills them.
  *
  * Same Phantom UX guards as before: gas preflight, 12s refresh w/ >0.5% re-accept,
  * auto-slippage, and a native dust buffer on Max.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { WalletAddresses, AllBalances, TokensResult, WalletToken, NormalizedSwapQuote, SwapToken, SwapChain } from '../types/wallet'
 import { SWAP_TOKEN_LISTS, DEX_CHAINS, takerKeyForChain, isDexSignableSource } from '../types/swap-tokens'
 import type { SwapNetworkOption } from '../types/wallet'
@@ -23,7 +24,9 @@ import { solanaShortfallMessage, maxSolSaleLamports } from '../../shared/solana-
 import { SwapQuoteCard } from './SwapQuoteCard'
 import { SwapSettings } from './SwapSettings'
 import { CrossChainStatusCard } from './CrossChainStatusCard'
+import { CardanoOrderStatusCard } from './CardanoOrderStatusCard'
 import { TokenPicker } from './TokenPicker'
+import { SWAP_PERCENTS, percentOfRaw } from '../lib/swap-amount'
 
 interface Props {
   addresses: WalletAddresses
@@ -40,6 +43,9 @@ const BLUE_CHIP = new Set(['SOL', 'ETH'])
 const MIN_NATIVE_FEE: Record<string, number> = {
   ethereum: 0.003, arbitrum: 0.0004, optimism: 0.0004, base: 0.0004,
   polygon: 0.05, avalanche: 0.02, bsc: 0.002, monad: 0.05, solana: 0.001,
+  // A Minswap order locks ~2 ADA batcher fee + ~2 ADA refundable deposit, plus
+  // an aggregator fee and the network fee; the quote itself states the exact figure.
+  cardano: 5,
 }
 
 /** Every curated address per chain — the set whose symbols we are willing to trust. */
@@ -116,6 +122,10 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   const [fetching, setFetching] = useState(false)
 
   const [nativeBal, setNativeBal] = useState<number>(0)
+  /** The source chain's native balance exactly as read (a decimal string), for the % buttons. */
+  const [nativeStr, setNativeStr] = useState('0')
+  /** Which amount button set the field, and to what: pressed while the field still holds it. */
+  const [amountPick, setAmountPick] = useState<{ pick: number | 'max'; amount: string } | null>(null)
   /**
    * Native balance per chain, from ONE balances read. The receive picker needs
    * the DESTINATION chain's native balance; it used to be handed a literal 0,
@@ -186,6 +196,15 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   const clearQuote = () => { setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false) }
 
+  /** A network whose swaps must start and end on it (Cardano: no bridge leg is enabled). */
+  const sameChainOnly = (c: SwapChain) => networks.some(n => n.id === c && n.sameChainOnly)
+  /** Put the other side on `c` too, with a token distinct from `keep`. */
+  const pairOtherSide = (side: 'from' | 'to', c: SwapChain, keep: SwapToken | undefined) => {
+    const list = SWAP_TOKEN_LISTS[c] ?? []
+    const other = list.find(t => !sameToken(t, keep))
+    if (side === 'to') { setToChain(c); setToToken(other) } else { setFromChain(c); setFromToken(other) }
+  }
+
   // ── Network change handlers (reset the picked token; keep from/to distinct) ──
   const sameToken = (a: SwapToken | undefined, b: SwapToken | undefined) =>
     !!a && !!b && swapAssetKey(a.chain, a.address) === swapAssetKey(b.chain, b.address)
@@ -197,6 +216,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     setFromToken(next)
     if (c === toChain && next) {
       setToToken(prev => sameToken(prev, next) ? list.find(t => !sameToken(t, next)) : prev)
+    } else if (sameChainOnly(c) || sameChainOnly(toChain)) {
+      pairOtherSide('to', c, next)
     }
     setAmount(''); clearQuote()
   }
@@ -205,6 +226,12 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     const list = SWAP_TOKEN_LISTS[c] ?? []
     let next: SwapToken | undefined = list[0]
     if (c === fromChain && sameToken(next, fromToken)) next = list.find(t => !sameToken(t, fromToken))
+    if (c !== fromChain && (sameChainOnly(c) || sameChainOnly(fromChain))) {
+      // Pay side follows onto the same network; keep the receive token distinct from it.
+      const pay = list[0]
+      setFromChain(c); setFromToken(pay); setAmount('')
+      next = list.find(t => !sameToken(t, pay))
+    }
     setToToken(next)
     clearQuote()
   }
@@ -220,6 +247,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     if (chain === toChain && sameToken(token, toToken)) {
       const list = SWAP_TOKEN_LISTS[chain] ?? []
       setToToken(list.find(t => !sameToken(t, token)))
+    } else if (chain !== toChain && (sameChainOnly(chain) || sameChainOnly(toChain))) {
+      pairOtherSide('to', chain, token)
     }
     setAmount(''); clearQuote()
     onPreselectHandled?.()
@@ -241,6 +270,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         }
         setNativeByChain(byChain)
         setNativeBal(byChain[fromChain] ?? 0)
+        setNativeStr(String((bals.chains?.[fromChain] as { native?: string } | undefined)?.native ?? '0'))
       } catch { /* ignore */ }
     })()
     return () => { on = false }
@@ -298,6 +328,15 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     setFromBal(rawToHuman(match.rawBalance ?? '0', match.decimals))
   }, [fromToken, fromChain, nativeBal, owned])
 
+  /** The pay balance in exact base units: the same source as `fromBal`, without the float. */
+  const fromRaw = useMemo(() => {
+    if (!fromToken) return '0'
+    if (fromToken.isNative) return /^[0-9]*\.?[0-9]*$/.test(nativeStr) ? humanToRaw(nativeStr, fromToken.decimals) : '0'
+    const want = swapAssetKey(fromChain, fromToken.address)
+    const match = owned.find(t => t.chain === fromChain && swapAssetKey(fromChain, t.contractAddress) === want)
+    return match?.rawBalance && /^[0-9]+$/.test(match.rawBalance) ? match.rawBalance : '0'
+  }, [fromToken, fromChain, nativeStr, owned])
+
   // ── Quote fetch ───────────────────────────────────────────────────────────
   const fetchQuote = useCallback(async (silent = false): Promise<NormalizedSwapQuote | null> => {
     if (!fromToken || !toToken) return null
@@ -334,7 +373,11 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   // ── Guard 2: 12s refresh ticker ───────────────────────────────────────────
   useEffect(() => {
     if (!quote || priceChanged || execState !== 'idle' || !active) { setRefreshIn(null); return }
-    setRefreshIn(12)
+    // Minswap rate-limits per device IP and every Cardano refresh costs 2-3 of its
+    // calls, so it refreshes less often; the floor in the order still protects
+    // the user between refreshes.
+    const everySec = quote.provider === 'minswap' ? 30 : 12
+    setRefreshIn(everySec)
     const countdown = setInterval(() => setRefreshIn(s => (s != null && s > 0 ? s - 1 : s)), 1000)
     const refresh = setInterval(async () => {
       const q = await fetchQuote(true)
@@ -343,13 +386,27 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       const dec = toToken?.decimals ?? 18
       const dropped = prev ? rawToHuman(q.buyAmountRaw, dec) < rawToHuman(prev, dec) * 0.995 : false
       if (dropped) { setQuote(q); setPriceChanged(true) }
-      else { setQuote(q); acceptedBuyRaw.current = q.buyAmountRaw; setRefreshIn(12) }
-    }, 12_000)
+      else { setQuote(q); acceptedBuyRaw.current = q.buyAmountRaw; setRefreshIn(everySec) }
+    }, everySec * 1000)
     return () => { clearInterval(countdown); clearInterval(refresh) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote, priceChanged, execState, active, fetchQuote, toToken?.decimals])
 
   const acceptNewPrice = () => { if (quote) { acceptedBuyRaw.current = quote.buyAmountRaw; setPriceChanged(false) } }
+
+  /** Fill the amount from an amount button; a new amount needs a new quote. */
+  const pickAmount = (value: string, pick: number | 'max') => {
+    setAmount(value); setAmountPick({ pick, amount: value })
+    setQuote(null); acceptedBuyRaw.current = null
+  }
+  const pressed = (pick: number | 'max') => amountPick?.pick === pick && amountPick.amount === amount && amount !== ''
+
+  // 25 / 50 / 75%: a share of the exact holding. The rest stays in the wallet,
+  // so no gas reserve is taken (MAX below is the fee-aware full amount).
+  const onPercent = (pct: number) => {
+    if (!fromToken) return
+    pickAmount(percentOfRaw(fromRaw, pct, fromToken.decimals), pct)
+  }
 
   // ── Guard 4: Max with native dust buffer ──────────────────────────────────
   const onMax = async () => {
@@ -371,8 +428,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         const cost = r.quote?.solanaCost
         if (cost?.balanceLamports != null) {
           const max = maxSolSaleLamports(cost, BigInt(cost.balanceLamports))
-          setAmount(max > 0n ? (Number(max) / 1e9).toFixed(9).replace(/0+$/, '').replace(/\.$/, '') : '0')
-          setQuote(null); acceptedBuyRaw.current = null
+          pickAmount(max > 0n ? (Number(max) / 1e9).toFixed(9).replace(/0+$/, '').replace(/\.$/, '') : '0', 'max')
           return
         }
       } catch { /* fall through to the conservative reserve below */ }
@@ -382,11 +438,10 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       // follows, and the pre-signing check, still judge the real requirement.
       const buffer = (MIN_NATIVE_FEE[fromChain] ?? 0.001) * 1.5
       const safe = Math.max(0, fromBal - buffer)
-      setAmount(safe > 0 ? String(safe) : '0')
+      pickAmount(safe > 0 ? String(safe) : '0', 'max')
     } else {
-      setAmount(String(fromBal))
+      pickAmount(String(fromBal), 'max')
     }
-    setQuote(null); acceptedBuyRaw.current = null
   }
 
   const flip = () => {
@@ -402,9 +457,13 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   // Solana: judged against the quote's own cost record, with the SAME shared
   // rule and wording the pre-signing check uses. Other chains: the flat reserve.
   const solanaShortfall = quote?.solanaCost ? solanaShortfallMessage(quote.solanaCost) : null
-  const insufficientGas = !!quote && (quote.solanaCost
-    ? solanaShortfall != null
-    : nativeBal < nativeSpend + feeReserve)
+  // Cardano: the order transaction was built from this wallet's actual coins and
+  // re-checked by the privileged layer, so a quote that exists is already funded.
+  const insufficientGas = !!quote && (quote.cardanoCost
+    ? false
+    : quote.solanaCost
+      ? solanaShortfall != null
+      : nativeBal < nativeSpend + feeReserve)
 
   const run = async () => {
     if (!quote || !toToken) return
@@ -437,6 +496,21 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   const expectedBuy = quote && toToken ? rawToHuman(quote.buyAmountRaw, toToken.decimals) : null
   const canQuote = parseFloat(amount) > 0 && !!fromToken && !!toToken && !sameToken(fromToken, toToken) && !fetching && sourceSignable
+
+  // ── Cardano order placed → track it until a batcher fills it ──────────────
+  if (execState === 'success' && execResult && quote?.provider === 'minswap') {
+    return (
+      <CardanoOrderStatusCard
+        quote={quote}
+        txHash={execResult.txHash}
+        explorerUrl={execResult.explorerUrl}
+        toSymbol={executedTo?.symbol ?? quote.toTokenSymbol}
+        toDecimals={executedTo?.decimals ?? 6}
+        onDone={reset}
+        onSettled={refreshBalances}
+      />
+    )
+  }
 
   // ── Cross-chain success → bridge tracker ──────────────────────────────────
   if (execState === 'success' && execResult && quote?.isCrossChain) {
@@ -530,7 +604,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
           {fromBal != null
             ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Balance: {fromBal.toLocaleString('en-US', { maximumFractionDigits: 6 })} {fromToken?.symbol}</span>
             : <span />}
-          {fromBal != null && sourceSignable && <button type="button" onClick={onMax} style={maxBtn}>MAX</button>}
+          {fromBal != null && sourceSignable && (
+            <div role="group" aria-label="Amount presets" style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              {SWAP_PERCENTS.map(pct => (
+                <button key={pct} type="button" onClick={() => onPercent(pct)} disabled={fromRaw === '0'}
+                  aria-pressed={pressed(pct)} style={pctBtn(pressed(pct), fromRaw === '0')}>{pct}%</button>
+              ))}
+              <button type="button" onClick={onMax} disabled={fromRaw === '0'}
+                aria-pressed={pressed('max')} style={pctBtn(pressed('max'), fromRaw === '0')}>MAX</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -604,6 +687,11 @@ const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted
 const inputStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0 }
 const netSelectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 8px', fontSize: 12, cursor: 'pointer', outline: 'none', flexShrink: 0 }
 const maxBtn: React.CSSProperties = { padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--accent-dim)', color: 'var(--accent)' }
+const pctBtn = (on: boolean, off: boolean): React.CSSProperties => ({
+  ...maxBtn, padding: '2px 8px',
+  ...(on ? { background: 'var(--accent)', color: 'var(--bg)', borderColor: 'var(--accent)' } : null),
+  ...(off ? { opacity: 0.4, cursor: 'not-allowed' } : null),
+})
 function btn(enabled: boolean, bg = 'var(--accent)', color = '#0d0d0d'): React.CSSProperties {
   return { padding: '13px', borderRadius: 'var(--radius-sm)', border: bg === 'transparent' ? '1px solid var(--border)' : 'none', fontSize: 14, fontWeight: 700, cursor: enabled ? 'pointer' : 'not-allowed', background: enabled ? bg : 'var(--border)', color: enabled ? (bg === 'transparent' ? 'var(--text-primary)' : color) : 'var(--text-muted)', width: '100%' }
 }

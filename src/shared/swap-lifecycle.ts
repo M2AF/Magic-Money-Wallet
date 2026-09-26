@@ -342,8 +342,60 @@ export function mapStatusForProvider(
   switch (provider) {
     case 'relay': return mapRelayStatus(raw, expectedTokenAddress)
     case 'rango': return mapRangoStatus(raw, expectedTokenAddress)
+    case 'minswap': return mapMinswapStatus(raw, expectedTokenAddress)
     default: return mapProviderStatus(raw, expectedTokenAddress)
   }
+}
+
+/**
+ * A Minswap batcher order, as the wallet MEASURES it on Cardano (there is no
+ * provider status API behind this — see src/main/cardano-swap.ts). Vocabulary:
+ *
+ *   NOT_FOUND                 the order transaction is not on chain yet
+ *   PENDING / ORDER_OPEN      the order is on chain, waiting for a batcher
+ *   DONE / COMPLETED          a transaction spent the order and paid this wallet
+ *                             the token asked for
+ *   DONE / REFUNDED           the order was spent and the SOLD token came back
+ *                             (cancelled, by the owner or after an expiry)
+ *
+ * The wording is Cardano's, not a bridge's: an unfilled order is not "bridging",
+ * and it is NOT refunded automatically — every live V2 order sampled on
+ * 2026-09-26 was non-killable, so it waits until its owner cancels it.
+ */
+export function mapMinswapStatus(raw: RawProviderStatus, expectedTokenAddress: string): SwapStatusReport {
+  const status = upper(raw.status)
+  const substatus = upper(raw.substatus)
+  const delivered = deliveredFrom(raw)
+  const base = {
+    providerStatus: raw.status ?? null,
+    providerSubstatus: raw.substatus ?? null,
+    delivered,
+    destTxHash: raw.destTxHash ?? null,
+    destExplorerUrl: raw.destExplorerUrl ?? null,
+  }
+  if (raw.notFound || status === 'NOT_FOUND') {
+    return { ...base, state: 'source-submitted', message: 'The order transaction has not appeared on Cardano yet.' }
+  }
+  if (status === 'PENDING') {
+    return {
+      ...base, state: 'source-confirmed',
+      message: 'The order is on Cardano, waiting for a Minswap batcher to fill it. If the price moves past your '
+        + 'minimum it will stay open until you cancel it — the ADA deposit and your tokens stay in the order until then.',
+    }
+  }
+  if (status === 'DONE' && substatus === 'REFUNDED') {
+    return {
+      ...base, state: 'refunded',
+      message: 'The order was cancelled, so the swap did not happen. The tokens you sold were returned to your wallet.',
+    }
+  }
+  if (status === 'DONE') {
+    if (delivered?.address && expectedTokenAddress && !sameAsset(delivered.address, expectedTokenAddress, delivered.chain)) {
+      return { ...base, state: 'partial', message: `The order paid out ${delivered.symbol ?? 'a different token'} rather than the one you asked for.` }
+    }
+    return { ...base, state: 'completed', message: null }
+  }
+  return { ...base, state: 'unknown', message: 'The order\'s status could not be read from Cardano. It will be checked again.' }
 }
 
 export function mapRangoStatus(

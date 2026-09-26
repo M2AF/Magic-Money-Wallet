@@ -49,9 +49,27 @@ export function validateSwapQuoteForExecution(
     return
   }
   if (quote.fromChain === 'cardano') {
-    throw new Error('Cardano DEX execution is not enabled yet — use Cross-Chain mode for ADA.')
+    validateCardanoQuote(quote)
+    return
   }
   throw new Error(`Unsupported swap source chain: ${quote.fromChain}`)
+}
+
+/**
+ * Structural checks only. What the CBOR actually does — inputs, outputs, the
+ * order datum, fees — is verified by the privileged layer against the wallet's
+ * live coins immediately before signing (src/main/cardano-swap-validate.ts).
+ */
+function validateCardanoQuote(quote: NormalizedSwapQuote): void {
+  if (quote.provider !== 'minswap') throw new Error('Cardano swaps are only signed for Minswap orders.')
+  if (quote.toChain !== 'cardano') throw new Error('Cardano swaps must stay on Cardano.')
+  const cbor = quote.txData?.cbor
+  if (!cbor || !/^([0-9a-f]{2})+$/.test(cbor)) throw new Error('Quote did not include a Cardano transaction to sign.')
+  if (quote.txData.to || quote.txData.data || quote.txData.value || quote.txData.swapTransaction
+      || quote.approvalTx || quote.permitTx) {
+    throw new Error('Cardano swap quote contains EVM or Solana transaction fields.')
+  }
+  if (!quote.cardanoOrder) throw new Error('Cardano swap quote does not describe its order.')
 }
 
 function validateEvmQuote(quote: NormalizedSwapQuote): void {

@@ -142,6 +142,8 @@ export class SwapIntentError extends Error {}
 export interface SwapIdentityAddresses {
   evm: string
   solana: string
+  /** Base address for the account; optional because older stores may lack it. */
+  cardano?: string
   accountIndex: number
 }
 
@@ -162,10 +164,16 @@ export function buildSwapIdentity(
   toChain: string,
   testnet: boolean,
 ): SwapSigningIdentity {
-  const addrFor = (chain: string) =>
-    (chain ?? '').toLowerCase() === 'solana' ? (addresses.solana ?? '') : (addresses.evm ?? '')
+  const addrFor = (chain: string) => {
+    const c = (chain ?? '').toLowerCase()
+    if (c === 'solana') return addresses.solana ?? ''
+    if (c === 'cardano') return addresses.cardano ?? ''
+    return addresses.evm ?? ''
+  }
   return {
     // Public addresses only — no key material, and nothing derived from it.
+    // Deliberately unchanged by Cardano support: sessions are keyed by it, and
+    // the EVM + Solana pair already distinguishes one wallet from another.
     walletId: `${(addresses.evm ?? '').toLowerCase()}|${addresses.solana ?? ''}`,
     accountIndex: addresses.accountIndex ?? 0,
     environment: testnet ? 'testnet' : 'mainnet',

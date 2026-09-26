@@ -55,6 +55,9 @@ recommended wherever you actually hold funds.
 | Flow | Date | Evidence (link/screenshot) | Pass | Notes |
 |------|------|----------------------------|:----:|-------|
 | Swap via SimpleSwap (any pair, minimum amount) | | | | |
+| **Cardano DEX swap (Minswap V2 order), ADA → USDCx**, minimum amount (~20 ADA + ~4.5 ADA fees/deposit) | | | | **first-ever real Cardano swap** — confirm the order fills, the 2 ADA deposit returns, and the session reads `completed` with an on-chain measured amount. Until this row passes, `swap-networks.ts` keeps Cardano at `implemented-unverified`. |
+| **Cardano DEX swap, native token → ADA** (any held token, e.g. SNEK or MIN) | | | | sells a non-ADA unit through the same validator; check change keeps every other held token |
+| **Cardano order recovery**: an order left unfilled (tight slippage) cancelled via "Manage or cancel on Minswap" | | | | proves the recovery path end to end: minswap.org/orders in the wallet browser, CIP-30 signTx prompt, tokens + deposit back, session reads `refunded` |
 | WalletConnect: pair + personal_sign + one EVM send | | | | |
 | dApp browser: connect + one on-chain tx (e.g. small Uniswap swap) | | | | |
 | Receive check: fresh deposit lands on each chain family used above | | | | covered implicitly by sending between own wallets |

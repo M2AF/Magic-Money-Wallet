@@ -196,6 +196,29 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
           `${detail}.${c.incompleteReason ? ` Lower bound: ${c.incompleteReason}.` : ''}`,
         )
       })()}
+      {/* Cardano: every figure below was read out of the order transaction by
+          the privileged layer, not taken from the provider's estimate. */}
+      {quote.cardanoCost && (() => {
+        const c = quote.cardanoCost
+        const ada = (lovelace: string) => (Number(BigInt(lovelace)) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 6 })
+        const sold = quote.fromTokenAddress === 'lovelace' ? BigInt(quote.sellAmountRaw) : 0n
+        const upFront = BigInt(c.adaSpentLovelace) - sold
+        return (
+          <>
+            {row('Network fee', `${ada(c.txFeeLovelace)} ADA`)}
+            {row(
+              'ADA needed up front',
+              <span>
+                {ada(upFront.toString())} ADA
+                <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{sold > 0n ? ' + amount sold' : ''}</span>
+              </span>,
+              `Network fee, Minswap's batcher and aggregator fees, and a ${ada(c.depositLovelace)} ADA deposit that is `
+                + 'returned with your tokens when the order is filled or cancelled.',
+            )}
+            {row('Deposit (returned)', `${ada(c.depositLovelace)} ADA`)}
+          </>
+        )
+      })()}
       {row('Slippage', `${isAuto ? 'Auto · ' : ''}${(quote.slippageBps / 100).toFixed(2)}%`)}
 
       {/* ── What you end up with ──────────────────────────────────────────────
@@ -214,7 +237,10 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
           {fmt(minReceived)} {toSymbol}
           {!guaranteed && <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> · {describeMinReceivedScope(scope)}</span>}
         </span>,
-        scope === 'atomic'
+        quote.cardanoOrder
+          ? 'Written into the Minswap order: a batcher can only fill it at or above this amount. If the price '
+            + 'moves past it, the order is not filled and stays open until you cancel it.'
+          : scope === 'atomic'
           ? 'The swap reverts if it would deliver less than this, and you keep what you sold.'
           : scope === 'destination-conditional'
             ? 'This applies to the final swap on the destination chain only. Your source transaction settles first, '
@@ -222,6 +248,21 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
             : scope === 'provider-guaranteed'
               ? 'The provider commits to this through its own mechanism. It is not enforced by the transaction you sign.'
               : 'Calculated from the quoted output and your slippage. Nothing enforces it.',
+      )}
+
+      {/* A batcher order is not an atomic swap, and the difference decides what
+          the user holds if the price moves. Stated before signing, plainly. */}
+      {quote.cardanoOrder && (
+        <div style={{
+          fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)',
+          background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)',
+          borderRadius: 'var(--radius-sm)', padding: '8px 10px',
+        }}>
+          <strong style={{ color: '#38bdf8' }}>This places a Minswap order. </strong>
+          A batcher usually fills it within a minute or two. If the price moves past your minimum first, it is
+          <strong> not refunded automatically</strong> — your tokens and the deposit stay in the order until you
+          cancel it on Minswap.
+        </div>
       )}
 
       {/* The failure mode is part of what the user approves: shown BEFORE signing,

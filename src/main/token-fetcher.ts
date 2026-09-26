@@ -18,6 +18,8 @@ export interface WalletToken {
   name: string
   symbol: string
   decimals: number
+  /** Whether decimals came from token metadata rather than the display fallback of 0. */
+  decimalsKnown?: boolean
   balance: string
   /**
    * Exact holding in base units (no decimal point, no separators), e.g. "2877061234".
@@ -771,33 +773,68 @@ async function fetchSolanaNFTs(address: string, config: WalletConfig): Promise<W
 
 // ─── Cardano native assets via Blockfrost ────────────────────────────────────
 
-async function fetchCardanoTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
+interface CardanoAssetMetadata {
+  asset_name?: string | null
+  quantity?: string
+  onchain_metadata?: ({ name?: string; image?: string } & Record<string, unknown>) | null
+  metadata?: { name?: string; ticker?: string; logo?: string; decimals?: number } | null
+}
+
+function isCardanoNft(meta: CardanoAssetMetadata | null): boolean {
+  // A registry decimal value is an explicit fungible-token signal, including 0.
+  if (Number.isInteger(meta?.metadata?.decimals) && (meta?.metadata?.decimals ?? -1) >= 0) return false
+  if (meta?.quantity === '1') return true
+  // Name/description alone are common on fungible assets too. Require media
+  // or trait fields before treating a multi-edition CIP-25 asset as an NFT.
+  const onchain = meta?.onchain_metadata
+  return !!(onchain && (onchain.image || onchain.attributes || onchain.traits || onchain.files))
+}
+
+async function mapCardanoAssets<T>(
+  assets: Array<{ unit: string; quantity: string }>,
+  mapper: (asset: { unit: string; quantity: string }, meta: CardanoAssetMetadata | null) => Promise<T | null>,
+  config: WalletConfig
+): Promise<T[]> {
+  const results: Array<T | null> = new Array(assets.length).fill(null)
+  let next = 0
+  await Promise.all(Array.from({ length: Math.min(6, assets.length) }, async () => {
+    while (next < assets.length) {
+      const index = next++
+      const asset = assets[index]
+      try {
+        const response = await blockfrostFetch(`assets/${asset.unit}`, config, 8_000)
+        const meta = response.ok ? await response.json() as CardanoAssetMetadata : null
+        results[index] = await mapper(asset, meta)
+      } catch {
+        // A metadata outage must not erase a holding; classify it as a token
+        // with unknown decimals until metadata becomes available again.
+        try { results[index] = await mapper(asset, null) } catch { /* malformed asset */ }
+      }
+    }
+  }))
+  return results.filter((result): result is T => result !== null)
+}
+
+export async function fetchCardanoTokens(address: string, config: WalletConfig): Promise<WalletToken[]> {
   if (!address) return []
   try {
     const addrRes = await blockfrostFetch(`addresses/${address}`, config, 12_000)
     if (!addrRes.ok) return []
 
     const addrJson = await addrRes.json() as { amount?: Array<{ unit: string; quantity: string }> }
-    // quantity === 1 means NFT (CIP-25) — exclude from tokens, handled by fetchCardanoNFTs
-    const nativeAssets = (addrJson.amount ?? []).filter(a => a.unit !== 'lovelace' && parseInt(a.quantity) !== 1).slice(0, 30)
+    const nativeAssets = (addrJson.amount ?? []).filter(a => a.unit !== 'lovelace')
     if (nativeAssets.length === 0) return []
 
-    const assets = await Promise.all(
-      nativeAssets.slice(0, 20).map(async (a): Promise<WalletToken | null> => {
-        try {
-          const meta = await blockfrostFetch(`assets/${a.unit}`, config, 8_000)
-          const mj = meta.ok ? await meta.json() as {
-            asset_name: string | null
-            onchain_metadata?: { name?: string; image?: string } | null
-            metadata?: { name?: string; ticker?: string; logo?: string; decimals?: number } | null
-          } : null
+    return mapCardanoAssets(nativeAssets, async (a, mj) => {
+          if (isCardanoNft(mj)) return null
 
           // Decimals live in the off-chain token registry (Blockfrost `metadata`).
           // Cardano native assets are raw integers on-chain, so WITHOUT this a
           // 6-decimal token like USDCx shows its raw quantity (2,877,060 vs 2.877)
           // and every USD/price calc is off by 10^decimals. Default 0 (most NFTs
           // / unregistered tokens are genuinely 0-decimal).
-          const decimals = mj?.metadata?.decimals ?? 0
+          const decimalsKnown = Number.isInteger(mj?.metadata?.decimals) && (mj?.metadata?.decimals ?? -1) >= 0
+          const decimals = decimalsKnown ? mj!.metadata!.decimals! : 0
           const rawName = mj?.onchain_metadata?.name ?? mj?.metadata?.name ?? mj?.asset_name ?? null
           const name    = rawName ? decodeAssetName(rawName) : a.unit.slice(0, 8) + '…'
           // Prefer the registry ticker (e.g. "USDCx") for the symbol; fall back to
@@ -813,7 +850,7 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
           return {
             contractAddress: a.unit,
             name, symbol,
-            decimals,
+            decimals, decimalsKnown,
             balance: humanBalance(a.quantity, decimals),
             // Blockfrost quantities are already base units (decimal string).
             rawBalance: a.quantity,
@@ -821,10 +858,7 @@ async function fetchCardanoTokens(address: string, config: WalletConfig): Promis
             logoUri: logo,
             chain: 'cardano', chainLabel: 'Cardano', chainColor: '#2A7DEA'
           }
-        } catch { return null }
-      })
-    )
-    return assets.filter((a): a is WalletToken => a !== null)
+    }, config)
   } catch { return [] }
 }
 
@@ -1901,7 +1935,7 @@ function resolveCardanoImage(meta: Record<string, unknown>): string | null {
   return null
 }
 
-async function fetchCardanoNFTs(
+export async function fetchCardanoNFTs(
   address: string,
   config: WalletConfig
 ): Promise<WalletCollectible[]> {
@@ -1920,12 +1954,15 @@ async function fetchCardanoNFTs(
 
     if (addrData.stake_address) {
       try {
-        const stakeRes = await blockfrostFetch(
-          `accounts/${addrData.stake_address}/addresses/assets?count=100`,
-          config, 12_000
-        )
-        if (stakeRes.ok) {
-          assets = await stakeRes.json() as Array<{ unit: string; quantity: string }>
+        for (let page = 1; ; page++) {
+          const stakeRes = await blockfrostFetch(
+            `accounts/${addrData.stake_address}/addresses/assets?count=100&page=${page}`,
+            config, 12_000
+          )
+          if (!stakeRes.ok) break
+          const batch = await stakeRes.json() as Array<{ unit: string; quantity: string }>
+          assets.push(...batch)
+          if (batch.length < 100) break
         }
       } catch { /* fall through to direct */ }
     }
@@ -1938,18 +1975,12 @@ async function fetchCardanoNFTs(
       }
     }
 
-    // Filter to NFTs: quantity === 1
-    const nftAssets = assets.filter(a => parseInt(a.quantity) === 1)
-    if (nftAssets.length === 0) return []
+    const nativeAssets = assets.filter(a => a.unit !== 'lovelace')
+    if (nativeAssets.length === 0) return []
 
-    console.log(`[NFT] Cardano: found ${nftAssets.length} potential NFT assets`)
-
-    const results = await Promise.all(
-      nftAssets.slice(0, 50).map(async (a): Promise<WalletCollectible | null> => {
-        try {
-          const metaRes = await blockfrostFetch(`assets/${a.unit}`, config, 8_000)
-          if (!metaRes.ok) return null
-          const meta = await metaRes.json() as Record<string, unknown>
+    const nfts = await mapCardanoAssets(nativeAssets, async (a, assetMeta): Promise<WalletCollectible | null> => {
+          if (!isCardanoNft(assetMeta)) return null
+          const meta = assetMeta as Record<string, unknown>
 
           const onchain = (meta.onchain_metadata ?? {}) as Record<string, unknown>
           const registry = (meta.metadata ?? {}) as Record<string, unknown>
@@ -2000,11 +2031,7 @@ async function fetchCardanoNFTs(
             contractType: 'CIP25',
             traits
           }
-        } catch { return null }
-      })
-    )
-
-    const nfts = results.filter((n): n is WalletCollectible => n !== null)
+    }, config)
     console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`)
     return nfts
   } catch { return [] }

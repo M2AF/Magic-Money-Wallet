@@ -74,6 +74,13 @@ export interface SwapSession {
   minBuyAmountRaw: string | null
   recipient: string
   isCrossChain: boolean
+  /**
+   * True when a confirmed source transaction is NOT the completed swap: a
+   * Cardano batcher order (Minswap) only locks the input, and the swap happens
+   * later when a batcher fills the order — or never, until the owner cancels.
+   * Optional so sessions saved before it existed read as false.
+   */
+  settlesAfterSource?: boolean
   bridgeTool: string | null
   /** Rango requestId and similar — required to poll some providers. */
   providerRequestId: string | null

@@ -23,7 +23,7 @@ import { swapAssetKey, isNativeSwapAddress, isValidSwapAddress } from '../../sha
 export function swapTokenFromHolding(t: WalletToken): SwapToken | null {
   if (t.source === 'agw') return null
   const cap = swapCapability(t.chain)
-  if (!cap || (cap.signing !== 'evm-eoa' && cap.signing !== 'solana')) return null
+  if (!cap || (cap.signing !== 'evm-eoa' && cap.signing !== 'solana' && cap.signing !== 'cardano')) return null
   if (cap.sameChain.length === 0 && cap.crossChainSource.length === 0) return null
 
   const chain = t.chain as SwapChain
