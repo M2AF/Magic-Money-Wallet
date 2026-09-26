@@ -3,7 +3,10 @@
  *
  * Owns three sets of canonical asset keys (../../shared/asset-filter-key.ts):
  *
- *   hidden   the eye icon
+ *   hidden   the former eye icon. Hiding is gone: only "Mark as spam" remains,
+ *            and any hidden entry (from this device, another device on an
+ *            older build, or the ChainLens website) is converted to spam
+ *            below, so nothing that was hidden reappears.
  *   spam     the ban icon
  *   allowed  an explicit restore — which also whitelists a token the H-1 spam
  *            filter auto-flagged, so it stops being re-flagged on every fetch
@@ -37,9 +40,21 @@ export interface AssetFilters {
   hidden: Set<string>
   spam: Set<string>
   allowed: Set<string>
-  hide(key: string): void
   markSpam(key: string): void
   restore(key: string): void
+}
+
+/**
+ * Every hidden entry becomes spam, timestamped now so the conversion outranks
+ * the older hide on every other device when the profile merges. Returns the
+ * SAME object when there is nothing to convert.
+ */
+export function convertHiddenToSpam(entries: AssetFilterEntries, now = Date.now()): AssetFilterEntries {
+  const hiddenKeys = Object.keys(entries).filter(k => entries[k]?.s === 'h')
+  if (hiddenKeys.length === 0) return entries
+  const out: AssetFilterEntries = { ...entries }
+  for (const k of hiddenKeys) out[k] = { s: 's', t: Math.max(now, entries[k].t + 1) }
+  return out
 }
 
 // ─── Local persistence ───────────────────────────────────────────────────────
@@ -184,6 +199,16 @@ export function useAssetFilters(accountIndex: number): AssetFilters {
 
   useEffect(() => () => { if (pushTimer.current) clearTimeout(pushTimer.current) }, [])
 
+  // Hidden → spam, whenever a hidden entry appears (first load, a pull, or the
+  // merge a push returns), then saved and pushed like any other change.
+  useEffect(() => {
+    const converted = convertHiddenToSpam(entries)
+    if (converted === entries) return
+    saveEntries(accountIndex, converted)
+    setEntries(converted)
+    schedulePush()
+  }, [entries, accountIndex, schedulePush])
+
   const set = useCallback((key: string, state: AssetFilterState) => {
     if (!key) return
     setEntries(prev => {
@@ -201,7 +226,6 @@ export function useAssetFilters(accountIndex: number): AssetFilters {
 
   return {
     hidden, spam, allowed,
-    hide:     useCallback((key: string) => set(key, 'h'), [set]),
     markSpam: useCallback((key: string) => set(key, 's'), [set]),
     // 'a' is a tombstone, not a deletion: the other devices still hold the hide,
     // and only a NEWER decision can outrank it. Removing the key would let their

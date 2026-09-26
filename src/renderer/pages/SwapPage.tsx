@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect } from 'react'
-import type { WalletAddresses, SwapMode } from '../types/wallet'
+import type { WalletAddresses, SwapMode, SwapToken } from '../types/wallet'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 import { SwapModeToggle } from '../components/SwapModeToggle'
 import { DexSwapWidget } from '../components/DexSwapWidget'
@@ -25,9 +25,12 @@ import magicSwapTextUrl from '../assets/magic-swap-text.png'
 interface Props extends HeaderToolbarProps {
   addresses: WalletAddresses
   hidden?: boolean
+  /** A coin chosen from Portfolio → Tokens: open DEX Swap with it as the pay token. */
+  swapRequest?: { token: SwapToken; id: number } | null
+  onSwapRequestHandled?: () => void
 }
 
-export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
+export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwapRequestHandled, ...toolbar }: Props) {
   const [mode, setMode] = useState<SwapMode>('dex')
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
@@ -42,6 +45,12 @@ export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
   const switchMode = (m: SwapMode) => { if (m !== mode) { setMode(m); setEpoch(e => e + 1) } }
+
+  // A coin sent from the Tokens tab is a DEX swap: leave Cross-Chain if it is open.
+  useEffect(() => {
+    if (swapRequest && mode !== 'dex') switchMode('dex')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swapRequest])
 
   return (
     <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', display: hidden ? 'none' : 'flex' }}>
@@ -88,7 +97,8 @@ export function SwapPage({ addresses, hidden = false, ...toolbar }: Props) {
               </div>
 
               {mode === 'dex'
-                ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')} />
+                ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')}
+                    preselect={swapRequest} onPreselectHandled={onSwapRequestHandled} />
                 : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
 
               <SwapModeToggle mode={mode} onChange={switchMode} />

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
-import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset } from '../types/wallet'
+import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset, SwapToken } from '../types/wallet'
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AddChainModal } from '../components/AddChainModal'
@@ -12,6 +12,7 @@ import {
   nftToSendAsset, tokenToSendAsset, formatUnits,
 } from '../lib/asset-send'
 import { useAssetFilters } from '../lib/asset-filters'
+import { swapTokenFromHolding } from '../lib/swap-from-holding'
 import { useDisplayCurrency } from '../lib/currency'
 import { canonicalTokenKey, canonicalNftKey } from '../../shared/asset-filter-key'
 
@@ -70,14 +71,14 @@ function SpamManagerModal({
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, width: 320, maxHeight: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Hidden & Spam ({entries.length})</span>
-          <button type="button" onClick={onClose} aria-label="Close hidden & spam manager" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Spam ({entries.length})</span>
+          <button type="button" onClick={onClose} aria-label="Close spam manager" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
         </div>
 
         <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
           {entries.length === 0 ? (
             <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
-              Nothing hidden. Use the eye or ban icons on tokens/collectibles to hide them.
+              Nothing marked as spam. Use the ban icon on a token or collectible to mark it.
             </div>
           ) : entries.map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px' }}>
@@ -100,11 +101,12 @@ function SpamManagerModal({
 
 // ─── Hover action buttons ─────────────────────────────────────────────────────
 
-function HideSpamButtons({ onHide, onSpam, onSend }: {
-  onHide: () => void
+function AssetActionButtons({ onSpam, onSend, onSwap }: {
   onSpam: () => void
   /** Omitted when the asset can't be sent — see canSendToken in lib/asset-send. */
   onSend?: () => void
+  /** Omitted when the swap can't spend it — see lib/swap-from-holding. */
+  onSwap?: () => void
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flexShrink: 0 }}>
@@ -117,15 +119,17 @@ function HideSpamButtons({ onHide, onSpam, onSend }: {
           </svg>
         </button>
       )}
-      <button type="button" onClick={e => { e.stopPropagation(); onHide() }}
-        title="Hide" aria-label="Hide this item"
-        style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(100,116,139,0.15)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
-        <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
-          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
-          <line x1="1" y1="1" x2="23" y2="23"/>
-        </svg>
-      </button>
+      {onSwap && (
+        <button type="button" onClick={e => { e.stopPropagation(); onSwap() }}
+          title="Swap" aria-label="Swap this token"
+          style={{ width: 22, height: 22, borderRadius: 5, background: 'var(--accent-dim)', border: '1px solid var(--border-active)', color: 'var(--accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+          {/* Same glyph as the bottom-nav Swap tab it opens. */}
+          <svg width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+            <polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+          </svg>
+        </button>
+      )}
       <button type="button" onClick={e => { e.stopPropagation(); onSpam() }}
         title="Mark as spam" aria-label="Mark this item as spam"
         style={{ width: 22, height: 22, borderRadius: 5, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
@@ -172,7 +176,7 @@ function TokenLogo({ token }: { token: WalletToken }) {
   )
 }
 
-// Touch screens have no hover — keep the Hide/Spam affordances always visible
+// Touch screens have no hover — keep the Send/Swap/Spam affordances always visible
 // there (Android); desktop keeps the hover-reveal behavior.
 const COARSE_POINTER = typeof matchMedia !== 'undefined' && matchMedia('(hover: none)').matches
 
@@ -181,12 +185,12 @@ interface TokenRowProps {
   isHovered: boolean
   onMouseEnter: () => void
   onMouseLeave: () => void
-  onHide: () => void
   onSpam: () => void
   onSend: (token: WalletToken) => void
+  onSwap?: (token: WalletToken) => void
 }
 
-function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam, onSend }: TokenRowProps) {
+function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend, onSwap }: TokenRowProps) {
   const { fmt } = useDisplayCurrency()
   return (
     <div
@@ -232,10 +236,10 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onHide, onSpam
           otherwise (always mounted on touch screens, which can't hover) */}
       {(isHovered || COARSE_POINTER) && (
         <div style={{ marginLeft: 3 }}>
-          <HideSpamButtons
-            onHide={onHide}
+          <AssetActionButtons
             onSpam={onSpam}
             onSend={canSendToken(token) ? () => onSend(token) : undefined}
+            onSwap={onSwap && swapTokenFromHolding(token) ? () => onSwap(token) : undefined}
           />
         </div>
       )}
@@ -251,12 +255,12 @@ interface TokensViewProps {
   hiddenItems: Set<string>
   spamItems: Set<string>
   search: string
-  onHide: (id: string) => void
   onSpam: (id: string) => void
   onSend: (token: WalletToken) => void
+  onSwap?: (token: WalletToken) => void
 }
 
-function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam, onSend }: TokensViewProps) {
+function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, onSend, onSwap }: TokensViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
@@ -319,9 +323,9 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onHide, o
             isHovered={isHovered}
             onMouseEnter={() => setHovered(id)}
             onMouseLeave={() => setHovered(null)}
-            onHide={() => onHide(id)}
             onSpam={() => onSpam(id)}
             onSend={onSend}
+            onSwap={onSwap}
           />
         )
       })}
@@ -656,12 +660,11 @@ interface CollectiblesViewProps {
   hiddenItems: Set<string>
   spamItems: Set<string>
   search: string
-  onHide: (id: string) => void
   onSpam: (id: string) => void
   onSelectNft: (nft: WalletCollectible) => void
 }
 
-function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onHide, onSpam, onSelectNft }: CollectiblesViewProps) {
+function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onSpam, onSelectNft }: CollectiblesViewProps) {
   const { fmt } = useDisplayCurrency()
   const [hovered, setHovered] = useState<string | null>(null)
 
@@ -733,7 +736,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onH
                 }
                 {(isHovered || COARSE_POINTER) && (
                   <div style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
-                    <HideSpamButtons onHide={() => onHide(id)} onSpam={() => onSpam(id)} />
+                    <AssetActionButtons onSpam={() => onSpam(id)} />
                   </div>
                 )}
               </div>
@@ -829,6 +832,14 @@ interface Props extends HeaderToolbarProps {
   onNavigate: (page: AppPage) => void
   onWalletDeleted: () => void
   hidden?: boolean
+  /** Portfolio → Tokens "Swap": open the Swap tab with this coin selected. */
+  onSwapToken?: (token: SwapToken) => void
+  /**
+   * The active account's addresses changed here (account switch, AGW link). The
+   * app hands them to the other tabs: only this page's local copy used to be
+   * updated, so the Swap tab kept quoting for the PREVIOUS account.
+   */
+  onAddressesChange?: (addresses: WalletAddresses) => void
 }
 
 const ALL_CHAINS = [
@@ -889,7 +900,7 @@ function getAddress(chainId: string, addresses: WalletAddresses, testnet = false
   return addresses.evm
 }
 
-export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, ...toolbar }: Props) {
+export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden = false, onSwapToken, onAddressesChange, ...toolbar }: Props) {
   const { fmt } = useDisplayCurrency()
   const [localAddresses, setLocalAddresses] = useState(addresses)
   const [balances, setBalances]             = useState<AllBalances | null>(null)
@@ -954,7 +965,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const acctIdx = addresses.accountIndex ?? 0
   const {
     hidden: hiddenItems, spam: spamItems, allowed: allowedItems,
-    hide: hideItem, markSpam, restore: restoreItem,
+    markSpam, restore: restoreItem,
   } = useAssetFilters(acctIdx)
   const [showManager, setShowManager] = useState(false)
   const [tokensResult, setTokensResult] = useState<TokensResult | null>(null)
@@ -1117,6 +1128,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     try {
       const newAddresses = await window.wallet.setAccount(newIndex)
       setLocalAddresses(newAddresses)
+      onAddressesChange?.(newAddresses)
       fetchBalances()
       fetchHistory()
       fetchTokens()
@@ -1394,7 +1406,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           {portfolioHiddenCount > 0 && (
             <button type="button" onClick={() => setShowManager(true)}
               style={{ flexShrink: 0, fontSize: 10, padding: '3px 10px', borderRadius: 99, background: 'var(--input-bg)', border: '1px solid var(--border)', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 600 }}>
-              Hidden ({portfolioHiddenCount})
+              Spam ({portfolioHiddenCount})
             </button>
           )}
         </div>
@@ -1488,7 +1500,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
                 addresses={localAddresses}
                 balance={balances?.chains['abstract-agw'] ?? null}
                 onSend={() => setSendChain('abstract-agw')}
-                onAgwChanged={(updated) => { setLocalAddresses(updated); fetchBalances(true); fetchTokens(); fetchCollectibles(); fetchHistory() }}
+                onAgwChanged={(updated) => { setLocalAddresses(updated); onAddressesChange?.(updated); fetchBalances(true); fetchTokens(); fetchCollectibles(); fetchHistory() }}
                 history={historyFor('abstract-agw')}
               />
             )
@@ -1516,9 +1528,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           hiddenItems={hiddenItems}
           spamItems={effectiveSpamItems}
           search={portfolioSearch}
-          onHide={hideItem}
           onSpam={markSpam}
           onSend={openTokenSend}
+          onSwap={onSwapToken ? (t) => { const s = swapTokenFromHolding(t); if (s) onSwapToken(s) } : undefined}
         />
       )}
       {portfolioTab === 'collectibles' && (
@@ -1528,7 +1540,6 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           hiddenItems={hiddenItems}
           spamItems={spamItems}
           search={portfolioSearch}
-          onHide={hideItem}
           onSpam={markSpam}
           onSelectNft={setSelectedNft}
         />

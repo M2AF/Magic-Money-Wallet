@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { AppPage, WalletAddresses, MainTab, ChatUnread } from './types/wallet'
+import type { AppPage, WalletAddresses, MainTab, ChatUnread, SwapToken } from './types/wallet'
 import logoUrl from './assets/logo.png'
 import bannerUrl from './assets/title-bar.png'
 import wordmarkUrl from './assets/wordmark.png'
@@ -24,6 +24,8 @@ export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
   const [addresses, setAddresses] = useState<WalletAddresses | null>(null)
   const [activeTab, setActiveTab] = useState<MainTab>('portfolio')
+  /** Portfolio → Tokens "Swap": the coin to open the Swap tab with (consumed once). */
+  const [swapRequest, setSwapRequest] = useState<{ token: SwapToken; id: number } | null>(null)
   const [browserOpen, setBrowserOpen] = useState(false)
   // Android persistent-tabs browser: true while the browser has open tabs even
   // when it's hidden behind the wallet — drives the "saved tabs" dot.
@@ -285,13 +287,23 @@ export function App() {
           hidden={activeTab !== 'portfolio'}
           onNavigate={setPage}
           onWalletDeleted={() => { setAddresses(null); setPage('welcome') }}
+          onSwapToken={(token) => { setSwapRequest({ token, id: Date.now() }); goToWalletTab('swap') }}
+          onAddressesChange={setAddresses}
           {...toolbarProps}
         />
       )}
       {inDashboard && addresses && activeTab === 'market' && <MarketPage {...toolbarProps} />}
       {/* Swap stays mounted while in the dashboard so in-progress swap state (and the
           SimpleSwap status poller) survive switching to other tabs and back. */}
-      {inDashboard && addresses && <SwapPage addresses={addresses} hidden={activeTab !== 'swap'} {...toolbarProps} />}
+      {inDashboard && addresses && (
+        <SwapPage
+          addresses={addresses}
+          hidden={activeTab !== 'swap'}
+          swapRequest={swapRequest}
+          onSwapRequestHandled={() => setSwapRequest(null)}
+          {...toolbarProps}
+        />
+      )}
       {inDashboard && activeTab === 'apphub' && (
         <AppHubPage
           {...toolbarProps}

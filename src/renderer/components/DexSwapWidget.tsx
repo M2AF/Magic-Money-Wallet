@@ -25,7 +25,14 @@ import { SwapSettings } from './SwapSettings'
 import { CrossChainStatusCard } from './CrossChainStatusCard'
 import { TokenPicker } from './TokenPicker'
 
-interface Props { addresses: WalletAddresses; active: boolean; onUseCrossChain?: () => void }
+interface Props {
+  addresses: WalletAddresses
+  active: boolean
+  onUseCrossChain?: () => void
+  /** Pay token chosen from Portfolio → Tokens: select it and its network. */
+  preselect?: { token: SwapToken; id: number } | null
+  onPreselectHandled?: () => void
+}
 
 const STABLES = new Set(['USDC', 'USDT', 'DAI', 'BUSD', 'USDP'])
 const BLUE_CHIP = new Set(['SOL', 'ETH'])
@@ -83,7 +90,7 @@ function rawToHuman(raw: string, decimals: number): number {
 
 type ExecState = 'idle' | 'swapping' | 'success' | 'error'
 
-export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
+export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, onPreselectHandled }: Props) {
   const [fromChain, setFromChain] = useState<SwapChain>('ethereum')
   const [toChain, setToChain] = useState<SwapChain>('ethereum')
   const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[0])
@@ -142,6 +149,17 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
   const autoBps = getAutoSlippageBps(fromToken, toToken)
   const slippageBps = isAuto ? autoBps : overrideBps
 
+  // A different account means different balances and holdings: re-read them,
+  // and drop any quote, which was priced for the previous account.
+  const accountKey = `${addresses.accountIndex ?? 0}|${addresses.evm ?? ''}|${addresses.solana ?? ''}`
+  const lastAccount = useRef(accountKey)
+  useEffect(() => {
+    if (lastAccount.current === accountKey) return
+    lastAccount.current = accountKey
+    setOwned([]); setAmount('')
+    setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false)
+  }, [accountKey])
+
   const sourceSignable = isDexSignableSource(fromChain)
   const isCrossChain = fromChain !== toChain
   const addrFor = useCallback((c: SwapChain) => addresses[takerKeyForChain(c)], [addresses])
@@ -191,6 +209,23 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
     clearQuote()
   }
 
+  // ── Portfolio → Tokens "Swap": that coin, on its own network, as the pay token ──
+  useEffect(() => {
+    if (!preselect) return
+    const token = preselect.token
+    const chain = token.chain
+    setFromChain(chain)
+    setFromToken(token)
+    // Keep the receive side distinct: the same coin can't be both sides.
+    if (chain === toChain && sameToken(token, toToken)) {
+      const list = SWAP_TOKEN_LISTS[chain] ?? []
+      setToToken(list.find(t => !sameToken(t, token)))
+    }
+    setAmount(''); clearQuote()
+    onPreselectHandled?.()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselect?.id])
+
   // ── Load balances (native + from-token) on the SOURCE chain ────────────────
   useEffect(() => {
     if (!active) return
@@ -209,7 +244,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
       } catch { /* ignore */ }
     })()
     return () => { on = false }
-  }, [fromChain, active, balanceNonce])
+  }, [fromChain, active, balanceNonce, accountKey])
 
   // Settle anything a previous session left mid-bridge. The status card only
   // lives while this screen shows it, so a swap left bridging (navigation, app
@@ -248,7 +283,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain }: Props) {
       } catch { /* picker falls back to curated entries */ }
     })()
     return () => { on = false }
-  }, [active, balanceNonce])
+  }, [active, balanceNonce, accountKey])
 
   useEffect(() => {
     if (!fromToken) { setFromBal(null); return }
