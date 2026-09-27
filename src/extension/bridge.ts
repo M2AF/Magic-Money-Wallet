@@ -8,6 +8,7 @@
  */
 
 import type { ApprovedOrigin, DappChain } from '../main/dapp-permissions'
+import type { AutoRevokeSettings } from '../main/auto-revoke'
 import type { SendAsset } from '../main/tx-sender'
 
 type MsgResult = { ok: true; result: unknown } | { ok: false; error: string }
@@ -158,6 +159,10 @@ export function createExtensionWallet() {
     getConnectedSites: ()             => send<ApprovedOrigin[]>('wallet:get-connected-sites'),
     revokeSite: (origin: string, chain?: DappChain) => send<ApprovedOrigin[]>('wallet:revoke-site', origin, chain),
     revokeAllSites: ()                => send<ApprovedOrigin[]>('wallet:revoke-all-sites'),
+    getAutoRevokeSettings: ()         => send<AutoRevokeSettings>('wallet:get-auto-revoke'),
+    setAutoRevokeSettings: (patch: { enabled?: boolean; durationMinutes?: number }) => send<AutoRevokeSettings>('wallet:set-auto-revoke', patch),
+    onAutoRevokeChanged:  (cb: (s: AutoRevokeSettings) => void) => on('wallet:auto-revoke-changed', cb as (d: unknown) => void),
+    offAutoRevokeChanged: (cb: (s: AutoRevokeSettings) => void) => off('wallet:auto-revoke-changed', cb as (d: unknown) => void),
 
     // Transactions
     validateAddress: (c: string, t: string) => send<{ valid: boolean; reason?: string }>('wallet:validate-address', c, t),

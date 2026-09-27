@@ -141,6 +141,32 @@ export async function closeSidePanel(): Promise<boolean> {
   return true
 }
 
+// ── Auto-revoke wake-ups ──────────────────────────────────────────────────────
+// An MV3 service worker is torn down after ~30 s idle, taking any setTimeout
+// with it, so the deadline rides chrome.alarms, which survives suspension and
+// wakes the worker. Chrome may deliver an alarm up to ~30 s late (and not at
+// all while the browser is closed); the router also reconciles on startup and
+// before every dApp / WalletConnect request, so a late alarm never extends
+// what a site can do. The listener is registered synchronously at import, as
+// MV3 requires for events that wake the worker.
+
+const AUTO_REVOKE_ALARM = 'mm-auto-revoke'
+let _autoRevokeWake: (() => void) | null = null
+
+chrome.alarms.onAlarm.addListener(alarm => {
+  if (alarm.name === AUTO_REVOKE_ALARM) _autoRevokeWake?.()
+})
+
+export function onAutoRevokeWake(cb: () => void): void {
+  _autoRevokeWake = cb
+}
+
+export function scheduleAutoRevokeWake(at: number | null): void {
+  if (at === null) { chrome.alarms.clear(AUTO_REVOKE_ALARM).catch(() => {}); return }
+  // A past `when` fires as soon as possible; keep it strictly in the future.
+  chrome.alarms.create(AUTO_REVOKE_ALARM, { when: Math.max(at, Date.now() + 1_000) }).catch(() => {})
+}
+
 // ── WalletConnect key-value storage (SignClient IKeyValueStorage) ─────────────
 
 class ChromeKv {

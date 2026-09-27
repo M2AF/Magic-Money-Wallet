@@ -76,6 +76,7 @@ desktop.ini
 .vscode/
 .idea/
 *.swp
+plan.md
 
 # ── Logs ─────────────────────────────────────────────────────
 *.log

@@ -50,6 +50,7 @@
   },
   "permissions": [
     "storage",
+    "alarms",
     "sidePanel",
     "tabs",
     "windows",

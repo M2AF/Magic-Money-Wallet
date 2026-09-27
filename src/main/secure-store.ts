@@ -20,6 +20,7 @@ import {
   normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
   type ApprovedOrigin, type DappChain,
 } from './dapp-permissions'
+import type { AutoRevokeState } from './auto-revoke'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -27,6 +28,7 @@ const addressesPath = () => join(userData(), 'addresses.json')
 const walletHelloPath = () => join(userData(), 'wallet.hello.enc')
 const configPath = () => join(userData(), 'config.json')
 const approvedOriginsPath = () => join(userData(), 'approved-origins.json')
+const autoRevokePath = () => join(userData(), 'auto-revoke.json')
 const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
 const midnightDustCheckpointsDir = () => join(userData(), 'midnight-dust-checkpoints')
 const midnightDustCheckpointPath = (accountIndex: number, network: string) =>
@@ -976,4 +978,20 @@ export function removeApprovedOrigin(origin: string, chain?: DappChain): void {
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
 export function clearApprovedOrigins(): void {
   persistApprovedOrigins([])
+}
+
+// ─── Auto-revoke site access (plain JSON, not secrets) ──────────────────────
+// Policy lives in auto-revoke.ts. Returned raw — the controller normalizes it.
+// Only a MISSING file means Off (never configured). An existing file that can't
+// be read or parsed throws: reading it as Off would silently disable an armed
+// countdown, so the error must reach the fail-closed guard before any signing.
+
+export function loadAutoRevokeState(): unknown {
+  if (!existsSync(autoRevokePath())) return null
+  return JSON.parse(readFileSync(autoRevokePath(), 'utf-8'))
+}
+
+export function saveAutoRevokeState(state: AutoRevokeState): void {
+  mkdirSync(userData(), { recursive: true })
+  writeFileSync(autoRevokePath(), JSON.stringify(state, null, 2))
 }

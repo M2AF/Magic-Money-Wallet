@@ -14,6 +14,7 @@ import {
   normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
   type ApprovedOrigin, type DappChain,
 } from '../main/dapp-permissions'
+import type { AutoRevokeState } from '../main/auto-revoke'
 
 // ── WalletConfig — identical shape to secure-store.ts so aliased imports work ─
 
@@ -559,4 +560,17 @@ export async function removeApprovedOrigin(origin: string, chain?: DappChain): P
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
 export async function clearApprovedOrigins(): Promise<void> {
   await chrome.storage.local.set({ 'wallet.approved_origins': [] })
+}
+
+// ── Auto-revoke site access (policy in ../main/auto-revoke.ts) ────────────────
+// Install-local, like the grants it governs. Returned raw — the controller
+// normalizes it, so a cold or corrupt value reads as Off.
+
+export async function loadAutoRevokeState(): Promise<unknown> {
+  const r = await chrome.storage.local.get('wallet.auto_revoke')
+  return r['wallet.auto_revoke']
+}
+
+export async function saveAutoRevokeState(state: AutoRevokeState): Promise<void> {
+  await chrome.storage.local.set({ 'wallet.auto_revoke': state })
 }

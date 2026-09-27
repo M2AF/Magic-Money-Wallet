@@ -18,6 +18,7 @@ import {
   normalizeApprovedOrigins, hasChainGrant, grantChain, revokeChain, originList,
   type ApprovedOrigin, type DappChain,
 } from '../main/dapp-permissions'
+import type { AutoRevokeState } from '../main/auto-revoke'
 import { emitUiEvent } from './platform-capacitor'
 
 // ── WalletConfig — identical shape to secure-store.ts / chrome-store.ts ───────
@@ -650,4 +651,22 @@ export async function removeApprovedOrigin(origin: string, chain?: DappChain): P
 /** Revoke every connected dApp at once (Settings → Connected Sites → Disconnect All). */
 export async function clearApprovedOrigins(): Promise<void> {
   await prefSet('wallet.approved_origins', [])
+}
+
+// ── Auto-revoke site access (policy in ../main/auto-revoke.ts) ────────────────
+// Install-local, like the grants it governs. Returned raw — the controller
+// normalizes it. Only a MISSING value means Off (never configured). A malformed
+// value or a Preferences read error throws instead of going through prefGet
+// (which maps parse failures to null = Off): silently reading an armed
+// countdown as Off would disable it, so the error must reach the router's
+// fail-closed guard, which then refuses every dApp request.
+
+export async function loadAutoRevokeState(): Promise<unknown> {
+  const { value } = await Preferences.get({ key: 'wallet.auto_revoke' })
+  if (value == null) return null
+  return JSON.parse(value)
+}
+
+export async function saveAutoRevokeState(state: AutoRevokeState): Promise<void> {
+  await prefSet('wallet.auto_revoke', state)
 }

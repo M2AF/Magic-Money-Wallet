@@ -324,6 +324,12 @@ async function _doInit(): Promise<void> {
   _client.on('session_expire', () => {
     pushAll('wc:sessions-changed', wcGetSessions())
   })
+
+  // Sessions are restored by now — let auto-revoke finish any teardown it owes
+  // before a proposal or request from a restored session can be approved.
+  for (const cb of _readyListeners) {
+    try { cb() } catch (e) { console.error('[WC] ready listener failed:', e) }
+  }
 }
 
 /** Ensures the client is initialised — retries if startup failed. */
@@ -344,11 +350,30 @@ export async function initWalletConnect(): Promise<void> {
   }
 }
 
+// ── Readiness (auto-revoke needs to know whether sessions are enumerable) ─────
+
+const _readyListeners: Array<() => void> = []
+
+/** Run `cb` every time the client finishes initialising (sessions restored). */
+export function onWcReady(cb: () => void): void {
+  _readyListeners.push(cb)
+}
+
+/** True once the client is up, i.e. wcGetSessions() reflects every live session. */
+export function wcIsReady(): boolean {
+  return _client !== null
+}
+
 // ── Public API (called by IPC handlers) ──────────────────────────────────────
 
 export function wcGetSessions(): WcSession[] {
   if (!_client) return []
   return _client.session.getAll().map(serSession)
+}
+
+/** Topic of a pending request, so auto-revoke can refuse requests on expired sessions. */
+export function wcRequestTopic(requestId: number): string | null {
+  return _requests.get(requestId)?.topic ?? null
 }
 
 export function wcGetPendingProposals(): WcProposal[] {

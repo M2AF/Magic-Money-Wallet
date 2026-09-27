@@ -25,6 +25,7 @@ import {
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
+import { AutoRevokeControl } from '../components/AutoRevokeControl'
 import {
   useDisplayCurrency, setCurrency, currencyOf,
   CURRENCIES, CURRENCY_GROUPS, BASE_CURRENCY,
@@ -460,6 +461,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             }
             onClick={() => setSitesOpen(true)}
           />
+          <AutoRevokeControl onChanged={refreshSiteCount} />
           {hello?.supported && (
             <SettingsRow
               icon="👋"

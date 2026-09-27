@@ -6,7 +6,7 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain, BrowserWindow, dialog, app, clipboard, shell, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app, clipboard, shell, powerMonitor, type IpcMainInvokeEvent } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync, mnemonicToEntropy } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
@@ -16,6 +16,8 @@ import { personalSignMessage, personalSignPreview } from './personal-sign'
 import { ed25519 } from '@noble/curves/ed25519'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
+import { createAutoRevoke } from './auto-revoke'
+import { desktopGrantActive, recheckGrantBeforeSigning } from './grant-recheck'
 import { runPasskeyCeremony, verifyPasskeyPrf, importPasskeyPrf, passkeyCeremonySupported } from './passkey-window'
 import { inAppBrowserEnv, walletEnv } from './passkey-manager'
 import { reconcileChainLensPasskeys } from './passkey-reconcile-chainlens'
@@ -53,10 +55,12 @@ import {
   saveConfig,
   getApprovedOrigins,
   getApprovedOriginRecords,
-  hasOriginChain,
-  addApprovedOrigin,
+  hasOriginChain as storeHasOriginChain,
+  addApprovedOrigin as storeAddApprovedOrigin,
   removeApprovedOrigin,
   clearApprovedOrigins,
+  loadAutoRevokeState,
+  saveAutoRevokeState,
   loadAgwOverride,
   saveAgwOverride,
   loadAgwSignerAddress,
@@ -205,7 +209,8 @@ import type { ThemeEntries } from '../shared/theme-sync-wire'
 import {
   wcGetSessions, wcGetPendingProposals,
   wcPair, wcApproveSession, wcRejectSession,
-  wcDisconnect, wcApproveRequest, wcRejectRequest
+  wcDisconnect, wcApproveRequest, wcRejectRequest,
+  wcIsReady, onWcReady, wcRequestTopic,
 } from './wc-client'
 import {
   estimateEvmFee,
@@ -264,6 +269,79 @@ function deriveEvmKey(mnemonic: string, accountIndex: number): `0x${string}` {
   const child = hd.derive(`m/44'/60'/${accountIndex}'/0/0`)
   if (!child.privateKey) throw new Error('Failed to derive private key')
   return `0x${Buffer.from(child.privateKey).toString('hex')}` as `0x${string}`
+}
+
+// ── Auto-revoke site access (policy: auto-revoke.ts) ─────────────────────────
+// A main-process timer (the app keeps running in the tray) plus reconciliation
+// on startup, OS resume and before every grant check. The two wrappers below
+// shadow the store functions for this whole file, so every dApp gate fails
+// closed on an overdue deadline and every grant is serialised against expiry.
+
+/** Tell the dApp browser it lost access — manual revoke and auto-revoke. */
+function notifyDappDisconnected(): void {
+  emitDappEvent('eth', 'accountsChanged', [])
+  emitDappEvent('solana', 'disconnect', null)
+}
+
+let _autoRevokeTimer: NodeJS.Timeout | null = null
+// setTimeout overflows (fires immediately) past 2^31-1 ms.
+const MAX_TIMER_MS = 2_147_483_647
+
+const autoRevoke = createAutoRevoke({
+  load: loadAutoRevokeState,
+  save: saveAutoRevokeState,
+  revokeAllOrigins: () => { clearApprovedOrigins(); notifyDappDisconnected() },
+  hasOriginGrants: () => getApprovedOrigins().length > 0,
+  wc: {
+    ready: wcIsReady,
+    topics: () => wcGetSessions().map(session => session.topic),
+    disconnect: wcDisconnect,
+  },
+  schedule: (at) => {
+    if (_autoRevokeTimer) { clearTimeout(_autoRevokeTimer); _autoRevokeTimer = null }
+    if (at === null) return
+    const delay = Math.min(Math.max(at - Date.now(), 0), MAX_TIMER_MS)
+    _autoRevokeTimer = setTimeout(() => { _autoRevokeTimer = null; reconcileAutoRevoke() }, delay)
+  },
+  notify: (settings) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      try { win.webContents.send('wallet:auto-revoke-changed', settings) } catch { /* window torn down */ }
+    }
+  },
+})
+
+function reconcileAutoRevoke(): void {
+  autoRevoke.reconcile().catch(e => console.error('[auto-revoke] reconcile failed:', e))
+}
+
+/**
+ * Grant check used by every dApp handler, address-only reads included. An
+ * overdue deadline, or an auto-revoke settings file that exists but can't be
+ * read, means no grant (see grant-recheck.ts).
+ */
+function hasOriginChain(origin: string, chain: DappChain): boolean {
+  return desktopGrantActive({
+    overdue: () => autoRevoke.overdue(),
+    readSettings: loadAutoRevokeState,
+    hasGrant: () => storeHasOriginChain(origin, chain),
+    enforce: reconcileAutoRevoke,
+  })
+}
+
+/**
+ * Re-check a site's grant AFTER its signing/transaction prompt was approved and
+ * immediately before signing or submitting. The prompt can sit open past an
+ * auto-revoke deadline (or a manual disconnect); approving a stale prompt must
+ * not sign for a site that no longer has access. Fails closed: if reconciling
+ * fails for any reason, the request is refused with 4100 (see grant-recheck.ts).
+ */
+async function assertGrantStillActive(origin: string, chain: DappChain): Promise<void> {
+  await recheckGrantBeforeSigning(() => autoRevoke.reconcile(), () => hasOriginChain(origin, chain))
+}
+
+/** Record a grant: enforces any overdue expiry first, then starts/joins the countdown. */
+async function addApprovedOrigin(origin: string, chain: DappChain): Promise<void> {
+  await autoRevoke.recordConnection(() => storeAddApprovedOrigin(origin, chain))
 }
 
 // ── dApp EVM chain state ─────────────────────────────────────────────────────
@@ -325,7 +403,7 @@ async function ensureConnectedOrigin(
   if (!approved) {
     throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
   }
-  addApprovedOrigin(origin, 'evm')
+  await addApprovedOrigin(origin, 'evm')
 }
 
 // In-memory session cache of the confirmed mnemonic (cleared after save)
@@ -549,6 +627,13 @@ async function forwardEvmRpc(method: string, params: unknown[], config: WalletCo
 }
 
 export function registerIpcHandlers(): void {
+  // Auto-revoke: enforce a deadline that passed while the app was closed, and
+  // catch up after sleep/hibernate (timers don't advance reliably across it).
+  reconcileAutoRevoke()
+  onWcReady(reconcileAutoRevoke)
+  powerMonitor.on('resume', reconcileAutoRevoke)
+  powerMonitor.on('unlock-screen', reconcileAutoRevoke)
+
   // Swap settlement sessions persist to userData so a bridge that was still in
   // flight when the app closed is reconciled on the next launch instead of being
   // forgotten. Installed here rather than inside the module so the same
@@ -764,6 +849,7 @@ export function registerIpcHandlers(): void {
       // connected to, without the user ever approving it. The migration branch
       // below is the same wallet continuing, so it deliberately keeps them.
       clearApprovedOrigins()
+      void autoRevoke.releaseIfIdle()
       touchActivity()
       // fire-and-forget: sync to ChainLens profile now that we're unlocked
       const addresses = loadAddresses()
@@ -857,6 +943,7 @@ export function registerIpcHandlers(): void {
     // meant the next wallet inherited every connection this one made, and would
     // hand its address to those sites with no approval step.
     clearApprovedOrigins()
+    void autoRevoke.releaseIfIdle()
     return true
   })
 
@@ -868,20 +955,21 @@ export function registerIpcHandlers(): void {
   const currentDappOrigin = (): string => {
     try { return new URL(getBrowserState().url).origin } catch { return '' }
   }
-  const notifyDappDisconnected = (): void => {
-    emitDappEvent('eth', 'accountsChanged', [])
-    emitDappEvent('solana', 'disconnect', null)
-  }
 
   // Returns per-chain grant records so Settings can show what each site may
   // actually do, and revoke one chain without disconnecting the others.
-  ipcMain.handle('wallet:get-connected-sites', () => getApprovedOriginRecords())
+  // Reconciles first so an already-expired countdown never lists stale sites.
+  ipcMain.handle('wallet:get-connected-sites', async () => {
+    await autoRevoke.reconcile().catch(e => console.error('[auto-revoke] reconcile failed:', e))
+    return getApprovedOriginRecords()
+  })
 
   ipcMain.handle('wallet:revoke-site', (_event, origin: string, chain?: DappChain) => {
     if (typeof origin !== 'string' || !origin) return getApprovedOriginRecords()
     removeApprovedOrigin(origin, chain)
     // Only signal a full disconnect once the site has no grants left.
     if (currentDappOrigin() === origin && !getApprovedOrigins().includes(origin)) notifyDappDisconnected()
+    void autoRevoke.releaseIfIdle()
     return getApprovedOriginRecords()
   })
 
@@ -893,11 +981,18 @@ export function registerIpcHandlers(): void {
     return true
   })
 
+  // Origins only — WalletConnect sessions are managed on their own page.
   ipcMain.handle('wallet:revoke-all-sites', () => {
     clearApprovedOrigins()
     notifyDappDisconnected()
+    void autoRevoke.releaseIfIdle()
     return []
   })
+
+  // Auto-revoke site access. main owns and validates the deadline; the
+  // renderer only reads it back.
+  ipcMain.handle('wallet:get-auto-revoke', () => autoRevoke.getSettings())
+  ipcMain.handle('wallet:set-auto-revoke', (_e, patch: unknown) => autoRevoke.setSettings(patch))
 
   // ── dApp browser: active EVM network (toolbar switcher + awareness) ────
   // The current chain is reset to Ethereum when navigating to a new dApp origin
@@ -1847,7 +1942,7 @@ export function registerIpcHandlers(): void {
           const err = Object.assign(new Error('User rejected the request.'), { code: 4001 })
           throw err
         }
-        addApprovedOrigin(origin, 'evm')
+        await addApprovedOrigin(origin, 'evm')
         return [addresses?.evm ?? '']
       }
 
@@ -1913,7 +2008,7 @@ export function registerIpcHandlers(): void {
           if (!approved) {
             throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
           }
-          addApprovedOrigin(origin, 'evm')
+          await addApprovedOrigin(origin, 'evm')
         }
         return [{ parentCapability: 'eth_accounts' }]
       }
@@ -1944,6 +2039,7 @@ export function registerIpcHandlers(): void {
         if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
+        await assertGrantStillActive(origin, 'evm')
         const mnemonic = loadMnemonic()
         const accountIndex = addresses?.accountIndex ?? 0
         const pk = deriveEvmKey(mnemonic, accountIndex)
@@ -1985,6 +2081,7 @@ export function registerIpcHandlers(): void {
         if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
+        await assertGrantStillActive(origin, 'evm')
         const mnemonic = loadMnemonic()
         const accountIndex = addresses?.accountIndex ?? 0
         return sendEvmFromDapp(mnemonic, accountIndex, tx, config)
@@ -2023,6 +2120,7 @@ export function registerIpcHandlers(): void {
         if (!approved) {
           throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
         }
+        await assertGrantStillActive(origin, 'evm')
         const mnemonic = loadMnemonic()
         const accountIndex = addresses?.accountIndex ?? 0
         const pk = deriveEvmKey(mnemonic, accountIndex)
@@ -2093,7 +2191,7 @@ export function registerIpcHandlers(): void {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     }
     // Remember the grant so the site isn't re-prompted on every reload.
-    addApprovedOrigin(origin, 'solana')
+    await addApprovedOrigin(origin, 'solana')
     return addresses.solana ?? ''
   })
 
@@ -2121,6 +2219,7 @@ export function registerIpcHandlers(): void {
     if (!approved) {
       throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
     }
+    await assertGrantStillActive(origin, 'solana')
     // Ed25519-sign the raw message bytes with the Solana key. The Solana
     // secretKey is 64 bytes (32-byte seed + 32-byte pubkey); @noble/curves takes
     // the 32-byte seed as the private key. Returns the 64-byte signature as a
@@ -2154,6 +2253,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'solana')
 
     // Bind the signed message to the domain we verified, not the one claimed.
     const message = buildSiwsMessage({ ...siws, domain: siws.domain ?? check.originHost }, address)
@@ -2185,6 +2285,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'solana')
     const accountIndex = loadAddresses()?.accountIndex ?? 0
     const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
     const { VersionedTransaction } = await import('@solana/web3.js')
@@ -2209,6 +2310,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'solana')
     const config = loadConfig()
     const accountIndex = loadAddresses()?.accountIndex ?? 0
     const keypair = await getSolanaKeypair(loadMnemonic(), accountIndex)
@@ -2294,7 +2396,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-    addApprovedOrigin(origin, 'cardano')
+    await addApprovedOrigin(origin, 'cardano')
     return true
   })
 
@@ -2362,6 +2464,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'cardano')
     try {
       return await cip30SignTx(txHex, loadMnemonic(), accountIndex)
     } catch (err) {
@@ -2380,6 +2483,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'cardano')
     try {
       return await cip30SignData(address || ownAddress, payloadHex, loadMnemonic(), accountIndex)
     } catch (err) {
@@ -2403,6 +2507,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'cardano')
     return cip30SubmitTx(txHex, loadConfig())
   })
 
@@ -2460,7 +2565,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
-    addApprovedOrigin(origin, 'midnight')
+    await addApprovedOrigin(origin, 'midnight')
     return true
   })
 
@@ -2565,6 +2670,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
+    await assertGrantStillActive(origin, 'midnight')
 
     // Same normalize→seed path as every other derivation, so the key that signs
     // is the one behind the mn_addr… the dApp was shown at connect.
@@ -2592,6 +2698,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: -3 })
+    await assertGrantStillActive(origin, 'midnight')
 
     const { registerMidnightDustIfNeeded, sendMidnightNight } = await import('./midnight-send-manager')
     const mnemonic = loadMnemonic()
@@ -2619,7 +2726,7 @@ export function registerIpcHandlers(): void {
         origin
       })
       if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
-      addApprovedOrigin(origin, 'bitcoin')
+      await addApprovedOrigin(origin, 'bitcoin')
     }
     return a
   }
@@ -2673,6 +2780,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'bitcoin')
     const a = await getFullAddresses()
     const o = (opts ?? {}) as { signInputs?: Record<string, number[]>; autoFinalized?: boolean; broadcast?: boolean }
     const req: PsbtSignRequest = { psbt: String(psbt), signInputs: o.signInputs, finalize: o.autoFinalized !== false, extractTx: !!o.broadcast }
@@ -2693,6 +2801,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'bitcoin')
     const a = await getFullAddresses()
     // The 2nd arg may be an address (sats-connect) or a Unisat type ('ecdsa'/'bip322-simple').
     const type = addressOrType && (addressOrType.startsWith('bc1') || addressOrType.startsWith('3'))
@@ -2717,6 +2826,7 @@ export function registerIpcHandlers(): void {
       origin
     })
     if (!approved) throw Object.assign(new Error('User rejected the request.'), { code: 4001 })
+    await assertGrantStillActive(origin, 'bitcoin')
     const res = await sendBitcoinTransaction(loadMnemonic(), a.bitcoin, String(to), btcAmount, a.accountIndex ?? 0)
     return res.txHash
   })
@@ -2765,10 +2875,23 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('wc:get-sessions',          () => wcGetSessions())
   ipcMain.handle('wc:get-pending-proposals', () => wcGetPendingProposals())
   ipcMain.handle('wc:pair',                  (_e, uri: string) => wcPair(uri))
-  ipcMain.handle('wc:approve-session',       (_e, id: number) => wcApproveSession(id))
+  // A session approval is a connection: it starts (or joins) the auto-revoke countdown.
+  ipcMain.handle('wc:approve-session',       (_e, id: number) => autoRevoke.recordConnection(() => wcApproveSession(id)))
   ipcMain.handle('wc:reject-session',        (_e, id: number) => wcRejectSession(id))
-  ipcMain.handle('wc:disconnect',            (_e, topic: string) => wcDisconnect(topic))
-  ipcMain.handle('wc:approve-request',       (_e, id: number) => wcApproveRequest(id))
+  ipcMain.handle('wc:disconnect', async (_e, topic: string) => {
+    await wcDisconnect(topic)
+    void autoRevoke.releaseIfIdle()
+  })
+  ipcMain.handle('wc:approve-request', async (_e, id: number) => {
+    // Enforce an overdue deadline, and never sign for a session auto-revoke
+    // has expired but not yet torn down (relay unreachable).
+    await autoRevoke.reconcile().catch(e => console.error('[auto-revoke] reconcile failed:', e))
+    const topic = wcRequestTopic(id)
+    if (autoRevoke.overdue() || (topic && autoRevoke.isWcTopicBlocked(topic))) {
+      throw new Error('This WalletConnect session has expired (auto-revoke). Reject the request and reconnect.')
+    }
+    return wcApproveRequest(id)
+  })
   ipcMain.handle('wc:reject-request',        (_e, id: number) => wcRejectRequest(id))
 
   // ── Phase 9: ChainLens profile sync ──────────────────────────────────────

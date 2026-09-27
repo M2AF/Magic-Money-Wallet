@@ -11,6 +11,10 @@ import { contextBridge, ipcRenderer } from 'electron'
 // preload bundle.
 import type { SendAsset } from '../main/tx-sender'
 
+// Auto-revoke push listeners, keyed by the callback so off() can remove the
+// exact wrapper on() registered.
+const _autoRevokeListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
+
 contextBridge.exposeInMainWorld('wallet', {
   // ── Wallet lifecycle ──────────────────────────────────────────────────
   isSetup:       ()                  => ipcRenderer.invoke('wallet:is-setup'),
@@ -146,6 +150,20 @@ contextBridge.exposeInMainWorld('wallet', {
   getConnectedSites: ()              => ipcRenderer.invoke('wallet:get-connected-sites'),
   revokeSite:    (origin: string, chain?: string) => ipcRenderer.invoke('wallet:revoke-site', origin, chain),
   revokeAllSites:()                  => ipcRenderer.invoke('wallet:revoke-all-sites'),
+  getAutoRevokeSettings: ()          => ipcRenderer.invoke('wallet:get-auto-revoke'),
+  setAutoRevokeSettings: (patch: unknown) => ipcRenderer.invoke('wallet:set-auto-revoke', patch),
+  // Wrapped listeners are remembered so off() really removes them.
+  onAutoRevokeChanged: (cb: (s: unknown) => void) => {
+    const wrapped = (_e: unknown, s: unknown) => cb(s)
+    _autoRevokeListeners.set(cb, wrapped)
+    ipcRenderer.on('wallet:auto-revoke-changed', wrapped)
+  },
+  offAutoRevokeChanged: (cb: (s: unknown) => void) => {
+    const wrapped = _autoRevokeListeners.get(cb)
+    if (!wrapped) return
+    ipcRenderer.removeListener('wallet:auto-revoke-changed', wrapped)
+    _autoRevokeListeners.delete(cb)
+  },
 
   // ── Downloads (NFT media → OS Downloads folder) ───────────────────────
   downloadFile:  (url: string, suggestedName: string) =>

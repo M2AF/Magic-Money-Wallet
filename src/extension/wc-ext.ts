@@ -229,6 +229,12 @@ async function _doInit(): Promise<void> {
   })
   _client.on('session_delete', () => pushAll('wc:sessions-changed', wcGetSessions()))
   _client.on('session_expire', () => pushAll('wc:sessions-changed', wcGetSessions()))
+
+  // Sessions are restored by now — let auto-revoke finish any teardown it owes
+  // before a proposal or request from a restored session can be approved.
+  for (const cb of _readyListeners) {
+    try { cb() } catch (e) { console.error('[WC] ready listener failed:', e) }
+  }
 }
 
 async function ensureClient(): Promise<void> {
@@ -241,6 +247,20 @@ async function ensureClient(): Promise<void> {
 export async function initWalletConnect(): Promise<void> {
   _initPromise = _doInit()
   try { await _initPromise } catch (e) { _initPromise = null; console.error('[WC] init failed:', e) }
+}
+
+// ── Readiness (auto-revoke needs to know whether sessions are enumerable) ─────
+
+const _readyListeners: Array<() => void> = []
+
+/** Run `cb` every time the client finishes initialising (sessions restored). */
+export function onWcReady(cb: () => void): void {
+  _readyListeners.push(cb)
+}
+
+/** True once the client is up, i.e. wcGetSessions() reflects every live session. */
+export function wcIsReady(): boolean {
+  return _client !== null
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────

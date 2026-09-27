@@ -11,6 +11,7 @@
  */
 
 import { Preferences } from '@capacitor/preferences'
+import { App as CapacitorApp } from '@capacitor/app'
 
 // ── In-process UI event bus ───────────────────────────────────────────────────
 
@@ -84,6 +85,33 @@ export function pushToDappTab(tabId: number | undefined, event: string, data: un
 
 export async function openSidePanel(): Promise<boolean> { return true }
 export async function closeSidePanel(): Promise<boolean> { return true }
+
+// ── Auto-revoke wake-ups ──────────────────────────────────────────────────────
+// A foreground timer, plus a reconcile whenever the app returns to the
+// foreground. Android and iOS freeze or kill a backgrounded WebView, so no
+// timer can promise wall-clock disconnection while the app is not running;
+// the deadline is an absolute timestamp, and the router enforces it on resume,
+// on cold start and before every dApp / WalletConnect request.
+
+let _autoRevokeWake: (() => void) | null = null
+let _autoRevokeTimer: ReturnType<typeof setTimeout> | null = null
+// setTimeout overflows (fires immediately) past 2^31-1 ms.
+const MAX_TIMER_MS = 2_147_483_647
+
+CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+  if (isActive) _autoRevokeWake?.()
+}).catch(() => {})
+
+export function onAutoRevokeWake(cb: () => void): void {
+  _autoRevokeWake = cb
+}
+
+export function scheduleAutoRevokeWake(at: number | null): void {
+  if (_autoRevokeTimer) { clearTimeout(_autoRevokeTimer); _autoRevokeTimer = null }
+  if (at === null) return
+  const delay = Math.min(Math.max(at - Date.now(), 0), MAX_TIMER_MS)
+  _autoRevokeTimer = setTimeout(() => { _autoRevokeTimer = null; _autoRevokeWake?.() }, delay)
+}
 
 // ── WalletConnect key-value storage (SignClient IKeyValueStorage) ─────────────
 // Preferences values are strings, so entries are JSON round-tripped (the chrome

@@ -78,8 +78,10 @@ import * as platform from './platform'
 import {
   wcGetSessions, wcGetPendingProposals, wcGetPendingRequests,
   wcPair, wcApproveSession, wcRejectSession,
-  wcDisconnect, wcApproveRequest, wcRejectRequest
+  wcDisconnect, wcApproveRequest, wcRejectRequest,
+  wcIsReady, onWcReady,
 } from './wc-ext'
+import { createAutoRevoke } from '../main/auto-revoke'
 import {
   cip30GetBalance, cip30GetUtxos, cip30GetRewardAddresses, cip30GetCollateral,
   cip30SignTx, cip30SignData, cip30SubmitTx, addressToHex,
@@ -170,9 +172,10 @@ async function requestSignatureApproval(
   if (sender?.kind !== 'page') return
   // The grant is derived from the chain being signed for, so a site connected
   // for one chain cannot get a signing prompt for another.
-  const origin = await requireApprovedOrigin(sender, 'signing', grantForChainLabel(req.chain))
+  const grant = grantForChainLabel(req.chain)
+  const origin = await requireApprovedOrigin(sender, 'signing', grant)
   const id = crypto.randomUUID()
-  return new Promise<void>((resolve, reject) => {
+  await new Promise<void>((resolve, reject) => {
     _web3SignQueue.set(id, { resolve, reject, origin, ...req })
     platform.requestApproval('web3:sign-request', { id, origin, ...req })
     setTimeout(() => {
@@ -182,6 +185,26 @@ async function requestSignatureApproval(
       }
     }, 120_000)
   })
+  // The prompt may have sat open past an auto-revoke deadline or a manual
+  // disconnect — re-check right before the caller signs.
+  await assertGrantStillActive(origin, grant)
+}
+
+/**
+ * Re-check a site's grant AFTER its prompt was approved and immediately before
+ * signing or submitting. Enforces an overdue auto-revoke deadline first; if
+ * that enforcement itself fails, fail closed rather than trust the old grant.
+ */
+async function assertGrantStillActive(origin: string, chain: DappChain): Promise<void> {
+  const disconnected = () =>
+    Object.assign(new Error('This site was disconnected while the request was open. Reconnect and try again.'), { code: 4100 })
+  try {
+    await autoRevoke.reconcile()
+  } catch (e) {
+    console.error('[auto-revoke] enforcement failed:', e)
+    throw disconnected()
+  }
+  if (!(await store.hasOriginChain(origin, chain))) throw disconnected()
 }
 
 function previewBytes(bytes: Uint8Array | number[] | string, max = 96): string {
@@ -365,6 +388,39 @@ async function loadFullAddresses(): Promise<any> {
   return store.effectiveAddresses(stored, config)
 }
 
+// ── Auto-revoke site access (policy: ../main/auto-revoke.ts) ─────────────────
+
+/** Revoke every origin grant and tell open pages — manual Disconnect All and auto-revoke. */
+async function revokeAllOriginsAndNotify(): Promise<void> {
+  const all = await store.getApprovedOrigins()
+  await store.clearApprovedOrigins()
+  for (const origin of all) platform.pushToDappOrigin(origin, 'accountsChanged', [])
+}
+
+const autoRevoke = createAutoRevoke({
+  load: () => store.loadAutoRevokeState(),
+  save: state => store.saveAutoRevokeState(state),
+  revokeAllOrigins: revokeAllOriginsAndNotify,
+  hasOriginGrants: async () => (await store.getApprovedOrigins()).length > 0,
+  wc: {
+    ready: wcIsReady,
+    topics: () => wcGetSessions().map(session => session.topic),
+    disconnect: wcDisconnect,
+  },
+  schedule: platform.scheduleAutoRevokeWake,
+  notify: settings => platform.pushToUi('wallet:auto-revoke-changed', settings),
+})
+
+function reconcileAutoRevoke(): void {
+  autoRevoke.reconcile().catch(e => console.error('[auto-revoke] reconcile failed:', e))
+}
+
+// Service-worker start / app cold start, alarm or foreground-resume wake-ups,
+// and WalletConnect finishing its session restore.
+platform.onAutoRevokeWake(reconcileAutoRevoke)
+onWcReady(reconcileAutoRevoke)
+reconcileAutoRevoke()
+
 // ── Message router ────────────────────────────────────────────────────────────
 
 export type Msg = { type: string; args: unknown[] }
@@ -410,6 +466,21 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
   const [a0, a1, a2, a3] = msg.args ?? []
   if (sender?.kind === 'page' && !PAGE_RPC_TYPES.has(msg.type)) {
     throw Object.assign(new Error(`Method not available to web pages: ${msg.type}`), { code: 4100 })
+  }
+  // Enforce an overdue auto-revoke deadline before any dApp or WalletConnect
+  // request is served — the wake-up may not have fired (suspended worker,
+  // frozen WebView). If the revoke itself failed, fail closed. (A WC session
+  // approval reconciles inside recordConnection.) UI list reads reconcile too,
+  // best effort, so they never show connections that have already expired.
+  if (sender?.kind === 'page' || msg.type === 'wc:approve-request') {
+    try {
+      await autoRevoke.reconcile()
+    } catch (e) {
+      console.error('[auto-revoke] enforcement failed:', e)
+      throw Object.assign(new Error('Site access expired and is still being revoked. Try again shortly.'), { code: 4100 })
+    }
+  } else if (msg.type === 'wallet:get-connected-sites' || msg.type === 'wc:get-sessions') {
+    await autoRevoke.reconcile().catch(e => console.error('[auto-revoke] reconcile failed:', e))
   }
 
   switch (msg.type) {
@@ -473,6 +544,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       // its dApp grants start empty. Inheriting the previous wallet's approvals
       // would expose a brand-new address to those sites with no approval step.
       await store.clearApprovedOrigins()
+      void autoRevoke.releaseIfIdle()
       return true
     }
 
@@ -491,6 +563,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       await store.deleteWallet()
       // dApp grants belong to the WALLET, not the install — see set-password.
       await store.clearApprovedOrigins()
+      void autoRevoke.releaseIfIdle()
       return true
     }
 
@@ -510,15 +583,24 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       if (!(await store.getApprovedOrigins()).includes(origin)) {
         platform.pushToDappOrigin(origin, 'accountsChanged', [])
       }
+      void autoRevoke.releaseIfIdle()
       return store.getApprovedOriginRecords()
     }
 
+    // Origins only — WalletConnect sessions are managed on their own page.
     case 'wallet:revoke-all-sites': {
-      const all = await store.getApprovedOrigins()
-      await store.clearApprovedOrigins()
-      for (const origin of all) platform.pushToDappOrigin(origin, 'accountsChanged', [])
+      await revokeAllOriginsAndNotify()
+      void autoRevoke.releaseIfIdle()
       return []
     }
+
+    // Auto-revoke site access. The backend owns and validates the deadline;
+    // the UI only reads it back.
+    case 'wallet:get-auto-revoke':
+      return autoRevoke.getSettings()
+
+    case 'wallet:set-auto-revoke':
+      return autoRevoke.setSettings(a0)
 
     // ── Data reads ─────────────────────────────────────────────────────────
 
@@ -1171,10 +1253,22 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'wc:get-pending-proposals': return wcGetPendingProposals()
     case 'wc:get-pending-requests':  return wcGetPendingRequests()
     case 'wc:pair':                 return wcPair(String(a0))
-    case 'wc:approve-session':      return wcApproveSession(Number(a0))
+    // A session approval is a connection: it starts (or joins) the auto-revoke countdown.
+    case 'wc:approve-session':      return autoRevoke.recordConnection(() => wcApproveSession(Number(a0)))
     case 'wc:reject-session':       return wcRejectSession(Number(a0))
-    case 'wc:disconnect':           return wcDisconnect(String(a0))
-    case 'wc:approve-request':      return wcApproveRequest(Number(a0))
+    case 'wc:disconnect': {
+      await wcDisconnect(String(a0))
+      void autoRevoke.releaseIfIdle()
+      return
+    }
+    case 'wc:approve-request': {
+      // A session auto-revoke has expired but not yet torn down must not sign.
+      const pending = wcGetPendingRequests().find(r => r.id === Number(a0))
+      if (pending && autoRevoke.isWcTopicBlocked(pending.topic)) {
+        throw new Error('This WalletConnect session has expired (auto-revoke). Reject the request and reconnect.')
+      }
+      return wcApproveRequest(Number(a0))
+    }
     case 'wc:reject-request':       return wcRejectRequest(Number(a0))
 
     // ── window.ethereum provider requests (from content.ts injection) ────
@@ -1593,7 +1687,13 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       _connectionQueue.delete(id)
       const connAddresses = await store.loadAddresses()
       // Scope the grant to the chain the site actually asked to connect for.
-      await store.addApprovedOrigin(entry.origin, entry.chain as DappChain)
+      // Serialised against auto-revoke expiry, and starts its countdown.
+      try {
+        await autoRevoke.recordConnection(() => store.addApprovedOrigin(entry.origin, entry.chain as DappChain))
+      } catch (e) {
+        entry.reject(Object.assign(new Error('Could not connect — try again.'), { code: 4001 }))
+        throw e
+      }
       if (entry.chain === 'cardano' || entry.chain === 'polkadot') {
         entry.resolve(true)
       } else if (entry.chain === 'solana') {
@@ -1627,6 +1727,14 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       const entry = _web3TxQueue.get(id)
       if (!entry) throw new Error('Pending transaction not found')
       _web3TxQueue.delete(id)
+      // The prompt may have sat open past an auto-revoke deadline or a manual
+      // disconnect — re-check right before signing and broadcasting.
+      try {
+        await assertGrantStillActive(entry.origin, 'evm')
+      } catch (err) {
+        entry.reject(err as Error)
+        throw err
+      }
       // Delegate to the SHARED multi-chain sender (same code the Electron app uses
       // for dApp sends). It builds the viem client with a real per-chain object —
       // which carries the EIP-1559 fee config — and the shared evmTransport (Monad

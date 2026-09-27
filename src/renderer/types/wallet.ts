@@ -37,6 +37,15 @@ export interface ApprovedOrigin {
   addedAt: number
 }
 
+// Auto-revoke site access. Mirrors main/auto-revoke.ts AutoRevokeSettings; the
+// backend owns the deadline, the UI only displays it.
+export interface AutoRevokeSettings {
+  enabled: boolean
+  durationMinutes: number          // integer 1–60
+  deadlineAt: number | null        // epoch ms of the next automatic disconnect
+  wcTeardownPending: boolean       // an expiry ran; WalletConnect teardown still retrying
+}
+
 // User-added EVM network (MetaMask-style manual add). Mirrors secure-store.ts.
 export interface CustomChain {
   id: string            // 'custom-<chainId>'
@@ -828,6 +837,11 @@ declare global {
       getConnectedSites(): Promise<ApprovedOrigin[]>
       revokeSite(origin: string, chain?: DappChain): Promise<ApprovedOrigin[]>
       revokeAllSites(): Promise<ApprovedOrigin[]>
+      // Auto-revoke site access (Settings → Security). Rejects on invalid input.
+      getAutoRevokeSettings(): Promise<AutoRevokeSettings>
+      setAutoRevokeSettings(patch: { enabled?: boolean; durationMinutes?: number }): Promise<AutoRevokeSettings>
+      onAutoRevokeChanged(cb: (s: AutoRevokeSettings) => void): void
+      offAutoRevokeChanged(cb: (s: AutoRevokeSettings) => void): void
       deleteWallet(): Promise<boolean>
       // Phase 5
       /**
