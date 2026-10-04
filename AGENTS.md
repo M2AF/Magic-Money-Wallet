@@ -13,6 +13,17 @@ dApp connectivity, security model, project structure) read **README.md**
 first — this file is deliberately just the operating rules and sharp edges,
 not a re-description of what's already documented there.
 
+## Claude/Codex shared handoff
+
+Use the `agent-handoff` skill when either agent works on this wallet. Start with
+`python C:/Users/balla/.codex/skills/agent-handoff/scripts/handoff.py --dir . status`
+and read the root `HANDOFF.md`. Only the lease owner edits project code; the other
+agent reviews without edits or works in an explicitly agreed isolated scope.
+Claim a concrete task before editing and preserve pre-existing working-tree changes.
+Record scope, acceptance criteria, exact verification commands/results, evidence
+paths, blockers, and the next action. Update the board and append checkpoints
+through the handoff script; release the lease when stopping. Never record secrets.
+
 ## Ground rules
 
 - **Never guess.** If a requirement, API contract, or expected behavior is

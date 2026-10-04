@@ -115,7 +115,7 @@ test.describe('Tokens tab: Swap replaces Hide (real extension)', () => {
       await tokenRow(page, 'emonad').hover()
       await page.getByRole('button', { name: 'Swap this token' }).filter({ visible: true }).click()
       await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByRole('combobox', { name: 'From network' })).toHaveValue('monad')
+      await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', 'monad')
       await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('EMO')
       await page.screenshot({ path: 'test-results/token-swap-opened.png' })
 
@@ -125,7 +125,7 @@ test.describe('Tokens tab: Swap replaces Hide (real extension)', () => {
       await tokenRow(page, 'Ether').hover()
       await page.getByRole('button', { name: 'Swap this token' }).filter({ visible: true }).click()
       await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
-      await expect(page.getByRole('combobox', { name: 'From network' })).toHaveValue('ethereum')
+      await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', 'ethereum')
       await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('ETH')
     } finally {
       await ctx.close()

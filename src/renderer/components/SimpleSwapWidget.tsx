@@ -11,8 +11,9 @@ import type { WalletAddresses, AllBalances } from '../types/wallet'
 import type { SsExchange, SimpleSwapRateType, ExchangeProvider } from '../types/simpleswap'
 import { SS_ASSETS, ssKey, findSsAsset, ssBalanceChain } from '../types/simpleswap-assets'
 import { ExchangeStatusCard } from './ExchangeStatusCard'
+import type { SwapExchangePreset } from '../lib/swap-exchange-preset'
 
-interface Props { addresses: WalletAddresses; active: boolean }
+interface Props { addresses: WalletAddresses; active: boolean; preset?: SwapExchangePreset }
 
 const selectStyle: React.CSSProperties = {
   background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)',
@@ -36,13 +37,15 @@ function addrFor(addresses: WalletAddresses, key: 'evm' | 'solana' | 'cardano' |
   return ''
 }
 
-export function SimpleSwapWidget({ addresses, active }: Props) {
-  const [fromKey, setFromKey] = useState(ssKey({ ticker: 'sol', network: 'sol' }))
-  const [toKey, setToKey]     = useState(ssKey({ ticker: 'btc', network: 'btc' }))
-  const [amount, setAmount]   = useState('')
+export function SimpleSwapWidget({ addresses, active, preset }: Props) {
+  const [fromKey, setFromKey] = useState(preset?.fromKey ?? ssKey({ ticker: 'sol', network: 'sol' }))
+  const [toKey, setToKey]     = useState(preset?.toKey ?? ssKey({ ticker: 'btc', network: 'btc' }))
+  const [amount, setAmount]   = useState(preset?.amount ?? '')
   const [rateType, setRateType] = useState<SimpleSwapRateType>('floating')
 
   const [estimate, setEstimate] = useState<string | null>(null)
+  const [estimateKey, setEstimateKey] = useState<string | null>(null)
+  const requestKey = JSON.stringify([fromKey, toKey, amount.trim(), rateType])
   const [range, setRange] = useState<{ min: string | null; max: string | null }>({ min: null, max: null })
   const [rateId, setRateId] = useState<string | null>(null)
   const [provider, setProvider] = useState<ExchangeProvider>('simpleswap')
@@ -85,8 +88,9 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
   // ── Debounced estimate ────────────────────────────────────────────────────
   const debounce = useRef<ReturnType<typeof setTimeout>>()
   useEffect(() => {
+    let current = true
     clearTimeout(debounce.current)
-    setEstimate(null); setRateId(null); setEstError(null)
+    setEstimate(null); setRateId(null); setEstError(null); setEstLoading(false); setRange({ min: null, max: null })
     const amt = parseFloat(amount)
     if (!(amt > 0) || fromKey === toKey) return
     setEstLoading(true)
@@ -97,15 +101,17 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
           tickerTo: to.ticker, networkTo: to.network,
           amount: amount.trim(), fixed: rateType === 'fixed',
         })
-        setEstimate(r.estimatedAmount); setRateId(r.rateId); setEstError(r.error)
+        if (!current) return
+        setEstimateKey(requestKey)
+        setEstimate(r.error ? null : r.estimatedAmount); setRateId(r.rateId); setEstError(r.error)
         setRange({ min: r.min, max: r.max }); setProvider(r.provider)
       } catch (e) {
-        setEstError(e instanceof Error ? e.message : 'Estimate failed')
+        if (current) setEstError(e instanceof Error ? e.message : 'Estimate failed')
       } finally {
-        setEstLoading(false)
+        if (current) setEstLoading(false)
       }
     }, 600)
-    return () => clearTimeout(debounce.current)
+    return () => { current = false; clearTimeout(debounce.current) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount, fromKey, toKey, rateType])
 
@@ -117,9 +123,10 @@ export function SimpleSwapWidget({ addresses, active }: Props) {
   const amt = parseFloat(amount)
   const belowMin = range.min != null && amt > 0 && amt < parseFloat(range.min)
   const aboveMax = range.max != null && amt > 0 && amt > parseFloat(range.max)
-  const canExchange = amt > 0 && !!destination && !!estimate && !belowMin && !aboveMax && fromKey !== toKey && !creating
+  const canExchange = amt > 0 && !!destination && !!estimate && estimateKey === requestKey && !estLoading && !estError && !belowMin && !aboveMax && fromKey !== toKey && !creating
 
   const create = async () => {
+    if (!canExchange) return
     setCreating(true); setCreateError(null)
     try {
       const ex = await window.wallet.xCreateExchange({

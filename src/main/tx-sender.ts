@@ -10,6 +10,7 @@ import {
   createWalletClient,
   http,
   fallback,
+  keccak256,
   parseEther,
   parseUnits,
   defineChain,
@@ -633,6 +634,72 @@ export async function sendRawEvmTransaction(
   }
 
   return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
+}
+
+/** A transaction signed locally and NOT yet broadcast, with the hash it will have on chain. */
+export interface SignedEvmTransaction {
+  /** The signed, serialized transaction (never persisted by callers). */
+  serialized: `0x${string}`
+  /** keccak256 of `serialized` — the hash the network will report for it. */
+  txHash: string
+}
+
+/**
+ * Sign `tx` with `pk` for `chain` over `transport`, WITHOUT broadcasting it.
+ * Fees and gas are filled by viem; the nonce must be pinned by the caller, so
+ * the result is the only transaction this account can ever land at that nonce.
+ * Exported for tests (a `custom` transport stands in for the RPC).
+ */
+export async function signPreparedEvmTransaction(
+  pk: `0x${string}`, chain: Chain, transport: Transport, tx: RawEvmTx & { nonce: number },
+): Promise<SignedEvmTransaction> {
+  if (!Number.isSafeInteger(tx.nonce) || tx.nonce < 0) throw new Error('A pinned nonce is required to sign without sending.')
+  if (tx.chainId !== chain.id) throw new Error(`Refusing to sign for chainId ${tx.chainId} on ${chain.name}.`)
+  const account = privateKeyToAccount(pk)
+  const walletClient = createWalletClient({ chain, transport, account })
+  const request = await walletClient.prepareTransactionRequest({
+    to: tx.to as `0x${string}`,
+    data: (tx.data && tx.data !== '0x' ? tx.data : undefined) as `0x${string}` | undefined,
+    value: toBig(tx.value) ?? 0n,
+    gas: toBig(tx.gas),
+    nonce: tx.nonce,
+    chain,
+    account,
+  })
+  const serialized = await walletClient.signTransaction(request as Parameters<typeof walletClient.signTransaction>[0])
+  return { serialized, txHash: keccak256(serialized) }
+}
+
+/**
+ * Sign an EVM transaction locally WITHOUT broadcasting it (see
+ * `signPreparedEvmTransaction`). Lets a caller record the transaction's hash
+ * durably BEFORE it can reach the network, then broadcast the exact bytes with
+ * `broadcastSignedEvmTransaction`. Same network registry as `sendRawEvmTransaction`
+ * (Testnet Mode resolves only testnet chains).
+ */
+export async function signRawEvmTransaction(
+  mnemonic: string, tx: RawEvmTx & { nonce: number }, config: WalletConfig, accountIndex = 0,
+): Promise<SignedEvmTransaction> {
+  const entry = evmEntryByChainId(tx.chainId, config)
+  if (!entry) throw new Error(`Unsupported EVM network (chainId ${tx.chainId}) — can't sign here yet.`)
+  const pk = await getEvmPrivateKey(mnemonic, accountIndex)
+  return signPreparedEvmTransaction(pk, entry.chain, evmTransport(entry, config), tx)
+}
+
+/** Broadcast an already-signed transaction (from `signRawEvmTransaction`). */
+export async function broadcastSignedEvmTransaction(
+  chainId: number, serialized: `0x${string}`, config: WalletConfig,
+): Promise<SendResult> {
+  const entry = evmEntryByChainId(chainId, config)
+  if (!entry) throw new Error(`Unsupported EVM network (chainId ${chainId}).`)
+  const client = createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) })
+  try {
+    const hash = await client.sendRawTransaction({ serializedTransaction: serialized })
+    return { txHash: hash, explorerUrl: `${entry.explorer}/${hash}` }
+  } catch (err) {
+    const e = err as { shortMessage?: string; details?: string; cause?: { message?: string; details?: string } }
+    throw new Error(e.cause?.details || e.cause?.message || e.shortMessage || (err as Error).message || 'Broadcast failed')
+  }
 }
 
 // ─── Abstract Global Wallet (smart account) send ──────────────────────────────

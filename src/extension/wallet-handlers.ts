@@ -43,7 +43,7 @@ import { bindSwapIntent, buildSwapIdentity, invalidateSwapIntents } from '../mai
 import { resolveSwapNetworks } from '../main/swap-network-resolver'
 import { measureDelivery } from '../main/swap-delivery'
 import {
-  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions,
+  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions, orderScanCursorOf,
 } from '../main/swap-sessions'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from '../main/simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from '../main/xchange-client'
@@ -101,6 +101,7 @@ import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
 import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
+import { handleXReserveTestnet } from '../main/xreserve-testnet-handlers'
 import { personalSignMessage, personalSignPreview } from '../main/personal-sign'
 // STATIC imports — same reason as the chain-config note above, and the one that
 // bit the Solana signing path: a runtime import() inside a handler throws
@@ -1126,6 +1127,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         expectedToTokenAddress: session.toTokenAddress,
       recipient: session.recipient,
       minBuyAmountRaw: session.minBuyAmountRaw,
+      orderScanCursor: orderScanCursorOf(session),
       }, config),
       // One-time on-chain re-measure of finished deliveries saved before measurement existed.
       (session) => measureDelivery({
@@ -1145,6 +1147,28 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'swap:getNetworks': {
       return resolveSwapNetworks(await store.loadConfig())
     }
+
+    // ── Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test ─
+    // Not in PAGE_RPC_TYPES, so web pages cannot reach it. Every channel refuses
+    // outside Testnet Mode (xreserve-testnet-deposit.ts).
+    case 'xreserve:testnet-state':
+    case 'xreserve:testnet-set-key':
+    case 'xreserve:testnet-set-source':
+    case 'xreserve:testnet-prepare':
+    case 'xreserve:testnet-approve':
+    case 'xreserve:testnet-approval-status':
+    case 'xreserve:testnet-deposit':
+    case 'xreserve:testnet-check':
+    case 'xreserve:testnet-recover':
+    case 'xreserve:testnet-dismiss-corrupt':
+      return handleXReserveTestnet(msg.type, a0, {
+        loadConfig: () => store.loadConfig(),
+        saveConfig: (patch) => store.saveConfig(patch),
+        loadAddresses: () => loadFullAddresses(),
+        loadMnemonic: () => store.loadMnemonic(),
+        loadTracking: () => store.loadXReserveTracking(),
+        saveTracking: (m) => store.saveXReserveTracking(m),
+      })
 
     case 'swap:getTokenList': {
       const config = await store.loadConfig()

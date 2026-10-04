@@ -19,7 +19,7 @@ were decoded with this repo's own `decodeTxBody` and then discarded.
 | Gate | Direction | Verdict |
 |---|---|---|
 | 1 | Cardano token ↔ ADA / USDCx, same chain | **Buildable.** The Minswap Aggregator quotes and builds unsigned CBOR without a key. Two different transaction shapes come back, and the validator has to handle both (or v1 has to exclude one). |
-| 2 | Supported token → USDC (Ethereum) → xReserve → USDCx → Cardano token | **Buildable, pending one measured deposit.** The contract call, recipient encoding and a public attestation endpoint are documented, and Cardano-domain deposits are visible on the mainnet contract. The mint-side fee and minimum are unmeasured. |
+| 2 | Supported token → USDC (Ethereum) → xReserve → USDCx → Cardano token | **Foundation built; execution gated.** The contract call and recipient encoding are implemented in an isolated unsigned module. A public Ethereum deposit was correlated byte for byte with a Cardano mint (see `XRESERVE-GATE2-RESEARCH.md`), but the current fee/minimum quote and supported status interface are unresolved. |
 | 3 | Cardano token → USDCx → USDC → supported token | **Blocked.** The burn needs IOG + Midgard Labs attestations behind a geoblocked portal. There is no public API or SDK. Do not build this by reverse-engineering the portal. |
 
 ---
@@ -66,7 +66,7 @@ Things the docs don't make obvious:
 | X1 | Circle docs, [supported domains](https://developers.circle.com/xreserve/references/supported-blockchains-and-domains) | **Source domains: Ethereum `0`, Arc `26` only.** Cardano is remote domain `10004`. Mainnet unit `1f3aec8b…345553444378`, preprod `31dde3db…5553444378` | — | not stated | — | — | ✅ matches D1 |
 | X2 | [Deposit quickstart](https://developers.circle.com/xreserve/tutorials/deposit-usdc-into-xreserve) | `depositToRemote(value, remoteDomain, remoteRecipient, localToken, maxFee, hookData)` after `approve()`. Cardano `remoteRecipient` = 4-byte tag (`00000001` key hash / `00000002` script) + 28-byte payment credential. Base-address `hookData` = 95 bytes `txHash(32)+txIdx(1)+datumTag(1)+datum(32)+stakingTag(1)+stakingCred(28)`; the sample fills the first 66 bytes with zeros. Enterprise address → `0x`. Sample `MAX_FEE` for Cardano is `10.00`. | EVM calldata the wallet already knows how to sign | `maxFee` is a ceiling; the **charged** amount is unmeasured | — | — | ✅ documented (Sepolia → preprod only) |
 | X3 | Mainnet contract address | `0x8888888199b2Df864bf678259607d6D5EBb4e3Ce` from Digital Asset's official `xreserve-deposits` repo (Circle's Cardano docs list only Sepolia `0x0088…4442`). On chain: a 141-byte proxy holding 8.66 USDC, so custody is elsewhere. | — | — | — | — | ⚠️ second-hand source, confirmed below |
-| X4 | `eth_getLogs` on X3, blocks 26054132–26059131 (~17 h) | 42 `0x2eef4ec6…` deposit events, **14 for domain `0x2714` (10004, Cardano)**. Recipient topic is `00000001` + a 28-byte credential, matching X2's encoding. Example: tx `0x9695d030…4fa2`, 1,900.015609 USDC. Older ranges need an archive token. | — | — | — | — | ✅ Cardano deposits are live on this contract |
+| X4 | `eth_getLogs` on X3, blocks 26054132–26059131 (~17 h) | 42 `0x2eef4ec6…` deposit events, **14 for domain `0x2714` (10004, Cardano)**. Recipient topic is `00000001` + a 28-byte credential, matching X2's encoding. Example: tx `0x9695d030…4fa2`, **1,899.991033 USDC** (`0x713f8ff9` base units), with a 10 USDC **maximum fee**, not a measured charge. Older ranges need an archive token. | — | — | — | — | ✅ Cardano deposits are live on this contract |
 | X5 | `GET https://xreserve-api.circle.com/v1/attestations/<messageHash>` (sample hash from the repo README) | `{attestation:{payload, messageHash, attestation}}`; the payload carries the remote domain (`2713`, Stacks, in that sample). An unknown hash returns 404. | — | — | status source for Ethereum-side attestation | 404 means not yet attested; it is not a failure | ✅ public, keyless |
 | X6 | [Essential Cardano FAQ](https://www.essentialcardano.io/article/usdcx-on-cardano-your-questions-answered) | Mint takes **~15–25 min**, burn **~2 h** | — | — | — | — | ✅ documented |
 | X7 | IOG portal terms §4 | A "bridge fee on mint" (Cardano tx cost + min UTxO + service component, which may be zero) and a separate "relay fee" on indirect routes. Amounts are shown only in the portal UI. | — | not machine-readable | — | — | ❌ fee unmeasured, **blocks exact output quoting** |
@@ -90,8 +90,11 @@ Things the docs don't make obvious:
 | 50 Ethereum USDC → Solana BONK | relaydepository | 1,348,990.05 / 1,342,245.10 | 1 s | ✅ |
 
 The leg into and out of Ethereum USDC already works on existing providers.
-Arc is also an xReserve source domain and is already a wallet network, but
-its xReserve contract address was **not** found and was not probed.
+Arc is also an xReserve source domain and is already a wallet network.
+Circle's [supported domains table](https://developers.circle.com/xreserve/references/supported-blockchains-and-domains)
+lists the Arc mainnet xReserve contract as `0x8888888199b2Df864bf678259607d6D5EBb4e3Ce`
+and Arc USDC as `0x3600000000000000000000000000000000000000`.
+Arc has not been integrated or probed here.
 
 ### Deposit-address exchanges
 
@@ -238,14 +241,15 @@ automatically at a changed price.
    xReserve pending mint; USDCx will arrive at your Cardano address".
 3. `cardano-dex`: gate 1, quoted fresh when the USDCx lands.
 
-Before enabling, **one measured low-value deposit** has to establish: the
-actual mint-side fee (X7), the Cardano minimum (X8), the exact
-`stakingTag` values (read from Circle's reference code, not inferred), and
-that a direct contract deposit, rather than one made through the IOG portal,
-mints. X4 shows deposits to 10004 from arbitrary senders but cannot say who
-built them. Ask IOG to confirm that direct deposits are supported. Arc as a
-cheaper source domain waits until its xReserve address is found from an
-official source.
+Before enabling, the wallet still needs a supported live fee/minimum quote,
+mint status correlation, and confirmation that deposits built directly by
+third-party wallets are supported. A public Ethereum contract deposit was
+correlated byte for byte with its Cardano mint using Circle's attestation
+payload and the mint transaction CBOR; see `XRESERVE-GATE2-RESEARCH.md`.
+That historical result does not provide a current fee schedule or minimum.
+Circle's quickstart specifies the staking tags for the builder; the observed
+95-zero-byte hook form has no published meaning. Arc addresses are now
+officially documented, but Arc routing still needs its own validation.
 
 Fees: xReserve and IOG fees are `externalFees`. Magic Money has no fee
 mechanism on this leg, so it is `no-fee` and never counted as revenue. There
@@ -344,9 +348,79 @@ are shown as `externalFees`. Nothing here changes `FEE_BPS` or
    Cardano to `verified`.
 2. An in-wallet cancel, once the cancel transaction shape is measured on a real
    order this wallet owns.
-3. Gate 2 still needs one measured low-value xReserve deposit (charged fee and
-   minimum). Gate 3 still needs an official burn integration.
+3. Gate 2 still needs a supported live fee/minimum quote and a status reader;
+   a historical Ethereum deposit has been correlated to its Cardano mint in
+   `XRESERVE-GATE2-RESEARCH.md`. Gate 3 still needs an official burn integration.
 4. The ChainLens swap-core bundle was regenerated and ChainLens's
    `swap-service.js` now **allow-lists** the signing kinds it can complete
    (`evm-eoa`, `solana`), so Cardano stays unavailable there exactly as before.
    It ships with ChainLens's next deploy.
+
+## Order status reliability fix (2026-09-27)
+
+### The defects
+
+- **Missed spends.** The status reader asked Blockfrost for ONE page of the
+  wallet's later transactions and inspected at most the first 25. An order
+  filled or cancelled after the 25th later transaction was never found, and
+  every poll reported it open.
+- **False refunds.** Any spend without the bought token was reported as
+  `refunded`, even when nothing came back to the wallet.
+
+### What replaced them
+
+- **Indexed lookup first.** Blockfrost's `/txs/{hash}/utxos` carries
+  `consumed_by_tx` on every output: the hash of the spending transaction, or
+  null while unspent. It was added in API 0.1.67 (2024-09-11) and is documented
+  in `blockfrost/openapi` as "Transaction hash that consumed the UTXO or null
+  for unconsumed UTXOs". The reader already fetched that response, so finding
+  the spender of the exact output (`order tx # output index`) now costs one
+  extra request and cannot miss a later spend. `null` is indexed evidence that
+  the order is still open.
+- **Bounded, resumable fallback**, used only when the field is absent. It
+  walks the wallet's transactions oldest first using keyset pagination on
+  Blockfrost's inclusive `from=block:index`. Each poll reads at most 20
+  transactions. A cursor records the last (block, index) fully checked, so the
+  next poll continues from there instead of re-reading. The cursor lives in
+  memory and on the swap session (`cardanoOrderScan`), so a restart resumes.
+  Only a walk that reaches the end with no spender reports the order open. A
+  walk cut short by the budget, a 429, a 5xx or a network error is `unknown`
+  (retryable), with the progress kept.
+- **Evidence-based classification**, using the wallet's NET change per asset
+  in the spending transaction (outputs to the wallet minus inputs from it; a
+  cancel pays its fee from the owner's coins):
+  - **refund**: the sold asset came back, at least the amount the order sold
+    (`swap_amount` from the order datum). When ADA was sold, the bought token
+    must also be absent, so a fill's returned deposit is never read as a refund.
+  - **fill**: the bought asset arrived, and the sold asset did not come back.
+    The approved-minimum check and the ADA-bought deposit adjustment are
+    unchanged.
+  - **anything else** (nothing recognisable, or only part of the sold asset):
+    `unknown` with substatus `UNEXPLAINED` and an explicit message naming the
+    spending transaction. It is never reported as a refund.
+- No shared swap-core source changed, so the ChainLens bundle is unaffected.
+  The cursor is kept off the shared `SwapSession` type and declared in
+  `src/main/swap-sessions.ts`.
+
+### Live, read-only verification (2026-09-27 21:59 UTC)
+
+Blockfrost was reached through the app's own Worker proxy (`/blockfrost/`,
+public client tag `magicmoney-wallet-v1`), the same path the wallet uses. The
+proxy returns `consumed_by_tx`. Two completed public Minswap V2 orders, both
+found among recent transactions on the V2 order script:
+
+| Order (tx # output) | Order | Spender (`consumed_by_tx`) | Reader result |
+|---|---|---|---|
+| `e92f345e8696b086199b713b699471e0347082669359126accc30a1a2486a7a6#1` | SwapExactIn: 41,333,292,000 of `95a427e3…0048554e54` → ADA, minimum 849,881,081 lovelace | `f4b3a839f64ac522e0f57bea0fefa033b3a5a35201b1b85c838e05a15fd10adf` (credited the owner 856,130,487 lovelace) | `completed`, delivered **854,130,487** lovelace (the 2 ADA deposit, read from the datum, separated out), at or above the minimum |
+| `8598aa82ff070105ba1b04fbd46e92cf54088c2f23033247d6105ec5a6c09073#0` | SwapExactIn: 415 ADA → `95a427e3…0048554e54`, minimum 19,009,494,312 | `a1442cb842b54bc086c92c2f1c8410ddd25730652b853c6519a5aa4f8587e285` (credited 2 ADA + 19,201,509,407 of the token) | `completed`, delivered **19,201,509,407**; the returned 2 ADA deposit was not mistaken for a refund |
+
+With a deliberately wrong expected token, both orders came back `unknown` /
+`UNEXPLAINED`, not `refunded`.
+
+**Limits of this evidence.** The expected token was read from the fill
+transaction itself, not known independently, so this shows spender lookup,
+measurement and the deposit adjustment, not token selection. No live
+**cancelled** order was checked, so the refund branch rests on the tests. The
+**fallback scan was not exercised live**, because Blockfrost returned
+`consumed_by_tx`; its pagination, resume and failure cases rest on
+`src/main/cardano-order-status.test.ts`.

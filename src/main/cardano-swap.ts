@@ -116,17 +116,87 @@ export async function prepareCardanoSwapQuote(
 }
 
 // ── Order status, measured on Cardano ─────────────────────────────────────────
+//
+// FINDING THE TRANSACTION THAT SPENT THE ORDER
+//
+// Primary: Blockfrost's `/txs/{hash}/utxos` states, for every output, the
+// transaction that consumed it (`consumed_by_tx`, null while unspent — added
+// in Blockfrost API 0.1.67, 2024-09-11; returned through our proxy, measured
+// 2026-09-27). That is an INDEXED answer for exactly this order output: one
+// request, no scanning, and it cannot miss a spend that happened later.
+//
+// Fallback, only when that field is absent from the response: walk the wallet's
+// transactions after the order, oldest first, checking each one's inputs for
+// the exact order output. The walk is bounded per poll and resumable (keyset
+// pagination): a cursor records the last (block, index) fully checked, so the
+// next poll starts there — Blockfrost's `from` is an inclusive `block:index`
+// range — instead of re-reading old pages. Only a walk that reaches the end of the list with no
+// spender is evidence the order is still open; a walk cut short by the budget,
+// a rate limit or an error is UNKNOWN, never "open".
+//
+// CLASSIFYING THE SPEND
+//
+// From the spending transaction's own inputs and outputs, as the wallet's NET
+// change per asset (outputs to the wallet minus inputs from it — a cancel pays
+// its fee from the owner's coins, so gross credits would overstate it):
+//   fill    the bought asset arrived, and the sold one did not come back
+//   refund  the sold asset came back, at least the amount the order sold
+//   neither an UNEXPLAINED spend: reported as such, never as a refund
 
 interface BfAmount { unit: string; quantity: string }
 interface BfUtxos {
-  inputs: Array<{ address: string; amount: BfAmount[]; tx_hash: string; output_index: number }>
-  outputs: Array<{ address: string; amount: BfAmount[]; output_index: number; inline_datum?: string | null }>
+  inputs: Array<{ address: string; amount: BfAmount[]; tx_hash: string; output_index: number; collateral?: boolean; reference?: boolean }>
+  outputs: Array<{
+    address: string; amount: BfAmount[]; output_index: number; inline_datum?: string | null
+    consumed_by_tx?: string | null; collateral?: boolean
+  }>
+}
+interface BfAddressTx { tx_hash: string; tx_index: number; block_height: number }
+
+/**
+ * Where a fallback scan got to: every wallet transaction at or before
+ * (blockHeight, txIndex) has been checked and none spent the order. Persisted
+ * on the swap session so a restart resumes rather than rescans.
+ */
+export interface MinswapOrderScanCursor {
+  orderRef: string
+  blockHeight: number
+  txIndex: number
 }
 
+/**
+ * Transactions whose inputs are read per poll in the fallback scan. Each poll
+ * lists at most this many (+1 for the cursor's own, inclusive entry) starting
+ * at the cursor, so a long history is walked across polls without re-reading.
+ */
+export const SCAN_TX_LOOKUPS_PER_POLL = 20
+
+/** Stated when a spend cannot be explained — shown instead of any "refunded" wording. */
+export const MINSWAP_UNEXPLAINED_SPEND_MESSAGE =
+  'The order was spent on Cardano, but the wallet cannot find the token you bought or the token you sold '
+  + 'coming back in that transaction. It is not being reported as a refund. Check the spending transaction.'
+
+/** In-process cursors, so polls from the swap screen resume too (sessions persist them across restarts). */
+const scanCursors = new Map<string, MinswapOrderScanCursor>()
+export function __clearMinswapScanCursors(): void { scanCursors.clear() }
+
+class BlockfrostUnavailable extends Error {}
+
 async function bfJson<T>(path: string, config: WalletConfig): Promise<{ status: number; data: T | null }> {
-  const res = await blockfrostFetch(path, config, 12_000)
+  let res: Response
+  try {
+    res = await blockfrostFetch(path, config, 12_000)
+  } catch {
+    // Network error or timeout. The message is not surfaced: it would only
+    // restate the request, and nothing about it is actionable for the user.
+    throw new BlockfrostUnavailable('Cardano data service unreachable; will retry')
+  }
+  if (res.status === 429) throw new BlockfrostUnavailable('Cardano data service is rate-limiting; will retry')
+  if (res.status >= 500) throw new BlockfrostUnavailable(`Cardano data service error ${res.status}; will retry`)
   if (!res.ok) return { status: res.status, data: null }
-  return { status: res.status, data: await res.json().catch(() => null) as T | null }
+  const data = await res.json().catch(() => null) as T | null
+  if (data == null) throw new BlockfrostUnavailable('Cardano data service returned an unreadable answer; will retry')
+  return { status: res.status, data }
 }
 
 function paymentHashOf(address: string): { type: number; hash: string } | null {
@@ -144,104 +214,184 @@ function hexBytes(value: string): Uint8Array {
   return out
 }
 
-function credited(outputs: BfUtxos['outputs'], address: string, unit: string): bigint {
+/** The wallet's net change in `unit` across one transaction (collateral and reference inputs excluded). */
+function netDelta(tx: BfUtxos, wallet: string, unit: string): bigint {
   let sum = 0n
-  for (const o of outputs) {
-    if (o.address !== address) continue
+  for (const o of tx.outputs) {
+    if (o.address !== wallet || o.collateral) continue
     for (const a of o.amount) if (a.unit.toLowerCase() === unit) sum += BigInt(a.quantity)
+  }
+  for (const i of tx.inputs) {
+    if (i.address !== wallet || i.collateral || i.reference) continue
+    for (const a of i.amount) if (a.unit.toLowerCase() === unit) sum -= BigInt(a.quantity)
   }
   return sum
 }
 
-/** How many of the wallet's later transactions are inspected per poll. */
-const MAX_SPENDER_LOOKUPS = 25
+const ahead = (a: { blockHeight: number; txIndex: number }, b: { blockHeight: number; txIndex: number }) =>
+  a.blockHeight > b.blockHeight || (a.blockHeight === b.blockHeight && a.txIndex > b.txIndex)
+
+type SpenderSearch =
+  | { kind: 'found'; hash: string; tx: BfUtxos }
+  | { kind: 'open' }
+  | { kind: 'incomplete'; reason: string }
+
+/**
+ * Bounded, resumable walk of the wallet's transactions after the order —
+ * keyset pagination on Blockfrost's inclusive `from=block:index`. Advances
+ * `cursor` past every transaction it has fully checked.
+ */
+async function scanForSpender(
+  orderTx: string, orderIndex: number, orderHeight: number, wallet: string,
+  cursor: MinswapOrderScanCursor, config: WalletConfig,
+): Promise<SpenderSearch> {
+  const count = SCAN_TX_LOOKUPS_PER_POLL + 1
+  const from = `${cursor.blockHeight}:${Math.max(0, cursor.txIndex)}`
+  const list = await bfJson<BfAddressTx[]>(
+    `addresses/${wallet}/transactions?order=asc&count=${count}&from=${from}`, config)
+  if (!Array.isArray(list.data)) return { kind: 'incomplete', reason: "the wallet's transaction list could not be read" }
+  let lookups = 0
+  for (const t of list.data) {
+    const pos = { blockHeight: t.block_height, txIndex: t.tx_index }
+    if (!ahead(pos, cursor) || t.block_height < orderHeight || t.tx_hash === orderTx) continue
+    if (lookups >= SCAN_TX_LOOKUPS_PER_POLL) return { kind: 'incomplete', reason: "still searching the wallet's later transactions" }
+    lookups++
+    const tx = await bfJson<BfUtxos>(`txs/${t.tx_hash}/utxos`, config)
+    if (!tx.data) return { kind: 'incomplete', reason: 'a later transaction could not be read' }
+    if (tx.data.inputs.some(i => i.tx_hash === orderTx && i.output_index === orderIndex && !i.reference)) {
+      return { kind: 'found', hash: t.tx_hash, tx: tx.data }
+    }
+    cursor.blockHeight = pos.blockHeight
+    cursor.txIndex = pos.txIndex
+  }
+  // Fewer entries than asked for means the list ended here: every later
+  // transaction has now been checked, and none spent the order.
+  return list.data.length < count
+    ? { kind: 'open' }
+    : { kind: 'incomplete', reason: "still searching the wallet's later transactions" }
+}
 
 /**
  * Where a Minswap order stands, in the vocabulary `mapMinswapStatus` reads.
- * A read failure is UNKNOWN (poll again), never a verdict.
+ * Anything short of positive evidence is UNKNOWN (poll again), never a verdict.
  */
 export async function getMinswapOrderStatus(
   req: CrossSwapStatusRequest, config: WalletConfig,
 ): Promise<CrossSwapStatus> {
-  const unknown: CrossSwapStatus = { status: 'pending', state: 'unknown', error: null, providerStatus: 'UNKNOWN' }
+  const unknown = (error: string | null, extra: Partial<CrossSwapStatus> = {}): CrossSwapStatus =>
+    ({ status: 'pending', state: 'unknown', error, providerStatus: 'UNKNOWN', ...extra })
   const wallet = req.recipient ?? ''
   const buyUnit = normalizeSwapAddress('cardano', req.expectedToTokenAddress ?? '')
-  if (!req.txHash || !wallet || !buyUnit) return { ...unknown, error: 'missing order details' }
+  if (!req.txHash || !wallet || !buyUnit) return unknown('missing order details')
   try {
     const order = await bfJson<BfUtxos>(`txs/${req.txHash}/utxos`, config)
     if (order.status === 404) {
       return { status: 'pending', state: 'source-submitted', error: null, providerStatus: 'NOT_FOUND' }
     }
-    if (!order.data) return unknown
+    if (!order.data) return unknown('the order transaction could not be read')
     const orderOut = order.data.outputs.find(o => {
       const p = paymentHashOf(o.address)
       return p?.type === 1 && p.hash === MINSWAP_V2.orderScriptHash
     })
-    if (!orderOut) return { ...unknown, error: 'the transaction created no Minswap order' }
+    if (!orderOut) return unknown('the transaction created no Minswap order')
+    const orderRef = `${req.txHash}#${orderOut.output_index}`
     const sellUnit = orderOut.amount.find(a => a.unit !== CARDANO_LOVELACE)?.unit.toLowerCase() ?? CARDANO_LOVELACE
     const orderLovelace = BigInt(orderOut.amount.find(a => a.unit === CARDANO_LOVELACE)?.quantity ?? '0')
-    // The deposit is what the order locked beyond its max batcher fee (and
-    // beyond the sale itself when ADA is sold) — read from the order's own datum.
+    // The order's own terms: how much it sold (the refund evidence threshold)
+    // and its max batcher fee (to separate bought ADA from the returned deposit).
+    let swapAmount: bigint | null = null
     let maxBatcherFee: bigint | null = null
     try {
-      if (orderOut.inline_datum) maxBatcherFee = decodeMinswapV2OrderDatum(hexBytes(orderOut.inline_datum)).maxBatcherFee
-    } catch { maxBatcherFee = null }
+      if (orderOut.inline_datum) {
+        const datum = decodeMinswapV2OrderDatum(hexBytes(orderOut.inline_datum))
+        swapAmount = datum.swapAmount
+        maxBatcherFee = datum.maxBatcherFee
+      }
+    } catch { /* classified below as needing the datum */ }
 
-    const meta = await bfJson<{ block_height?: number }>(`txs/${req.txHash}`, config)
-    const height = meta.data?.block_height
-    if (typeof height !== 'number') return unknown
-
-    const later = await bfJson<Array<{ tx_hash: string }>>(
-      `addresses/${wallet}/transactions?order=asc&from=${height}&count=100`, config)
-    if (!later.data) return unknown
-    const candidates = later.data.map(t => t.tx_hash).filter(h => h !== req.txHash).slice(0, MAX_SPENDER_LOOKUPS)
-
-    for (const hash of candidates) {
+    // ── Find the spender ────────────────────────────────────────────────────
+    let spender: { hash: string; tx: BfUtxos } | null = null
+    let cursorOut: MinswapOrderScanCursor | null = null
+    if (typeof orderOut.consumed_by_tx === 'string' && /^[0-9a-f]{64}$/i.test(orderOut.consumed_by_tx)) {
+      const hash = orderOut.consumed_by_tx.toLowerCase()
       const tx = await bfJson<BfUtxos>(`txs/${hash}/utxos`, config)
-      if (!tx.data) return unknown   // a gap in what was read is not "still open"
-      const spendsOrder = tx.data.inputs.some(i => i.tx_hash === req.txHash && i.output_index === orderOut.output_index)
-      if (!spendsOrder) continue
-
-      const boughtAda = buyUnit === CARDANO_LOVELACE
-      const gotBuy = credited(tx.data.outputs, wallet, buyUnit)
-      const gotSell = sellUnit === CARDANO_LOVELACE ? 0n : credited(tx.data.outputs, wallet, sellUnit)
-      // A fill pays the bought token; a cancel returns the sold one. When ADA is
-      // BOUGHT both carry ADA, so the sold token coming back is what tells them apart.
-      const filled = boughtAda ? gotSell === 0n : gotBuy > 0n
-      if (!filled) {
+      if (!tx.data) return unknown('the transaction that spent the order could not be read')
+      spender = { hash, tx: tx.data }
+    } else if (orderOut.consumed_by_tx === null) {
+      // Indexed answer: this exact output is unspent.
+      return { status: 'pending', state: 'source-confirmed', error: null, providerStatus: 'PENDING', providerSubstatus: 'ORDER_OPEN' }
+    } else {
+      // Field absent: fall back to the bounded, resumable scan.
+      const meta = await bfJson<{ block_height?: number | null; index?: number }>(`txs/${req.txHash}`, config)
+      const height = meta.data?.block_height
+      if (typeof height !== 'number') return unknown('the order transaction is not in a block yet')
+      const stored = [scanCursors.get(orderRef), req.orderScanCursor]
+        .filter((c): c is MinswapOrderScanCursor => !!c && c.orderRef === orderRef
+          && Number.isInteger(c.blockHeight) && Number.isInteger(c.txIndex))
+      const start: MinswapOrderScanCursor = { orderRef, blockHeight: height, txIndex: typeof meta.data?.index === 'number' ? meta.data.index : -1 }
+      const cursor = stored.reduce((best, c) => (ahead(c, best) ? { ...c } : best), start)
+      const found = await scanForSpender(req.txHash, orderOut.output_index, height, wallet, cursor, config)
+        .catch((e): SpenderSearch => ({ kind: 'incomplete', reason: e instanceof BlockfrostUnavailable ? e.message : 'scan failed' }))
+      scanCursors.set(orderRef, cursor)
+      cursorOut = cursor
+      if (found.kind === 'incomplete') {
+        return unknown(null, { providerSubstatus: 'SCAN_INCOMPLETE', message: found.reason, orderScanCursor: cursor })
+      }
+      if (found.kind === 'open') {
         return {
-          status: 'done', state: 'refunded', error: null,
-          providerStatus: 'DONE', providerSubstatus: 'REFUNDED',
-          destTxHash: hash, destExplorerUrl: cardanoscanTx(hash),
-          deliveredAmountSource: 'onchain',
-          delivered: { chain: 'cardano', address: sellUnit, symbol: null, decimals: null,
-            amountRaw: (sellUnit === CARDANO_LOVELACE ? credited(tx.data.outputs, wallet, CARDANO_LOVELACE) : gotSell).toString() },
+          status: 'pending', state: 'source-confirmed', error: null,
+          providerStatus: 'PENDING', providerSubstatus: 'ORDER_OPEN', orderScanCursor: cursor,
         }
       }
-      // ADA bought arrives together with the returned deposit and any unused
-      // batcher fee. Subtracting what the order locked BEYOND the batcher fee
-      // (the deposit) keeps the figure at or above what was actually bought,
-      // so the minimum check below can never misreport a shortfall.
-      let amount = gotBuy
-      if (boughtAda) {
-        if (maxBatcherFee == null) return unknown   // cannot separate the purchase from the deposit
-        const deposit = orderLovelace - maxBatcherFee
-        amount = deposit > 0n && gotBuy > deposit ? gotBuy - deposit : gotBuy
-      }
+      spender = { hash: found.hash, tx: found.tx }
+    }
+
+    // ── Classify from the spender's own inputs and outputs ──────────────────
+    const { hash, tx } = spender
+    const links = { destTxHash: hash, destExplorerUrl: cardanoscanTx(hash), orderScanCursor: cursorOut }
+    const unexplained = (): CrossSwapStatus => unknown(null, {
+      providerStatus: 'SPENT', providerSubstatus: 'UNEXPLAINED', message: MINSWAP_UNEXPLAINED_SPEND_MESSAGE, ...links,
+    })
+    if (swapAmount == null) return unexplained()
+
+    const netBuy = netDelta(tx, wallet, buyUnit)
+    const netSell = netDelta(tx, wallet, sellUnit)
+    const boughtAda = buyUnit === CARDANO_LOVELACE
+    // Refund: the sold asset back in at least the amount the order sold. For
+    // ADA sold, a cancel returns sale + batcher fee + deposit less its own fee,
+    // which is still at least the sale.
+    const refunded = netSell >= swapAmount && (boughtAda || netBuy <= 0n)
+    // Fill: the bought asset arrived, and the sold asset did not come back.
+    const filled = !refunded && netBuy > 0n && (sellUnit === CARDANO_LOVELACE ? true : netSell <= 0n)
+
+    if (refunded) {
       return {
-        status: 'done', state: 'completed', error: null,
-        providerStatus: 'DONE', providerSubstatus: 'COMPLETED',
-        receivedAmountRaw: amount.toString(),
-        destTxHash: hash, destExplorerUrl: cardanoscanTx(hash),
+        status: 'done', state: 'refunded', error: null,
+        providerStatus: 'DONE', providerSubstatus: 'REFUNDED', ...links,
         deliveredAmountSource: 'onchain',
-        delivered: { chain: 'cardano', address: buyUnit, symbol: null, decimals: null, amountRaw: amount.toString() },
+        delivered: { chain: 'cardano', address: sellUnit, symbol: null, decimals: null, amountRaw: netSell.toString() },
       }
+    }
+    if (!filled) return unexplained()
+
+    // ADA bought arrives together with the returned deposit and any unused
+    // batcher fee. Subtracting what the order locked BEYOND the batcher fee
+    // (the deposit) keeps the figure at or above what was actually bought,
+    // so the approved-minimum check can never misreport a shortfall.
+    let amount = netBuy
+    if (boughtAda) {
+      if (maxBatcherFee == null) return unexplained()
+      const deposit = orderLovelace - maxBatcherFee
+      amount = deposit > 0n && netBuy > deposit ? netBuy - deposit : netBuy
     }
     return {
-      status: 'pending', state: 'source-confirmed', error: null,
-      providerStatus: 'PENDING', providerSubstatus: 'ORDER_OPEN',
+      status: 'done', state: 'completed', error: null,
+      providerStatus: 'DONE', providerSubstatus: 'COMPLETED', ...links,
+      receivedAmountRaw: amount.toString(),
+      deliveredAmountSource: 'onchain',
+      delivered: { chain: 'cardano', address: buyUnit, symbol: null, decimals: null, amountRaw: amount.toString() },
     }
   } catch (e) {
-    return { ...unknown, error: e instanceof Error ? e.message : 'status read failed' }
+    return unknown(e instanceof BlockfrostUnavailable ? e.message : 'status read failed; will retry')
   }
 }

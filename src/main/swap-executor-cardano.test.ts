@@ -4,7 +4,7 @@
  * reading the wallet's live coins and submitting — are mocked, so nothing here
  * reaches Cardano.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { mnemonicToEntropy } from '@scure/bip39'
@@ -24,7 +24,7 @@ vi.mock('./cardano-cip30', async (orig) => ({
   cip30SubmitTx: net.cip30SubmitTx,
 }))
 
-import { executeSwap } from './swap-executor'
+import { executeSwap, executeBoundSwap } from './swap-executor'
 import { deriveCardanoAddress, getCardanoSpendingKey } from './cardano-pure'
 import { splitTxRoot, hexToBytesStrict, txIdOf, CardanoSwapValidationError } from './cardano-swap-validate'
 import { decodeCbor, CborMap } from './cardano-tx-inspect'
@@ -33,7 +33,10 @@ import { feeFreeRecord } from '../shared/swap-fee-policy'
 import { CARDANO_USDCX_UNIT } from '../shared/swap-token-identity'
 import type { NormalizedSwapQuote } from './swap-proxy'
 import type { SwapSigningIdentity } from './swap-intent'
+import { bindSwapIntent, buildSwapIdentity, wasSwapIntentBroadcast, __clearSwapIntents } from './swap-intent'
 import type { WalletConfig } from './secure-store'
+import { setSwapSessionPersistence, __resetSwapSessions, listSessions, prepareCardanoSwapBroadcast } from './swap-sessions'
+import type { SettledSwapSessionMap } from '../shared/swap-settlement'
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
 const entropy = mnemonicToEntropy(MNEMONIC, wordlist)
@@ -64,13 +67,113 @@ const identity = (address = OURS): SwapSigningIdentity => ({
 const cfg = {} as WalletConfig
 
 beforeEach(() => {
+  __resetSwapSessions()
+  __clearSwapIntents()
   net.checkCardanoSwapTx.mockReset()
   net.cip30SubmitTx.mockReset()
   net.checkCardanoSwapTx.mockResolvedValue({ txId: TX_ID, orderOutputIndex: 0, order: {}, cost: {} })
   net.cip30SubmitTx.mockResolvedValue(TX_ID)
 })
+afterEach(() => { __resetSwapSessions(); vi.useRealTimers() })
 
 describe('executeSwap — Cardano', () => {
+  it('releases an unsent bound intent after storage failure, then prevents replay after submission', async () => {
+    const addresses = { evm: '0xwallet', solana: 'solwallet', cardano: OURS, accountIndex: 0 }
+    const q = quote()
+    const bound = bindSwapIntent({
+      fromChain: 'cardano', toChain: 'cardano', fromToken: q.fromTokenAddress, toToken: q.toTokenAddress,
+      fromSymbol: 'ADA', toSymbol: 'USDCx', sellAmountRaw: q.sellAmountRaw, slippageBps: 50,
+      taker: OURS, toAddress: OURS, fromDecimals: 6, toDecimals: 6,
+    }, q, buildSwapIdentity(addresses, 'cardano', 'cardano', false))
+    const save = vi.fn().mockRejectedValueOnce(new Error('disk full')).mockResolvedValue(undefined)
+    setSwapSessionPersistence({ load: async () => ({}), save })
+    await expect(executeBoundSwap(bound, MNEMONIC, cfg, addresses, false)).rejects.toThrow(/Nothing was sent/)
+    expect(wasSwapIntentBroadcast(bound.intentId!)).toBe(false)
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+    await expect(executeBoundSwap(bound, MNEMONIC, cfg, addresses, false)).resolves.toMatchObject({ txHash: TX_ID })
+    expect(wasSwapIntentBroadcast(bound.intentId!)).toBe(true)
+    await expect(executeBoundSwap(bound, MNEMONIC, cfg, addresses, false)).rejects.toThrow(/already been submitted/)
+    expect(net.cip30SubmitTx).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for a durable hash record before submitting; a restart retains uncertain receipt evidence', async () => {
+    let saved: SettledSwapSessionMap = {}
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const save = vi.fn(async (map: SettledSwapSessionMap) => {
+      await gate
+      if (save.mock.calls.length > 1) throw new Error('storage failed after submission')
+      saved = structuredClone(map)
+    })
+    const port = { load: async () => saved, save }
+    setSwapSessionPersistence(port)
+    net.cip30SubmitTx.mockRejectedValue(new Error('socket hang up'))
+    const executing = executeSwap(quote(), MNEMONIC, cfg, 0, 'prepared-order', identity())
+    const outcome = expect(executing).rejects.toThrow(/do not send it again/)
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+    const record = save.mock.calls[0][0]['prepared-order']
+    expect(record).toMatchObject({ sourceTxHash: TX_ID, sourceTxState: 'uncertain', state: 'unknown', settlesAfterSource: true })
+    const json = JSON.stringify(record)
+    for (const secret of [MNEMONIC, fx.buildTx.cbor, 'txData', 'signature']) expect(json).not.toContain(secret)
+    release()
+    await outcome
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3))
+    __resetSwapSessions()
+    setSwapSessionPersistence(port)
+    expect(await listSessions(identity())).toEqual([expect.objectContaining({ sourceTxHash: TX_ID, sourceTxState: 'uncertain' })])
+    expect(net.cip30SubmitTx).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses submission when recovery storage is missing or its write fails', async () => {
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'no-store', identity())).rejects.toThrow(/recovery record.*Nothing was sent/)
+    setSwapSessionPersistence({ load: async () => ({}), save: async () => { throw new Error('disk full') } })
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'failed-write', identity())).rejects.toThrow(/recovery record.*Nothing was sent/)
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+  })
+
+  it('does not overwrite existing evidence when loading it fails, and can retry the read', async () => {
+    const save = vi.fn()
+    const load = vi.fn().mockRejectedValueOnce(new Error('unreadable')).mockResolvedValue({})
+    setSwapSessionPersistence({ load, save })
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'read-failed', identity())).rejects.toThrow(/Nothing was sent/)
+    expect(save).not.toHaveBeenCalled()
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+    await executeSwap(quote(), MNEMONIC, cfg, 0, 'read-retried', identity())
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(net.cip30SubmitTx).toHaveBeenCalledTimes(1)
+  })
+
+  it('rechecks expiry after a delayed storage acknowledgement', async () => {
+    vi.useFakeTimers()
+    const q = quote()
+    setSwapSessionPersistence({ load: async () => ({}), save: async () => { vi.setSystemTime(q.expiresAt + 1) } })
+    await expect(executeSwap(q, MNEMONIC, cfg, 0, 'expired-during-save', identity())).rejects.toThrow(/expired/)
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+  })
+
+  it('shares the initial read and serializes snapshots so concurrent orders cannot erase each other', async () => {
+    let resolveLoad!: (map: object) => void
+    const load = vi.fn(() => new Promise<object>(resolve => { resolveLoad = resolve }))
+    let releaseFirst!: () => void
+    const first = new Promise<void>(resolve => { releaseFirst = resolve })
+    let saved: SettledSwapSessionMap = {}
+    const save = vi.fn(async (map: SettledSwapSessionMap) => {
+      if (Object.keys(map).length === 1) await first
+      saved = structuredClone(map)
+    })
+    setSwapSessionPersistence({ load, save })
+    const a = prepareCardanoSwapBroadcast('a', quote(), identity(), { from: 6, to: 6 }, TX_ID, 'https://example.com')
+    const b = prepareCardanoSwapBroadcast('b', quote(), identity(), { from: 6, to: 6 }, TX_ID, 'https://example.com')
+    expect(load).toHaveBeenCalledTimes(1)
+    resolveLoad({})
+    await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+    expect(Object.keys(save.mock.calls[0][0])).toEqual(['a'])
+    releaseFirst()
+    await Promise.all([a, b])
+    expect(Object.keys(saved)).toEqual(['a', 'b'])
+  })
+
   it('re-validates against live coins, signs with exactly one payment-key witness, keeps the body verbatim', async () => {
     const r = await executeSwap(quote(), MNEMONIC, cfg, 0, undefined, identity())
     expect(r.txHash).toBe(TX_ID)

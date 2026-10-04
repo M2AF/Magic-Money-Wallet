@@ -15,7 +15,8 @@
  * proxying), so one refresh serves every user.
  *
  * Required env: ALCHEMY_KEY, HELIUS_KEY, TATUM_KEY, BLOCKFROST_KEY, MORALIS_KEY,
- *   OPENSEA_KEY. Optional: ORDISCAN_API_KEY, ANKR_API_KEY, ANVIL_API_KEY (Cardano
+ *   OPENSEA_KEY. Optional: ALCHEMY_KEY_2 (second Alchemy app, rotated with the
+ *   first — see alchemyFetch), ORDISCAN_API_KEY, ANKR_API_KEY, ANVIL_API_KEY (Cardano
  *   marketplace floors), CACHE (KV), CLIENT_TOKEN, READ_RPM.
  */
 
@@ -56,15 +57,59 @@ const READ_NS = new Set(['rpc', 'alchemy-nft', 'alchemy-data', 'helius-api', 'bl
 
 // Alchemy TRON HTTP API host (separate from the `${network}.g.alchemy.com` JSON-RPC
 // hosts — TRON uses path-based `wallet/*` methods under /v2/{key}/).
-const ALCHEMY_TRON = (env) => `https://tron-mainnet.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
+const ALCHEMY_TRON = (key) => `https://tron-mainnet.g.alchemy.com/v2/${key}`
 
 // Alchemy Portfolio/Data API host (unified multi-network REST — separate rate
 // bucket from the `${network}.g.alchemy.com` JSON-RPC hosts, and covers chains
 // like Abstract). Used for token balances when alchemy_getTokenBalances is shed.
-const ALCHEMY_DATA = (env) => `https://api.g.alchemy.com/data/v1/${env.ALCHEMY_KEY}`
+const ALCHEMY_DATA = (key) => `https://api.g.alchemy.com/data/v1/${key}`
 
-const alchemyRpc = (network, env) => `https://${network}.g.alchemy.com/v2/${env.ALCHEMY_KEY}`
-const alchemyNft = (network, env) => `https://${network}.g.alchemy.com/nft/v3/${env.ALCHEMY_KEY}`
+const alchemyRpc = (network, key) => `https://${network}.g.alchemy.com/v2/${key}`
+const alchemyNft = (network, key) => `https://${network}.g.alchemy.com/nft/v3/${key}`
+
+// ── Alchemy key rotation ────────────────────────────────────────────────────
+// ALCHEMY_KEY_2 (optional) is a second Alchemy app. Requests alternate between
+// the keys so each carries about half the monthly compute units, and a request
+// a key refuses (429 throttle/monthly cap, 401/403 — e.g. a network not enabled
+// on that app) is retried once on the other key. A key reporting its MONTHLY
+// cap is skipped for a while instead of costing a failed call every other time.
+// State is per isolate: good enough to split load, and it self-heals.
+const ALCHEMY_EXHAUSTED_MS = 10 * 60_000
+const alchemyExhaustedUntil = new Map() // key -> epoch ms
+let alchemyTurn = 0
+
+const alchemyKeys = (env) => [env.ALCHEMY_KEY, env.ALCHEMY_KEY_2].filter(Boolean)
+
+/**
+ * fetch() against Alchemy with key rotation + failover. `urlFor(key)` builds the
+ * upstream URL; `init.body` must be a string so it can be re-sent. Returns the
+ * last upstream Response when every key refused, so callers pass it through.
+ */
+export async function alchemyFetch(env, urlFor, init) {
+  const keys = alchemyKeys(env)
+  const start = alchemyTurn++ % keys.length
+  const now = Date.now()
+  const ordered = keys.map((_, i) => keys[(start + i) % keys.length])
+  // Healthy keys first; exhausted ones stay as a last resort (the cap may have reset).
+  const tryOrder = [
+    ...ordered.filter(k => !(alchemyExhaustedUntil.get(k) > now)),
+    ...ordered.filter(k => alchemyExhaustedUntil.get(k) > now),
+  ]
+  let res
+  for (let i = 0; i < tryOrder.length; i++) {
+    const key = tryOrder[i]
+    res = await fetch(urlFor(key), init)
+    if (res.status !== 429 && res.status !== 401 && res.status !== 403) {
+      alchemyExhaustedUntil.delete(key)
+      return res
+    }
+    if (res.status === 429) {
+      const text = await res.clone().text().catch(() => '')
+      if (/capacity limit|monthly/i.test(text)) alchemyExhaustedUntil.set(key, now + ALCHEMY_EXHAUSTED_MS)
+    }
+  }
+  return res
+}
 
 /** Returns a Response for a read route, or null if this isn't a read route. */
 export async function handleRead(request, url, env, ctx) {
@@ -85,7 +130,7 @@ export async function handleRead(request, url, env, ctx) {
     if (body == null) return err(env, 'Bad body')
     // Cross-user cache for token metadata (immutable per contract).
     if (isAllMetadata(body)) return json(env, await alchemyMetaCached(network, body, env, ctx))
-    const res = await fetch(alchemyRpc(network, env), {
+    const res = await alchemyFetch(env, key => alchemyRpc(network, key), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
     })
     return passthrough(env, res)
@@ -101,7 +146,7 @@ export async function handleRead(request, url, env, ctx) {
     if (!env.ALCHEMY_KEY) return err(env, 'Alchemy key not configured', 500)
     const sub = parts.slice(1).join('/')
     if (!sub) return err(env, 'Missing Data API path')
-    const res = await fetch(`${ALCHEMY_DATA(env)}/${sub}`, {
+    const res = await alchemyFetch(env, key => `${ALCHEMY_DATA(key)}/${sub}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', accept: 'application/json' },
       body: await request.text(),
@@ -116,7 +161,7 @@ export async function handleRead(request, url, env, ctx) {
     if (!env.ALCHEMY_KEY) return err(env, 'Alchemy key not configured', 500)
     const sub = parts.slice(2).join('/')
     if (!sub) return err(env, 'Missing TRON method')
-    const res = await fetch(`${ALCHEMY_TRON(env)}/${sub}${url.search}`, {
+    const res = await alchemyFetch(env, key => `${ALCHEMY_TRON(key)}/${sub}${url.search}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', accept: 'application/json' },
       body: await request.text(),
@@ -174,7 +219,7 @@ export async function handleRead(request, url, env, ctx) {
     if (!ALCHEMY_NETWORKS.has(network)) return err(env, `Unknown network: ${network}`)
     if (!env.ALCHEMY_KEY) return err(env, 'Alchemy key not configured', 500)
     const rest = parts.slice(2).join('/')
-    const res = await fetch(`${alchemyNft(network, env)}/${rest}${url.search}`, { headers: { accept: 'application/json' } })
+    const res = await alchemyFetch(env, key => `${alchemyNft(network, key)}/${rest}${url.search}`, { headers: { accept: 'application/json' } })
     return passthrough(env, res)
   }
 
@@ -316,7 +361,7 @@ async function alchemyMetaCached(network, body, env, ctx) {
 
   if (misses.length) {
     const upstreamBody = misses.map(m => ({ jsonrpc: '2.0', id: m.id, method: 'alchemy_getTokenMetadata', params: [m.contract] }))
-    const res = await fetch(alchemyRpc(network, env), {
+    const res = await alchemyFetch(env, key => alchemyRpc(network, key), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(upstreamBody),
     })
     const arr = await res.json().catch(() => [])

@@ -222,6 +222,20 @@ export function blockfrostFetch(path: string, config: WalletConfig, timeoutMs = 
   return fetch(url, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) })
 }
 
+/**
+ * Blockfrost Cardano PREPROD request, direct, with the user's OWN preprod
+ * project id (`config.blockfrostPreprodKey`). The Worker proxies Blockfrost
+ * mainnet only, and no preprod key ships with the wallet, so without a user key
+ * this rejects before any request is made. Testnet reads only (xReserve
+ * Sepolia → Preprod testing).
+ */
+export function blockfrostPreprodFetch(path: string, config: WalletConfig, timeoutMs = 10_000, init?: RequestInit): Promise<Response> {
+  const key = (config.blockfrostPreprodKey || '').trim()
+  if (!key) return Promise.reject(new Error('No Blockfrost preprod project id is set.'))
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string> | undefined), project_id: key }
+  return fetch(`https://cardano-preprod.blockfrost.io/api/v0/${path}`, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) })
+}
+
 /** Moralis GET. `path` is everything after `/api/v2.2/` (e.g. `<addr>/nft?chain=0x8f`). */
 export function moralisFetch(path: string, config: WalletConfig, timeoutMs = 15_000): Promise<Response> {
   const base = proxyBase(config)

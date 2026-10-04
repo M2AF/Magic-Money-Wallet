@@ -3,6 +3,12 @@ import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+/** Pick a network in a ChainDropdown (the swap From/To network pickers). */
+async function pickNetwork(page: Page, name: string, value: string): Promise<void> {
+  await page.getByRole('button', { name, exact: true }).click()
+  await page.getByRole('listbox', { name }).locator(`[data-value="${value}"]`).click()
+}
+
 /**
  * Real-extension check for Cardano same-chain swaps (Minswap V2 orders).
  *
@@ -41,6 +47,86 @@ async function createWalletToDashboard(page: Page) {
 }
 
 test.describe('Cardano swap (Minswap order)', () => {
+  test('hands ADA/SOL/ETH pairs in both directions to exchange estimates without funding or substitution', async () => {
+    test.setTimeout(150_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      const addresses = await page.evaluate(() => window.wallet.getAddresses())
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __estimates: unknown[]; __creates: number; __releaseOld: () => void }
+        w.__estimates = []; w.__creates = 0
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, solana: { native: '5' }, ethereum: { native: '1' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => { throw new Error('Unsupported cross-chain DEX quote requested') }
+        w.wallet.xCreateExchange = async () => { w.__creates++; throw new Error('Creation must remain explicit') }
+        w.wallet.xEstimate = async (request: { amount: string }) => {
+          w.__estimates.push(request)
+          if (request.amount === '21') await new Promise<void>(resolve => { w.__releaseOld = resolve })
+          return { estimatedAmount: request.amount.includes('.') ? '19.5' : `${request.amount}.5`, rateId: null, provider: 'simpleswap', min: '0.01', max: '1000', error: request.amount === '999' ? 'Pair temporarily unavailable' : null }
+        }
+      })
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      for (const [source, target, sendKey, receiveKey, destination, refund] of [
+        ['cardano', 'solana', 'ada:ada', 'sol:sol', addresses!.solana, addresses!.cardano],
+        ['solana', 'cardano', 'sol:sol', 'ada:ada', addresses!.cardano, addresses!.solana],
+        ['cardano', 'ethereum', 'ada:ada', 'eth:eth', addresses!.evm, addresses!.cardano],
+        ['ethereum', 'cardano', 'eth:eth', 'ada:ada', addresses!.cardano, addresses!.evm],
+      ]) {
+        await page.getByRole('button', { name: 'DEX Swap', exact: true }).click()
+        await pickNetwork(page, 'From network', source)
+        await pickNetwork(page, 'To network', target)
+        await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', source)
+        await page.getByPlaceholder('0.0').first().fill('20.000001')
+        await expect(page.getByRole('button', { name: 'Get Quote', exact: true })).toHaveCount(0)
+        await page.getByRole('button', { name: 'Check exchange route' }).click()
+        await expect(page.getByRole('combobox', { name: 'Send asset' })).toHaveValue(sendKey)
+        await expect(page.getByRole('combobox', { name: 'Receive asset' })).toHaveValue(receiveKey)
+        await expect(page.getByPlaceholder('0.0')).toHaveValue('20.000001')
+        await expect(page.getByPlaceholder(/Paste your .* address/)).toHaveValue(destination)
+        await expect(page.getByPlaceholder(/^Your .* address$/)).toHaveValue(refund)
+        await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeEnabled()
+        expect(await page.evaluate(() => (window as unknown as { __creates: number }).__creates)).toBe(0)
+      }
+      // An older estimate must not overwrite the newest amount's price or enable an unavailable pair.
+      await page.getByPlaceholder('0.0').fill('21')
+      await expect.poll(() => page.evaluate(() => (window as unknown as { __estimates: { amount: string }[] }).__estimates.at(-1)?.amount)).toBe('21')
+      await page.getByPlaceholder('0.0').fill('22')
+      await expect(page.getByText('≈ 22.5', { exact: true })).toBeVisible()
+      await page.evaluate(() => (window as unknown as { __releaseOld: () => void }).__releaseOld())
+      await expect(page.getByText('≈ 22.5', { exact: true })).toBeVisible()
+      await page.getByPlaceholder('0.0').fill('999')
+      await expect(page.getByText('Pair temporarily unavailable', { exact: true })).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeDisabled()
+      await page.getByPlaceholder('0.0').fill('20')
+      await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeEnabled()
+      await page.setViewportSize({ width: 400, height: 820 })
+      await page.getByRole('button', { name: 'Get Exchange', exact: true }).scrollIntoViewIfNeeded()
+      await page.screenshot({ path: '.screenshots/cardano-exchange-preset-mobile.png', fullPage: true })
+      await page.getByRole('button', { name: 'DEX Swap', exact: true }).click()
+      await pickNetwork(page, 'From network', 'cardano')
+      await page.getByRole('button', { name: 'Pay token' }).click()
+      await page.getByRole('option').filter({ hasText: 'USDCx' }).click()
+      await pickNetwork(page, 'To network', 'solana')
+      await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('USDCx')
+      await expect(page.getByRole('button', { name: 'Check exchange route' })).toBeDisabled()
+      await expect(page.getByText(/USDCx is not substituted/)).toBeVisible()
+      await page.getByRole('button', { name: 'Check exchange route' }).scrollIntoViewIfNeeded()
+      await page.screenshot({ path: '.screenshots/cardano-usdcx-unavailable-mobile.png', fullPage: true })
+      await page.getByRole('button', { name: 'Pay token' }).click()
+      await page.getByRole('option').filter({ hasText: 'Cardano' }).first().click()
+      await page.setViewportSize({ width: 1000, height: 850 })
+      await page.getByRole('button', { name: 'Check exchange route' }).scrollIntoViewIfNeeded()
+      await page.screenshot({ path: '.screenshots/cardano-exchange-handoff-wide-extension.png', fullPage: true })
+    } finally { await ctx.close() }
+  })
+
   test('Cardano pairs with itself, discloses the order terms, and tracks the order until it fills', async () => {
     // The order card polls at 8 s, then every 15 s: "filled" cannot appear inside the default 30 s.
     test.setTimeout(120_000)
@@ -93,17 +179,20 @@ test.describe('Cardano swap (Minswap order)', () => {
 
       // Offered by the REAL resolver, and pairing: choosing Cardano to pay moves
       // the receive side to Cardano too (no bridge leg is enabled).
-      const from = page.getByRole('combobox', { name: 'From network' })
-      await expect(from.locator('option[value="cardano"]')).toHaveCount(1)
-      await from.selectOption('cardano')
-      await expect(page.getByRole('combobox', { name: 'To network' })).toHaveValue('cardano')
+      const from = page.getByRole('button', { name: 'From network', exact: true })
+      await from.click()
+      await expect(page.getByRole('listbox', { name: 'From network' }).locator('[data-value="cardano"]')).toHaveCount(1)
+      await page.keyboard.press('Escape')
+      await pickNetwork(page, 'From network', 'cardano')
+      await expect(page.getByRole('button', { name: 'To network', exact: true })).toHaveAttribute('data-value', 'cardano')
       await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('ADA')
       await expect(page.getByText('uses the Cross-Chain exchange')).toHaveCount(0)
 
-      // …and choosing another network to receive pulls the pay side off Cardano.
-      await page.getByRole('combobox', { name: 'To network' }).selectOption('ethereum')
-      await expect(from).toHaveValue('ethereum')
-      await from.selectOption('cardano')
+      // An explicit cross-chain destination must preserve the Cardano pay side.
+      await pickNetwork(page, 'To network', 'ethereum')
+      await expect(from).toHaveAttribute('data-value', 'cardano')
+      await expect(page.getByRole('button', { name: 'Check exchange route' })).toBeEnabled()
+      await pickNetwork(page, 'To network', 'cardano')
 
       await page.getByPlaceholder('0.0').first().fill('20')
       await page.getByRole('button', { name: 'Get Quote' }).click()

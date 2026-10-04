@@ -130,7 +130,11 @@ export function cborItemEnd(b: Uint8Array, off: number, depth = 0): number {
     let v = 0n
     for (let i = 0; i < width; i++) v = (v << 8n) | BigInt(b[pos + i])
     pos += width
-    if (major !== 0 && major !== 1 && major !== 7 && v > BigInt(b.length)) fail('length exceeds transaction size')
+    // Only strings, arrays and maps carry a LENGTH here. Integers (0, 1),
+    // simple values (7) and TAGS (6) do not: a tag number such as 258 (set) or
+    // 1280 (Plutus constructor 7) is an identifier, and bounding it by the
+    // buffer size wrongly refused small, valid items that use one.
+    if ((major === 2 || major === 3 || major === 4 || major === 5) && v > BigInt(b.length)) fail('length exceeds transaction size')
     arg = Number(v > BigInt(Number.MAX_SAFE_INTEGER) ? 0n : v)
   } else if (!indefinite) fail('reserved CBOR encoding')
 

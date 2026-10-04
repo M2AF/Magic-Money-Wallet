@@ -56,6 +56,11 @@ export interface WalletConfig {
   ankrKey: string
   heliusKey: string
   blockfrostKey: string
+  // The user's own Blockfrost Cardano PREPROD project id (Testnet Mode xReserve test only).
+  blockfrostPreprodKey?: string
+  // Cardano Preprod reads for Testnet Mode's xReserve test: keyless Koios (default)
+  // or Blockfrost with the user's own Preprod project id.
+  xreservePreprodSource?: 'koios' | 'blockfrost'
   tatumKey: string
   moralisKey: string
   openseaKey: string
@@ -450,12 +455,42 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
 // payloads and is therefore never written to disk.
 
 export async function loadSwapSessions(): Promise<unknown> {
-  const m = await prefGet<Record<string, unknown>>('wallet.swap_sessions')
-  return (m && typeof m === 'object') ? m : {}
+  const { value } = await Preferences.get({ key: 'wallet.swap_sessions' })
+  if (value == null) return {}
+  const m: unknown = JSON.parse(value)
+  if (!m || typeof m !== 'object' || Array.isArray(m)) {
+    throw new Error('The stored swap sessions are unreadable; they were left untouched.')
+  }
+  return m
 }
 
-export function saveSwapSessions(map: unknown): void {
-  prefSet('wallet.swap_sessions', map).catch(() => { /* see above */ })
+export async function saveSwapSessions(map: unknown): Promise<void> {
+  await prefSet('wallet.swap_sessions', map)
+}
+
+// -- xReserve inbound tracking (testnet evidence, never authority) -------------
+// JSON tracking records for Ethereum -> Cardano xReserve deposits
+// (xreserve-inbound-tracking.ts): identity, hashes, approval as decimal strings,
+// confirmation depths, submission tip and scan cursors -- no calldata, CBOR,
+// signatures or keys. As with the swap-session store, a failed write THROWS: the
+// tracker must be able to tell the user that progress was not saved.
+
+/** Missing → empty; present but unparsable or not a string map → throws (never read as empty). */
+export async function loadXReserveTracking(): Promise<Record<string, string>> {
+  // Not prefGet: it reads unparsable JSON as null, which would look like "no records".
+  const { value } = await Preferences.get({ key: 'wallet.xreserve_tracking' })
+  if (value == null) return {}
+  let m: unknown
+  try { m = JSON.parse(value) } catch { throw new Error('The stored xReserve tracking data is unreadable; it was left untouched.') }
+  if (!m || typeof m !== 'object' || Array.isArray(m) || Object.values(m as object).some(v => typeof v !== 'string')) {
+    throw new Error('The stored xReserve tracking data is unreadable; it was left untouched.')
+  }
+  return m as Record<string, string>
+}
+
+/** Replace the stored map. Rejects when the write fails. */
+export async function saveXReserveTracking(map: Record<string, string>): Promise<void> {
+  await prefSet('wallet.xreserve_tracking', map)
 }
 
 // ── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ───────────

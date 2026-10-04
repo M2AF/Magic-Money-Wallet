@@ -1,5 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { FullScreenButton, SnapMenu } from './components/WindowLayout'
+import { ChainDropdown, ChainIcon, Caret } from './components/ChainDropdown'
 import { MagicGuardControl } from './components/MagicGuardControl'
 import { AddressBarStar, ShareControl, BrowserMenu } from './components/BrowserMenu'
 import { BookmarksPanel } from './components/BookmarksPanel'
@@ -36,7 +37,7 @@ export function BrowserApp() {
   // covers, so at most one may be open at a time — opening any of them detaches
   // that view and paints a snapshot behind it (see openOverlay), and closing
   // re-attaches it.
-  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard' | 'menu' | 'share' | 'bookmarks' | 'passwords' | 'downloads' | 'history'
+  type OverlayKind = 'tabs' | 'suggest' | 'snap' | 'guard' | 'menu' | 'share' | 'bookmarks' | 'passwords' | 'downloads' | 'history' | 'network'
   const [overlay, setOverlay]   = useState<OverlayKind | null>(null)
   const [snapshot, setSnapshot] = useState<string | null>(null)
   const [typed, setTyped]       = useState(false)
@@ -484,7 +485,11 @@ export function BrowserApp() {
         />
 
         {/* Network switcher (active EVM network + manual switch) */}
-        <NetworkSwitcher />
+        <NetworkSwitcher
+          open={overlay === 'network'}
+          onOpen={() => openOverlay('network')}
+          onClose={closeOverlay}
+        />
 
         {loading && (
           <div style={{
@@ -711,7 +716,11 @@ function TorStatusPanel({ state, onChange }: { state: TorBrowserState; onChange:
 // dApp-initiated wallet_switchEthereumChain. A NATIVE <select> is used on purpose:
 // its option popup is OS-drawn and floats above the dApp WebContentsView, whereas a
 // custom HTML dropdown would be hidden behind that view.
-function NetworkSwitcher() {
+function NetworkSwitcher({ open, onOpen, onClose }: {
+  open: boolean
+  onOpen: () => void
+  onClose: () => void
+}) {
   const [chains, setChains] = useState<Array<{ chainId: number; id: string; name: string; color: string }>>([])
   const [chainId, setChainId] = useState('0x1')
 
@@ -733,41 +742,38 @@ function NetworkSwitcher() {
   const color = current?.color ?? '#22c55e'
   const label = current?.name ?? (Number.isFinite(numId) ? `Chain ${numId}` : 'Network')
 
+  // Shared ChainDropdown (logos, wallet-themed menu). Open state is owned by the
+  // overlay slot so the dApp view is detached while the menu is showing.
   return (
-    <div
+    <ChainDropdown
+      ariaLabel="Switch network"
       title="Switch network"
-      style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 8px', background: 'var(--surface-raised)',
-        border: '1px solid var(--border)', borderRadius: 12,
-        flexShrink: 0, maxWidth: 150
+      value={Number.isFinite(numId) ? String(numId) : ''}
+      options={chains.map(c => ({ value: String(c.chainId), label: c.name, chain: c.id, color: c.color }))}
+      onChange={v => {
+        const id = Number(v)
+        if (Number.isFinite(id)) window.wallet.web3SetChain(id).then(setChainId).catch(() => {})
       }}
-    >
-      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-      <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {label}
-      </span>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ color: 'var(--text-muted)', flexShrink: 0 }}>
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
-      <select
-        aria-label="Switch network"
-        value={Number.isFinite(numId) ? numId : ''}
-        onChange={e => {
-          const id = Number(e.target.value)
-          if (Number.isFinite(id)) window.wallet.web3SetChain(id).then(setChainId).catch(() => {})
-        }}
-        style={{
-          position: 'absolute', inset: 0, width: '100%', height: '100%',
-          opacity: 0, cursor: 'pointer', border: 'none', colorScheme: 'dark'
-        }}
-      >
-        {!current && <option value="" disabled>{label}</option>}
-        {chains.map(c => (
-          <option key={c.id} value={c.chainId}>{c.name}</option>
-        ))}
-      </select>
-    </div>
+      open={open}
+      onOpenChange={next => (next ? onOpen() : onClose())}
+      align="right"
+      menuMinWidth={200}
+      triggerStyle={{
+        gap: 5, padding: '3px 8px', background: 'var(--surface-raised)',
+        borderRadius: 12, maxWidth: 150
+      }}
+      renderTrigger={(_, isOpen) => (
+        <>
+          {current
+            ? <ChainIcon chain={current.id} color={color} size={14} />
+            : <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />}
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {label}
+          </span>
+          <Caret open={isOpen} />
+        </>
+      )}
+    />
   )
 }
 

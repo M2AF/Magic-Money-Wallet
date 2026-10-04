@@ -25,6 +25,7 @@ import { getTokenBalances } from './alchemy-cache'
 import { tatumFetch, blockfrostFetch, canTatum, rpcReadWithFallback, ankrRpcUrl, tatumRpcUrl } from './api-proxy'
 import { koiosAddressLovelace } from './cardano-koios'
 import { tronApiPost } from './tron'
+import { fetchMarketTop100 } from './market-fetcher'
 
 export interface ChainBalance {
   native: string            // human-readable, e.g. "1.2345"
@@ -62,7 +63,7 @@ interface MarketData {
 // previous prices instead of zeroing every USD value. Mirrors native-prices.ts.
 const marketCache = new Map<string, MarketData>()
 
-async function fetchMarketData(ids: string[]): Promise<Record<string, MarketData>> {
+export async function fetchMarketData(ids: string[], config: WalletConfig): Promise<Record<string, MarketData>> {
   const unique = [...new Set(ids)].filter(Boolean)
   if (unique.length === 0) return {}
 
@@ -97,6 +98,26 @@ async function fetchMarketData(ids: string[]): Promise<Record<string, MarketData
     } catch {
       break
     }
+  }
+
+  // Keyless CoinGecko can refuse this device outright (measured 2026-09-29: a
+  // CloudFront "Request blocked" 403 on every call from the user's IP), and the
+  // last-good cache is empty after an app restart — every network then showed
+  // $0.00. Backfill from the Worker's keyed, cron-refreshed top-500 list (the
+  // Market tab's source; cached there for 5 min, so this adds no extra calls).
+  const missing = unique.filter(id => !fresh[id])
+  if (missing.length > 0) {
+    try {
+      const top = await fetchMarketTop100(config)
+      const byId = new Map(top.coins.map(c => [c.id, c]))
+      for (const id of missing) {
+        const c = byId.get(id)
+        if (!c || !(c.price > 0)) continue
+        const md: MarketData = { price: c.price, change24h: c.change24h ?? null, sparkline: c.sparkline ?? null }
+        fresh[id] = md
+        marketCache.set(id, md)
+      }
+    } catch { /* fall through to last-known prices */ }
   }
 
   // Prefer fresh values; fall back to the last-known price per id so a failed or
@@ -523,7 +544,7 @@ async function fetchAllBalancesPrivacy(
   const allIds = PRIVACY_CHAINS.map(c => c.coingeckoId)
 
   const [prices, moneroRaw, zcashRaw, midnightRaw] = await Promise.all([
-    fetchMarketData(allIds),
+    fetchMarketData(allIds, config),
     fetchMoneroBalance(privacy, config),
     privacy?.zcashTransparent
       ? fetchZcashBalance(privacy.zcashTransparent)
@@ -599,7 +620,7 @@ export async function fetchAllBalances(
   // Fire market data + all chain fetches concurrently
   const t0 = Date.now()
   const [prices, ...rawResults] = await Promise.all([
-    timed('market', fetchMarketData(allIds)),
+    timed('market', fetchMarketData(allIds, config)),
     ...evmChains.map(chain =>
       chain.comingSoon ? Promise.resolve(COMING_SOON) : timed(chain.id, fetchEvmNative(chain, addresses.evm, config))
     ),

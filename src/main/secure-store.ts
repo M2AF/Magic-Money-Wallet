@@ -10,7 +10,8 @@
  */
 
 import { safeStorage, app } from 'electron'
-import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync } from 'fs'
+import { existsSync, writeFileSync, readFileSync, unlinkSync, mkdirSync, renameSync, openSync, fsyncSync, closeSync } from 'fs'
+import { readJsonMapFile, writeJsonMapFileAtomic, readJsonObjectFile, writeJsonObjectFileAtomic, type JsonMapFs } from './atomic-json-map-file'
 import { join } from 'path'
 import { normalizeMnemonic, type WalletAddresses } from './wallet-core'
 import { encryptSecret, decryptSecret, isEncryptedBlob, needsKdfUpgrade, encryptWithKeyMaterial, decryptWithKeyMaterial, type EncryptedBlob } from './crypto-vault'
@@ -435,19 +436,36 @@ export function saveFloorCache(map: Record<string, FloorCacheEntry>): void {
 const swapSessionsPath = () => join(userData(), 'swap-sessions.json')
 
 export async function loadSwapSessions(): Promise<unknown> {
-  try {
-    if (!existsSync(swapSessionsPath())) return {}
-    return JSON.parse(readFileSync(swapSessionsPath(), 'utf-8'))
-  } catch {
-    return {}
-  }
+  return readJsonObjectFile(nodeJsonMapFs, swapSessionsPath())
 }
 
 export function saveSwapSessions(map: unknown): void {
-  try {
-    mkdirSync(userData(), { recursive: true })
-    writeFileSync(swapSessionsPath(), JSON.stringify(map))
-  } catch { /* evidence store: a lost write costs resumability, never safety */ }
+  writeJsonObjectFileAtomic(nodeJsonMapFs, userData(), swapSessionsPath(), map)
+}
+
+// -- xReserve inbound tracking (testnet evidence, never authority) -------------
+// JSON tracking records for Ethereum -> Cardano xReserve deposits
+// (xreserve-inbound-tracking.ts): identity, hashes, approval as decimal strings,
+// confirmation depths, submission tip and scan cursors -- no calldata, CBOR,
+// signatures or keys. As with the swap-session store, a failed write THROWS: the
+// tracker must be able to tell the user that progress was not saved.
+
+const xreserveTrackingPath = () => join(userData(), 'xreserve-tracking.json')
+
+const nodeJsonMapFs: JsonMapFs = { existsSync, readFileSync, writeFileSync, renameSync, unlinkSync, openSync, fsyncSync, closeSync, mkdirSync }
+
+/**
+ * Every stored record, keyed by tracking key; values are record JSON text.
+ * Missing file → empty. A DAMAGED file throws instead of reading as empty, so
+ * the next save (a read-modify-write) cannot replace the records with nothing.
+ */
+export async function loadXReserveTracking(): Promise<Record<string, string>> {
+  return readJsonMapFile(nodeJsonMapFs, xreserveTrackingPath())
+}
+
+/** Replace the stored map atomically (temp file, fsync, rename). Throws when the write fails. */
+export async function saveXReserveTracking(map: Record<string, string>): Promise<void> {
+  writeJsonMapFileAtomic(nodeJsonMapFs, userData(), xreserveTrackingPath(), map)
 }
 
 // empty token list. Keyed `network:address` (lowercased).
@@ -777,6 +795,12 @@ export interface WalletConfig {
   ankrKey: string
   heliusKey: string
   blockfrostKey: string
+  // The user's own Blockfrost Cardano PREPROD project id, for Testnet Mode's
+  // xReserve Sepolia → Preprod test only. Optional: never shipped, never proxied.
+  blockfrostPreprodKey?: string
+  // Cardano Preprod reads for Testnet Mode's xReserve test: keyless Koios (default)
+  // or Blockfrost with the user's own Preprod project id.
+  xreservePreprodSource?: 'koios' | 'blockfrost'
   tatumKey: string
   moralisKey: string
   openseaKey: string

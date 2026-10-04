@@ -8,8 +8,8 @@
  * Android (chrome.storage / Capacitor Preferences). Rather than three copies of
  * the lifecycle, this module owns the logic and takes a two-function
  * persistence port that each platform installs at startup. A platform that has
- * not installed one still works — sessions live in memory for that run and are
- * lost on restart, which degrades resumability without ever degrading safety.
+ * not installed one retains legacy in-memory tracking. Bound Cardano orders
+ * require acknowledged persistence before submission so they stay recoverable.
  *
  * WHAT IS PERSISTED, AND WHAT IS DELIBERATELY NOT
  *
@@ -33,6 +33,7 @@ import { mapStatusForProvider, sameAsset } from '../shared/swap-lifecycle'
 import { setSettlementTrackingActive } from './swap-policy'
 import type { SwapSigningIdentity } from './swap-intent'
 import type { NormalizedSwapQuote, CrossSwapStatus } from './swap-proxy'
+import type { MinswapOrderScanCursor } from './cardano-swap'
 
 export interface SwapSessionPersistence {
   load: () => Promise<unknown>
@@ -42,6 +43,8 @@ export interface SwapSessionPersistence {
 let persistence: SwapSessionPersistence | null = null
 let sessions: SettledSwapSessionMap = {}
 let loaded = false
+let loading: Promise<void> | null = null
+let writes: Promise<void> = Promise.resolve()
 
 /**
  * Each platform installs its own store once, at startup.
@@ -69,25 +72,34 @@ export function setSwapSessionPersistence(port: SwapSessionPersistence): void {
  */
 async function ensureLoaded(): Promise<void> {
   if (loaded) return
-  loaded = true
-  if (!persistence) return
-  try {
-    const raw = await persistence.load()
+  if (!persistence) { loaded = true; return }
+  if (loading) return loading
+  const port = persistence
+  loading = (async () => {
+    const raw = await port.load()
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('The stored swap sessions are unreadable; they were left untouched.')
+    }
     const clean = sanitizeSwapSessions(raw) as unknown as SettledSwapSessionMap
     sessions = pruneSettled(clean)
-  } catch {
-    sessions = {}
-  }
+    loaded = true
+  })()
+  try { await loading } finally { loading = null }
 }
 
-function flush(): void {
-  if (!persistence) return
-  try {
-    const result = persistence.save(sessions)
-    if (result && typeof (result as Promise<void>).catch === 'function') {
-      (result as Promise<void>).catch(() => { /* evidence store: a lost write is not fatal */ })
-    }
-  } catch { /* same */ }
+/** Snapshot and serialize writes: a slow older write must not replace newer evidence. */
+function persistSnapshot(): Promise<void> {
+  const port = persistence
+  if (!port) return Promise.reject(new Error('Swap recovery storage is unavailable.'))
+  const snapshot = JSON.parse(JSON.stringify(sessions)) as SettledSwapSessionMap
+  const result = writes.then(() => port.save(snapshot))
+  writes = result.catch(() => { /* one failure must not poison later writes */ })
+  return result
+}
+
+function flush(): Promise<void> {
+  if (!persistence) return Promise.resolve()
+  return persistSnapshot().catch(() => { /* post-broadcast updates are best effort */ })
 }
 
 /**
@@ -105,6 +117,14 @@ export async function openSession(
   decimals: { from: number; to: number },
 ): Promise<void> {
   await ensureLoaded()
+  openSessionRecord(intentId, quote, identity, decimals)
+  await flush()
+}
+
+function openSessionRecord(
+  intentId: string, quote: NormalizedSwapQuote, identity: SwapSigningIdentity,
+  decimals: { from: number; to: number },
+): void {
   const input: OpenSessionInput = {
     id: intentId,
     walletId: identity.walletId,
@@ -132,14 +152,38 @@ export async function openSession(
     appFee: quote.appFee ?? null,
   }
   sessions = openSwapSession(sessions, input)
-  flush()
+}
+
+/**
+ * Durable gate for a Cardano order whose hash is known before submission.
+ * A crash after this save cannot distinguish "about to submit" from "submitted",
+ * so recovery conservatively polls the hash and never resends automatically.
+ * No transaction bytes or signing authority are stored.
+ */
+export async function prepareCardanoSwapBroadcast(
+  intentId: string, quote: NormalizedSwapQuote, identity: SwapSigningIdentity,
+  decimals: { from: number; to: number }, txHash: string, explorerUrl: string,
+): Promise<void> {
+  if (!persistence) throw new Error('Swap recovery storage is unavailable.')
+  await ensureLoaded()
+  openSessionRecord(intentId, quote, identity, decimals)
+  const s = sessions[intentId]
+  sessions = {
+    ...sessions,
+    [intentId]: {
+      ...s, sourceTxHash: txHash, sourceExplorerUrl: explorerUrl,
+      sourceTxState: 'uncertain', state: 'unknown', updatedAt: Date.now(),
+      message: 'Order submission was prepared. Check the transaction on-chain; do not resend automatically.',
+    },
+  }
+  await persistSnapshot()
 }
 
 /** An approval/permit/reset went out. Never a fee event. */
 export async function noteApprovalTx(intentId: string, txHash: string): Promise<void> {
   await ensureLoaded()
   sessions = recordPreSwapTx(sessions, intentId, txHash)
-  flush()
+  await flush()
 }
 
 /** The swap transaction reached the network. */
@@ -148,14 +192,14 @@ export async function noteSwapBroadcast(
 ): Promise<void> {
   await ensureLoaded()
   sessions = recordSwapBroadcast(sessions, intentId, { txHash, explorerUrl, nonce })
-  flush()
+  await flush()
 }
 
 /** We broadcast and never learned the outcome. */
 export async function noteUncertainBroadcast(intentId: string, nonce: number | null): Promise<void> {
   await ensureLoaded()
   sessions = recordUncertainBroadcast(sessions, intentId, nonce)
-  flush()
+  await flush()
 }
 
 /**
@@ -165,7 +209,7 @@ export async function noteUncertainBroadcast(intentId: string, nonce: number | n
 export async function noteSwapNotSent(intentId: string, reason: string): Promise<void> {
   await ensureLoaded()
   sessions = recordSwapNotSent(sessions, intentId, reason)
-  flush()
+  await flush()
 }
 
 /**
@@ -181,7 +225,7 @@ export async function noteSourceReceipt(
 ): Promise<void> {
   await ensureLoaded()
   sessions = recordSourceReceipt(sessions, intentId, { txHash, success })
-  flush()
+  await flush()
 }
 
 /** Sessions belonging to the wallet/account/environment asking for them. */
@@ -220,6 +264,20 @@ function isOwnRecipient(session: SettledSwapSession): boolean {
   const [evm, sol] = session.walletId.split('|')
   const r = session.recipient ?? ''
   return session.toChain === 'solana' ? !!sol && r === sol : !!evm && r.toLowerCase() === evm.toLowerCase()
+}
+
+/**
+ * A session as the Minswap order reader extends it. Kept off the shared
+ * SwapSession type on purpose: that type is part of the swap core ChainLens
+ * runs, and this cursor means nothing there. The shared reducers spread the
+ * record, so the field survives every update; `sanitizeSwapSessions` keeps it.
+ */
+type SessionWithOrderScan = SettledSwapSession & { cardanoOrderScan?: MinswapOrderScanCursor | null }
+
+/** The persisted Minswap spender-scan cursor for a session, if a fallback scan ever ran. */
+export function orderScanCursorOf(session: SettledSwapSession): MinswapOrderScanCursor | null {
+  const c = (session as SessionWithOrderScan).cardanoOrderScan
+  return c && typeof c.orderRef === 'string' && Number.isInteger(c.blockHeight) && Number.isInteger(c.txIndex) ? c : null
 }
 
 export async function reconcileSessions(
@@ -277,7 +335,18 @@ export async function reconcileSessions(
       ...raw,
       failReason: status.failReason ?? null,
     }, session.toTokenAddress)
-    sessions = applyStatusReport(sessions, session.id, report)
+    // An unknown state from the reader may carry a precise reason (a Minswap
+    // order spent without a recognisable fill or refund); keep it over the
+    // mapper's generic wording.
+    sessions = applyStatusReport(sessions, session.id,
+      report.state === 'unknown' && status.message ? { ...report, message: status.message } : report)
+    // Where a Minswap spender scan got to, so a restart resumes instead of rescanning.
+    if (status.orderScanCursor && sessions[session.id]) {
+      sessions = {
+        ...sessions,
+        [session.id]: { ...sessions[session.id], cardanoOrderScan: status.orderScanCursor } as SessionWithOrderScan,
+      }
+    }
     if (status.deliveredAmountSource === 'onchain' && status.delivered?.amountRaw) {
       sessions = recordMeasuredDelivery(sessions, session.id, status.delivered.amountRaw, status.providerReportedAmountRaw)
     }
@@ -301,7 +370,7 @@ export async function reconcileSessions(
       if (measured) sessions = recordMeasuredDelivery(sessions, s.id, measured.amountRaw)
     }
   }
-  flush()
+  await flush()
   return listSessions(identity)
 }
 
@@ -309,6 +378,8 @@ export async function reconcileSessions(
 export function __resetSwapSessions(): void {
   sessions = {}
   loaded = false
+  loading = null
+  writes = Promise.resolve()
   persistence = null
   setSettlementTrackingActive(false)
 }

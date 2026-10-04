@@ -10,6 +10,10 @@ import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downl
 import type { HistorySnapshot } from '../../shared/history-wire'
 import type { FxRates } from '../../shared/currencies'
 import type { SettledSwapSession } from '../../shared/swap-settlement'
+import type {
+  XReserveTestnetEnvelope, TestnetDepositState, TestnetDepositPreview, TestnetDepositResult, TestnetCheckResult,
+  TestnetApprovalResult, TestnetRecoveryResult,
+} from '../../shared/xreserve-testnet-wire'
 
 // In-app software update status (Electron only). Mirrors update-manager.ts.
 export interface UpdateStatus {
@@ -862,6 +866,23 @@ declare global {
       getNftFloor(chain: string, contractAddress: string): Promise<NftFloorPrice>
       swapGetQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>
+      /** Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test. Every call refuses outside Testnet Mode. */
+      xreserveTestnetState?(): Promise<XReserveTestnetEnvelope<TestnetDepositState>>
+      xreserveTestnetSetKey?(key: string): Promise<XReserveTestnetEnvelope<true>>
+      /** Where Cardano Preprod is read from for the test: keyless Koios, or Blockfrost with a Preprod project id. */
+      xreserveTestnetSetSource?(source: 'koios' | 'blockfrost'): Promise<XReserveTestnetEnvelope<true>>
+      xreserveTestnetPrepare?(req: { amount: string; maxFee: string }): Promise<XReserveTestnetEnvelope<TestnetDepositPreview>>
+      /** Action 1: signs and submits ONLY the exact-amount USDC approval. Never the deposit. */
+      xreserveTestnetApprove?(intentId: string): Promise<XReserveTestnetEnvelope<TestnetApprovalResult>>
+      /** Read-only: the approval's confirmation, and the deposit terms again once it has confirmed. */
+      xreserveTestnetApprovalStatus?(intentId: string): Promise<XReserveTestnetEnvelope<TestnetApprovalResult>>
+      /** Action 2: signs and submits the deposit, for exactly the terms the user confirmed. */
+      xreserveTestnetDeposit?(req: { intentId: string; expected: { amountRaw: string; maxFeeRaw: string; recipient: string; sender: string } }): Promise<XReserveTestnetEnvelope<TestnetDepositResult>>
+      /** Resolve deposits recorded before broadcast (read-only on Sepolia; never sends). */
+      xreserveTestnetRecover?(): Promise<XReserveTestnetEnvelope<TestnetRecoveryResult>>
+      /** Remove an UNREADABLE recovery record after the user checked Sepolia themselves. */
+      xreserveTestnetDismissCorrupt?(key: string): Promise<XReserveTestnetEnvelope<true>>
+      xreserveTestnetCheck?(req: { sourceTxHash: string; auditDue: boolean }): Promise<XReserveTestnetEnvelope<TestnetCheckResult>>
       swapCrossStatus(req: CrossSwapStatusRequest): Promise<CrossSwapStatus>
       /**
        * Swaps that reached the network, with their settlement outcome. Read-only

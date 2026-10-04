@@ -6,7 +6,7 @@
  * Keys and mnemonics are consumed and discarded within these handlers.
  */
 
-import { ipcMain, BrowserWindow, dialog, app, clipboard, shell, powerMonitor, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, BrowserWindow, dialog, app, clipboard, shell, powerMonitor, net, type IpcMainInvokeEvent } from 'electron'
 import { HDKey } from '@scure/bip32'
 import { mnemonicToSeedSync, mnemonicToEntropy } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
@@ -85,11 +85,14 @@ import {
   bioMethod,
   loadSwapSessions,
   saveSwapSessions,
+  loadXReserveTracking,
+  saveXReserveTracking,
   type WalletConfig,
   type CustomToken,
   type CustomNft
 } from './secure-store'
 import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from './agw'
+import { handleXReserveTestnet, XRESERVE_TESTNET_CHANNELS } from './xreserve-testnet-handlers'
 import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
@@ -191,7 +194,7 @@ import { resolveSwapNetworks } from './swap-network-resolver'
 import { measureDelivery } from './swap-delivery'
 import { executeBoundSwap } from './swap-executor'
 import {
-  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions,
+  setSwapSessionPersistence, listSessions as listSwapSessions, reconcileSessions, orderScanCursorOf,
 } from './swap-sessions'
 import { ssEstimate, ssCreateExchange, ssGetStatus, type SsEstimateParams, type SsCreateParams } from './simpleswap-client'
 import { xEstimate, xCreateExchange, xGetStatus, type XCreateParams, type ExchangeProvider } from './xchange-client'
@@ -1591,6 +1594,7 @@ export function registerIpcHandlers(): void {
       expectedToTokenAddress: session.toTokenAddress,
       recipient: session.recipient,
       minBuyAmountRaw: session.minBuyAmountRaw,
+      orderScanCursor: orderScanCursorOf(session),
     }, config),
       // One-time on-chain re-measure of finished deliveries saved before measurement existed.
       (session) => measureDelivery({
@@ -1604,6 +1608,22 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('swap:getTokenList', async (_e, req: SwapTokenSearchRequest) => {
     return getSwapTokenList(req, loadConfig())
   })
+
+  // ── Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test ───
+  // Every channel refuses outside Testnet Mode (xreserve-testnet-deposit.ts);
+  // addresses, seed and stores come from this process, never from the renderer.
+  for (const channel of XRESERVE_TESTNET_CHANNELS) {
+    ipcMain.handle(channel, async (_e, arg: unknown) => handleXReserveTestnet(channel, arg, {
+      loadConfig: async () => loadConfig(),
+      saveConfig: async (patch) => { saveConfig(patch) },
+      loadAddresses: () => getFullAddresses(),
+      loadMnemonic: async () => loadMnemonic(),
+      loadTracking: loadXReserveTracking,
+      saveTracking: saveXReserveTracking,
+      // Chromium's network stack: Node's fetch can hang in Electron main.
+      fetchFn: (url, init) => net.fetch(url, init),
+    }))
+  }
 
   // ── SimpleSwap cross-chain exchange (off-chain, deposit-address) ─────────
   ipcMain.handle('ss:estimate', async (_e, params: SsEstimateParams) => {

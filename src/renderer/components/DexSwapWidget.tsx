@@ -26,12 +26,14 @@ import { SwapSettings } from './SwapSettings'
 import { CrossChainStatusCard } from './CrossChainStatusCard'
 import { CardanoOrderStatusCard } from './CardanoOrderStatusCard'
 import { TokenPicker } from './TokenPicker'
+import { ChainDropdown } from './ChainDropdown'
 import { SWAP_PERCENTS, percentOfRaw } from '../lib/swap-amount'
+import { swapExchangePreset, type SwapExchangePreset } from '../lib/swap-exchange-preset'
 
 interface Props {
   addresses: WalletAddresses
   active: boolean
-  onUseCrossChain?: () => void
+  onUseCrossChain?: (preset?: SwapExchangePreset) => void
   /** Pay token chosen from Portfolio → Tokens: select it and its network. */
   preselect?: { token: SwapToken; id: number } | null
   onPreselectHandled?: () => void
@@ -161,17 +163,21 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   // A different account means different balances and holdings: re-read them,
   // and drop any quote, which was priced for the previous account.
-  const accountKey = `${addresses.accountIndex ?? 0}|${addresses.evm ?? ''}|${addresses.solana ?? ''}`
+  const accountKey = `${addresses.accountIndex ?? 0}|${addresses.evm ?? ''}|${addresses.solana ?? ''}|${addresses.cardano ?? ''}`
   const lastAccount = useRef(accountKey)
   useEffect(() => {
     if (lastAccount.current === accountKey) return
     lastAccount.current = accountKey
     setOwned([]); setAmount('')
-    setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false)
+    clearQuote()
   }, [accountKey])
 
   const sourceSignable = isDexSignableSource(fromChain)
   const isCrossChain = fromChain !== toChain
+  const cardanoCrossChain = isCrossChain && (fromChain === 'cardano' || toChain === 'cardano')
+  const requiresExchange = !sourceSignable || cardanoCrossChain
+  const exchangePreset = swapExchangePreset(fromToken, toToken, amount)
+  const quoteVersion = useRef(0)
   const addrFor = useCallback((c: SwapChain) => addresses[takerKeyForChain(c)], [addresses])
   /**
    * Numeric EVM chain id for a wallet chain-id STRING, from the resolver's
@@ -194,7 +200,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       : DEX_CHAINS
   }
 
-  const clearQuote = () => { setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false) }
+  const clearQuote = () => { quoteVersion.current++; setQuote(null); setQuoteError(null); acceptedBuyRaw.current = null; setPriceChanged(false); setFetching(false) }
 
   /** A network whose swaps must start and end on it (Cardano: no bridge leg is enabled). */
   const sameChainOnly = (c: SwapChain) => networks.some(n => n.id === c && n.sameChainOnly)
@@ -216,7 +222,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     setFromToken(next)
     if (c === toChain && next) {
       setToToken(prev => sameToken(prev, next) ? list.find(t => !sameToken(t, next)) : prev)
-    } else if (sameChainOnly(c) || sameChainOnly(toChain)) {
+    } else if (sameChainOnly(c)) {
       pairOtherSide('to', c, next)
     }
     setAmount(''); clearQuote()
@@ -226,12 +232,6 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     const list = SWAP_TOKEN_LISTS[c] ?? []
     let next: SwapToken | undefined = list[0]
     if (c === fromChain && sameToken(next, fromToken)) next = list.find(t => !sameToken(t, fromToken))
-    if (c !== fromChain && (sameChainOnly(c) || sameChainOnly(fromChain))) {
-      // Pay side follows onto the same network; keep the receive token distinct from it.
-      const pay = list[0]
-      setFromChain(c); setFromToken(pay); setAmount('')
-      next = list.find(t => !sameToken(t, pay))
-    }
     setToToken(next)
     clearQuote()
   }
@@ -339,6 +339,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   // ── Quote fetch ───────────────────────────────────────────────────────────
   const fetchQuote = useCallback(async (silent = false): Promise<NormalizedSwapQuote | null> => {
+    if (requiresExchange) return null
+    const version = quoteVersion.current
     if (!fromToken || !toToken) return null
     if (!(parseFloat(amount) > 0)) return null
     if (sameToken(fromToken, toToken)) return null
@@ -353,16 +355,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         fromDecimals: fromToken.decimals, toDecimals: toToken.decimals,
         fromChainId: chainIdFor(fromChain), toChainId: chainIdFor(toChain),
       })
-      if (!alive.current) return null
+      if (!alive.current || version !== quoteVersion.current) return null
       if (r.error || !r.quote) { if (!silent) setQuoteError(r.error ?? 'No route available.'); return null }
       return r.quote
     } catch (e) {
-      if (!silent) setQuoteError(e instanceof Error ? e.message : 'Quote failed')
+      if (!silent && version === quoteVersion.current) setQuoteError(e instanceof Error ? e.message : 'Quote failed')
       return null
     } finally {
-      if (!silent && alive.current) setFetching(false)
+      if (!silent && alive.current && version === quoteVersion.current) setFetching(false)
     }
-  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor, chainIdFor])
+  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor, chainIdFor, requiresExchange])
 
   const getQuote = async () => {
     setPriceChanged(false)
@@ -397,7 +399,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   /** Fill the amount from an amount button; a new amount needs a new quote. */
   const pickAmount = (value: string, pick: number | 'max') => {
     setAmount(value); setAmountPick({ pick, amount: value })
-    setQuote(null); acceptedBuyRaw.current = null
+    clearQuote()
   }
   const pressed = (pick: number | 'max') => amountPick?.pick === pick && amountPick.amount === amount && amount !== ''
 
@@ -411,7 +413,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   // ── Guard 4: Max with native dust buffer ──────────────────────────────────
   const onMax = async () => {
     if (fromBal == null) return
-    if (fromToken?.isNative && fromChain === 'solana' && toToken) {
+    if (!requiresExchange && fromToken?.isNative && fromChain === 'solana' && toToken) {
       // Solana: leave exactly what THIS route needs besides the sale — fees and
       // any new or temporary token accounts at current rent — computed by the
       // privileged layer from a quote for the full balance. The same record then
@@ -466,7 +468,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       : nativeBal < nativeSpend + feeReserve)
 
   const run = async () => {
-    if (!quote || !toToken) return
+    if (!quote || !toToken || requiresExchange) return
     setExecState('swapping'); setExecError(null); setExecResult(null)
     // Freeze the destination token: the tracker below formats the RECEIVED amount
     // with these decimals, and the user can change the picker while a cross-chain
@@ -495,7 +497,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   }
 
   const expectedBuy = quote && toToken ? rawToHuman(quote.buyAmountRaw, toToken.decimals) : null
-  const canQuote = parseFloat(amount) > 0 && !!fromToken && !!toToken && !sameToken(fromToken, toToken) && !fetching && sourceSignable
+  const canQuote = parseFloat(amount) > 0 && !!fromToken && !!toToken && !sameToken(fromToken, toToken) && !fetching && !requiresExchange
 
   // ── Cardano order placed → track it until a batcher fills it ──────────────
   if (execState === 'success' && execResult && quote?.provider === 'minswap') {
@@ -581,13 +583,12 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU PAY</span>
-          <select aria-label="From network" value={fromChain} onChange={e => onFromChain(e.target.value as SwapChain)} style={netSelectStyle}>
-            {networkOptions('source').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
+          <ChainDropdown ariaLabel="From network" value={fromChain} onChange={v => onFromChain(v as SwapChain)}
+            options={networkOptions('source').map(c => ({ value: c.id, label: c.label, chain: c.id }))} />
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input type="number" inputMode="decimal" min="0" placeholder="0.0" value={amount}
-            onChange={e => { setAmount(e.target.value); setQuote(null); acceptedBuyRaw.current = null }}
+            onChange={e => { setAmount(e.target.value); clearQuote() }}
             disabled={!sourceSignable}
             style={{ ...inputStyle, flex: 1, fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)' }} />
           <TokenPicker
@@ -627,9 +628,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU RECEIVE</span>
-          <select aria-label="To network" value={toChain} onChange={e => onToChain(e.target.value as SwapChain)} style={netSelectStyle}>
-            {networkOptions('destination').map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-          </select>
+          <ChainDropdown ariaLabel="To network" value={toChain} onChange={v => onToChain(v as SwapChain)}
+            options={networkOptions('destination').map(c => ({ value: c.id, label: c.label, chain: c.id }))} />
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 18, fontWeight: 600, fontFamily: 'var(--font-display)', color: expectedBuy != null ? 'var(--text-primary)' : 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -647,18 +647,26 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       </div>
 
       {/* Source not locally signable → hand off to SimpleSwap */}
-      {!sourceSignable && (
+      {requiresExchange && (
         <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
-            Spending from <strong>{fromToken?.symbol}</strong> on {fromChain} uses the Cross-Chain exchange (deposit-address flow).
+            {cardanoCrossChain
+              ? <>On-chain bridging between Cardano and {fromChain === 'cardano' ? toChain : fromChain} is not enabled yet.</>
+              : <>Spending from <strong>{fromToken?.symbol}</strong> on {fromChain} uses the Cross-Chain exchange (deposit-address flow).</>}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            {exchangePreset
+              ? 'Check this pair with the exchange providers. The provider holds your deposit while processing; a live estimate is required before creating an exchange.'
+              : 'This exact token pair is not in the exchange catalog. Choose supported assets; USDCx is not substituted with USDC or ADA.'}
           </div>
           {onUseCrossChain && (
-            <button type="button" onClick={onUseCrossChain} style={btn(true, 'rgba(56,189,248,0.9)', '#04121d')}>Switch to Cross-Chain</button>
+            <button type="button" disabled={!exchangePreset} onClick={() => onUseCrossChain(exchangePreset ?? undefined)}
+              style={btn(!!exchangePreset, 'rgba(56,189,248,0.9)', '#04121d')}>Check exchange route</button>
           )}
         </div>
       )}
 
-      {sourceSignable && (
+      {!requiresExchange && (
         <SwapSettings open={showAdvanced} onToggle={() => setShowAdvanced(v => !v)} slippageBps={slippageBps} autoBps={autoBps} isAuto={isAuto} onSet={setOverrideBps} />
       )}
 
@@ -670,7 +678,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         <SwapQuoteCard quote={quote} fromSymbol={fromToken.symbol} toSymbol={toToken.symbol} fromDecimals={fromToken.decimals} toDecimals={toToken.decimals} autoBps={autoBps} isAuto={isAuto} refreshIn={refreshIn} priceChanged={priceChanged} />
       )}
 
-      {sourceSignable && renderButton()}
+      {!requiresExchange && renderButton()}
     </div>
   )
 }
@@ -685,7 +693,6 @@ const Spinner = () => <span style={{ width: 14, height: 14, border: '2px solid r
 const cardStyle: React.CSSProperties = { background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }
 const labelStyle: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.04em' }
 const inputStyle: React.CSSProperties = { background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text-primary)', fontSize: 14, outline: 'none', minWidth: 0 }
-const netSelectStyle: React.CSSProperties = { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '5px 8px', fontSize: 12, cursor: 'pointer', outline: 'none', flexShrink: 0 }
 const maxBtn: React.CSSProperties = { padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--accent-dim)', color: 'var(--accent)' }
 const pctBtn = (on: boolean, off: boolean): React.CSSProperties => ({
   ...maxBtn, padding: '2px 8px',

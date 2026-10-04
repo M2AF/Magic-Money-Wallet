@@ -12,6 +12,7 @@ import {
 } from './api-proxy'
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 import { canonicalNftKey } from '../shared/asset-filter-key'
+import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
 
 export interface WalletToken {
   contractAddress: string
@@ -189,6 +190,9 @@ const DS_CHAIN: Record<string, string> = {
   abstract: 'abstract', apechain: 'apechain',   ronin: 'ronin',    soneium: 'soneium',
   worldchain: 'worldchain', zora: 'zora',       monad: 'monad',    solana: 'solana',
   tron: 'tron',             cardano: 'cardano',    arc: 'arc',
+  // Robinhood was missing, so its tokens got no DexScreener price or image and
+  // its native ETH row no chain icon (nativeChainLogo keys off this map too).
+  robinhood: 'robinhood',
 }
 
 // DefiLlama Coins API chain slugs — free, no key. Used to backfill prices for
@@ -331,6 +335,46 @@ async function fetchLlamaPrices(chainId: string, addresses: string[]): Promise<M
       for (const [k, v] of Object.entries(json.coins ?? {})) {
         const addr = k.split(':')[1]?.toLowerCase()
         if (addr && v?.price) out.set(addr, v.price)
+      }
+    } catch { /* skip chunk */ }
+  }
+  return out
+}
+
+// ─── Minswap token list (Cardano backfill, batched) ──────────────────────────
+// DexScreener has no pair at all for many Cardano native assets (HUNT, WALDO,
+// OMNI, USDCx …), and DefiLlama has no Cardano coverage. Minswap's aggregator
+// token list prices and logos them — keyed by the same `unit` (policyId +
+// hex asset name) Blockfrost gives us — in one POST for the whole wallet.
+// Called from this device, not the Worker: see minswap-client.ts on its per-IP
+// rate limit. A throttled/failed chunk just leaves those tokens unpriced.
+interface MinswapTokenInfo {
+  priceUsd: number
+  logo: string | null
+  decimals: number | null
+}
+
+async function fetchMinswapTokens(units: string[]): Promise<Map<string, MinswapTokenInfo>> {
+  const out = new Map<string, MinswapTokenInfo>()
+  for (let i = 0; i < units.length; i += 50) {
+    try {
+      const res = await fetch(`${MINSWAP_AGGREGATOR_URL}/tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: '', only_verified: false, assets: units.slice(i, i + 50) }),
+        signal: AbortSignal.timeout(8_000),
+      })
+      if (!res.ok) continue
+      const json = await res.json() as {
+        tokens?: Array<{ token_id?: string; price_by_usd?: number; logo?: string; decimals?: number }>
+      }
+      for (const t of json.tokens ?? []) {
+        if (!t.token_id) continue
+        out.set(t.token_id.toLowerCase(), {
+          priceUsd: typeof t.price_by_usd === 'number' && Number.isFinite(t.price_by_usd) ? t.price_by_usd : 0,
+          logo: normalizeImageUrl(t.logo ?? null),
+          decimals: Number.isInteger(t.decimals) ? t.decimals! : null,
+        })
       }
     } catch { /* skip chunk */ }
   }
@@ -919,6 +963,30 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
       }
     })
   )
+
+  // Minswap backfill for Cardano assets DexScreener left without a price or image.
+  const cardanoMissing = tokens.filter(t => {
+    if (t.chain !== 'cardano') return false
+    const ds = dsPrices.get(`cardano:${t.contractAddress.toLowerCase()}`)
+    return !ds?.priceUsd || !ds.imageUrl
+  })
+  if (cardanoMissing.length > 0) {
+    const minswap = await fetchMinswapTokens(cardanoMissing.map(t => t.contractAddress))
+    for (const t of cardanoMissing) {
+      const k = `cardano:${t.contractAddress.toLowerCase()}`
+      const m = minswap.get(t.contractAddress.toLowerCase())
+      if (!m) continue
+      const existing = dsPrices.get(k)
+      // Minswap prices a WHOLE token. When the registry had no decimals the
+      // balance is the raw integer (decimals 0), so a token Minswap says is
+      // divisible would be overvalued by 10^decimals — leave it unpriced.
+      const priceUsable = t.decimalsKnown !== false || !m.decimals
+      dsPrices.set(k, {
+        priceUsd: existing?.priceUsd || (priceUsable ? m.priceUsd : 0),
+        imageUrl: existing?.imageUrl ?? m.logo,
+      })
+    }
+  }
 
   return tokens.map(t => {
     const key = `${t.chain}:${t.contractAddress.toLowerCase()}`
@@ -2491,8 +2559,17 @@ async function fetchMoralisNfts(
 }
 
 /** Monad's only NFT source. Moralis chain 0x8f = Monad mainnet (chainId 143). */
-async function fetchMonadNFTs(address: string, config: WalletConfig): Promise<WalletCollectible[]> {
-  return (await fetchMoralisNfts(address, { id: 'monad', label: 'Monad', color: '#836EF9' }, '0x8f', config)) ?? []
+// Alchemy's NFT API now serves Monad (monad-mainnet); Moralis was the only source
+// before, so a paused/exhausted Moralis plan blanked every Monad NFT. Monad stays
+// out of NFT_CHAINS because TOKEN_CHAINS drives token fetching too, and Monad
+// tokens have their own RPC path (fetchMonadTokens).
+const MONAD_NFT_CHAIN = { id: 'monad', label: 'Monad', network: 'monad-mainnet', color: '#836EF9' }
+
+async function fetchMonadNFTs(address: string, config: WalletConfig, budget?: RepairBudget): Promise<WalletCollectible[]> {
+  const primary = await fetchAlchemyNftsForChain(address, MONAD_NFT_CHAIN, config, budget)
+  // Same rule as fetchNftsForChain: keep a good partial, fall back only on nothing.
+  if (!primary.error || primary.items.length > 0) return primary.items
+  return (await fetchMoralisNfts(address, MONAD_NFT_CHAIN, '0x8f', config)) ?? []
 }
 
 // ─── Tron TRC-721 NFTs via TronScan (best-effort, keyless) ───────────────────
@@ -3085,7 +3162,7 @@ export async function fetchAllCollectibles(
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
         ? fetchNftsForChain(agwAddress, abstractChainCfg, config, repairBudget).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
         : Promise.resolve([] as WalletCollectible[]),
-      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config, repairBudget),
       (tronAddress && !testnet) ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
       testnet ? Promise.resolve([] as WalletCollectible[]) : fetchBitcoinOrdinals(bitcoinTaproot, config),
       // User-added networks — Blockscout explorers only; no floor pricing exists

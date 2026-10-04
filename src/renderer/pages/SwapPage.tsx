@@ -15,10 +15,12 @@ import type { WalletAddresses, SwapMode, SwapToken } from '../types/wallet'
 import { HeaderToolbar } from '../components/HeaderToolbar'
 import { SwapModeToggle } from '../components/SwapModeToggle'
 import { DexSwapWidget } from '../components/DexSwapWidget'
+import { XReserveTestnetPanel } from '../components/XReserveTestnetPanel'
 import { SimpleSwapWidget } from '../components/SimpleSwapWidget'
 import type { HeaderToolbarProps } from '../components/HeaderToolbar'
 import magicSwapUrl from '../assets/magic-swap.png'
 import magicSwapTextUrl from '../assets/magic-swap-text.png'
+import type { SwapExchangePreset } from '../lib/swap-exchange-preset'
 
 // The shared toolbar actions are carried as one bag (see HeaderToolbarProps)
 // and spread below, so a new one reaches this page without an edit here.
@@ -34,6 +36,7 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
   const [mode, setMode] = useState<SwapMode>('dex')
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
+  const [exchangePreset, setExchangePreset] = useState<SwapExchangePreset | undefined>()
   // Swap providers (0x/1inch/Jupiter/SimpleSwap/LI.FI) only operate on mainnets —
   // the whole tab is disabled while Testnet Mode is on so a "test" swap can't
   // create a real mainnet exchange.
@@ -44,7 +47,9 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
   const [privacyMode, setPrivacyMode] = useState(false)
   useEffect(() => { window.wallet.getPrivacyMode?.().then(setPrivacyMode).catch(() => {}) }, [])
 
-  const switchMode = (m: SwapMode) => { if (m !== mode) { setMode(m); setEpoch(e => e + 1) } }
+  const switchMode = (m: SwapMode, preset?: SwapExchangePreset) => {
+    if (m !== mode) { setExchangePreset(preset); setMode(m); setEpoch(e => e + 1) }
+  }
 
   // A coin sent from the Tokens tab is a DEX swap: leave Cross-Chain if it is open.
   useEffect(() => {
@@ -72,7 +77,7 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
             of empty space. Auto margins only consume POSITIVE free space, so a short
             window still scrolls from the top rather than clipping the first field. */}
         <div style={{ width: '100%', maxWidth: 520, margin: 'auto 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {testnet || privacyMode ? (
+          {testnet || privacyMode ? (<>
             <div style={{
               marginTop: 24, padding: '22px 18px', textAlign: 'center',
               background: testnet ? 'rgba(245, 158, 11, 0.06)' : 'rgba(124, 58, 237, 0.06)',
@@ -89,7 +94,8 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
                   : 'Swap providers don’t support the privacy networks. Turn Privacy Mode off in Settings to swap.'}
               </div>
             </div>
-          ) : (
+            {testnet && !privacyMode && <XReserveTestnetPanel />}
+          </>) : (
             <>
               <div className="swap-hero">
                 <img src={magicSwapUrl} alt="" className="swap-hero-icon" draggable={false} />
@@ -97,9 +103,9 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
               </div>
 
               {mode === 'dex'
-                ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={() => switchMode('crosschain')}
+                ? <DexSwapWidget key={`dex-${epoch}`} addresses={addresses} active={!hidden} onUseCrossChain={preset => switchMode('crosschain', preset)}
                     preselect={swapRequest} onPreselectHandled={onSwapRequestHandled} />
-                : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} />}
+                : <SimpleSwapWidget key={`ss-${epoch}`} addresses={addresses} active={!hidden} preset={exchangePreset} />}
 
               <SwapModeToggle mode={mode} onChange={switchMode} />
             </>

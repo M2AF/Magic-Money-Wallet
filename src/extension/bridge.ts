@@ -49,7 +49,11 @@ const SLOW_TYPES = new Set([
 
 // Swap execution can sign an approval, wait for it to mine, then sign the swap —
 // well beyond the heavy-fetch budget. Give it room (SW stays alive while active).
-const VERY_SLOW_TYPES = new Set(['swap:execute'])
+const VERY_SLOW_TYPES = new Set([
+  'swap:execute',
+  'xreserve:testnet-approve', 'xreserve:testnet-approval-status', 'xreserve:testnet-deposit', 'xreserve:testnet-check',
+  'xreserve:testnet-recover',
+])
 
 // Midnight's DUST wallet walks a NETWORK-WIDE merkle tree before it can pay a
 // fee — minutes on a first run (measured ~4 min mainnet / ~36 min preprod on
@@ -194,6 +198,17 @@ export function createExtensionWallet() {
     getNftFloor:    (c: string, a: string)  => send('wallet:get-nft-floor', c, a),
     swapGetQuote:   (req: unknown)          => send('swap:getQuote', req),
     swapExecute:    (quote: unknown)        => send('swap:execute', quote),
+    // Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test.
+    xreserveTestnetState:   ()                  => send('xreserve:testnet-state'),
+    xreserveTestnetSetKey:  (key: string)       => send('xreserve:testnet-set-key', { key }),
+    xreserveTestnetSetSource: (source: string) => send('xreserve:testnet-set-source', { source }),
+    xreserveTestnetPrepare: (req: unknown)      => send('xreserve:testnet-prepare', req),
+    xreserveTestnetApprove:        (intentId: string) => send('xreserve:testnet-approve', { intentId }),
+    xreserveTestnetApprovalStatus: (intentId: string) => send('xreserve:testnet-approval-status', { intentId }),
+    xreserveTestnetDeposit:        (req: unknown)     => send('xreserve:testnet-deposit', req),
+    xreserveTestnetRecover:        ()                 => send('xreserve:testnet-recover'),
+    xreserveTestnetDismissCorrupt: (key: string)      => send('xreserve:testnet-dismiss-corrupt', { key }),
+    xreserveTestnetCheck:   (req: unknown)      => send('xreserve:testnet-check', req),
     swapCrossStatus:(req: unknown)          => send('swap:crossStatus', req),
     swapSessions:   ()                      => send('swap:sessions'),
     swapReconcile:  ()                      => send('swap:reconcile'),

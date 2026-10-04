@@ -3,6 +3,12 @@ import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
+/** Pick a network in a ChainDropdown (the swap From/To network pickers). */
+async function pickNetwork(page: Page, name: string, value: string): Promise<void> {
+  await page.getByRole('button', { name, exact: true }).click()
+  await page.getByRole('listbox', { name }).locator(`[data-value="${value}"]`).click()
+}
+
 /**
  * Real-extension check for the DEX swap token picker.
  *
@@ -227,8 +233,8 @@ test.describe('DEX swap token picker (real extension)', () => {
       })
 
       // Changing the source network re-reads balances through the stub.
-      await page.getByRole('combobox', { name: 'From network' }).selectOption('monad')
-      await page.getByRole('combobox', { name: 'To network' }).selectOption('solana')
+      await pickNetwork(page, 'From network', 'monad')
+      await pickNetwork(page, 'To network', 'solana')
       await expect.poll(() => page.evaluate(() => (window as unknown as { __calls: Record<string, number> }).__calls.getBalances)).toBeGreaterThan(0)
 
       // ── Receive picker: SOL shows the SOLANA native balance, not 0/blank ──
@@ -271,11 +277,12 @@ test.describe('DEX swap token picker (real extension)', () => {
       await page.locator('.bottom-nav-btn:has-text("Swap")').click()
       await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
 
-      const source = page.getByRole('combobox', { name: 'From network' })
+      await page.getByRole('button', { name: 'From network', exact: true }).click()
+      const source = page.getByRole('listbox', { name: 'From network' })
       // Networks now come from the wallet's registry joined with measured
       // capability, served by the privileged layer — not a hand-kept list.
-      await expect(source.locator('option', { hasText: 'Robinhood' })).toHaveCount(1, { timeout: 10_000 })
-      const labels = await source.locator('option').allInnerTexts()
+      await expect(source.getByRole('option', { name: 'Robinhood' })).toHaveCount(1, { timeout: 10_000 })
+      const labels = await source.getByRole('option').allInnerTexts()
       for (const want of ['Arc', 'Abstract', 'HyperEVM']) {
         expect(labels.some(l => l.includes(want)), want).toBe(true)
       }

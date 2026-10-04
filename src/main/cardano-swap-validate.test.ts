@@ -3,7 +3,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import {
   validateMinswapOrderTx, indexWalletUtxos, splitTxRoot, assembleSignedTx, txIdOf, hexToBytesStrict,
-  CardanoSwapValidationError, MINSWAP_AGGREGATOR_FEE_KEY_HASH, type MinswapOrderExpectation,
+  cborItemEnd, CardanoSwapValidationError, MINSWAP_AGGREGATOR_FEE_KEY_HASH, type MinswapOrderExpectation,
 } from './cardano-swap-validate'
 import {
   minswapV2Pool, decodeMinswapV2OrderDatum, MinswapOrderError, MINSWAP_V2,
@@ -273,5 +273,60 @@ describe('signed transaction assembly', () => {
     expect(Buffer.from(again.auxData).equals(Buffer.from(parts.auxData))).toBe(true)
     expect(Buffer.from(again.witnessSet).equals(Buffer.from(witness))).toBe(true)
     expect(txIdOf(again.body)).toBe(txIdOf(parts.body))
+  })
+})
+
+/**
+ * CBOR tags (major type 6) carry an IDENTIFIER, not a length. The length
+ * guard used to treat tag 258 (sets) or a Plutus constructor tag (121,
+ * 1280…) as a byte count and refuse any buffer shorter than that number.
+ */
+describe('cborItemEnd — tags are identifiers, lengths are still bounded', () => {
+  const bytes = (h: string) => hexToBytesStrict(h)
+  const refuse = (h: string, pattern: RegExp) => {
+    expect(() => cborItemEnd(bytes(h), 0)).toThrow(CardanoSwapValidationError)
+    expect(() => cborItemEnd(bytes(h), 0)).toThrow(pattern)
+  }
+
+  it('tag 258 (set) around an item, in a buffer far shorter than 258 bytes', () => {
+    expect(cborItemEnd(bytes('d9010280'), 0)).toBe(4)               // 258([])
+    expect(cborItemEnd(bytes('d901028201' + '02'), 0)).toBe(6)      // 258([1, 2])
+  })
+
+  it('Plutus constructor tags 121 and 1280 in buffers shorter than the tag number', () => {
+    expect(cborItemEnd(bytes('d87980'), 0)).toBe(3)                 // 121([]) — constructor 0
+    expect(cborItemEnd(bytes('d9050080'), 0)).toBe(4)               // 1280([]) — constructor 7
+    expect(cborItemEnd(bytes('d9050081d87980'), 0)).toBe(7)         // 1280([121([])])
+    expect(cborItemEnd(bytes('82d9010280' + '01'), 0)).toBe(6)      // [258([]), 1] — nested
+  })
+
+  it('a small complete transaction framed with a tag-258 input set splits, and its body bytes are untouched', () => {
+    const tag258 = (inner: Uint8Array) => new Uint8Array([0xd9, 0x01, 0x02, ...inner])
+    const body = cborMap([
+      [cborUint(0), tag258(cborArray([cborArray([cborBytes(new Uint8Array(32)), cborUint(0)])]))],
+      [cborUint(1), cborArray([cborArray([cborBytes(new Uint8Array(29).fill(0x61, 0, 1)), cborUint(1_000_000n)])])],
+      [cborUint(2), cborUint(170_000n)],
+    ])
+    const tx = new Uint8Array([0x84, ...body, 0xa0, 0xf5, 0xf6])
+    expect(tx.length).toBeLessThan(258)
+    const parts = splitTxRoot(tx)
+    expect(Buffer.from(parts.body).equals(Buffer.from(body))).toBe(true)
+    expect(txIdOf(parts.body)).toBe(txIdOf(body))
+    expect(Buffer.from(parts.witnessSet).toString('hex')).toBe('a0')
+  })
+
+  it('truncated tagged content is still refused', () => {
+    refuse('d90102', /truncated/)          // tag with nothing after it
+    refuse('d901', /truncated/)            // tag number itself cut short
+    refuse('d901028201', /truncated/)      // 258([1, <missing>])
+    refuse('d8795803aabb', /truncated/)    // 121(bytes(3)) with only 2 bytes
+  })
+
+  it('oversized definite strings, arrays and maps are still refused', () => {
+    refuse('59010000', /length exceeds transaction size/)      // bytes(256) in a 4-byte buffer
+    refuse('79ffff00', /length exceeds transaction size/)      // text(65535)
+    refuse('9903e8', /length exceeds transaction size/)        // array(1000)
+    refuse('b903e8', /length exceeds transaction size/)        // map(1000)
+    refuse('d9010259010000', /length exceeds transaction size/) // 258(bytes(256)) — the tag does not hide it
   })
 })

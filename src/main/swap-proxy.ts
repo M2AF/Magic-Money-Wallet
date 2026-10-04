@@ -34,7 +34,9 @@ import {
   type AppFeeRecord, type ExternalFeeRecord,
 } from '../shared/swap-fee-policy'
 import { resolveJupiterFeeAccount, classifyQuoteFee } from './swap-fee'
-import { prepareCardanoSwapQuote, getMinswapOrderStatus, CardanoSwapError } from './cardano-swap'
+import {
+  prepareCardanoSwapQuote, getMinswapOrderStatus, CardanoSwapError, type MinswapOrderScanCursor,
+} from './cardano-swap'
 import { minswapTokenSearch } from './minswap-client'
 
 // The app fee rate and the beneficiaries come from the shared policy, not from
@@ -156,6 +158,11 @@ export interface CrossSwapStatusRequest {
    */
   recipient?: string | null
   minBuyAmountRaw?: string | null
+  /**
+   * Minswap orders only: where a previous fallback scan for the spending
+   * transaction got to, as persisted on the swap session, so a restart resumes.
+   */
+  orderScanCursor?: MinswapOrderScanCursor | null
 }
 
 export interface CrossSwapStatus {
@@ -189,6 +196,8 @@ export interface CrossSwapStatus {
   deliveredAmountSource?: 'onchain' | 'provider' | null
   /** The provider's own figure, kept when the on-chain measurement replaced it. */
   providerReportedAmountRaw?: string | null
+  /** Minswap orders only: the fallback scan's progress, for the session to persist. */
+  orderScanCursor?: MinswapOrderScanCursor | null
   /** What ACTUALLY arrived — on a refund this is the token that was sold. */
   delivered?: {
     chain: string | null
@@ -623,7 +632,9 @@ export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: Wa
     return {
       ...status,
       state: report.state,
-      message: report.message,
+      // An unknown state from the reader carries its own precise reason (an
+      // unexplained spend, a scan still in progress); the mapper's is generic.
+      message: report.state === 'unknown' && status.message ? status.message : report.message,
       providerStatus: report.providerStatus,
       providerSubstatus: report.providerSubstatus,
       delivered: report.delivered,

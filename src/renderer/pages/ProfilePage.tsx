@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { ClUser, ChainlensSyncResult, WalletCollectible } from '../types/wallet'
+import { CHAIN_ICONS } from '../data/chain-icons'
 
 const CHAIN_LABELS: Record<string, string> = {
   evm: 'Ethereum/EVM', solana: 'Solana', cardano: 'Cardano',
@@ -455,14 +456,32 @@ function EmptyRow({ label }: { label: string }) {
   return <div style={{ padding: '14px 12px', color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>{label}</div>
 }
 
-// ── Chain icons with real logos ───────────────────────────────────────────────
+// ── Chain icons ───────────────────────────────────────────────────────────────
+// The same bundled logomarks the Networks tab uses (CHAIN_ICONS). Linked wallets
+// are keyed by address family, so "evm" shows the Ethereum mark. A chain with no
+// bundled logo — or one that fails to load — keeps the coloured initial.
+
+const CHAIN_ICON_KEY: Record<string, string> = { evm: 'ethereum' }
 
 function ChainIcon({ chain }: { chain: string }) {
+  const [failed, setFailed] = useState(false)
   const BG: Record<string, string> = {
     evm: '#627EEA', solana: '#9945FF', cardano: '#2A7DEA',
     bitcoin: '#F7931A', polkadot: '#E6007A', tron: '#EB0029', dogecoin: '#C2A633'
   }
   const bg = BG[chain] ?? '#6b7280'
+  const src = CHAIN_ICONS[CHAIN_ICON_KEY[chain] ?? chain]
+
+  if (src && !failed) return (
+    <img
+      src={src}
+      alt=""
+      width={28}
+      height={28}
+      style={{ borderRadius: '50%', flexShrink: 0, objectFit: 'cover', boxShadow: `0 0 8px ${bg}66` }}
+      onError={() => setFailed(true)}
+    />
+  )
 
   return (
     <div style={{
@@ -470,76 +489,10 @@ function ChainIcon({ chain }: { chain: string }) {
       background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
       boxShadow: `0 0 8px ${bg}66`
     }}>
-      {chain === 'evm'      && <EthIcon />}
-      {chain === 'solana'   && <SolIcon />}
-      {chain === 'cardano'  && <AdaIcon />}
-      {chain === 'bitcoin'  && <BtcIcon />}
-      {chain === 'polkadot' && <DotIcon />}
-      {chain === 'tron'     && <TrxIcon />}
-      {chain === 'dogecoin' && <DogeIcon />}
-      {!['evm','solana','cardano','bitcoin','polkadot','tron','dogecoin'].includes(chain) && (
-        <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>{chain[0].toUpperCase()}</span>
-      )}
+      <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>{chain[0].toUpperCase()}</span>
     </div>
   )
 }
-
-const EthIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <polygon points="12,2 20.5,12 12,15.5 3.5,12" fill="white" opacity="0.9"/>
-    <polygon points="12,15.5 20.5,12 12,22" fill="white" opacity="0.6"/>
-    <polygon points="12,15.5 3.5,12 12,22" fill="white" opacity="0.8"/>
-  </svg>
-)
-
-const SolIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <rect x="3" y="5" width="18" height="3" rx="1.5" fill="white" opacity="0.9"/>
-    <rect x="3" y="10.5" width="14" height="3" rx="1.5" fill="white" opacity="0.9"/>
-    <rect x="3" y="16" width="18" height="3" rx="1.5" fill="white" opacity="0.9"/>
-  </svg>
-)
-
-const AdaIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="3" fill="white"/>
-    <circle cx="12" cy="4" r="1.5" fill="white" opacity="0.7"/>
-    <circle cx="12" cy="20" r="1.5" fill="white" opacity="0.7"/>
-    <circle cx="4" cy="8" r="1.5" fill="white" opacity="0.7"/>
-    <circle cx="20" cy="8" r="1.5" fill="white" opacity="0.7"/>
-    <circle cx="4" cy="16" r="1.5" fill="white" opacity="0.7"/>
-    <circle cx="20" cy="16" r="1.5" fill="white" opacity="0.7"/>
-  </svg>
-)
-
-const BtcIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-    <text x="4" y="18" fontSize="18" fontWeight="900" fill="white" fontFamily="Arial">₿</text>
-  </svg>
-)
-
-const DotIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <circle cx="12" cy="12" r="3.5" fill="white"/>
-    <circle cx="12" cy="3" r="2" fill="white" opacity="0.7"/>
-    <circle cx="12" cy="21" r="2" fill="white" opacity="0.7"/>
-    <circle cx="3" cy="12" r="2" fill="white" opacity="0.7"/>
-    <circle cx="21" cy="12" r="2" fill="white" opacity="0.7"/>
-  </svg>
-)
-
-const TrxIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-    <path d="M4 5 L20 8.5 L11 21 Z M4 5 L11 21 M4 5 L15.5 11 M20 8.5 L11 21"
-      stroke="white" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" fill="none" opacity="0.95"/>
-  </svg>
-)
-
-const DogeIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-    <text x="5" y="18" fontSize="17" fontWeight="900" fill="white" fontFamily="Arial">Ð</text>
-  </svg>
-)
 
 // ── Social icons ──────────────────────────────────────────────────────────────
 

@@ -31,6 +31,7 @@ import {
 } from './swap-intent'
 import {
   openSession, noteApprovalTx, noteSwapBroadcast, noteUncertainBroadcast, noteSourceReceipt, noteSwapNotSent,
+  prepareCardanoSwapBroadcast,
 } from './swap-sessions'
 import { customChainDefs } from './chain-config'
 import { estimateSolanaSwapCost, solanaShortfallMessage } from './solana-swap-cost'
@@ -268,17 +269,27 @@ async function executeCardanoSwap(
   const txId = validated.txId
   const explorerUrl = cardanoscanTx(txId)
 
+  // Persist the known hash before the first network action. Production callers
+  // always have a bound intent; direct calls without one are only a test seam.
+  const decimalsOf = (unit: string, d?: number) => (unit === 'lovelace' ? 6 : typeof d === 'number' ? d : 0)
+  if (intentId && identity) {
+    try {
+      await prepareCardanoSwapBroadcast(intentId, quote, identity, {
+        from: decimalsOf(quote.fromTokenAddress, decimals?.from),
+        to: decimalsOf(quote.toTokenAddress, decimals?.to),
+      }, txId, explorerUrl)
+    } catch {
+      throw new SwapPreflightError('Could not save the swap recovery record. Nothing was sent — check wallet storage before trying again.')
+    }
+  }
+  assertQuoteStillFresh(quote, null, [])
+
   // ── 4. Submit. From here the intent can never be re-authorized. ────────────
   if (intentId) markSwapIntentBroadcast(intentId)
   const track = (fn: () => Promise<void>) => {
     if (!intentId || !identity) return
     fn().catch(() => { /* evidence store must never break a swap */ })
   }
-  const decimalsOf = (unit: string, d?: number) => (unit === 'lovelace' ? 6 : typeof d === 'number' ? d : 0)
-  track(() => openSession(intentId as string, quote, identity as SwapSigningIdentity, {
-    from: decimalsOf(quote.fromTokenAddress, decimals?.from),
-    to: decimalsOf(quote.toTokenAddress, decimals?.to),
-  }))
   try {
     const accepted: unknown = await cip30SubmitTx(toHex(signed), config)
     if (typeof accepted === 'string' && accepted && accepted.toLowerCase() !== txId) {
