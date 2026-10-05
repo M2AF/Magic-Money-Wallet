@@ -10,7 +10,9 @@
  * hosts from the privileged layer (Electron `net.fetch`, the extension's host
  * permissions, Capacitor's native bridge for non-CORS hosts).
  *
- * Only Minswap V2 batcher orders are requested, and the response is checked
+ * Two route shapes are requested, each separately: Minswap V2 batcher orders,
+ * and single-pool Danogo concentrated-liquidity swaps (direct, atomic; added
+ * 2026-10-05). For V2, the response is checked
  * before a transaction is even built: one path, every hop V2, a continuous token
  * chain from the sell token to the buy token. `include_protocols` is a request,
  * not a guarantee — measured the same day, SNEK<->ADA came back routed through
@@ -24,6 +26,10 @@ import type { NormalizedSwapQuote, CardanoOrderTerms } from '../shared/swap-quot
 import type { ExternalFeeRecord } from '../shared/swap-fee-policy'
 import { feeFreeRecord } from '../shared/swap-fee-policy'
 import { CARDANO_LOVELACE, isValidSwapAddress, normalizeSwapAddress } from '../shared/swap-token-identity'
+import { DANOGO_CLMM } from './danogo-clmm'
+
+/** The route shapes this wallet can check before signing (one validator each). */
+export type CardanoSwapProtocol = 'MinswapV2' | 'DanogoCLMMV1'
 
 export const MINSWAP_AGGREGATOR_URL = 'https://agg-api.minswap.org/aggregator'
 
@@ -85,10 +91,13 @@ export function approvedFloor(buyAmountRaw: string, slippageBps: number): bigint
 
 /**
  * Read an estimate into order terms, refusing anything that is not a single
- * Minswap V2 route between exactly the requested tokens and amount.
+ * route of the requested protocol between exactly the requested tokens and amount.
  */
-export function termsFromEstimate(req: MinswapEstimateRequest, est: MinswapEstimate): MinswapTerms {
+export function termsFromEstimate(
+  req: MinswapEstimateRequest, est: MinswapEstimate, protocol: CardanoSwapProtocol = 'MinswapV2',
+): MinswapTerms {
   const bad = (why: string): never => { throw new MinswapQuoteError(`Minswap returned an unusable route: ${why}.`) }
+  if (protocol === 'DanogoCLMMV1') return danogoTermsFromEstimate(req, est, bad)
   if (unit(est.token_in) !== unit(req.token_in) || unit(est.token_out) !== unit(req.token_out)) bad('different tokens')
   if (String(est.amount_in ?? '') !== req.amount) bad('a different sell amount')
   for (const [name, v] of [['amount_out', est.amount_out], ['min_amount_out', est.min_amount_out],
@@ -130,6 +139,51 @@ export function termsFromEstimate(req: MinswapEstimateRequest, est: MinswapEstim
   }
 }
 
+/**
+ * A Danogo route: one pool, one hop, ADA on one side. The swap is ATOMIC — the
+ * transaction pays exactly what it states or does not execute — so the floor is
+ * the delivered amount itself. Measured 2026-10-05: when ADA is bought, the
+ * aggregator's `amount_out` still includes Danogo's per-swap fee, which the pool
+ * keeps out of the payout; the delivered amount is `amount_out - swap fee`.
+ * The pre-signing validator measures delivery from the wallet's own outputs.
+ */
+function danogoTermsFromEstimate(req: MinswapEstimateRequest, est: MinswapEstimate, bad: (why: string) => never): MinswapTerms {
+  if (unit(est.token_in) !== unit(req.token_in) || unit(est.token_out) !== unit(req.token_out)) bad('different tokens')
+  if (String(est.amount_in ?? '') !== req.amount) bad('a different sell amount')
+  for (const [name, v] of [['amount_out', est.amount_out], ['min_amount_out', est.min_amount_out],
+    ['total_dex_fee', est.total_dex_fee], ['deposits', est.deposits]] as const) {
+    if (typeof v !== 'string' || !UINT.test(v)) bad(`missing ${name}`)
+  }
+  const aggregatorFee = est.aggregator_fee == null ? '0' : String(est.aggregator_fee)
+  if (!UINT.test(aggregatorFee)) bad('a malformed aggregator fee')
+  if (est.deposits !== '0') bad('a Danogo swap with a deposit')
+  if (BigInt(est.total_dex_fee as string) !== DANOGO_CLMM.swapFeeLovelace) bad('a Danogo swap fee different from the protocol\'s')
+  if (!Array.isArray(est.paths) || est.paths.length !== 1) bad('the route is split across several pools')
+  const steps = (est.paths as MinswapPathStep[][])[0]
+  if (!Array.isArray(steps) || steps.length !== 1) bad('the route crosses more than one Danogo pool')
+  if (steps[0].protocol !== 'DanogoCLMMV1') bad(`the route uses ${steps[0].protocol ?? 'an unknown protocol'}, not Danogo`)
+  const sell = unit(steps[0].token_in)
+  const buy = unit(steps[0].token_out)
+  if (sell !== unit(req.token_in) || buy !== unit(req.token_out)) bad('the route ends at a different token')
+  if ((sell === CARDANO_LOVELACE) === (buy === CARDANO_LOVELACE)) bad('only Danogo swaps between ADA and a token are supported')
+  const delivered = BigInt(est.amount_out as string) - (buy === CARDANO_LOVELACE ? DANOGO_CLMM.swapFeeLovelace : 0n)
+  if (delivered <= 0n) bad('no output')
+  return {
+    buyAmountRaw: delivered.toString(),
+    minBuyAmountRaw: delivered.toString(),
+    hops: 1,
+    priceImpactPct: typeof est.avg_price_impact === 'number' && Number.isFinite(est.avg_price_impact) ? est.avg_price_impact : 0,
+    terms: {
+      protocol: 'DanogoCLMMV1',
+      path: [sell, buy],
+      batcherFeeLovelace: '0',
+      depositLovelace: '0',
+      aggregatorFeeLovelace: aggregatorFee,
+      dexFeeLovelace: DANOGO_CLMM.swapFeeLovelace.toString(),
+    },
+  }
+}
+
 export type MinswapFetch = (url: string, init: RequestInit) => Promise<Response>
 
 async function post<T>(fetchFn: MinswapFetch, path: string, body: unknown): Promise<T> {
@@ -159,6 +213,8 @@ export interface MinswapQuoteInput {
   sender: string
   fromSymbol: string
   toSymbol: string
+  /** Which route shape to request. Defaults to Minswap V2 orders. */
+  protocol?: CardanoSwapProtocol
 }
 
 /**
@@ -181,21 +237,27 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     throw new MinswapQuoteError('Invalid slippage for a Minswap order.')
   }
 
+  const protocol: CardanoSwapProtocol = input.protocol ?? 'MinswapV2'
+  const danogo = protocol === 'DanogoCLMMV1'
   const request = (slippagePct: number): MinswapEstimateRequest => ({
     amount: input.sellAmountRaw,
     token_in: sell,
     token_out: buy,
     slippage: slippagePct,
-    allow_multi_hops: true,
-    include_protocols: ['MinswapV2'],
+    allow_multi_hops: !danogo,
+    include_protocols: [protocol],
   })
 
   let req = request(input.slippageBps / 100)
-  let terms = termsFromEstimate(req, await post<MinswapEstimate>(fetchFn, 'estimate', req))
+  let est = await post<MinswapEstimate>(fetchFn, 'estimate', req)
+  let terms = termsFromEstimate(req, est, protocol)
+  // A Danogo swap is atomic: its floor IS the delivered amount, so the
+  // per-hop slippage re-ask below only ever applies to batcher orders.
   const floorHolds = (t: MinswapTerms) => BigInt(t.minBuyAmountRaw) >= approvedFloor(t.buyAmountRaw, input.slippageBps)
-  if (!floorHolds(terms) && terms.hops > 1) {
+  if (!danogo && !floorHolds(terms) && terms.hops > 1) {
     req = request(input.slippageBps / 100 / terms.hops)
-    terms = termsFromEstimate(req, await post<MinswapEstimate>(fetchFn, 'estimate', req))
+    est = await post<MinswapEstimate>(fetchFn, 'estimate', req)
+    terms = termsFromEstimate(req, est, protocol)
   }
   if (!floorHolds(terms)) {
     throw new MinswapQuoteError('Minswap\'s minimum for this route is looser than your slippage setting, so it is not offered.')
@@ -203,7 +265,9 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
 
   const built = await post<{ cbor?: string }>(fetchFn, 'build-tx', {
     sender: input.sender,
-    min_amount_out: terms.minBuyAmountRaw,
+    // Minswap's OWN floor for the estimate, unchanged (see above). For Danogo
+    // the wallet's floor is the delivered amount, checked in the transaction.
+    min_amount_out: danogo ? est.min_amount_out : terms.minBuyAmountRaw,
     estimate: req,
   })
   if (typeof built.cbor !== 'string' || !/^([0-9a-fA-F]{2})+$/.test(built.cbor)) {
@@ -213,7 +277,11 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
   const ada = (name: string, amountRaw: string): ExternalFeeRecord => ({
     name, tokenSymbol: 'ADA', tokenDecimals: 6, amountRaw, includedInQuotedOutput: false,
   })
-  const externalFees: ExternalFeeRecord[] = [ada('Minswap batcher fee', terms.terms.batcherFeeLovelace)]
+  const externalFees: ExternalFeeRecord[] = danogo
+    // Selling ADA, the swap fee is paid on top; buying ADA, the pool keeps it
+    // out of the payout, so the quoted (delivered) output already excludes it.
+    ? [{ ...ada('Danogo swap fee', terms.terms.dexFeeLovelace as string), includedInQuotedOutput: buy === CARDANO_LOVELACE }]
+    : [ada('Minswap batcher fee', terms.terms.batcherFeeLovelace)]
   if (terms.terms.aggregatorFeeLovelace !== '0') externalFees.push(ada('Minswap aggregator fee', terms.terms.aggregatorFeeLovelace))
 
   const sellNum = Number(input.sellAmountRaw)
@@ -238,8 +306,8 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     expiresAt: Date.now() + QUOTE_TTL_MS,
     isCrossChain: false,
     toAddress: input.sender,
-    bridgeTool: 'Minswap V2',
-    estimatedDurationSec: 60,
+    bridgeTool: danogo ? 'Danogo CLMM' : 'Minswap V2',
+    estimatedDurationSec: danogo ? 30 : 60,
     feeBps: 0,
     // Minswap's API has no integrator fee, so this route carries no Magic Money
     // fee and is never counted as revenue. Its own fees are reported separately.

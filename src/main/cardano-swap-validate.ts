@@ -197,11 +197,95 @@ export function txIdOf(body: Uint8Array): string {
   return hex(blake2b(body, { dkLen: 32 }))
 }
 
+function cborHead(major: number, n: number): number[] {
+  if (n < 24) return [(major << 5) | n]
+  if (n < 0x100) return [(major << 5) | 24, n]
+  if (n < 0x10000) return [(major << 5) | 25, n >> 8, n & 0xff]
+  return fail('witness set too large')
+}
+
+/** Raw [key, value] byte ranges of a definite-length CBOR map. */
+function rawMapEntries(b: Uint8Array): Array<{ key: Uint8Array; value: Uint8Array }> {
+  const major = b[0] >> 5
+  const ai = b[0] & 0x1f
+  if (major !== 5 || ai > 25) fail('witness set is not a definite map')
+  let pos = 1
+  let n = ai
+  if (ai === 24) { n = b[1]; pos = 2 } else if (ai === 25) { n = (b[1] << 8) | b[2]; pos = 3 }
+  const out: Array<{ key: Uint8Array; value: Uint8Array }> = []
+  for (let i = 0; i < n; i++) {
+    const keyEnd = cborItemEnd(b, pos)
+    const valueEnd = cborItemEnd(b, keyEnd)
+    out.push({ key: b.slice(pos, keyEnd), value: b.slice(keyEnd, valueEnd) })
+    pos = valueEnd
+  }
+  if (pos !== b.length) fail('trailing bytes after the witness set')
+  return out
+}
+
+/** The raw items of a definite array, optionally wrapped in tag 258 (a set). */
+function rawArrayItems(b: Uint8Array): { tagged: boolean; items: Uint8Array[] } {
+  let pos = 0
+  let tagged = false
+  if (b[0] === 0xd9 && b[1] === 0x01 && b[2] === 0x02) { tagged = true; pos = 3 }
+  const major = b[pos] >> 5
+  const ai = b[pos] & 0x1f
+  if (major !== 4 || ai > 25) fail('witness list is not a definite array')
+  let n = ai
+  pos += 1
+  if (ai === 24) { n = b[pos]; pos += 1 } else if (ai === 25) { n = (b[pos] << 8) | b[pos + 1]; pos += 2 }
+  const items: Uint8Array[] = []
+  for (let i = 0; i < n; i++) { const end = cborItemEnd(b, pos); items.push(b.slice(pos, end)); pos = end }
+  if (pos !== b.length) fail('trailing bytes after a witness list')
+  return { tagged, items }
+}
+
+const concat = (parts: Array<Uint8Array | number[]>): Uint8Array => {
+  const total = parts.reduce((n, p) => n + p.length, 0)
+  const out = new Uint8Array(total)
+  let o = 0
+  for (const p of parts) { out.set(p, o); o += p.length }
+  return out
+}
+
+/**
+ * Add the wallet's vkey witnesses to the provider's witness set. Every other
+ * entry (redeemers, and any witness the provider already supplied for its own
+ * collateral) is copied BYTE FOR BYTE: the script-data hash in the body covers
+ * the redeemers' exact encoding. An empty provider set returns the wallet's
+ * own set unchanged, so order transactions assemble exactly as before.
+ */
+export function mergeWitnessSets(provider: Uint8Array, wallet: Uint8Array): Uint8Array {
+  if (provider.length === 1 && provider[0] === 0xa0) return wallet
+  const walletEntries = rawMapEntries(wallet)
+  if (walletEntries.length !== 1 || walletEntries[0].key.length !== 1 || walletEntries[0].key[0] !== 0x00) {
+    fail('the wallet witness set is not vkeys only')
+  }
+  const ours = rawArrayItems(walletEntries[0].value).items
+  const entries = rawMapEntries(provider)
+  const parts: Array<Uint8Array | number[]> = []
+  const vkeyEntry = entries.find(e => e.key.length === 1 && e.key[0] === 0x00)
+  if (!vkeyEntry) {
+    parts.push(cborHead(5, entries.length + 1), [0x00], cborHead(4, ours.length), ...ours)
+  } else {
+    parts.push(cborHead(5, entries.length))
+  }
+  for (const e of entries) {
+    if (e === vkeyEntry) {
+      const theirs = rawArrayItems(e.value)
+      parts.push(e.key, theirs.tagged ? [0xd9, 0x01, 0x02] : [], cborHead(4, theirs.items.length + ours.length), ...theirs.items, ...ours)
+    } else {
+      parts.push(e.key, e.value)
+    }
+  }
+  return concat(parts)
+}
+
 // ── Strict value / output parsing ─────────────────────────────────────────────
 
-interface StrictValue { lovelace: bigint; assets: Map<string, bigint> }
+export interface StrictValue { lovelace: bigint; assets: Map<string, bigint> }
 
-function strictValue(v: CborValue | undefined, what: string): StrictValue {
+export function strictValue(v: CborValue | undefined, what: string): StrictValue {
   if (typeof v === 'bigint') {
     if (v < 0n) fail(`${what}: negative coin`)
     return { lovelace: v, assets: new Map() }
@@ -225,14 +309,14 @@ function strictValue(v: CborValue | undefined, what: string): StrictValue {
   return { lovelace: v[0], assets }
 }
 
-interface StrictOutput {
+export interface StrictOutput {
   addressBytes: Uint8Array
   value: StrictValue
   /** Inline datum bytes; null when absent. A datum HASH is refused outright. */
   inlineDatum: Uint8Array | null
 }
 
-function strictOutput(item: CborValue, i: number): StrictOutput {
+export function strictOutput(item: CborValue, i: number): StrictOutput {
   const what = `output ${i}`
   if (Array.isArray(item)) {
     // Legacy form [address, value] — a datum hash here would be a third element.
@@ -260,7 +344,7 @@ function strictOutput(item: CborValue, i: number): StrictOutput {
   return { addressBytes, value, inlineDatum }
 }
 
-function strictInputs(v: CborValue | undefined, what: string): string[] {
+export function strictInputs(v: CborValue | undefined, what: string): string[] {
   if (!Array.isArray(v) || v.length === 0) return fail(`${what}: missing`)
   const seen = new Set<string>()
   for (const entry of v) {
@@ -277,9 +361,9 @@ function strictInputs(v: CborValue | undefined, what: string): string[] {
 
 // ── Address helpers ───────────────────────────────────────────────────────────
 
-interface WalletKeys { paymentKeyHash: string; stakeKeyHash: string; networkNibble: number; bytes: string }
+export interface WalletKeys { paymentKeyHash: string; stakeKeyHash: string; networkNibble: number; bytes: string }
 
-function walletKeys(address: string, network: 'mainnet' | 'testnet'): WalletKeys {
+export function walletKeys(address: string, network: 'mainnet' | 'testnet'): WalletKeys {
   let bytes: Uint8Array
   try { bytes = decodeCardanoAddress(address) } catch { return fail('wallet Cardano address is invalid') }
   // Type 0 = base address, key payment + key stake — the only kind this wallet derives.
@@ -311,7 +395,7 @@ function roleOf(addr: Uint8Array, w: WalletKeys): OutputRole | null {
   return null
 }
 
-function uintString(v: string, what: string): bigint {
+export function uintString(v: string, what: string): bigint {
   if (typeof v !== 'string' || !/^[0-9]+$/.test(v)) return fail(`quote ${what} is not an integer`)
   return BigInt(v)
 }

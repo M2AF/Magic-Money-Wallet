@@ -217,3 +217,85 @@ test.describe('Cardano swap (Minswap order)', () => {
     }
   })
 })
+
+test.describe('Cardano swap (Danogo pool)', () => {
+  test('discloses an atomic pool swap (no deposit, no order) and reports it complete once on Cardano', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+
+      // Shaped like the privileged layer's Danogo quote for the recorded
+      // 20 ADA -> USDCx build (2026-10-05); the receive token is the default.
+      await page.evaluate(({ MIN }) => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __status: number }
+        w.__status = 0
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, ethereum: { native: '0' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => ({
+          error: null,
+          quote: {
+            provider: 'minswap', fromChain: 'cardano', toChain: 'cardano',
+            fromTokenAddress: 'lovelace', toTokenAddress: MIN, fromTokenSymbol: 'ADA', toTokenSymbol: 'MIN',
+            sellAmountRaw: '20000000', buyAmountRaw: '5298566', minBuyAmountRaw: '5298566', minReceivedSource: 'provider',
+            estimatedGasRaw: '0', slippageBps: 50, priceImpactPct: 0.32, rate: 0.2649, expiresAt: Date.now() + 45_000,
+            isCrossChain: false, bridgeTool: 'Danogo CLMM', estimatedDurationSec: 30, feeBps: 0,
+            appFee: { policyVersion: 'x', provider: 'minswap', requestedBps: 0, appliedBps: 0, base: 'input', chain: 'cardano',
+              tokenAddress: null, tokenSymbol: null, tokenDecimals: null, amountRaw: '0', recipient: null, recipientKind: 'none',
+              collection: 'in-swap', providerSharePct: null, verification: 'none-requested', evidence: [] },
+            externalFees: [
+              { name: 'Danogo swap fee', tokenSymbol: 'ADA', tokenDecimals: 6, amountRaw: '100000', includedInQuotedOutput: false },
+              { name: 'Minswap aggregator fee', tokenSymbol: 'ADA', tokenDecimals: 6, amountRaw: '850000', includedInQuotedOutput: false },
+            ],
+            txData: { cbor: '84a0a0f5f6' }, approvalTx: null, intentId: 'stub',
+            cardanoOrder: { protocol: 'DanogoCLMMV1', path: ['lovelace', MIN], batcherFeeLovelace: '0', depositLovelace: '0',
+              aggregatorFeeLovelace: '850000', dexFeeLovelace: '100000' },
+            cardanoCost: { txFeeLovelace: '477729', batcherFeeLovelace: '0', depositLovelace: '0', aggregatorFeeLovelace: '850000',
+              dexFeeLovelace: '100000', adaSpentLovelace: '21427729', validUntilSlot: '199658389', orderMinimumRaw: '5298566', killable: null },
+          },
+        })
+        w.wallet.swapExecute = async () => ({ txHash: 'fe'.repeat(32), explorerUrl: `https://cardanoscan.io/transaction/${'fe'.repeat(32)}`, approvalTxHash: null })
+        w.wallet.swapCrossStatus = async () => {
+          w.__status++
+          return w.__status < 2
+            ? { status: 'pending', state: 'source-submitted', error: null, providerStatus: 'NOT_FOUND', message: null }
+            : { status: 'done', state: 'completed', error: null, message: null, providerStatus: 'DONE', providerSubstatus: 'COMPLETED',
+                delivered: { chain: 'cardano', address: MIN, symbol: null, decimals: null, amountRaw: '5298566' },
+                destExplorerUrl: `https://cardanoscan.io/transaction/${'fe'.repeat(32)}` }
+        }
+      }, { MIN })
+
+      await pickNetwork(page, 'From network', 'cardano')
+      await page.getByPlaceholder('0.0').first().fill('20')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+      await expect(page.getByText('This swaps directly with a Danogo pool.')).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText('nothing is spent')).toBeVisible()
+      await expect(page.getByText('This places a Minswap order.')).toHaveCount(0)
+      await expect(page.getByText('Deposit (returned)')).toHaveCount(0)
+      await expect(page.getByText('ADA needed up front')).toBeVisible()
+      await page.getByText('This swaps directly with a Danogo pool.').scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/cardano-danogo-quote.png', fullPage: true })
+
+      await page.getByRole('button', { name: /^Swap ADA/ }).click()
+      await expect(page.getByText('Swap sent — waiting for Cardano to confirm it')).toBeVisible({ timeout: 20_000 })
+      await expect(page.getByRole('button', { name: /Manage or cancel on Minswap/ })).toHaveCount(0)
+      await expect(page.getByText(/Danogo pool/).first()).toBeVisible()
+      await expect(page.getByText('the wallet keeps tracking the swap')).toBeVisible()
+      await page.screenshot({ path: 'test-results/cardano-danogo-sent.png', fullPage: true })
+
+      await expect(page.getByText('Swap complete')).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText(/Received\s+5\.298566 MIN/)).toBeVisible()
+      await page.screenshot({ path: 'test-results/cardano-danogo-complete.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+})

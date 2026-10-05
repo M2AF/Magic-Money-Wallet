@@ -203,6 +203,7 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
         const ada = (lovelace: string) => (Number(BigInt(lovelace)) / 1e6).toLocaleString('en-US', { maximumFractionDigits: 6 })
         const sold = quote.fromTokenAddress === 'lovelace' ? BigInt(quote.sellAmountRaw) : 0n
         const upFront = BigInt(c.adaSpentLovelace) - sold
+        const danogo = quote.cardanoOrder?.protocol === 'DanogoCLMMV1'
         return (
           <>
             {row('Network fee', `${ada(c.txFeeLovelace)} ADA`)}
@@ -212,10 +213,13 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
                 {ada(upFront.toString())} ADA
                 <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{sold > 0n ? ' + amount sold' : ''}</span>
               </span>,
-              `Network fee, Minswap's batcher and aggregator fees, and a ${ada(c.depositLovelace)} ADA deposit that is `
-                + 'returned with your tokens when the order is filled or cancelled.',
+              danogo
+                ? `Network fee, Minswap's aggregator fee${sold > 0n ? ` and Danogo's ${ada(c.dexFeeLovelace ?? '0')} ADA swap fee` : ''}. `
+                  + `No deposit.${sold > 0n ? '' : ` Danogo's ${ada(c.dexFeeLovelace ?? '0')} ADA swap fee comes out of the ADA you receive.`}`
+                : `Network fee, Minswap's batcher and aggregator fees, and a ${ada(c.depositLovelace)} ADA deposit that is `
+                  + 'returned with your tokens when the order is filled or cancelled.',
             )}
-            {row('Deposit (returned)', `${ada(c.depositLovelace)} ADA`)}
+            {!danogo && row('Deposit (returned)', `${ada(c.depositLovelace)} ADA`)}
           </>
         )
       })()}
@@ -237,7 +241,9 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
           {fmt(minReceived)} {toSymbol}
           {!guaranteed && <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}> · {describeMinReceivedScope(scope)}</span>}
         </span>,
-        quote.cardanoOrder
+        quote.cardanoOrder?.protocol === 'DanogoCLMMV1'
+          ? 'The transaction pays exactly this amount into your wallet, or it fails and nothing is swapped.'
+          : quote.cardanoOrder
           ? 'Written into the Minswap order: a batcher can only fill it at or above this amount. If the price '
             + 'moves past it, the order is not filled and stays open until you cancel it.'
           : scope === 'atomic'
@@ -252,7 +258,18 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
 
       {/* A batcher order is not an atomic swap, and the difference decides what
           the user holds if the price moves. Stated before signing, plainly. */}
-      {quote.cardanoOrder && (
+      {quote.cardanoOrder?.protocol === 'DanogoCLMMV1' && (
+        <div style={{
+          fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)',
+          background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)',
+          borderRadius: 'var(--radius-sm)', padding: '8px 10px',
+        }}>
+          <strong style={{ color: '#38bdf8' }}>This swaps directly with a Danogo pool. </strong>
+          It completes in one transaction at exactly the amount shown. If the pool changes before your transaction
+          lands, Cardano rejects it and <strong>nothing is spent</strong> — refresh the quote and try again.
+        </div>
+      )}
+      {quote.cardanoOrder && quote.cardanoOrder.protocol !== 'DanogoCLMMV1' && (
         <div style={{
           fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)',
           background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)',

@@ -46,7 +46,7 @@ import { wordlist } from '@scure/bip39/wordlists/english'
 import { getCardanoSpendingKey, decodeCardanoAddress } from './cardano-pure'
 import { cip30SignTx, cip30SubmitTx } from './cardano-cip30'
 import { decodeCbor, CborMap } from './cardano-tx-inspect'
-import { splitTxRoot, assembleSignedTx, hexToBytesStrict, CardanoSwapValidationError } from './cardano-swap-validate'
+import { splitTxRoot, assembleSignedTx, mergeWitnessSets, hexToBytesStrict, CardanoSwapValidationError } from './cardano-swap-validate'
 import { checkCardanoSwapTx, cardanoscanTx, CardanoSwapError } from './cardano-swap'
 import { cardanoSwapInputRefs, CardanoInputReservationError } from './cardano-swap-inputs'
 
@@ -217,7 +217,8 @@ export async function executeSwap(
 }
 
 /**
- * Sign and submit a Minswap V2 order.
+ * Sign and submit a Cardano swap: a Minswap V2 order, or a direct Danogo pool
+ * swap (each re-validated by its own validator in step 2).
  *
  * Order of operations, each a gate:
  *   1. the key this wallet will sign with must control the address the order
@@ -226,11 +227,15 @@ export async function executeSwap(
  *      chain tip read NOW — the quote-time check is not reused;
  *   3. the witness is checked to be exactly one signature by that key;
  *   4. the provider's body bytes are kept verbatim, so the id computed before
- *      submitting is the id that lands.
+ *      submitting is the id that lands. The wallet's signature is ADDED to the
+ *      provider's witness set (empty for a V2 order; for a Danogo swap it holds
+ *      the redeemers and the provider's own collateral signature, copied byte
+ *      for byte because the body's script-data hash covers them).
  *
- * There is no simulation step to apply: an order-creation transaction runs no
- * scripts (the validator refuses any that would), so the ledger's phase-1 rules
- * are the whole of its validity, and the submit call enforces them.
+ * There is no simulation step to apply. An order-creation transaction runs no
+ * scripts. A Danogo swap runs the pool script, which the node evaluates on
+ * submission and rejects if it fails (it is marked valid, so a failing script
+ * is never included); the collateral is the provider's, never this wallet's.
  */
 async function executeCardanoSwap(
   quote: NormalizedSwapQuote,
@@ -283,7 +288,8 @@ async function executeCardanoSwap(
   if (!(first instanceof Uint8Array) || toHex(blake2b(first, { dkLen: 28 })) !== keyHash) {
     throw new SwapPreflightError('The Cardano signature did not come out as a single payment-key witness. Nothing was sent.')
   }
-  const signed = assembleSignedTx(splitTxRoot(hexToBytesStrict(quote.txData.cbor)), witnessBytes)
+  const root = splitTxRoot(hexToBytesStrict(quote.txData.cbor))
+  const signed = assembleSignedTx(root, mergeWitnessSets(root.witnessSet, witnessBytes))
   const txId = validated.txId
   const explorerUrl = cardanoscanTx(txId)
 

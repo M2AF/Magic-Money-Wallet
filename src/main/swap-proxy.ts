@@ -567,19 +567,31 @@ async function getCardanoSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
         + 'or use the Cross-Chain tab for ADA.',
     }
   }
+  // Two route shapes, each with its own pre-signing validator: a Minswap V2
+  // batcher order and a direct Danogo pool swap. Asked one after the other
+  // (Minswap rate-limits per IP); either failing leaves the other on offer, and
+  // the existing safety and ranking gates choose between them.
   const excluded: string[] = []
-  let quote: NormalizedSwapQuote | null = null
-  try {
-    quote = await prepareCardanoSwapQuote(req, config,
-      (url, init) => fetchWithDeadline(url, init, 15_000, 'Minswap'))
-  } catch (e) {
-    const why = e instanceof CardanoSwapError ? e.message : msg(e)
-    return { quote: null, error: why }
+  const candidates: NormalizedSwapQuote[] = []
+  const fetchFn = (url: string, init: RequestInit) => fetchWithDeadline(url, init, 15_000, 'Minswap')
+  for (const [label, protocol] of [['minswap', 'MinswapV2'], ['danogo', 'DanogoCLMMV1']] as const) {
+    let quote: NormalizedSwapQuote
+    try {
+      quote = await prepareCardanoSwapQuote(req, config, fetchFn, protocol)
+    } catch (e) {
+      excluded.push(`${label}: ${e instanceof CardanoSwapError ? e.message : msg(e)}`)
+      continue
+    }
+    const ready = withMinReceived(quote)
+    const why = ready ? unsignableReason(ready) : 'no output amount'
+    if (!ready || why) { excluded.push(`${label}: ${why}`); continue }
+    candidates.push(ready)
   }
-  const ready = withMinReceived(quote)
-  const why = ready ? unsignableReason(ready) : 'no output amount'
-  if (!ready || why) return { quote: null, error: joinReasons('No route could be offered safely for this swap.', [`minswap: ${why}`]) }
-  return selectSafeRoute([ready], excluded)
+  if (!candidates.length) {
+    // One reason reads as before; two are joined so neither is hidden.
+    return { quote: null, error: excluded.length === 1 ? excluded[0].replace(/^\w+: /, '') : joinReasons('No route could be offered safely for this swap.', excluded) }
+  }
+  return selectSafeRoute(candidates, excluded)
 }
 
 /**
@@ -619,6 +631,9 @@ export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: Wa
   // A Minswap order is measured on Cardano itself; there is no provider status to ask.
   if (req.provider === 'minswap') {
     const status = await getMinswapOrderStatus(req, config)
+    // An included Danogo transaction can fail phase-2 validation. Its body
+    // outputs are not a delivery; preserve the reader's explicit failed state.
+    if (status.providerSubstatus === 'SCRIPT_FAILED') return status
     const report = applyShortfallToReport(req.minBuyAmountRaw, mapStatusForProvider('minswap', {
       provider: 'minswap',
       status: status.providerStatus ?? null,

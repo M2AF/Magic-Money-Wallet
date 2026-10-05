@@ -424,3 +424,42 @@ measurement and the deposit adjustment, not token selection. No live
 **fallback scan was not exercised live**, because Blockfrost returned
 `consumed_by_tx`; its pagination, resume and failure cases rest on
 `src/main/cardano-order-status.test.ts`.
+
+---
+
+## Danogo CLMM direct swaps (2026-10-05)
+
+Added as a second Cardano route shape beside Minswap V2 orders, built by the same keyless Minswap aggregator (`include_protocols: ["DanogoCLMMV1"]`, `allow_multi_hops: false`). Its own validator is `src/main/cardano-danogo-validate.ts`; the V2 validator is unchanged and still refuses this shape.
+
+**Live, read-only captures** (unsigned; nothing signed or submitted): `src/main/__fixtures__/minswap/ada-usdcx-danogo-20.json` (20 ADA → 5.298566 USDCx) and `usdcx-ada-danogo-2.json` (2 USDCx → 7.450965 ADA delivered). Pool and wallet inputs were resolved from Koios at capture time.
+
+**Shape measured:**
+- Inputs: the wallet's own UTxO, plus the pool UTxO at Danogo's pool script `d8b69fc5…67bb`, which holds its pool NFT.
+- Reference inputs: pool script `64d111b9…8501#0`, protocol config `2cafd7c9…d1ee#0` (inline datum `[1000, 100000]`), and the pool's staking-script reference.
+- Two zero-withdrawals: the pool script and the pool's staking script.
+- Collateral: a 5 ADA UTxO owned by Minswap's key `19917d4d…`, whose vkey witness is already in the witness set. It is never the wallet's.
+- Redeemers: a single-pool swap (`<in><03><pool_in><pool_out><int256 delta>`). The delta is the sell amount: positive when selling X (ADA), negative when selling Y.
+- Validity window: 360 slots (Danogo requires ≤ 6 min).
+- Outputs: the continuing pool output, the 0.85 ADA aggregator fee to the pinned address, and the wallet's own output.
+- Danogo's 0.1 ADA swap fee is added to the pool:
+  - When ADA is sold, it is paid on top of the sale.
+  - When ADA is bought, it comes out of the payout, so delivered = aggregator `amount_out` − 0.1 ADA.
+
+**Checked against Danogo's published rules** (tests in `cardano-danogo-validate.test.ts`):
+- `total_swap_fee` grows by `swap_fee`.
+- `platform_fee_X/Y` accrue per the published FLOOR formula.
+- Immutable datum fields are unchanged.
+- The pool's payout is ≤ the published CEIL bound computed from the virtual reserves.
+- `|change| ≥ min_x/y_change`.
+
+**Measured comparison**, same minute, 100 ADA → USDCx:
+
+| Route | Output (USDCx) | Fees |
+|---|---|---|
+| Danogo | 26.47 | ~0.95 ADA, no deposit |
+| Minswap V2, 2-hop | 26.32 | ~2.85 ADA + 2 ADA deposit |
+
+**Limits:**
+- ADA-on-one-side pairs only, one pool, no splits.
+- Not executed with real funds.
+- A pool that moves before inclusion makes the transaction invalid, so nothing is spent. The executor still reports an uncertain broadcast in that case, and the status card explains the expiry after 8 minutes.

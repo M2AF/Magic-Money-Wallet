@@ -2,9 +2,12 @@
  * cardano-swap.ts — Cardano same-chain swaps: quote, pre-signing check, and
  * order status (privileged layer, shared by all four targets).
  *
- * The one provider is the Minswap Aggregator, and the one transaction shape is a
- * Minswap V2 batcher order (see cardano-swap-validate.ts for exactly what is and
- * is not accepted, and docs/CARDANO-SWAP-DISCOVERY.md for the live evidence).
+ * The one provider is the Minswap Aggregator, building one of two transaction
+ * shapes: a Minswap V2 batcher order (cardano-swap-validate.ts), or a direct,
+ * atomic Danogo concentrated-liquidity pool swap (cardano-danogo-validate.ts).
+ * Each shape has its own validator; docs/CARDANO-SWAP-DISCOVERY.md holds the
+ * live evidence. Everything below about the order lifecycle applies to V2
+ * orders; a Danogo swap settles in its own transaction.
  *
  * THE ORDER LIFECYCLE IS NOT A SAME-CHAIN SWAP'S
  *
@@ -30,11 +33,14 @@ import { fetchUtxos, fetchCardanoTip } from './tx-sender'
 import { isTestnet } from './chain-config'
 import type { WalletConfig } from './secure-store'
 import type { NormalizedSwapQuote, SwapQuoteRequest, CrossSwapStatusRequest, CrossSwapStatus } from './swap-proxy'
-import { minswapQuoteDirect, MinswapQuoteError, type MinswapFetch } from './minswap-client'
+import { minswapQuoteDirect, MinswapQuoteError, type MinswapFetch, type CardanoSwapProtocol } from './minswap-client'
 import {
-  validateMinswapOrderTx, indexWalletUtxos, CardanoSwapValidationError,
-  type MinswapOrderExpectation, type ValidatedMinswapOrder,
+  validateMinswapOrderTx, indexWalletUtxos, CardanoSwapValidationError, MINSWAP_AGGREGATOR_FEE_KEY_HASH,
+  type MinswapOrderExpectation,
 } from './cardano-swap-validate'
+import { validateDanogoSwapTx } from './cardano-danogo-validate'
+import { DANOGO_CLMM } from './danogo-clmm'
+import type { CardanoSwapCost } from '../shared/swap-quote'
 import { MINSWAP_V2, decodeMinswapV2OrderDatum } from './minswap-v2-order'
 import { CARDANO_LOVELACE, normalizeSwapAddress } from '../shared/swap-token-identity'
 
@@ -69,13 +75,15 @@ export function expectationFromQuote(quote: NormalizedSwapQuote, walletAddress: 
  */
 export async function checkCardanoSwapTx(
   quote: NormalizedSwapQuote, walletAddress: string, config: WalletConfig,
-): Promise<ValidatedMinswapOrder> {
+): Promise<{ txId: string; cost: CardanoSwapCost }> {
   const expectation = expectationFromQuote(quote, walletAddress, isTestnet(config))
   const [utxos, tip] = await Promise.all([fetchUtxos(walletAddress, config), fetchCardanoTip(config)])
   if (tip == null) {
     throw new CardanoSwapError('Could not read the current Cardano slot, so the order\'s validity window cannot be checked.')
   }
-  return validateMinswapOrderTx(quote.txData.cbor as string, expectation, indexWalletUtxos(utxos), tip)
+  // One validator per transaction shape; neither is relaxed to fit the other.
+  const validate = expectation.terms.protocol === 'DanogoCLMMV1' ? validateDanogoSwapTx : validateMinswapOrderTx
+  return validate(quote.txData.cbor as string, expectation, indexWalletUtxos(utxos), tip)
 }
 
 /**
@@ -83,7 +91,7 @@ export async function checkCardanoSwapTx(
  * unless its transaction passes the same check signing will run.
  */
 export async function prepareCardanoSwapQuote(
-  req: SwapQuoteRequest, config: WalletConfig, fetchFn: MinswapFetch,
+  req: SwapQuoteRequest, config: WalletConfig, fetchFn: MinswapFetch, protocol: CardanoSwapProtocol = 'MinswapV2',
 ): Promise<NormalizedSwapQuote> {
   if (isTestnet(config)) {
     throw new CardanoSwapError('Cardano swaps are mainnet-only: the Minswap aggregator has no Preprod endpoint.')
@@ -99,6 +107,7 @@ export async function prepareCardanoSwapQuote(
       sender: req.taker,
       fromSymbol: req.fromSymbol,
       toSymbol: req.toSymbol,
+      protocol,
     }, fetchFn)
   } catch (e) {
     if (e instanceof MinswapQuoteError) throw new CardanoSwapError(e.message)
@@ -109,7 +118,8 @@ export async function prepareCardanoSwapQuote(
     return { ...quote, cardanoCost: validated.cost }
   } catch (e) {
     if (e instanceof CardanoSwapValidationError) {
-      throw new CardanoSwapError(`The Minswap transaction failed the wallet's safety check: ${e.message}.`)
+      const what = protocol === 'DanogoCLMMV1' ? 'Danogo swap' : 'Minswap transaction'
+      throw new CardanoSwapError(`The ${what} failed the wallet's safety check: ${e.message}.`)
     }
     throw e
   }
@@ -228,6 +238,60 @@ function netDelta(tx: BfUtxos, wallet: string, unit: string): bigint {
   return sum
 }
 
+/**
+ * A Danogo pool swap settles IN its own transaction: once Cardano has it, the
+ * trade happened, at exactly the amounts it carries. The delivered amount is
+ * the wallet's measured net change in the bought asset; for ADA bought, the
+ * network and aggregator fees the wallet paid in the same transaction are added
+ * back, so the figure is the pool's payout (what the user approved).
+ */
+async function directSwapStatus(
+  txHash: string, tx: BfUtxos, wallet: string, buyUnit: string, config: WalletConfig,
+  unknown: (error: string | null, extra?: Partial<CrossSwapStatus>) => CrossSwapStatus,
+): Promise<CrossSwapStatus> {
+  const links = { destTxHash: txHash, destExplorerUrl: cardanoscanTx(txHash) }
+  // Blockfrost may expose a failed script transaction's body outputs. They
+  // were never realized on the ledger, so outputs alone cannot prove delivery.
+  const meta = await bfJson<{ hash?: string; block_height?: number; valid_contract?: boolean; fees?: string }>(`txs/${txHash}`, config)
+  if (meta.data?.hash !== txHash || !Number.isInteger(meta.data.block_height)
+      || typeof meta.data.valid_contract !== 'boolean') {
+    return unknown('the swap transaction validity could not be confirmed', links)
+  }
+  if (!meta.data.valid_contract) {
+    return {
+      status: 'failed', state: 'failed', error: null,
+      providerStatus: 'FAILED', providerSubstatus: 'SCRIPT_FAILED', ...links,
+      message: 'Cardano included the transaction, but its script failed. The swap did not execute. Review the transaction before requesting a fresh quote.',
+    }
+  }
+  let amount = netDelta(tx, wallet, buyUnit)
+  if (buyUnit === CARDANO_LOVELACE) {
+    if (typeof meta.data?.fees !== 'string' || !/^[0-9]+$/.test(meta.data.fees)) return unknown('the swap transaction could not be read')
+    let aggregatorFee = 0n
+    for (const o of tx.outputs) {
+      const p = paymentHashOf(o.address)
+      if (p?.type === 6 && p.hash === MINSWAP_AGGREGATOR_FEE_KEY_HASH) {
+        aggregatorFee += BigInt(o.amount.find(a => a.unit === CARDANO_LOVELACE)?.quantity ?? '0')
+      }
+    }
+    amount += BigInt(meta.data.fees) + aggregatorFee
+  }
+  if (amount <= 0n) {
+    return unknown(null, { providerStatus: 'SPENT', providerSubstatus: 'UNEXPLAINED', message: DIRECT_UNEXPLAINED_MESSAGE, ...links })
+  }
+  return {
+    status: 'done', state: 'completed', error: null,
+    providerStatus: 'DONE', providerSubstatus: 'COMPLETED', ...links,
+    receivedAmountRaw: amount.toString(),
+    deliveredAmountSource: 'onchain',
+    delivered: { chain: 'cardano', address: buyUnit, symbol: null, decimals: null, amountRaw: amount.toString() },
+  }
+}
+
+export const DIRECT_UNEXPLAINED_MESSAGE =
+  'The swap transaction is on Cardano, but the wallet cannot find the token you bought arriving in it. '
+  + 'Check the transaction.'
+
 const ahead = (a: { blockHeight: number; txIndex: number }, b: { blockHeight: number; txIndex: number }) =>
   a.blockHeight > b.blockHeight || (a.blockHeight === b.blockHeight && a.txIndex > b.txIndex)
 
@@ -293,7 +357,14 @@ export async function getMinswapOrderStatus(
       const p = paymentHashOf(o.address)
       return p?.type === 1 && p.hash === MINSWAP_V2.orderScriptHash
     })
-    if (!orderOut) return unknown('the transaction created no Minswap order')
+    if (!orderOut) {
+      const direct = order.data.outputs.some(o => {
+        const p = paymentHashOf(o.address)
+        return !!p && p.type <= 7 && (p.type & 1) === 1 && p.hash === DANOGO_CLMM.poolScriptHash
+      })
+      if (!direct) return unknown('the transaction created no Minswap order')
+      return await directSwapStatus(req.txHash, order.data, wallet, buyUnit, config, unknown)
+    }
     const orderRef = `${req.txHash}#${orderOut.output_index}`
     const sellUnit = orderOut.amount.find(a => a.unit !== CARDANO_LOVELACE)?.unit.toLowerCase() ?? CARDANO_LOVELACE
     const orderLovelace = BigInt(orderOut.amount.find(a => a.unit === CARDANO_LOVELACE)?.quantity ?? '0')

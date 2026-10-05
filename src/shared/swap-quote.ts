@@ -13,12 +13,14 @@ import type { AppFeeRecord, ExternalFeeRecord } from './swap-fee-policy'
 export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap'
 
 /**
- * A Cardano batcher order as the provider priced it. These are CLAIMS: the
- * privileged layer re-reads every one of them out of the transaction before it
- * signs (src/main/cardano-swap-validate.ts). Lovelace amounts are integer strings.
+ * A Cardano swap as the provider priced it: a Minswap V2 batcher ORDER, or a
+ * direct Danogo concentrated-liquidity pool swap (atomic, no batcher). These are
+ * CLAIMS: the privileged layer re-reads every one of them out of the transaction
+ * before it signs (src/main/cardano-swap-validate.ts for Minswap V2 orders,
+ * src/main/cardano-danogo-validate.ts for Danogo). Lovelace amounts are integer strings.
  */
 export interface CardanoOrderTerms {
-  protocol: 'MinswapV2'
+  protocol: 'MinswapV2' | 'DanogoCLMMV1'
   /** Token units the route crosses, in order: sell, any intermediates, buy. */
   path: string[]
   /** Maximum batcher fee committed in the order datum. */
@@ -27,6 +29,8 @@ export interface CardanoOrderTerms {
   depositLovelace: string
   /** The aggregator's own fee output. Not a Magic Money fee. */
   aggregatorFeeLovelace: string
+  /** Danogo only: the protocol's per-swap fee (lovelace) added to the pool. */
+  dexFeeLovelace?: string
 }
 
 /**
@@ -38,10 +42,12 @@ export interface CardanoSwapCost {
   batcherFeeLovelace: string
   depositLovelace: string
   aggregatorFeeLovelace: string
+  /** Danogo only: the protocol's per-swap fee (lovelace). */
+  dexFeeLovelace?: string
   /** Net ADA leaving the wallet: fees + deposit, plus the sell amount when selling ADA. */
   adaSpentLovelace: string
   validUntilSlot: string
-  /** The floor the order datum commits the batcher to. */
+  /** The floor the order datum commits the batcher to; for a Danogo swap, the exact amount delivered. */
   orderMinimumRaw: string
   /** Single-hop orders: whether an unfillable order is refunded by the batcher. */
   killable: boolean | null
