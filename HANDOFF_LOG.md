@@ -154,3 +154,109 @@
 ### 2026-10-05T01:17-03:00 · codex · handoff · 63f378d (main) dirty 22
 - NFT favorites complete and locally verified; changes uncommitted; no task jobs running. See docs/NFT-GALLERY-PERFORMANCE.md favorites section.
 - next: NFT work complete; apply website equivalents when requested. Prior ADA exchange task: follow docs/CARDANO-ADA-EXCHANGE-ROUTE.md for an authorized guided parent journey; preserve standalone flows.
+
+### 2026-10-05T14:31-03:00 · claude · claim · 5d52579 (main) dirty 1
+- task: Cardano native asset -> ADA -> exchange: guided parent journey first slice (persisted exchange + journey, manual funding)
+- lease until 2026-10-05T18:31-03:00
+
+### 2026-10-05T14:31-03:00 · claude · checkpoint · 5d52579 (main) dirty 2
+- Re-verifying HEAD 5d52579 (board verified 63f378d): npm run typecheck && npm test, logs .ada-route-verify-{typecheck,tests}.log
+- next: Read xchange-client, SimpleSwapWidget, ExchangeStatusCard, cardano-swap, swap-sessions; design journey store
+
+### 2026-10-05T14:33-03:00 · claude · verify · 5d52579 (main) dirty 2
+- verified: PASS at 5d52579: npm run typecheck exit 0; npm test 146 files / 2139 tests (.ada-route-verify-*.log)
+
+### 2026-10-05T14:35-03:00 · claude · checkpoint · 5d52579 (main) dirty 2
+- Design: parent journey references the existing Minswap swap session by intentId (fill = session completed with delivered lovelace); leg2 = fresh ADA exchange quote after fill, separate approval, manual funding
+- Provider payout/refund hash fields confirmed from published docs: SimpleSwap v3 txFrom/txTo/userRefundAddress; ChangeNOW by-id payinHash/payoutHash/refundHash
+- Codex audit folded in: validate created exchange vs approved request before persisting; deposit instructions immutable; finished/refunded need on-chain evidence (ERC-20 credit via measureDelivery; refund via Koios mainnet tx outputs)
+- next: Write src/shared/ada-exchange-route.ts, src/main/ada-exchange-journey.ts (+test), stores, handlers, panel
+
+### 2026-10-05T14:39-03:00 · claude · correction · 5d52579 (main) dirty 2
+- STOPPED Cardano->ADA->SimpleSwap/ChangeNOW journey slice: user + Codex corrected scope (feature belongs in DEX/Magic Swap, DexSwapWidget, Minswap + supported bridge only; no deposit-address exchange)
+- Slice was never wired (no handler/bridge/UI). Removed its edits file-by-file: restored 8 files clean at HEAD 5d52579 (stores x3, simpleswap/changenow clients, swap-intent peek, 2 tsconfigs); deleted ada-exchange-journey.ts, shared/ada-exchange-route.ts. Tree now = HEAD + handoff files only
+- Reusable research kept in journal: SimpleSwap v3 txFrom/txTo, ChangeNOW payinHash/payoutHash/refundHash (published docs)
+- next: Re-verify (typecheck+tests), then read-only reassessment of DexSwapWidget cardanoCrossChain route: Minswap + supported bridge; keep Cardano outbound disabled
+
+### 2026-10-05T14:40-03:00 · claude · checkpoint · 5d52579 (main) dirty 2
+- Reassessment (read-only): DexSwapWidget + swap-proxy refuse Cardano cross-chain quotes; only documented supported bridge = xReserve inbound (EVM USDC -> Cardano USDCx), mainnet blocked on deposit quote; outbound disabled
+- Wanchain live tokenPairs 2026-10-05 17:40Z: 470 pairs / 27 chains, zero with Cardano chain side
+
+### 2026-10-05T14:40-03:00 · claude · handoff · 5d52579 (main) dirty 2
+- Stopped wrong-scope ADA exchange slice (fully removed; tree = HEAD 5d52579 + handoff files). Reassessed DEX Swap Cardano route; awaiting user decision.
+- next: User to choose: (a) testnet-first composed inbound Magic Swap route (Sepolia USDC -> xReserve -> Preprod USDCx -> Minswap) in DexSwapWidget, (b) mainnet inbound with an explicit user-set fee cap (product decision), or (c) hold. Outbound stays disabled.
+
+### 2026-10-05T15:04-03:00 · claude · claim · 5d52579 (main) dirty 2
+- task: Investigate DexHunter as mainnet Cardano same-chain provider beside Minswap (research only until API key)
+- lease until 2026-10-05T18:04-03:00
+
+### 2026-10-05T15:05-03:00 · claude · checkpoint · 5d52579 (main) dirty 2
+- Direction change (user+Codex): prioritize MAINNET Magic Swap/DEX Swap; DexHunter as extra Cardano same-chain provider beside Minswap; no Preprod stand-in, no SimpleSwap/ChangeNOW; xReserve inbound = separate leg with fee/min gate; outbound disabled
+- DexHunter docs (dexhunter.gitbook.io/dexhunter-partners, llms.txt): base https://api-us.dexhunterv3.app, header X-Partner-Id (partnerCode from app.dexhunter.io/partners account; partner sets fee >=0.01%). POST /swap/estimate, /swap/build (cbor, splits[]), /swap/sign {txCbor, signatures}; cancel only documented for limit/DCA. No OpenAPI, no published fee/terms/rate limits
+- Keyless probe 2026-10-05 18:05Z: /swap/estimate answers WITHOUT key but stamps partner_code SHADOWBOOK, partner_fee 5 on 100 ADA->USDCx; single split SHADOWBOOK, out 26.3727 pre-slippage / 25.054 total_output, batcher 0.6, deposits 4. Not our terms: do not use keyless numbers as a quote
+- Minswap same time, 100 ADA->USDCx: MinswapV2-only = 2-hop, out 26.248 (min 25.731), dex fee 2, agg fee 0.85, impact 0.62%; unrestricted aggregator = DanogoCLMMV1 single hop 26.472. No /swap/build called (needs buyer address + key)
+- next: User: create DexHunter partner account (app.dexhunter.io/partners), choose partner fee %, provide partnerCode; then authenticated estimate+build comparison for exact pairs, decode returned cbor per DEX script before any signable path
+
+### 2026-10-05T15:05-03:00 · claude · handoff · 5d52579 (main) dirty 2
+- DexHunter investigated read-only; blocked on partner key (user action). No code changes; tree = HEAD 5d52579 + handoff files
+- next: User provides DexHunter partnerCode (app.dexhunter.io/partners) and partner-fee choice; then authenticated quote/build comparison vs Minswap for exact mainnet USDCx<->native pairs
+
+### 2026-10-05T15:07-03:00 · claude · claim · 5d52579 (main) dirty 2
+- task: DexHunter authenticated read-only research: sanitized estimate/build captures for exact mainnet USDCx pairs
+- lease until 2026-10-05T18:07-03:00
+
+### 2026-10-05T15:14-03:00 · claude · checkpoint · 5d52579 (main) dirty 3
+- DexHunter step A: authenticated read-only capture via ChainLens credential (never printed/stored); 28 sanitized files src/main/__fixtures__/dexhunter/, key-absence checked
+- USDCx search: 21 named, 1 exact full-ID match, only verified one, decimals 6
+- Builds: required signers payment+stake keys; extra output = partner_fee to addr1q8l7hny7...qtnzlfk (unidentified); MSV2-only builds are genuine Minswap V2 orders (datum floor = total_output); default routes CSWAP/SHADOWBOOK unknown scripts; existing validator refuses all
+- Quotes: DexHunter never beat Minswap aggregator; Danogo CLMM best on ADA<->USDCx. Results appended to docs/DEXHUNTER-EVALUATION.md
+
+### 2026-10-05T15:14-03:00 · claude · handoff · 5d52579 (main) dirty 3
+- DexHunter step A complete; no wallet code changed
+- next: User: identify addr1q8l7... (DexHunter vs ChainLens payout) and partner fee intent; choose DexHunter MSV2 profile vs Danogo CLMM profile for Minswap path
+
+### 2026-10-05T15:17-03:00 · claude · claim · 5d52579 (main) dirty 3
+- task: Danogo CLMM: capture Minswap-built Danogo txs, own validator profile, then enable in DEX Swap beside Minswap V2
+- lease until 2026-10-05T18:17-03:00
+
+### 2026-10-05T15:35-03:00 · claude · checkpoint · 5d52579 (main) dirty 12
+- Danogo CLMM: new danogo-clmm.ts (pins, datum/redeemer decoders, published swap rule), separate cardano-danogo-validate.ts; minswap-client protocol option; cardano-swap dispatch + direct status; swap-proxy offers V2 + Danogo candidates; executor merges witness sets; UI wording (SwapQuoteCard, CardanoOrderStatusCard)
+- Fixtures: __fixtures__/minswap/{ada-usdcx-danogo-20,usdcx-ada-danogo-2}.json (unsigned, read-only, pool+wallet inputs resolved). New tests 32+4 pass; 3 mutation checks fail as expected
+- Running full suite -> .danogo-tests.log; typecheck -> .danogo-typecheck.log (passed before tests were added)
+
+### 2026-10-05T15:41-03:00 · claude · checkpoint · 5d52579 (main) dirty 13
+- Danogo e2e added (real extension, bridge stubs); running full validation: typecheck, npm test, build, build:extension, capacitor+ios vite builds, cardano e2e -> .danogo-*.log
+
+### 2026-10-05T15:45-03:00 · claude · verify · 5d52579 (main) dirty 14
+- verified: PASS uncommitted on 5d52579: typecheck 0; npm test 148 files/2177 tests; npm run build, build:extension, vite capacitor+ios builds; playwright e2e/cardano-swap.spec.ts 3/3 (.danogo-*.log)
+- Danogo CLMM route in DEX Swap complete locally; screenshots test-results/cardano-danogo-{quote,sent,complete}.png reviewed
+
+### 2026-10-05T15:45-03:00 · claude · handoff · 5d52579 (main) dirty 14
+- Danogo CLMM same-chain route implemented beside Minswap V2 with its own validator; nothing signed/submitted/committed
+- next: User reviews + commits; authorize one small mainnet Danogo swap for real-funds QA
+
+### 2026-10-05T15:49-03:00 · codex · claim · 5d52579 (main) dirty 14
+- task: Review Danogo path; gate direct settlement on Cardano script validity
+- lease until 2026-10-05T17:49-03:00
+
+### 2026-10-05T15:52-03:00 · codex · checkpoint · 5d52579 (main) dirty 14
+- Review found Danogo status could mark an included phase-2 failed transaction completed from unrealized indexed outputs.
+- Added Blockfrost hash/height/valid_contract gate, failed-state preservation, regression tests and clarified gross ADA payout text.
+- next: Run typecheck, full unit suite and Cardano browser checks; review diff before any commit.
+
+### 2026-10-05T15:54-03:00 · codex · verify · 5d52579 (main) dirty 14
+- verified: PASS after Danogo settlement validity fix: npm run typecheck exit 0; npm test 148 files/2179 tests; npx playwright test e2e/cardano-swap.spec.ts --workers=1 3/3; git diff --check clean. DexHunter 28 JSON captures checked for credential fields.
+- next: Stage and commit reviewed research and Danogo implementation separately; no real-funds QA.
+
+### 2026-10-05T15:56-03:00 · codex · checkpoint · e68f40e (main) dirty 2
+- Committed DexHunter read-only evaluation f074204 and Danogo integration with settlement validity guard e68f40e.
+- Restored src/shared/swap-networks.ts after verifying its content matched HEAD; only handoff board/journal remain dirty.
+- next: Release lease. Await explicit authorization for a small mainnet Danogo QA swap; fee-aware ranking and xReserve mainnet gates remain separate work.
+
+### 2026-10-05T15:56-03:00 · codex · verify · e68f40e (main) dirty 2
+- verified: PASS on committed tree e68f40e: typecheck exit 0, npm test 148/2179, Cardano Playwright 3/3. Danogo phase-2 validity regression included; no live signing or submission.
+- next: Release lease; real-funds Danogo QA requires explicit user authorization.
+
+### 2026-10-05T15:56-03:00 · codex · handoff · e68f40e (main) dirty 2
+- Reviewed and committed Danogo integration plus DexHunter research. Fixed phase-2 settlement validity and gross ADA payout wording; 148/2179 tests, typecheck and Cardano Playwright 3/3 pass. No live swap.
+- next: User may authorize a small mainnet Danogo QA swap; do not initiate without explicit authorization. Fee-aware ranking and xReserve mainnet gates remain.

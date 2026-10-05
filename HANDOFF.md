@@ -7,32 +7,33 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 63f378d · PASS five-target typecheck; 146 files/2139 unit tests; desktop/extension/Android-web/iOS-web builds; two extension gallery/favorites tests; diff check and favorite screenshot review. · 2026-10-05T01:17-03:00
-head: 63f378d (main) dirty 22
-updated: 2026-10-05T01:17-03:00 · codex
+verified: e68f40e · PASS on committed tree e68f40e: typecheck exit 0, npm test 148/2179, Cardano Playwright 3/3. Danogo phase-2 validity regression included; no live signing or submission. · 2026-10-05T15:56-03:00
+head: e68f40e (main) dirty 2
+updated: 2026-10-05T15:56-03:00 · codex
 
 ## Now
-- NFT favorites implemented: always-visible image top-left star; local owner/mode persistence; favorites-first and descending USD sorting within both groups.
-- Favorites verification PASS: five-target typecheck, 146 files/2139 tests, four web builds, two extension tests including reload/unlock persistence and reviewed star screenshot. Evidence .nft-favorites-*.log and docs/NFT-GALLERY-PERFORMANCE.md.
-- NFT gallery implemented and locally verified: provider previews, viewport loading, placeholder/fade, bounded fallback/deadline and ready-source updates.
-- PASS five-target typecheck, 144 files/2115 tests, four web builds and real-extension 240-item gallery test; 3 initial media requests and no uncaught page errors.
-- NFT evidence/scope: docs/NFT-GALLERY-PERFORMANCE.md, .nft-gallery-*.log and test-results/nft-gallery-*.png. No Codex jobs running; changes uncommitted.
-- Outbound Circle preparation/status unit implemented and locally verified; full bidirectional bridge remains unfinished.
-- Direct Ethereum preparation checks encoded terms, fee ceiling, burn amount and transfer hash; always executable:false and core-only.
-- Read-only withdrawal status wired through desktop, extension and native wallet APIs; provider finalized never proves recipient delivery.
-- Core-only Ethereum withdrawal credit proof now checks the Circle-linked forwarded transaction's exact net USDC credit at depth. It has no production caller and no Cardano burn proof.
-- Prior xReserve credit unit: 12 fixture tests; mainnet route remains gated, with existing uncommitted work preserved.
-- No funds, commit, deployment or native QA; only local gallery fixtures and builds.
+- Danogo CLMM same-chain swaps in DEX Swap committed as e68f40e; DexHunter read-only evaluation committed as f074204. No live swap, signing or submission.
+- Codex review fixed Danogo settlement: Blockfrost hash, block height and `valid_contract` must agree before completion; phase-2 failure is `failed`. ADA completion copy distinguishes gross pool payout from net wallet gain.
+- Verification after review: five-target typecheck PASS; 148 test files/2179 tests PASS; Cardano Playwright 3/3 PASS. Claude's earlier desktop, extension, Capacitor and iOS web builds PASS before the review fix; no native-device QA.
+- NFT gallery/favorites and outbound xReserve read-only modules are locally verified; see docs/NFT-GALLERY-PERFORMANCE.md and docs/XRESERVE-OUTBOUND-IMPLEMENTATION.md. Outbound has no executable Cardano burn path.
+- No funds, deployment or native QA; only local fixtures and builds.
 
-- USDCx inbound (Claude, commit 63f378d): Sepolia USDC -> Cardano Preprod USDCx PASSED live 2026-09-30 through the wallet (20 USDC deposit, 15 USDCx credited, mint 0d76ff8b...b1ab, ~2h12m); evidence docs/XRESERVE-TESTNET-QA.md. Testnet only; not mainnet, not RELEASE-QA.
-- Cardano swap leg (committed 63f378d): Minswap order executor persists tx hash + terms BEFORE submit (atomic-json-map-file, swap-sessions); recovery polls known hash, never resends. No composed multichain route/parent journey exists yet. ADA exchange composition researched in docs/CARDANO-ADA-EXCHANGE-ROUTE.md.
+- USDCx inbound testnet passed live 2026-09-30 (20 USDC -> 15 USDCx, ~2h12m); docs/XRESERVE-TESTNET-QA.md. Mainnet still gated. Minswap order executor persists terms/hash before submit; no composed multichain journey yet.
 
-- Burn interface (Claude, 2026-10-05): supported IOG/Midgard contract NOT established (no builder schema/auth/terms, no validator source, no recovery path; Portal terms PDF unreadable). Read-only burn proof added: src/main/xreserve-cardano-burn-proof.ts + 20 tests (public mainnet burn 887333810e... fixture, hostile CBOR, 4 mutation checks). Uncommitted; mint-proof got 5 `export`s only.
+- Burn interface: no supported IOG/Midgard builder/auth/validator/recovery contract established. Read-only proof and 20 tests exist; no signing path.
 
 ## Next
-- NFT work complete; apply website equivalents when requested. Prior ADA exchange task: follow docs/CARDANO-ADA-EXCHANGE-ROUTE.md for an authorized guided parent journey; preserve standalone flows.
+- User may authorize a small mainnet Danogo QA swap; do not initiate without explicit authorization. Fee-aware ranking and xReserve mainnet gates remain.
 
 ## Traps
+- Danogo: own validator only (never relax validateMinswapOrderTx). ADA-side single pool only. Collateral must be provider's; wallet witness MERGED into provider witness set (redeemers byte-exact). Pinned: pool script d8b69fc5, refs 64d111b9#0/2cafd7c9#0, swap fee 100000. Config change = new ref -> fails closed.
+- Danogo completion requires `valid_contract: true` from Blockfrost `txs/{hash}`; transaction UTxO views alone can include unrealized outputs from a phase-2 failure.
+- Shared src/shared/* edits change the ChainLens swap-core bundle hash (swap-core-drift.test): keep descriptive text out of shared files or regenerate ChainLens bundle deliberately. Python text-mode writes CRLF on Windows: normalize to LF.
+- DexHunter keyless /swap/estimate answers but applies partner_code SHADOWBOOK + partner_fee: never treat keyless numbers as our quote.
+- DexHunter partner credential lives ONLY in ../chainlens/.env (DEXHUNTER_PARTNER_ID): local read-only research; never print, fixture or bundle into Magic Money. 21 tokens named USDCx: pin full unit only.
+- DexHunter enforced floor != requested slippage (0.5% req -> 1% MSV2/CSWAP, ~5% SHADOWBOOK); validateMinswapOrderTx correctly refuses its builds (field 14 + partner-fee output): do not relax.
+- Wanchain tokenPairs (2026-10-05 17:40Z): 470 pairs, 27 chains, NONE with a Cardano chain side. Do not offer Wanchain for Cardano without re-checking.
+- Magic Swap Cardano work belongs in DexSwapWidget (Minswap + supported bridge); never route it to SimpleSwapWidget or deposit-address exchanges.
 - Burn proof is observed-shape (60/60 mainnet burns), not a spec: never use it to build/sign. Preprod validator hash unmeasured (refused). remoteDepositor = 0x00000001+key hash is measured only; script depositors unseen. maxFee 2 USDC and ~8-day maxBlockHeight observed. A second vkey (service collateral key e5d5e3df...) witnesses every burn.
 - A Cardano burn is irreversible and Circle 409 only protects after it exists: persist hash before submit, never rebuild/resend, never burn again while uncertain.
 - Only the lease owner edits shared wallet code; helpers review read-only or use an agreed isolated scope.
@@ -58,6 +59,7 @@ updated: 2026-10-05T01:17-03:00 · codex
 - src/main/xreserve-testnet-handlers.ts; shared/xreserve-testnet-wire.ts; wallet bridges and e2e/xreserve-testnet.spec.ts.
 - .xreserve-withdrawal-{focused,typecheck,tests,extension,desktop,capacitor,ios,e2e}.log.
 - Previous units: cardano-swap-inputs.ts; swap-executor.ts; swap-sessions.ts; XReserveTestnetPanel.tsx; XReserveRouteProgress.tsx.
+- Danogo route: src/main/cardano-danogo-validate.ts; danogo-clmm.ts; cardano-direct-status.test.ts; docs/CARDANO-SWAP-DISCOVERY.md. Commits e68f40e and f074204.
 - docs/XRESERVE-TESTNET-QA.md; XRESERVE-PORTAL-INTEGRATION-HANDOFF.md; CARDANO-MULTICHAIN-NEXT.md; CARDANO-ADA-EXCHANGE-ROUTE.md; RELEASE-QA.md.
 - AGENTS.md; README.md; HANDOFF_LOG.md; four Cardano skills and agent-handoff installed for both clients.
 
