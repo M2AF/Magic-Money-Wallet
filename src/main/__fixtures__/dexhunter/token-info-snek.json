@@ -1,0 +1,32 @@
+{
+  "recordedAt": "2026-10-05T18:10:12Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "GET": "/swap/token/279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b"
+  },
+  "httpStatus": 200,
+  "response": {
+    "token_id": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+    "token_decimals": 0,
+    "token_policy": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f",
+    "token_ascii": "Snek",
+    "ticker": "SNEK",
+    "is_verified": true,
+    "supply": 75243418467,
+    "circulating_supply": 74707144960,
+    "creation_date": "0001-01-01T00:00:00Z",
+    "price": 0,
+    "origin": "",
+    "links": {
+      "description": "A meme, and a memecoin",
+      "discord": "https://discord.gg/snekcoin",
+      "email": "admin@snek.com",
+      "instagram": "https://www.instagram.com/snek.hq/",
+      "reddit": "https://www.reddit.com/r/snekcoinada/",
+      "telegram": "https://t.me/snekcoinada",
+      "twitter": "https://twitter.com/snek",
+      "website": "https://www.snek.com/",
+      "youtube": "https://www.youtube.com/@snek"
+    }
+  }
+}

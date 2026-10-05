@@ -1,0 +1,64 @@
+{
+  "recordedAt": "2026-10-05T18:10:51Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/build",
+    "buyer_address": "addr1q8008tnk6x22qh7xl38znc5p6c52hp8wtfrxaq0yrer9az8fahsvrvjs2nte6d95crak93gphy32u868qqtx3s4r5dxqxpj8mk",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "",
+    "amount_in": 2,
+    "slippage": 0.5,
+    "blacklisted_dexes": [
+      "MINSWAP",
+      "MS2HOP",
+      "SUNDAESWAP",
+      "SUNDAESWAPV3",
+      "WINGRIDER",
+      "WINGRIDERV2",
+      "SPLASH",
+      "VYFI",
+      "MUESLISWAP",
+      "CSWAP",
+      "CHADSWAP",
+      "SNEKFUN",
+      "CHAKRA",
+      "SHADOWBOOK"
+    ]
+  },
+  "httpStatus": 200,
+  "response": {
+    "cbor": "84a800828258203451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa802825820a5f3795ad5fbe18de191b618f057167675dfef6a71e4f893ca376676df97659d020184a300583911c3e28c36c3447315ba5a56f33da6a6ddc1770a876a8d9f0cb3a97c4ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c01821a003d0900a1581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a001e8480028201d818590130d8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799fd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cffffffffd87980d8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799fd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cffffffffd87980d8799f581cf5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c58204c414a51eac26e5f913a91265c2882e013e1d74dab9a5fe2f875f7df7c9bb4c1ffd8799fd87980d8799f1a001e8480ff1a006ff041d87980ff1a001e8480d87a80ffa200583901ffebcc9e31749eb5803e396202d84e3b436ec362463b2fd70fb4c8819086fc9117b2dadb43da1f922c46039a47d51bff09433dcdd18f1cce011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c01821a01d9f667a3581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a002184aa581c7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05aea244555344721a02cdd6804573555344721a00630332581cd9d5985e0657933005d6eb953aeadad29aa8c36f17e493e2962584eca158200014df10062ed639ee7ac7e9d3727ab52c605e88bcab80dd32dd3ab4c9617bc01a007a1095021a00034519031a0be6953c075820d5ec636de5532fc310fd0c57de05782c8ada3da85890e1dc2c0ab48302aee1ff081a0be6872c0e82581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c0f01a0f5a11902a2a1636d7367826f44657868756e74657220547261646571506172746e657220436861696e4c656e73",
+    "splits": [
+      {
+        "amount_in": 2,
+        "expected_output": 7.336001,
+        "expected_output_without_slippage": 7.410103,
+        "fee": 4,
+        "dex": "MINSWAPV2",
+        "price_impact": 0.003729989417727279,
+        "initial_price": 0.2650386261381029,
+        "final_price": 0.26504851205081076,
+        "pool_id": "000000000000000000000000000000000000000000000000000000006c6f76656c6163651f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378MINSWAPV24c414a51eac26e5f913a91265c2882e013e1d74dab9a5fe2f875f7df7c9bb4c1",
+        "batcher_fee": 2,
+        "deposits": 2,
+        "price_distortion": 1.8143371503917964,
+        "pool_fee": 0.018
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 4,
+    "total_output": 7.336001,
+    "deposits": 2,
+    "total_output_without_slippage": 7.410103,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 2,
+    "total_input": 0,
+    "total_input_without_slippage": 0,
+    "net_price": 0,
+    "net_price_reverse": 0,
+    "partner_fee": 2,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

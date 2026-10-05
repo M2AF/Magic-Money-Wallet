@@ -1,0 +1,25 @@
+{
+  "recordedAt": "2026-10-05T18:10:10Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "GET": "/swap/token/1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378"
+  },
+  "httpStatus": 200,
+  "response": {
+    "token_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_decimals": 6,
+    "token_policy": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34",
+    "token_ascii": "USDCx",
+    "ticker": "USDCx",
+    "is_verified": true,
+    "supply": 28889877508552,
+    "circulating_supply": 19127576,
+    "creation_date": "2026-02-18T20:44:59Z",
+    "price": 0,
+    "origin": "",
+    "links": {
+      "twitter": "https://x.com/USDC",
+      "website": "https://www.usdc.com"
+    }
+  }
+}

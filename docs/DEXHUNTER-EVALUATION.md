@@ -70,3 +70,33 @@ The [cancel page](https://dexhunter.gitbook.io/dexhunter-partners/orders/cancel)
 ## Resume point for Claude or Codex
 
 Read root `HANDOFF.md`, run the handoff script's `status`, and claim a concrete scope before edits. The next productive step is A: credentialed, sanitized quote/build evidence sufficient to decide which transaction shapes are feasible. Until then, this recommendation is an integration design with explicit unresolved API/runtime questions, not an implementation-ready promise of full DexHunter routing.
+
+## Step A results — authenticated read-only capture (2026-10-05, 18:1x UTC)
+
+Credential: the existing ChainLens partner credential (partner name `ChainLens`), read from ChainLens's local `.env` by a scratch script at run time. It is not in this repo, in any fixture, in logs, or in Magic Money code. Every saved file was checked for it. Host: `https://api-us.dexhunterv3.app` (current partner docs; not the older host the ChainLens backend calls). Nothing was signed or submitted. Builds used the public fixture sender already in `src/main/__fixtures__/minswap` (`addr1q8008…xpj8mk`), so they are unsigned transactions over its live UTxOs.
+
+Sanitized captures: `src/main/__fixtures__/dexhunter/` (28 files: token search/info, 10 DexHunter estimates, 10 same-time Minswap estimates, 5 builds). Requests are recorded without headers.
+
+**Asset identity.** `GET /swap/tokens?query=USDCx` returned 21 assets named USDCx; exactly one has the full ID `1f3aec8b…7e345553444378`, and it is the only `is_verified` one. `GET /swap/token/{id}` reports `token_decimals: 6`. An adapter must pin the full unit and never search by ticker.
+
+**Quotes (human units; DexHunter `slippage: 0.5`, Minswap `slippage: 0.5`).**
+
+| Pair | DexHunter default route | DexHunter, MinswapV2 only | Minswap aggregator, MinswapV2 | Minswap aggregator, all |
+|---|---|---|---|---|
+| 20 ADA → USDCx | CSWAP 5.315 exp / 5.262 floor; partner 2 ADA | 5.205 / 5.153; partner 2 ADA | 2-hop 5.265 / 5.213; agg 0.85 | DanogoCLMMV1 5.299 / 5.272 |
+| 100 ADA → USDCx | SHADOWBOOK 26.323 / 25.007; partner 5 ADA | 26.020 / 25.760; partner 5 ADA | 2-hop 26.320 / 26.059 | Danogo 26.472 / 26.340 |
+| 2 USDCx → ADA | SHADOWBOOK 7.515 / 7.139; partner 2 ADA | 7.410 / 7.336; partner 2 ADA | 2-hop 7.513 / 7.439 | Danogo 7.551 / 7.513 |
+| 25 USDCx → ADA | SHADOWBOOK 93.938 / 89.241; partner 2 ADA | 92.607 / 91.681 | 2-hop 93.863 / 92.932 | Danogo 94.381 / 93.911 |
+| 2 USDCx → SNEK | MINSWAPV2 2560 / 2534 | same | 2-hop 2561 / 2535 | same |
+
+DexHunter's `total_output` is the floor written into the order. Its `total_output_without_slippage` is the expected fill. With a 0.5% request, the floor sat 1.0% below expected on MINSWAPV2/CSWAP and about 5% below on SHADOWBOOK: the requested slippage is not what gets enforced. In no measured case did DexHunter beat Minswap's own aggregator before costs. After costs it is worse: the partner fee is paid in ADA on top of the quoted output.
+
+**Unsigned builds, decoded with the wallet's own parsers** (`build-*.json`):
+
+- Body fields: inputs, outputs, fee (~0.2 ADA), ttl/validity start (~1 h window), aux-data hash, and **required signers (field 14) listing both the payment key hash and the stake key hash**. Witness set empty; `isValid` true. Aux metadata label 674: `["Dexhunter Trade", "Partner ChainLens"]`.
+- Every build has an extra key-address output to `addr1q8l7hny7x96fadvq8cukyqkcfca5xmkrvfrrkt7hp76v3qvssm7fz9ajmtd58ksljgkyvqu6gl23hlcfgv7um5v0rn8qtnzlfk` equal to `partner_fee`: 2 ADA on a 20 ADA trade, 5 ADA on 100 ADA, and 2 ADA on a 2 USDCx trade (≈27% of a ~7.5 ADA trade). Who controls that address (DexHunter or the ChainLens payout) is **not established**; nothing in either repo references it. There is also a separate 2 ADA output back to the sender, alongside normal change.
+- MinswapV2-only builds create a genuine Minswap V2 order at the pinned script `c3e28c36…`, staked to the wallet. The datum decodes with `decodeMinswapV2OrderDatum`: canceller and both receivers = wallet; single-hop `swap-exact-in` on the direct ADA/USDCx pool; `minimumReceive` = `total_output`; `maxBatcherFee` 2 ADA; `killable` false; no expiry. DexHunter routes MinswapV2 single-hop through the direct pool, where Minswap's own aggregator finds a better 2-hop path.
+- Default-route builds pay unknown scripts: CSWAP `da5b47ae…` and SHADOWBOOK `9e130eb0…`, each with its own datum format. No profile exists for either.
+- The existing `validateMinswapOrderTx` refuses all of them on two grounds: required signers (field 14) and the unrecognised partner-fee output. The executor also accepts exactly one payment-key witness, and these builds demand a stake-key signature as well. These are correct refusals; do not relax them.
+
+**Conclusions for step B.** On these pairs and amounts, DexHunter adds no executable advantage over the existing Minswap path. Minswap's unrestricted aggregator (Danogo CLMM) is the best measured route. A DexHunter MinswapV2 profile would need, as separate decisions: the partner-fee recipient identified and pinned, the fee level, the stake-key signing requirement, and the floor/slippage behaviour. Before any DexHunter signing work, a better-measured option is to broaden the Minswap path beyond MinswapV2 with its own Danogo CLMM profile.

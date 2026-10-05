@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-10-05T18:10:47Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/build",
+    "buyer_address": "addr1q8008tnk6x22qh7xl38znc5p6c52hp8wtfrxaq0yrer9az8fahsvrvjs2nte6d95crak93gphy32u868qqtx3s4r5dxqxpj8mk",
+    "token_in": "",
+    "token_out": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "amount_in": 20,
+    "slippage": 0.5
+  },
+  "httpStatus": 200,
+  "response": {
+    "cbor": "84a800818258203451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa8020184a300583911da5b47aed3955c9132ee087796fa3b58a1ba6173fa31a7bc29e56d4eec39fae09e0835b546eac323f7d1c46d7b7f64fe42f359aae7912b13011a015a38d0028201d8185892d8799fd8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799fd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cffffffff828340401a001e848083581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e344555534443781a00504be98183404000d8798018640fffa200583901ffebcc9e31749eb5803e396202d84e3b436ec362463b2fd70fb4c8819086fc9117b2dadb43da1f922c46039a47d51bff09433dcdd18f1cce011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c011a009e87b3021a0002ff7d031a0be69537075820d5ec636de5532fc310fd0c57de05782c8ada3da85890e1dc2c0ab48302aee1ff081a0be687270e82581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c0f01a0f5a11902a2a1636d7367826f44657868756e74657220547261646571506172746e657220436861696e4c656e73",
+    "splits": [
+      {
+        "amount_in": 20,
+        "expected_output": 5.262313,
+        "expected_output_without_slippage": 5.315468,
+        "fee": 2.69,
+        "dex": "CSWAP",
+        "price_impact": 0.6528438524118545,
+        "initial_price": 3.742893584386031,
+        "final_price": 3.767328835054013,
+        "pool_id": "000000000000000000000000000000000000000000000000000000006c6f76656c6163651f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378CSWAP37834c1d8615d6e5d2ec1c631f00d6f352ffd1ef16541204b9717661432d4c503a204144412078205553444378",
+        "batcher_fee": 0.69,
+        "deposits": 2,
+        "price_distortion": 0.4495381647070353,
+        "pool_fee": 0.002
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 2,
+    "total_output": 5.262313,
+    "deposits": 2,
+    "total_output_without_slippage": 5.315468,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 0.69,
+    "total_input": 0,
+    "total_input_without_slippage": 0,
+    "net_price": 0,
+    "net_price_reverse": 0,
+    "partner_fee": 2,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

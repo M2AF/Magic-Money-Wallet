@@ -1,0 +1,44 @@
+{
+  "recordedAt": "2026-10-05T18:10:19Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/estimate",
+    "token_in": "",
+    "token_out": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "amount_in": 100,
+    "slippage": 0.5
+  },
+  "httpStatus": 200,
+  "response": {
+    "splits": [
+      {
+        "amount_in": 100,
+        "expected_output": 25.006945,
+        "expected_output_without_slippage": 26.3231,
+        "fee": 4.6,
+        "dex": "SHADOWBOOK",
+        "price_impact": 0.029631768294780706,
+        "initial_price": 3.79781929216244,
+        "final_price": 3.798944653175348,
+        "pool_id": "SHADOWBOOK",
+        "batcher_fee": 0.6,
+        "deposits": 4,
+        "price_distortion": 0.026631768294780707,
+        "pool_fee": 0.003
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 0.6,
+    "total_output": 25.006945,
+    "deposits": 4,
+    "total_output_without_slippage": 26.3231,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 0.6,
+    "net_price": 3.7989446531753477,
+    "net_price_reverse": 0.263231,
+    "partner_fee": 5,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

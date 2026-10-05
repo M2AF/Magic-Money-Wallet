@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-10-05T18:10:21Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/estimate",
+    "token_in": "",
+    "token_out": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "amount_in": 100,
+    "slippage": 0.5,
+    "blacklisted_dexes": [
+      "MINSWAP",
+      "MS2HOP",
+      "SUNDAESWAP",
+      "SUNDAESWAPV3",
+      "WINGRIDER",
+      "WINGRIDERV2",
+      "SPLASH",
+      "VYFI",
+      "MUESLISWAP",
+      "CSWAP",
+      "CHADSWAP",
+      "SNEKFUN",
+      "CHAKRA",
+      "SHADOWBOOK"
+    ]
+  },
+  "httpStatus": 200,
+  "response": {
+    "splits": [
+      {
+        "amount_in": 100,
+        "expected_output": 25.760215,
+        "expected_output_without_slippage": 26.02042,
+        "fee": 4,
+        "dex": "MINSWAPV2",
+        "price_impact": 0.04943521194846346,
+        "initial_price": 3.773034951814657,
+        "final_price": 3.774900159639976,
+        "pool_id": "000000000000000000000000000000000000000000000000000000006c6f76656c6163651f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378MINSWAPV24c414a51eac26e5f913a91265c2882e013e1d74dab9a5fe2f875f7df7c9bb4c1",
+        "batcher_fee": 2,
+        "deposits": 2,
+        "price_distortion": 1.7694546218666112,
+        "pool_fee": 0.018
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 2,
+    "total_output": 25.760215,
+    "deposits": 2,
+    "total_output_without_slippage": 26.02042,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 2,
+    "net_price": 3.843135506652083,
+    "net_price_reverse": 0.2602042,
+    "partner_fee": 5,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

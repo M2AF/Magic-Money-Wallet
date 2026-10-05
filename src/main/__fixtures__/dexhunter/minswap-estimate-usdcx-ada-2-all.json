@@ -1,0 +1,68 @@
+{
+  "recordedAt": "2026-10-05T18:10:31Z",
+  "source": "agg-api.minswap.org/aggregator (keyless, read-only; nothing signed)",
+  "request": {
+    "POST": "/estimate",
+    "amount": "2000000",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "slippage": 0.5,
+    "allow_multi_hops": true,
+    "include_protocols": []
+  },
+  "httpStatus": 200,
+  "response": {
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "amount_in": "2000000",
+    "amount_out": "7550965",
+    "min_amount_out": "7513398",
+    "total_lp_fee": "600",
+    "total_dex_fee": "100000",
+    "deposits": "0",
+    "avg_price_impact": 0.30057247666346343,
+    "paths": [
+      [
+        {
+          "lp_token": "d8b69fc53637bcfadbc4469083f706bc293f4d9d2296646c5ca167bb1925d63ec9b663c8d063fa7c57c5d2a47cb7575fbe6a95e08b061118a6e4defb",
+          "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+          "token_out": "lovelace",
+          "amount_in": "2000000",
+          "amount_out": "7550965",
+          "min_amount_out": "7513398",
+          "lp_fee": "600",
+          "dex_fee": "100000",
+          "deposits": "0",
+          "price_impact": 0.30057247666346076,
+          "pool_id": "d8b69fc53637bcfadbc4469083f706bc293f4d9d2296646c5ca167bb.1925d63ec9b663c8d063fa7c57c5d2a47cb7575fbe6a95e08b061118a6e4defb",
+          "protocol": "DanogoCLMMV1",
+          "pool_out_ref": "520716e1a29acb658b007055a453033b6e853b608007695be54d69ddca998ffc#0"
+        }
+      ]
+    ],
+    "aggregator_fee": "850000",
+    "aggregator_fee_percent": 0.1,
+    "tokens": {
+      "lovelace": {
+        "token_id": "lovelace",
+        "logo": "https://asset-logos.minswap.org/lovelace",
+        "ticker": "ADA",
+        "is_verified": true,
+        "project_name": "Cardano",
+        "price_by_ada": 1,
+        "decimals": 6
+      },
+      "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378": {
+        "token_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "logo": "https://asset-logos.minswap.org/1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "ticker": "USDCx",
+        "is_verified": true,
+        "price_by_ada": 3.773034951814657,
+        "price_by_usd": 0.999099655240521,
+        "project_name": "USDCx",
+        "decimals": 6
+      }
+    },
+    "amount_in_decimal": false
+  }
+}

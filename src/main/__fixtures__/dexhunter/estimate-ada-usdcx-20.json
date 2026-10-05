@@ -1,0 +1,44 @@
+{
+  "recordedAt": "2026-10-05T18:10:13Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/estimate",
+    "token_in": "",
+    "token_out": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "amount_in": 20,
+    "slippage": 0.5
+  },
+  "httpStatus": 200,
+  "response": {
+    "splits": [
+      {
+        "amount_in": 20,
+        "expected_output": 5.262313,
+        "expected_output_without_slippage": 5.315468,
+        "fee": 2.69,
+        "dex": "CSWAP",
+        "price_impact": 0.6528438524118545,
+        "initial_price": 3.742893584386031,
+        "final_price": 3.767328835054013,
+        "pool_id": "000000000000000000000000000000000000000000000000000000006c6f76656c6163651f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378CSWAP37834c1d8615d6e5d2ec1c631f00d6f352ffd1ef16541204b9717661432d4c503a204144412078205553444378",
+        "batcher_fee": 0.69,
+        "deposits": 2,
+        "price_distortion": 0.4495381647070353,
+        "pool_fee": 0.002
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 0.69,
+    "total_output": 5.262313,
+    "deposits": 2,
+    "total_output_without_slippage": 5.315468,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 0.69,
+    "net_price": 3.7626037820188176,
+    "net_price_reverse": 0.2657734,
+    "partner_fee": 2,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

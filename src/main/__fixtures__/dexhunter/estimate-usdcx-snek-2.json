@@ -1,0 +1,44 @@
+{
+  "recordedAt": "2026-10-05T18:10:40Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/estimate",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+    "amount_in": 2,
+    "slippage": 0.5
+  },
+  "httpStatus": 200,
+  "response": {
+    "splits": [
+      {
+        "amount_in": 2,
+        "expected_output": 2534,
+        "expected_output_without_slippage": 2560,
+        "fee": 4,
+        "dex": "MINSWAPV2",
+        "price_impact": 0.008117421658867243,
+        "initial_price": 773.1957225873872,
+        "final_price": 773.2584861444379,
+        "pool_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454bMINSWAPV2e9246667ee78541ed0a08cea0eacb6c91d12128708704ac00df4fd00605e9a2f",
+        "batcher_fee": 2,
+        "deposits": 2,
+        "price_distortion": 1.0019637525577196,
+        "pool_fee": 0.01
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 2,
+    "total_output": 2534,
+    "deposits": 2,
+    "total_output_without_slippage": 2560,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 2,
+    "net_price": 0.00078125,
+    "net_price_reverse": 1280,
+    "partner_fee": 2,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

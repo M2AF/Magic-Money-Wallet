@@ -1,0 +1,105 @@
+{
+  "recordedAt": "2026-10-05T18:10:43Z",
+  "source": "agg-api.minswap.org/aggregator (keyless, read-only; nothing signed)",
+  "request": {
+    "POST": "/estimate",
+    "amount": "2000000",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+    "slippage": 0.5,
+    "allow_multi_hops": true,
+    "include_protocols": [
+      "MinswapV2"
+    ]
+  },
+  "httpStatus": 200,
+  "response": {
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+    "amount_in": "2000000",
+    "amount_out": "2561",
+    "min_amount_out": "2535",
+    "total_lp_fee": "431237",
+    "total_dex_fee": "2000000",
+    "deposits": "2000000",
+    "avg_price_impact": 1.3124216727925013,
+    "paths": [
+      [
+        {
+          "lp_token": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c70cabd53edd98d4ffc20d46d9f246ed14b61b3fa7c681c268e86c2a196b0947d",
+          "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+          "token_out": "0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854",
+          "amount_in": "2000000",
+          "amount_out": "42523740",
+          "min_amount_out": "42312179",
+          "lp_fee": "6000",
+          "dex_fee": "2000000",
+          "deposits": "2000000",
+          "price_impact": 0.30139201332916093,
+          "pool_id": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c.70cabd53edd98d4ffc20d46d9f246ed14b61b3fa7c681c268e86c2a196b0947d",
+          "protocol": "MinswapV2",
+          "pool_out_ref": "87ac9f67a8224e13c86d1f5a48ee461ac6d4317c09cc965e64c9c56b0f36e1fe#2"
+        },
+        {
+          "lp_token": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c3b3318a251bb71f8345c5affcd29645af2f56859eea740bec2a27c91027cb01d",
+          "token_in": "0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854",
+          "token_out": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+          "amount_in": "42523740",
+          "amount_out": "2561",
+          "min_amount_out": "2535",
+          "lp_fee": "425237",
+          "dex_fee": "0",
+          "deposits": "0",
+          "price_impact": 1.0140860337774287,
+          "pool_id": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c.3b3318a251bb71f8345c5affcd29645af2f56859eea740bec2a27c91027cb01d",
+          "protocol": "MinswapV2",
+          "pool_out_ref": "755190a97f5f8c0e44940ba500662abfdc444b900b662fba1274c9879d6b0ee7#2"
+        }
+      ]
+    ],
+    "aggregator_fee": "1000000",
+    "aggregator_fee_percent": 0.1,
+    "tokens": {
+      "lovelace": {
+        "token_id": "lovelace",
+        "logo": "https://asset-logos.minswap.org/lovelace",
+        "ticker": "ADA",
+        "is_verified": true,
+        "project_name": "Cardano",
+        "price_by_ada": 1,
+        "decimals": 6
+      },
+      "0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854": {
+        "token_id": "0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854",
+        "logo": "https://asset-logos.minswap.org/0691b2fecca1ac4f53cb6dfb00b7013e561d1f34403b957cbb5af1fa4e49474854",
+        "ticker": "NIGHT",
+        "is_verified": true,
+        "price_by_ada": 0.1769213655929642,
+        "price_by_usd": 0.046848777609016914,
+        "project_name": "NIGHT",
+        "decimals": 6
+      },
+      "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378": {
+        "token_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "logo": "https://asset-logos.minswap.org/1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "ticker": "USDCx",
+        "is_verified": true,
+        "price_by_ada": 3.773034951814657,
+        "price_by_usd": 0.999099655240521,
+        "project_name": "USDCx",
+        "decimals": 6
+      },
+      "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b": {
+        "token_id": "279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+        "logo": "https://asset-logos.minswap.org/279c909f348e533da5808898f87f9a14bb2c3dfbbacccd631d927a3f534e454b",
+        "ticker": "SNEK",
+        "is_verified": true,
+        "price_by_ada": 0.002947712550305258,
+        "price_by_usd": 0.0007805542833208323,
+        "project_name": "Snek",
+        "decimals": 0
+      }
+    },
+    "amount_in_decimal": false
+  }
+}

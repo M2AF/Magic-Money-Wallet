@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-10-05T18:10:50Z",
+  "source": "api-us.dexhunterv3.app (authenticated partner header, read-only; nothing signed or submitted)",
+  "request": {
+    "POST": "/swap/build",
+    "buyer_address": "addr1q8008tnk6x22qh7xl38znc5p6c52hp8wtfrxaq0yrer9az8fahsvrvjs2nte6d95crak93gphy32u868qqtx3s4r5dxqxpj8mk",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "",
+    "amount_in": 2,
+    "slippage": 0.5
+  },
+  "httpStatus": 200,
+  "response": {
+    "cbor": "84a800838258202709c77b70f9d13085f46ceefc271b02cb88dbaa6c47a23d7203fe94d5c36a9a008258203451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa802825820a5f3795ad5fbe18de191b618f057167675dfef6a71e4f893ca376676df97659d020184a3005839119e130eb0323f31df50bfbb731f35f5a795a630ef727b4ba272460b55e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c01821a004630c0a1581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a001e8480028201d81858c5d879894109d8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799fd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cffffffff82581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e344555534443781a001e84801a000927c0824040821a006ceff11a001e8480581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88540104f91a8f9e7440fbf91a91ae9e8765d65f6b17a200583901ffebcc9e31749eb5803e396202d84e3b436ec362463b2fd70fb4c8819086fc9117b2dadb43da1f922c46039a47d51bff09433dcdd18f1cce011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c011a001e8480a200583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c01821a01ecae96a3581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a002184aa581c7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05aea244555344721a02fb9d404573555344721a00630332581cd9d5985e0657933005d6eb953aeadad29aa8c36f17e493e2962584eca158200014df10062ed639ee7ac7e9d3727ab52c605e88bcab80dd32dd3ab4c9617bc01a007a1095021a000338b9031a0be6953a075820d5ec636de5532fc310fd0c57de05782c8ada3da85890e1dc2c0ab48302aee1ff081a0be6872a0e82581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c0f01a0f5a11902a2a1636d7367826f44657868756e74657220547261646571506172746e657220436861696e4c656e73",
+    "splits": [
+      {
+        "amount_in": 2,
+        "expected_output": 7.139313,
+        "expected_output_without_slippage": 7.515067,
+        "fee": 4.6,
+        "dex": "SHADOWBOOK",
+        "price_impact": 1.0529353468079579,
+        "initial_price": 0.263359,
+        "final_price": 0.266132,
+        "pool_id": "SHADOWBOOK",
+        "batcher_fee": 0.6,
+        "deposits": 4,
+        "price_distortion": 1.049935346807958,
+        "pool_fee": 0.003
+      }
+    ],
+    "average_price": 0,
+    "total_fee": 4,
+    "total_output": 7.139313,
+    "deposits": 4,
+    "total_output_without_slippage": 7.515067,
+    "possible_routes": {},
+    "dexhunter_fee": 0,
+    "batcher_fee": 0.6,
+    "total_input": 0,
+    "total_input_without_slippage": 0,
+    "net_price": 0,
+    "net_price_reverse": 0,
+    "partner_fee": 2,
+    "communications": [],
+    "partner_code": "ChainLens"
+  }
+}

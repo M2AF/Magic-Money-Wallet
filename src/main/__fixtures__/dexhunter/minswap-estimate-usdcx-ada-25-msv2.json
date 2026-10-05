@@ -1,0 +1,95 @@
+{
+  "recordedAt": "2026-10-05T18:10:35Z",
+  "source": "agg-api.minswap.org/aggregator (keyless, read-only; nothing signed)",
+  "request": {
+    "POST": "/estimate",
+    "amount": "25000000",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "slippage": 0.5,
+    "allow_multi_hops": true,
+    "include_protocols": [
+      "MinswapV2"
+    ]
+  },
+  "httpStatus": 200,
+  "response": {
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "amount_in": "25000000",
+    "amount_out": "93863434",
+    "min_amount_out": "92931907",
+    "total_lp_fee": "261023",
+    "total_dex_fee": "2000000",
+    "deposits": "2000000",
+    "avg_price_impact": 1.1065967357589137,
+    "paths": [
+      [
+        {
+          "lp_token": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c1448500d5be7904281807b569bf2c7bb2204514a3d6a62441d1a5fc4f94f8d52",
+          "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+          "token_out": "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d",
+          "amount_in": "25000000",
+          "amount_out": "24803185",
+          "min_amount_out": "24679786",
+          "lp_fee": "75000",
+          "dex_fee": "2000000",
+          "deposits": "2000000",
+          "price_impact": 0.3345528223816577,
+          "pool_id": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c.1448500d5be7904281807b569bf2c7bb2204514a3d6a62441d1a5fc4f94f8d52",
+          "protocol": "MinswapV2",
+          "pool_out_ref": "0e90c505b495e947c3cccc0340cb203d5b353cf7829fe8e7df63da71e17261a8#2"
+        },
+        {
+          "lp_token": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c7dd6988c5a86693c76aeec1ea94afa41770be0de21a775ca7a2a1eabdb6a0171",
+          "token_in": "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d",
+          "token_out": "lovelace",
+          "amount_in": "24803185",
+          "amount_out": "93863434",
+          "min_amount_out": "92931907",
+          "lp_fee": "186023",
+          "dex_fee": "0",
+          "deposits": "0",
+          "price_impact": 0.7746354782328584,
+          "pool_id": "f5808c2c990d86da54bfc97d89cee6efa20cd8461616359478d96b4c.7dd6988c5a86693c76aeec1ea94afa41770be0de21a775ca7a2a1eabdb6a0171",
+          "protocol": "MinswapV2",
+          "pool_out_ref": "1d6e7ea0e94ae418ecea00a4f7adc5d6629e54fb3b080206dbf6e7ec7062826b#1"
+        }
+      ]
+    ],
+    "aggregator_fee": "850000",
+    "aggregator_fee_percent": 0.1,
+    "tokens": {
+      "lovelace": {
+        "token_id": "lovelace",
+        "logo": "https://asset-logos.minswap.org/lovelace",
+        "ticker": "ADA",
+        "is_verified": true,
+        "project_name": "Cardano",
+        "price_by_ada": 1,
+        "decimals": 6
+      },
+      "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378": {
+        "token_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "logo": "https://asset-logos.minswap.org/1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "ticker": "USDCx",
+        "is_verified": true,
+        "price_by_ada": 3.773034951814657,
+        "price_by_usd": 0.999099655240521,
+        "project_name": "USDCx",
+        "decimals": 6
+      },
+      "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d": {
+        "token_id": "c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d",
+        "logo": "https://asset-logos.minswap.org/c48cbb3d5e57ed56e276bc45f99ab39abe94e6cd7ac39fb402da47ad0014df105553444d",
+        "ticker": "USDM",
+        "is_verified": true,
+        "price_by_ada": 3.813873492545065,
+        "price_by_usd": 1.0099137008259331,
+        "project_name": "USDM",
+        "decimals": 6
+      }
+    },
+    "amount_in_decimal": false
+  }
+}
