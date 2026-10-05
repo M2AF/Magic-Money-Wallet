@@ -1610,7 +1610,8 @@ export function registerIpcHandlers(): void {
   })
 
   // ── Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test ───
-  // Every channel refuses outside Testnet Mode (xreserve-testnet-deposit.ts);
+  // Deposit channels refuse outside Testnet Mode (xreserve-testnet-deposit.ts).
+  // The read-only withdrawal status channel selects the wallet environment.
   // addresses, seed and stores come from this process, never from the renderer.
   for (const channel of XRESERVE_TESTNET_CHANNELS) {
     ipcMain.handle(channel, async (_e, arg: unknown) => handleXReserveTestnet(channel, arg, {

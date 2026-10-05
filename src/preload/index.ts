@@ -13,6 +13,7 @@ import type { SendAsset } from '../main/tx-sender'
 
 // Auto-revoke push listeners, keyed by the callback so off() can remove the
 // exact wrapper on() registered.
+const _collectiblesListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
 const _autoRevokeListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
 
 contextBridge.exposeInMainWorld('wallet', {
@@ -126,16 +127,26 @@ contextBridge.exposeInMainWorld('wallet', {
   getCoinChart:    (id: string, days: string) => ipcRenderer.invoke('wallet:get-coin-chart', id, days),
   getTokens:       ()                  => ipcRenderer.invoke('wallet:get-tokens'),
   getCollectibles: (excludeIds?: string[]) => ipcRenderer.invoke('wallet:get-collectibles', excludeIds),
-  // Pushed when the background floor-valuation pass finishes (getCollectibles
-  // returns before floors resolve so the tab renders immediately).
-  onCollectiblesUpdated:  (cb: (r: unknown) => void) => ipcRenderer.on('collectibles:updated', (_e, v) => cb(v)),
-  offCollectiblesUpdated: (cb: (r: unknown) => void) => ipcRenderer.removeListener('collectibles:updated', cb as never),
+  // Pushed as ownership sources finish and when background floor valuation completes.
+  onCollectiblesUpdated: (cb: (r: unknown) => void) => {
+    if (_collectiblesListeners.has(cb)) return
+    const wrapped = (_e: unknown, v: unknown) => cb(v)
+    _collectiblesListeners.set(cb, wrapped)
+    ipcRenderer.on('collectibles:updated', wrapped)
+  },
+  offCollectiblesUpdated: (cb: (r: unknown) => void) => {
+    const wrapped = _collectiblesListeners.get(cb)
+    if (!wrapped) return
+    ipcRenderer.removeListener('collectibles:updated', wrapped)
+    _collectiblesListeners.delete(cb)
+  },
   getNftFloor:     (chain: string, contractAddress: string) =>
     ipcRenderer.invoke('wallet:get-nft-floor', chain, contractAddress),
   swapGetQuote:    (req: unknown)      => ipcRenderer.invoke('swap:getQuote', req),
   swapExecute:     (quote: unknown)    => ipcRenderer.invoke('swap:execute', quote),
   // Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test.
   xreserveTestnetState:   ()             => ipcRenderer.invoke('xreserve:testnet-state'),
+  xreserveWithdrawalStatus: (req: unknown) => ipcRenderer.invoke('xreserve:withdrawal-status', req),
   xreserveTestnetSetKey:  (key: string)  => ipcRenderer.invoke('xreserve:testnet-set-key', { key }),
   xreserveTestnetSetSource: (source: string) => ipcRenderer.invoke('xreserve:testnet-set-source', { source }),
   xreserveTestnetPrepare: (req: unknown) => ipcRenderer.invoke('xreserve:testnet-prepare', req),

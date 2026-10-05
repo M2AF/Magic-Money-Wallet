@@ -13,6 +13,7 @@ import {
 import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 import { canonicalNftKey } from '../shared/asset-filter-key'
 import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
+import { CollectiblesProgress } from './collectibles-progress'
 
 export interface WalletToken {
   contractAddress: string
@@ -71,6 +72,8 @@ export interface WalletCollectible {
   name: string
   description: string | null
   image: string | null
+  /** Provider-sized preview. Full artwork remains in image for details/downloads. */
+  thumbnailUrl?: string | null
   animationUrl: string | null
   collectionName: string | null
   chain: string
@@ -94,6 +97,10 @@ export interface WalletCollectible {
 }
 
 export interface CollectiblesResult {
+  /** True while other ownership sources are still loading. */
+  partial?: boolean
+  /** Public owner for rejecting late pushes after an account switch. */
+  ownerAddress?: string
   items: WalletCollectible[]
   fetchedAt: number
   error: string | null
@@ -798,6 +805,7 @@ async function fetchSolanaNFTs(address: string, config: WalletConfig): Promise<W
         name: meta.name ?? 'Unnamed',
         description: meta.description ?? null,
         image,
+        thumbnailUrl: normalizeImageUrl(imageFile?.cdn_uri ?? null),
         animationUrl,
         collectionName: collection?.collection_metadata?.name ?? null,
         chain: 'solana', chainLabel: 'Solana', chainColor: '#9945FF',
@@ -2202,9 +2210,10 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
     name: nft.name ?? raw?.name ?? `#${nft.tokenId}`,
     description: nft.description ?? raw?.description ?? null,
     image: normalizeImageUrl(
-      nft.image?.cachedUrl ?? nft.image?.pngUrl ?? nft.image?.thumbnailUrl ??
-      nft.image?.originalUrl ?? raw?.image ?? null
+      nft.image?.cachedUrl || nft.image?.pngUrl || nft.image?.originalUrl ||
+      raw?.image || nft.image?.thumbnailUrl || null
     ),
+    thumbnailUrl: normalizeImageUrl(nft.image?.thumbnailUrl || null),
     animationUrl: normalizeImageUrl(
       nft.animation?.cachedUrl ?? nft.animation?.originalUrl ?? raw?.animation_url ?? null
     ),
@@ -2361,7 +2370,7 @@ async function verifyNftMetadata(
       // image_url is read here because on-chain metadata uses it as often as
       // image; mapAlchemyNft only ever sees Alchemy's normalised `image`.
       const img = normalizeImageUrl(meta.image ?? meta.image_url ?? null)
-      if (img) it.image = img
+      if (img) { it.image = img; it.thumbnailUrl = null }
       const anim = normalizeImageUrl(meta.animation_url ?? null)
       if (anim) it.animationUrl = anim
       if (meta.name) it.name = meta.name
@@ -2531,7 +2540,8 @@ async function fetchMoralisNfts(
           id: `${chain.id}:${nft.token_address}:${nft.token_id}`,
           name: meta.name ?? nft.name ?? `#${nft.token_id}`,
           description: meta.description ?? null,
-          image: normalizeImageUrl(rawImage ?? null),
+          image: normalizeImageUrl(nft.media?.original_media_url || meta.image || rawImage || null),
+          thumbnailUrl: normalizeImageUrl(nft.media?.media_collection?.medium?.url || null),
           animationUrl: normalizeImageUrl(meta.animation_url ?? null),
           collectionName: nft.name ?? null,
           chain: chain.id,
@@ -3120,12 +3130,15 @@ function scheduleFloorEnrichment(
   void enrichNftFloors(result.items, config, opts)
     // A superseded (stalled, then resumed) pass must not push its stale list over
     // the newer one — the UI applies collectibles:updated unconditionally.
-    .then(() => { if (seq === _enrichSeq) onEnriched?.({ ...result, fetchedAt: Date.now() }) })
+    .then(() => { if (seq === _enrichSeq) onEnriched?.({ ...result }) })
     .catch(e => console.error('[NFT] floor enrichment failed:', e))
     // Only the CURRENT pass may clear the guard; a resurrected zombie must not
     // release the mutex its successor is holding.
     .finally(() => { if (seq === _enrichSeq) _enrichingSince = 0 })
 }
+
+let collectiblesSequence = 0
+let collectiblesStartedAt = 0
 
 export async function fetchAllCollectibles(
   evmAddress: string,
@@ -3138,11 +3151,27 @@ export async function fetchAllCollectibles(
   bitcoinTaproot?: string,
   onEnriched?: (r: CollectiblesResult) => void
 ): Promise<CollectiblesResult> {
+  const sequence = ++collectiblesSequence
+  const fetchedAt = collectiblesStartedAt = Math.max(Date.now(), collectiblesStartedAt + 1)
+  // A newer refresh/account/mode invalidates every older progress and floor push.
+  const publish = (r: CollectiblesResult) => {
+    if (sequence === collectiblesSequence) {
+      try { onEnriched?.({ ...r, ownerAddress: evmAddress }) } catch (e) { console.error('[NFT] update delivery failed:', e) }
+    }
+  }
+  const progress = new CollectiblesProgress(fetchedAt)
+  const report = <T,>(source: string, promise: Promise<T>, unpack: (value: T) => { items: WalletCollectible[]; reports?: Record<string, string | null> }): Promise<T> => promise.then(value => {
+    const { items, reports } = unpack(value)
+    if (onEnriched && sequence === collectiblesSequence) publish(progress.add(source, items, reports))
+    return value
+  })
+  const reportItems = (source: string, promise: Promise<WalletCollectible[]>, chain?: string) =>
+    report(source, promise, items => ({ items, reports: chain ? { [chain]: null } : undefined }))
   console.log(`[NFT] fetchAllCollectibles — EVM: ${evmAddress}, Solana: ${solanaAddress ?? 'none'}, Cardano: ${cardanoAddress ?? 'none'}`)
   try {
     // Privacy Mode: no NFT support on the privacy chains; hidden chains' NFTs
     // must not leak into the filtered view.
-    if (isPrivacy(config)) return { items: [], fetchedAt: Date.now(), error: null, chainResults: {} }
+    if (isPrivacy(config)) return { items: [], fetchedAt, ownerAddress: evmAddress, error: null, chainResults: {} }
     const testnet = isTestnet(config)
     // AGW resolved by the caller (override ?? on-chain link); no counterfactual derive.
     const agwAddress = testnet ? null : (agw ?? null)
@@ -3156,20 +3185,20 @@ export async function fetchAllCollectibles(
     // Monad route, TronScan, and Ordiscan are mainnet-scoped — skipped. EVM NFTs
     // keep working via the Alchemy testnet slugs.
     const [evmResults, solanaNfts, cardanoNfts, agwAbstractNfts, monadNfts, tronNfts, bitcoinOrdinals, customNfts, importedNfts] = await Promise.all([
-      Promise.all(nftChains.map(chain => fetchNftsForChain(evmAddress, chain, config, repairBudget))),
-      (solanaAddress && !testnet)  ? fetchSolanaNFTs(solanaAddress, config)   : Promise.resolve([] as WalletCollectible[]),
-      (cardanoAddress && !testnet) ? fetchCardanoNFTs(cardanoAddress, config) : Promise.resolve([] as WalletCollectible[]),
+      Promise.all(nftChains.map(chain => report(chain.id, fetchNftsForChain(evmAddress, chain, config, repairBudget), r => ({ items: r.items, reports: { [chain.id]: r.error } })))),
+      (solanaAddress && !testnet)  ? reportItems('solana', fetchSolanaNFTs(solanaAddress, config), 'solana')   : Promise.resolve([] as WalletCollectible[]),
+      (cardanoAddress && !testnet) ? reportItems('cardano', fetchCardanoNFTs(cardanoAddress, config), 'cardano') : Promise.resolve([] as WalletCollectible[]),
       (agwAddress && agwAddress.toLowerCase() !== evmAddress.toLowerCase() && abstractChainCfg)
-        ? fetchNftsForChain(agwAddress, abstractChainCfg, config, repairBudget).then(r => r.items.map(n => ({ ...n, source: 'agw' as const })))
+        ? reportItems('agw', fetchNftsForChain(agwAddress, abstractChainCfg, config, repairBudget).then(r => r.items.map(n => ({ ...n, source: 'agw' as const }))))
         : Promise.resolve([] as WalletCollectible[]),
-      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchMonadNFTs(evmAddress, config, repairBudget),
-      (tronAddress && !testnet) ? fetchTronNFTs(tronAddress) : Promise.resolve([] as WalletCollectible[]),
-      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchBitcoinOrdinals(bitcoinTaproot, config),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : reportItems('monad', fetchMonadNFTs(evmAddress, config, repairBudget), 'monad'),
+      (tronAddress && !testnet) ? reportItems('tron', fetchTronNFTs(tronAddress), 'tron') : Promise.resolve([] as WalletCollectible[]),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : reportItems('bitcoin', fetchBitcoinOrdinals(bitcoinTaproot, config), 'bitcoin'),
       // User-added networks — Blockscout explorers only; no floor pricing exists
       // for arbitrary chains, so these render without a USD value.
-      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchCustomChainNfts(evmAddress, config),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : reportItems('custom', fetchCustomChainNfts(evmAddress, config)),
       // Manual imports on a BUILT-IN chain — the fallback for what Alchemy missed.
-      testnet ? Promise.resolve([] as WalletCollectible[]) : fetchImportedBuiltinNfts(evmAddress, config),
+      testnet ? Promise.resolve([] as WalletCollectible[]) : reportItems('imports', fetchImportedBuiltinNfts(evmAddress, config)),
     ])
 
     const auto = [...evmResults.flatMap(r => r.items), ...agwAbstractNfts, ...monadNfts, ...solanaNfts, ...cardanoNfts, ...tronNfts, ...bitcoinOrdinals, ...customNfts]
@@ -3212,18 +3241,18 @@ export async function fetchAllCollectibles(
     // fetched instead of blocking on the rate-limit-paced floor providers, and
     // the corrected list is pushed to the UI (collectibles:updated) when the live
     // pass finishes. Skipped on testnets — floor providers are mainnet-only.
-    const result: CollectiblesResult = { items, fetchedAt: Date.now(), error: null, chainResults }
+    const result: CollectiblesResult = { items, fetchedAt, ownerAddress: evmAddress, error: null, chainResults, partial: false }
     if (!testnet) {
       const exclude = excludeIds ? new Set(excludeIds) : undefined
       await applyCachedFloors(items, exclude)
-      scheduleFloorEnrichment(result, config, {
+      if (sequence === collectiblesSequence) scheduleFloorEnrichment(result, config, {
         solanaAddress, evmAddress, agw: agwAddress ?? undefined, exclude,
-      }, onEnriched)
+      }, publish)
     }
 
     console.log(`[NFT] Total NFTs found: ${items.length}`)
     return result
   } catch (e) {
-    return { items: [], fetchedAt: Date.now(), error: String(e), chainResults: {} }
+    return { items: [], fetchedAt, ownerAddress: evmAddress, error: String(e), chainResults: {} }
   }
 }

@@ -10,6 +10,7 @@ import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downl
 import type { HistorySnapshot } from '../../shared/history-wire'
 import type { FxRates } from '../../shared/currencies'
 import type { SettledSwapSession } from '../../shared/swap-settlement'
+import type { CircleWithdrawalStatus, WithdrawalReference } from '../../shared/xreserve-testnet-wire'
 import type {
   XReserveTestnetEnvelope, TestnetDepositState, TestnetDepositPreview, TestnetDepositResult, TestnetCheckResult,
   TestnetApprovalResult, TestnetRecoveryResult,
@@ -266,6 +267,8 @@ export interface WalletCollectible {
   name: string
   description: string | null
   image: string | null
+  /** Provider-sized preview; full artwork stays in image. */
+  thumbnailUrl?: string | null
   animationUrl: string | null
   collectionName: string | null
   chain: string
@@ -297,6 +300,8 @@ export interface NftFloorPrice {
 }
 
 export interface CollectiblesResult {
+  partial?: boolean
+  ownerAddress?: string
   items: WalletCollectible[]
   fetchedAt: number
   error: string | null
@@ -868,6 +873,8 @@ declare global {
       swapExecute(quote: NormalizedSwapQuote): Promise<SwapExecuteResult>
       /** Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test. Every call refuses outside Testnet Mode. */
       xreserveTestnetState?(): Promise<XReserveTestnetEnvelope<TestnetDepositState>>
+      /** Read-only Circle withdrawal status; not an independent delivery proof. Network is selected by wallet config. */
+      xreserveWithdrawalStatus?(req: WithdrawalReference): Promise<XReserveTestnetEnvelope<CircleWithdrawalStatus>>
       xreserveTestnetSetKey?(key: string): Promise<XReserveTestnetEnvelope<true>>
       /** Where Cardano Preprod is read from for the test: keyless Koios, or Blockfrost with a Preprod project id. */
       xreserveTestnetSetSource?(source: 'koios' | 'blockfrost'): Promise<XReserveTestnetEnvelope<true>>

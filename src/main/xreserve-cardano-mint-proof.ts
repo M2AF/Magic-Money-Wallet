@@ -69,7 +69,7 @@ import { xreserveNetwork, xreserveNetworkById, type XReserveNetwork, type XReser
 export const CARDANO_REMOTE_DOMAIN = 10004
 
 /** Conway redeemer purposes (CDDL `redeemer_tag`). */
-const REDEEMER_TAG = { spend: 0, mint: 1, cert: 2, reward: 3, vote: 4, propose: 5 } as const
+export const REDEEMER_TAG = { spend: 0, mint: 1, cert: 2, reward: 3, vote: 4, propose: 5 } as const
 
 /** Circle's DepositIntent layout (DepositIntent.sol), big-endian. */
 const DI = {
@@ -187,7 +187,7 @@ export type CandidateOutcome =
   /** Carries the attestation, but the mint or the credit is wrong. Needs review. */
   | { kind: 'mint-conflict'; code: MintConflictCode; reason: string; mintedRaw: string | null; creditedRaw: string }
 
-class Stop extends Error {
+export class Stop extends Error {
   constructor(readonly code: string, message: string) { super(message) }
 }
 const stop = (code: string, why: string): never => { throw new Stop(code, why) }
@@ -336,7 +336,7 @@ function itemEnd(b: Uint8Array, off: number, depth = 0): number {
 }
 
 /** `[body, witness_set, is_valid, aux_data]` as exact byte ranges. */
-function splitRoot(tx: Uint8Array): { body: Uint8Array; witnessSet: Uint8Array; isValid: Uint8Array; auxData: Uint8Array } {
+export function splitRoot(tx: Uint8Array): { body: Uint8Array; witnessSet: Uint8Array; isValid: Uint8Array; auxData: Uint8Array } {
   if (tx[0] !== 0x84) unreadable('malformed Cardano transaction: root is not a 4-element array')
   const parts: Uint8Array[] = []
   let pos = 1
@@ -349,7 +349,7 @@ function splitRoot(tx: Uint8Array): { body: Uint8Array; witnessSet: Uint8Array; 
   return { body: parts[0], witnessSet: parts[1], isValid: parts[2], auxData: parts[3] }
 }
 
-interface Redeemer { tag: number; index: number; data: PlutusData }
+export interface Redeemer { tag: number; index: number; data: PlutusData }
 
 /** Unsigned integer or definite container length at `at`: [value, next offset]. */
 function readHeadArg(buf: Uint8Array, at: number, what: string): [number, number] {
@@ -366,7 +366,7 @@ function readUint(buf: Uint8Array, at: number, what: string): [number, number] {
 }
 
 /** Read witness-set redeemers in either Conway form: array `[tag, index, data, ex]` or map `{[tag, index]: [data, ex]}`. */
-function readRedeemers(w: Uint8Array): Redeemer[] {
+export function readRedeemers(w: Uint8Array): Redeemer[] {
   const out: Redeemer[] = []
   if (w[0] >> 5 !== 5) unreadable('witness set is not a map')
   let [keys, pos] = readHeadArg(w, 0, 'witness set')

@@ -69,7 +69,7 @@ const ownedNfts = (claimed: string) => ({
     contract: { address: CONTRACT, name: 'REDACTED', tokenType: 'ERC721' },
     name: 'REDACTED #10',
     description: 'stale',
-    image: { cachedUrl: ALCHEMY_IMG, thumbnailUrl: null, originalUrl: null, pngUrl: null },
+    image: { cachedUrl: ALCHEMY_IMG, thumbnailUrl: 'https://cdn.example/stale-thumbnail.webp', originalUrl: null, pngUrl: null },
     raw: { metadata: { name: 'REDACTED #10', image: 'ar://old/10.png', attributes: [] } },
   }],
   pageKey: null,
@@ -161,6 +161,7 @@ describe('on-chain NFT metadata verification', () => {
     expect(items[0]).toMatchObject({
       name: 'REDACTED #1',
       image: 'https://arweave.net/images/1.png',
+      thumbnailUrl: null,
       traits: [{ trait_type: 'Race', value: 'Pink' }],
     })
     expect(counts.gateway).toBe(1)

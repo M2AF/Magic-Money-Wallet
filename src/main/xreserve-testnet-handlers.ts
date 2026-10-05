@@ -1,7 +1,8 @@
 /**
  * xreserve-testnet-handlers.ts — the one router entry for the Testnet Mode
  * xReserve Sepolia → Preprod test, shared by Electron's ipc-handlers.ts and the
- * extension/native wallet-handlers.ts so the two cannot drift.
+ * extension/native wallet-handlers.ts so the two cannot drift. Also carries
+ * the read-only withdrawal status channel on either wallet network profile.
  *
  * Every call returns a JSON-safe envelope — `{ ok: true, value }` or
  * `{ ok: false, code, message, submitted }` — because Electron IPC keeps only
@@ -21,6 +22,9 @@ import {
 } from './xreserve-testnet-deposit'
 import type { InboundReads } from './xreserve-inbound-status'
 import type { HttpFetchFn } from './xreserve-cardano-provider'
+import { ProviderFault } from './xreserve-cardano-provider'
+import { fetchCircleWithdrawalStatus, type WithdrawalReference } from './xreserve-withdrawal-status'
+import { xreserveNetworkFor } from './xreserve-network'
 
 export const XRESERVE_TESTNET_CHANNELS = [
   'xreserve:testnet-state',
@@ -33,6 +37,8 @@ export const XRESERVE_TESTNET_CHANNELS = [
   'xreserve:testnet-check',
   'xreserve:testnet-recover',
   'xreserve:testnet-dismiss-corrupt',
+  // Read-only Circle withdrawal status uses the wallet environment on either network.
+  'xreserve:withdrawal-status',
 ] as const
 export type XReserveTestnetChannel = typeof XRESERVE_TESTNET_CHANNELS[number]
 
@@ -92,6 +98,11 @@ export async function handleXReserveTestnet(
 ): Promise<XReserveTestnetEnvelope> {
   try {
     switch (channel as XReserveTestnetChannel) {
+      case 'xreserve:withdrawal-status':
+        return { ok: true, value: await fetchCircleWithdrawalStatus(arg as WithdrawalReference, {
+          network: xreserveNetworkFor(isTestnet(await host.loadConfig())), fetchFn: host.fetchFn,
+        }) }
+
       case 'xreserve:testnet-state':
         return { ok: true, value: await getTestnetDepositState(await context(host, false)) }
 
@@ -144,6 +155,7 @@ export async function handleXReserveTestnet(
         return { ok: false, code: 'unknown-channel', message: 'Unknown xReserve testnet request.', submitted: [] }
     }
   } catch (e) {
+    if (e instanceof ProviderFault) return { ok: false, code: e.kind, message: e.message, submitted: [] }
     if (e instanceof TestnetDepositError) return { ok: false, code: e.code, message: e.message, submitted: [...e.submitted] }
     return { ok: false, code: 'error', message: e instanceof Error ? e.message : 'Unexpected error.', submitted: [] }
   }

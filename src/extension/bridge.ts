@@ -29,6 +29,7 @@ const SLOW_TYPES = new Set([
   'wallet:set-agw',
   'wallet:set-account',
   'swap:getQuote',
+  'xreserve:withdrawal-status',
   'swap:crossStatus',
   'swap:getTokenList',
   'swap:getNetworks',
@@ -200,6 +201,7 @@ export function createExtensionWallet() {
     swapExecute:    (quote: unknown)        => send('swap:execute', quote),
     // Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test.
     xreserveTestnetState:   ()                  => send('xreserve:testnet-state'),
+    xreserveWithdrawalStatus: (req: unknown) => send('xreserve:withdrawal-status', req),
     xreserveTestnetSetKey:  (key: string)       => send('xreserve:testnet-set-key', { key }),
     xreserveTestnetSetSource: (source: string) => send('xreserve:testnet-set-source', { source }),
     xreserveTestnetPrepare: (req: unknown)      => send('xreserve:testnet-prepare', req),

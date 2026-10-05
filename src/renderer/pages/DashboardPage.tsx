@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset, SwapToken } from '../types/wallet'
+import { NftImage } from '../components/NftImage'
+import { mergeCollectiblesUpdate } from '../lib/collectibles-updates'
+import { useNftFavorites } from '../lib/use-nft-favorites'
+import { sortNftFavorites } from '../lib/nft-favorites'
 import { ChainCard, getChainName } from '../components/ChainCard'
 import { SendModal } from '../components/SendModal'
 import { AddChainModal } from '../components/AddChainModal'
@@ -333,66 +337,6 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, o
   )
 }
 
-// ─── IPFS image with gateway fallbacks ───────────────────────────────────────
-
-// Ordered by reliability — dweb.link is deprioritised (HTTP/2 stream resets under load)
-const IPFS_GATEWAYS = [
-  'https://ipfs.io/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://nftstorage.link/ipfs/',
-  'https://4everland.io/ipfs/',
-  'https://dweb.link/ipfs/',
-]
-
-const IPFS_PREFIXES = [
-  'https://ipfs.io/ipfs/',
-  'https://dweb.link/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://cf-ipfs.com/ipfs/',
-  'https://gateway.pinata.cloud/ipfs/',
-  'https://nftstorage.link/ipfs/',
-  'https://4everland.io/ipfs/',
-  'https://gateway.ipfs.io/ipfs/',
-]
-
-function ipfsHash(url: string): string | null {
-  if (url.startsWith('ipfs://')) return url.slice('ipfs://'.length)
-  for (const p of IPFS_PREFIXES) {
-    if (url.startsWith(p)) return url.slice(p.length)
-  }
-  const m = url.match(/\/ipfs\/([a-zA-Z0-9].*)/)
-  return m ? m[1] : null
-}
-
-function NftImage({ src, alt }: { src: string; alt: string }) {
-  const [gatewayIdx, setGatewayIdx] = useState(0)
-  const [failed, setFailed] = useState(false)
-
-  const hash = ipfsHash(src)
-  const resolved = hash ? `${IPFS_GATEWAYS[gatewayIdx]}${hash}` : src
-
-  function handleError() {
-    if (hash && gatewayIdx < IPFS_GATEWAYS.length - 1) {
-      setGatewayIdx(g => g + 1)
-    } else {
-      setFailed(true)
-    }
-  }
-
-  if (failed) return <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
-
-  return (
-    <img
-      key={resolved}
-      src={resolved}
-      alt={alt}
-      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
-      onError={handleError}
-    />
-  )
-}
-
 // ─── NFT Detail Modal ─────────────────────────────────────────────────────────
 
 // Native unit per chain, for showing a collection floor (e.g. "14500 MON").
@@ -512,7 +456,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
           {/* Image */}
           <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
             {nft.image
-              ? <NftImage src={nft.image} alt={nft.name} />
+              ? <NftImage src={nft.image} alt={nft.name} eager />
               : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 40 }}>🖼</div>
             }
           </div>
@@ -662,19 +606,23 @@ interface CollectiblesViewProps {
   search: string
   onSpam: (id: string) => void
   onSelectNft: (nft: WalletCollectible) => void
+  favorites: ReadonlySet<string>
+  onToggleFavorite: (id: string) => void
 }
 
-function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onSpam, onSelectNft }: CollectiblesViewProps) {
+function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onSpam, onSelectNft, favorites, onToggleFavorite }: CollectiblesViewProps) {
   const { fmt } = useDisplayCurrency()
   const [hovered, setHovered] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
-  const baseVisible = result ? result.items.filter(n => !hiddenItems.has(nftKey(n)) && !spamItems.has(nftKey(n))) : []
+  const baseVisible = useMemo(() => sortNftFavorites(
+    result ? result.items.filter(n => !hiddenItems.has(nftKey(n)) && !spamItems.has(nftKey(n))) : [], favorites
+  ), [result, hiddenItems, spamItems, favorites])
   const visible = q
     ? baseVisible.filter(n => n.name.toLowerCase().includes(q) || (n.collectionName ?? '').toLowerCase().includes(q) || n.chainLabel.toLowerCase().includes(q))
     : baseVisible
 
-  if (loading) return (
+  if (loading && !result?.items.length) return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
@@ -690,6 +638,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {result?.partial && <div role="status" style={{ color: 'var(--text-muted)', fontSize: 11, padding: '4px 0' }}>Loading more collectibles…</div>}
       {visible.length === 0 && (
         <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
@@ -723,7 +672,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
           const id = nftKey(nft)
           const isHovered = hovered === id
           return (
-            <div key={id}
+            <div key={id} data-nft-key={id}
               style={{ background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, overflow: 'hidden', transition: 'border-color var(--transition)', position: 'relative', cursor: 'pointer' }}
               onMouseEnter={() => setHovered(id)}
               onMouseLeave={() => setHovered(null)}
@@ -731,9 +680,20 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
             >
               <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.3)' }}>
                 {nft.image
-                  ? <NftImage src={nft.image} alt={nft.name} />
+                  ? <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} alt={nft.name} />
                   : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
                 }
+                <button type="button"
+                  aria-label={`${favorites.has(id) ? 'Unfavorite' : 'Favorite'} ${nft.name}`}
+                  aria-pressed={favorites.has(id)}
+                  title={favorites.has(id) ? 'Remove from favorites' : 'Add to favorites'}
+                  onClick={e => { e.stopPropagation(); onToggleFavorite(id) }}
+                  style={{ position: 'absolute', top: 6, left: 6, width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(8,14,28,0.78)', color: favorites.has(id) ? '#fbbf24' : '#e2e8f0', cursor: 'pointer', zIndex: 1 }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill={favorites.has(id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m12 3 2.78 5.63L21 9.54l-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.93 1.06-6.2L3 9.54l6.22-.91L12 3Z" />
+                  </svg>
+                </button>
                 {(isHovered || COARSE_POINTER) && (
                   <div style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
                     <AssetActionButtons onSpam={() => onSpam(id)} />
@@ -962,6 +922,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
   // Spam filter state — per account, and carried on the ChainLens profile so the
   // same list applies on every device and on the ChainLens website.
+  const { favorites: nftFavorites, toggleFavorite: toggleNftFavorite } = useNftFavorites(localAddresses.evm, testnet)
   const acctIdx = addresses.accountIndex ?? 0
   const {
     hidden: hiddenItems, spam: spamItems, allowed: allowedItems,
@@ -1012,6 +973,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const balancesReq    = useRef(0)
   const tokensReq      = useRef(0)
   const collectiblesReq = useRef(0)
+  const collectiblesOwner = useRef(addresses.evm)
 
   const fetchCollectibles = useCallback(async (quiet = false) => {
     const seq = ++collectiblesReq.current
@@ -1019,7 +981,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     try {
       const result = await window.wallet.getCollectibles(excludeRef.current)
       if (seq !== collectiblesReq.current) return   // superseded
-      setCollectibles(result)
+      setCollectibles(previous => mergeCollectiblesUpdate(previous, result))
     } catch (err) {
       console.error('Collectibles fetch failed', err)
     } finally {
@@ -1087,7 +1049,10 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // immediately); when the background pass completes, main pushes the re-valued
   // list here — swap it in place so USD values fill in without a refetch.
   useEffect(() => {
-    const onUpdated = (r: CollectiblesResult) => setCollectibles(r)
+    const onUpdated = (r: CollectiblesResult) => {
+      if (r.ownerAddress && r.ownerAddress.toLowerCase() !== collectiblesOwner.current.toLowerCase()) return
+      setCollectibles(previous => mergeCollectiblesUpdate(previous, r))
+    }
     window.wallet.onCollectiblesUpdated(onUpdated)
     return () => window.wallet.offCollectiblesUpdated(onUpdated)
   }, [])
@@ -1120,6 +1085,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const switchAccount = async (newIndex: number) => {
     if (newIndex < 0 || newIndex > 9 || accountSwitching) return
     setAccountSwitching(true)
+    ++collectiblesReq.current
+    collectiblesOwner.current = '' // Reject old-account pushes while setAccount is in flight.
     setHasLoadedOnce(false)
     setBalances(null)
     setHistory(null)
@@ -1127,6 +1094,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     setCollectibles(null)
     try {
       const newAddresses = await window.wallet.setAccount(newIndex)
+      collectiblesOwner.current = newAddresses.evm
       setLocalAddresses(newAddresses)
       onAddressesChange?.(newAddresses)
       fetchBalances()
@@ -1134,6 +1102,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       fetchTokens()
       fetchCollectibles()
     } catch (err) {
+      collectiblesOwner.current = localAddresses.evm
       console.error('Account switch failed', err)
     } finally {
       setAccountSwitching(false)
@@ -1535,6 +1504,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       )}
       {portfolioTab === 'collectibles' && (
         <CollectiblesView
+          favorites={nftFavorites}
+          onToggleFavorite={toggleNftFavorite}
           result={collectibles}
           loading={collectiblesLoading}
           hiddenItems={hiddenItems}

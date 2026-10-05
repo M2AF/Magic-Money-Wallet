@@ -1,0 +1,7 @@
+.nft-media { position: absolute; inset: 0; overflow: hidden; }
+.nft-media-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 180ms ease; }
+.nft-media-placeholder, .nft-media-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 28px; }
+.nft-media-placeholder { background: linear-gradient(110deg, transparent 25%, rgba(128,128,128,.12) 45%, transparent 65%); background-size: 200% 100%; }
+.nft-media[data-state="loading"] .nft-media-placeholder { animation: nft-media-shimmer 1.6s linear infinite; }
+@keyframes nft-media-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .nft-media[data-state="loading"] .nft-media-placeholder { animation: none; } .nft-media-image { transition: none; } }

@@ -67,6 +67,7 @@ function stub(monadAlchemy: 'ok' | 'down') {
       return json({ result: [{
         token_address: NFT_CONTRACT, token_id: '9', contract_type: 'ERC721', name: 'Monmilios',
         normalized_metadata: { name: 'Monmilio #9', image: 'https://cdn.example/9.png' },
+        media: { media_collection: { medium: { url: 'https://cdn.example/9-small.webp' } }, original_media_url: 'https://cdn.example/9-full.png' },
       }], cursor: null })
     }
     return new Response('not found', { status: 404 })
@@ -91,7 +92,7 @@ describe('Monad NFTs', () => {
     const hits = stub('down')
     const result = await fetchAllCollectibles(nextAddress(), undefined, config)
 
-    expect(monadItems(result)).toEqual([expect.objectContaining({ name: 'Monmilio #9', tokenId: '9' })])
+    expect(monadItems(result)).toEqual([expect.objectContaining({ name: 'Monmilio #9', tokenId: '9', image: 'https://cdn.example/9-full.png', thumbnailUrl: 'https://cdn.example/9-small.webp' })])
     expect(hits.moralisMonad).toBe(1)
   })
 })

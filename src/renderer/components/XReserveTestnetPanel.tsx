@@ -1,7 +1,7 @@
 /**
  * XReserveTestnetPanel.tsx — Testnet Mode only: send Ethereum Sepolia USDC to
  * this wallet's own Cardano Preprod address through Circle xReserve, then check
- * what happened, one user-initiated read at a time.
+ * what happened. Reopening rechecks one saved route; later checks are explicit.
  *
  * This panel is a thin view. Everything that matters — Testnet Mode, the
  * sender, the recipient, the contracts, the one-time intent, the checks before
@@ -16,7 +16,9 @@
  * itself, so leaving the panel after approving can never send a deposit.
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { XReserveRouteProgress } from './XReserveRouteProgress'
+import { latestXreserveRoute } from '../lib/xreserve-route-progress'
 import type {
   TestnetDepositState, TestnetDepositPreview, TestnetDepositResult, TestnetStatusSummary, XReserveTestnetEnvelope,
   TestnetApprovalResult, TestnetRecoveryResult,
@@ -78,6 +80,9 @@ export function XReserveTestnetPanel() {
   const [result, setResult] = useState<TestnetDepositResult | null>(null)
   const [statuses, setStatuses] = useState<Record<string, TestnetStatusSummary | string>>({})
   const [auditDue, setAuditDue] = useState(false)
+  const alive = useRef(true)
+  const resumed = useRef(false)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   const unwrap = <T,>(r: XReserveTestnetEnvelope<T> | undefined): T | null => {
     if (!r) { setError('Not available in this build.'); return null }
@@ -184,19 +189,32 @@ export function XReserveTestnetPanel() {
     } finally { setBusy(false) }
   }
 
-  const check = async (sourceTxHash: string) => {
+  const check = useCallback(async (sourceTxHash: string) => {
     setBusy(true); setError(null)
+    // A failed new read cannot leave an older verdict presented as current.
+    setStatuses(s => { const next = { ...s }; delete next[sourceTxHash]; return next })
     try {
       const r = unwrap(await api.xreserveTestnetCheck?.({ sourceTxHash, auditDue }))
-      if (!r) return
+      if (!r || !alive.current) return
       setStatuses(s => ({
         ...s,
         [sourceTxHash]: r.kind === 'tracking-error' ? `${r.reason} (${r.code})`
           : r.kind === 'save-failed' ? { ...r.status, reason: `${r.status.reason ?? ''} Progress was NOT saved: ${r.reason}`.trim() }
           : r.status,
       }))
-    } finally { setBusy(false) }
-  }
+    } catch (e) {
+      if (alive.current) setError(e instanceof Error ? e.message : 'Could not check this route.')
+    } finally { if (alive.current) setBusy(false) }
+  }, [api, auditDue])
+
+  // Reopen one persisted route with fresh evidence, using the privileged layer's
+  // saved cursors. No timer, no signing and no resubmission; older routes stay manual.
+  useEffect(() => {
+    if (resumed.current || !state?.testnet || busy || !state.cardanoSourceReady || state.pendingSends.length) return
+    resumed.current = true
+    const latest = latestXreserveRoute(state.deposits)
+    if (latest) void check(latest.sourceTxHash)
+  }, [state, busy, check])
 
   if (!state) {
     return <div style={{ ...card, ...muted }}>{error ?? 'Loading the xReserve testnet test…'}</div>
@@ -388,6 +406,7 @@ export function XReserveTestnetPanel() {
               <input type="checkbox" checked={auditDue} onChange={e => setAuditDue(e.target.checked)} /> also scan all USDCx
             </label>
           </div>
+          <div style={muted}>The latest saved route is rechecked when this panel opens. Checking progress never sends another deposit.</div>
           {state.deposits.map(d => {
             const s = statuses[d.sourceTxHash]
             const view = s && typeof s !== 'string' ? (STATE_TEXT[s.state] ?? { text: s.state, color: 'var(--text-secondary)' }) : null
@@ -401,6 +420,7 @@ export function XReserveTestnetPanel() {
                   <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', flexShrink: 0, whiteSpace: 'nowrap', width: 'auto' }} disabled={busy} onClick={() => check(d.sourceTxHash)}>Check status</button>
                 </div>
                 {typeof s === 'string' && <div style={{ fontSize: 11, color: '#fca5a5' }}>{s}</div>}
+                <XReserveRouteProgress status={s && typeof s !== 'string' ? s : undefined} />
                 {view && typeof s !== 'string' && (
                   <div style={{ fontSize: 12, color: view.color }}>
                     {view.text}

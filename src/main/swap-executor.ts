@@ -31,7 +31,7 @@ import {
 } from './swap-intent'
 import {
   openSession, noteApprovalTx, noteSwapBroadcast, noteUncertainBroadcast, noteSourceReceipt, noteSwapNotSent,
-  prepareCardanoSwapBroadcast,
+  prepareCardanoSwapBroadcast, reserveCardanoSwapInputs,
 } from './swap-sessions'
 import { customChainDefs } from './chain-config'
 import { estimateSolanaSwapCost, solanaShortfallMessage } from './solana-swap-cost'
@@ -48,6 +48,7 @@ import { cip30SignTx, cip30SubmitTx } from './cardano-cip30'
 import { decodeCbor, CborMap } from './cardano-tx-inspect'
 import { splitTxRoot, assembleSignedTx, hexToBytesStrict, CardanoSwapValidationError } from './cardano-swap-validate'
 import { checkCardanoSwapTx, cardanoscanTx, CardanoSwapError } from './cardano-swap'
+import { cardanoSwapInputRefs, CardanoInputReservationError } from './cardano-swap-inputs'
 
 // Wallet chain id → numeric EVM chainId (matches tx-sender's supported set).
 // These double as the source chains the executor can locally sign for a swap —
@@ -194,7 +195,24 @@ export async function executeSwap(
   const chain = quote.fromChain
   if (isSupportedEvmChain(chain, config)) return executeEvmSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
   if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
-  if (chain === 'cardano') return executeCardanoSwap(quote, mnemonic, config, accountIndex, intentId, identity, decimals)
+  if (chain === 'cardano') {
+    let release = () => {}
+    try {
+      if (intentId && identity) {
+        try {
+          release = await reserveCardanoSwapInputs(intentId, identity, cardanoSwapInputRefs(quote.txData.cbor ?? ''))
+        } catch (e) {
+          throw new SwapPreflightError(e instanceof CardanoInputReservationError ? e.message
+            : 'Could not reserve the Cardano swap inputs. Nothing was sent — check wallet storage before trying again.')
+        }
+      }
+      return await executeCardanoSwap(quote, mnemonic, config, accountIndex, intentId, identity, decimals)
+    } finally {
+      // After preparation, persisted evidence protects uncertain submissions.
+      // Before preparation, a failed check releases the temporary reservation.
+      release()
+    }
+  }
   throw new SwapPreflightError(`Unsupported swap source chain: ${chain}`)
 }
 
@@ -277,7 +295,7 @@ async function executeCardanoSwap(
       await prepareCardanoSwapBroadcast(intentId, quote, identity, {
         from: decimalsOf(quote.fromTokenAddress, decimals?.from),
         to: decimalsOf(quote.toTokenAddress, decimals?.to),
-      }, txId, explorerUrl)
+      }, txId, explorerUrl, cardanoSwapInputRefs(quote.txData.cbor))
     } catch {
       throw new SwapPreflightError('Could not save the swap recovery record. Nothing was sent — check wallet storage before trying again.')
     }

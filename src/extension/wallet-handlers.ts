@@ -1150,7 +1150,8 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
 
     // ── Testnet Mode only: xReserve Ethereum Sepolia → Cardano Preprod test ─
     // Not in PAGE_RPC_TYPES, so web pages cannot reach it. Every channel refuses
-    // outside Testnet Mode (xreserve-testnet-deposit.ts).
+    // outside Testnet Mode (xreserve-testnet-deposit.ts), except the read-only
+    // withdrawal status, which selects the wallet's current network profile.
     case 'xreserve:testnet-state':
     case 'xreserve:testnet-set-key':
     case 'xreserve:testnet-set-source':
@@ -1161,6 +1162,7 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'xreserve:testnet-check':
     case 'xreserve:testnet-recover':
     case 'xreserve:testnet-dismiss-corrupt':
+    case 'xreserve:withdrawal-status': // Read-only; network comes from wallet config.
       return handleXReserveTestnet(msg.type, a0, {
         loadConfig: () => store.loadConfig(),
         saveConfig: (patch) => store.saveConfig(patch),

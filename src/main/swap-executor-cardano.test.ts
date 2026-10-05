@@ -35,7 +35,8 @@ import type { NormalizedSwapQuote } from './swap-proxy'
 import type { SwapSigningIdentity } from './swap-intent'
 import { bindSwapIntent, buildSwapIdentity, wasSwapIntentBroadcast, __clearSwapIntents } from './swap-intent'
 import type { WalletConfig } from './secure-store'
-import { setSwapSessionPersistence, __resetSwapSessions, listSessions, prepareCardanoSwapBroadcast } from './swap-sessions'
+import { setSwapSessionPersistence, __resetSwapSessions, listSessions, prepareCardanoSwapBroadcast, reserveCardanoSwapInputs, reconcileSessions } from './swap-sessions'
+import { cardanoSwapInputRefs } from './cardano-swap-inputs'
 import type { SettledSwapSessionMap } from '../shared/swap-settlement'
 
 const MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about'
@@ -77,6 +78,62 @@ beforeEach(() => {
 afterEach(() => { __resetSwapSessions(); vi.useRealTimers() })
 
 describe('executeSwap — Cardano', () => {
+  it('stops overlapping concurrent intents before a second live check or signature', async () => {
+    setSwapSessionPersistence({ load: async () => ({}), save: async () => {} })
+    let release!: () => void
+    net.checkCardanoSwapTx.mockImplementationOnce(async () => {
+      await new Promise<void>(resolve => { release = resolve })
+      return { txId: TX_ID, orderOutputIndex: 0, order: {}, cost: {} }
+    })
+    const first = executeSwap(quote(), MNEMONIC, cfg, 0, 'first', identity())
+    await vi.waitFor(() => expect(net.checkCardanoSwapTx).toHaveBeenCalledTimes(1))
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'second', identity())).rejects.toThrow(/Another Cardano swap/)
+    expect(net.checkCardanoSwapTx).toHaveBeenCalledTimes(1)
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+    release()
+    await first
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'third', identity())).rejects.toThrow(/Another Cardano swap/)
+    expect(net.cip30SubmitTx).toHaveBeenCalledTimes(1)
+  })
+
+  it('releases temporary inputs when validation proves nothing was submitted', async () => {
+    setSwapSessionPersistence({ load: async () => ({}), save: async () => {} })
+    net.checkCardanoSwapTx.mockRejectedValueOnce(new CardanoSwapValidationError('stale input'))
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'failed', identity())).rejects.toThrow(/stale input/)
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'fresh', identity())).resolves.toMatchObject({ txHash: TX_ID })
+    expect(net.cip30SubmitTx).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps uncertain input reservations across restart and beyond history expiry', async () => {
+    let saved: SettledSwapSessionMap = {}
+    const port = { load: async () => saved, save: async (map: SettledSwapSessionMap) => { saved = structuredClone(map) } }
+    setSwapSessionPersistence(port)
+    const inputs = cardanoSwapInputRefs(fx.buildTx.cbor)
+    await prepareCardanoSwapBroadcast('uncertain', quote(), identity(), { from: 6, to: 6 }, TX_ID, 'https://example.com', inputs)
+    saved.uncertain.createdAt = 0
+    __resetSwapSessions()
+    setSwapSessionPersistence(port)
+    await expect(executeSwap(quote(), MNEMONIC, cfg, 0, 'new-intent', identity())).rejects.toThrow(/still unresolved/)
+    expect(net.checkCardanoSwapTx).not.toHaveBeenCalled()
+    expect(net.cip30SubmitTx).not.toHaveBeenCalled()
+    expect((await listSessions(identity()))[0].sourceTxHash).toBe(TX_ID)
+    expect(JSON.stringify(saved)).not.toContain(fx.buildTx.cbor)
+    const free = `${'ff'.repeat(32)}#0`
+    const release = await reserveCardanoSwapInputs('independent', identity(), [free])
+    release()
+    await reconcileSessions(identity(), async () => ({ status: 'pending', error: null, providerStatus: 'PENDING', providerSubstatus: 'ORDER_OPEN' }))
+    const afterConfirmed = await reserveCardanoSwapInputs('confirmed-inputs', identity(), inputs)
+    afterConfirmed()
+  })
+
+  it('treats an older unresolved record without input references conservatively', async () => {
+    setSwapSessionPersistence({ load: async () => ({}), save: async () => {} })
+    await prepareCardanoSwapBroadcast('legacy', quote(), identity(), { from: 6, to: 6 }, TX_ID, 'https://example.com')
+    await expect(reserveCardanoSwapInputs('next', identity(), [`${'ff'.repeat(32)}#1`])).rejects.toThrow(/still unresolved/)
+    const otherAccount = await reserveCardanoSwapInputs('other', { ...identity(), accountIndex: 1 }, [`${'ff'.repeat(32)}#1`])
+    otherAccount()
+  })
+
   it('releases an unsent bound intent after storage failure, then prevents replay after submission', async () => {
     const addresses = { evm: '0xwallet', solana: 'solwallet', cardano: OURS, accountIndex: 0 }
     const q = quote()

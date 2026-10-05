@@ -8,6 +8,21 @@ export type XReserveTestnetEnvelope<T = unknown> =
   | { ok: true; value: T }
   | { ok: false; code: string; message: string; submitted: string[] }
 
+/** Read-only Circle outbound status applies to both network profiles. */
+export type CircleWithdrawalState = 'created' | 'verified' | 'confirmed' | 'finalized' | 'expired' | 'failed'
+export interface WithdrawalReference {
+  withdrawalId: string
+  burnTxHash: string
+  /** keccak256 of the prepared encoded TransferSpec (not the BurnIntent). */
+  transferSpecHash: string
+}
+export interface CircleWithdrawalStatus extends WithdrawalReference {
+  state: CircleWithdrawalState
+  transactionHash: string | null
+  /** Provider status alone never proves recipient delivery. */
+  deliveryVerified: false
+}
+
 export interface TestnetRecordSummary {
   sourceTxHash: string
   explorerUrl: string

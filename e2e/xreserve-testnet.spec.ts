@@ -2,6 +2,8 @@ import { expect, test, chromium, type BrowserContext, type Page } from '@playwri
 import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { buildSwapIdentity } from '../src/main/swap-intent'
+import { startXReserveInboundTrackingRecord } from '../src/main/xreserve-inbound-tracking'
 
 /**
  * Real-extension check for the Testnet Mode xReserve Sepolia → Preprod panel.
@@ -67,6 +69,12 @@ test.describe('xReserve testnet panel', () => {
         (window as unknown as { wallet: { xreserveTestnetPrepare: (r: unknown) => Promise<unknown> } })
           .wallet.xreserveTestnetPrepare({ amount: '1', maxFee: '0.1' }))
       expect(mainnetPrepare).toMatchObject({ ok: false, code: 'not-testnet' })
+      // Real outbound status bridge/router, with an invalid reference: refuses
+      // before HTTP, without seed access or any transaction action.
+      const invalidWithdrawal = await page.evaluate(() => window.wallet.xreserveWithdrawalStatus?.({
+        withdrawalId: '../withdraw', burnTxHash: 'ab'.repeat(32), transferSpecHash: '0x' + 'cd'.repeat(32),
+      }))
+      expect(invalidWithdrawal).toMatchObject({ ok: false, code: 'malformed', submitted: [] })
 
       // Real Testnet Mode, then reload so every page reads it.
       await page.evaluate(() => (window as unknown as { wallet: { setTestnetMode: (b: boolean) => Promise<unknown> } }).wallet.setTestnetMode(true))
@@ -272,6 +280,72 @@ test.describe('xReserve testnet panel', () => {
       await expect(page.getByTestId('xreserve-testnet-preview')).toHaveCount(0)
       const realState = await page.evaluate(() => (window as unknown as { wallet: { xreserveTestnetState: () => Promise<unknown> } }).wallet.xreserveTestnetState())
       expect(realState).toMatchObject({ ok: true, value: { deposits: [] } })
+
+      // Persist a sanitized already-submitted deposit through the real platform
+      // store, then reopen the extension. All subsequent chain reads are stubbed.
+      const addresses = await page.evaluate(() => window.wallet.getAddresses())
+      const identity = buildSwapIdentity(addresses!, '', '', true)
+      const records: Record<string, string> = {}
+      const sourceTxHash = `0x${'ab'.repeat(32)}`
+      const stored = await startXReserveInboundTrackingRecord({
+        identity: { walletId: identity.walletId, accountId: `account-${identity.accountIndex}`, environment: 'testnet' },
+        approvedSender: addresses!.evm, sourceTxHash,
+        approved: { recipient: addresses!.cardano, amountRaw: '20000000', maxFeeRaw: '10000000' },
+        confirmations: { ethereum: 12, cardano: 15 }, cardanoTipAtSubmission: { blockHeight: 4100000 },
+      }, { load: async key => records[key] ?? null, save: async (key, json) => { records[key] = json } })
+      expect(stored.kind).toBe('started')
+      await page.evaluate(async records => { await chrome.storage.local.set({ 'wallet.xreserve_tracking': records }) }, records)
+      await page.addInitScript(() => {
+        Object.defineProperty(window, 'wallet', {
+          configurable: true,
+          set(api: Record<string, unknown>) {
+            Object.defineProperty(window, 'wallet', { configurable: true, writable: true, value: api })
+            const w = window as unknown as { __resumeCalls: string[]; __resumeState: string }
+            w.__resumeCalls = []; w.__resumeState = 'awaiting-mint'
+            for (const method of ['xreserveTestnetPrepare', 'xreserveTestnetApprove', 'xreserveTestnetDeposit']) {
+              api[method] = async () => { w.__resumeCalls.push(method); throw new Error('Resume must never sign or prepare') }
+            }
+            api.xreserveTestnetCheck = async (request: { sourceTxHash: string }) => {
+              w.__resumeCalls.push(request.sourceTxHash)
+              if (w.__resumeState === 'transport-error') throw new Error('Route provider connection lost')
+              const hasMint = ['awaiting-confirmations', 'minted'].includes(w.__resumeState)
+              return { ok: true, value: { kind: 'checked', persisted: 'saved', status: {
+                state: w.__resumeState, retryable: w.__resumeState !== 'minted', reason: null,
+                sourceCode: w.__resumeState === 'provider-unavailable' ? null : 'verified', sourceConfirmations: '40',
+                linkCode: w.__resumeState === 'provider-unavailable' ? null : 'linked', trackingError: null, providerFailure: null, conflict: null,
+                mint: hasMint ? { txHash: 'ef'.repeat(32), blockHeight: 4100050, confirmations: w.__resumeState === 'minted' ? 20 : 1 } : null,
+                creditedRaw: hasMint ? '15000000' : null, locatorState: null, auditState: null,
+              } } }
+            }
+          },
+        })
+      })
+      await page.reload()
+      await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      const progress = page.getByRole('list', { name: 'USDC to USDCx route progress' })
+      await expect(progress.locator('li[data-state="verified"]')).toHaveCount(2)
+      await expect(progress.locator('li').last()).toHaveAttribute('data-state', 'pending')
+      expect(await page.evaluate(() => (window as unknown as { __resumeCalls: string[] }).__resumeCalls)).toEqual([sourceTxHash])
+      for (const [state, creditState] of [['awaiting-confirmations', 'pending'], ['minted', 'verified'], ['provider-unavailable', 'pending']]) {
+        await page.evaluate(state => { (window as unknown as { __resumeState: string }).__resumeState = state }, state)
+        await panel.getByRole('button', { name: 'Check status' }).click()
+        await expect(progress.locator('li').last()).toHaveAttribute('data-state', creditState)
+        if (state === 'minted') {
+          await expect(panel).toContainText('15 USDCx credited')
+          await snap(page, '7-resumed-route-minted', progress)
+        }
+        if (state === 'provider-unavailable') await expect(progress.locator('li[data-state="verified"]')).toHaveCount(0)
+      }
+      // A rejected channel must also remove an older success, not leave it green.
+      await page.evaluate(() => { (window as unknown as { __resumeState: string }).__resumeState = 'minted' })
+      await panel.getByRole('button', { name: 'Check status' }).click()
+      await expect(progress.locator('li[data-state="verified"]')).toHaveCount(3)
+      await page.evaluate(() => { (window as unknown as { __resumeState: string }).__resumeState = 'transport-error' })
+      await panel.getByRole('button', { name: 'Check status' }).click()
+      await expect(panel.getByRole('alert')).toContainText('Route provider connection lost')
+      await expect(progress.locator('li[data-state="verified"]')).toHaveCount(0)
+      expect(await page.evaluate(() => (window as unknown as { __resumeCalls: string[] }).__resumeCalls)).toEqual(Array(6).fill(sourceTxHash))
     } finally {
       await ctx.close()
     }

@@ -1,3 +1,4 @@
+import { NftImage } from '../components/NftImage'
 import { useState, useEffect, useCallback } from 'react'
 import type { ClUser, ChainlensSyncResult, WalletCollectible } from '../types/wallet'
 import { CHAIN_ICONS } from '../data/chain-icons'
@@ -135,7 +136,7 @@ function AvatarModal({
                       position: 'relative', background: 'var(--bg-dark)'
                     }}
                   >
-                    <img src={nft.image!} alt={nft.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} alt={nft.name} />
                     {selected === nft.image && (
                       <div style={{
                         position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.3)',

@@ -34,6 +34,7 @@ import { setSettlementTrackingActive } from './swap-policy'
 import type { SwapSigningIdentity } from './swap-intent'
 import type { NormalizedSwapQuote, CrossSwapStatus } from './swap-proxy'
 import type { MinswapOrderScanCursor } from './cardano-swap'
+import { CardanoInputReservationError, inputRef, pendingCardanoSource } from './cardano-swap-inputs'
 
 export interface SwapSessionPersistence {
   load: () => Promise<unknown>
@@ -45,6 +46,36 @@ let sessions: SettledSwapSessionMap = {}
 let loaded = false
 let loading: Promise<void> | null = null
 let writes: Promise<void> = Promise.resolve()
+const cardanoClaims = new Map<symbol, { environment: string; inputs: readonly string[] }>()
+type SessionWithInputs = SettledSwapSession & { cardanoReservedInputs?: string[] }
+
+/** Hold overlapping inputs before any async validation or signing begins. */
+export async function reserveCardanoSwapInputs(
+  intentId: string, identity: SwapSigningIdentity, inputs: readonly string[],
+): Promise<() => void> {
+  if (!inputs.length || !inputs.every(inputRef) || new Set(inputs).size !== inputs.length) {
+    throw new CardanoInputReservationError('The swap inputs could not be reserved.')
+  }
+  await ensureLoaded()
+  const conflict = () => new CardanoInputReservationError(
+    'Another Cardano swap is using these inputs or its submission is still unresolved. Check that swap and request a fresh quote. Nothing was sent.')
+  for (const claim of cardanoClaims.values()) {
+    if (claim.environment === identity.environment && claim.inputs.some(ref => inputs.includes(ref))) throw conflict()
+  }
+  for (const s of Object.values(sessions) as SessionWithInputs[]) {
+    if (s.id === intentId || s.environment !== identity.environment || !pendingCardanoSource(s)) continue
+    const reserved = s.cardanoReservedInputs
+    if (Array.isArray(reserved) && reserved.length && reserved.every(inputRef)) {
+      if (reserved.some(ref => inputs.includes(ref))) throw conflict()
+    } else if (s.walletId === identity.walletId && s.accountIndex === identity.accountIndex) {
+      // Older records have no inputs. Absence is not permission to spend again.
+      throw conflict()
+    }
+  }
+  const key = Symbol(intentId)
+  cardanoClaims.set(key, { environment: identity.environment, inputs: [...inputs] })
+  return () => { cardanoClaims.delete(key) }
+}
 
 /**
  * Each platform installs its own store once, at startup.
@@ -81,10 +112,16 @@ async function ensureLoaded(): Promise<void> {
       throw new Error('The stored swap sessions are unreadable; they were left untouched.')
     }
     const clean = sanitizeSwapSessions(raw) as unknown as SettledSwapSessionMap
-    sessions = pruneSettled(clean)
+    sessions = keepPendingCardanoSources(clean, pruneSettled(clean))
     loaded = true
   })()
   try { await loading } finally { loading = null }
+}
+
+/** Unresolved source hashes/reservations must outlive history TTL and size caps. */
+function keepPendingCardanoSources(previous: SettledSwapSessionMap, next: SettledSwapSessionMap): SettledSwapSessionMap {
+  const protectedRecords = Object.fromEntries(Object.entries(previous).filter(([, s]) => pendingCardanoSource(s)))
+  return { ...protectedRecords, ...next }
 }
 
 /** Snapshot and serialize writes: a slow older write must not replace newer evidence. */
@@ -151,7 +188,7 @@ function openSessionRecord(
     providerRequestId: quote.requestId ?? null,
     appFee: quote.appFee ?? null,
   }
-  sessions = openSwapSession(sessions, input)
+  sessions = keepPendingCardanoSources(sessions, openSwapSession(sessions, input))
 }
 
 /**
@@ -162,7 +199,7 @@ function openSessionRecord(
  */
 export async function prepareCardanoSwapBroadcast(
   intentId: string, quote: NormalizedSwapQuote, identity: SwapSigningIdentity,
-  decimals: { from: number; to: number }, txHash: string, explorerUrl: string,
+  decimals: { from: number; to: number }, txHash: string, explorerUrl: string, inputs?: readonly string[],
 ): Promise<void> {
   if (!persistence) throw new Error('Swap recovery storage is unavailable.')
   await ensureLoaded()
@@ -173,6 +210,7 @@ export async function prepareCardanoSwapBroadcast(
     [intentId]: {
       ...s, sourceTxHash: txHash, sourceExplorerUrl: explorerUrl,
       sourceTxState: 'uncertain', state: 'unknown', updatedAt: Date.now(),
+      ...(inputs ? { cardanoReservedInputs: [...inputs] } : {}),
       message: 'Order submission was prepared. Check the transaction on-chain; do not resend automatically.',
     },
   }
@@ -376,6 +414,7 @@ export async function reconcileSessions(
 
 /** Test seam — drops in-memory state without touching any store. */
 export function __resetSwapSessions(): void {
+  cardanoClaims.clear()
   sessions = {}
   loaded = false
   loading = null
