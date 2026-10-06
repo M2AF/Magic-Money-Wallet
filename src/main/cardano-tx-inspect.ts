@@ -28,6 +28,7 @@ import { blake2b } from '@noble/hashes/blake2b'
 import { hexToBytes, bytesToHex, extractTxBody, bodyFieldBytes } from './cardano-cip30'
 import { blockfrostFetch } from './api-proxy'
 import { KOIOS_URL, TESTNET_KOIOS_URL, isTestnet } from './chain-config'
+import { CARDANO_USDCX_UNIT } from '../shared/swap-token-identity'
 import type { WalletConfig } from './secure-store'
 
 // ─── CBOR reader ──────────────────────────────────────────────────────────────
@@ -761,9 +762,10 @@ export interface CardanoTxSummary {
   /** Outputs that are NOT ours — who is actually receiving. */
   foreignOutputs: Array<{ address: string; lovelace: bigint; assets: AssetAmount[] }>
   certificates: DecodedCertificate[]
-  withdrawals: Array<{ rewardAddress: string; lovelace: bigint }>
+  withdrawals: Array<{ rewardAddress: string; lovelace: bigint; script: boolean }>
   mintBurn: AssetAmount[]
   collateralCount: number
+  collateralOwnership: 'none' | 'wallet' | 'external' | 'mixed' | 'unknown'
   totalCollateral?: bigint
   ttl?: bigint
   validityStart?: bigint
@@ -833,7 +835,7 @@ export async function summarizeCardanoTx(
 ): Promise<CardanoTxSummary> {
   const base: CardanoTxSummary = {
     netAda: 0n, netAssets: [], fee: 0n, foreignOutputs: [], certificates: [], withdrawals: [],
-    mintBurn: [], collateralCount: 0, hasScriptData: false, hasMetadata: false,
+    mintBurn: [], collateralCount: 0, collateralOwnership: 'none', hasScriptData: false, hasMetadata: false,
     requiresStakeWitness: false, votingProcedureCount: 0, proposalProcedureCount: 0,
     warnings: [], resolution: 'failed', rawHex: txHex,
   }
@@ -867,15 +869,22 @@ export async function summarizeCardanoTx(
   // Inputs we own are money leaving. Unresolved inputs are the reason a summary
   // can only ever be a lower bound — say so rather than implying precision.
   let resolution: 'complete' | 'partial' = 'complete'
-  if (!opts.skipResolution && body.inputs.length > 0) {
-    const { resolved, complete } = await resolveTxInputs(body.inputs, opts.config, opts.timeoutMs)
-    if (!complete) resolution = 'partial'
+  let collateralOwnership: CardanoTxSummary['collateralOwnership'] = body.collateral.length > 0 ? 'unknown' : 'none'
+  if (!opts.skipResolution && (body.inputs.length > 0 || body.collateral.length > 0)) {
+    const { resolved } = await resolveTxInputs([...body.inputs, ...body.collateral], opts.config, opts.timeoutMs)
     for (const input of body.inputs) {
       const hit = resolved.get(`${input.txHash}#${input.index}`)
-      if (!hit) continue
+      if (!hit) { resolution = 'partial'; continue }
       if (!hit.address || !ownSet.has(normalizeAddress(hit.address))) continue
       netAda -= hit.value.lovelace
       for (const asset of hit.value.assets) addDelta(deltas, asset, -1n)
+    }
+    if (body.collateral.length > 0) {
+      const hits = body.collateral.map(input => resolved.get(`${input.txHash}#${input.index}`))
+      if (hits.every(hit => hit?.address)) {
+        const owned = hits.filter(hit => ownSet.has(normalizeAddress(hit!.address))).length
+        collateralOwnership = owned === 0 ? 'external' : owned === hits.length ? 'wallet' : 'mixed'
+      }
     }
   } else if (body.inputs.length > 0) {
     resolution = 'partial'
@@ -909,11 +918,18 @@ export async function summarizeCardanoTx(
   }
   if (body.collateral.length > 0) {
     const at = body.totalCollateral ? ` (up to ${formatAda(body.totalCollateral)} ADA)` : ''
-    warnings.push(`Uses collateral${at} — a script failure can cost you that ADA`)
+    const owner = collateralOwnership === 'external' ? 'another party’s collateral'
+      : collateralOwnership === 'wallet' ? 'your collateral'
+      : collateralOwnership === 'mixed' ? 'your and another party’s collateral'
+      : 'collateral (ownership unverified)'
+    warnings.push(`Uses ${owner}${at} — a script failure can consume collateral`)
   }
   if (body.certificates.length > 0) warnings.push('Includes staking or governance certificates')
   if (body.certificates.some(c => !c.known)) warnings.push('Contains a certificate this wallet cannot decode')
-  if (body.withdrawals.length > 0) warnings.push('Withdraws staking rewards')
+  if (body.withdrawals.some(w => w.lovelace > 0n)) warnings.push('Withdraws staking rewards')
+  if (body.withdrawals.some(w => w.lovelace === 0n && (w.rewardAddressBytes[0] >> 4) === 15)) {
+    warnings.push('Runs a script through a zero-ADA withdrawal')
+  }
   if (requiresStakeWitness) warnings.push('Also signs with your stake key')
   if (body.votingProcedureCount > 0) warnings.push('Casts governance votes')
   if (body.proposalProcedureCount > 0) warnings.push('Submits a governance proposal')
@@ -930,9 +946,10 @@ export async function summarizeCardanoTx(
     fee: body.fee,
     foreignOutputs,
     certificates: body.certificates,
-    withdrawals: body.withdrawals.map(w => ({ rewardAddress: w.rewardAddress, lovelace: w.lovelace })),
+    withdrawals: body.withdrawals.map(w => ({ rewardAddress: w.rewardAddress, lovelace: w.lovelace, script: (w.rewardAddressBytes[0] >> 4) === 15 })),
     mintBurn: body.mint,
     collateralCount: body.collateral.length,
+    collateralOwnership,
     totalCollateral: body.totalCollateral,
     ttl: body.ttl,
     validityStart: body.validityStart,
@@ -959,14 +976,15 @@ export function formatAda(lovelace: bigint): string {
   return `${negative ? '-' : ''}${grouped}${frac ? `.${frac}` : ''}`
 }
 
-function signed(value: bigint, formatted: string): string {
-  return value > 0n ? `+${formatted}` : formatted
-}
-
-function formatQuantity(value: bigint): string {
+function formatQuantity(value: bigint, unit?: string): string {
   const negative = value < 0n
-  const abs = (negative ? -value : value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
-  return `${negative ? '-' : ''}${abs}`
+  const abs = negative ? -value : value
+  if (unit === CARDANO_USDCX_UNIT.mainnet || unit === CARDANO_USDCX_UNIT.preprod) {
+    const whole = (abs / 1_000_000n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+    const fraction = (abs % 1_000_000n).toString().padStart(6, '0').replace(/0+$/, '')
+    return `${negative ? '-' : ''}${whole}${fraction ? `.${fraction}` : ''}`
+  }
+  return `${negative ? '-' : ''}${abs.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
 }
 
 export interface FormatOptions {
@@ -1002,16 +1020,16 @@ export function formatCardanoTxSummary(
   const pad = (label: string): string => label.padEnd(16, ' ')
 
   if (summary.netAda !== 0n) {
-    lines.push(`${pad(summary.netAda < 0n ? 'You send' : 'You receive')}${signed(summary.netAda, formatAda(summary.netAda))} ADA`)
+    lines.push(`${pad(summary.netAda < 0n ? 'You send' : 'You receive')}${formatAda(summary.netAda < 0n ? -summary.netAda : summary.netAda)} ADA`)
   }
 
   const outgoing = summary.netAssets.filter(a => a.delta < 0n)
   const incoming = summary.netAssets.filter(a => a.delta > 0n)
   for (const asset of outgoing) {
-    lines.push(`${pad(lines.length === 0 ? 'You send' : '')}${formatQuantity(asset.delta)} ${asset.name}`)
+    lines.push(`${pad(lines.length === 0 ? 'You send' : '')}${formatQuantity(-asset.delta, asset.unit)} ${asset.name}`)
   }
   for (const asset of incoming) {
-    lines.push(`${pad('')}+${formatQuantity(asset.delta)} ${asset.name}`)
+    lines.push(`${pad('')}+${formatQuantity(asset.delta, asset.unit)} ${asset.name}`)
   }
 
   if (lines.length === 0) lines.push(`${pad('Balance change')}None detected`)
@@ -1033,10 +1051,12 @@ export function formatCardanoTxSummary(
     lines.push(`${pad('Certificate')}${cert.label}${cert.detail ? ` — ${cert.detail}` : ''}`)
   }
   for (const w of summary.withdrawals) {
-    lines.push(`${pad('Withdraw')}${formatAda(w.lovelace)} ADA from ${shortenAddress(w.rewardAddress)}`)
+    lines.push(w.script && w.lovelace === 0n
+      ? `${pad('Script')}${shortenAddress(w.rewardAddress)} (zero-ADA withdrawal)`
+      : `${pad('Withdraw')}${formatAda(w.lovelace)} ADA from ${shortenAddress(w.rewardAddress)}`)
   }
   for (const asset of summary.mintBurn) {
-    lines.push(`${pad(asset.quantity < 0n ? 'Burn' : 'Mint')}${formatQuantity(asset.quantity)} ${asset.name}`)
+    lines.push(`${pad(asset.quantity < 0n ? 'Burn' : 'Mint')}${formatQuantity(asset.quantity < 0n ? -asset.quantity : asset.quantity, asset.unit)} ${asset.name}`)
   }
 
   if (includeWarnings && summary.warnings.length > 0) {

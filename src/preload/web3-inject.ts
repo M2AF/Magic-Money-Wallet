@@ -302,28 +302,29 @@ webFrame.executeJavaScript(`(function () {
         value: mmWallet, writable: true, configurable: true, enumerable: true
       });
     }
+    const vesprWallet = Object.assign({}, mmWallet, { name: 'MagicMoney Wallet (VESPR)' });
     // VESPR authorized this compatibility key for dApps that whitelist only
-    // window.cardano.vespr. Preserve MagicMoney branding and the same guarded
+    // window.cardano.vespr. Label the alias distinctly and keep the same guarded
     // IPC routes, and do not replace a genuine VESPR provider if one is present.
     if (typeof window.cardano.vespr === 'undefined') {
       try {
-        window.cardano.vespr = mmWallet;
+        window.cardano.vespr = vesprWallet;
       } catch (_) {
         Object.defineProperty(window.cardano, 'vespr', {
-          value: mmWallet, writable: true, configurable: true, enumerable: true
+          value: vesprWallet, writable: true, configurable: true, enumerable: true
         });
       }
     }
-    if (window.cardano.vespr === mmWallet &&
+    if (window.cardano.vespr === vesprWallet &&
         (window.location.hostname === 'app.strikefinance.org' || window.location.hostname === 'app.dexhunter.io')) {
       const applyVesprCompatibilityBranding = function() {
         // Stop touching the page if a genuine VESPR extension takes ownership
         // of its provider key after MagicMoney was injected.
-        if (window.cardano.vespr !== mmWallet) return;
+        if (window.cardano.vespr !== vesprWallet) return;
         for (const image of document.querySelectorAll('img[alt="Vespr"], img[alt="Vespr wallet"]')) {
           const source = (image.getAttribute('src') || '') + ' ' + (image.getAttribute('srcset') || '');
           if (!source.toLowerCase().includes('vespr')) continue;
-          image.alt = 'MagicMoney Wallet';
+          image.alt = 'MagicMoney Wallet (VESPR)';
           image.removeAttribute('srcset');
           image.src = ${_ICON_JSON};
           image.dataset.magicMoneyVesprBrand = 'true';
@@ -334,9 +335,9 @@ webFrame.executeJavaScript(`(function () {
           for (const element of scope.querySelectorAll('span, p, div, h1, h2, h3')) {
             if (element.children.length > 0) continue;
             const text = (element.textContent || '').trim();
-            if (text === 'Vespr') element.textContent = 'MagicMoney Wallet';
+            if (text === 'Vespr') element.textContent = 'MagicMoney Wallet (VESPR)';
             else if (/^Connecting to Vespr(?:\\.{3}|…)?$/i.test(text)) {
-              element.textContent = 'Connecting to MagicMoney Wallet...';
+              element.textContent = 'Connecting to MagicMoney Wallet (VESPR)...';
             }
           }
         }

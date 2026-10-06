@@ -72,15 +72,18 @@ test.describe('extension page boundary', () => {
     await page.goto('https://app.strikefinance.org/brand-test')
     await page.addScriptTag({ path: extensionFile('inject.js') })
 
-    await expect(page.locator('#vespr-row')).toContainText('MagicMoney Wallet')
-    await expect(page.locator('#vespr-row img')).toHaveAttribute('alt', 'MagicMoney Wallet')
+    await expect(page.locator('#vespr-row')).toContainText('MagicMoney Wallet (VESPR)')
+    await expect(page.locator('#vespr-row img')).toHaveAttribute('alt', 'MagicMoney Wallet (VESPR)')
     await expect(page.locator('#vespr-row img')).toHaveAttribute('src', /^data:image\/png;base64,/)
     await expect(page.evaluate(() => {
       const cardano = (window as typeof window & {
         cardano: Record<string, unknown>
       }).cardano
-      return cardano.magicmoney === cardano.vespr
-    })).resolves.toBe(true)
+      return {
+        canonical: (cardano.magicmoney as { name: string }).name,
+        compatibility: (cardano.vespr as { name: string }).name,
+      }
+    })).resolves.toEqual({ canonical: 'MagicMoney Wallet', compatibility: 'MagicMoney Wallet (VESPR)' })
   })
 
   test('rebrands DexHunter\'s VESPR compatibility tile as MagicMoney', async ({ page }) => {
@@ -97,8 +100,8 @@ test.describe('extension page boundary', () => {
     await page.goto('https://app.dexhunter.io/brand-test')
     await page.addScriptTag({ path: extensionFile('inject.js') })
 
-    await expect(page.locator('#vespr-tile')).toContainText('MagicMoney Wallet')
-    await expect(page.locator('#vespr-tile img')).toHaveAttribute('alt', 'MagicMoney Wallet')
+    await expect(page.locator('#vespr-tile')).toContainText('MagicMoney Wallet (VESPR)')
+    await expect(page.locator('#vespr-tile img')).toHaveAttribute('alt', 'MagicMoney Wallet (VESPR)')
     await expect(page.locator('#vespr-tile img')).toHaveAttribute('src', /^data:image\/png;base64,/)
   })
 

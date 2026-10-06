@@ -7,9 +7,9 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: b6aeb83 · Doc-only correction; git diff --check exit 0. · 2026-10-06T03:44-03:00
-head: b6aeb83 (usdcx-withdrawal-tracking) dirty 3
-updated: 2026-10-06T03:44-03:00 · codex
+verified: da36aca · npm run typecheck exit 0 (five targets); npm test 164 files/2425 tests exit 0; git diff --check exit 0 · 2026-10-06T15:52-03:00
+head: da36aca (main) dirty 10
+updated: 2026-10-06T15:53-03:00 · codex
 
 ## Now
 - NFT favorites shared ChainLens-ID sync complete locally: existing profile preference document, offline caches, legacy migration, unfavorite tombstones and expected-owner guards across all platform bridges; spam choices independent.
@@ -21,16 +21,21 @@ updated: 2026-10-06T03:44-03:00 · codex
 - Codex approval-screen review completed: serialized check/save blocks concurrent authorizations from two windows; full token/mint/router addresses shown; cost cap label excludes the disclosed uncapped Base L1 data fee. Typecheck 5 targets, 21 focused approval tests, and cbADA popup browser test pass. Execution still off/unwired.
 - Ordinary Base -> Solana Relay DEX swap completed with real funds per user screenshot and Claude's read-only chain check: 2.449257 cbADA left Base via nonce 38; 1.548215 cbADA credited on Solana, finalized. This validates that specific Relay run, not the disabled CCIP route or Cardano bridge. HEAD 35b7dbd committed and clean before this handoff update; Codex reran typecheck and 162 files/2383 tests on that HEAD.
 - Danogo real-funds ADA->USDCx QA passed per RELEASE-QA.md; reverse Danogo and V2 order real-funds QA remain open. Preserve existing uncommitted QA.
-- IOG Portal build, submit, existing-hash record and history contracts located. Circle live synthetic preparation HTTP200 for Ethereum and Solana via Arc forwarding. Valid unsigned build and third-party contract not established; execution remains gated.
+- IOG Portal build, submit, existing-hash record and history contracts located. Circle live synthetic preparation HTTP200 for Ethereum and Solana via Arc forwarding. Two Portal builder 502s occurred using Magic Money's VESPR/Backpack-compatible option; the next build succeeded after switching to Magic Money's own sign-in. The user rejected signing. Cause remains unproven, third-party rules unknown, execution gated.
+- Codex corrected the shared Cardano signing summary: collateral ownership is resolved from inputs and reported conservatively when unreadable; pinned USDCx units use 6 decimals; zero-ADA script withdrawals are described as script actions. src/main/cardano-tx-inspect.ts and test are uncommitted. Five-target typecheck, 163 files/2407 tests pass. No signing or submission.
+- VESPR-compatible CIP-30 entry now displays `MagicMoney Wallet (VESPR)` while native `magicmoney` remains `MagicMoney Wallet`; both use the same guarded methods, and genuine VESPR is preserved. Uncommitted extension/mobile and Electron injection changes. Five-target typecheck, 163 files/2407 tests, extension/inject builds, and 13 targeted browser tests pass.
+- Read-only USDCx burn pre-sign validator is unwired and reports signing disabled even when the transaction matches. Codex review added fail-closed malformed-input handling and cryptographic verification of pre-attached signatures. Five-target typecheck and 164 files/2425 tests pass, including the local private Portal case. IOG service key, references, collateral arrangement and validity policy remain unconfirmed.
 - Public historical burn/release independently linked and canonical Ethereum recipient credit verified. No wallet connected or new signing/broadcast during research. Sanitized evidence in docs/evidence/usdcx-portal-2026-10-05.json.
 - Codex reviewed Claude's burn journey and added three gates: Cardano >=400 blocks before confirmed/failed outcome, BurnIntent value equals saved release amount, and an unverified burn is not labelled on-chain success. Focused burn tracking tests 20/20 and five-target typecheck pass. No signing or broadcast.
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- If user chooses, compare Portal same-wallet/amount flow only up to signing prompt; obtain IOG third-party rules before enabling withdrawal.
+- User decides whether to send private IOG request; await supported third-party integration rules before burn execution work
 
 ## Traps
-- Probe 502 x2: history GET 200 and empty POST 400 prove only partial backend reachability; they do not prove the full valid request was accepted or that the builder was healthy. Portal failure would narrow to a shared service or wallet/amount precondition, not prove an outage.
+- Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
+- The repo is PUBLIC. A possible IOG builder issue (collateral return addressed to the user) is kept only in the private IOG request outside the repo; do not add details to docs until IOG responds.
+- The two Portal 502s took longer than the 200; a gateway timeout is plausible but unconfirmed. The separate 1 USDC probe was below the Portal's 5 USDCx minimum; its 502 cause is also unconfirmed. History GET 200 and empty POST 400 prove only partial backend reachability, not builder health.
 - USDCx journey: confirm ONLY on verified exact Ethereum credit at 64 blocks; burn final at 400 Cardano blocks; provider failed/expired after a verified burn = needs-review, never refund. burnTerms immutable; legacy records parse with burnTerms null.
 - EVM swap executor read-after-write (2026-10-05 user Base cbADA->Solana Relay failure, funds safe): every tx of a swap now gets an explicit nonce >= own last+1 (a lagging Alchemy backend reported the used nonce -> 'replacement transaction underpriced'); after an approval the allowance must be VISIBLE before simulating (READ_AFTER_WRITE), and a revert right after our own approval is re-simulated twice. Session decimals now real (were hard-coded 18/9). Test: swap-executor-read-after-write.test.ts.
 - Codex review tightened EVM swap: unreadable first nonce now stops before signing; after a zero-reset receipt, zero allowance must become visible before the new approval. Focused tests and five-target typecheck pass. Nonce floor is per executeEvmSwap call, not across simultaneous swaps or restarts; do not claim global nonce serialization.

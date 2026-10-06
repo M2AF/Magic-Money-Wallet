@@ -19,7 +19,7 @@ function makeTransport(calls: Array<{ type: string; args: unknown[] }>): Provide
 afterEach(() => vi.unstubAllGlobals())
 
 describe('Cardano provider compatibility keys', () => {
-  it('exposes the same MagicMoney provider at magicmoney and vespr', async () => {
+  it('labels the VESPR compatibility entry separately while sharing the guarded API', async () => {
     const calls: Array<{ type: string; args: unknown[] }> = []
     const pageWindow = makeWindow()
     vi.stubGlobal('window', pageWindow)
@@ -30,8 +30,10 @@ describe('Cardano provider compatibility keys', () => {
       name: string
       enable(): Promise<unknown>
     }>
-    expect(cardano.magicmoney).toBe(cardano.vespr)
+    expect(cardano.magicmoney).not.toBe(cardano.vespr)
     expect(cardano.magicmoney.name).toBe('MagicMoney Wallet')
+    expect(cardano.vespr.name).toBe('MagicMoney Wallet (VESPR)')
+    expect(cardano.magicmoney.enable).toBe(cardano.vespr.enable)
 
     await cardano.magicmoney.enable()
     await cardano.vespr.enable()

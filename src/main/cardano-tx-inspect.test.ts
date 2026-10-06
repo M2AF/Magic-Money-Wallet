@@ -1,7 +1,7 @@
 import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b } from '@noble/hashes/blake2b'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   bytesToHex,
   cborArray,
@@ -32,6 +32,7 @@ import {
   summarizeCardanoTx,
 } from './cardano-tx-inspect'
 import type { WalletConfig } from './secure-store'
+import { CARDANO_USDCX_UNIT } from '../shared/swap-token-identity'
 
 const MNEMONIC = 'test test test test test test test test test test test junk'
 const ENTROPY = mnemonicToEntropy(MNEMONIC, wordlist)
@@ -72,6 +73,7 @@ function summarize(txHex: string, extra: { stakeKeyHash?: Uint8Array } = {}) {
 }
 
 beforeEach(() => clearTxInputCache())
+afterEach(() => vi.unstubAllGlobals())
 
 describe('CBOR reader', () => {
   it('decodes the primitive types Cardano bodies use', () => {
@@ -272,7 +274,8 @@ describe('summarizeCardanoTx', () => {
     expect(summary.mintBurn).toEqual([expect.objectContaining({ name: 'SNEK', quantity: -3n })])
     expect(summary.collateralCount).toBe(1)
     expect(summary.warnings).toContain('This transaction burns assets — burned assets cannot be recovered')
-    expect(summary.warnings).toContain('Uses collateral (up to 5 ADA) — a script failure can cost you that ADA')
+    expect(summary.collateralOwnership).toBe('unknown')
+    expect(summary.warnings).toContain('Uses collateral (ownership unverified) (up to 5 ADA) — a script failure can consume collateral')
     expect(summary.warnings).toContain('Contains a certificate this wallet cannot decode')
   })
 
@@ -302,6 +305,62 @@ describe('summarizeCardanoTx', () => {
     expect(summary.requiresStakeWitness).toBe(false)
   })
 
+  it('identifies collateral from resolved inputs without counting it in the wallet balance', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => [{ outputs: [{
+        tx_index: 0, payment_addr: { bech32: FOREIGN_ADDRESS }, value: '5000000', asset_list: [],
+      }] }],
+    })))
+    const txHex = makeTx([
+      [cborUint(0), cborArray([])],
+      [cborUint(1), cborArray([])],
+      [cborUint(2), cborUint(200_000n)],
+      [cborUint(13), cborArray([input(0xb1, 0)])],
+      [cborUint(17), cborUint(5_000_000n)],
+    ])
+    const summary = await summarizeCardanoTx(txHex, {
+      ownAddresses: [OWN_ADDRESS], config: { testnetMode: true } as WalletConfig,
+    })
+    expect(summary.collateralOwnership).toBe('external')
+    expect(summary.netAda).toBe(0n)
+    expect(summary.resolution).toBe('complete')
+    expect(summary.warnings).toContain('Uses another party’s collateral (up to 5 ADA) — a script failure can consume collateral')
+  })
+
+  it('identifies wallet-owned collateral and keeps unresolved ownership neutral', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      json: async () => [{ outputs: [{
+        tx_index: 0, payment_addr: { bech32: OWN_ADDRESS }, value: '5000000', asset_list: [],
+      }] }],
+    })))
+    const txHex = makeTx([
+      [cborUint(0), cborArray([])], [cborUint(1), cborArray([])],
+      [cborUint(2), cborUint(200_000n)], [cborUint(13), cborArray([input(0xb2, 0)])],
+    ])
+    const summary = await summarizeCardanoTx(txHex, {
+      ownAddresses: [OWN_ADDRESS], config: { testnetMode: true } as WalletConfig,
+    })
+    expect(summary.collateralOwnership).toBe('wallet')
+    expect(summary.warnings).toContain('Uses your collateral — a script failure can consume collateral')
+  })
+
+  it('labels a zero-value script withdrawal as a script action', async () => {
+    const scriptReward = new Uint8Array(29).fill(0x42)
+    scriptReward[0] = 0xf1
+    const txHex = makeTx([
+      [cborUint(0), cborArray([])], [cborUint(1), cborArray([])],
+      [cborUint(2), cborUint(200_000n)],
+      [cborUint(5), cborMap([[cborBytes(scriptReward), cborUint(0)]])],
+    ])
+    const summary = await summarize(txHex)
+    expect(summary.warnings).toContain('Runs a script through a zero-ADA withdrawal')
+    expect(summary.warnings).not.toContain('Withdraws staking rewards')
+    expect(formatCardanoTxSummary(summary)).toContain('Script')
+    expect(formatCardanoTxSummary(summary)).toContain('(zero-ADA withdrawal)')
+  })
+
   it('degrades to failed on malformed input instead of throwing', async () => {
     for (const bad of ['', 'zz', 'ff', 'a1', '82']) {
       const summary = await summarize(bad)
@@ -313,6 +372,20 @@ describe('summarizeCardanoTx', () => {
 })
 
 describe('formatting', () => {
+  it('uses six decimals only for the pinned USDCx policies', async () => {
+    const nameHex = bytesToHex(new TextEncoder().encode('USDCx'))
+    const txHex = makeTx([
+      [cborUint(0), cborArray([])], [cborUint(1), cborArray([])],
+      [cborUint(2), cborUint(200_000n)],
+      [cborUint(9), cborMap([
+        [cborBytes(hexToBytes(CARDANO_USDCX_UNIT.mainnet.slice(0, 56))), cborMap([[cborBytes(hexToBytes(nameHex)), cborInt(-7_000_000)]])],
+        [cborBytes(hexToBytes(POLICY)), cborMap([[cborBytes(hexToBytes(nameHex)), cborInt(-7_000_000)]])],
+      ])],
+    ])
+    const text = formatCardanoTxSummary(await summarize(txHex))
+    expect(text).toContain('Burn            7 USDCx')
+    expect(text).toContain('Burn            7,000,000 USDCx')
+  })
   it('formats lovelace as grouped ADA with trailing zeros trimmed', () => {
     expect(formatAda(0n)).toBe('0')
     expect(formatAda(1_500_000n)).toBe('1.5')

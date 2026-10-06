@@ -116,7 +116,7 @@ test.describe('Midnight Lace compatibility alias', () => {
         cardano?: Record<string, { name?: string }>
       }).cardano
       return { magicmoney: cardano?.magicmoney?.name, vespr: cardano?.vespr?.name }
-    })).resolves.toEqual({ magicmoney: 'MagicMoney Wallet', vespr: 'MagicMoney Wallet' })
+    })).resolves.toEqual({ magicmoney: 'MagicMoney Wallet', vespr: 'MagicMoney Wallet (VESPR)' })
 
     // The alias must be a live provider, not a detection decoy.
     await expect(page.evaluate(() => {
