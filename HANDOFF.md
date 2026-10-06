@@ -2,14 +2,14 @@
 <!-- handoff v1. LIVE STATE ONLY: rewrite in place, keep under ~60 lines.
      History goes in HANDOFF_LOG.md. Machine fields above the first ## are managed by handoff.py. -->
 
-owner: claude
-task: Commit USDCx tracking; then authorized build-only burn probe
-lease_until: 2026-10-06T06:30-03:00
+owner: none
+task: -
+lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 35b7dbd · Five-target typecheck exit 0; focused journey-recheck and usdcx-burn-tracking 40/40; git diff --check exit 0. · 2026-10-06T02:29-03:00
-head: 35b7dbd (main) dirty 11
-updated: 2026-10-06T03:30-03:00 · claude
+verified: b6aeb83 · Doc-only correction; git diff --check exit 0. · 2026-10-06T03:44-03:00
+head: b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+updated: 2026-10-06T03:44-03:00 · codex
 
 ## Now
 - NFT favorites shared ChainLens-ID sync complete locally: existing profile preference document, offline caches, legacy migration, unfavorite tombstones and expected-owner guards across all platform bridges; spam choices independent.
@@ -27,9 +27,10 @@ updated: 2026-10-06T03:30-03:00 · claude
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- Validate IOG third-party unsigned burn build and operator rules before any approval or signing; add Solana credit proof separately if needed.
+- If user chooses, compare Portal same-wallet/amount flow only up to signing prompt; obtain IOG third-party rules before enabling withdrawal.
 
 ## Traps
+- Probe 502 x2: history GET 200 and empty POST 400 prove only partial backend reachability; they do not prove the full valid request was accepted or that the builder was healthy. Portal failure would narrow to a shared service or wallet/amount precondition, not prove an outage.
 - USDCx journey: confirm ONLY on verified exact Ethereum credit at 64 blocks; burn final at 400 Cardano blocks; provider failed/expired after a verified burn = needs-review, never refund. burnTerms immutable; legacy records parse with burnTerms null.
 - EVM swap executor read-after-write (2026-10-05 user Base cbADA->Solana Relay failure, funds safe): every tx of a swap now gets an explicit nonce >= own last+1 (a lagging Alchemy backend reported the used nonce -> 'replacement transaction underpriced'); after an approval the allowance must be VISIBLE before simulating (READ_AFTER_WRITE), and a revert right after our own approval is re-simulated twice. Session decimals now real (were hard-coded 18/9). Test: swap-executor-read-after-write.test.ts.
 - Codex review tightened EVM swap: unreadable first nonce now stops before signing; after a zero-reset receipt, zero allowance must become visible before the new approval. Focused tests and five-target typecheck pass. Nonce floor is per executeEvmSwap call, not across simultaneous swaps or restarts; do not claim global nonce serialization.

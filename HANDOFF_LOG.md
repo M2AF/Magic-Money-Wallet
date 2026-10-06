@@ -136,3 +136,30 @@
 ### 2026-10-06T03:30-03:00 · claude · claim · 35b7dbd (main) dirty 11
 - task: Commit USDCx tracking; then authorized build-only burn probe
 - lease until 2026-10-06T06:30-03:00
+
+### 2026-10-06T03:37-03:00 · claude · handoff · b6aeb83 (usdcx-withdrawal-tracking) dirty 1
+- Committed b6aeb83 on branch usdcx-withdrawal-tracking (not main). Burn build probe authorized by user; blocked on balance: 1.330447 USDCx < 3 (1 USDC release + Circle 2 USDC fee cap). User to swap ~10 ADA->USDCx in app; probe script ready in Claude scratchpad (build-only, one prepare + one builder call, no sign/submit).
+- next: After user confirms >=3 USDCx: run build-only probe, decode offline vs questions 1-7
+
+### 2026-10-06T03:38-03:00 · claude · claim · b6aeb83 (usdcx-withdrawal-tracking) dirty 2
+- task: Run authorized build-only USDCx burn probe
+- lease until 2026-10-06T05:38-03:00
+
+### 2026-10-06T03:39-03:00 · claude · checkpoint · b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+- Authorized build-only probe ran twice: Circle prepare OK (1 USDC + 2 fee cap = 3 USDCx); IOG /tx/burn-usdcx returned 502 both times while history GET 200 and empty POST 400. No tx returned; nothing signed/submitted. Recorded in docs/USDCX-BURN-BUILD-PROBE.md.
+
+### 2026-10-06T03:39-03:00 · claude · handoff · b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+- Burn probe: builder 502 x2; no further builder calls
+- next: User checks IOG Portal up to signing prompt (no signing); send IOG the probe questions incl. the 502
+
+### 2026-10-06T03:44-03:00 · codex · claim · b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+- task: Review IOG builder 502 interpretation and probe handoff
+- lease until 2026-10-06T06:44-03:00
+
+### 2026-10-06T03:44-03:00 · codex · correction · b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+- verified: Doc-only correction; git diff --check exit 0.
+- 502 interpretation narrowed: empty POST 400 and history GET 200 show partial route reachability, not full valid schema acceptance or builder health. Portal result will narrow cause, not prove outage.
+
+### 2026-10-06T03:44-03:00 · codex · handoff · b6aeb83 (usdcx-withdrawal-tracking) dirty 3
+- Reviewed the authorized IOG build-only probe, corrected overstatements in probe doc and handoff; no new builder calls, code changes, signing or submission.
+- next: If user chooses, compare Portal same-wallet/amount flow only up to signing prompt; obtain IOG third-party rules before enabling withdrawal.

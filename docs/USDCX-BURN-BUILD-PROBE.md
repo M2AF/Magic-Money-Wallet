@@ -41,3 +41,18 @@ Alternatively, send a provider-support request to IOG covering questions 1–8. 
 These are product decisions, not engineering questions:
 - the bridge fee ceiling (Circle publishes no withdrawal fee schedule);
 - whether to depend on an observed, unversioned IOG interface.
+
+## Probe result (2026-10-06, authorized by the user)
+
+- **Run:** two attempts at 06:38 UTC, each one Circle prepare and one builder call. Nothing was signed, submitted or recorded, and no USDCx was burned.
+- **Precondition:** the user's own key-hash base address held 4.022074 USDCx and 16.41 ADA after an ADA → USDCx Danogo swap the user made for this probe.
+- **Circle `prepare-withdrawal`: succeeded.**
+  - Terms: 1.000000 USDC release to the user's own EVM address, `maxFee` 2.000000 USDC (Circle's value; it met the 2 USDC ceiling), burn 3.000000 USDCx, a 524-byte BurnIntent.
+  - It passed the wallet's `validatePreparedWithdrawal`.
+- **IOG `POST /tx/burn-usdcx`: HTTP 502 Bad Gateway (nginx) both times.** The request followed the Portal bundle's shape: `primaryAddress` = payment and staking key hashes, empty `secondaryAddress` and `reservedCollateral`, and `circleBurnIntent` = Circle's `encoded`.
+- **Partial backend health:** at the same time `GET /withdrawal-history/{address}` returned 200, and a POST with an empty body returned a 400 schema error. Those responses show that these routes and the empty-body validator were reachable; they do not establish that the builder or its dependencies were healthy.
+- **Interpretation:** the request got past the empty-body check, but a 502 does not prove its full schema or semantics were accepted. The cause is not visible from outside. Candidates include a builder/node fault, an amount or UTxO/collateral precondition surfaced poorly, an input the Portal supplies differently, or a policy that refuses non-Portal callers.
+- **Questions 1–7 remain unanswered:** no transaction was returned.
+- **Next step, which does not touch the builder again:**
+  1. The user starts the same withdrawal in the IOG Portal and stops at the wallet signing prompt, without signing. If it fails before signing too, that narrows the issue to a shared service or wallet/amount precondition; it does not by itself prove an IOG outage. If it reaches signing, compare the Portal's builder inputs with this probe before another independent call.
+  2. Send IOG the questions in this document, including this 502 and its timestamp.
