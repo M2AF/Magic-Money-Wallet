@@ -28,7 +28,10 @@ import type { HttpFetchFn } from './xreserve-cardano-provider'
 import { baseCcipReadsWithFallback } from './cbada-ccip'
 import { planJourneys, type JourneyDeps } from './journey-providers'
 import { journeyMapStore, restoreJourneys } from './journey-store'
+import { journeyHolding } from '../shared/stablecoin-journey'
 import { recheckJourney, liveRecheckReads, type RecheckReads, type LegEvidence } from './journey-recheck'
+import { liveUsdcxBurnReads } from './usdcx-burn-tracking'
+import { readXReserveEthereumEvidence } from './xreserve-ethereum-evidence-reader'
 import { solanaDeliveryReads } from './cbada-solana-delivery'
 import { blockfrostFetch } from './api-proxy'
 import { reviewCbAdaTransfer, authorizeCbAdaTransfer, cancelUnsentStoredJourney, type ApprovalWallet } from './cbada-ccip-approval'
@@ -191,7 +194,8 @@ export async function handleJourneyList(host: JourneyHost): Promise<{ ok: true; 
         legs: j.legs.map(l => ({ role: l.role, chain: l.chain, state: l.state, txHash: l.txHash, providerRef: l.providerRef, approvalTxHash: l.approvalTxHash,
           approvedInputRaw: l.approvedInputRaw, inputSymbol: l.input.symbol, outputSymbol: l.output.symbol })),
         authorization: j.authorization,
-        cancellable: j.legs.every(l => !l.txHash && !l.approvalTxHash) })),
+        cancellable: j.legs.every(l => !l.txHash && !l.approvalTxHash),
+        holding: (() => { const h = journeyHolding(j); return { chain: h.asset.chain, symbol: h.asset.symbol, decimals: h.asset.decimals, amountRaw: h.amountRaw, settled: h.settled } })() })),
       awaitingEvidence: restored.awaitingEvidence.filter(a => myIds.has(a.journeyId)).length,
       finished: restored.finished.filter(j => j.walletId === me.walletId).length,
       otherWallets: restored.active.length - mine.length,
@@ -213,12 +217,16 @@ export async function handleJourneyRecheck(arg: unknown, host: JourneyHost): Pro
     // Another wallet's journey is not this wallet's to read.
     if (!journey || journey.walletId !== me.walletId) return { ok: false, message: 'This journey does not belong to the current wallet.' }
     const fetchFn = (host.fetchFn ?? fetch) as typeof fetch
-    const reads = host.recheckReads ?? liveRecheckReads(
-      activePublicRpcs(me.config), activeSolanaRpcs(me.config),
-      (path) => blockfrostFetch(path, me.config, 12_000),
-      solanaDeliveryReads(activeSolanaRpcs(me.config), fetchFn), fetchFn,
-    )
-    const r = await recheckJourney(journey, store, reads, { evm: me.addresses.evm }, Date.now())
+    const cardanoRead = (path: string) => blockfrostFetch(path, me.config, 12_000)
+    const reads = host.recheckReads ?? {
+      ...liveRecheckReads(
+        activePublicRpcs(me.config), activeSolanaRpcs(me.config), cardanoRead,
+        solanaDeliveryReads(activeSolanaRpcs(me.config), fetchFn), fetchFn,
+      ),
+      usdcxBurn: liveUsdcxBurnReads(cardanoRead,
+        async (hash) => (await readXReserveEthereumEvidence(hash, me.config, { fetchFn: host.fetchFn as never })).evidence, host.fetchFn),
+    }
+    const r = await recheckJourney(journey, store, reads, { evm: me.addresses.evm, cardano: me.addresses.cardano }, Date.now())
     return { ok: true, value: { journeyId: id, legs: r.legs } }
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : 'The journey could not be checked.' }

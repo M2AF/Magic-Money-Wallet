@@ -2,11 +2,13 @@
  * journey-recheck.ts — re-read a restored journey's SENT steps from their
  * chains, by the transaction hashes saved before broadcast (privileged layer).
  *
- * Read-only toward the chains: nothing is built, signed or re-sent, and no
- * step's state is changed here — state transitions belong to the executors,
- * which need measured amounts. The one thing persisted is evidence the store
- * already accepts: a cbADA bridge step's CCIP message id, recovered from the
- * CONFIRMED Base receipt (recoverBridgeReference; stored once, never replaced).
+ * Read-only toward the chains: nothing is built, signed or re-sent. Persisted,
+ * through the store's progress guard:
+ *   - a cbADA bridge step's CCIP message id, recovered from the CONFIRMED Base
+ *     receipt (recoverBridgeReference; stored once, never replaced);
+ *   - a USDCx burn step's outcome (usdcx-burn-tracking.ts): confirmed only with
+ *     the MEASURED destination credit; failed only for a burn that failed script
+ *     validation; needs-review for conflicts. Pending evidence changes nothing.
  *
  * For a cbADA bridge step with a message id, Solana delivery is DISCOVERED
  * (cbada-solana-delivery.ts) and decided only by the OffRamp/credit proof.
@@ -17,6 +19,8 @@ import type { JourneyStore } from './journey-store'
 import { CBADA } from './cbada-ccip'
 import { recoverBridgeReference, CcipSendError, type ReceiptLike } from './cbada-ccip-send'
 import { findSolanaCbAdaDelivery, type DeliverySearch, type DeliveryCursor, type SolanaDeliveryReads } from './cbada-solana-delivery'
+import { checkUsdcxBurnLeg, type BurnLegEvidence, type UsdcxBurnReads } from './usdcx-burn-tracking'
+import { recordLegOutcome } from '../shared/stablecoin-journey'
 
 /**
  * Where each message's Solana search got to, so repeated checks continue
@@ -42,6 +46,8 @@ export interface LegEvidence {
   delivery: DeliverySearch | null
   /** Approval only: whether the current allowance covers the approved amount (null when unreadable). */
   allowanceCovers: boolean | null
+  /** USDCx burn step: the burn, the provider's row and the destination credit. */
+  burn: BurnLegEvidence | null
   note: string | null
 }
 
@@ -53,13 +59,15 @@ export interface RecheckReads {
   solanaStatus(signature: string): Promise<'confirmed' | 'failed' | 'not-found' | null>
   cardanoTx(txHash: string): Promise<'confirmed' | 'failed' | 'not-found' | null>
   solanaDelivery: SolanaDeliveryReads
+  /** USDCx burn tracking; without it a burn step is only looked up on Cardano. */
+  usdcxBurn?: UsdcxBurnReads
 }
 
 const SENT = new Set(['submitted', 'uncertain', 'needs-review', 'confirmed', 'failed'])
 
 export async function recheckJourney(
   journey: StablecoinJourney, store: JourneyStore, reads: RecheckReads,
-  wallet: { evm?: string }, now: number,
+  wallet: { evm?: string; cardano?: string }, now: number,
 ): Promise<{ journey: StablecoinJourney; legs: LegEvidence[] }> {
   let current = journey
   const legs: LegEvidence[] = []
@@ -68,7 +76,7 @@ export async function recheckJourney(
     // read-only. It is never sent again, and the step is never sent from here.
     if (leg.approvalTxHash && !leg.txHash && leg.state === 'approved' && (leg.chain === 'base' || leg.chain === 'ethereum')) {
       const ev: LegEvidence = { role: leg.role, kind: 'approval', chain: leg.chain, txHash: leg.approvalTxHash, onChain: 'unknown',
-        messageId: null, delivery: null, allowanceCovers: null, note: null }
+        messageId: null, delivery: null, allowanceCovers: null, burn: null, note: null }
       const r = await reads.evmReceipt(leg.chain, leg.approvalTxHash)
       if (r === 'unreadable') ev.note = 'The network could not be read; try again.'
       else if (r === null) { ev.onChain = 'not-found'; ev.note = 'The approval is not on chain (yet). It is checked again, never sent again.' }
@@ -88,7 +96,7 @@ export async function recheckJourney(
     }
     if (!leg.txHash || !SENT.has(leg.state)) continue
     const ev: LegEvidence = { role: leg.role, kind: 'transaction', chain: leg.chain, txHash: leg.txHash, onChain: 'unknown',
-      messageId: leg.providerRef, delivery: null, allowanceCovers: null, note: null }
+      messageId: leg.providerRef, delivery: null, allowanceCovers: null, burn: null, note: null }
     try {
       if (leg.chain === 'base' || leg.chain === 'ethereum') {
         const r = await reads.evmReceipt(leg.chain, leg.txHash)
@@ -120,6 +128,20 @@ export async function recheckJourney(
         }
       } else if (leg.chain === 'solana') {
         ev.onChain = (await reads.solanaStatus(leg.txHash)) ?? 'unknown'
+      } else if (leg.chain === 'cardano' && leg.role === 'bridge' && journey.bridge.startsWith('xreserve-') && reads.usdcxBurn) {
+        const { evidence, outcome } = await checkUsdcxBurnLeg(current, wallet.cardano ?? null, reads.usdcxBurn)
+        ev.burn = evidence
+        ev.note = evidence.reason
+        ev.onChain = evidence.burn === 'not-found' ? 'not-found'
+          : evidence.burn === 'failed-attempt' ? 'failed'
+          : evidence.burn === 'verified' ? 'confirmed' : 'unknown'
+        const live = current.legs[1]
+        const settled = outcome?.state === 'confirmed' && live.state === 'confirmed'
+        if (outcome && !settled && live.state !== outcome.state && ['submitted', 'uncertain', 'needs-review'].includes(live.state)) {
+          const next = recordLegOutcome(current, 'bridge', outcome, now)
+          await store.put(next)
+          current = next
+        }
       } else if (leg.chain === 'cardano') {
         ev.onChain = (await reads.cardanoTx(leg.txHash)) ?? 'unknown'
       }

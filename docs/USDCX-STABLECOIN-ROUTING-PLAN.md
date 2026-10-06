@@ -91,3 +91,27 @@ Work on steps 1, 2 and journey state can proceed without spending funds. Product
 - Run appropriate focused tests, five-target typecheck and required regression/build checks after implementation. Funded QA requires separate explicit authorization and independent chain verification.
 
 Implementation handoff: [Claude prompt](USDCX-STABLECOIN-CLAUDE-PROMPT.md).
+
+## Recoverable withdrawal journey, read-only (Claude, 2026-10-06)
+
+**What it does:** follows a USDCx burn step from its saved hash to the destination credit, after restarts, and shows where the funds are. **Burn signing stays disabled.** Nothing creates a burn, so no withdrawal journey appears in the app until a validated unsigned burn build exists.
+
+- **Stored terms** (`burnTerms` in `src/shared/stablecoin-journey.ts`, set by `authorizeXReserveBurn`):
+  - **Contents:** Circle's encoded intent, the burn amount, the depositor, the exact release amount and the release recipient.
+  - **Rules:** set once, before any burn, and only for an approved, unsent step whose approved amount equals the burn amount. The store refuses any later change.
+  - **Older records** without the field read as having none.
+- **Chain of evidence** (`src/main/usdcx-burn-tracking.ts`, via `journey:recheck`):
+  1. **Burn:** the saved Cardano transaction must be this burn (`verifyXReserveCardanoBurn` against the stored terms). The intent's release value must equal the saved release amount. Its depth is reported; at least 400 blocks are required before a confirmed or failed outcome is recorded.
+  2. **IOG row:** the history row for exactly that burn hash (`trackIogWithdrawal`).
+  3. **Release:** the named Ethereum release must credit exactly the approved recipient and amount at 64 blocks (`verifyEthereumUsdcCredit`).
+- **What gets recorded:**
+  - **Confirmed:** only with the measured credit and a final Cardano burn.
+  - **Failed:** only when the burn transaction failed script validation (it burned nothing; the USDCx is shown as still on Cardano).
+  - **Needs review:** the saved hash is not this burn; the operator lists it twice, records another amount, or failed/expired after a verified burn (never called a refund); or the release credits something else.
+  - **Nothing:** when a source is absent, pending or unreadable.
+- **Solana-forwarded withdrawals** are tracked through the burn and the operator row, but never confirmed: no Solana credit check exists yet.
+- **Funds now:** the journey list shows the last confirmed step's measured output, or "in transit" for a sent, unproven step. A failed step now reports its input, not its output; this was a bug in `journeyHolding`.
+- **Never repeated:** the saved burn hash cannot be replaced, and recheck only reads. There is no send, resend or cancel for a sent burn.
+- **Evidence:**
+  - **Tests:** the public burn `887333810e…`, its IOG row and the Ethereum release `0x37dce9fa…` (fixtures), with negatives derived from them.
+  - **Live read-only run (2026-10-06):** burn verified at 4,691 blocks, IOG finalized, exact 2,800 USDC credit verified, outcome confirmed.

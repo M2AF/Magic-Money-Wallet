@@ -27,6 +27,30 @@ const ON_CHAIN: Record<string, string> = {
 const short = (h: string) => (h.length > 18 ? `${h.slice(0, 10)}…${h.slice(-6)}` : h)
 const name = (c: string) => c.charAt(0).toUpperCase() + c.slice(1)
 
+type Holding = JourneyListSummary['active'][number]['holding']
+function holdingLine(h: Holding | undefined): string | null {
+  if (!h) return null
+  if (!h.settled) return `Funds now: in transit to ${h.symbol} on ${name(h.chain)} — waiting for proof of arrival.`
+  return h.amountRaw ? `Funds now: ${fmt(h.amountRaw, h.decimals)} ${h.symbol} on ${name(h.chain)} (confirmed).` : `Funds now: your ${h.symbol} on ${name(h.chain)}.`
+}
+
+type Burn = NonNullable<JourneyRecheckResult['legs'][number]['burn']>
+const BURN: Record<Burn['burn'], string> = {
+  verified: 'verified against the approved terms', 'not-found': 'not on Cardano (yet)', unreadable: 'could not be read',
+  'failed-attempt': 'failed script validation — nothing was burned', conflict: 'does not match the approved terms', unrelated: 'is not the burn this journey approved',
+}
+const PROVIDER: Record<Burn['provider'], string> = {
+  'not-listed': 'not listed yet', pending: 'in progress', ambiguous: 'listed more than once', 'provider-stopped': 'failed or expired (not a refund)',
+  'needs-review': 'disagrees with the approved burn', finalized: 'finalized', unreadable: 'could not be read', 'not-checked': 'not checked',
+}
+function burnLines(b: Burn): string[] {
+  return [
+    `1. Burn on Cardano: ${BURN[b.burn]}${b.burnDepth !== null ? ` · ${b.burnDepth} blocks deep${b.burnFinal ? '' : ' (not final yet)'}` : ''}`,
+    `2. IOG operator: ${PROVIDER[b.provider]}${b.providerStatus ? ` (${b.providerStatus})` : ''}`,
+    `3. Release on Ethereum: ${b.credit === 'verified' ? `credit verified${b.creditedRaw ? ` — ${fmt(b.creditedRaw, 6)} USDC` : ''}` : b.credit ? b.credit : 'not checked yet'}${b.releaseTxHash ? ` · ${short(b.releaseTxHash)}` : ''}`,
+  ]
+}
+
 function deliveryLine(d: NonNullable<JourneyRecheckResult['legs'][number]['delivery']>): { text: string; color: string } {
   switch (d.state) {
     case 'delivered': return { text: `Delivered on Solana (proven by the OffRamp event and the exact credit) — ${short(d.signature)}`, color: '#22c55e' }
@@ -70,7 +94,11 @@ export function JourneysInProgress() {
   const marker = <div ref={sentinel} data-testid="journeys-sentinel" style={{ height: 0 }} />
   if (!window.wallet.journeyList) return null
   if (error) return <>{marker}<div style={{ fontSize: 11, color: '#fca5a5' }}>{error}</div></>
-  if (!list || (list.active.length === 0 && list.unreadable.length === 0)) return marker
+  // A check can finish a journey (its last step proven): it then leaves the
+  // active list, so its final evidence is kept here for this visit.
+  const finishedChecks = list ? Object.entries(checks).filter((e): e is [string, JourneyRecheckResult] =>
+    typeof e[1] !== 'string' && !list.active.some(j => j.id === e[0])) : []
+  if (!list || (list.active.length === 0 && list.unreadable.length === 0 && finishedChecks.length === 0)) return marker
 
   const recheck = async (id: string) => {
     if (!window.wallet.journeyRecheck) return
@@ -78,6 +106,8 @@ export function JourneysInProgress() {
     try {
       const r = await window.wallet.journeyRecheck(id)
       setChecks(c => ({ ...c, [id]: r.ok ? r.value : r.message }))
+      // A check may have recorded an outcome: read the stored journeys again.
+      if (r.ok) setReloads(n => n + 1)
     } catch {
       setChecks(c => ({ ...c, [id]: 'This journey could not be checked.' }))
     } finally {
@@ -114,11 +144,18 @@ export function JourneysInProgress() {
           {list.unreadable.length} stored journey record(s) could not be read. They were kept untouched.
         </div>
       )}
+      {finishedChecks.map(([id, c]) => (
+        <div key={id} data-testid={`journey-finished-${id}`} style={{ border: '1px solid rgba(34,197,94,0.4)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#22c55e' }}>Journey finished — its last step was proven on chain.</div>
+          {c.legs.flatMap(e => e.burn ? burnLines(e.burn) : []).map(t => <div key={t} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{t}</div>)}
+        </div>
+      ))}
       {list.active.map(j => {
         const check = checks[j.id]
         return (
           <div key={j.id} data-testid={`journey-${j.id}`} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
             <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Started {new Date(j.createdAt).toLocaleString()}</div>
+            {holdingLine(j.holding) && <div data-testid="journey-holding" style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{holdingLine(j.holding)}</div>}
             {j.legs.map((l, i) => (
               <div key={i} style={{ fontSize: 11, lineHeight: 1.45, color: 'var(--text-secondary)' }}>
                 {i + 1}. {ROLE[l.role] ?? l.role} {l.inputSymbol} → {l.outputSymbol} on {name(l.chain)} — {STATE[l.state] ?? l.state}
@@ -148,6 +185,7 @@ export function JourneysInProgress() {
                     {e.messageId && <> · message {short(e.messageId)}</>}
                     {e.note && <div style={{ color: '#facc15' }}>{e.note}</div>}
                     {e.delivery && (() => { const d = deliveryLine(e.delivery); return <div style={{ color: d.color }}>{d.text}</div> })()}
+                    {e.burn && burnLines(e.burn).map(t => <div key={t} style={{ paddingLeft: 8 }}>{t}</div>)}
                   </div>
                 ))}
               </div>
