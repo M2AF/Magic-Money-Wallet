@@ -63,6 +63,27 @@ export interface StablecoinJourney {
    * Executors read their terms from here, never from a caller.
    */
   authorization: CcipAuthorization | null
+  /**
+   * The Circle-prepared withdrawal an xReserve burn step was approved for,
+   * stored before any burn and never changed. The burn, the operator's release
+   * and the destination credit are all checked against exactly these terms.
+   */
+  burnTerms: XReserveBurnTerms | null
+}
+
+export interface XReserveBurnTerms {
+  network: 'mainnet'
+  /** Circle's encoded BurnIntent (or one-element set), 0x-hex. */
+  encoded: string
+  /** USDCx the burn destroys: release value + fee cap. */
+  burnAmountRaw: string
+  /** 0x00000001 || this wallet's payment key hash (32 bytes, 0x-hex). */
+  remoteDepositor: string
+  /** USDC the destination must be credited, exactly. */
+  releaseAmountRaw: string
+  /** Destination address the release must credit (Ethereum: 0x-address). */
+  releaseRecipient: string
+  approvedAt: number
 }
 
 export interface CcipAuthorization {
@@ -103,6 +124,7 @@ export function createJourney(args: {
     ],
     status: 'active',
     authorization: null,
+    burnTerms: null,
   }
 }
 
@@ -187,6 +209,37 @@ export function authorizeCcipBridge(j: StablecoinJourney, auth: Omit<CcipAuthori
   return { ...j, authorization: a }
 }
 
+/**
+ * Store the prepared withdrawal an xReserve burn step is approved for. Allowed
+ * once, only for an approved step with nothing sent; immutable afterwards.
+ */
+export function authorizeXReserveBurn(j: StablecoinJourney, terms: Omit<XReserveBurnTerms, 'approvedAt'>, now: number): StablecoinJourney {
+  const leg = j.legs[1]
+  if (!j.bridge.startsWith('xreserve-') || j.status !== 'active') fail('Only an active USDCx withdrawal can store burn terms.')
+  if (leg.state !== 'approved' || leg.txHash) fail('Only an approved burn step with nothing sent can store terms.')
+  if (j.burnTerms) fail('This burn already has terms; changed terms need a new approval.')
+  const t = { ...terms, encoded: String(terms.encoded).toLowerCase(), remoteDepositor: String(terms.remoteDepositor).toLowerCase(),
+    releaseRecipient: String(terms.releaseRecipient).toLowerCase(), approvedAt: now }
+  checkBurnTerms(t)
+  if (leg.approvedInputRaw !== t.burnAmountRaw) fail('The approved burn amount differs from the prepared burn amount.')
+  return { ...j, burnTerms: t }
+}
+
+function checkBurnTerms(t: unknown): asserts t is XReserveBurnTerms {
+  if (!obj(t)) fail('burn terms are malformed')
+  const r = t as Record<string, unknown>
+  keysExactly(r, ['network', 'encoded', 'burnAmountRaw', 'remoteDepositor', 'releaseAmountRaw', 'releaseRecipient', 'approvedAt'], 'burn terms')
+  if (r.network !== 'mainnet') fail('burn terms network is unsupported')
+  if (typeof r.encoded !== 'string' || !/^0x(?:[0-9a-f]{2}){4,2000}$/.test(r.encoded)) fail('burn terms intent is malformed')
+  if (typeof r.remoteDepositor !== 'string' || !/^0x00000001[0-9a-f]{56}$/.test(r.remoteDepositor)) fail('burn terms depositor is malformed')
+  if (typeof r.releaseRecipient !== 'string' || !/^0x[0-9a-f]{40}$/.test(r.releaseRecipient)) fail('burn terms recipient is malformed')
+  for (const k of ['burnAmountRaw', 'releaseAmountRaw']) {
+    if (typeof r[k] !== 'string' || !/^[1-9][0-9]{0,77}$/.test(r[k] as string)) fail(`burn terms ${k} is malformed`)
+  }
+  if (BigInt(r.releaseAmountRaw as string) > BigInt(r.burnAmountRaw as string)) fail('burn terms release exceeds the burn')
+  if (!Number.isSafeInteger(r.approvedAt)) fail('burn terms time is malformed')
+}
+
 function checkAuthorization(a: unknown): asserts a is CcipAuthorization {
   if (!obj(a)) fail('authorization is malformed')
   const r = a as Record<string, unknown>
@@ -243,6 +296,11 @@ export function journeyHolding(j: StablecoinJourney): { asset: ExactAsset; amoun
   for (let k = j.legs.length - 1; k >= 0; k--) {
     const l = j.legs[k]
     if (l.state === 'confirmed') return { asset: l.output, amountRaw: l.measuredOutputRaw, settled: true }
+    // A failed transaction moved nothing: the value is still this step's input.
+    if (l.txHash && l.state === 'failed') {
+      const before = j.legs.slice(0, k).reverse().find(p => p.state === 'confirmed')
+      return { asset: l.input, amountRaw: before?.measuredOutputRaw ?? null, settled: true }
+    }
     if (l.txHash) return { asset: l.output, amountRaw: null, settled: false }
   }
   return { asset: j.legs[0].input, amountRaw: null, settled: true }
@@ -278,7 +336,14 @@ export function parseJourney(json: string): StablecoinJourney {
   let v: unknown
   try { v = JSON.parse(json) } catch { return fail('Stored journey is unreadable.') }
   if (!obj(v)) return fail('Stored journey is malformed.')
-  keysExactly(v, ['version', 'id', 'walletId', 'createdAt', 'bridge', 'recipient', 'legs', 'status', 'authorization'], 'journey')
+  // Records saved before burn terms existed have no `burnTerms`: read as none.
+  if (!('burnTerms' in v)) v = { ...v, burnTerms: null }
+  if (!obj(v)) return fail('Stored journey is malformed.')
+  keysExactly(v, ['version', 'id', 'walletId', 'createdAt', 'bridge', 'recipient', 'legs', 'status', 'authorization', 'burnTerms'], 'journey')
+  if (v.burnTerms !== null) {
+    checkBurnTerms(v.burnTerms)
+    if (!String(v.bridge).startsWith('xreserve-')) fail('Stored journey is malformed.')
+  }
   if (v.authorization !== null) {
     checkAuthorization(v.authorization)
     if (v.bridge !== 'ccip-cbada') fail('Stored journey is malformed.')

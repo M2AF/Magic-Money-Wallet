@@ -51,6 +51,9 @@ export function assertJourneyProgress(prev: StablecoinJourney, next: StablecoinJ
   if (prev.authorization && JSON.stringify(prev.authorization) !== JSON.stringify(next.authorization)) {
     fail('Authorized transfer terms never change; changed terms need a new approval.')
   }
+  if (prev.burnTerms && JSON.stringify(prev.burnTerms) !== JSON.stringify(next.burnTerms)) {
+    fail('Approved burn terms never change; changed terms need a new approval.')
+  }
   prev.legs.forEach((p, i) => {
     const n = next.legs[i]
     if (JSON.stringify(p.input) !== JSON.stringify(n.input) || JSON.stringify(p.output) !== JSON.stringify(n.output)) fail('A step\'s assets cannot change.')

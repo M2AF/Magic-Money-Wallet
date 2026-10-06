@@ -223,6 +223,11 @@ export interface JourneyListSummary {
     authorization: { sender: string; accountIndex: number; maxCcipFeeWei: string; maxApprovalGasWei: string; maxSendGasWei: string; approvedAt: number } | null
     /** True when nothing was sent for this journey, so it can still be cancelled. */
     cancellable: boolean
+    /**
+     * Where the value is now: the last CONFIRMED step's measured output, or the
+     * output of a sent, unconfirmed step (`settled: false`, amount unknown).
+     */
+    holding: { chain: string; symbol: string; decimals: number; amountRaw: string | null; settled: boolean }
   }>
   awaitingEvidence: number
   finished: number
@@ -272,6 +277,17 @@ export interface JourneyRecheckResult {
     role: string; kind: 'transaction' | 'approval'; chain: string; txHash: string
     onChain: 'confirmed' | 'failed' | 'not-found' | 'unknown'
     allowanceCovers: boolean | null
+    burn: {
+      burn: 'verified' | 'not-found' | 'unreadable' | 'failed-attempt' | 'conflict' | 'unrelated'
+      burnDepth: number | null
+      burnFinal: boolean
+      provider: 'not-listed' | 'ambiguous' | 'pending' | 'provider-stopped' | 'needs-review' | 'finalized' | 'unreadable' | 'not-checked'
+      providerStatus: string | null
+      releaseTxHash: string | null
+      credit: 'verified' | 'pending' | 'failed' | 'needs-review' | 'evidence-inconsistent' | 'invalid-input' | null
+      creditedRaw: string | null
+      reason: string | null
+    } | null
     messageId: string | null
     delivery:
       | { state: 'delivered'; signature: string; sequenceNumber: string }

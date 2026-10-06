@@ -611,4 +611,60 @@ test.describe('Routes across networks (journey registry)', () => {
       await ctx.close()
     }
   })
+
+  test('USDCx withdrawal journey: where the funds are, and burn -> operator -> release evidence; no resend', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2] ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __checked: boolean }
+        w.__checked = false
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '10' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        const burn = '887333810ea503013f1e17c503ed6e691940e177e82f88baa76d19409de76e86'
+        w.wallet.journeyList = async () => ({ ok: true, value: {
+          active: w.__checked ? [] : [{ id: 'u1', bridge: 'xreserve-cardano-ethereum', createdAt: Date.now() - 3_600_000, cancellable: false, authorization: null,
+            holding: { chain: 'ethereum', symbol: 'USDC', decimals: 6, amountRaw: null, settled: false },
+            legs: [
+              { role: 'source-swap', chain: 'cardano', state: 'skipped', txHash: null, providerRef: null, approvalTxHash: null, approvedInputRaw: null, inputSymbol: 'USDCx', outputSymbol: 'USDCx' },
+              { role: 'bridge', chain: 'cardano', state: 'uncertain', txHash: burn, providerRef: null, approvalTxHash: null, approvedInputRaw: '2802000000', inputSymbol: 'USDCx', outputSymbol: 'USDC' },
+              { role: 'destination-swap', chain: 'ethereum', state: 'skipped', txHash: null, providerRef: null, approvalTxHash: null, approvedInputRaw: null, inputSymbol: 'USDC', outputSymbol: 'USDC' },
+            ] }],
+          awaitingEvidence: 1, finished: w.__checked ? 1 : 0, otherWallets: 0, unreadable: [],
+        } })
+        // The check proves arrival: the stored journey completes and leaves the active list.
+        w.wallet.journeyRecheck = async (id: string) => (w.__checked = true, { ok: true, value: { journeyId: id, legs: [{
+          role: 'bridge', kind: 'transaction', chain: 'cardano', txHash: burn, onChain: 'confirmed', allowanceCovers: null, messageId: null, delivery: null,
+          burn: { burn: 'verified', burnDepth: 1623, burnFinal: true, provider: 'finalized', providerStatus: 'finalized',
+            releaseTxHash: '0x37dce9fab6f48033691f841be3c783bd9154998054490d535795cac2876b5630', credit: 'verified', creditedRaw: '2800000000', reason: null },
+          note: null }] } })
+      })
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      const view = page.getByTestId('journeys-in-progress')
+      await expect(view).toBeVisible({ timeout: 15_000 })
+      await view.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/usdcx-journey-in-transit.png', fullPage: true })
+      await expect(view.getByTestId('journey-holding')).toHaveText('Funds now: in transit to USDC on Ethereum — waiting for proof of arrival.')
+      await expect(view.getByText(/Bridge USDCx → USDC on Cardano — sent — outcome unknown/)).toBeVisible()
+      // Nothing that sends: no resend, retry, and no cancel once a burn was sent.
+      await expect(view.getByRole('button')).toHaveCount(1)
+      await view.getByRole('button', { name: 'Check on chain' }).click()
+      const finished = view.getByTestId('journey-finished-u1')
+      await expect(finished).toBeVisible({ timeout: 10_000 })
+      await expect(finished.getByText('1. Burn on Cardano: verified against the approved terms · 1623 blocks deep')).toBeVisible()
+      await expect(finished.getByText('2. IOG operator: finalized (finalized)')).toBeVisible()
+      await expect(finished.getByText(/3\. Release on Ethereum: credit verified — 2,800 USDC · 0x37dce9fa…/)).toBeVisible()
+      await expect(view.getByTestId('journey-holding')).toHaveCount(0)
+      await view.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/usdcx-journey-evidence.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
 })
