@@ -385,6 +385,25 @@ export async function saveXReserveTracking(map: Record<string, string>): Promise
   await chrome.storage.local.set({ 'wallet.xreserve_tracking': map })
 }
 
+// -- Multi-leg journeys (src/main/journey-store.ts) ----------------------------
+// One JSON record per journey: identities, approved amounts, transaction hashes,
+// bridge references and measured outputs. No keys, witnesses, CBOR or calldata.
+// A failed write THROWS, and unreadable data is an error — never "no journeys" —
+// so a later save cannot erase the record of a sent transaction.
+export async function loadJourneys(): Promise<Record<string, string>> {
+  const r = await chrome.storage.local.get('wallet.journeys')
+  const m = r['wallet.journeys']
+  if (m === undefined || m === null) return {}
+  if (typeof m !== 'object' || Array.isArray(m) || Object.values(m as object).some(v => typeof v !== 'string')) {
+    throw new Error('The stored journeys are unreadable; they were left untouched.')
+  }
+  return m as Record<string, string>
+}
+
+export async function saveJourneys(map: Record<string, string>): Promise<void> {
+  await chrome.storage.local.set({ 'wallet.journeys': map })
+}
+
 // when the live call fails so throttling never presents as "zero tokens".
 
 export interface TokenBalanceCacheEntry {

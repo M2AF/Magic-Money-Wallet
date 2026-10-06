@@ -1,5 +1,7 @@
 # Cardano USDCx burn interface — research, 2026-10-05
 
+> 2026-10-05 refresh: [the stablecoin execution plan](USDCX-STABLECOIN-ROUTING-PLAN.md) records the now-located IOG build/submit/history interface, HTTP 200 live Circle preparation for Ethereum and Arc-forwarded Solana, and an independently verified public Ethereum release. Earlier HTTP 403 and missing sample release findings below are historical. Valid unsigned build, third-party support and Solana settlement remain unverified; no wallet burn path was enabled.
+
 Question: is there a **supported** IOG/Midgard contract an independent wallet can use to burn Cardano USDCx and release Ethereum USDC? Short answer: **not established.** No published builder/attestation contract exists in anything reviewed. What *is* established is the exact on-chain shape of every sampled mainnet burn, which is enough for a read-only proof of a burn that already happened (`src/main/xreserve-cardano-burn-proof.ts`) and nothing more. No signing, building, submission, `/withdraw` call, commit or deployment was done. Read-only GETs only.
 
 ## Answers to the five questions

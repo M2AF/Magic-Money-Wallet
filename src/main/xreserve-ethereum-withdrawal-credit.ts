@@ -88,7 +88,41 @@ export function verifyXReserveEthereumWithdrawalCredit(input: VerifyWithdrawalCr
   if (s.state === 'failed' || s.state === 'expired') return result('needs-review', 'circle-failed-or-expired', txHash)
   if (s.state !== 'finalized') return result('pending', 'circle-pending', txHash)
   if (!txHash) return result('pending', 'transaction-missing', null)
+  return verifyEthereumUsdcCredit({
+    transactionHash: txHash, recipient: p.recipient, amountRaw: p.amountRaw,
+    evidence: input.evidence, minConfirmations: input.minConfirmations, network,
+  })
+}
 
+export interface EthereumUsdcCreditInput {
+  /** The release transaction a provider named; checked, never trusted. */
+  transactionHash: string
+  /** The approved recipient and exact USDC value (base units) it must net. */
+  recipient: string
+  amountRaw: string
+  /** One-endpoint Ethereum snapshot for `transactionHash`. */
+  evidence: EthereumDepositEvidence
+  minConfirmations: number
+  network?: XReserveNetwork
+}
+
+/**
+ * The provider-independent half of the check: the named Ethereum transaction
+ * succeeded on the canonical chain at the required depth, and its pinned-USDC
+ * Transfer logs net the recipient exactly `amountRaw`. Shared by the Circle
+ * status path above and the IOG withdrawal-history path, so a provider label
+ * from either source is held to the same ledger evidence.
+ */
+export function verifyEthereumUsdcCredit(input: EthereumUsdcCreditInput): WithdrawalCreditResult {
+  let network: XReserveNetwork
+  try { network = xreserveNetwork(input?.network) } catch { return result('invalid-input', 'invalid-input', null) }
+  const txHash = hash(input?.transactionHash)
+  if (!txHash || !address(input.recipient) || !obj(input.evidence)
+      || typeof input.amountRaw !== 'string' || input.amountRaw.length > 78
+      || !DECIMAL.test(input.amountRaw) || BigInt(input.amountRaw) === 0n
+      || !Number.isSafeInteger(input.minConfirmations) || input.minConfirmations < 1) {
+    return result('invalid-input', 'invalid-input', null)
+  }
   const { transaction: tx, receipt, block, tipBlockNumber } = input.evidence
   if (tx === null) return result('pending', 'transaction-missing', txHash)
   if (!obj(tx) || hash(tx.hash) !== txHash) return result('evidence-inconsistent', 'transaction-mismatch', txHash)
@@ -119,7 +153,7 @@ export function verifyXReserveEthereumWithdrawalCredit(input: VerifyWithdrawalCr
     return result('pending', 'insufficient-confirmations', txHash, confirmations)
   }
 
-  const recipient = p.recipient.toLowerCase(), usdc = network.ethereum.usdc.toLowerCase()
+  const recipient = input.recipient.toLowerCase(), usdc = network.ethereum.usdc.toLowerCase()
   let netCredit = 0n
   for (const raw of receipt.logs) {
     if (!obj(raw) || typeof raw.address !== 'string' || !address(raw.address)
@@ -137,6 +171,6 @@ export function verifyXReserveEthereumWithdrawalCredit(input: VerifyWithdrawalCr
       if (transfer.args.from.toLowerCase() === recipient) netCredit -= transfer.args.value
     } catch { return result('evidence-inconsistent', 'malformed', txHash, confirmations) }
   }
-  if (netCredit !== BigInt(p.amountRaw)) return result('needs-review', 'amount-mismatch', txHash, confirmations, netCredit)
+  if (netCredit !== BigInt(input.amountRaw)) return result('needs-review', 'amount-mismatch', txHash, confirmations, netCredit)
   return result('verified', 'verified', txHash, confirmations, netCredit)
 }

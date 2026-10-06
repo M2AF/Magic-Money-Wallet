@@ -47,7 +47,7 @@ async function createWalletToDashboard(page: Page) {
 }
 
 test.describe('Cardano swap (Minswap order)', () => {
-  test('hands ADA/SOL/ETH pairs in both directions to exchange estimates without funding or substitution', async () => {
+  test('keeps Cardano cross-chain pairs in DEX Swap without an exchange handoff', async () => {
     test.setTimeout(150_000)
     const ctx = await launchWithExtension()
     try {
@@ -56,28 +56,19 @@ test.describe('Cardano swap (Minswap order)', () => {
         ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
       await page.goto(`chrome-extension://${extId}/popup.html`)
       await createWalletToDashboard(page)
-      const addresses = await page.evaluate(() => window.wallet.getAddresses())
       await page.evaluate(() => {
-        const w = window as unknown as { wallet: Record<string, unknown>; __estimates: unknown[]; __creates: number; __releaseOld: () => void }
-        w.__estimates = []; w.__creates = 0
+        const w = window as unknown as { wallet: Record<string, unknown>; __creates: number }
+        w.__creates = 0
         w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, solana: { native: '5' }, ethereum: { native: '1' } } })
         w.wallet.getTokens = async () => ({ tokens: [] })
         w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
         w.wallet.swapReconcile = async () => []
         w.wallet.swapGetQuote = async () => { throw new Error('Unsupported cross-chain DEX quote requested') }
         w.wallet.xCreateExchange = async () => { w.__creates++; throw new Error('Creation must remain explicit') }
-        w.wallet.xEstimate = async (request: { amount: string }) => {
-          w.__estimates.push(request)
-          if (request.amount === '21') await new Promise<void>(resolve => { w.__releaseOld = resolve })
-          return { estimatedAmount: request.amount.includes('.') ? '19.5' : `${request.amount}.5`, rateId: null, provider: 'simpleswap', min: '0.01', max: '1000', error: request.amount === '999' ? 'Pair temporarily unavailable' : null }
-        }
       })
       await page.locator('.bottom-nav-btn:has-text("Swap")').click()
-      for (const [source, target, sendKey, receiveKey, destination, refund] of [
-        ['cardano', 'solana', 'ada:ada', 'sol:sol', addresses!.solana, addresses!.cardano],
-        ['solana', 'cardano', 'sol:sol', 'ada:ada', addresses!.cardano, addresses!.solana],
-        ['cardano', 'ethereum', 'ada:ada', 'eth:eth', addresses!.evm, addresses!.cardano],
-        ['ethereum', 'cardano', 'eth:eth', 'ada:ada', addresses!.cardano, addresses!.evm],
+      for (const [source, target] of [
+        ['cardano', 'solana'], ['solana', 'cardano'], ['cardano', 'ethereum'], ['ethereum', 'cardano'],
       ]) {
         await page.getByRole('button', { name: 'DEX Swap', exact: true }).click()
         await pickNetwork(page, 'From network', source)
@@ -85,45 +76,20 @@ test.describe('Cardano swap (Minswap order)', () => {
         await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', source)
         await page.getByPlaceholder('0.0').first().fill('20.000001')
         await expect(page.getByRole('button', { name: 'Get Quote', exact: true })).toHaveCount(0)
-        await page.getByRole('button', { name: 'Check exchange route' }).click()
-        await expect(page.getByRole('combobox', { name: 'Send asset' })).toHaveValue(sendKey)
-        await expect(page.getByRole('combobox', { name: 'Receive asset' })).toHaveValue(receiveKey)
-        await expect(page.getByPlaceholder('0.0')).toHaveValue('20.000001')
-        await expect(page.getByPlaceholder(/Paste your .* address/)).toHaveValue(destination)
-        await expect(page.getByPlaceholder(/^Your .* address$/)).toHaveValue(refund)
-        await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeEnabled()
+        await expect(page.getByRole('button', { name: 'Check exchange route' })).toHaveCount(0)
+        await expect(page.getByText(/exchange providers|exchange catalog/)).toHaveCount(0)
+        if (source === 'cardano') await expect(page.getByTestId('journey-routes')).toBeVisible()
         expect(await page.evaluate(() => (window as unknown as { __creates: number }).__creates)).toBe(0)
       }
-      // An older estimate must not overwrite the newest amount's price or enable an unavailable pair.
-      await page.getByPlaceholder('0.0').fill('21')
-      await expect.poll(() => page.evaluate(() => (window as unknown as { __estimates: { amount: string }[] }).__estimates.at(-1)?.amount)).toBe('21')
-      await page.getByPlaceholder('0.0').fill('22')
-      await expect(page.getByText('≈ 22.5', { exact: true })).toBeVisible()
-      await page.evaluate(() => (window as unknown as { __releaseOld: () => void }).__releaseOld())
-      await expect(page.getByText('≈ 22.5', { exact: true })).toBeVisible()
-      await page.getByPlaceholder('0.0').fill('999')
-      await expect(page.getByText('Pair temporarily unavailable', { exact: true })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeDisabled()
-      await page.getByPlaceholder('0.0').fill('20')
-      await expect(page.getByRole('button', { name: 'Get Exchange', exact: true })).toBeEnabled()
       await page.setViewportSize({ width: 400, height: 820 })
-      await page.getByRole('button', { name: 'Get Exchange', exact: true }).scrollIntoViewIfNeeded()
-      await page.screenshot({ path: '.screenshots/cardano-exchange-preset-mobile.png', fullPage: true })
       await page.getByRole('button', { name: 'DEX Swap', exact: true }).click()
       await pickNetwork(page, 'From network', 'cardano')
       await page.getByRole('button', { name: 'Pay token' }).click()
       await page.getByRole('option').filter({ hasText: 'USDCx' }).click()
       await pickNetwork(page, 'To network', 'solana')
       await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('USDCx')
-      await expect(page.getByRole('button', { name: 'Check exchange route' })).toBeDisabled()
-      await expect(page.getByText(/USDCx is not substituted/)).toBeVisible()
-      await page.getByRole('button', { name: 'Check exchange route' }).scrollIntoViewIfNeeded()
-      await page.screenshot({ path: '.screenshots/cardano-usdcx-unavailable-mobile.png', fullPage: true })
-      await page.getByRole('button', { name: 'Pay token' }).click()
-      await page.getByRole('option').filter({ hasText: 'Cardano' }).first().click()
-      await page.setViewportSize({ width: 1000, height: 850 })
-      await page.getByRole('button', { name: 'Check exchange route' }).scrollIntoViewIfNeeded()
-      await page.screenshot({ path: '.screenshots/cardano-exchange-handoff-wide-extension.png', fullPage: true })
+      await expect(page.getByRole('button', { name: 'Check exchange route' })).toHaveCount(0)
+      await page.screenshot({ path: '.screenshots/cardano-dex-route-preview-mobile.png', fullPage: true })
     } finally { await ctx.close() }
   })
 
@@ -191,7 +157,7 @@ test.describe('Cardano swap (Minswap order)', () => {
       // An explicit cross-chain destination must preserve the Cardano pay side.
       await pickNetwork(page, 'To network', 'ethereum')
       await expect(from).toHaveAttribute('data-value', 'cardano')
-      await expect(page.getByRole('button', { name: 'Check exchange route' })).toBeEnabled()
+      await expect(page.getByRole('button', { name: 'Check exchange route' })).toHaveCount(0)
       await pickNetwork(page, 'To network', 'cardano')
 
       await page.getByPlaceholder('0.0').first().fill('20')
@@ -294,6 +260,353 @@ test.describe('Cardano swap (Danogo pool)', () => {
       await expect(page.getByText('Swap complete')).toBeVisible({ timeout: 30_000 })
       await expect(page.getByText(/Received\s+5\.298566 MIN/)).toBeVisible()
       await page.screenshot({ path: 'test-results/cardano-danogo-complete.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Routes across networks (journey registry)', () => {
+  const usdcx = { chain: 'cardano', address: '1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378', symbol: 'USDCx', decimals: 6 }
+
+  async function open(page: Page, ctx: BrowserContext) {
+    const extId = ctx.serviceWorkers()[0]?.url().split('/')[2] ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+    await page.goto(`chrome-extension://${extId}/popup.html`)
+    await createWalletToDashboard(page)
+    await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+    await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+  }
+
+  test('Cardano -> Ethereum: USDCx and Coinbase routes are previews with named unknown costs; nothing executes', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      await open(page, ctx)
+      await page.evaluate(({ usdcx }) => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __requests: unknown[] }
+        w.__requests = []
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, ethereum: { native: '0' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        const ada = { chain: 'cardano', address: 'lovelace', symbol: 'ADA', decimals: 6 }
+        const usdc = { chain: 'ethereum', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', symbol: 'USDC', decimals: 6 }
+        w.wallet.swapJourneyPlan = async (req: { toToken: { address: string; symbol: string; decimals: number } }) => {
+          w.__requests.push(req)
+          const dest = { chain: 'ethereum', ...req.toToken }
+          const preview = {
+            family: 'usdcx-xreserve', label: 'USDCx via Circle xReserve', source: ada, destination: dest,
+            legs: [
+              { kind: 'swap', label: 'Swap ADA → USDCx on Cardano', status: 'quoted', from: ada, to: usdcx, inputBasis: 'exact', inRaw: '20000000', expectedOutRaw: '5298566', minOutRaw: '5298566', via: 'Danogo CLMM', expiresAt: 1, reason: null },
+              { kind: 'bridge', label: 'Bridge USDCx → USDC on ethereum', status: 'unavailable', from: usdcx, to: usdc, inputBasis: 'floor', inRaw: '5298566', expectedOutRaw: null, minOutRaw: null, via: 'Circle xReserve', expiresAt: null, reason: 'Circle publishes no withdrawal fee schedule; a fee ceiling must be chosen before the bridge can be priced.' },
+              { kind: 'swap', label: 'Swap USDC → ETH on ethereum', status: 'quoted', from: usdc, to: dest, inputBasis: 'indicative', inRaw: '5298566', expectedOutRaw: '2000000000000000', minOutRaw: '1990000000000000', via: 'LI.FI', expiresAt: 2, reason: null },
+            ],
+            costs: [
+              { label: 'Cardano network fee', leg: 0, chain: 'cardano', symbol: 'ADA', decimals: 6, amountRaw: '477729', usd: null, kind: 'gas', includedInOutput: false },
+              { label: 'Circle withdrawal fee', leg: 1, chain: 'cardano', symbol: 'USDCx', decimals: 6, amountRaw: null, usd: null, kind: 'fee', includedInOutput: false },
+            ],
+            executable: false, validated: false, finalExpectedRaw: null, finalMinRaw: null, finalOutputUsd: null,
+            blockers: ['The Cardano USDCx burn is built by the IOG Portal backend, and that build has not yet been validated by this wallet.'],
+          }
+          const coinbase = { family: 'coinbase-conversion', label: 'ADA → cbADA through a Coinbase account', source: ada, destination: dest, legs: [], costs: [],
+            executable: false, validated: false, finalExpectedRaw: null, finalMinRaw: null, finalOutputUsd: null, blockers: ['Requires a connected Coinbase account; the wallet has no Coinbase connection.'] }
+          return { ok: true, value: { candidates: [preview, coinbase], ranking: { recommended: null, noRecommendation: 'No route can be executed yet.', executable: [], previews: [preview, coinbase] } } }
+        }
+      }, { usdcx })
+      await pickNetwork(page, 'From network', 'cardano')
+      await pickNetwork(page, 'To network', 'ethereum')
+      await page.getByPlaceholder('0.0').first().fill('20')
+      const panel = page.getByTestId('journey-routes')
+      await expect(panel).toBeVisible({ timeout: 10_000 })
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      await expect(panel.getByText('No route can be executed yet.')).toBeVisible({ timeout: 10_000 })
+      await expect(panel.getByText('Previews — not executable yet')).toBeVisible()
+      const usd = panel.getByTestId('journey-preview-usdcx-xreserve')
+      await expect(usd.getByText(/Swap ADA → USDCx on Cardano — ≥ 5\.298566 USDCx via Danogo CLMM/)).toBeVisible()
+      await expect(usd.getByText(/fee ceiling must be chosen/)).toBeVisible()
+      await expect(usd.getByText('Costs (total unknown)')).toBeVisible()
+      await expect(usd.getByText('• Circle withdrawal fee: unknown')).toBeVisible()
+      await expect(panel.getByTestId('journey-preview-coinbase-conversion').getByText(/connected Coinbase account/)).toBeVisible()
+      await expect(panel.getByText('Recommended')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: /^Swap / })).toHaveCount(0)
+      const sent = await page.evaluate(() => (window as unknown as { __requests: Array<Record<string, unknown>> }).__requests[0])
+      expect(sent).toMatchObject({ fromChain: 'cardano', toChain: 'ethereum', sellAmountRaw: '20000000' })
+      expect(sent).not.toHaveProperty('recipient')
+      await panel.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/journey-cardano-previews.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('Base -> Solana: a recommendation is shown apart from previews, and previews are never "cheapest"', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      await open(page, ctx)
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown> }
+        w.wallet.getBalances = async () => ({ chains: { base: { native: '0.1' }, solana: { native: '1' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => ({ quote: null, error: 'stub: no direct route' })
+        const cbBase = { chain: 'base', address: '0xcbADA732173e39521CDBE8bf59a6Dc85A9fc7b8c', symbol: 'cbADA', decimals: 6 }
+        const cbSol = { chain: 'solana', address: 'cbADAmv9issuPfhFwyQG3xac4DGPd1LDSt1oz7vwJsg', symbol: 'cbADA', decimals: 6 }
+        w.wallet.swapJourneyPlan = async (req: { fromToken: { address: string; symbol: string; decimals: number }; toToken: { address: string; symbol: string; decimals: number } }) => {
+          const src = { chain: 'base', ...req.fromToken }, dst = { chain: 'solana', ...req.toToken }
+          const card = (family: string, label: string, executable: boolean, out: string, ccipUsd: number | null) => ({
+            family, label, source: src, destination: dst, executable, validated: executable, finalExpectedRaw: out, finalMinRaw: out, finalOutputUsd: 100,
+            legs: [
+              { kind: 'swap', label: `Swap ${src.symbol} → cbADA on base`, status: 'quoted', from: src, to: cbBase, inputBasis: 'exact', inRaw: '100000000', expectedOutRaw: '372239925', minOutRaw: '370378725', via: 'LI.FI', expiresAt: 1, reason: null },
+              { kind: 'bridge', label: 'Bridge cbADA base → solana (Chainlink CCIP)', status: 'prepared', from: cbBase, to: cbSol, inputBasis: 'floor', inRaw: '370378725', expectedOutRaw: '370378725', minOutRaw: '370378725', via: 'Chainlink CCIP', expiresAt: null, reason: null },
+              { kind: 'swap', label: `Swap cbADA → ${dst.symbol} on solana`, status: 'quoted', from: cbSol, to: dst, inputBasis: 'indicative', inRaw: '370378725', expectedOutRaw: out, minOutRaw: out, via: 'Jupiter', expiresAt: 2, reason: null },
+            ],
+            costs: [
+              { label: 'Chainlink CCIP fee', leg: 1, chain: 'base', symbol: 'ETH', decimals: 18, amountRaw: '1384650232086707', usd: ccipUsd, kind: 'fee', includedInOutput: false },
+              { label: 'base network fee for the CCIP send', leg: 1, chain: 'base', symbol: 'ETH', decimals: 18, amountRaw: null, usd: executable ? 0.01 : null, kind: 'gas', includedInOutput: false },
+            ],
+            blockers: executable ? [] : ['Sending cbADA over Chainlink CCIP is not implemented or validated in this wallet yet.'],
+          })
+          const rec = card('cbada-ccip', 'cbADA via Chainlink CCIP (stub: executable)', true, '9900000000', 3.46)
+          const preview = card('cbada-ccip', 'cbADA via Chainlink CCIP', false, '99990000000', null)
+          return { ok: true, value: { candidates: [rec, preview], ranking: { recommended: { candidate: rec, reason: 'best-net-result', best: rec, shortfallBps: 0 }, noRecommendation: null, executable: [rec], previews: [preview] } } }
+        }
+      })
+      await pickNetwork(page, 'From network', 'base')
+      await pickNetwork(page, 'To network', 'solana')
+      await page.getByPlaceholder('0.0').first().fill('100')
+      const panel = page.getByTestId('journey-routes')
+      await expect(panel).toBeVisible({ timeout: 10_000 })
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      await expect(panel.getByText('Recommended')).toBeVisible({ timeout: 10_000 })
+      const rec = panel.getByTestId('journey-recommended-cbada-ccip')
+      await expect(rec.getByText(/Costs: ≈\$3\.47 in total/)).toBeVisible()
+      // The preview has a LARGER output but is listed apart and never recommended or called cheapest.
+      const pre = panel.getByTestId('journey-preview-cbada-ccip')
+      await expect(pre.getByText(/\(estimate\)/)).toBeVisible()
+      await expect(pre.getByText('Costs (total unknown)')).toBeVisible()
+      await expect(pre.getByText(/not implemented or validated/)).toBeVisible()
+      await expect(panel.getByText(/cheapest/i)).toHaveCount(0)
+      await panel.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/journey-base-solana.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('a slow answer for an old amount is dropped, never shown under the new amount', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      await open(page, ctx)
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __release: () => void; __calls: string[] }
+        w.__calls = []
+        w.wallet.getBalances = async () => ({ chains: { base: { native: '0.1' }, solana: { native: '1' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => ({ quote: null, error: 'stub' })
+        const answer = (label: string) => {
+          const c = { family: 'cbada-ccip', label, source: { chain: 'base', address: 'x', symbol: 'ETH', decimals: 18 }, destination: { chain: 'solana', address: 'y', symbol: 'SOL', decimals: 9 },
+            legs: [], costs: [], executable: false, validated: false, finalExpectedRaw: null, finalMinRaw: null, finalOutputUsd: null, blockers: [] }
+          return { ok: true, value: { candidates: [c], ranking: { recommended: null, noRecommendation: 'No route can be executed yet.', executable: [], previews: [c] } } }
+        }
+        w.wallet.swapJourneyPlan = async (req: { sellAmountRaw: string }) => {
+          w.__calls.push(req.sellAmountRaw)
+          if (w.__calls.length === 1) { await new Promise<void>(r => { w.__release = r }); return answer('STALE answer for the old amount') }
+          return answer('FRESH answer for the new amount')
+        }
+      })
+      await pickNetwork(page, 'From network', 'base')
+      await pickNetwork(page, 'To network', 'solana')
+      const amount = page.getByPlaceholder('0.0').first()
+      await amount.fill('1')
+      const panel = page.getByTestId('journey-routes')
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      await expect(panel.getByRole('button', { name: 'Checking each route…' })).toBeVisible()
+      await amount.fill('2')
+      await page.evaluate(() => (window as unknown as { __release: () => void }).__release())
+      await page.waitForTimeout(500)
+      await expect(panel.getByText(/STALE answer/)).toHaveCount(0)
+      await expect(panel.getByRole('button', { name: 'Find routes' })).toBeEnabled()
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      await expect(panel.getByText(/FRESH answer for the new amount/)).toBeVisible({ timeout: 10_000 })
+      await expect(panel.getByText(/STALE answer/)).toHaveCount(0)
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('restored journeys: this wallet only, re-checked by saved hash, and no way to send again', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2] ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      // Stub BEFORE the Swap screen mounts: the view loads the list on mount.
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __rechecks: string[] }
+        w.__rechecks = []
+        w.wallet.getBalances = async () => ({ chains: { base: { native: '0.1' }, solana: { native: '1' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.journeyList = async () => ({ ok: true, value: {
+          active: [{ id: 'j1', bridge: 'ccip-cbada', createdAt: Date.now() - 600_000, legs: [
+            { role: 'source-swap', chain: 'base', state: 'skipped', txHash: null, providerRef: null, inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+            { role: 'bridge', chain: 'base', state: 'uncertain', txHash: '0x' + 'cd'.repeat(32), providerRef: null, approvalTxHash: '0x' + '77'.repeat(32), inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+            { role: 'destination-swap', chain: 'solana', state: 'skipped', txHash: null, providerRef: null, inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+          ] }],
+          awaitingEvidence: 1, finished: 0, otherWallets: 2, unreadable: [],
+        } })
+        w.wallet.journeyRecheck = async (id: string) => {
+          w.__rechecks.push(id)
+          return { ok: true, value: { journeyId: id, legs: [{ role: 'bridge', kind: 'approval', chain: 'base', txHash: '0x' + '77'.repeat(32), onChain: 'confirmed', allowanceCovers: true,
+            messageId: null, delivery: null, note: 'Approval confirmed. The transfer itself has not been sent.' }, { role: 'bridge', kind: 'transaction', allowanceCovers: null, chain: 'base', txHash: '0x' + 'cd'.repeat(32), onChain: 'confirmed',
+            messageId: '0x' + 'ab'.repeat(32), delivery: { state: 'delivered', signature: '5yDeliverySignature1111111111111111111111111', sequenceNumber: '9' }, note: null }] } }
+        }
+      })
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      const view = page.getByTestId('journeys-in-progress')
+      await expect(view).toBeVisible({ timeout: 15_000 })
+      await expect(view.getByText(/Bridge cbADA → cbADA on Base — sent — outcome unknown/)).toBeVisible()
+      await expect(view.getByText(/never sent a second time/)).toBeVisible()
+      await view.getByRole('button', { name: 'Check on chain' }).click()
+      await expect(view.getByText(/on chain: succeeded/).first()).toBeVisible({ timeout: 10_000 })
+      await expect(view.getByText(/Delivered on Solana \(proven by the OffRamp event and the exact credit\)/)).toBeVisible()
+      await expect(view.getByText(/approval 0x77777777/)).toBeVisible()
+      await expect(view.getByText(/Approval on Base: on chain: succeeded · allowance covers the amount/)).toBeVisible()
+      // The only action is checking: nothing that sends.
+      await expect(view.getByRole('button')).toHaveCount(1)
+      await expect(view.getByRole('button', { name: /resend|send again|retry/i })).toHaveCount(0)
+      expect(await page.evaluate(() => (window as unknown as { __rechecks: string[] }).__rechecks)).toEqual(['j1'])
+      await view.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/journeys-in-progress.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('cbADA Base -> Solana: live terms are shown, approved by proposal id only, and nothing is sent', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      await open(page, ctx)
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __auth: unknown[][]; __cancel: unknown[][]; __reviews: number; __saved: boolean; __cancelled: boolean }
+        w.__auth = []; w.__cancel = []; w.__reviews = 0; w.__saved = false; w.__cancelled = false
+        w.wallet.getBalances = async () => ({ chains: { base: { native: '0.1' }, solana: { native: '1' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => ({ quote: null, error: 'stub: no direct route' })
+        const cbBase = { chain: 'base', address: '0xcbADA732173e39521CDBE8bf59a6Dc85A9fc7b8c', symbol: 'cbADA', decimals: 6 }
+        const cbSol = { chain: 'solana', address: 'cbADAmv9issuPfhFwyQG3xac4DGPd1LDSt1oz7vwJsg', symbol: 'cbADA', decimals: 6 }
+        const listed = (t: typeof cbBase) => ({ ...t, name: 'Coinbase Wrapped ADA', logoUri: null, isNative: false, verified: true, source: 'relay' })
+        w.wallet.swapGetTokens = async (req: { chain: string; address?: string }) => {
+          const t = req.chain === 'solana' ? cbSol : cbBase
+          return { tokens: req.address && req.address.toLowerCase() === t.address.toLowerCase() ? [listed(t)] : [], error: null }
+        }
+        const skip = (label: string, a: unknown) => ({ kind: 'swap', label, status: 'skipped', from: a, to: a, inputBasis: 'exact', inRaw: '1000000', expectedOutRaw: '1000000', minOutRaw: '1000000', via: null, expiresAt: null, reason: 'Already cbADA; no swap needed.' })
+        w.wallet.swapJourneyPlan = async () => {
+          const c = { family: 'cbada-ccip', label: 'cbADA via Chainlink CCIP', source: cbBase, destination: cbSol, executable: false, validated: false,
+            finalExpectedRaw: '1000000', finalMinRaw: '1000000', finalOutputUsd: null,
+            legs: [skip('Swap cbADA → cbADA on Base', cbBase),
+              { kind: 'bridge', label: 'Bridge cbADA Base → Solana (Chainlink CCIP)', status: 'prepared', from: cbBase, to: cbSol, inputBasis: 'floor', inRaw: '1000000', expectedOutRaw: '1000000', minOutRaw: '1000000', via: 'Chainlink CCIP', expiresAt: null, reason: null },
+              skip('Swap cbADA → cbADA on Solana', cbSol)],
+            costs: [{ label: 'Chainlink CCIP fee', leg: 1, chain: 'base', symbol: 'ETH', decimals: 18, amountRaw: '1381990916993365', usd: null, kind: 'fee', includedInOutput: false }],
+            blockers: ['Sending cbADA over Chainlink CCIP is not implemented or validated in this wallet yet.'] }
+          return { ok: true, value: { candidates: [c], ranking: { recommended: null, noRecommendation: 'No route can be executed yet.', executable: [], previews: [c] } } }
+        }
+        const review = (amountRaw: string, problems: string[]) => ({
+          proposalId: 'p' + (++w.__reviews), quotedAt: Date.now(), expiresAt: Date.now() + 120_000,
+          sender: '0x720f28c62b844e7dd8705ab0a7651f3f575384f4', accountIndex: 0, recipient: '7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV', amountRaw,
+          baseToken: cbBase.address, solanaMint: cbSol.address, router: '0x881e3A65B4d4a04dD529061dd0071cf975F58bCD',
+          ccipFeeWei: '1381990916993365', maxCcipFeeWei: '1520190008692701', needsApproval: true, allowanceRaw: '0', maxFeePerGasWei: '7000000',
+          approvalGas: { estimateUnits: '56338', ceilingUnits: '84507', maxWei: '1183098000000', l1FeeWei: '1262269329' },
+          sendGas: { estimateUnits: null, ceilingUnits: '450000', maxWei: '6300000000000', l1FeeWei: '2471736671' },
+          totalMaxEthWei: '1527673106692701', cbAdaBalanceRaw: '5000000', ethBalanceWei: '20000000000000000',
+          outboundRateLimit: { enabled: true, availableRaw: '10000000000000', capacityRaw: '10000000000000' }, problems,
+        })
+        w.wallet.journeyCbAdaReview = async (amountRaw: string) => ({ ok: true, value: review(amountRaw, w.__reviews === 0 ? ['The wallet does not hold enough cbADA on Base.'] : []) })
+        w.wallet.journeyCbAdaAuthorize = async (...args: unknown[]) => { w.__auth.push(args); w.__saved = true; return { ok: true, value: { journeyId: 'cbada-1' } } }
+        w.wallet.journeyCancel = async (...args: unknown[]) => { w.__cancel.push(args); w.__cancelled = true; return { ok: true, value: { journeyId: 'cbada-1' } } }
+        w.wallet.journeyList = async () => ({ ok: true, value: {
+          active: w.__saved && !w.__cancelled ? [{ id: 'cbada-1', bridge: 'ccip-cbada', createdAt: Date.now(), cancellable: true,
+            authorization: { sender: '0x720f28c62b844e7dd8705ab0a7651f3f575384f4', accountIndex: 0, maxCcipFeeWei: '1520190008692701', maxApprovalGasWei: '1183098000000', maxSendGasWei: '6300000000000', approvedAt: Date.now() },
+            legs: [
+              { role: 'source-swap', chain: 'base', state: 'skipped', txHash: null, providerRef: null, approvalTxHash: null, approvedInputRaw: null, inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+              { role: 'bridge', chain: 'base', state: 'approved', txHash: null, providerRef: null, approvalTxHash: null, approvedInputRaw: '2000000', inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+              { role: 'destination-swap', chain: 'solana', state: 'skipped', txHash: null, providerRef: null, approvalTxHash: null, approvedInputRaw: null, inputSymbol: 'cbADA', outputSymbol: 'cbADA' },
+            ] }] : [],
+          awaitingEvidence: 0, finished: 0, otherWallets: 0, unreadable: [],
+        } })
+      })
+      await pickNetwork(page, 'From network', 'base')
+      await pickNetwork(page, 'To network', 'solana')
+      for (const [name, address] of [['Pay token', '0xcbADA732173e39521CDBE8bf59a6Dc85A9fc7b8c'], ['Receive token', 'cbADAmv9issuPfhFwyQG3xac4DGPd1LDSt1oz7vwJsg']]) {
+        await page.getByRole('button', { name }).click()
+        const dialog = page.getByRole('dialog', { name })
+        await dialog.getByRole('textbox', { name: 'Search tokens' }).fill(address)
+        await dialog.getByRole('option').filter({ hasText: 'cbADA' }).first().click()
+        await expect(page.getByRole('button', { name })).toContainText('cbADA')
+      }
+      await page.getByPlaceholder('0.0').first().fill('1')
+      const panel = page.getByTestId('journey-routes')
+      await expect(panel).toBeVisible({ timeout: 10_000 })
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      const terms = panel.getByTestId('cbada-terms')
+      await expect(terms).toBeVisible({ timeout: 10_000 })
+      await expect(terms.getByText(/nothing is signed or sent/)).toBeVisible()
+
+      // A live problem blocks approval.
+      await terms.getByRole('button', { name: 'Review transfer terms' }).click()
+      await expect(terms.getByTestId('cbada-terms-problems')).toContainText('does not hold enough cbADA')
+      await expect(terms.getByRole('checkbox')).toBeDisabled()
+      await expect(terms.getByRole('button', { name: 'Approve terms' })).toBeDisabled()
+
+      // A new amount resets the panel; the next review is clean.
+      await page.getByPlaceholder('0.0').first().fill('2')
+      await panel.getByRole('button', { name: 'Find routes' }).click()
+      await terms.getByRole('button', { name: 'Review transfer terms' }).click()
+      await expect(terms.getByText('0x720f28c62b844e7dd8705ab0a7651f3f575384f4 · account 1')).toBeVisible({ timeout: 10_000 })
+      await expect(terms.getByText('7EcDhSYGxXyscszYEp35KHN8vvw3svAuLKTzXwCFLtV · this account')).toBeVisible()
+      await expect(terms.getByText(/^2 cbADA/)).toBeVisible()
+      await expect(terms.getByText('0.00152 ETH', { exact: true })).toBeVisible()
+      await expect(terms.getByText(/needed, for exactly 2 cbADA · max gas 0\.000001183 ETH/)).toBeVisible()
+      await expect(terms.getByText('0.0000063 ETH', { exact: true })).toBeVisible()
+      await expect(terms.getByText('0.001528 ETH')).toBeVisible()
+      await expect(terms.getByText(/10,000,000 cbADA available/)).toBeVisible()
+      const approve = terms.getByRole('button', { name: 'Approve terms' })
+      await expect(approve).toBeDisabled()
+      await terms.getByRole('checkbox').check()
+      await expect(approve).toBeEnabled()
+      await terms.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/cbada-terms-review.png', fullPage: true })
+      await approve.click()
+      await expect(terms.getByTestId('cbada-terms-saved')).toContainText('nothing was signed or sent')
+      // Only the proposal id crossed to the privileged layer.
+      expect(await page.evaluate(() => (window as unknown as { __auth: unknown[][] }).__auth)).toEqual([['p2']])
+
+      // The saved transfer appears under Journeys in progress, cancellable because nothing was sent.
+      const view = page.getByTestId('journeys-in-progress')
+      await expect(view).toBeVisible({ timeout: 10_000 })
+      await expect(view.getByText(/Approved terms: 2 cbADA from 0x720f28…5384f4/)).toBeVisible()
+      await expect(view.getByText(/Sending is not enabled in this build/)).toBeVisible()
+      await expect(view.getByRole('button', { name: /resend|send again|retry/i })).toHaveCount(0)
+      await view.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/cbada-terms-saved.png', fullPage: true })
+      await view.getByRole('button', { name: 'Cancel (nothing was sent)' }).click()
+      await view.getByRole('button', { name: 'Confirm: cancel this transfer' }).click()
+      await expect(view).toHaveCount(0, { timeout: 10_000 })
+      expect(await page.evaluate(() => (window as unknown as { __cancel: unknown[][] }).__cancel)).toEqual([['cbada-1']])
     } finally {
       await ctx.close()
     }

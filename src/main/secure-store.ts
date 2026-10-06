@@ -468,6 +468,21 @@ export async function saveXReserveTracking(map: Record<string, string>): Promise
   writeJsonMapFileAtomic(nodeJsonMapFs, userData(), xreserveTrackingPath(), map)
 }
 
+// -- Multi-leg journeys (src/main/journey-store.ts) ----------------------------
+// One JSON record per journey: identities, approved amounts, transaction hashes,
+// bridge references and measured outputs. No keys, witnesses, CBOR or calldata.
+// A failed write THROWS, and unreadable data is an error — never "no journeys" —
+// so a later save cannot erase the record of a sent transaction.
+const journeysPath = () => join(userData(), 'journeys.json')
+
+export async function loadJourneys(): Promise<Record<string, string>> {
+  return readJsonMapFile(nodeJsonMapFs, journeysPath())
+}
+
+export async function saveJourneys(map: Record<string, string>): Promise<void> {
+  writeJsonMapFileAtomic(nodeJsonMapFs, userData(), journeysPath(), map)
+}
+
 // empty token list. Keyed `network:address` (lowercased).
 
 export interface TokenBalanceCacheEntry {

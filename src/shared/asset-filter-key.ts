@@ -30,6 +30,8 @@ export type AssetFilterState =
   | 'h'   // hidden by the user
   | 's'   // marked as spam by the user
   | 'a'   // explicitly restored — also whitelists an auto-flagged phishing token
+  | 'f'   // NFT favorite, under favorite:<network>:<canonical NFT key>
+  | 'u'   // unfavorite tombstone, under the same namespaced key
 
 /** One decision, with the wall-clock time it was taken (last write wins). */
 export interface AssetFilterEntry {
@@ -168,7 +170,7 @@ export function mergeFilterEntries(
 export function isFilterEntry(value: unknown): value is AssetFilterEntry {
   if (!value || typeof value !== 'object') return false
   const e = value as Partial<AssetFilterEntry>
-  return (e.s === 'h' || e.s === 's' || e.s === 'a') && typeof e.t === 'number' && Number.isFinite(e.t)
+  return (e.s === 'h' || e.s === 's' || e.s === 'a' || e.s === 'f' || e.s === 'u') && typeof e.t === 'number' && Number.isFinite(e.t)
 }
 
 /** Drop every non-conforming member of an untrusted entries object. */
@@ -176,7 +178,10 @@ export function sanitizeFilterEntries(value: unknown): AssetFilterEntries {
   if (!value || typeof value !== 'object') return {}
   const out: AssetFilterEntries = {}
   for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
-    if (key && key.length <= 256 && isFilterEntry(entry)) out[key] = { s: entry.s, t: entry.t }
+    if (key && key.length <= 256 && isFilterEntry(entry)) {
+      if ((entry.s === 'f' || entry.s === 'u') && !/^favorite:(mainnet|testnet):[^:]+:n:/.test(key)) continue
+      out[key] = { s: entry.s, t: entry.t }
+    }
   }
   return out
 }
@@ -189,7 +194,7 @@ export function entriesToSets(entries: AssetFilterEntries): {
   for (const [key, entry] of Object.entries(entries)) {
     if (entry.s === 'h') hidden.add(key)
     else if (entry.s === 's') spam.add(key)
-    else allowed.add(key)
+    else if (entry.s === 'a') allowed.add(key)
   }
   return { hidden, spam, allowed }
 }

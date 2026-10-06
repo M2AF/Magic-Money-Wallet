@@ -52,6 +52,11 @@ const SLOW_TYPES = new Set([
 // well beyond the heavy-fetch budget. Give it room (SW stays alive while active).
 const VERY_SLOW_TYPES = new Set([
   'swap:execute',
+  // Two Cardano quotes (Minswap rate-limits per IP) plus a destination quote.
+  'swap:stablecoinPlan',
+  'swap:journeyPlan',
+  'journey:recheck',
+  'journey:cbadaReview',
   'xreserve:testnet-approve', 'xreserve:testnet-approval-status', 'xreserve:testnet-deposit', 'xreserve:testnet-check',
   'xreserve:testnet-recover',
 ])
@@ -212,6 +217,13 @@ export function createExtensionWallet() {
     xreserveTestnetDismissCorrupt: (key: string)      => send('xreserve:testnet-dismiss-corrupt', { key }),
     xreserveTestnetCheck:   (req: unknown)      => send('xreserve:testnet-check', req),
     swapCrossStatus:(req: unknown)          => send('swap:crossStatus', req),
+    swapStablecoinPlan:(req: unknown)       => send('swap:stablecoinPlan', req),
+    swapJourneyPlan:(req: unknown)          => send('swap:journeyPlan', req),
+    journeyList:()                          => send('journey:list'),
+    journeyRecheck:(journeyId: string)      => send('journey:recheck', { journeyId }),
+    journeyCbAdaReview:(amountRaw: string)   => send('journey:cbadaReview', { amountRaw }),
+    journeyCbAdaAuthorize:(proposalId: string) => send('journey:cbadaAuthorize', { proposalId }),
+    journeyCancel:(journeyId: string)       => send('journey:cancel', { journeyId }),
     swapSessions:   ()                      => send('swap:sessions'),
     swapReconcile:  ()                      => send('swap:reconcile'),
     swapGetNetworks:()                      => send('swap:getNetworks'),
@@ -257,8 +269,8 @@ export function createExtensionWallet() {
     chainlensGetProfile:    ()              => send('chainlens:get-profile'),
     chainlensSync:          ()              => send('chainlens:sync'),
     chainlensUpdateProfile: (u: unknown)    => send('chainlens:update-profile', u),
-    assetFiltersGet:        ()              => send('assetfilters:get'),
-    assetFiltersPush:       (e: unknown)    => send('assetfilters:push', e),
+    assetFiltersGet:        (owner?: string) => send('assetfilters:get', owner),
+    assetFiltersPush:       (e: unknown, owner?: string) => send('assetfilters:push', e, owner),
     customThemesGet:        ()              => send('themes:get'),
     customThemesPush:       (e: unknown)    => send('themes:push', e),
     chainlensPickAvatar:    ()              => send('chainlens:pick-avatar'),

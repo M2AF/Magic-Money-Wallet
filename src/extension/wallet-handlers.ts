@@ -102,6 +102,8 @@ import { wordlist as bip39Wordlist } from '@scure/bip39/wordlists/english'
 import { blake2b as blake2bHash } from '@noble/hashes/blake2b'
 import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
 import { handleXReserveTestnet } from '../main/xreserve-testnet-handlers'
+import { handleStablecoinPlan } from '../main/stablecoin-route-handler'
+import { handleJourney } from '../main/journey-handler'
 import { personalSignMessage, personalSignPreview } from '../main/personal-sign'
 // STATIC imports — same reason as the chain-config note above, and the one that
 // bit the Solana signing path: a runtime import() inside a handler throws
@@ -1172,6 +1174,27 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
         saveTracking: (m) => store.saveXReserveTracking(m),
       })
 
+    // Read-only stablecoin route preview; never signs. Not in PAGE_RPC_TYPES.
+    case 'swap:stablecoinPlan':
+      return handleStablecoinPlan(a0, {
+        loadConfig: () => store.loadConfig(),
+        loadAddresses: () => loadFullAddresses(),
+      })
+
+    // Journeys: read-only discovery and the persisted list. Not in PAGE_RPC_TYPES.
+    case 'swap:journeyPlan':
+    case 'journey:list':
+    case 'journey:recheck':
+    case 'journey:cbadaReview':
+    case 'journey:cbadaAuthorize':
+    case 'journey:cancel':
+      return handleJourney(msg.type, a0, {
+        loadConfig: () => store.loadConfig(),
+        loadAddresses: () => loadFullAddresses(),
+        loadJourneys: () => store.loadJourneys(),
+        saveJourneys: (m) => store.saveJourneys(m),
+      })
+
     case 'swap:getTokenList': {
       const config = await store.loadConfig()
       return getSwapTokenList(a0 as SwapTokenSearchRequest, config)
@@ -1257,10 +1280,10 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     // Stubbed out in the extension build (see stubs/asset-filter-sync-stub.ts);
     // live on Capacitor and iOS, which share this router.
     case 'assetfilters:get':
-      return fetchAssetFilters(await store.loadConfig())
+      return fetchAssetFilters(await store.loadConfig(), a0 as string | undefined)
 
     case 'assetfilters:push':
-      return pushAssetFilters(a0 as AssetFilterEntries, await store.loadConfig())
+      return pushAssetFilters(a0 as AssetFilterEntries, await store.loadConfig(), true, a1 as string | undefined)
 
     // ── Custom themes, on the same profile ─────────────────────────────────
     // NOT stubbed in the extension, unlike the filters above: those were held

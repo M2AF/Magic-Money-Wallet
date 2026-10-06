@@ -29,12 +29,17 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
-  entriesToSets, mergeFilterEntries, legacyWalletKeyToCanonical,
+  entriesToSets, mergeFilterEntries, legacyWalletKeyToCanonical, sanitizeFilterEntries,
   type AssetFilterEntries, type AssetFilterState,
 } from '../../shared/asset-filter-key'
 
 /** Debounce before pushing. Hiding five scam tokens in a row is one request. */
 const PUSH_DEBOUNCE_MS = 1200
+// Favorites have a separate owner/profile-scoped cache and sync hook. Never
+// copy them into the legacy account-index visibility cache or its outgoing push.
+export function visibilityEntries(value: unknown): AssetFilterEntries {
+  return Object.fromEntries(Object.entries(sanitizeFilterEntries(value)).filter(([, e]) => e.s === 'h' || e.s === 's' || e.s === 'a'))
+}
 
 export interface AssetFilters {
   hidden: Set<string>
@@ -68,7 +73,7 @@ const legacyKeys  = (acct: number) =>
 function loadEntries(acct: number): AssetFilterEntries {
   try {
     const raw = localStorage.getItem(entriesKey(acct))
-    return raw ? migrateLegacy(acct, JSON.parse(raw) as AssetFilterEntries) : migrateLegacy(acct, {})
+    return raw ? migrateLegacy(acct, visibilityEntries(JSON.parse(raw))) : migrateLegacy(acct, {})
   } catch {
     return {}
   }
@@ -156,7 +161,7 @@ export function useAssetFilters(accountIndex: number): AssetFilters {
         // applying it is how a hide made on the phone arrives here.
         if (!result?.entries) return
         setEntries(prev => {
-          const merged = mergeFilterEntries(prev, result.entries)
+          const merged = mergeFilterEntries(prev, visibilityEntries(result.entries))
           saveEntries(accountIndex, merged)
           return merged
         })
@@ -183,7 +188,7 @@ export function useAssetFilters(accountIndex: number): AssetFilters {
       if (cancelled || !remote) return
       let localOnly = false
       setEntries(prev => {
-        const merged = mergeFilterEntries(prev, remote)
+        const merged = mergeFilterEntries(prev, visibilityEntries(remote))
         // Anything the merge added on top of the server's copy exists only here:
         // decisions taken offline, or the one-time migration off the pre-sync
         // stores. Without pushing them back, they would stay on this install

@@ -193,8 +193,8 @@ export async function executeSwap(
   }
 
   const chain = quote.fromChain
-  if (isSupportedEvmChain(chain, config)) return executeEvmSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
-  if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity)
+  if (isSupportedEvmChain(chain, config)) return executeEvmSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
+  if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
   if (chain === 'cardano') {
     let release = () => {}
     try {
@@ -373,6 +373,16 @@ function isSupportedEvmChain(chain: string, config?: WalletConfig): boolean {
   return resolveEvmChainId(chain, config) != null
 }
 
+/**
+ * Reads right after our own transaction confirms. A load-balanced RPC (Alchemy,
+ * public pools) can answer a receipt from one backend and the next read from
+ * another that is a block behind: on 2026-10-05 a Base swap's simulation saw no
+ * allowance just after the approval confirmed, and the next approval was given
+ * the already-used nonce ("replacement transaction underpriced").
+ */
+export const READ_AFTER_WRITE = { attempts: 10, delayMs: 1500, simulationRetries: 2 }
+const pause = (ms: number) => new Promise(r => setTimeout(r, ms))
+
 async function executeEvmSwap(
   quote: NormalizedSwapQuote,
   mnemonic: string,
@@ -381,6 +391,7 @@ async function executeEvmSwap(
   policy: SwapPolicyDecision,
   intentId?: string,
   identity?: SwapSigningIdentity,
+  decimals?: { from?: number; to?: number },
 ): Promise<SwapExecuteResult> {
   const chainId = resolveEvmChainId(quote.fromChain, config)
   if (!chainId) throw new SwapPreflightError(`Could not resolve EVM network for ${quote.fromChain}.`)
@@ -429,10 +440,28 @@ async function executeEvmSwap(
     : () => { /* not tracked: no intent (direct executeSwap in tests) */ }
   const openIfNeeded = () => track(() => openSession(
     intentId as string, quote, identity as SwapSigningIdentity,
-    { from: 18, to: 18 },
+    { from: decimals?.from ?? 18, to: decimals?.to ?? 18 },
   ))
   /** Steps that actually reached the network, for honest error reporting. */
   const submitted: string[] = []
+
+  // Every transaction of this swap gets an explicit nonce: at least one past our
+  // own last one, whatever a lagging node reports as 'pending'. If the very
+  // first read fails, stop before signing; a node-picked nonce is not recoverable.
+  let ownNext: number | null = null
+  const nextNonce = async (): Promise<number | null> => {
+    const read = await getEvmPendingNonce(signer, chainId, config)
+    if (read == null) return ownNext
+    return ownNext == null ? read : Math.max(read, ownNext)
+  }
+  const sendPinned = async (tx: { to: string; data: string; value: string; chainId: number }) => {
+    const nonce = await nextNonce()
+    if (nonce == null) throw new SwapPreflightError(
+      `Could not read the account nonce on ${quote.fromChain}, so this transaction was not sent. Refresh the quote and try again.`)
+    const sent = await sendRawEvmTransaction(mnemonic, { ...tx, nonce }, config, accountIndex)
+    ownNext = nonce + 1
+    return sent
+  }
 
   // ── Step A — ERC-20 approval (native assets skip this) ────────────────────
   let approvalTxHash: string | null = null
@@ -447,38 +476,63 @@ async function executeEvmSwap(
       // has to go through zero first. Reading the allowance is what makes this
       // case visible; it is not by itself the fix for it.
       if (current != null && current > 0n) {
-        const reset = await sendRawEvmTransaction(mnemonic, {
+        const reset = await sendPinned({
           to: quote.approvalTx.to, data: erc20ApproveData(spender, 0n), value: '0x0', chainId,
-        }, config, accountIndex)
+        })
         noteBroadcast(); submitted.push(`allowance reset ${reset.txHash}`)
         openIfNeeded(); track(() => noteApprovalTx(intentId as string, reset.txHash))
         await waitForEvmReceipt(chainId, reset.txHash, config)
+        // A different RPC backend may still see the old nonzero allowance.
+        // Tokens requiring zero first would reject the next approval there.
+        let resetVisible = false
+        for (let i = 0; i < READ_AFTER_WRITE.attempts && !resetVisible; i++) {
+          if (i > 0) await pause(READ_AFTER_WRITE.delayMs)
+          resetVisible = await readErc20Allowance(quote.fromTokenAddress, signer, spender, chainId, config) === 0n
+        }
+        if (!resetVisible) throw new SwapPreflightError(
+          `The allowance reset ${reset.txHash.slice(0, 10)}… confirmed, but the network has not caught up with it yet. ` +
+          `The new approval and swap were not sent. Refresh the quote and try again in a moment.${sentSuffix(submitted)}`)
       }
 
-      const appr = await sendRawEvmTransaction(mnemonic, {
+      const appr = await sendPinned({
         to: quote.approvalTx.to,
         data: quote.approvalTx.data,
         value: quote.approvalTx.value || '0x0',
         chainId,
-      }, config, accountIndex)
+      })
       // Recorded before the wait: if the wait times out, the hash is the only
       // handle on an approval that may well have landed.
       approvalTxHash = appr.txHash
       noteBroadcast(); submitted.push(`approval ${appr.txHash}`)
       openIfNeeded(); track(() => noteApprovalTx(intentId as string, appr.txHash))
       await waitForEvmReceipt(chainId, appr.txHash, config)   // throws if it REVERTED
+
+      // The receipt may come from a node ahead of the one that answers the next
+      // read: wait until the allowance itself is visible before simulating.
+      let visible = false
+      for (let i = 0; i < READ_AFTER_WRITE.attempts && !visible; i++) {
+        if (i > 0) await pause(READ_AFTER_WRITE.delayMs)
+        const now = await readErc20Allowance(quote.fromTokenAddress, signer, spender, chainId, config)
+        visible = now != null && now >= needed
+      }
+      if (!visible) {
+        throw new SwapPreflightError(
+          `The approval ${appr.txHash.slice(0, 10)}… confirmed, but the network has not caught up with it yet, ` +
+          `so the swap was not sent. Refresh the quote and try again in a moment; the approval stays in place.` +
+          sentSuffix(submitted))
+      }
     }
   }
 
   // Step A2 — Uniswap Permit2.approve (after the token→Permit2 allowance, before the
   // swap). Only present for Uniswap's generatePermitAsTransaction path.
   if (quote.permitTx?.to) {
-    const permit = await sendRawEvmTransaction(mnemonic, {
+    const permit = await sendPinned({
       to: quote.permitTx.to,
       data: quote.permitTx.data,
       value: quote.permitTx.value || '0x0',
       chainId,
-    }, config, accountIndex)
+    })
     noteBroadcast(); submitted.push(`permit ${permit.txHash}`)
     openIfNeeded(); track(() => noteApprovalTx(intentId as string, permit.txHash))
     await waitForEvmReceipt(chainId, permit.txHash, config)
@@ -495,13 +549,19 @@ async function executeEvmSwap(
     gas: quote.estimatedGasRaw && quote.estimatedGasRaw !== '0' ? quote.estimatedGasRaw : undefined,
     chainId,
   }
-  applySimulation(await simulateRawEvmTransaction(signer, swapTx, config), policy, 'Swap transaction')
+  let simulation = await simulateRawEvmTransaction(signer, swapTx, config)
+  // Just after our own approval or permit, a revert may only mean a lagging node.
+  for (let i = 0; simulation.status === 'revert' && submitted.length > 0 && i < READ_AFTER_WRITE.simulationRetries; i++) {
+    await pause(READ_AFTER_WRITE.delayMs)
+    simulation = await simulateRawEvmTransaction(signer, swapTx, config)
+  }
+  applySimulation(simulation, policy, 'Swap transaction')
 
   // Pin the nonce so an ambiguous broadcast can be reconciled rather than
   // retried into a second, different transaction. A nonce we could not READ is
   // not a reason to send without one: an unpinned send is precisely the case
   // that cannot be reconciled afterwards.
-  const nonce = await getEvmPendingNonce(signer, chainId, config)
+  const nonce = await nextNonce()
   if (nonce == null) {
     throw new SwapPreflightError(
       `Could not read the account nonce on ${quote.fromChain}, so the swap cannot be submitted in a way ` +
@@ -636,6 +696,7 @@ async function executeSolanaSwap(
   policy: SwapPolicyDecision,
   intentId?: string,
   identity?: SwapSigningIdentity,
+  decimals?: { from?: number; to?: number },
 ): Promise<SwapExecuteResult> {
   if (!quote.txData.swapTransaction) {
     throw new SwapPreflightError('Quote did not include a Solana transaction to sign.')
@@ -701,7 +762,7 @@ async function executeSolanaSwap(
     if (!intentId || !identity) return
     fn().catch(() => { /* evidence store must never break a swap */ })
   }
-  track(() => openSession(intentId as string, quote, identity as SwapSigningIdentity, { from: 9, to: 9 }))
+  track(() => openSession(intentId as string, quote, identity as SwapSigningIdentity, { from: decimals?.from ?? 9, to: decimals?.to ?? 9 }))
   const sig = await send()
   track(() => noteSwapBroadcast(intentId as string, sig, SOLSCAN(sig), null))
 

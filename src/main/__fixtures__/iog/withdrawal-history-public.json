@@ -1,0 +1,89 @@
+{
+ "recordedAt": "2026-10-05T19:55:07Z",
+ "source": "GET production-docker.usdcx.aws.iohkdev.io/withdrawal-history/{address} (public address from the Portal; read-only)",
+ "address": "addr1qyx7pgg87pl7a07vv33h2dxkdyynlex8el8lqjyw828eydspqp5q20s9dvgq3ug8xkqmnkf2swdz09husagsrtjy240qj05jmp",
+ "httpStatus": 200,
+ "response": [
+  {
+   "amount": "1902000000",
+   "cardanoBurnTxHash": "b80a5ac3a55650a70dee18a79704595afbbdbc59e6749077c9797584f192a84d",
+   "confirmations": 1623,
+   "createdAt": "2026-10-05T10:08:06.70327Z",
+   "ethereumTxHash": "0x33b1c1e3ae9e02fa74d014c2378a88f9841dd2b7113ad46f5b07e21300dffb8b",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "1602000000",
+   "cardanoBurnTxHash": "3eab4d92194ea3cf7a6194d0d72bb8db8dd07e37fc0fe9038d5a560828809cfa",
+   "confirmations": 1620,
+   "createdAt": "2026-10-05T06:51:52.147326Z",
+   "ethereumTxHash": "0x67ec6ba2d5fd91d990c7abacfc34acc6ccbc8d772cc97705531fe462f62ee537",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "2802000000",
+   "cardanoBurnTxHash": "887333810ea503013f1e17c503ed6e691940e177e82f88baa76d19409de76e86",
+   "confirmations": 1623,
+   "createdAt": "2026-10-05T01:35:55.192572Z",
+   "ethereumTxHash": "0x37dce9fab6f48033691f841be3c783bd9154998054490d535795cac2876b5630",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "1502000000",
+   "cardanoBurnTxHash": "78e8e9156eb1a041068811eda99986b044b28aac0c9902eb23262df32e277bf9",
+   "confirmations": 1622,
+   "createdAt": "2026-10-04T14:02:11.211763Z",
+   "ethereumTxHash": "0xdb0631cfc9ec7458038fd4fe39fa80096b346067078001e0a86c63e1e0cfbc93",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "1402000000",
+   "cardanoBurnTxHash": "4b23f8cac628894626de51cec99d6421be3111c33db2957f213b3eddc68920de",
+   "confirmations": 1623,
+   "createdAt": "2026-10-04T00:03:45.03218Z",
+   "ethereumTxHash": "0x0fdf17c68ee42a2eb81a82fcb9e299592a186e3ce77986739fd6aaa372a6c887",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "1502000000",
+   "cardanoBurnTxHash": "1cc5cb3b49f547ee1193441e9f69264e896fae0397ce6d574ba3667a01ea3680",
+   "confirmations": 1625,
+   "createdAt": "2026-10-03T18:47:58.863581Z",
+   "ethereumTxHash": "0xa7b34b7d02351ad5520054c956a5ddad1b28db181f1e484d1590a1796678ead0",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "1502000000",
+   "cardanoBurnTxHash": "6d3a15d5de344545897a6eef32b21994ed6acc38eed6608e65d5a37a23cc2b52",
+   "confirmations": 1621,
+   "createdAt": "2026-10-03T04:48:26.49123Z",
+   "ethereumTxHash": "0xa93c733d62e591c0647c6b658bda1f923f5cd02e3225e536e36c87dbec7a4b23",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "902000000",
+   "cardanoBurnTxHash": "57f56ca4e6cba1a4e85dfee94694497eb8379e18c6ded552df90ef011eb7e32b",
+   "confirmations": 1621,
+   "createdAt": "2026-10-03T01:02:05.216868Z",
+   "ethereumTxHash": "0x15508cc8f8e02106b2db8dfe0b55fc24f37ae533767f1506b4dfbd2548b0be71",
+   "lastError": null,
+   "status": "finalized"
+  },
+  {
+   "amount": "102000000",
+   "cardanoBurnTxHash": "4642c6de21efdf049a9d9c0ea26d5761f4b27618637c6b9234de599c97dc5005",
+   "confirmations": 1620,
+   "createdAt": "2026-10-02T06:18:37.263726Z",
+   "ethereumTxHash": "0xd3688b4a6d95f25b7c0c7fe407cb6cc80ccf4caa86f7b97a1b7bd49e6ea6f29b",
+   "lastError": null,
+   "status": "finalized"
+  }
+ ]
+}

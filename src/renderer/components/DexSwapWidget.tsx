@@ -25,6 +25,9 @@ import { SwapQuoteCard } from './SwapQuoteCard'
 import { SwapSettings } from './SwapSettings'
 import { CrossChainStatusCard } from './CrossChainStatusCard'
 import { CardanoOrderStatusCard } from './CardanoOrderStatusCard'
+import { JourneyRoutesPanel } from './JourneyRoutesPanel'
+import { JourneysInProgress } from './JourneysInProgress'
+import { journeyPairSupported, type JourneyPlanRequest } from '../../shared/journey-candidate'
 import { TokenPicker } from './TokenPicker'
 import { ChainDropdown } from './ChainDropdown'
 import { SWAP_PERCENTS, percentOfRaw } from '../lib/swap-amount'
@@ -177,6 +180,21 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   const cardanoCrossChain = isCrossChain && (fromChain === 'cardano' || toChain === 'cardano')
   const requiresExchange = !sourceSignable || cardanoCrossChain
   const exchangePreset = swapExchangePreset(fromToken, toToken, amount)
+  // Pairs a multi-step route family serves (Cardano -> Ethereum/Solana/Base via
+  // USDCx or Coinbase cbADA; Base <-> Solana via cbADA): read-only discovery.
+  // Nothing in it can execute yet; see JourneyRoutesPanel.
+  const journeyRequest = useMemo<JourneyPlanRequest | null>(() => {
+    if (!journeyPairSupported(fromChain, toChain) || !fromToken || !toToken) return null
+    const sellAmountRaw = humanToRaw(amount, fromToken.decimals)
+    if (sellAmountRaw === '0') return null
+    return {
+      fromChain: fromChain as JourneyPlanRequest['fromChain'],
+      fromToken: { address: fromToken.address, symbol: fromToken.symbol, decimals: fromToken.decimals },
+      toChain: toChain as JourneyPlanRequest['toChain'],
+      toToken: { address: toToken.address, symbol: toToken.symbol, decimals: toToken.decimals },
+      sellAmountRaw, slippageBps,
+    }
+  }, [fromChain, toChain, fromToken, toToken, amount, slippageBps])
   const quoteVersion = useRef(0)
   const addrFor = useCallback((c: SwapChain) => addresses[takerKeyForChain(c)], [addresses])
   /**
@@ -579,6 +597,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Restored multi-step journeys of THIS wallet; read-only, never re-sends. */}
+      <JourneysInProgress />
       {/* YOU PAY */}
       <div style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -646,7 +666,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         </div>
       </div>
 
-      {/* Source not locally signable → hand off to SimpleSwap */}
+      {/* Cardano cross-chain routes stay in DEX Swap; unsupported signers may use the separate exchange flow. */}
       {requiresExchange && (
         <div style={{ background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 'var(--radius-sm)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
@@ -654,17 +674,18 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
               ? <>On-chain bridging between Cardano and {fromChain === 'cardano' ? toChain : fromChain} is not enabled yet.</>
               : <>Spending from <strong>{fromToken?.symbol}</strong> on {fromChain} uses the Cross-Chain exchange (deposit-address flow).</>}
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          {!cardanoCrossChain && <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
             {exchangePreset
               ? 'Check this pair with the exchange providers. The provider holds your deposit while processing; a live estimate is required before creating an exchange.'
               : 'This exact token pair is not in the exchange catalog. Choose supported assets; USDCx is not substituted with USDC or ADA.'}
-          </div>
-          {onUseCrossChain && (
+          </div>}
+          {onUseCrossChain && !cardanoCrossChain && (
             <button type="button" disabled={!exchangePreset} onClick={() => onUseCrossChain(exchangePreset ?? undefined)}
               style={btn(!!exchangePreset, 'rgba(56,189,248,0.9)', '#04121d')}>Check exchange route</button>
           )}
         </div>
       )}
+      {requiresExchange && <JourneyRoutesPanel request={journeyRequest} />}
 
       {!requiresExchange && (
         <SwapSettings open={showAdvanced} onToggle={() => setShowAdvanced(v => !v)} slippageBps={slippageBps} autoBps={autoBps} isAuto={isAuto} onSet={setOverrideBps} />
@@ -679,6 +700,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       )}
 
       {!requiresExchange && renderButton()}
+      {/* Other networks' multi-step routes, separate from the executable quote above. */}
+      {!requiresExchange && <JourneyRoutesPanel request={journeyRequest} />}
     </div>
   )
 }

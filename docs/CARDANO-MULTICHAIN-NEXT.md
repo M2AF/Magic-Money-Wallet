@@ -1,6 +1,8 @@
 # Bidirectional Cardano / Solana / EVM swaps
 
-Updated 2026-10-04. User authorizes implementation toward this goal; live signing, broadcast and deployment have not been requested.
+Updated 2026-10-05. User authorizes implementation toward this goal; live signing, broadcast and deployment have not been requested.
+
+**Current execution plan:** [stablecoin routing plan](USDCX-STABLECOIN-ROUTING-PLAN.md), with [Claude implementation prompt](USDCX-STABLECOIN-CLAUDE-PROMPT.md). The Portal burn/build/submit/history interfaces have now been located; live Circle preparation returned HTTP 200 for Ethereum and Solana forwarding, and one public Ethereum release was independently verified. Valid unsigned build, supported third-party contract and Solana settlement remain unverified. Follow that plan's implementation order; the older interface-search-first steps below are historical context.
 
 The target is a wallet-owned sequence of swaps and bridge transfers, using Cardano USDCx and native USDC on supported destination chains as intermediate assets. Each intermediate asset must be identified by its policy/asset name, mint or contract and network, never its symbol alone. A completed source transaction is not proof that the destination tokens arrived.
 

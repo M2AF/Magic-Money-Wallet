@@ -7,25 +7,37 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: e68f40e · PASS on committed tree e68f40e: typecheck exit 0, npm test 148/2179, Cardano Playwright 3/3. Danogo phase-2 validity regression included; no live signing or submission. · 2026-10-05T15:56-03:00
-head: e68f40e (main) dirty 2
-updated: 2026-10-05T15:56-03:00 · codex
+verified: 5ef16d0 · npm run typecheck exit 0; npx vitest run swap-executor-read-after-write.test.ts swap-executor-preflight.test.ts: 2 files 19 tests pass; git diff --check exit 0 · 2026-10-06T00:00-03:00
+head: 5ef16d0 (main) dirty 34
+updated: 2026-10-06T00:00-03:00 · codex
 
 ## Now
-- Danogo CLMM same-chain swaps in DEX Swap committed as e68f40e; DexHunter read-only evaluation committed as f074204. No live swap, signing or submission.
-- Codex review fixed Danogo settlement: Blockfrost hash, block height and `valid_contract` must agree before completion; phase-2 failure is `failed`. ADA completion copy distinguishes gross pool payout from net wallet gain.
-- Verification after review: five-target typecheck PASS; 148 test files/2179 tests PASS; Cardano Playwright 3/3 PASS. Claude's earlier desktop, extension, Capacitor and iOS web builds PASS before the review fix; no native-device QA.
-- NFT gallery/favorites and outbound xReserve read-only modules are locally verified; see docs/NFT-GALLERY-PERFORMANCE.md and docs/XRESERVE-OUTBOUND-IMPLEMENTATION.md. Outbound has no executable Cardano burn path.
-- No funds, deployment or native QA; only local fixtures and builds.
-
-- USDCx inbound testnet passed live 2026-09-30 (20 USDC -> 15 USDCx, ~2h12m); docs/XRESERVE-TESTNET-QA.md. Mainnet still gated. Minswap order executor persists terms/hash before submit; no composed multichain journey yet.
-
-- Burn interface: no supported IOG/Midgard builder/auth/validator/recovery contract established. Read-only proof and 20 tests exist; no signing path.
+- NFT favorites shared ChainLens-ID sync complete locally: existing profile preference document, offline caches, legacy migration, unfavorite tombstones and expected-owner guards across all platform bridges; spam choices independent.
+- Final checks: five typecheck targets; 159 files/2327 tests; four desktop/web bundles; 2 extension gallery tests; ChainLens140 tests and cross-product browser checks. No live writes/deployment; local DB credential rejected (Unregistered API key).
+- User target: one stablecoin swap journey, multiple approved transactions: Cardano token -> USDCx -> native destination USDC -> target token. No parent multichain journey implemented yet.
+- Codex review: Cardano cross-chain pairs now stay in DEX Swap (no exchange handoff); cbADA receipt recovery binds the recorded Base hash and Solana delivery events must come from the OffRamp invocation. Execution remains disabled.
+- cbADA signing bindings are fixed locally and execution remains disabled/unwired. The v2 Base pool default outbound rate-limit getter was read live and is now checked in send simulation.
+- cbADA approval screen built (uncommitted): cbada-ccip-approval.ts + journey:cbadaReview/cbadaAuthorize/cancel on all targets + CbAdaTermsPanel; stores immutable terms only on explicit approval; signs/sends nothing. Checks: typecheck 5 targets; 161 files/2367 tests; desktop/extension/capacitor builds; iOS vite bundle (cap sync ios fails: no ios/ platform on this machine); e2e cardano-swap.spec.ts 8/8 (.terms-*.log).
+- Codex approval-screen review completed: serialized check/save blocks concurrent authorizations from two windows; full token/mint/router addresses shown; cost cap label excludes the disclosed uncapped Base L1 data fee. Typecheck 5 targets, 21 focused approval tests, and cbADA popup browser test pass. Execution still off/unwired.
+- Danogo real-funds ADA->USDCx QA passed per RELEASE-QA.md; reverse Danogo and V2 order real-funds QA remain open. Preserve existing uncommitted QA.
+- IOG Portal build, submit, existing-hash record and history contracts located. Circle live synthetic preparation HTTP200 for Ethereum and Solana via Arc forwarding. Valid unsigned build and third-party contract not established; execution remains gated.
+- Public historical burn/release independently linked and canonical Ethereum recipient credit verified. No wallet connected or new signing/broadcast during research. Sanitized evidence in docs/evidence/usdcx-portal-2026-10-05.json.
+- Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User may authorize a small mainnet Danogo QA swap; do not initiate without explicit authorization. Fee-aware ranking and xReserve mainnet gates remain.
+- User may retry ordinary Base swap with fresh quote after restart; future hardening: per-account nonce coordination across concurrent attempts and durable floor across attempts.
 
 ## Traps
+- EVM swap executor read-after-write (2026-10-05 user Base cbADA->Solana Relay failure, funds safe): every tx of a swap now gets an explicit nonce >= own last+1 (a lagging Alchemy backend reported the used nonce -> 'replacement transaction underpriced'); after an approval the allowance must be VISIBLE before simulating (READ_AFTER_WRITE), and a revert right after our own approval is re-simulated twice. Session decimals now real (were hard-coded 18/9). Test: swap-executor-read-after-write.test.ts.
+- Codex review tightened EVM swap: unreadable first nonce now stops before signing; after a zero-reset receipt, zero allowance must become visible before the new approval. Focused tests and five-target typecheck pass. Nonce floor is per executeEvmSwap call, not across simultaneous swaps or restarts; do not claim global nonce serialization.
+- cbADA execution gate: only issued gates (WeakSet) open it; productionGate() mirrors the constant (false); testOnlyEnabledGate() throws outside Vitest. Never pass an execution flag via IPC/renderer. Terms come only from journey.authorization (immutable).
+- JourneyRoutesPanel stale-result guard is implemented. cbADA delivery cursor remains memory-only; restart rereads, and absence is never a failure/refund verdict.
+- cbADA approval: terms come only from a single-use 120s in-memory proposal (id only crosses IPC); one active cbADA journey per wallet; ceilings = fee+10%, gas units x1.5 x 2x maxFeePerGas, send cap 450k before an approval exists; L1 data fee shown, NOT capped. Public Base RPCs: mainnet.base.org rate-limits parallel bursts, base.llamarpc.com returned 525 -> review fails closed; app uses evmReadClient (primary node first).
+- cbADA v2 rate limit uses getCurrentRateLimiterState(Solana selector, false), not the v1 outbound getter. Simulations fail closed on unreadable or insufficient live Base outbound capacity. Re-read immediately before any send.
+- CCIP message id: persist tx hash BEFORE broadcast; read message id from the CONFIRMED receipt (OnRamp CCIPMessageSent), recover by hash; never require it up front. A Solana OffRamp "SkippedAlreadyExecutedMessage" success tx is NOT a delivery.
+- cbADA: Base pool is LOCK/RELEASE and held 0 cbADA (2026-10-05) -> Solana->Base cannot deliver; always read balance. Solana->Base CCIP fee needs Solana router simulation (unknown today). Fee ceilings are never expected costs.
+- src/shared/swap-networks.ts keeps getting CRLF in the working copy (autocrlf) -> swap-core-drift test fails on hash only; normalize to LF (content == HEAD). New shared files must be added to tsconfig.node.json/web.json named lists.
+- Stablecoin bridge legs: never executable until a validated unsigned burn build; IOG endpoints are observed, unversioned; never wrap submit/record endpoints for the renderer.
 - Danogo: own validator only (never relax validateMinswapOrderTx). ADA-side single pool only. Collateral must be provider's; wallet witness MERGED into provider witness set (redeemers byte-exact). Pinned: pool script d8b69fc5, refs 64d111b9#0/2cafd7c9#0, swap fee 100000. Config change = new ref -> fails closed.
 - Danogo completion requires `valid_contract: true` from Blockfrost `txs/{hash}`; transaction UTxO views alone can include unrealized outputs from a phase-2 failure.
 - Shared src/shared/* edits change the ChainLens swap-core bundle hash (swap-core-drift.test): keep descriptive text out of shared files or regenerate ChainLens bundle deliberately. Python text-mode writes CRLF on Windows: normalize to LF.
@@ -47,19 +59,20 @@ updated: 2026-10-05T15:56-03:00 · codex
 - Old testnet QA and newer recovery code differ; audit actual code. Testnet success is not mainnet or outbound acceptance.
 - Preserve address-to-address swaps and shared core/alias seams. No native QA or live settlement inferred from web builds.
 - Do not commit, deploy, sign real funds or broadcast without explicit authorization; never store secrets in handoffs.
-- Circle prepare probe returned HTTP403; synthetic fixture tests do not prove live API access. Do not derive outbound depositor from inbound tags.
-- Ethereum credit proof uses synthetic receipt fixtures only. It proves neither Cardano burn nor current recipient balance and must not mark a route complete alone.
+- Circle prepare now HTTP200 for Ethereum and Solana (synthetic only). Solana uses outer Arc domain26 plus nested CCTP domain5; never relax Ethereum-only validator into arbitrary forwarding acceptance.
+- Historical public burn 88733381 linked by IOG history to release 37dce9fa; independent canonical Ethereum receipt credits exact 2800 USDC. This is research evidence, not wallet execution QA; production verifier still needs integration.
+
 
 ## Pointers
-- docs/XRESERVE-BURN-INTERFACE-RESEARCH.md; xreserve-cardano-burn-proof.ts/.test.ts; .xreserve-burn-{typecheck,tests}.log; Cardano skills' Field notes updated in ~/.claude and ~/.codex.
+- ../chainlens/docs/PROFILE-NFT-FAVORITES.md; src/renderer/lib/use-nft-favorites.ts; src/main/asset-filter-sync.test.ts; ignored .favorites-*.log.
+- docs/USDCX-STABLECOIN-ROUTING-PLAN.md; docs/USDCX-STABLECOIN-CLAUDE-PROMPT.md; docs/evidence/usdcx-portal-2026-10-05.json; ignored test-results/portal-interface/.
+- docs/CBADA-CCIP-EXECUTION-REVIEW.md; docs/CBADA-CCIP-ROUTE.md; src/main/cbada-ccip-{execute,send}.ts; src/main/cbada-solana-delivery.ts.
+- docs/RELEASE-QA.md; CARDANO-MULTICHAIN-NEXT.md; XRESERVE-{BURN-INTERFACE-RESEARCH,OUTBOUND-IMPLEMENTATION,PORTAL-INTEGRATION-HANDOFF,TESTNET-QA,GATE2-RESEARCH}.md.
+- src/main/xreserve-{withdrawal-prepare,withdrawal-status,ethereum-withdrawal-credit,cardano-burn-proof}.ts and tests; xreserve-testnet-handlers.ts; shared/xreserve-testnet-wire.ts.
+- src/main/{swap-proxy,minswap-client,swap-executor,swap-sessions,cardano-danogo-validate,danogo-clmm}.ts; src/shared/swap-session.ts; docs/CARDANO-SWAP-DISCOVERY.md.
 - docs/NFT-GALLERY-PERFORMANCE.md; e2e/nft-gallery.spec.ts; src/main/collectibles-progress.ts; renderer/components/NftImage.tsx.
-- docs/XRESERVE-OUTBOUND-IMPLEMENTATION.md; src/main/xreserve-withdrawal-prepare.ts/.test.ts; xreserve-withdrawal-status.ts/.test.ts.
-- src/main/xreserve-ethereum-withdrawal-credit.ts/.test.ts; .xreserve-credit-typecheck.log; .xreserve-credit-tests.log.
-- docs/XRESERVE-GATE2-RESEARCH.md contains the 2026-10-04 Circle fee clarification.
-- src/main/xreserve-testnet-handlers.ts; shared/xreserve-testnet-wire.ts; wallet bridges and e2e/xreserve-testnet.spec.ts.
-- .xreserve-withdrawal-{focused,typecheck,tests,extension,desktop,capacitor,ios,e2e}.log.
-- Previous units: cardano-swap-inputs.ts; swap-executor.ts; swap-sessions.ts; XReserveTestnetPanel.tsx; XReserveRouteProgress.tsx.
-- Danogo route: src/main/cardano-danogo-validate.ts; danogo-clmm.ts; cardano-direct-status.test.ts; docs/CARDANO-SWAP-DISCOVERY.md. Commits e68f40e and f074204.
-- docs/XRESERVE-TESTNET-QA.md; XRESERVE-PORTAL-INTEGRATION-HANDOFF.md; CARDANO-MULTICHAIN-NEXT.md; CARDANO-ADA-EXCHANGE-ROUTE.md; RELEASE-QA.md.
-- AGENTS.md; README.md; HANDOFF_LOG.md; four Cardano skills and agent-handoff installed for both clients.
+- AGENTS.md; README.md; HANDOFF_LOG.md; local agent-handoff, cardano-cross-chain-swaps and blockchain-architecture-review skills. Resolve skills locally before use.
 
+## Skills
+- Shared Claude/Codex changes -> agent-handoff | used: lease, checkpoints and verification handoff | source: local shared skill | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md
+- Wallet transaction pipeline review -> blockchain-architecture-review | used: approval, signer, broadcast and recovery boundaries | source: local Codex skill | Claude: unknown | Codex: C:/Users/balla/.codex/skills/Blockchain-architecture/SKILL.md

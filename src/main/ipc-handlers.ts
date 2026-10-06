@@ -87,12 +87,16 @@ import {
   saveSwapSessions,
   loadXReserveTracking,
   saveXReserveTracking,
+  loadJourneys,
+  saveJourneys,
   type WalletConfig,
   type CustomToken,
   type CustomNft
 } from './secure-store'
 import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from './agw'
 import { handleXReserveTestnet, XRESERVE_TESTNET_CHANNELS } from './xreserve-testnet-handlers'
+import { handleStablecoinPlan, STABLECOIN_PLAN_CHANNEL } from './stablecoin-route-handler'
+import { handleJourney, JOURNEY_CHANNELS } from './journey-handler'
 import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
@@ -1626,6 +1630,26 @@ export function registerIpcHandlers(): void {
     }))
   }
 
+  // ── Read-only stablecoin route preview (Cardano -> Ethereum/Solana) ──────
+  // Quotes only; never signs. Addresses come from this process, not the renderer.
+  ipcMain.handle(STABLECOIN_PLAN_CHANNEL, async (_e, arg: unknown) => handleStablecoinPlan(arg, {
+    loadConfig: async () => loadConfig(),
+    loadAddresses: () => getFullAddresses(),
+    fetchFn: (url, init) => net.fetch(url, init),
+  }))
+
+  // ── Journeys: route discovery across networks + the persisted journey list ─
+  // Read-only; never signs. Addresses and stores come from this process.
+  for (const channel of JOURNEY_CHANNELS) {
+    ipcMain.handle(channel, async (_e, arg: unknown) => handleJourney(channel, arg, {
+      loadConfig: async () => loadConfig(),
+      loadAddresses: () => getFullAddresses(),
+      loadJourneys,
+      saveJourneys,
+      fetchFn: (url, init) => net.fetch(url, init),
+    }))
+  }
+
   // ── SimpleSwap cross-chain exchange (off-chain, deposit-address) ─────────
   ipcMain.handle('ss:estimate', async (_e, params: SsEstimateParams) => {
     return ssEstimate(params, loadConfig())
@@ -2967,10 +2991,10 @@ export function registerIpcHandlers(): void {
   // ── Hidden/spam asset list, carried on the ChainLens profile ──────────────
   // Both return null entries for "could not sync"; the dashboard keeps showing
   // its local list in that case rather than un-hiding everything.
-  ipcMain.handle('assetfilters:get', () => fetchAssetFilters(loadConfig()))
+  ipcMain.handle('assetfilters:get', (_e, owner?: string) => fetchAssetFilters(loadConfig(), owner))
 
-  ipcMain.handle('assetfilters:push', (_e, entries: AssetFilterEntries) =>
-    pushAssetFilters(entries, loadConfig()))
+  ipcMain.handle('assetfilters:push', (_e, entries: AssetFilterEntries, owner?: string) =>
+    pushAssetFilters(entries, loadConfig(), true, owner))
 
   // ── Custom themes, carried on the same ChainLens profile ──────────────────
   // Same null contract: "could not sync", never "you have no themes".

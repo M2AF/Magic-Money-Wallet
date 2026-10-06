@@ -1,5 +1,7 @@
 # Outbound USDCx bridge implementation — 2026-10-04
 
+> 2026-10-05 refresh: [the stablecoin execution plan](USDCX-STABLECOIN-ROUTING-PLAN.md) records the now-located IOG build/submit/history interface, HTTP 200 live Circle preparation for Ethereum and Arc-forwarded Solana, and an independently verified public Ethereum release. Earlier HTTP 403 and missing sample release findings below are historical. Valid unsigned build, third-party support and Solana settlement remain unverified; no wallet burn path was enabled.
+
 The native bidirectional bridge is **unfinished**. This unit implements the documented Circle side of outbound preparation and status. It does not enable a Cardano burn or mainnet deposit.
 
 ## Implemented in wallet code

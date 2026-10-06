@@ -57,7 +57,8 @@ function sanitizeEntries(value) {
   for (const [key, e] of Object.entries(value)) {
     if (!key || key.length > 256) continue
     if (!e || typeof e !== 'object') continue
-    if (e.s !== 'h' && e.s !== 's' && e.s !== 'a') continue
+    if (e.s !== 'h' && e.s !== 's' && e.s !== 'a' && e.s !== 'f' && e.s !== 'u') continue
+    if ((e.s === 'f' || e.s === 'u') && !/^favorite:(mainnet|testnet):[^:]+:n:/.test(key)) continue
     if (typeof e.t !== 'number' || !Number.isFinite(e.t)) continue
     out[key] = { s: e.s, t: e.t }
   }

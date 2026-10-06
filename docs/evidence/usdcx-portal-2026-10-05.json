@@ -1,0 +1,293 @@
+{
+  "date": "2026-10-05",
+  "scope": "Public frontend inspection, synthetic nonfunding preparation, and historical public settlement. No wallet connected or signing/submission.",
+  "portal": "https://usdcx.iog.io/bridge",
+  "iogBackend": "https://production-docker.usdcx.aws.iohkdev.io",
+  "ethereumPreparation": {
+    "synthetic": true,
+    "request": {
+      "batches": [
+        {
+          "token": "USDC",
+          "valueExcludingFees": "10.00",
+          "remoteDomain": 10004,
+          "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+          "finalDestinationDomain": 0,
+          "finalDestinationRecipient": "0x000000000000000000000000000000000000000000000000000000000000dead",
+          "useCircleForwarding": true
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "batches": [
+        {
+          "burnIntents": [
+            {
+              "maxBlockHeight": "26185899",
+              "maxFee": "2000000",
+              "spec": {
+                "version": 1,
+                "sourceDomain": 0,
+                "destinationDomain": 0,
+                "sourceContract": "0x00000000000000000000000077777777dcc4d5a8b6e418fd04d8997ef11000ee",
+                "destinationContract": "0x0000000000000000000000002222222d7164433c4c09b0b0d809a9b52c04c205",
+                "sourceToken": "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "destinationToken": "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "sourceDepositor": "0x000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e",
+                "destinationRecipient": "0x000000000000000000000000000000000000000000000000000000000000dead",
+                "sourceSigner": "0x000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e",
+                "destinationCaller": "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "value": "10000000",
+                "salt": "0xd46f303151f9c8feacc1c4a2f5e1196f99011d7af5bbbc0df6ce2989b516b1c3",
+                "hookData": {
+                  "remoteDomain": 10004,
+                  "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+                  "remoteToken": "0x9ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd6",
+                  "forwardingContractAddress": "0x0000000000000000000000000000000000000000",
+                  "forwardingCalldata": "0x"
+                }
+              }
+            }
+          ],
+          "encoded": "0x070afbc200000000000000000000000000000000000000000000000000000000018f90ab00000000000000000000000000000000000000000000000000000000001e8480000001c4ca85def700000001000000000000000000000000000000000000000077777777dcc4d5a8b6e418fd04d8997ef11000ee0000000000000000000000002222222d7164433c4c09b0b0d809a9b52c04c205000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e000000000000000000000000000000000000000000000000000000000000dead000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000989680d46f303151f9c8feacc1c4a2f5e1196f99011d7af5bbbc0df6ce2989b516b1c3000000706b20f62a00000001000027149ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd60000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+          "messageHashToSign": "0x054a5f3a4b2b0dcc6a9786e2038a4d8777856cda20aabd3c68331aea5a117fec"
+        }
+      ]
+    }
+  },
+  "solanaPreparation": {
+    "synthetic": true,
+    "request": {
+      "batches": [
+        {
+          "token": "USDC",
+          "valueExcludingFees": "10.00",
+          "remoteDomain": 10004,
+          "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+          "finalDestinationDomain": 5,
+          "finalDestinationRecipient": "0x1111111111111111111111111111111111111111111111111111111111111111",
+          "useCircleForwarding": true,
+          "forwardingOptions": {
+            "maxFee": "10.00",
+            "usesFastFinality": true
+          }
+        }
+      ]
+    },
+    "status": 200,
+    "response": {
+      "batches": [
+        {
+          "burnIntents": [
+            {
+              "maxBlockHeight": "26185899",
+              "maxFee": "1015650",
+              "spec": {
+                "version": 1,
+                "sourceDomain": 0,
+                "destinationDomain": 26,
+                "sourceContract": "0x00000000000000000000000077777777dcc4d5a8b6e418fd04d8997ef11000ee",
+                "destinationContract": "0x0000000000000000000000002222222d7164433c4c09b0b0d809a9b52c04c205",
+                "sourceToken": "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                "destinationToken": "0x0000000000000000000000003600000000000000000000000000000000000000",
+                "sourceDepositor": "0x000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e",
+                "destinationRecipient": "0x0000000000000000000000008888888199b2df864bf678259607d6d5ebb4e3ce",
+                "sourceSigner": "0x000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e",
+                "destinationCaller": "0x0000000000000000000000008888888199b2df864bf678259607d6d5ebb4e3ce",
+                "value": "10000000",
+                "salt": "0xc67ce98f9640b6dbc146d41970f89472b2082718eaa096c9cc16d1b68c12eb39",
+                "hookData": {
+                  "remoteDomain": 10004,
+                  "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+                  "remoteToken": "0x9ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd6",
+                  "forwardingContractAddress": "0x28b5a0e9c621a5badaa536219b3a228c8168cf5d",
+                  "forwardingCalldata": "0x779b432d00000000000000000000000000000000000000000000000000000000009896800000000000000000000000000000000000000000000000000000000000000005111111111111111111111111111111111111111111111111111111111111111100000000000000000000000036000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000098968000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000020636374702d666f72776172640000000000000000000000000000000000000000"
+                }
+              }
+            }
+          ],
+          "encoded": "0x070afbc200000000000000000000000000000000000000000000000000000000018f90ab00000000000000000000000000000000000000000000000000000000000f7f6200000308ca85def700000001000000000000001a00000000000000000000000077777777dcc4d5a8b6e418fd04d8997ef11000ee0000000000000000000000002222222d7164433c4c09b0b0d809a9b52c04c205000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb480000000000000000000000003600000000000000000000000000000000000000000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e0000000000000000000000008888888199b2df864bf678259607d6d5ebb4e3ce000000000000000000000000866e992217e0bfb8371f9ad32a53dcc47d1aa04e0000000000000000000000008888888199b2df864bf678259607d6d5ebb4e3ce0000000000000000000000000000000000000000000000000000000000989680c67ce98f9640b6dbc146d41970f89472b2082718eaa096c9cc16d1b68c12eb39000001b46b20f62a00000001000027149ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd6000000010000000000000000000000000000000000000000000000000000000000000000000000000000000028b5a0e9c621a5badaa536219b3a228c8168cf5d00000144779b432d00000000000000000000000000000000000000000000000000000000009896800000000000000000000000000000000000000000000000000000000000000005111111111111111111111111111111111111111111111111111111111111111100000000000000000000000036000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000098968000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000020636374702d666f72776172640000000000000000000000000000000000000000",
+          "messageHashToSign": "0x7d71d54bf5719434fcd75289bf37c08236262b36b06fd1d174a8e0c028802cff"
+        }
+      ]
+    }
+  },
+  "decodedSolanaForwarding": {
+    "requestedDestinationDomain": 5,
+    "outerSourceDomain": 0,
+    "outerDestinationDomain": 26,
+    "forwardingContract": "0x28b5a0e9c621a5badaa536219b3a228c8168cf5d",
+    "function": "depositForBurnWithHook",
+    "forwarding": {
+      "amount": "10000000",
+      "destinationDomain": 5,
+      "mintRecipient": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "burnToken": "0x3600000000000000000000000000000000000000",
+      "destinationCaller": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "maxFee": "10000000",
+      "minFinalityThreshold": 1000,
+      "hookData": "0x636374702d666f72776172640000000000000000000000000000000000000000"
+    },
+    "recipientMatches": true
+  },
+  "probeSummary": [
+    {
+      "destination": "ethereum",
+      "status": 200,
+      "batches": [
+        {
+          "encodedBytes": 524,
+          "intents": [
+            {
+              "value": "10000000",
+              "maxFee": "2000000",
+              "sourceDomain": 0,
+              "destinationDomain": 0,
+              "destinationToken": "0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+              "hookData": {
+                "remoteDomain": 10004,
+                "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+                "remoteToken": "0x9ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd6",
+                "forwardingContractAddress": "0x0000000000000000000000000000000000000000",
+                "forwardingCalldata": "0x"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "destination": "solana",
+      "status": 200,
+      "batches": [
+        {
+          "encodedBytes": 848,
+          "intents": [
+            {
+              "value": "10000000",
+              "maxFee": "1015650",
+              "sourceDomain": 0,
+              "destinationDomain": 26,
+              "destinationToken": "0x0000000000000000000000003600000000000000000000000000000000000000",
+              "hookData": {
+                "remoteDomain": 10004,
+                "remoteDepositor": "0x0000000100000000000000000000000000000000000000000000000000000000",
+                "remoteToken": "0x9ea9794d33dbcef3f77718e903816e877ab2577f4d7ee653638f1f60fc671dd6",
+                "forwardingContractAddress": "0x28b5a0e9c621a5badaa536219b3a228c8168cf5d",
+                "forwardingCalldata": "0x779b432d00000000000000000000000000000000000000000000000000000000009896800000000000000000000000000000000000000000000000000000000000000005111111111111111111111111111111111111111111111111111111111111111100000000000000000000000036000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000098968000000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000020636374702d666f72776172640000000000000000000000000000000000000000"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "path": "/tx/burn-usdcx",
+      "request": "empty object, no identities or transaction",
+      "status": 400,
+      "text": "Error in $: parsing Cardano.USDCx.HTTP.API.BurnUSDCXArgs(BurnUSDCXArgs) failed, key \"userWalletInfo\" not found"
+    },
+    {
+      "path": "/tx/burn-usdcx OPTIONS",
+      "status": 200,
+      "cors": "*",
+      "methods": "GET, HEAD, POST"
+    }
+  ],
+  "publicHistory": {
+    "publicFixture": true,
+    "address": "addr1qyx7pgg87pl7a07vv33h2dxkdyynlex8el8lqjyw828eydspqp5q20s9dvgq3ug8xkqmnkf2swdz09husagsrtjy240qj05jmp",
+    "status": 200,
+    "total": 9,
+    "matching": [
+      {
+        "amount": "2802000000",
+        "cardanoBurnTxHash": "887333810ea503013f1e17c503ed6e691940e177e82f88baa76d19409de76e86",
+        "confirmations": 1623,
+        "createdAt": "2026-10-05T01:35:55.192572Z",
+        "ethereumTxHash": "0x37dce9fab6f48033691f841be3c783bd9154998054490d535795cac2876b5630",
+        "lastError": null,
+        "status": "finalized"
+      }
+    ]
+  },
+  "independentEthereumCredit": {
+    "sourcePublicBurn": "887333810ea503013f1e17c503ed6e691940e177e82f88baa76d19409de76e86",
+    "providerStatus": "finalized",
+    "ethereumTxHash": "0x37dce9fab6f48033691f841be3c783bd9154998054490d535795cac2876b5630",
+    "receiptStatus": "0x1",
+    "blockNumber": 26125759,
+    "canonicalBlockHashMatches": true,
+    "confirmations": 2552,
+    "recipient": "0x720f28c62b844e7dd8705ab0a7651f3f575384f4",
+    "netUsdcCreditRaw": "2800000000",
+    "expectedUsdcRaw": "2800000000",
+    "amountMatches": true
+  },
+  "assets": [
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/97e7cad71074aa8f.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "97e7cad71074aa8f.js",
+      "interesting": true,
+      "sha256": "c1f466c6d0e4b5e3bcba9e3b8f8f8f5d164fcd55013b779f47c71e4aa43a15ae"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/48c9f3cfc50f1243.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "48c9f3cfc50f1243.js",
+      "interesting": true,
+      "sha256": "5e63e86a73455a8fe53f9349b0425029b7516006ba10aeb31249be2481b42d7c"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/8084ddff25a91cc7.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "8084ddff25a91cc7.js",
+      "interesting": true,
+      "sha256": "bcf50be49e7755176b68a9b03e82be6615e5456b6478e768cf27e21150804f80"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/ca4525d87f40f976.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "ca4525d87f40f976.js",
+      "interesting": true,
+      "sha256": "82da7ffb6cb882d1de8a979fc92a39e790b1196f48f9eb8c85b5cc60be766f29"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/c3e0d84072d6bddb.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "c3e0d84072d6bddb.js",
+      "interesting": true,
+      "sha256": "b461f6480b293e07c790827c6a6993acc196b5be845b0097a0297e5b24722e95"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/e34d9fff8afa068d.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "e34d9fff8afa068d.js",
+      "interesting": true,
+      "sha256": "5a4510ee51c095d06a58d605a242b73333676e2e67c98d115525532771d9bf6b"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/97e7cad71074aa8f.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "97e7cad71074aa8f.js",
+      "interesting": true,
+      "sha256": "c1f466c6d0e4b5e3bcba9e3b8f8f8f5d164fcd55013b779f47c71e4aa43a15ae"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/c3e0d84072d6bddb.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "c3e0d84072d6bddb.js",
+      "interesting": true,
+      "sha256": "b461f6480b293e07c790827c6a6993acc196b5be845b0097a0297e5b24722e95"
+    },
+    {
+      "url": "https://usdcx.iog.io/_next/static/chunks/e34d9fff8afa068d.js?dpl=dpl_J8GH2aqQYsbHYyPkrjDs8rvPGhpE",
+      "status": 200,
+      "name": "e34d9fff8afa068d.js",
+      "interesting": true,
+      "sha256": "5a4510ee51c095d06a58d605a242b73333676e2e67c98d115525532771d9bf6b"
+    }
+  ]
+}

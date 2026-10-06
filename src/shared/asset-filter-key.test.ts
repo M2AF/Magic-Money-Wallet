@@ -160,6 +160,14 @@ describe('sanitizeFilterEntries', () => {
 })
 
 describe('entriesToSets', () => {
+  it('keeps favorite decisions separate from visibility and converges unfavorites', () => {
+    const key = 'favorite:mainnet:base:n:0xabc:1'
+    const merged = mergeFilterEntries({ [key]: { s: 'f', t: 1 } }, { [key]: { s: 'u', t: 2 } })
+    expect(merged[key].s).toBe('u')
+    expect(sanitizeFilterEntries({ [key]: { s: 'f', t: 1 }, wrong: { s: 'f', t: 1 } })).toEqual({ [key]: { s: 'f', t: 1 } })
+    const { hidden, spam, allowed } = entriesToSets(merged)
+    expect(hidden.size + spam.size + allowed.size).toBe(0)
+  })
   it('splits the three states the dashboard filters with', () => {
     const { hidden, spam, allowed } = entriesToSets({
       h: { s: 'h', t: 1 }, s: { s: 's', t: 1 }, a: { s: 'a', t: 1 },

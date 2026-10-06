@@ -502,6 +502,15 @@ const ALLOWANCE_SELECTOR = '0xdd62ed3e'   // allowance(address,address)
  * non-zero approve, so blindly re-approving can fail a swap that would have
  * worked.
  */
+/**
+ * A read-only client for an EVM network over the wallet's own transport (the
+ * primary node first, then the public fallbacks) — the same nodes a send uses.
+ */
+export function evmReadClient(chainId: number, config: WalletConfig): PublicClient | null {
+  const entry = evmEntryByChainId(chainId, config)
+  return entry ? createPublicClient({ chain: entry.chain, transport: evmTransport(entry, config) }) as PublicClient : null
+}
+
 export async function readErc20Allowance(
   token: string, owner: string, spender: string, chainId: number, config: WalletConfig,
 ): Promise<bigint | null> {

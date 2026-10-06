@@ -39,11 +39,12 @@ export interface AssetFilterPushResult {
  * list: the caller must keep showing its local list rather than un-hiding
  * everything because a request timed out.
  */
-export async function fetchAssetFilters(config: WalletConfig): Promise<AssetFilterEntries | null> {
+export async function fetchAssetFilters(config: WalletConfig, expectedAddress?: string): Promise<AssetFilterEntries | null> {
   const base = proxyBase(config)
   if (!base) return null
   const evm = (await loadAddresses())?.evm
   if (!evm) return null
+  if (expectedAddress && evm.toLowerCase() !== expectedAddress.toLowerCase()) return null
   try {
     const res = await fetch(
       proxyUrl(`${base}/profile/filters?address=${encodeURIComponent(evm.toLowerCase())}`, config),
@@ -67,11 +68,13 @@ export async function pushAssetFilters(
   entries: AssetFilterEntries,
   config: WalletConfig,
   allowCreate = true,
+  expectedAddress?: string,
 ): Promise<AssetFilterPushResult> {
   const base = proxyBase(config)
   if (!base) return { entries: null, error: 'Profile sync not configured.' }
   const addresses = await loadAddresses()
   if (!addresses?.evm) return { entries: null, error: 'No wallet address.' }
+  if (expectedAddress && addresses.evm.toLowerCase() !== expectedAddress.toLowerCase()) return { entries: null, error: 'Wallet account changed.' }
 
   const clean = sanitizeFilterEntries(entries)
   const first = await postFilters(clean, addresses.evm, base, config)

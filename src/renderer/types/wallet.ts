@@ -10,6 +10,8 @@ import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downl
 import type { HistorySnapshot } from '../../shared/history-wire'
 import type { FxRates } from '../../shared/currencies'
 import type { SettledSwapSession } from '../../shared/swap-settlement'
+import type { StablecoinPlanRequest, StablecoinPlanEnvelope } from '../../shared/stablecoin-route'
+import type { JourneyPlanRequest, JourneyPlanEnvelope, JourneyListSummary, JourneyRecheckResult, CbAdaTermsReview } from '../../shared/journey-candidate'
 import type { CircleWithdrawalStatus, WithdrawalReference } from '../../shared/xreserve-testnet-wire'
 import type {
   XReserveTestnetEnvelope, TestnetDepositState, TestnetDepositPreview, TestnetDepositResult, TestnetCheckResult,
@@ -891,6 +893,20 @@ declare global {
       xreserveTestnetDismissCorrupt?(key: string): Promise<XReserveTestnetEnvelope<true>>
       xreserveTestnetCheck?(req: { sourceTxHash: string; auditDue: boolean }): Promise<XReserveTestnetEnvelope<TestnetCheckResult>>
       swapCrossStatus(req: CrossSwapStatusRequest): Promise<CrossSwapStatus>
+      /** Read-only preview of a Cardano -> Ethereum/Solana stablecoin route. Never signs. */
+      swapStablecoinPlan?(req: StablecoinPlanRequest): Promise<StablecoinPlanEnvelope>
+      /** Read-only discovery of every route family for a pair (USDCx, cbADA, ...). Never signs. */
+      swapJourneyPlan?(req: JourneyPlanRequest): Promise<JourneyPlanEnvelope>
+      /** Persisted journeys restored on start (read-only). */
+      journeyList?(): Promise<{ ok: true; value: JourneyListSummary } | { ok: false; message: string }>
+      /** Re-read one journey's sent steps from their chains by the saved hashes. Never re-sends. */
+      journeyRecheck?(journeyId: string): Promise<{ ok: true; value: JourneyRecheckResult } | { ok: false; message: string }>
+      /** Live terms of a Base -> Solana cbADA transfer for this account. Read-only; never signs. */
+      journeyCbAdaReview?(amountRaw: string): Promise<{ ok: true; value: CbAdaTermsReview } | { ok: false; message: string }>
+      /** Store reviewed terms (by proposal id only) as an immutable authorization. Signs and sends nothing. */
+      journeyCbAdaAuthorize?(proposalId: string): Promise<{ ok: true; value: { journeyId: string } } | { ok: false; message: string }>
+      /** Stop a journey that has sent nothing. */
+      journeyCancel?(journeyId: string): Promise<{ ok: true; value: { journeyId: string } } | { ok: false; message: string }>
       /**
        * Swaps that reached the network, with their settlement outcome. Read-only
        * evidence -- these can never start or re-authorize a spend.
@@ -1076,8 +1092,8 @@ declare global {
        * callers must keep their local list rather than un-hiding everything.
        * Absent on builds without profile sync (the extension stubs both out).
        */
-      assetFiltersGet?(): Promise<AssetFilterEntries | null>
-      assetFiltersPush?(entries: AssetFilterEntries): Promise<{ entries: AssetFilterEntries | null; error: string | null }>
+      assetFiltersGet?(expectedAddress?: string): Promise<AssetFilterEntries | null>
+      assetFiltersPush?(entries: AssetFilterEntries, expectedAddress?: string): Promise<{ entries: AssetFilterEntries | null; error: string | null }>
       /**
        * The user's custom themes, on the same profile — see main/theme-sync.ts.
        * Same null contract as the filters pair: null is "could not sync", never

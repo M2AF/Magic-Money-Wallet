@@ -43,6 +43,9 @@ async function launch(): Promise<{ context: BrowserContext; page: Page; images: 
 async function stubNfts(page: Page) {
   await page.evaluate(() => {
     const w = window.wallet
+    // Keep profile writes inside this fixture, including the favorite sync timer.
+    w.assetFiltersGet = async () => ({})
+    w.assetFiltersPush = async entries => ({ entries, error: null })
     const callbacks = new Set<(r: any) => void>()
     const items = Array.from({ length: 240 }, (_, i) => ({
       id: `nft-${i}`, tokenId: String(i), name: `Gallery Art #${i}`, description: 'Gallery performance fixture',
@@ -162,7 +165,7 @@ test('NFT stars pin favorites, keep USD order, and save per wallet', async () =>
     await expect(cards.nth(0)).toContainText('$50.00')
     await expect(cards.nth(1)).toContainText('$10.00')
     await expect(cards.nth(2)).toContainText('$100.00')
-    const saved = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('mmw_nft_favorites_v1_')).map(key => JSON.parse(localStorage.getItem(key)!)))
+    const saved = await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('mmw_nft_favorites_v1_') && !key.endsWith('_decisions')).map(key => JSON.parse(localStorage.getItem(key)!)))
     expect(saved).toHaveLength(1)
     expect(saved[0]).toHaveLength(2)
     const bounds = await page.getByRole('button', { name: 'Unfavorite Gallery Art #1' }).boundingBox()

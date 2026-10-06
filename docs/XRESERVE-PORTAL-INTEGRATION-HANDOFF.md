@@ -1,5 +1,7 @@
 # xReserve Portal integration handoff — 2026-09-30
 
+> 2026-10-05 refresh: [the stablecoin execution plan](USDCX-STABLECOIN-ROUTING-PLAN.md) records the now-located IOG build/submit/history interface, HTTP 200 live Circle preparation for Ethereum and Arc-forwarded Solana, and an independently verified public Ethereum release. Earlier HTTP 403 and missing sample release findings below are historical. Valid unsigned build, third-party support and Solana settlement remain unverified; no wallet burn path was enabled.
+
 Research and architecture notes for Magic Money Wallet's Cardano cross-chain swap. This is not an executable API contract. The first live Sepolia → Preprod run is recorded separately in [XRESERVE-TESTNET-QA.md](XRESERVE-TESTNET-QA.md). Mainnet inbound execution and Cardano outbound execution remain disabled.
 
 ## What the live test established

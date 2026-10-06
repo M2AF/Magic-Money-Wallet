@@ -157,6 +157,13 @@ contextBridge.exposeInMainWorld('wallet', {
   xreserveTestnetDismissCorrupt: (key: string)      => ipcRenderer.invoke('xreserve:testnet-dismiss-corrupt', { key }),
   xreserveTestnetCheck:   (req: unknown) => ipcRenderer.invoke('xreserve:testnet-check', req),
   swapCrossStatus: (req: unknown)      => ipcRenderer.invoke('swap:crossStatus', req),
+  swapStablecoinPlan: (req: unknown)   => ipcRenderer.invoke('swap:stablecoinPlan', req),
+  swapJourneyPlan: (req: unknown)      => ipcRenderer.invoke('swap:journeyPlan', req),
+  journeyList: ()                      => ipcRenderer.invoke('journey:list'),
+  journeyRecheck: (journeyId: string)  => ipcRenderer.invoke('journey:recheck', { journeyId }),
+  journeyCbAdaReview: (amountRaw: string)    => ipcRenderer.invoke('journey:cbadaReview', { amountRaw }),
+  journeyCbAdaAuthorize: (proposalId: string) => ipcRenderer.invoke('journey:cbadaAuthorize', { proposalId }),
+  journeyCancel: (journeyId: string)   => ipcRenderer.invoke('journey:cancel', { journeyId }),
   swapSessions:    ()                  => ipcRenderer.invoke('swap:sessions'),
   swapReconcile:   ()                  => ipcRenderer.invoke('swap:reconcile'),
   swapGetNetworks: ()                  => ipcRenderer.invoke('swap:getNetworks'),
@@ -376,8 +383,8 @@ contextBridge.exposeInMainWorld('wallet', {
   chainlensPickAvatar:    ()                                                   => ipcRenderer.invoke('chainlens:pick-avatar'),
 
   // Hidden/spam asset list shared with ChainLens (src/shared/asset-filter-key.ts)
-  assetFiltersGet:        ()                                                   => ipcRenderer.invoke('assetfilters:get'),
-  assetFiltersPush:       (entries: unknown)                                   => ipcRenderer.invoke('assetfilters:push', entries),
+  assetFiltersGet:        (owner?: string)                                      => ipcRenderer.invoke('assetfilters:get', owner),
+  assetFiltersPush:       (entries: unknown, owner?: string)                     => ipcRenderer.invoke('assetfilters:push', entries, owner),
   // Custom themes on the same profile — see main/theme-sync.ts.
   customThemesGet:        ()                                                   => ipcRenderer.invoke('themes:get'),
   customThemesPush:       (entries: unknown)                                   => ipcRenderer.invoke('themes:push', entries),

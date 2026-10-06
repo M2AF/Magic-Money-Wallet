@@ -493,6 +493,27 @@ export async function saveXReserveTracking(map: Record<string, string>): Promise
   await prefSet('wallet.xreserve_tracking', map)
 }
 
+// -- Multi-leg journeys (src/main/journey-store.ts) ----------------------------
+// One JSON record per journey: identities, approved amounts, transaction hashes,
+// bridge references and measured outputs. No keys, witnesses, CBOR or calldata.
+// A failed write THROWS, and unreadable data is an error — never "no journeys" —
+// so a later save cannot erase the record of a sent transaction.
+export async function loadJourneys(): Promise<Record<string, string>> {
+  // Not prefGet: it reads unparsable JSON as null, which would look like "no journeys".
+  const { value } = await Preferences.get({ key: 'wallet.journeys' })
+  if (value == null) return {}
+  let m: unknown
+  try { m = JSON.parse(value) } catch { throw new Error('The stored journeys are unreadable; they were left untouched.') }
+  if (!m || typeof m !== 'object' || Array.isArray(m) || Object.values(m as object).some(v => typeof v !== 'string')) {
+    throw new Error('The stored journeys are unreadable; they were left untouched.')
+  }
+  return m as Record<string, string>
+}
+
+export async function saveJourneys(map: Record<string, string>): Promise<void> {
+  await prefSet('wallet.journeys', map)
+}
+
 // ── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ───────────
 
 export interface TokenBalanceCacheEntry {

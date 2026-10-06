@@ -3,10 +3,13 @@
  * reappears, and the conversion outranks the old hide on every device.
  */
 import { describe, it, expect } from 'vitest'
-import { convertHiddenToSpam } from './asset-filters'
+import { convertHiddenToSpam, visibilityEntries } from './asset-filters'
 import { mergeFilterEntries } from '../../shared/asset-filter-key'
 
 describe('convertHiddenToSpam', () => {
+  it('never lets a visibility cache migrate profile favorites', () => {
+    expect(visibilityEntries({ 'base:n:0xabc:1': { s: 's', t: 1 }, 'favorite:mainnet:base:n:0xabc:1': { s: 'f', t: 2 } })).toEqual({ 'base:n:0xabc:1': { s: 's', t: 1 } })
+  })
   it('turns hidden entries into spam and leaves the rest alone', () => {
     const out = convertHiddenToSpam({
       'base:t:0xaaa': { s: 'h', t: 100 },
