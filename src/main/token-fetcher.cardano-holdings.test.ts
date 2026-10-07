@@ -15,6 +15,17 @@ const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200
 afterEach(() => blockfrost.fetch.mockReset())
 
 describe('Cardano asset discovery', () => {
+  it('keeps CIP-68 user NFTs and their file artwork while excluding reference tokens',async()=>{
+    const user=`${policy}000de14001`,reference=`${policy}000643b002`,uri='ipfs://cardano-art/1.png'
+    blockfrost.fetch.mockImplementation(async(path:string)=>{
+      if (path===`addresses/${address}`) return json({amount:[{unit:user,quantity:'1'},{unit:reference,quantity:'1'}]})
+      return json({asset_name:path.endsWith(user)?'000de14001':'000643b002',quantity:'1',onchain_metadata:{name:['Lil ','Sappy'],files:[{mediaType:'image/png',src:[uri.slice(0,10),uri.slice(10)]}]}})
+    })
+    const nfts=await fetchCardanoNFTs(address,config)
+    expect(nfts).toHaveLength(1)
+    expect(nfts[0]).toMatchObject({name:'Lil Sappy',image:'https://ipfs.blockfrost.dev/ipfs/cardano-art/1.png'})
+    expect(nfts[0].imageSources).toContain('https://gateway.pinata.cloud/ipfs/cardano-art/1.png')
+  })
   it('uses asset metadata to partition singleton fungibles and NFTs without overlap', async () => {
     const holdings = [
       { unit: asset(1), quantity: '1' },

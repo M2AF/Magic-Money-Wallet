@@ -197,7 +197,7 @@ describe('custom chain assets', () => {
       expect.objectContaining({
         id: `custom-9999:${NFT_CONTRACT}:42`,
         name: 'My NFT #42',
-        image: 'https://ipfs.io/ipfs/my-image',
+        image: 'https://ipfs.blockfrost.dev/ipfs/my-image',
         collectionName: 'My Collection',
         chainLabel: 'My Chain',
         chainColor: '#FFFFFF',
@@ -284,7 +284,7 @@ describe('custom chain assets', () => {
     expect(r.collectionName).toBe('Rocks')
     expect(r.owned).toEqual([
       // The image is what makes the confirmation visual — ipfs:// must be resolved.
-      { tokenId: '7', name: 'Rock #7', image: 'https://ipfs.io/ipfs/rock-seven' },
+      { tokenId: '7', name: 'Rock #7', image: 'https://ipfs.blockfrost.dev/ipfs/rock-seven' },
     ])
   })
 
@@ -362,7 +362,7 @@ describe('custom chain assets', () => {
       expect.objectContaining({
         id: `custom-9999:${NFT_CONTRACT}:7`,
         name: 'Rock #7',
-        image: 'https://ipfs.io/ipfs/rock-seven',
+        image: 'https://ipfs.blockfrost.dev/ipfs/rock-seven',
         collectionName: 'Rocks',
         tokenId: '7',
         contractType: 'ERC-721',

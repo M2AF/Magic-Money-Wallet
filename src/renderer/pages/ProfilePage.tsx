@@ -136,7 +136,7 @@ function AvatarModal({
                       position: 'relative', background: 'var(--bg-dark)'
                     }}
                   >
-                    <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} alt={nft.name} />
+                    <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} alt={nft.name} />
                     {selected === nft.image && (
                       <div style={{
                         position: 'absolute', inset: 0, background: 'rgba(99,102,241,0.3)',

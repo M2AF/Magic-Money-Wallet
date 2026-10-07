@@ -1,4 +1,5 @@
 .nft-media { position: absolute; inset: 0; overflow: hidden; }
+.nft-media-retry { position: absolute; z-index: 3; bottom: 8px; left: 50%; transform: translateX(-50%); border: 1px solid var(--border-active); border-radius: 6px; background: var(--bg-card); color: var(--accent); font-size: 10px; padding: 4px 6px; cursor: pointer; white-space: nowrap; }
 .nft-media-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 180ms ease; }
 .nft-media-placeholder, .nft-media-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 28px; }
 .nft-media-placeholder { background: linear-gradient(110deg, transparent 25%, rgba(128,128,128,.12) 45%, transparent 65%); background-size: 200% 100%; }

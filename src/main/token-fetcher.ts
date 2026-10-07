@@ -1,5 +1,5 @@
 import { loadFloorCache, saveFloorCache, loadTokenMetaCache, saveTokenMetaCache, type WalletConfig, type FloorCacheEntry, type CustomToken, type CustomNft, type TokenMetaCacheEntry } from './secure-store'
-import { isTestnet, isPrivacy, customChainDefs, activePublicRpcs, EVM_CHAINS, ARC_USDC_MIRROR, type ChainDef } from './chain-config'
+import { isTestnet, isPrivacy, customChainDefs, activePublicRpcs, EVM_CHAINS, MONAD_RPCS, ARC_USDC_MIRROR, type ChainDef } from './chain-config'
 import { fetchDustStatus } from './midnight'
 import { isSuspectedSpamToken } from './spam-filter'
 import { getNativeUsd } from './native-prices'
@@ -14,6 +14,7 @@ import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 import { canonicalNftKey } from '../shared/asset-filter-key'
 import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
 import { CollectiblesProgress } from './collectibles-progress'
+import { nftUriCandidates, nftMetadataImages, nftMetadataText } from '../shared/nft-media'
 
 export interface WalletToken {
   contractAddress: string
@@ -74,6 +75,7 @@ export interface WalletCollectible {
   image: string | null
   /** Provider-sized preview. Full artwork remains in image for details/downloads. */
   thumbnailUrl?: string | null
+  imageSources?: string[]
   animationUrl: string | null
   collectionName: string | null
   chain: string
@@ -226,10 +228,7 @@ function nftUrl(network: string, config: WalletConfig) {
 }
 
 function normalizeImageUrl(url: string | null | undefined): string | null {
-  if (!url) return null
-  if (url.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${url.slice(7)}`
-  if (url.startsWith('ar://'))   return `https://arweave.net/${url.slice(5)}`
-  return url
+  return nftUriCandidates(url)[0] ?? null
 }
 
 function trustWalletUrl(chain: string, address: string): string | null {
@@ -806,6 +805,7 @@ async function fetchSolanaNFTs(address: string, config: WalletConfig): Promise<W
         description: meta.description ?? null,
         image,
         thumbnailUrl: normalizeImageUrl(imageFile?.cdn_uri ?? null),
+        imageSources: [...new Set([item.content?.links?.image,...(item.content?.files ?? []).filter(f=>f.mime?.startsWith('image/')).flatMap(f=>[f.cdn_uri,f.uri])].flatMap(value=>nftUriCandidates(value)))],
         animationUrl,
         collectionName: collection?.collection_metadata?.name ?? null,
         chain: 'solana', chainLabel: 'Solana', chainColor: '#9945FF',
@@ -813,7 +813,7 @@ async function fetchSolanaNFTs(address: string, config: WalletConfig): Promise<W
         contractAddress: collection?.group_value ?? item.id,
         contractType: item.compression?.compressed ? 'cNFT' : 'NFT',
         traits: (Array.isArray(meta.attributes) ? meta.attributes : [])
-          .filter(a => a.trait_type != null && a.value != null)
+          .filter(a => a?.trait_type != null && a?.value != null)
           .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
       } satisfies WalletCollectible
     })
@@ -833,6 +833,9 @@ interface CardanoAssetMetadata {
 }
 
 function isCardanoNft(meta: CardanoAssetMetadata | null): boolean {
+  const label = meta?.asset_name?.slice(0,8).toLowerCase()
+  if (['000643b0','0014df10','001bc280'].includes(label ?? '')) return false
+  if (label === '000de140') return true
   // A registry decimal value is an explicit fungible-token signal, including 0.
   if (Number.isInteger(meta?.metadata?.decimals) && (meta?.metadata?.decimals ?? -1) >= 0) return false
   if (meta?.quantity === '1') return true
@@ -1416,14 +1419,12 @@ async function supportsInterface(rpcUrl: string, contract: string, iface: string
 function resolveMetadataUri(uri: string): string | null {
   const u = uri.trim()
   if (!u) return null
-  if (u.startsWith('ipfs://')) return `https://ipfs.io/ipfs/${u.slice(7).replace(/^ipfs\//, '')}`
-  if (u.startsWith('ar://'))   return `https://arweave.net/${u.slice(5)}`
   if (u.startsWith('data:'))   return u
-  if (u.startsWith('http'))    return u
-  return null
+  return nftUriCandidates(u)[0] ?? null
 }
 
 interface NftMetadata {
+  [key: string]: unknown
   name?: string
   description?: string
   image?: string
@@ -1445,9 +1446,23 @@ async function fetchNftMetadata(uri: string): Promise<NftMetadata | null> {
       const text = isB64 ? Buffer.from(payload, 'base64').toString('utf8') : decodeURIComponent(payload)
       return JSON.parse(text) as NftMetadata
     }
-    const res = await fetch(resolved, { signal: AbortSignal.timeout(12_000) })
-    if (!res.ok) return null
-    return await res.json() as NftMetadata
+    // Retry alternate gateways for the SAME document; never guess token paths.
+    for (const url of nftUriCandidates(uri).slice(0,3)) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(3_500) })
+        if (!res.ok) { await res.body?.cancel(); continue }
+        if (Number(res.headers.get('content-length')) > 1_048_576) { await res.body?.cancel(); continue }
+        const reader=res.body?.getReader(); if (!reader) continue
+        let size=0; const parts: Uint8Array[]=[]
+        try {
+          for (;;) { const {done,value}=await reader.read(); if (done) break; size+=value.length; if (size>1_048_576) throw new Error('Metadata too large'); parts.push(value) }
+        } finally { await reader.cancel().catch(()=>{}) }
+        const bytes=new Uint8Array(size); let offset=0; for (const part of parts) { bytes.set(part,offset); offset+=part.length }
+        const meta: unknown=JSON.parse(new TextDecoder().decode(bytes))
+        if (meta && typeof meta==='object' && !Array.isArray(meta)) return meta as NftMetadata
+      } catch { /* try next exact-content gateway */ }
+    }
+    return null
   } catch {
     return null
   }
@@ -1500,7 +1515,8 @@ function toCollectible(
     id: `${chain.id}:${contract.toLowerCase()}:${tokenId}`,
     name: meta?.name ?? `#${tokenId}`,
     description: meta?.description ?? null,
-    image: normalizeImageUrl(meta?.image ?? meta?.image_url ?? null),
+    image: meta ? nftMetadataImages(meta)[0] ?? null : null,
+    imageSources: meta ? nftMetadataImages(meta) : [],
     animationUrl: normalizeImageUrl(meta?.animation_url ?? null),
     collectionName,
     chain: chain.id,
@@ -1990,25 +2006,7 @@ export async function fetchAllTokens(
 // ─── Cardano NFT fetch ───────────────────────────────────────────────────────
 
 function resolveCardanoImage(meta: Record<string, unknown>): string | null {
-  const onchain = (meta.onchain_metadata ?? {}) as Record<string, unknown>
-  const registry = (meta.metadata ?? {}) as Record<string, unknown>
-  const candidates = [
-    onchain.image, onchain.logo, onchain.icon,
-    registry.logo, registry.url,
-  ]
-  for (const candidate of candidates) {
-    let img: unknown = candidate
-    if (!img) continue
-    if (Array.isArray(img)) img = img.join('')
-    if (typeof img !== 'string') continue
-    const s = img.trim()
-    if (!s) continue
-    if (s.startsWith('data:'))   return s
-    if (s.startsWith('ipfs://')) return `https://dweb.link/ipfs/${s.slice(7)}`
-    if (s.startsWith('http'))    return s
-    if (s.length >= 46)          return `https://dweb.link/ipfs/${s}` // raw IPFS hash
-  }
-  return null
+  return nftMetadataImages((meta.onchain_metadata ?? {}) as Record<string, unknown>)[0] ?? null
 }
 
 export async function fetchCardanoNFTs(
@@ -2061,7 +2059,7 @@ export async function fetchCardanoNFTs(
           const onchain = (meta.onchain_metadata ?? {}) as Record<string, unknown>
           const registry = (meta.metadata ?? {}) as Record<string, unknown>
 
-          let name = onchain.name ?? registry.name ?? null
+          let name = nftMetadataText(onchain.name ?? registry.name) || null
           if (Array.isArray(name)) name = name.join('')
           if (typeof name !== 'string' || !name) {
             // Decode hex asset_name
@@ -2097,6 +2095,7 @@ export async function fetchCardanoNFTs(
             name: String(name),
             description: (onchain.description as string | null) ?? null,
             image,
+            imageSources: nftMetadataImages(onchain),
             animationUrl: null,
             collectionName: collection ? String(collection) : null,
             chain: 'cardano',
@@ -2214,6 +2213,9 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
       raw?.image || nft.image?.thumbnailUrl || null
     ),
     thumbnailUrl: normalizeImageUrl(nft.image?.thumbnailUrl || null),
+    imageSources: [...new Set([
+      nft.image?.cachedUrl,nft.image?.pngUrl,nft.image?.originalUrl,nft.image?.thumbnailUrl,
+    ].flatMap(value=>nftUriCandidates(value)).concat(nftMetadataImages(raw ?? {},nft.tokenUri)))],
     animationUrl: normalizeImageUrl(
       nft.animation?.cachedUrl ?? nft.animation?.originalUrl ?? raw?.animation_url ?? null
     ),
@@ -2229,7 +2231,7 @@ function mapAlchemyNft(nft: AlchemyOwnedNft, chain: typeof NFT_CHAINS[0]): Walle
     // instead of an array. Guard with Array.isArray — without it, .filter throws
     // and the whole chain's .map aborts, dropping every NFT on that chain.
     traits: (Array.isArray(raw?.attributes) ? raw.attributes : [])
-      .filter(a => a.trait_type != null && a.value != null)
+      .filter(a => a?.trait_type != null && a?.value != null)
       .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) })),
     // Alchemy returns collection floor (native unit) inline — free, no extra call.
     floorPrice: nft.contract.openSeaMetadata?.floorPrice ?? null
@@ -2281,6 +2283,17 @@ function isContentAddressed(uri: string): boolean {
   return /^(ar|ipfs|data):/i.test(uri.trim())
 }
 
+function applyNftMetadata(it: WalletCollectible, meta: NftMetadata, uri: string): void {
+  const sources=nftMetadataImages(meta,uri)
+  if (sources.length) { it.image=sources[0]; it.imageSources=sources; it.thumbnailUrl=null }
+  const anim=normalizeImageUrl(meta.animation_url ?? null)
+  if (anim) it.animationUrl=anim
+  if (typeof meta.name==='string') it.name=meta.name
+  if (typeof meta.description==='string') it.description=meta.description
+  if (Array.isArray(meta.attributes)) it.traits=(meta.attributes as Array<{trait_type?:unknown;value?:unknown}>)
+    .filter(a=>a?.trait_type!=null && a?.value!=null).map(a=>({trait_type:String(a.trait_type),value:String(a.value)}))
+}
+
 /**
  * Cross-check the indexer's metadata pointer against the chain, and repair the
  * items where it lied.
@@ -2305,11 +2318,11 @@ async function verifyNftMetadata(
   config: WalletConfig,
   budget: RepairBudget,
 ): Promise<void> {
-  if (!items.length || budget.left <= 0) return
+  if (!items.length) return
 
   // Testnet chain ids collide with mainnet ones, so the endpoint list has to come
   // from the active mode — otherwise a testnet NFT is checked against mainnet.
-  const endpoints = activePublicRpcs(config)[chain.id] ?? []
+  const endpoints = activePublicRpcs(config)[chain.id] ?? (chain.id==='monad' && !isTestnet(config) ? MONAD_RPCS : [])
   if (!endpoints.length) return
 
   const requests: TokenUriRequest[] = items.map(it => ({
@@ -2345,7 +2358,17 @@ async function verifyNftMetadata(
   })
   if (!stale.length) return
 
-  const batch = stale.slice(0, Math.min(NFT_REPAIR_LIMIT, budget.left))
+  // Cached repairs cost no gateway requests. Apply them before spending the
+  // budget so a large collection progresses beyond its first 25 every refresh.
+  const uncached=stale.filter(it=>{
+    const uri=onchain.get(`${it.contractAddress.toLowerCase()}:${it.tokenId}`)!
+    const hit=nftRepairCache.get(uri)
+    if (!hit || hit.exp<=Date.now()) return true
+    if (hit.meta) applyNftMetadata(it,hit.meta,uri)
+    return false
+  })
+  const batch = uncached.slice(0, Math.min(NFT_REPAIR_LIMIT, budget.left))
+  if (!batch.length) return
   // Charged up front so one chain's dead gateway cannot eat the other chains'
   // allowance by failing fast and looping.
   budget.left -= batch.length
@@ -2367,19 +2390,7 @@ async function verifyNftMetadata(
       const meta = fresh ? hit.meta : await fetchNftMetadata(uri)
       if (!fresh) rememberRepair(uri, meta)
       if (!meta) continue  // gateway down or 404 — Alchemy's copy stays
-      // image_url is read here because on-chain metadata uses it as often as
-      // image; mapAlchemyNft only ever sees Alchemy's normalised `image`.
-      const img = normalizeImageUrl(meta.image ?? meta.image_url ?? null)
-      if (img) { it.image = img; it.thumbnailUrl = null }
-      const anim = normalizeImageUrl(meta.animation_url ?? null)
-      if (anim) it.animationUrl = anim
-      if (meta.name) it.name = meta.name
-      if (meta.description) it.description = meta.description
-      if (Array.isArray(meta.attributes)) {
-        it.traits = (meta.attributes as Array<{ trait_type?: unknown; value?: unknown }>)
-          .filter(a => a?.trait_type != null && a?.value != null)
-          .map(a => ({ trait_type: String(a.trait_type), value: String(a.value) }))
-      }
+      applyNftMetadata(it,meta,uri)
     }
   }
   await Promise.all(
@@ -2469,6 +2480,7 @@ async function fetchNftsForChain(
   const hex = isTestnet(config) ? undefined : MORALIS_CHAIN_HEX[chain.id]
   if (!hex) return primary
   const recovered = await fetchMoralisNfts(address, chain, hex, config)
+  if (recovered && budget) await verifyNftMetadata(recovered,new Map(),chain,config,budget)
   return recovered
     ? { chain, items: recovered, error: null }
     : primary
@@ -2542,6 +2554,7 @@ async function fetchMoralisNfts(
           description: meta.description ?? null,
           image: normalizeImageUrl(nft.media?.original_media_url || meta.image || rawImage || null),
           thumbnailUrl: normalizeImageUrl(nft.media?.media_collection?.medium?.url || null),
+          imageSources: [...new Set(nftUriCandidates(nft.media?.original_media_url).concat(nftMetadataImages(meta)))],
           animationUrl: normalizeImageUrl(meta.animation_url ?? null),
           collectionName: nft.name ?? null,
           chain: chain.id,
@@ -2579,7 +2592,9 @@ async function fetchMonadNFTs(address: string, config: WalletConfig, budget?: Re
   const primary = await fetchAlchemyNftsForChain(address, MONAD_NFT_CHAIN, config, budget)
   // Same rule as fetchNftsForChain: keep a good partial, fall back only on nothing.
   if (!primary.error || primary.items.length > 0) return primary.items
-  return (await fetchMoralisNfts(address, MONAD_NFT_CHAIN, '0x8f', config)) ?? []
+  const recovered=(await fetchMoralisNfts(address, MONAD_NFT_CHAIN, '0x8f', config)) ?? []
+  if (budget) await verifyNftMetadata(recovered,new Map(),MONAD_NFT_CHAIN,config,budget)
+  return recovered
 }
 
 // ─── Tron TRC-721 NFTs via TronScan (best-effort, keyless) ───────────────────

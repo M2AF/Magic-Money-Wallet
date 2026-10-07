@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset, SwapToken } from '../types/wallet'
 import { NftImage } from '../components/NftImage'
+import { NftMosaic } from '../components/NftMosaic'
 import { mergeCollectiblesUpdate } from '../lib/collectibles-updates'
 import { useNftFavorites } from '../lib/use-nft-favorites'
 import { sortNftFavorites } from '../lib/nft-favorites'
@@ -358,6 +359,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [download, setDownload] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
+  const artwork=useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     // The collectible already carries a precomputed floor (nft.floorPrice / nft.usdValue)
@@ -391,11 +393,13 @@ function NftDetailModal({ nft, onClose, onSend }: {
    */
   async function downloadImage() {
     if (!nft.image || download.state === 'saving') return
+    const decoded=artwork.current?.querySelector('.nft-media[data-state="loaded"] img') as HTMLImageElement | null
+    const imageUrl=decoded?.currentSrc || nft.image
     const base = nft.name.replace(/[^a-z0-9]/gi, '_') || 'nft'
 
     if (typeof window.wallet.downloadFile !== 'function') {
       const a = document.createElement('a')
-      a.href = nft.image
+      a.href = imageUrl
       a.download = `${base}.jpg`
       a.rel = 'noopener noreferrer'
       a.click()
@@ -404,7 +408,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
 
     setDownload({ state: 'saving' })
     try {
-      const result = await window.wallet.downloadFile(nft.image, base)
+      const result = await window.wallet.downloadFile(imageUrl, base)
       setDownload(result.ok
         ? { state: 'saved', message: result.fileName ? `Saved ${result.fileName} to Downloads` : 'Saved to Downloads' }
         : { state: 'error', message: result.error ?? 'Could not save the image.' })
@@ -454,9 +458,9 @@ function NftDetailModal({ nft, onClose, onSend }: {
         <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px 16px' }}>
 
           {/* Image */}
-          <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
+          <div ref={artwork} style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
             {nft.image
-              ? <NftImage src={nft.image} alt={nft.name} eager />
+              ? <NftImage src={nft.image} imageSources={nft.imageSources} alt={nft.name} eager />
               : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 40 }}>🖼</div>
             }
           </div>
@@ -599,6 +603,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
 // ─── Collectibles sub-tab ─────────────────────────────────────────────────────
 
 interface CollectiblesViewProps {
+  mosaic: boolean
   result: CollectiblesResult | null
   loading: boolean
   hiddenItems: Set<string>
@@ -610,7 +615,7 @@ interface CollectiblesViewProps {
   onToggleFavorite: (id: string) => void
 }
 
-function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onSpam, onSelectNft, favorites, onToggleFavorite }: CollectiblesViewProps) {
+function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onSpam, onSelectNft, favorites, onToggleFavorite, mosaic }: CollectiblesViewProps) {
   const { fmt } = useDisplayCurrency()
   const [hovered, setHovered] = useState<string | null>(null)
 
@@ -637,7 +642,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="mmw-collectibles" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {result?.partial && <div role="status" style={{ color: 'var(--text-muted)', fontSize: 11, padding: '4px 0' }}>Loading more collectibles…</div>}
       {visible.length === 0 && (
         <div style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
@@ -667,7 +672,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {mosaic ? <NftMosaic items={visible} favorites={favorites} onToggleFavorite={onToggleFavorite} onSpam={onSpam} onSelect={onSelectNft}/> : <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {visible.map(nft => {
           const id = nftKey(nft)
           const isHovered = hovered === id
@@ -680,7 +685,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
             >
               <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.3)' }}>
                 {nft.image
-                  ? <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} alt={nft.name} />
+                  ? <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} alt={nft.name} />
                   : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
                 }
                 <button type="button"
@@ -722,7 +727,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
             </div>
           )
         })}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -872,6 +877,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   // Portfolio search — filters whichever sub-tab is active; cleared on tab switch
   // so leftover text from "tokens" doesn't silently hide everything on "networks".
   const [portfolioSearch, setPortfolioSearch] = useState('')
+  const [nftMosaic,setNftMosaic] = useState(()=>localStorage.getItem('mmw_nft_mosaic')==='true')
   const changePortfolioTab = useCallback((tab: PortfolioTab) => {
     setPortfolioTab(tab)
     setPortfolioSearch('')
@@ -1345,6 +1351,9 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
         {/* Search — stretches to just before the Hidden button (tokens/collectibles only) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {portfolioTab==='collectibles' && <button type="button" className="mmw-mosaic-toggle" aria-label="Collection mosaic" title="Toggle collection mosaic" aria-pressed={nftMosaic} onClick={()=>setNftMosaic(value=>{localStorage.setItem('mmw_nft_mosaic',String(!value)); return !value})}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1" y="1" width="6" height="9" rx="1"/><rect x="9" y="1" width="6" height="5" rx="1"/><rect x="9" y="8" width="6" height="7" rx="1"/><rect x="1" y="12" width="6" height="3" rx="1"/></svg>Mosaic
+          </button>}
           <input
             value={portfolioSearch}
             onChange={e => setPortfolioSearch(e.target.value)}
@@ -1504,6 +1513,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       )}
       {portfolioTab === 'collectibles' && (
         <CollectiblesView
+          mosaic={nftMosaic}
           favorites={nftFavorites}
           onToggleFavorite={toggleNftFavorite}
           result={collectibles}

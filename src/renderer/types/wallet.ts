@@ -271,6 +271,7 @@ export interface WalletCollectible {
   image: string | null
   /** Provider-sized preview; full artwork stays in image. */
   thumbnailUrl?: string | null
+  imageSources?: string[]
   animationUrl: string | null
   collectionName: string | null
   chain: string

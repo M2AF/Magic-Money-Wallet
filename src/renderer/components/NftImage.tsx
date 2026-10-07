@@ -1,24 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { nftImageCandidates } from '../lib/nft-media'
+import { nftImageLoader } from '../lib/nft-image-loader'
 import './NftImage.css'
 
-export function NftImage({ src, fallbackSrc, alt, eager = false }: {
+export function NftImage({ src, fallbackSrc, imageSources = [], alt, eager = false }: {
   src: string | null | undefined
   fallbackSrc?: string | null
+  imageSources?: string[]
   alt: string
   eager?: boolean
 }) {
   // A metadata reveal/source change gets fresh retry and decode state immediately.
-  return <Media key={JSON.stringify([src, fallbackSrc])} urls={nftImageCandidates(src, fallbackSrc)} alt={alt} eager={eager} />
+  return <Media key={JSON.stringify([src, fallbackSrc,imageSources])} urls={nftImageCandidates(src, fallbackSrc,imageSources)} alt={alt} eager={eager} />
 }
 
 function Media({ urls, alt, eager }: { urls: string[]; alt: string; eager: boolean }) {
   const container = useRef<HTMLDivElement>(null)
+  const image = useRef<HTMLImageElement>(null)
   const [active, setActive] = useState(eager)
-  const [index, setIndex] = useState(0)
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(null)
-  const loaded = loadedUrl === urls[index]
-  const failed = index >= urls.length
+  const [status,setStatus] = useState<'loading'|'loaded'|'failed'>('loading')
+  const [retry,setRetry] = useState(0)
+  const loaded=status==='loaded', failed=status==='failed'
+  const signature=JSON.stringify(urls)
 
   useEffect(() => {
     if (active) return
@@ -31,22 +34,19 @@ function Media({ urls, alt, eager }: { urls: string[]; alt: string; eager: boole
   }, [active, eager])
 
   useEffect(() => {
-    if (!active || loaded || failed) return
-    // A gateway that never answers must not leave a visible card spinning forever.
-    const timeout = setTimeout(() => setIndex(i => i === index ? i + 1 : i), 12_000)
-    return () => clearTimeout(timeout)
-  }, [active, index, loaded, failed])
+    if (!active || !image.current) return
+    return nftImageLoader.load(JSON.parse(signature),image.current,result=>setStatus(result.status))
+  }, [active, signature, retry])
 
   return (
     <div ref={container} className="nft-media" data-state={failed ? 'failed' : loaded ? 'loaded' : active ? 'loading' : 'pending'}>
       {!loaded && <div className={failed ? 'nft-media-fallback' : 'nft-media-placeholder'} role={failed ? 'img' : undefined} aria-label={failed ? `${alt}: image unavailable` : undefined} aria-hidden={!failed}>🖼</div>}
-      {active && !failed && <img
-        key={urls[index]} src={urls[index]} alt={alt} width={400} height={400}
-        loading={eager ? 'eager' : 'lazy'} decoding="async"
+      {active && <img
+        ref={image} alt={alt} width={400} height={400}
+        decoding="async"
         className="nft-media-image" style={{ opacity: loaded ? 1 : 0 }}
-        onLoad={() => setLoadedUrl(urls[index])}
-        onError={() => setIndex(i => i === index ? i + 1 : i)}
       />}
+      {failed && urls.length>0 && <button type="button" className="nft-media-retry" aria-label={`Retry artwork for ${alt}`} onClick={e=>{e.stopPropagation(); setRetry(n=>n+1)}}>Retry artwork</button>}
     </div>
   )
 }

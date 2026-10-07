@@ -12,6 +12,7 @@
     "types": ["node"]
   },
   "include": [
+    "src/shared/nft-media.ts",
     "electron-vite.config.*",
     "src/main/**/*",
     "src/preload/**/*",

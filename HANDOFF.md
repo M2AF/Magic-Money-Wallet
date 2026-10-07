@@ -7,11 +7,12 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: da36aca · npm run typecheck exit 0 (five targets); npm test 164 files/2425 tests exit 0; git diff --check exit 0 · 2026-10-06T15:52-03:00
-head: da36aca (main) dirty 10
-updated: 2026-10-06T15:53-03:00 · codex
+verified: 02bea62 · Five TypeScript targets pass; 165 test files and 2433 unit tests pass; three unpacked-extension browser journeys pass; desktop, extension, Android Vite and iOS Vite bundles pass; git diff --check passes. Native Android/iOS and deployed ownership scans were not run. · 2026-10-06T22:15-03:00
+head: 02bea62 (main) dirty 22
+updated: 2026-10-06T22:15-03:00 · codex
 
 ## Now
+- NFT media/mosaic port complete locally: Mosaic left of Search; all collection items in4-item quilts/vertical half-width pairs; shared6-slot displayed-image loader, current gateways/CID/CBOR/file candidates and exact-URI metadata fallback; Monad RPC verification wired and cached repairs no longer consume refresh budget. Five-target typecheck,165files/2433tests and3extension browser journeys pass; four bundles checked. Real captured Lil Sappys10/10decoded in wallet fixture. No commit/deploy. docs/NFT-GALLERY-PERFORMANCE.md.
 - NFT favorites shared ChainLens-ID sync complete locally: existing profile preference document, offline caches, legacy migration, unfavorite tombstones and expected-owner guards across all platform bridges; spam choices independent.
 - Final checks: five typecheck targets; 159 files/2327 tests; four desktop/web bundles; 2 extension gallery tests; ChainLens140 tests and cross-product browser checks. No live writes/deployment; local DB credential rejected (Unregistered API key).
 - User target: one stablecoin swap journey, multiple approved transactions: Cardano token -> USDCx -> native destination USDC -> target token. The recoverable USDCx burn-to-Ethereum tracking leg is implemented read-only; no burn journey is created by the app or executable yet.
@@ -30,7 +31,7 @@ updated: 2026-10-06T15:53-03:00 · codex
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User decides whether to send private IOG request; await supported third-party integration rules before burn execution work
+- Review test-results/nft-mosaic-lil-sappys-live.png and docs/NFT-GALLERY-PERFORMANCE.md, then commit/push when ready.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -83,5 +84,6 @@ updated: 2026-10-06T15:53-03:00 · codex
 - AGENTS.md; README.md; HANDOFF_LOG.md; local agent-handoff, cardano-cross-chain-swaps and blockchain-architecture-review skills. Resolve skills locally before use.
 
 ## Skills
+- NFT media and mosaic UI -> Fullstack Iteration, Visual Iteration, Playwright Testing | used: source-path comparison, regression assertions, screenshots and four-target bundles | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,visual-Iteration,playwright-testing}/SKILL.md | Claude: unknown.
 - Shared Claude/Codex changes -> agent-handoff | used: lease, checkpoints and verification handoff | source: local shared skill | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md
 - Wallet transaction pipeline review -> blockchain-architecture-review | used: approval, signer, broadcast and recovery boundaries | source: local Codex skill | Claude: unknown | Codex: C:/Users/balla/.codex/skills/Blockchain-architecture/SKILL.md

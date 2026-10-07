@@ -16,6 +16,7 @@
     }
   },
   "include": [
+    "src/shared/nft-media.ts",
     "src/renderer/**/*",
     // The asset-key contract the renderer shares with main and with ChainLens.
     // Named rather than globbed so the browser-only modules in src/shared don't

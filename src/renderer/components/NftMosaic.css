@@ -1,0 +1,21 @@
+.mmw-nft-mosaic { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px 10px; align-items: start; }
+.mmw-collectibles { container-type: inline-size; }
+@container (min-width: 650px) { .mmw-nft-mosaic { grid-template-columns: repeat(8,minmax(0,1fr)); } }
+@container (min-width: 1000px) { .mmw-nft-mosaic { grid-template-columns: repeat(12,minmax(0,1fr)); } }
+.mmw-mosaic-tile { grid-column: span 2; min-width: 0; }
+.mmw-mosaic-pair { grid-column: span 1; }
+.mmw-mosaic-quilt { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); grid-template-rows: repeat(2,minmax(0,1fr)); aspect-ratio: 1; gap: 5px; }
+.mmw-mosaic-quilt-1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+.mmw-mosaic-quilt-2 { grid-template-columns: 1fr; grid-template-rows: repeat(2,minmax(0,1fr)); aspect-ratio: 1/2; }
+.mmw-mosaic-quilt-3 .mmw-mosaic-art:first-child { grid-row: span 2; }
+.mmw-mosaic-art { position: relative; min-height: 0; overflow: hidden; border-radius: 12px; background: var(--bg-card); }
+.mmw-mosaic-open { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; border: 0; padding: 0; cursor: pointer; background: transparent; }
+.mmw-mosaic-star,.mmw-mosaic-spam { position: absolute; z-index: 2; top: 3px; width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #ffffff33; background: #080e1ccc; cursor: pointer; }
+.mmw-mosaic-star { left: 3px; color: #fbbf24; font-size: 16px; }
+.mmw-mosaic-spam { right: 3px; font-size: 12px; }
+.mmw-mosaic-caption { padding: 8px 1px; display: flex; flex-direction: column; gap: 4px; }
+.mmw-mosaic-caption strong { color: var(--text-primary); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mmw-mosaic-caption span { color: var(--text-secondary); font-size: 10px; overflow-wrap: anywhere; }
+.mmw-mosaic-caption span:last-child { color: var(--text-muted); font-size: 9px; }
+.mmw-mosaic-toggle { flex-shrink: 0; height: 32px; padding: 0 8px; display: flex; align-items: center; gap: 5px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted); font-size: 10px; cursor: pointer; }
+.mmw-mosaic-toggle[aria-pressed="true"] { background: var(--accent-dim); color: var(--accent); border-color: var(--border-active); }

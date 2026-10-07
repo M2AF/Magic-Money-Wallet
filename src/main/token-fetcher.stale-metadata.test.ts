@@ -13,7 +13,7 @@
  * data left untouched whenever the verification itself cannot be completed.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { encodeFunctionResult, parseAbi } from 'viem'
+import { decodeFunctionData, encodeFunctionResult, parseAbi } from 'viem'
 import type { WalletConfig } from './secure-store'
 
 vi.mock('./secure-store', () => ({
@@ -148,6 +148,40 @@ beforeEach(() => { addr = 0 })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('on-chain NFT metadata verification', () => {
+  it('reapplies cached repairs without consuming the next refresh budget',async()=>{
+    let gateway=0
+    vi.stubGlobal('fetch',vi.fn(async(input:unknown,init?:RequestInit)=>{
+      const url=new URL(String(input))
+      if (url.pathname.includes('/alchemy-nft/')) return json(url.pathname.includes('robinhood-mainnet')?{ownedNfts:Array.from({length:26},(_,i)=>({...ownedNfts(STALE_URI).ownedNfts[0],tokenId:String(i)}))}: {ownedNfts:[]})
+      if (url.hostname==='rpc.mainnet.chain.robinhood.com') {
+        const body=JSON.parse(String(init?.body)),{args}=decodeFunctionData({abi:MULTICALL_ABI,data:body.params[0].data})
+        const calls=args![0]
+        return json({result:encodeFunctionResult({abi:MULTICALL_ABI,functionName:'aggregate3',result:calls.map((_,i)=>({success:true,returnData:encodeFunctionResult({abi:URI_ABI,functionName:'tokenURI',result:`ar://coverage-budget/${i}`})}))})})
+      }
+      if (url.hostname==='arweave.net') {gateway++; return json({image:`https://cdn.example${url.pathname}.png`})}
+      return json({})
+    }))
+    await fetchAllCollectibles(nextAddress(),undefined,config); expect(gateway).toBe(25)
+    const next=(await fetchAllCollectibles(nextAddress(),undefined,config)).items.filter(n=>n.chain==='robinhood')
+    expect(gateway).toBe(26)
+    expect(next.filter(n=>n.image!==ALCHEMY_IMG)).toHaveLength(26)
+  },30_000)
+  it('recovers the exact IPFS document from a second gateway without guessing a .json suffix',async()=>{
+    const uri='ipfs://coverage-repair/8'
+    stub(STALE_URI,uri,{})
+    const original=globalThis.fetch, paths:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(input: string | URL | Request,init?: RequestInit)=>{
+      const url=String(input)
+      if (url.includes('/ipfs/coverage-repair/')) {
+        paths.push(url)
+        return url.startsWith('https://ipfs.blockfrost.dev') ? new Response('gone',{status:502}) : json({name:'REDACTED #8',files:[{mediaType:'image/png',src:'art/8.png'}]})
+      }
+      return original(input,init)
+    }))
+    const items=robinhoodItems(await fetchAllCollectibles(nextAddress(),undefined,config))
+    expect(paths).toEqual(['https://ipfs.blockfrost.dev/ipfs/coverage-repair/8','https://gateway.pinata.cloud/ipfs/coverage-repair/8'])
+    expect(items[0]).toMatchObject({name:'REDACTED #8',image:'https://ipfs.blockfrost.dev/ipfs/coverage-repair/art/8.png',thumbnailUrl:null})
+  },30_000)
   it('repairs an NFT whose indexer pointer is stale', async () => {
     const counts = stub(STALE_URI, uniqueRealUri('repair'), {
       name: 'REDACTED #1',

@@ -143,7 +143,7 @@ describe('Moralis fallback when Alchemy is spent', () => {
         contractAddress: NFT_CONTRACT,
         tokenId: '7',
         name: 'Rescued #7',
-        image: 'https://ipfs.io/ipfs/img-7',
+        image: 'https://ipfs.blockfrost.dev/ipfs/img-7',
         traits: [{ trait_type: 'Fur', value: 'Gold' }],
       }),
     ])

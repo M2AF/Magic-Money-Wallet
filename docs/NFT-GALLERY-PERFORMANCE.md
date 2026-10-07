@@ -1,5 +1,20 @@
 # NFT gallery loading improvements
 
+## ChainLens media coverage and mosaics (2026-10-06)
+
+Implemented locally after HEAD `02bea62`. No commit, push or deployment.
+
+- Dashboard Collectibles has a **Mosaic** toggle immediately left of Search. The view preference persists locally. Grouping uses chain and contract/policy identity, rather than collection names alone. Every NFT appears in consecutive four-item tiles; two-item tiles stack vertically at half width, and three-item tiles use one larger image. Available gallery width determines two, four or six full-width columns. The existing individual-card view remains available.
+- Search and shared ChainLens-ID favorites/spam decisions apply before grouping; existing USD/favorite ordering and displayed currency remain. Each mosaic NFT has its own detail, favorite and spam controls. Switching layouts uses loaded holdings and does not call the ownership API again.
+- The shared media helper carries the ChainLens gateway fixes into provider mapping and the renderer: Blockfrost/Pinata/Filebase alternatives, supplied working gateways, retired-gateway replacement, raw CID validation, subdomain IPFS, Arweave, split CIP-25 strings and complete CBOR text/byte strings. Cardano image files and `image_url` are accepted; arbitrary website URLs and video files are not used as NFT artwork. CIP-68 reference/fungible labels are excluded from NFT classification.
+- Alchemy, Moralis, Helius and Cardano retain additional exact artwork candidates alongside previews. The displayed image element owns each request, with six shared slots, a twelve-second candidate deadline, bounded attempts and a session cache of successful sources. Failed artwork exposes Retry artwork. Detail downloads use the successfully decoded full-view source.
+- Metadata JSON repair tries at most three exact-content gateways with 3.5-second deadlines and a 1 MiB streamed size limit. It never invents `.json` suffixes or token paths. Existing restrictions on automatically fetching unknown HTTPS metadata are retained. Cached repairs are applied before spending the refresh budget, allowing larger collections to progress beyond the first 25 repaired records.
+- Monad metadata verification now uses the wallet's existing Monad RPC list (previously absent from the generic public RPC map). NFT URI reads use ten-item Monad chunks with spacing, eight-second per-endpoint deadlines, and retain earlier results if a later chunk fails. An exhausted chunk stops the pass instead of repeatedly exhausting the endpoints. ERC-20 reads retain their existing behavior.
+
+Validation: five TypeScript targets, 165 unit-test files / 2,433 tests, three extension browser journeys, desktop and extension builds, and Android/iOS Vite bundles. The browser fixture covers all ten items of one collection, vertical pairs, responsive side-panel width, per-token detail/favorite/spam, search, exact artwork fallback/download and no new ownership request on toggling. The 240-item regression made three initial media requests and sixteen across its full journey. Screenshots reviewed: `test-results/nft-mosaic-compact.png` and `test-results/nft-mosaic-desktop.png`.
+
+Actual media recheck: the ten Lil Sappys ownership records captured during the ChainLens investigation were mapped into a local unpacked-wallet fixture. All ten real public images decoded using the new wallet loader, across three mosaic tiles, with no page errors. Evidence: `test-results/nft-mosaic-lil-sappys-live.{png,json}`; ignored harness `.screenshots/nft-live.cjs`. This proves local display/media behavior with those records, not a new production ownership scan or native Android/iOS runtime. Logs, screenshots and harness files are already ignored by `.gitignore`; no credentials were added.
+
 Implemented locally on 2026-10-05. ChainLens website code was not changed.
 
 ## Behavior

@@ -152,9 +152,9 @@ async function publicRpc<T>(
 type Call = { target: `0x${string}`; allowFailure: boolean; callData: `0x${string}` }
 
 /** One `aggregate3` round-trip. Individual failures come back as success:false. */
-async function aggregate3(chainId: string, calls: Call[], endpoints?: string[]): Promise<Array<{ success: boolean; returnData: `0x${string}` }>> {
+async function aggregate3(chainId: string, calls: Call[], endpoints?: string[], timeoutMs=20_000): Promise<Array<{ success: boolean; returnData: `0x${string}` }>> {
   const data = encodeFunctionData({ abi: MULTICALL_ABI, functionName: 'aggregate3', args: [calls] })
-  const raw = await publicRpc<`0x${string}`>(chainId, 'eth_call', [{ to: MULTICALL3, data }, 'latest'], 20_000, endpoints)
+  const raw = await publicRpc<`0x${string}`>(chainId, 'eth_call', [{ to: MULTICALL3, data }, 'latest'], timeoutMs, endpoints)
   return decodeFunctionResult({ abi: MULTICALL_ABI, functionName: 'aggregate3', data: raw }) as Array<{ success: boolean; returnData: `0x${string}` }>
 }
 
@@ -433,7 +433,9 @@ export async function batchReadTokenUris(
   if (!valid.length) return out
 
   try {
-    for (const part of chunk(valid, MULTICALL_CHUNK)) {
+    for (const [partIndex,part] of chunk(valid, chainId==='monad' ? 10 : MULTICALL_CHUNK).entries()) {
+      if (chainId==='monad' && partIndex) await new Promise(resolve=>setTimeout(resolve,350))
+      try {
       const results = await aggregate3(chainId, part.map(r => ({
         target: r.contract as `0x${string}`,
         allowFailure: true,
@@ -442,7 +444,7 @@ export async function batchReadTokenUris(
           functionName: r.isErc1155 ? 'uri' : 'tokenURI',
           args: [BigInt(r.tokenId)],
         }),
-      })), endpoints)
+      })), endpoints,8_000)
 
       results.forEach((res, i) => {
         if (!res.success || !res.returnData || res.returnData === '0x') return
@@ -459,12 +461,16 @@ export async function batchReadTokenUris(
           out.set(`${req.contract.toLowerCase()}:${req.tokenId}`, expanded)
         } catch { /* not a URI-bearing contract, or a malformed return */ }
       })
+      } catch (e) {
+        console.warn(`[NFT] ${chainId} tokenURI chunk unavailable: ${String(e)}`)
+        break // Do not repeatedly exhaust dead RPC endpoints on later chunks.
+      }
     }
   } catch (e) {
     // No Multicall3 on this chain, or every keyless RPC is down. The caller keeps
     // the indexer's data rather than showing nothing.
     console.warn(`[NFT] ${chainId} on-chain tokenURI read failed: ${String(e)}`)
-    return new Map()
+    return out
   }
 
   return out

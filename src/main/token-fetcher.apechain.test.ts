@@ -173,8 +173,8 @@ describe('ApeChain portfolio assets', () => {
       expect.objectContaining({
         name: 'Ape NFT #1',
         description: 'On-chain metadata',
-        image: 'https://ipfs.io/ipfs/image-one',
-        animationUrl: 'https://ipfs.io/ipfs/animation-one',
+        image: 'https://ipfs.blockfrost.dev/ipfs/image-one',
+        animationUrl: 'https://ipfs.blockfrost.dev/ipfs/animation-one',
         traits: [{ trait_type: 'Fur', value: 'Gold' }],
       }),
       expect.objectContaining({

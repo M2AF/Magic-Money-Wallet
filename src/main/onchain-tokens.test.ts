@@ -20,7 +20,7 @@ vi.mock('./secure-store', () => ({
   saveOnchainScanCache: vi.fn((m: typeof scanDisk) => { scanDisk = m }),
 }))
 
-import { fetchOnchainTokens } from './onchain-tokens'
+import { fetchOnchainTokens, batchReadTokenUris } from './onchain-tokens'
 
 const MULTICALL_ABI = parseAbi([
   'function aggregate3((address target, bool allowFailure, bytes callData)[] calls) view returns ((bool success, bytes returnData)[] returnData)',
@@ -40,6 +40,19 @@ const config = { customTokens: [], testnetMode: false } as never
 
 const uint = (n: bigint) => encodeAbiParameters([{ type: 'uint256' }], [n])
 const EMPTY = '0x' as const
+
+it('small Monad NFT chunks retain earlier results after a later RPC failure',async()=>{
+  const uriAbi=parseAbi(['function tokenURI(uint256) view returns (string)'])
+  const sizes:number[]=[]
+  vi.stubGlobal('fetch',vi.fn(async(_url:unknown,init?:RequestInit)=>{
+    const body=JSON.parse(String(init?.body)), {args}=decodeFunctionData({abi:MULTICALL_ABI,data:body.params[0].data})
+    const calls=args![0]; sizes.push(calls.length)
+    if (sizes.length===2) return new Response('busy',{status:429})
+    return new Response(JSON.stringify({result:encodeFunctionResult({abi:MULTICALL_ABI,functionName:'aggregate3',result:calls.map(()=>({success:true,returnData:encodeFunctionResult({abi:uriAbi,functionName:'tokenURI',result:'ipfs://art/1'})}))})}))
+  }))
+  const result=await batchReadTokenUris('monad',Array.from({length:11},(_,i)=>({contract:GOOD,tokenId:String(i),isErc1155:false})),['https://rpc.example'])
+  expect(sizes).toEqual([10,1]); expect(result.size).toBe(10)
+})
 
 /**
  * A stand-in node. `holdings` maps contract → raw balance; anything in `nfts`
