@@ -50,13 +50,6 @@ const APPS_EMPTY = WEB_APPS_SUPPORTED
 
 export const HOME_URL = 'https://www.chainlensnft.info/'
 
-// Height of the wallet's bottom nav (index.css .bottom-nav is 54px) — the
-// browser overlay stops above it so the Portfolio|Market|Swap|Apps|Browser bar
-// stays visible and tappable while browsing (the native dApp WebView fills the
-// area above it). Matches the nav's own box; adjust here if the nav height or
-// safe-area handling changes.
-const NAV_STRIP = '54px'
-
 /**
  * CapApp's hardware-back handler consults `open` to route back-presses here.
  * `resumeVisible` is set by CapApp when the lock screen tucks away a VISIBLE
@@ -101,6 +94,8 @@ type Session = 'closed' | 'opening' | 'open' | 'hidden'
 
 export function BrowserOverlay() {
   const [visible, setVisible] = useState(false)
+  // Initial value until the actual nav, including safe-area padding, is measured.
+  const [navStrip, setNavStrip] = useState(54)
   const [url, setUrl] = useState('')
   const [urlInput, setUrlInput] = useState('')
   const [inputFocused, setInputFocused] = useState(false)
@@ -162,6 +157,18 @@ export function BrowserOverlay() {
   const torEnabledRef = useRef(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const canBackRef = useRef(false)
+
+  useEffect(() => {
+    if (!visible) return
+    const nav=document.querySelector('.bottom-nav')
+    if (!nav) return
+    const measure=()=>setNavStrip(Math.max(0,window.innerHeight-nav.getBoundingClientRect().top))
+    measure()
+    const observer=new ResizeObserver(measure)
+    observer.observe(nav)
+    window.addEventListener('resize',measure)
+    return ()=>{observer.disconnect(); window.removeEventListener('resize',measure)}
+  },[visible])
 
   canBackRef.current = canBack
   browserUiState.open = visible
@@ -619,9 +626,9 @@ export function BrowserOverlay() {
 
   return (
     <div style={{
-      // Stops above the wallet's bottom nav (NAV_STRIP) so that bar stays visible
+      // Stops above the measured wallet nav so that bar stays visible
       // and tappable — the native dApp WebView renders in the area above it.
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: NAV_STRIP,
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: navStrip,
       zIndex: 5000, display: 'flex', flexDirection: 'column',
       background: 'var(--bg-dark, #0d0d0d)', paddingTop: 'env(safe-area-inset-top)'
     }}>

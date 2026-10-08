@@ -455,9 +455,10 @@ export async function batchReadTokenUris(
             functionName: req.isErc1155 ? 'uri' : 'tokenURI',
             data: res.returnData,
           }) as string
-          if (!uri) return
+          // A successfully decoded empty URI is different from an RPC failure.
+          // Keep it so the gallery can explain that no artwork was published.
           // ERC-1155 allows a single `{id}` template shared by every token.
-          const expanded = uri.replace(/\{id\}/g, BigInt(req.tokenId).toString(16).padStart(64, '0'))
+          const expanded = uri.trim().replace(/\{id\}/g, BigInt(req.tokenId).toString(16).padStart(64, '0'))
           out.set(`${req.contract.toLowerCase()}:${req.tokenId}`, expanded)
         } catch { /* not a URI-bearing contract, or a malformed return */ }
       })

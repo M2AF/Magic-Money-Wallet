@@ -3,18 +3,19 @@ import { nftImageCandidates } from '../lib/nft-media'
 import { nftImageLoader } from '../lib/nft-image-loader'
 import './NftImage.css'
 
-export function NftImage({ src, fallbackSrc, imageSources = [], alt, eager = false }: {
+export function NftImage({ src, fallbackSrc, imageSources = [], artworkStatus, alt, eager = false }: {
   src: string | null | undefined
   fallbackSrc?: string | null
   imageSources?: string[]
+  artworkStatus?: 'missing-metadata'
   alt: string
   eager?: boolean
 }) {
   // A metadata reveal/source change gets fresh retry and decode state immediately.
-  return <Media key={JSON.stringify([src, fallbackSrc,imageSources])} urls={nftImageCandidates(src, fallbackSrc,imageSources)} alt={alt} eager={eager} />
+  return <Media key={JSON.stringify([src, fallbackSrc,imageSources,artworkStatus])} urls={nftImageCandidates(src, fallbackSrc,imageSources)} alt={alt} eager={eager} unpublished={artworkStatus==='missing-metadata'} />
 }
 
-function Media({ urls, alt, eager }: { urls: string[]; alt: string; eager: boolean }) {
+function Media({ urls, alt, eager, unpublished }: { urls: string[]; alt: string; eager: boolean; unpublished: boolean }) {
   const container = useRef<HTMLDivElement>(null)
   const image = useRef<HTMLImageElement>(null)
   const [active, setActive] = useState(eager)
@@ -40,7 +41,7 @@ function Media({ urls, alt, eager }: { urls: string[]; alt: string; eager: boole
 
   return (
     <div ref={container} className="nft-media" data-state={failed ? 'failed' : loaded ? 'loaded' : active ? 'loading' : 'pending'}>
-      {!loaded && <div className={failed ? 'nft-media-fallback' : 'nft-media-placeholder'} role={failed ? 'img' : undefined} aria-label={failed ? `${alt}: image unavailable` : undefined} aria-hidden={!failed}>🖼</div>}
+      {!loaded && <div className={failed ? 'nft-media-fallback' : 'nft-media-placeholder'} role={failed ? 'img' : undefined} aria-label={failed ? `${alt}: ${unpublished ? 'no artwork URI published by this token' : 'image unavailable'}` : undefined} title={failed && unpublished ? 'The contract returned an empty artwork URI. A future portfolio refresh will check again.' : undefined} aria-hidden={!failed}>🖼{failed && unpublished && <span className="nft-media-unpublished">No artwork published</span>}</div>}
       {active && <img
         ref={image} alt={alt} width={400} height={400}
         decoding="async"

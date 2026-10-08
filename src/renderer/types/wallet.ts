@@ -272,6 +272,7 @@ export interface WalletCollectible {
   /** Provider-sized preview; full artwork stays in image. */
   thumbnailUrl?: string | null
   imageSources?: string[]
+  artworkStatus?: 'missing-metadata'
   animationUrl: string | null
   collectionName: string | null
   chain: string

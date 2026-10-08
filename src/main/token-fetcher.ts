@@ -14,7 +14,7 @@ import { tronAddrParam, tronConstantCall, tronApiPost } from './tron'
 import { canonicalNftKey } from '../shared/asset-filter-key'
 import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
 import { CollectiblesProgress } from './collectibles-progress'
-import { nftUriCandidates, nftMetadataImages, nftMetadataText } from '../shared/nft-media'
+import { nftUriCandidates, nftMetadataImages, nftMetadataText, validNftCid } from '../shared/nft-media'
 
 export interface WalletToken {
   contractAddress: string
@@ -76,6 +76,7 @@ export interface WalletCollectible {
   /** Provider-sized preview. Full artwork remains in image for details/downloads. */
   thumbnailUrl?: string | null
   imageSources?: string[]
+  artworkStatus?: 'missing-metadata'
   animationUrl: string | null
   collectionName: string | null
   chain: string
@@ -2280,12 +2281,23 @@ interface RepairBudget { left: number }
 
 /** ar://, ipfs:// and data: URIs name their content; any https host can log who asked. */
 function isContentAddressed(uri: string): boolean {
-  return /^(ar|ipfs|data):/i.test(uri.trim())
+  const value=uri.trim()
+  if (/^(ar|ipfs|data):/i.test(value)) return true
+  // Public gateway forms name the same content as ipfs:// or ar://. Only
+  // recognize real CIDs / Arweave transaction IDs, not arbitrary HTTPS paths.
+  try {
+    const url=new URL(value)
+    if (url.protocol!=='https:') return false
+    const cid=url.hostname.includes('.ipfs.') ? url.hostname.split('.ipfs.')[0] : url.pathname.match(/\/ipfs\/([^/]+)/)?.[1]
+    const gateways=['ipfs.blockfrost.dev','gateway.pinata.cloud','ipfs.filebase.io','cloudflare-ipfs.com','ipfs.io','dweb.link','w3s.link']
+    const publicGateway=gateways.some(host=>url.hostname===host || url.hostname.endsWith('.'+host))
+    return publicGateway && !!cid && validNftCid(cid) || url.hostname==='arweave.net' && /^\/[A-Za-z0-9_-]{43}(?:\/|$)/.test(url.pathname)
+  } catch { return false }
 }
 
 function applyNftMetadata(it: WalletCollectible, meta: NftMetadata, uri: string): void {
   const sources=nftMetadataImages(meta,uri)
-  if (sources.length) { it.image=sources[0]; it.imageSources=sources; it.thumbnailUrl=null }
+  if (sources.length) { it.image=sources[0]; it.imageSources=sources; it.thumbnailUrl=null; delete it.artworkStatus }
   const anim=normalizeImageUrl(meta.animation_url ?? null)
   if (anim) it.animationUrl=anim
   if (typeof meta.name==='string') it.name=meta.name
@@ -2333,6 +2345,11 @@ async function verifyNftMetadata(
 
   const onchain = await batchReadTokenUris(chain.id, requests, endpoints)
   if (!onchain.size) return  // no Multicall3, or every RPC down — keep Alchemy's
+
+  for (const it of items) {
+    const uri=onchain.get(`${it.contractAddress.toLowerCase()}:${it.tokenId}`)
+    if (uri!==undefined && !uri.trim() && !it.image && !it.thumbnailUrl && !it.animationUrl && !it.imageSources?.length) it.artworkStatus='missing-metadata'
+  }
 
   // A pointer differs only if BOTH sides resolved to something and they disagree.
   // Compare post-resolution so ipfs:// vs gateway form isn't a false positive.

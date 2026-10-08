@@ -1,0 +1,19 @@
+.portfolio-summary { container-type: inline-size; }
+.portfolio-tools .native-header-toolbar { position: relative; top: -12px; }
+.portfolio-update-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; width: 100%; white-space: nowrap; }
+.portfolio-total {
+  font-size: clamp(14px, 15cqw, 24px);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.portfolio-chart-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 150px;
+  max-width: 100%;
+}
+.portfolio-chart-row svg { flex: 1; min-width: 0; width: 0; }

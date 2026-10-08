@@ -70,7 +70,7 @@ export function HeaderToolbar({
   const isCapacitor = !!(window as any).Capacitor?.isNativePlatform?.()
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+    <div className={isCapacitor ? 'native-header-toolbar' : undefined} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
       {/* EVM network switcher — extension + Android (Electron has its own in the
           browser chrome). Sits ABOVE the button row so it doesn't widen the row
           off-screen and push the sparkline out of view. */}

@@ -34,6 +34,8 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -1310,6 +1312,32 @@ public class DappBrowserPlugin extends Plugin {
         getActivity().addContentView(container, lp);
     }
 
+    private void installViewportInsets(WebView pageView) {
+        // The page is already bounded below the toolbar and above the wallet
+        // nav. Forward only system/keyboard insets that overlap this rectangle,
+        // not the full window's insets (which would pad site footers twice).
+        // Zero values must still be dispatched when bars/keyboard disappear.
+        ViewCompat.setOnApplyWindowInsetsListener(pageView, (view, insets) -> {
+            View decor = getActivity().getWindow().getDecorView();
+            int[] page = new int[2], window = new int[2];
+            view.getLocationOnScreen(page);
+            decor.getLocationOnScreen(window);
+            WindowInsetsCompat.Builder projected = new WindowInsetsCompat.Builder(insets);
+            int[] types = { WindowInsetsCompat.Type.statusBars(), WindowInsetsCompat.Type.navigationBars(),
+                    WindowInsetsCompat.Type.captionBar(), WindowInsetsCompat.Type.displayCutout(), WindowInsetsCompat.Type.ime() };
+            for (int type : types) {
+                Insets original = insets.getInsets(type);
+                int[] horizontal = DappViewportInsets.intersect(page[0] - window[0], view.getWidth(), decor.getWidth(), original.left, original.right);
+                int[] vertical = DappViewportInsets.intersect(page[1] - window[1], view.getHeight(), decor.getHeight(), original.top, original.bottom);
+                projected.setInsets(type, Insets.of(horizontal[0], vertical[0], horizontal[1], vertical[1]));
+            }
+            return projected.build();
+        });
+        pageView.addOnLayoutChangeListener((view, l, t, r, b, oldL, oldT, oldR, oldB) -> {
+            if (l != oldL || t != oldT || r != oldR || b != oldB) ViewCompat.requestApplyInsets(view);
+        });
+    }
+
     @Override
     protected void handleOnDestroy() {
         torGeneration.incrementAndGet();
@@ -1328,11 +1356,14 @@ public class DappBrowserPlugin extends Plugin {
         float density = getContext().getResources().getDisplayMetrics().density;
         // CSS px (wallet WebView viewport) → window px, offset by the WebView's
         // position so notch/status-bar insets are accounted for.
-        int[] loc = new int[2];
+        int[] loc = new int[2], parentLoc = new int[2];
         bridge.getWebView().getLocationInWindow(loc);
+        ((View) container.getParent()).getLocationInWindow(parentLoc);
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) container.getLayoutParams();
-        lp.leftMargin = loc[0] + Math.round(bx * density);
-        lp.topMargin = loc[1] + Math.round(by * density);
+        // Layout margins are relative to the native parent, not the window.
+        // A non-edge-to-edge parent can itself start below the status bar.
+        lp.leftMargin = loc[0] - parentLoc[0] + Math.round(bx * density);
+        lp.topMargin = loc[1] - parentLoc[1] + Math.round(by * density);
         lp.width = Math.round(bw * density);
         lp.height = Math.round(bh * density);
         container.setLayoutParams(lp);
@@ -1394,6 +1425,7 @@ public class DappBrowserPlugin extends Plugin {
         tab.url = url;
 
         WebView wv = new WebView(getContext());
+        installViewportInsets(wv);
         tab.webView = wv;
         WebSettings s = wv.getSettings();
         s.setJavaScriptEnabled(true);

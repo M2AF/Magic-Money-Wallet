@@ -20,6 +20,7 @@ import { useAssetFilters } from '../lib/asset-filters'
 import { swapTokenFromHolding } from '../lib/swap-from-holding'
 import { useDisplayCurrency } from '../lib/currency'
 import { canonicalTokenKey, canonicalNftKey } from '../../shared/asset-filter-key'
+import './DashboardPage.css'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
 
@@ -459,10 +460,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
 
           {/* Image */}
           <div ref={artwork} style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.4)', borderRadius: 12, overflow: 'hidden', marginBottom: 14 }}>
-            {nft.image
-              ? <NftImage src={nft.image} imageSources={nft.imageSources} alt={nft.name} eager />
-              : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 40 }}>🖼</div>
-            }
+            <NftImage src={nft.image} imageSources={nft.imageSources} artworkStatus={nft.artworkStatus} alt={nft.name} eager />
           </div>
 
           {/* Chain + floor row */}
@@ -684,10 +682,7 @@ function CollectiblesView({ result, loading, hiddenItems, spamItems, search, onS
               onClick={() => onSelectNft(nft)}
             >
               <div style={{ width: '100%', paddingTop: '100%', position: 'relative', background: 'rgba(0,0,0,0.3)' }}>
-                {nft.image
-                  ? <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} alt={nft.name} />
-                  : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 28 }}>🖼</div>
-                }
+                <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} artworkStatus={nft.artworkStatus} alt={nft.name} />
                 <button type="button"
                   aria-label={`${favorites.has(id) ? 'Unfavorite' : 'Favorite'} ${nft.name}`}
                   aria-pressed={favorites.has(id)}
@@ -758,7 +753,7 @@ function EyeToggle({ hidden, onToggle }: { hidden: boolean; onToggle: () => void
   )
 }
 
-// 7d PnL chip — sits beside the portfolio total (e.g. "▼ 6.20%").
+// 7d PnL chip — beside the chart, below the balance and toolbar.
 function PortfolioPnl({ data }: { data: number[] }) {
   if (data.length < 2) return null
   const isUp = data[data.length - 1] >= data[0]
@@ -1220,8 +1215,8 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           stay pinned above the scrolling list too. */}
       <div style={{ padding: '24px 20px 12px', flexShrink: 0 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        <div>
+      <div className="portfolio-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+        <div className="portfolio-summary" style={{ minWidth: 0, flex: 1 }}>
           <h1 className="page-title" style={{ fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
             Portfolio
             {testnet && (
@@ -1244,27 +1239,23 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             )}
           </h1>
           {!hasLoadedOnce ? (
-            <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
+            <div className="portfolio-total" style={{ fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-muted)', marginTop: 4 }}>
               Calculating…
             </div>
           ) : totalDisplay ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
+            <div className="portfolio-balance-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+              <div className="portfolio-total" title={balanceHidden ? undefined : totalDisplay} style={{ fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', letterSpacing: balanceHidden ? '0.08em' : undefined }}>
                 {balanceHidden ? '••••••' : totalDisplay}
               </div>
-              {/* Eye stacked ABOVE the 7d % — keeps the cluster narrow so it doesn't
-                  push the toolbar/network switcher off-screen in the extension. */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
+              <div style={{ flexShrink: 0 }}>
                 <EyeToggle hidden={balanceHidden} onToggle={toggleBalanceHidden} />
-                {!balanceHidden && balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
-                  <PortfolioPnl data={balances.portfolioSparkline} />
-                )}
               </div>
             </div>
           ) : null}
-          {lastUpdated && (
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-              Updated {lastUpdated}
+          {(lastUpdated || (balances?.portfolioSparkline?.length ?? 0) > 1) && (
+            <div className="portfolio-update-row" style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+              {lastUpdated && <span>Updated {lastUpdated}</span>}
+              {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && <PortfolioPnl data={balances.portfolioSparkline} />}
             </div>
           )}
 
@@ -1306,14 +1297,16 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10 }}>
+        <div className="portfolio-tools" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 10, flexShrink: 0 }}>
           <HeaderToolbar
             {...toolbar}
             onRefresh={() => { fetchBalances(true); fetchHistory() }}
             refreshing={refreshing}
           />
           {balances?.portfolioSparkline && balances.portfolioSparkline.length > 1 && (
-            <PortfolioSparkline data={balances.portfolioSparkline} />
+            <div className="portfolio-chart-row">
+              <PortfolioSparkline data={balances.portfolioSparkline} />
+            </div>
           )}
         </div>
       </div>

@@ -129,3 +129,62 @@
 ### 2026-10-06T22:15-03:00 · codex · handoff · 02bea62 (main) dirty 22
 - Completed ChainLens-style NFT media resolution and Mosaic toggle left of Search. All collection items retained; pairs stack vertically; existing detail, favorites, spam and search remain available without refetching ownership on view changes. Documentation and screenshot evidence saved. No commit, push or deployment.
 - next: Review test-results/nft-mosaic-lil-sappys-live.png and docs/NFT-GALLERY-PERFORMANCE.md, then commit/push when ready.
+
+### 2026-10-07T20:49-03:00 · codex · claim · d4c781f (main) dirty 1
+- task: Repair remaining Monad/Robinhood NFT media, Android browser viewport spacing and portfolio header layout
+- lease until 2026-10-07T23:49-03:00
+
+### 2026-10-07T20:52-03:00 · codex · verify · d4c781f (main) dirty 2
+- verified: Baseline at d4c781f: npm run typecheck passes five targets; npm test passes 165 files / 2433 tests. ADB reports no attached Android device and no emulator/system image installed.
+- Investigating remaining media and layout issues; Android documentation confirms modern WebView insets can double-pad an already bounded native page.
+
+### 2026-10-07T20:57-03:00 · codex · checkpoint · d4c781f (main) dirty 12
+- Live keyless probes: four Monad ERC1155 contracts return empty uri; Robinhood P3NG contract returns empty tokenURI. Valid HTTPS IPFS/Arweave metadata now qualifies for imageless repair; no arbitrary HTTPS tracking host enabled. Portfolio percentage moved beside chart with reserved toolbar width. Android native bounds subtract parent origin and page insets intersect actual viewport; nav strip measured instead of hardcoded.
+- next: Focused tests, typecheck, four bundles, native Gradle tests/build and browser screenshot verification. Logs .oct7-*.log.
+
+### 2026-10-07T21:11-03:00 · codex · verify · d4c781f (main) dirty 15
+- verified: Five TS targets; 165 files/2436 unit tests; four extension journeys and final header rerun; one mobile viewport fixture; four native inset tests; desktop/extension/Android/iOS bundles; Gradle assembleDebug testDebugUnitTest pass.
+- NFT/media and mobile layout follow-up complete locally; reviewed header and unpublished-artwork screenshots. Native Android APK built; device WebView QA remains open.
+- next: User phone QA using debug APK: X/Minswap bottom bars, keyboard dismissal and rotation; review screenshots. No commit/push/deploy authorized.
+
+### 2026-10-07T21:11-03:00 · codex · handoff · d4c781f (main) dirty 15
+- Completed local NFT repair and mobile layout work with screenshots, bundles, unit/browser/native tests and debug APK.
+- next: Review docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md and phone QA X/Minswap using debug APK; no commit/push/deploy authorized.
+
+### 2026-10-07T21:27-03:00 · codex · claim · d4c781f (main) dirty 15
+- task: Build signed main Android APK and update connected phone as authorized
+- lease until 2026-10-08T00:27-03:00
+
+### 2026-10-07T21:27-03:00 · codex · checkpoint · d4c781f (main) dirty 15
+- Signed main assembleRelease running, .oct7-release-phone.log. Connected SM-G996W main package0.10.1/code25; compare signer before install -r. User authorized main APK only.
+- next: Finish release build, verify signer and update main app preserving data.
+
+### 2026-10-07T21:28-03:00 · codex · verify · d4c781f (main) dirty 15
+- verified: Signed main release build, matching signer, adb replacement install Success and app launch confirmed.
+- User-authorized main Android update complete on connected SM-G996W. assembleRelease passed35s; apksigner verified matching installed/release SHA256 signer; main package info.chainlens.magicmoney0.10.1/code25 installed with adb install -r Success and launched. Original firstInstallTime preserved, lastUpdateTime21:28:44. No debug install/uninstall/data reset or code commit.
+- next: User checks browser bottom bars and portfolio header on phone and reports results.
+
+### 2026-10-07T21:29-03:00 · codex · handoff · d4c781f (main) dirty 15
+- Main release APK installed and launched on user's connected phone as authorized; awaiting user's visual QA.
+- next: User phone QA: X/Minswap bottom bars, keyboard dismissal/rotation, portfolio header and NFT artwork. No commit/push authorized.
+
+### 2026-10-07T21:31-03:00 · codex · claim · d4c781f (main) dirty 15
+- task: Keep portfolio percent always visible beside Updated and chart invariant on privacy toggle
+- lease until 2026-10-08T00:31-03:00
+
+### 2026-10-07T21:34-03:00 · codex · checkpoint · d4c781f (main) dirty 15
+- User correction: percentage always visible beside Updated, chart geometry and points invariant on hide/show. Full TS/unit tests, extension browser check and main release rebuild running in .oct7-percent-*.log. android:apk script's bare gradlew failed on Windows PATH after successful bundle; explicit android/gradlew.bat -p android used instead.
+- next: Verify screenshot and chart bounding box/path assertion, install signed main APK update on connected phone.
+
+### 2026-10-07T21:39-03:00 · codex · checkpoint · d4c781f (main) dirty 16
+- Corrected always-visible percentage next to Updated with responsive wrap; chart points/bounds privacy regression passes. Native portfolio toolbar raised12px independently of chart. Final release Gradle passed14s and main APK install -r Success; user phone QA pending. Earlier concurrent adb read locked APK package task; rebuild/install now sequential.
+- next: Wait final TS check, document and release handoff; user checks main phone update.
+
+### 2026-10-07T21:39-03:00 · codex · verify · d4c781f (main) dirty 16
+- verified: Final five-target typecheck;2436unit tests; focused header browser regression; Android bundle and signed release Gradle build; main phone install/launch Success.
+- Final percentage/layout correction: five TS targets pass,165files/2436unit tests pass; chart/toolbar bbox and plotted-points privacy toggle browser regression passes360/400/1000px. Native toolbar CSS lift and responsive percent wrap bundled in main APK; assembleRelease14s and sequential phone update/launch Success at21:39. Phone visual QA pending.
+- next: User confirms toolbar/percentage placement and browser bottom bars on updated main Android app.
+
+### 2026-10-07T21:39-03:00 · codex · handoff · d4c781f (main) dirty 16
+- Main Android updated with percentage always visible and raised native toolbar; awaiting user visual QA.
+- next: User checks phone changes; no commit/push authorized.

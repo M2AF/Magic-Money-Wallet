@@ -1,5 +1,7 @@
 # NFT gallery loading improvements
 
+October 7 follow-up: [remaining token artwork and mobile layout fixes](NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md), including recognized HTTPS content-addressed metadata, confirmed empty token URIs, portfolio percentage placement and Android embedded-page insets.
+
 ## ChainLens media coverage and mosaics (2026-10-06)
 
 Implemented locally after HEAD `02bea62`. No commit, push or deployment.

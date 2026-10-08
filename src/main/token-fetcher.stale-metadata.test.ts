@@ -148,6 +148,32 @@ beforeEach(() => { addr = 0 })
 afterEach(() => { vi.unstubAllGlobals() })
 
 describe('on-chain NFT metadata verification', () => {
+  it('repairs imageless metadata published as a public HTTPS IPFS gateway URL',async()=>{
+    const uri='https://gateway.pinata.cloud/ipfs/QmQadFycpmyKLrHogwE9Q8vu6j2XNtrqpk5TNDKAoLSZkc/3845'
+    stub(uri,uri,{},unfetchedNfts)
+    const previous=globalThis.fetch, fetched:string[]=[]
+    vi.stubGlobal('fetch',vi.fn(async(input: string | URL | Request,init?: RequestInit)=>{
+      if (String(input)===uri) {fetched.push(uri); return json({name:'Peng #3845',image:'ipfs://QmXAZev8qKoU7ReXoutet4e8jetyLPSJbrbJWo7QZynu6h/3845'})}
+      return previous(input,init)
+    }))
+    const items=(await fetchAllCollectibles(nextAddress(),undefined,config)).items.filter(n=>n.chain==='robinhood')
+    expect(fetched).toEqual([uri])
+    expect(items[0]).toMatchObject({name:'Peng #3845',image:'https://ipfs.blockfrost.dev/ipfs/QmXAZev8qKoU7ReXoutet4e8jetyLPSJbrbJWo7QZynu6h/3845'})
+  },30_000)
+  it('distinguishes a published empty URI from an unavailable RPC',async()=>{
+    stub('','',{},unfetchedNfts)
+    const empty=(await fetchAllCollectibles(nextAddress(),undefined,config)).items.filter(n=>n.chain==='robinhood')
+    expect(empty[0]).toMatchObject({image:null,artworkStatus:'missing-metadata'})
+    stub('','rpc-down',{},unfetchedNfts)
+    const unavailable=(await fetchAllCollectibles(nextAddress(),undefined,config)).items.filter(n=>n.chain==='robinhood')
+    expect(unavailable[0].artworkStatus).toBeUndefined()
+  },30_000)
+  it('does not trust a tracking host just because its URL contains a valid CID',async()=>{
+    const uri='https://tracker.example/ipfs/QmQadFycpmyKLrHogwE9Q8vu6j2XNtrqpk5TNDKAoLSZkc/45'
+    const counts=stub(uri,uri,{},unfetchedNfts)
+    await fetchAllCollectibles(nextAddress(),undefined,config)
+    expect(counts.gateway).toBe(0)
+  },30_000)
   it('reapplies cached repairs without consuming the next refresh budget',async()=>{
     let gateway=0
     vi.stubGlobal('fetch',vi.fn(async(input:unknown,init?:RequestInit)=>{

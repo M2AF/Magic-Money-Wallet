@@ -23,7 +23,7 @@ export function NftMosaic({items,favorites,onToggleFavorite,onSpam,onSelect}: {
       {tile.items.map(nft=>{
         const key=canonicalNftKey(nft.chain,nft.contractAddress,nft.tokenId)
         return <div className="mmw-mosaic-art" key={key} data-nft-key={key}>
-          <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} alt={nft.name}/>
+          <NftImage src={nft.thumbnailUrl || nft.image} fallbackSrc={nft.image} imageSources={nft.imageSources} artworkStatus={nft.artworkStatus} alt={nft.name}/>
           <button type="button" className="mmw-mosaic-open" aria-label={`View ${nft.name}`} onClick={()=>onSelect(nft)}/>
           <button type="button" className="mmw-mosaic-star" aria-label={`${favorites.has(key)?'Unfavorite':'Favorite'} ${nft.name}`} aria-pressed={favorites.has(key)} onClick={()=>onToggleFavorite(key)}>{favorites.has(key)?'★':'☆'}</button>
           <button type="button" className="mmw-mosaic-spam" aria-label={`Mark ${nft.name} as spam`} title="Mark as spam" onClick={()=>onSpam(key)}>🚫</button>

@@ -7,11 +7,15 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 02bea62 · Five TypeScript targets pass; 165 test files and 2433 unit tests pass; three unpacked-extension browser journeys pass; desktop, extension, Android Vite and iOS Vite bundles pass; git diff --check passes. Native Android/iOS and deployed ownership scans were not run. · 2026-10-06T22:15-03:00
-head: 02bea62 (main) dirty 22
-updated: 2026-10-06T22:15-03:00 · codex
+verified: d4c781f · Final five-target typecheck;2436unit tests; focused header browser regression; Android bundle and signed release Gradle build; main phone install/launch Success. · 2026-10-07T21:39-03:00
+head: d4c781f (main) dirty 16
+updated: 2026-10-07T21:39-03:00 · codex
+
+resources: -
 
 ## Now
+- User-authorized main Android APK installed and launched on connected SM-G996W at21:39 Oct7 (info.chainlens.magicmoney0.10.1/code25, existing signer and data preserved). Percentage always visible next to Updated; chart privacy bounds/points invariant; native toolbar raised12px. Release Gradle passes, phone visual QA pending. No debug install or code commit/push.
+- Oct 7 follow-up complete locally: HTTPS IPFS/Arweave imageless repair, explicit empty on-chain artwork label, percentage beside chart with stable toolbar, measured browser navigation bounds and Android WebView overlap-only insets. Five TS targets,165files/2436tests,4 extension journeys,1 mobile layout fixture,4 native inset tests,four bundles and Gradle debug APK pass. Phone WebView QA remains open; no commit/push/deploy. docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md.
 - NFT media/mosaic port complete locally: Mosaic left of Search; all collection items in4-item quilts/vertical half-width pairs; shared6-slot displayed-image loader, current gateways/CID/CBOR/file candidates and exact-URI metadata fallback; Monad RPC verification wired and cached repairs no longer consume refresh budget. Five-target typecheck,165files/2433tests and3extension browser journeys pass; four bundles checked. Real captured Lil Sappys10/10decoded in wallet fixture. No commit/deploy. docs/NFT-GALLERY-PERFORMANCE.md.
 - NFT favorites shared ChainLens-ID sync complete locally: existing profile preference document, offline caches, legacy migration, unfavorite tombstones and expected-owner guards across all platform bridges; spam choices independent.
 - Final checks: five typecheck targets; 159 files/2327 tests; four desktop/web bundles; 2 extension gallery tests; ChainLens140 tests and cross-product browser checks. No live writes/deployment; local DB credential rejected (Unregistered API key).
@@ -31,7 +35,7 @@ updated: 2026-10-06T22:15-03:00 · codex
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- Review test-results/nft-mosaic-lil-sappys-live.png and docs/NFT-GALLERY-PERFORMANCE.md, then commit/push when ready.
+- User checks phone changes; no commit/push authorized.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -74,6 +78,7 @@ updated: 2026-10-06T22:15-03:00 · codex
 
 
 ## Pointers
+- docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md; e2e/mobile-browser-viewport.spec.ts; android/app/src/test/java/info/chainlens/magicmoney/DappViewportInsetsTest.java.
 - ../chainlens/docs/PROFILE-NFT-FAVORITES.md; src/renderer/lib/use-nft-favorites.ts; src/main/asset-filter-sync.test.ts; ignored .favorites-*.log.
 - docs/USDCX-STABLECOIN-ROUTING-PLAN.md; docs/USDCX-STABLECOIN-CLAUDE-PROMPT.md; docs/evidence/usdcx-portal-2026-10-05.json; ignored test-results/portal-interface/.
 - docs/CBADA-CCIP-EXECUTION-REVIEW.md; docs/CBADA-CCIP-ROUTE.md; src/main/cbada-ccip-{execute,send}.ts; src/main/cbada-solana-delivery.ts.

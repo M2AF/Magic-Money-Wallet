@@ -86,12 +86,57 @@ async function stubNfts(page: Page) {
       ...partial, partial: false, fetchedAt: Date.now(),
       items: [{ ...items[0], thumbnailUrl: 'https://nft-gallery.example/stalled.svg' }],
     }))
+    ;(window as any).__emptyArtworkFixture = () => callbacks.forEach(cb=>cb({
+      ...partial,partial:false,fetchedAt:Date.now(),items:[{...items[0],name:'Unpublished Monad #247',image:null,thumbnailUrl:null,chain:'monad',chainLabel:'Monad',artworkStatus:'missing-metadata'}],
+    }))
     ;(window as any).__pushNfts = (ids: number[], isPartial: boolean, changed = false, oldOwner = false) => callbacks.forEach(cb => cb({
       ...partial, items: ids.map(i => changed ? { ...items[i], image: 'https://nft-gallery.example/revealed.svg', thumbnailUrl: null } : items[i]),
       partial: isPartial, fetchedAt: Date.now(), ownerAddress: oldOwner ? '0xdead' : undefined,
     }))
   })
 }
+
+test('portfolio toolbar and chart stay fixed with always-visible PnL beside Updated',async()=>{
+  test.setTimeout(90_000)
+  const {context,page,runtimeErrors}=await launch('sidepanel.html')
+  try {
+    await page.evaluate(()=>{
+      window.wallet.getBalances=async()=>({chains:{ethereum:{usdValue:1685.28}},portfolioSparkline:[100,102,106,108.11],fetchedAt:Date.now()}) as any
+      ;(window as any).__pushNfts([],false)
+      ;(window as any).__finishNfts()
+    })
+    await page.getByRole('button',{name:'Refresh',exact:true}).click()
+    await expect(page.locator('.portfolio-update-row')).toContainText('8.11%')
+    await expect(page.locator('.portfolio-balance-row')).not.toContainText('%')
+    for (const width of [360,400,1000]) {
+      await page.setViewportSize({width,height:850})
+      const tools=page.locator('.portfolio-tools')
+      const before=await tools.boundingBox()
+      const chart=page.locator('.portfolio-chart-row svg')
+      const chartBefore=await chart.boundingBox()
+      const chartPathBefore=await chart.locator('polyline').getAttribute('points')
+      const percent=await page.locator('.portfolio-update-row > span').last().boundingBox()
+      expect(percent!.x+percent!.width).toBeLessThanOrEqual(before!.x)
+      expect(before!.x+before!.width).toBeLessThanOrEqual(width)
+      await page.getByRole('button',{name:'Hide balance',exact:true}).click()
+      expect(await tools.boundingBox()).toEqual(before)
+      await expect(page.locator('.portfolio-chart-row')).not.toContainText('%')
+      await expect(page.locator('.portfolio-update-row')).toContainText('8.11%')
+      expect(await chart.boundingBox()).toEqual(chartBefore)
+      expect(await chart.locator('polyline').getAttribute('points')).toEqual(chartPathBefore)
+      await page.getByRole('button',{name:'Show balance',exact:true}).click()
+      expect(await tools.boundingBox()).toEqual(before)
+      expect(await chart.boundingBox()).toEqual(chartBefore)
+      if (width===400 || width===1000) await page.screenshot({path:`test-results/portfolio-header-${width}.png`})
+    }
+    await page.setViewportSize({width:400,height:850})
+    await page.evaluate(()=>(window as any).__emptyArtworkFixture())
+    await expect(page.getByRole('img',{name:'Unpublished Monad #247: no artwork URI published by this token'})).toBeVisible()
+    await expect(page.getByText('No artwork published',{exact:true})).toBeVisible()
+    await page.screenshot({path:'test-results/nft-unpublished-metadata.png'})
+    expect(runtimeErrors).toEqual([])
+  } finally {await context.close()}
+})
 
 test('large NFT gallery loads nearby previews, displays early results, and retains full artwork', async () => {
   test.setTimeout(120_000)
