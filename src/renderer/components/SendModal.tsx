@@ -255,11 +255,12 @@ export function SendModal({
   return (
     <div
       ref={overlayRef}
+      className="art-overlay"
       onClick={handleOverlayClick}
       style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(6, 11, 24, 0.85)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
     >
       <div
-        className="fade-in"
+        className="fade-in art-panel"
         style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-active)', borderRadius: 'var(--radius-xl)', padding: '24px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '16px' }}
       >
         {/* Header */}

@@ -32,6 +32,9 @@
 // answer" — offline, no profile, unconfigured, an older build — and is
 // deliberately not the same value as "no themes".
 
+import './themes/mallard-order.css'
+import './themes/sealuminati.css'
+
 import {
   deriveThemeTokens,
   DEFAULT_CUSTOM_COLORS,

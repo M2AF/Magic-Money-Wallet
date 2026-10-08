@@ -7,13 +7,18 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: d4c781f · Final five-target typecheck;2436unit tests; focused header browser regression; Android bundle and signed release Gradle build; main phone install/launch Success. · 2026-10-07T21:39-03:00
-head: d4c781f (main) dirty 16
-updated: 2026-10-07T21:39-03:00 · codex
+verified: e158e64 · Seal placement/smooth OG logo: five TS targets;165files/2439tests;four renderer bundles;2 browser art-theme journeys and reviewed wallet360/400/1000 screenshots. · 2026-10-08T18:52-03:00
+head: e158e64 (main) dirty 10
+updated: 2026-10-08T18:52-03:00 · codex
 
 resources: -
 
 ## Now
+- Oct8 Sealuminati placement: user-approved browser seal peeks above URL field; wallet seal peeks above Collectibles, mirrored horizontally. Original smooth corner logo restored. Decorative CSS/hooks only; five TS targets,165files/2439tests, four renderer bundles and both browser theme journeys pass; wallet screenshots reviewed360/400/1000.
+- Oct8 art-theme refinement: removed under-logo gold dividers from both Mallard and Sealuminati titlebar/brand banner; bottom navigation styling preserved. Five-target typecheck,165files/2439tests, desktop/extension builds and both browser theme journeys pass; header screenshots reviewed.
+- Sealuminati dark-purple pixel art theme implemented locally Oct8: gold embroidered rune trim, violet torch frames, small seal crest, local Pixelify font, independent art-picker previews. Original Magic Money/Swap logos use smooth rendering and Mallard-style gold toning that preserves shading/highlights; user accepted the dimensional treatment. Five-target typecheck,165files/2439tests, four renderer bundles and both art-theme browser journeys pass;360/400/1000px, Send, Swap and smooth-logo titlebar screenshots reviewed. docs/SEALUMINATI-THEME.md. No commit/install/deploy.
+- Reusable magic-money-art-themes skill added Oct8; portable source .agents/skills/magic-money-art-themes, matching validated Codex/Claude runtime copies; includes architecture, asset/prompt workflow, preservation rules and Mallard QA traps. User approved the theme look via running-wallet screenshot. No wallet code changed in skill task.
+- Mallard Order art theme implemented locally Oct8: Settings > Appearance > Art themes; original local carved rune frame, stone buttons, Cinzel/Garamond fonts, portfolio/settings/Send/DEX skin. Five TS targets,165files/2438tests, extension browser journey and four renderer bundles pass; screenshots reviewed360/400/1000px. No APK install, commit, push or deployment. docs/MALLARD-ORDER-THEME.md.
 - User-authorized main Android APK installed and launched on connected SM-G996W at21:39 Oct7 (info.chainlens.magicmoney0.10.1/code25, existing signer and data preserved). Percentage always visible next to Updated; chart privacy bounds/points invariant; native toolbar raised12px. Release Gradle passes, phone visual QA pending. No debug install or code commit/push.
 - Oct 7 follow-up complete locally: HTTPS IPFS/Arweave imageless repair, explicit empty on-chain artwork label, percentage beside chart with stable toolbar, measured browser navigation bounds and Android WebView overlap-only insets. Five TS targets,165files/2436tests,4 extension journeys,1 mobile layout fixture,4 native inset tests,four bundles and Gradle debug APK pass. Phone WebView QA remains open; no commit/push/deploy. docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md.
 - NFT media/mosaic port complete locally: Mosaic left of Search; all collection items in4-item quilts/vertical half-width pairs; shared6-slot displayed-image loader, current gateways/CID/CBOR/file candidates and exact-URI metadata fallback; Monad RPC verification wired and cached repairs no longer consume refresh budget. Five-target typecheck,165files/2433tests and3extension browser journeys pass; four bundles checked. Real captured Lil Sappys10/10decoded in wallet fixture. No commit/deploy. docs/NFT-GALLERY-PERFORMANCE.md.
@@ -35,7 +40,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User checks phone changes; no commit/push authorized.
+- Art-theme refinements complete locally; native QA and ChainLens version separate.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -78,6 +83,8 @@ resources: -
 
 
 ## Pointers
+- docs/SEALUMINATI-THEME.md; src/renderer/themes/sealuminati.css; src/renderer/assets/themes/sealuminati/; test-results/sealuminati-*.png; ignored .rune-sealuminati-*.log.
+- docs/MALLARD-ORDER-THEME.md; e2e/art-themes.spec.ts; src/renderer/themes/mallard-order.css; test-results/mallard-*.png; ignored .rune-*.log.
 - docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md; e2e/mobile-browser-viewport.spec.ts; android/app/src/test/java/info/chainlens/magicmoney/DappViewportInsetsTest.java.
 - ../chainlens/docs/PROFILE-NFT-FAVORITES.md; src/renderer/lib/use-nft-favorites.ts; src/main/asset-filter-sync.test.ts; ignored .favorites-*.log.
 - docs/USDCX-STABLECOIN-ROUTING-PLAN.md; docs/USDCX-STABLECOIN-CLAUDE-PROMPT.md; docs/evidence/usdcx-portal-2026-10-05.json; ignored test-results/portal-interface/.
@@ -89,6 +96,7 @@ resources: -
 - AGENTS.md; README.md; HANDOFF_LOG.md; local agent-handoff, cardano-cross-chain-swaps and blockchain-architecture-review skills. Resolve skills locally before use.
 
 ## Skills
+- Full wallet art themes -> magic-money-art-themes | used: captures verified Mallard architecture, artwork workflow, custom-theme preservation and visual checks | source: .agents/skills/magic-money-art-themes/SKILL.md | Claude: C:/Users/balla/.claude/skills/magic-money-art-themes/SKILL.md | Codex: C:/Users/balla/.codex/skills/magic-money-art-themes/SKILL.md
 - NFT media and mosaic UI -> Fullstack Iteration, Visual Iteration, Playwright Testing | used: source-path comparison, regression assertions, screenshots and four-target bundles | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,visual-Iteration,playwright-testing}/SKILL.md | Claude: unknown.
 - Shared Claude/Codex changes -> agent-handoff | used: lease, checkpoints and verification handoff | source: local shared skill | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md
 - Wallet transaction pipeline review -> blockchain-architecture-review | used: approval, signer, broadcast and recovery boundaries | source: local Codex skill | Claude: unknown | Codex: C:/Users/balla/.codex/skills/Blockchain-architecture/SKILL.md

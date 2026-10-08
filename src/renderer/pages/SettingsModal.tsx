@@ -398,7 +398,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           <CurrencyPicker />
           <div className="theme-picker">
             <div className="theme-picker-group">Built-in</div>
-            {THEMES.map(t => (
+            {THEMES.filter(t => !t.art).map(t => (
               <ThemeSwatch
                 key={t.id}
                 name={t.name}
@@ -408,6 +408,20 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
                 onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
                 onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
               />
+            ))}
+            <div className="theme-picker-group">Art themes</div>
+            {THEMES.filter(t => t.art).map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`art-theme-card art-theme-${t.id}${theme === t.id ? ' active' : ''}`}
+                aria-pressed={theme === t.id}
+                onClick={() => { setTheme(t.id); setThemeState(t.id) }}
+              >
+                <span className="art-theme-mark" aria-hidden="true">◇</span>
+                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.artDescription}</span></span>
+                <span className="art-theme-status">{theme === t.id ? 'Selected' : 'Apply'}</span>
+              </button>
             ))}
             <div className="theme-picker-group">Yours</div>
             {customThemes.map(t => (
@@ -434,7 +448,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
             )}
           </div>
           <p className="theme-picker-note">
-            {`Tap the pencil to recolour any theme — a built-in can be reverted to how it shipped at any time. `}
+            {`Tap the pencil to recolour a colour theme — a built-in can be reverted to how it shipped at any time. Art themes also change the artwork, borders and fonts. `}
             {customThemes.length === 0
               ? 'Tap + to build one of your own from a background, an accent and a text colour; the rest of the app is derived to match.'
               : customThemes.length >= MAX_CUSTOM_THEMES

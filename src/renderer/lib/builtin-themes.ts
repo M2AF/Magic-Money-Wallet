@@ -29,6 +29,7 @@ export type BuiltinThemeId =
   | 'moonlight' | 'crimson' | 'grape' | 'matrix' | 'white-gold' | 'midnight'
   // Derived from three colours
   | 'cardano' | 'milady' | 'monad' | 'abstract' | 'bitcoin' | 'sappy-seals'
+  | 'mallard-order' | 'sealuminati'
 
 export interface ThemeDef {
   id: BuiltinThemeId
@@ -42,6 +43,10 @@ export interface ThemeDef {
   colors: CustomThemeColors
   /** true when index.css carries a hand-tuned block for this id. */
   css?: true
+  /** Full material/typography skin, presented separately from colour themes. */
+  art?: true
+  /** Material description shown on the art picker tile. */
+  artDescription?: string
 }
 
 /**
@@ -68,6 +73,8 @@ export const THEMES: ThemeDef[] = [
   { id: 'abstract',    name: 'Abstract',    swatch: ['#ffffff', '#52f293'], colors: { bg: '#ffffff', accent: '#52f293', text: '#000000' } },
   { id: 'bitcoin',     name: 'Bitcoin',     swatch: ['#000000', '#f2a900'], colors: { bg: '#000000', accent: '#f2a900', text: '#ababab' } },
   { id: 'sappy-seals', name: 'Sappy Seals', swatch: ['#ffffff', '#000000'], colors: { bg: '#ffffff', accent: '#000000', text: '#000000' } },
+  { id: 'mallard-order', name: 'Mallard Order', css: true, art: true, artDescription: 'Carved runes · Stone & gold', swatch: ['#10100e', '#c6a75e'], colors: { bg: '#10100e', accent: '#c6a75e', text: '#eee8d5' } },
+  { id: 'sealuminati', name: 'Sealuminati', css: true, art: true, artDescription: 'Pixel robes · Violet fire & gold', swatch: ['#120b24', '#ffd34d'], colors: { bg: '#120b24', accent: '#ffd34d', text: '#f4e9f6' } },
 ]
 
 const BY_ID = new Map<string, ThemeDef>(THEMES.map(t => [t.id, t]))
@@ -131,7 +138,8 @@ export function sameColors(a: CustomThemeColors, b: CustomThemeColors): boolean 
  * somebody deliberately tweaking a theme, and must be left alone.
  */
 export function matchingBuiltin(colors: CustomThemeColors): BuiltinThemeId | null {
-  return THEMES.find(t => sameColors(t.colors, colors))?.id ?? null
+  // A colour-only custom theme is never a duplicate of a full material skin.
+  return THEMES.find(t => !t.art && sameColors(t.colors, colors))?.id ?? null
 }
 
 /** [background, accent] for the picker dot, honouring an override. */

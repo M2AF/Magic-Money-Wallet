@@ -1,0 +1,149 @@
+/* Approved dark-purple pixel robe skin. Assets and OFL fonts are bundled. */
+@font-face {
+  font-family: 'MM Pixelify'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../assets/themes/sealuminati/pixelify-regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'MM Pixelify'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('../assets/themes/sealuminati/pixelify-bold.ttf') format('truetype');
+}
+:root[data-theme='sealuminati']:not([data-derived]) {
+  --bg-deep: #120b24;
+  --bg-dark: #170e2b;
+  --bg-surface: #251640;
+  --bg-card: #1b1033;
+  --bg-card-hover: #2b1a46;
+  --bg-deep-rgb: 18, 11, 36;
+  --bg-surface-rgb: 37, 22, 64;
+  --accent: #ffd34d;
+  --accent-rgb: 255, 211, 77;
+  --accent-hover: #ffe58a;
+  --accent-2: #ae55ff;
+  --accent-text: #ffd34d;
+  --accent-text-rgb: 255, 211, 77;
+  --btn-primary-text: #ffd34d;
+  --on-accent: #120b24;
+  --text-primary: #f4e9f6;
+  --text-secondary: #c5b1db;
+  --text-muted: #ac96c6;
+  --border: rgba(255, 211, 77, .3);
+  --border-active: rgba(255, 211, 77, .75);
+  --input-bg: #120b24;
+  --overlay-bg: rgba(8, 4, 18, .88);
+  --success: #73eb9b;
+  --success-rgb: 115, 235, 155;
+  --warning: #ffd34d;
+  --error: #ff8193;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --font-display: 'MM Pixelify', monospace;
+  --font-body: 'MM Pixelify', Arial, sans-serif;
+  --blur: none;
+}
+
+.art-theme-sealuminati {
+  color: #f4e9f6; background: #1b1033;
+  border-image: url('../assets/themes/sealuminati/frame.webp') 15% fill / 22px / 0 round;
+  image-rendering: pixelated;
+}
+.art-theme-sealuminati:hover, .art-theme-sealuminati.active {
+  box-shadow: 0 0 0 2px #ffd34d, 0 0 16px #ae55ff30;
+}
+.art-theme-sealuminati .art-theme-mark {
+  flex: 0 0 36px; height: 36px; font-size: 0;
+  background: url('../assets/themes/sealuminati/crest.webp') center / contain no-repeat;
+}
+.art-theme-sealuminati .art-theme-copy strong { font: 700 17px 'MM Pixelify', monospace; color: #ffd34d; }
+.art-theme-sealuminati .art-theme-copy > span { font: 14px 'MM Pixelify', monospace; color: #c5b1db; }
+.art-theme-sealuminati .art-theme-status { font: 700 12px 'MM Pixelify', monospace; color: #ffd34d; }
+.art-theme-sealuminati:focus-visible { outline-color: #ffd34d; }
+
+:root[data-theme='sealuminati']:not([data-derived]) .app-shell {
+  background: #120b24 url('../assets/themes/sealuminati/cloth.webp') repeat;
+  background-size: 384px; image-rendering: pixelated;
+}
+/* Nine-slice torch corners stay within each panel and never intercept input. */
+:root[data-theme='sealuminati']:not([data-derived]) :is(.card, .chain-card, .settings-group, .settings-sheet) {
+  background: var(--bg-card); border: 1px solid transparent; border-radius: 0;
+  border-image: url('../assets/themes/sealuminati/frame.webp') 15% fill / 32px / 0 round;
+  box-shadow: 0 4px 0 #080412; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.card, .chain-card) { padding: 32px; }
+:root[data-theme='sealuminati']:not([data-derived]) .settings-group { padding: 26px; }
+:root[data-theme='sealuminati']:not([data-derived]) .settings-sheet { padding-left: 12px; padding-right: 12px; }
+:root[data-theme='sealuminati']:not([data-derived]) :is(.chain-card, .settings-sheet)::before { display: none; }
+:root[data-theme='sealuminati']:not([data-derived]) .settings-group.danger { border-image: none; border-color: var(--error); }
+:root[data-theme='sealuminati']:not([data-derived]) .art-panel {
+  border-image: url('../assets/themes/sealuminati/frame.webp') 15% fill / 28px / 0 round !important;
+  border-radius: 0 !important; padding: 32px !important;
+  box-shadow: 0 4px 0 #080412;
+}
+:root[data-theme='sealuminati']:not([data-derived]) .art-overlay { background: var(--overlay-bg) !important; }
+:root[data-theme='sealuminati']:not([data-derived]) :is(.titlebar, .tab-banner, .bottom-nav) {
+  background: #1b1033 url('../assets/themes/sealuminati/cloth.webp');
+  border-color: var(--accent); box-shadow: inset 0 2px #ffd34d55, inset 0 -2px #ffd34d55;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.titlebar, .tab-banner) {
+  border-bottom: 0; box-shadow: none;
+}
+/* Original corner branding stays in place; the seal now peeks from the controls. */
+:root[data-theme='sealuminati']:not([data-derived]) .titlebar-logo { image-rendering: auto; }
+:root[data-theme='sealuminati']:not([data-derived]) .browser-address-bar::before {
+  content: ''; position: absolute; left: 24px; bottom: calc(100% - 3px);
+  width: 40px; height: 40px; pointer-events: none;
+  background: url('../assets/themes/sealuminati/crest.webp') center / contain no-repeat;
+  image-rendering: pixelated;
+}
+:root[data-theme='sealuminati']:not([data-derived]) .browser-address-bar > input {
+  /* The opaque field and its gold rim cover the bottom of his robe. */
+  position: relative;
+}
+:root[data-theme='sealuminati']:not([data-derived]) .portfolio-tabs { margin-top: 24px; }
+:root[data-theme='sealuminati']:not([data-derived]) .portfolio-tab-collectibles { position: relative; }
+:root[data-theme='sealuminati']:not([data-derived]) .portfolio-tab-collectibles::before {
+  content: ''; position: absolute; left: 50%; bottom: 100%;
+  /* Crop the robe's last pixels at the tab edge, and mirror only the wallet seal. */
+  width: 40px; height: 37px; transform: translateX(-50%) scaleX(-1);
+  background: url('../assets/themes/sealuminati/crest.webp') center top / 40px 40px no-repeat;
+  pointer-events: none; image-rendering: pixelated;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img, .swap-hero-text, .swap-hero-icon) {
+  /* Mallard-style gold toning preserves the original highlights and shading. */
+  image-rendering: auto;
+  filter: grayscale(1) sepia(.95) saturate(1.6);
+}
+:root[data-theme='sealuminati']:not([data-derived]) .tab-banner img { max-width: 100%; margin-left: 0; }
+:root[data-theme='sealuminati']:not([data-derived]) :is(.page-title, .settings-title, .settings-section-label) {
+  color: var(--accent); text-transform: uppercase; letter-spacing: .06em; text-shadow: 2px 2px #080412;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.chain-amount, .balance-amount, .portfolio-total) {
+  font-family: var(--font-display); font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button) {
+  background: #251640 !important; border: 2px solid var(--accent) !important; border-radius: 0 !important;
+  color: var(--accent); font-family: var(--font-display); font-size: 14px; text-transform: uppercase;
+  min-height: 44px; letter-spacing: .04em; box-shadow: inset 2px 2px #665087, inset -2px -2px #10091e, 0 3px #080412;
+}
+:root[data-theme='sealuminati']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button):hover:not(:disabled) {
+  color: var(--accent-hover); background: #32204d !important;
+}
+:root[data-theme='sealuminati']:not([data-derived]) .btn-danger { color: var(--error); border-color: var(--error) !important; }
+:root[data-theme='sealuminati']:not([data-derived]) :is(.btn, .art-swap > button):disabled { opacity: .4; box-shadow: none; }
+:root[data-theme='sealuminati']:not([data-derived]) :is(.input, .settings-select, .art-panel input) {
+  font-family: var(--font-mono) !important; border-radius: 0; box-shadow: inset 2px 2px #080412;
+}
+:root[data-theme='sealuminati']:not([data-derived]) .bottom-nav-btn { font-family: var(--font-display); font-size: 12px; }
+:root[data-theme='sealuminati']:not([data-derived]) .bottom-nav-btn.active { color: var(--accent); background: #ffd34d12; box-shadow: inset 0 -3px var(--accent); }
+:root[data-theme='sealuminati']:not([data-derived]) :is(button, input, select, [role='button']):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 420px) {
+  :root[data-theme='sealuminati']:not([data-derived]) .settings-section { padding: 0 6px; }
+  :root[data-theme='sealuminati']:not([data-derived]) .chain-spark-row svg { transform: scale(.82); }
+  .art-theme-sealuminati .art-theme-copy strong { font-size: 15px; }
+  .art-theme-sealuminati .art-theme-copy > span { font-size: 12px; }
+}
+@media (max-width: 380px) {
+  :root[data-theme='sealuminati']:not([data-derived]) .portfolio-header { flex-direction: column; }
+  :root[data-theme='sealuminati']:not([data-derived]) :is(.portfolio-summary, .portfolio-tools) { width: 100%; }
+}

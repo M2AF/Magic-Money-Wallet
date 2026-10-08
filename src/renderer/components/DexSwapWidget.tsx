@@ -596,11 +596,11 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className="art-swap" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Restored multi-step journeys of THIS wallet; read-only, never re-sends. */}
       <JourneysInProgress />
       {/* YOU PAY */}
-      <div style={cardStyle}>
+      <div className="art-panel" style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU PAY</span>
           <ChainDropdown ariaLabel="From network" value={fromChain} onChange={v => onFromChain(v as SwapChain)}
@@ -645,7 +645,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       </div>
 
       {/* YOU RECEIVE */}
-      <div style={cardStyle}>
+      <div className="art-panel" style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={labelStyle}>YOU RECEIVE</span>
           <ChainDropdown ariaLabel="To network" value={toChain} onChange={v => onToChain(v as SwapChain)}

@@ -188,3 +188,98 @@
 ### 2026-10-07T21:39-03:00 · codex · handoff · d4c781f (main) dirty 16
 - Main Android updated with percentage always visible and raised native toolbar; awaiting user visual QA.
 - next: User checks phone changes; no commit/push authorized.
+
+### 2026-10-08T17:24-03:00 · codex · claim · e158e64 (main) dirty 1
+- task: Magic Money Mallard rune art theme
+- lease until 2026-10-08T20:24-03:00
+
+### 2026-10-08T17:28-03:00 · codex · verify · e158e64 (main) dirty 6
+- verified: Fresh e158e64 baseline: five TypeScript targets and 165 files/2436 unit tests passed.
+- Mallard Order art theme in progress: original local stone/rune art, self-hosted OFL fonts, separate Art themes picker; next browser screenshot and switching/persistence validation.
+
+### 2026-10-08T17:41-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- Mallard rune art theme browser checks and visual review pass at360/400/1000px including total/chart bounds, settings, Send and DEX. Font/art local. Full five-target TS and165files/2438unit tests pass; desktop/extension/Android renderer builds pass; final iOS renderer bundling in flight (.rune-ios-build.log). No install/commit/push/deploy.
+- next: Finish iOS renderer build, release lease; user reviews theme previews.
+
+### 2026-10-08T17:42-03:00 · codex · verify · e158e64 (main) dirty 8
+- verified: Mallard Order: five-target TS;165files/2438unit tests; four renderer builds; Chromium theme journey and reviewed360/400/1000 screenshots.
+- Final npx electron-vite build, vite extension/capacitor/ios builds pass; typecheck and unit suite pass; art-themes.spec.ts 1/1 passes including full-total/chart bounds, persistence, preview cancel, Midnight switch, Send and Swap navigation; clean pageerror list. Evidence test-results/mallard-*.png and .rune-*.log. Native apps not installed or tested; no commit/push/deploy.
+
+### 2026-10-08T17:42-03:00 · codex · handoff · e158e64 (main) dirty 8
+- Mallard Order art theme ready locally with reviewed screenshots and documented generated art/fonts. Existing colour customs preserved.
+- next: User reviews local theme and previews; ChainLens version is next phase. No phone install or deployment performed.
+
+### 2026-10-08T18:08-03:00 · codex · claim · e158e64 (main) dirty 8
+- task: Reusable Magic Money art themes skill and discovery mapping
+- lease until 2026-10-08T21:08-03:00
+
+### 2026-10-08T18:11-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- Created magic-money-art-themes portable repo skill with SKILL.md, agents/openai.yaml and references/mallard-example.md; skill-creator validator passes repo and both runtime installations. SHA256 relative-file inventories match across repo/Codex/Claude (3files). Added HANDOFF Skills discovery mapping. Captures reference translation, local assets/OFL fonts, guarded CSS, art picker generalization, inline hooks, custom-palette preservation, financial chart bounds and accurate QA boundaries. No application edits or commits during this task.
+- next: Use magic-money-art-themes for the next wallet skin; inspect ChainLens theme engine separately for its adaptation.
+
+### 2026-10-08T18:11-03:00 · codex · handoff · e158e64 (main) dirty 8
+- Reusable art theme skill installed and validated for both runtimes with portable repo source and matching hashes.
+- next: Agents can invoke magic-money-art-themes for future Magic Money skins; ChainLens version is the next product phase.
+
+### 2026-10-08T18:20-03:00 · codex · claim · e158e64 (main) dirty 8
+- task: Sealuminati approved pixel art theme implementation
+- lease until 2026-10-08T21:20-03:00
+
+### 2026-10-08T18:26-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- Sealuminati registered with bundled pixel assets/font and scoped CSS; art tiles now have independent previews. Both browser theme journeys pass. Reviewing screenshots; type/unit and renderer builds running.
+
+### 2026-10-08T18:30-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- User identified wordmark pixelation. Corrected original brand artwork to image-rendering auto with solid gold alpha tint; added banner/titlebar regression assertions and titlebar screenshot. Final bundles/browser run pending.
+
+### 2026-10-08T18:32-03:00 · codex · verify · e158e64 (main) dirty 8
+- verified: Sealuminati + Mallard: five TS targets;165files/2439unit tests; four renderer bundles;2 browser theme journeys;360/400/1000px, Send/Swap and smooth gold logos reviewed.
+- Sealuminati complete locally with approved dark purple pixel robe/torch assets and original smooth brand logos. Browser previews/persistence/switching and layout checks pass; no transaction/native changes, commit, install or deployment.
+
+### 2026-10-08T18:32-03:00 · codex · handoff · e158e64 (main) dirty 8
+- Sealuminati theme and Magic Money/Magic Swap logo corrections complete locally; docs/SEALUMINATI-THEME.md and reviewed test-results/sealuminati screenshots.
+- next: User can select Sealuminati in Appearance; installed-device QA separate. ChainLens art version remains future scope.
+
+### 2026-10-08T18:33-03:00 · codex · claim · e158e64 (main) dirty 8
+- task: Sealuminati preserve original shaded logos with Mallard-style gold treatment
+- lease until 2026-10-08T21:33-03:00
+
+### 2026-10-08T18:34-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- Replaced flat alpha-silhouette logo recoloring with original-luminance grayscale/sepia gold toning, matching Mallard artwork treatment. Extension/theme browser checks and required type/unit validation running in .rune-sealuminati logs.
+
+### 2026-10-08T18:36-03:00 · codex · verify · e158e64 (main) dirty 8
+- verified: Sealuminati original shaded gold logos: five TS targets;165files/2439tests;four renderer bundles;2 browser theme journeys and reviewed Swap/titlebar screenshots.
+- User accepted Mallard-style original logo shading with warm gold toning. Removed flattening filter; preserved smooth rendering and original artwork. All local checks passed.
+
+### 2026-10-08T18:36-03:00 · codex · handoff · e158e64 (main) dirty 8
+- Logo refinement complete and user accepted. No commit, native install or deployment.
+- next: Sealuminati accepted locally; ChainLens version remains future scope.
+
+### 2026-10-08T18:39-03:00 · codex · claim · e158e64 (main) dirty 8
+- task: Remove under-logo divider from Mallard and Sealuminati headers
+- lease until 2026-10-08T21:39-03:00
+
+### 2026-10-08T18:39-03:00 · codex · checkpoint · e158e64 (main) dirty 8
+- Removed header divider shadows/bottom borders from Mallard and Sealuminati titlebars and extension brand banners. Bottom navigation styling preserved. Running type/unit and existing art-theme browser checks, extension/Electron builds in .rune-divider logs.
+
+### 2026-10-08T18:42-03:00 · codex · verify · e158e64 (main) dirty 8
+- verified: Header divider removal: five TS targets;165files/2439tests;desktop/extension builds;2 art-theme browser journeys;header screenshots reviewed.
+- Mallard and Sealuminati under-logo gold divider removed in shared titlebar/banner CSS. Existing navigation styling preserved. Local checks pass.
+
+### 2026-10-08T18:42-03:00 · codex · handoff · e158e64 (main) dirty 8
+- Header divider removal complete; no commit/install/deploy.
+- next: Both art themes ready locally; ChainLens version remains future scope.
+
+### 2026-10-08T18:47-03:00 · codex · claim · e158e64 (main) dirty 8
+- task: Sealuminati browser seal peeking above address bar
+- lease until 2026-10-08T21:47-03:00
+
+### 2026-10-08T18:50-03:00 · codex · checkpoint · e158e64 (main) dirty 10
+- User approved browser seal peeking above URL field; wallet seal moved above Collectibles and mirrored per follow-up. Original corner logo restored by removing header crest override. Reserved24px to protect portfolio chart. Running renderer/browser visual validation.
+
+### 2026-10-08T18:52-03:00 · codex · verify · e158e64 (main) dirty 10
+- verified: Seal placement/smooth OG logo: five TS targets;165files/2439tests;four renderer bundles;2 browser art-theme journeys and reviewed wallet360/400/1000 screenshots.
+- Browser seal placement user accepted. Wallet seal mirrored above Collectibles with chart clearance; original smooth corner logo restored. Presentation hooks only, viewport/native/signing logic untouched.
+
+### 2026-10-08T18:52-03:00 · codex · handoff · e158e64 (main) dirty 10
+- Seal placement, wallet flip and smooth original logo complete. No commit/install/deployment.
+- next: Art-theme refinements complete locally; native QA and ChainLens version separate.

@@ -1,0 +1,184 @@
+/* Original generated stone art; local OFL fonts. No runtime asset requests.
+   Material rules are isolated to the selected art theme and opt out of previews. */
+@font-face {
+  font-family: 'MM Cinzel'; font-style: normal; font-weight: 700; font-display: swap;
+  src: url('../assets/themes/mallard-order/cinzel-bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'MM Garamond'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url('../assets/themes/mallard-order/eb-garamond.ttf') format('truetype');
+}
+
+:root[data-theme='mallard-order']:not([data-derived]) {
+  --bg-deep: #10100e;
+  --bg-dark: #171815;
+  --bg-surface: #24251f;
+  --bg-card: #1d1e1a;
+  --bg-card-hover: #292a23;
+  --bg-deep-rgb: 16, 16, 14;
+  --bg-surface-rgb: 36, 37, 31;
+  --accent: #c6a75e;
+  --accent-rgb: 198, 167, 94;
+  --accent-hover: #e2c77f;
+  --accent-2: #a2b76c;
+  --accent-text: #dfc783;
+  --accent-text-rgb: 223, 199, 131;
+  --btn-primary-text: #eee8d5;
+  --on-accent: #171815;
+  --text-primary: #eee8d5;
+  --text-secondary: #c2bba4;
+  --text-muted: #a29b86;
+  --border: rgba(198, 167, 94, .28);
+  --border-active: rgba(226, 199, 127, .7);
+  --input-bg: rgba(0, 0, 0, .5);
+  --overlay-bg: rgba(4, 5, 3, .82);
+  --success: #a6d279;
+  --success-rgb: 166, 210, 121;
+  --warning: #e9ba64;
+  --error: #ff9292;
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-lg: 5px;
+  --radius-xl: 6px;
+  --font-display: 'MM Cinzel', Georgia, serif;
+  --font-body: 'MM Garamond', Georgia, serif;
+  --blur: none;
+}
+
+/* The tile previews the material even while another theme is selected. */
+.art-theme-card {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0;
+  min-height: 88px; padding: 17px 22px; cursor: pointer; text-align: left;
+  border: 14px solid transparent;
+  box-shadow: 0 4px 10px #0006; transition: box-shadow .18s;
+}
+.art-theme-mallard-order {
+  color: #eee8d5; background: #191a17;
+  border-image: url('../assets/themes/mallard-order/frame.webp') 11% fill / 14px / 0 round;
+  box-shadow: 0 4px 10px #0006; transition: box-shadow .18s;
+}
+.art-theme-mallard-order:hover, .art-theme-mallard-order.active { box-shadow: 0 0 0 1px #c6a75e, 0 0 18px #c6a75e25; }
+.art-theme-mallard-order .art-theme-mark { color: #dfc783; font-size: 28px; line-height: 1; }
+.art-theme-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+.art-theme-mallard-order .art-theme-copy strong { font: 700 13px 'MM Cinzel', Georgia, serif; letter-spacing: .08em; }
+.art-theme-mallard-order .art-theme-copy > span { font: 15px 'MM Garamond', Georgia, serif; color: #c2bba4; }
+.art-theme-mallard-order .art-theme-status { color: #dfc783; font: 700 9px 'MM Cinzel', Georgia, serif; letter-spacing: .06em; }
+
+:root[data-theme='mallard-order']:not([data-derived]) .app-shell {
+  background: radial-gradient(ellipse at 50% 0, #87744021, #070805bb 80%),
+    url('../assets/themes/mallard-order/stone.webp') repeat;
+  background-size: auto, 440px;
+}
+
+/* Border-image draws inside the existing boxes: decorations cannot intercept
+   taps, cover balances, or move the native browser viewport. */
+:root[data-theme='mallard-order']:not([data-derived]) :is(.card, .chain-card, .settings-group) {
+  border: 1px solid transparent;
+  border-image: url('../assets/themes/mallard-order/frame.webp') 11% fill / 19px / 0 round;
+  background: var(--bg-card);
+  border-radius: 0;
+  box-shadow: 0 5px 16px #0005;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(.card, .chain-card) { padding: 24px; }
+:root[data-theme='mallard-order']:not([data-derived]) .chain-card::before { display: none; }
+:root[data-theme='mallard-order']:not([data-derived]) .settings-group { padding: 18px; }
+:root[data-theme='mallard-order']:not([data-derived]) .settings-group.danger {
+  border-image: none; border-color: var(--error);
+}
+:root[data-theme='mallard-order']:not([data-derived]) .settings-sheet {
+  border-radius: 0; border: 1px solid transparent;
+  border-image: url('../assets/themes/mallard-order/frame.webp') 11% fill / 18px / 0 round;
+  padding-left: 10px; padding-right: 10px;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .settings-sheet::before { display: none; }
+:root[data-theme='mallard-order']:not([data-derived]) .art-panel {
+  border-image: url('../assets/themes/mallard-order/frame.webp') 11% fill / 16px / 0 round !important;
+  border-radius: 0 !important; padding: 24px !important;
+  box-shadow: 0 5px 16px #0005;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .art-panel input {
+  font-family: var(--font-mono) !important;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .art-overlay { background: var(--overlay-bg) !important; }
+:root[data-theme='mallard-order']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img, .swap-hero-text, .swap-hero-icon) {
+  filter: grayscale(1) sepia(.8);
+}
+
+:root[data-theme='mallard-order']:not([data-derived]) :is(.titlebar, .tab-banner, .bottom-nav) {
+  background: linear-gradient(#0c0d0980, #0c0d0980), url('../assets/themes/mallard-order/stone.webp');
+  border-color: var(--border-active);
+  box-shadow: inset 0 1px #dfc78335, inset 0 -1px #dfc78335;
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(.titlebar, .tab-banner) {
+  border-bottom: 0; box-shadow: none;
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(.page-title, .settings-title, .settings-section-label) {
+  letter-spacing: .1em; text-transform: uppercase; text-shadow: 0 2px 2px #000;
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(.page-subtitle, .settings-row-sub) {
+  font-size: 15px; line-height: 1.45;
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(.chain-amount, .balance-amount) {
+  font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .btn {
+  border: 1px solid var(--border-active);
+  border-radius: 4px 12px 4px 12px;
+  font-family: var(--font-display); font-size: 12px; letter-spacing: .09em;
+  text-transform: uppercase; min-height: 44px;
+  background: linear-gradient(180deg, #c6a75e12, #0008), url('../assets/themes/mallard-order/stone.webp');
+  background-size: auto, 320px;
+  box-shadow: inset 0 2px #eee8d526, inset 0 -3px #000a, 0 3px 8px #0008;
+  text-shadow: 0 2px #000;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .chain-card > button {
+  background: linear-gradient(180deg, #c6a75e20, #0008), url('../assets/themes/mallard-order/stone.webp') !important;
+  border-color: var(--accent) !important;
+  border-radius: 4px 14px 4px 14px !important;
+  box-shadow: inset 0 2px #eee8d526, inset 0 -3px #000a, 0 3px 8px #0008;
+  min-height: 44px; letter-spacing: .08em;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .btn-primary { color: var(--text-primary); border-color: var(--accent); }
+:root[data-theme='mallard-order']:not([data-derived]) .btn:hover:not(:disabled) {
+  color: var(--accent-hover); box-shadow: inset 0 2px #eee8d535, 0 0 12px var(--accent-dim);
+}
+:root[data-theme='mallard-order']:not([data-derived]) .btn-danger { color: var(--error); border-color: var(--error); }
+:root[data-theme='mallard-order']:not([data-derived]) .btn:disabled { opacity: .4; box-shadow: none; }
+:root[data-theme='mallard-order']:not([data-derived]) .art-swap > button {
+  background: linear-gradient(180deg, #c6a75e20, #0008), url('../assets/themes/mallard-order/stone.webp') !important;
+  border: 1px solid var(--accent) !important; border-radius: 4px 14px 4px 14px !important;
+  color: var(--text-primary) !important; font-family: var(--font-display);
+  min-height: 44px; letter-spacing: .08em;
+  box-shadow: inset 0 2px #eee8d526, inset 0 -3px #000a, 0 3px 8px #0008;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .art-swap > button:disabled { opacity: .4; box-shadow: none; }
+:root[data-theme='mallard-order']:not([data-derived]) :is(.input, .settings-select) {
+  border-radius: 3px; box-shadow: inset 0 2px 7px #0008; font-family: 'Inter', Arial, sans-serif;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .bottom-nav-btn {
+  font-family: var(--font-display); font-size: 9px; letter-spacing: .02em;
+}
+:root[data-theme='mallard-order']:not([data-derived]) .bottom-nav-btn.active {
+  color: var(--accent-hover); background: linear-gradient(0deg, var(--accent-dim), transparent);
+  box-shadow: inset 0 -2px var(--accent);
+}
+:root[data-theme='mallard-order']:not([data-derived]) :is(button, input, select, [role='button']):focus-visible,
+.art-theme-card:focus-visible {
+  outline: 2px solid #e2c77f; outline-offset: 3px;
+}
+@media (max-width: 420px) {
+  .art-theme-card { padding: 14px 16px; gap: 8px; }
+  .art-theme-mallard-order .art-theme-copy strong { font-size: 11px; }
+  .art-theme-mallard-order .art-theme-copy > span { font-size: 13px; }
+  :root[data-theme='mallard-order']:not([data-derived]) .settings-section { padding: 0 8px; }
+  :root[data-theme='mallard-order']:not([data-derived]) .page-title { font-size: 20px; }
+}
+@media (max-width: 380px) {
+  :root[data-theme='mallard-order']:not([data-derived]) .portfolio-header { flex-direction: column; }
+  :root[data-theme='mallard-order']:not([data-derived]) :is(.portfolio-summary, .portfolio-tools) { width: 100%; }
+  /* Scale the complete SVG: all price points remain visible, rather than
+     clipping a fixed-width sparkline to fit the wider stone frame. */
+  :root[data-theme='mallard-order']:not([data-derived]) .chain-spark-row svg { transform: scale(.82); }
+}

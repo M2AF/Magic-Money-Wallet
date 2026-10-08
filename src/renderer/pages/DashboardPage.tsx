@@ -1321,10 +1321,11 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
             rgba(0,0,0,0.3), so this looks unchanged, but a light custom theme
             tints it from the text colour instead of laying grey over paper.
             Same fill as the address chip, which is what it has to match. */}
-        <div style={{ display: 'flex', gap: 4, background: 'var(--input-bg)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
+        <div className="portfolio-tabs" style={{ display: 'flex', gap: 4, background: 'var(--input-bg)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
           {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
             <button
               key={tab}
+              className={`portfolio-tab-${tab}`}
               type="button"
               onClick={() => changePortfolioTab(tab)}
               style={{

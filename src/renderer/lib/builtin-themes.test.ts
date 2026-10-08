@@ -19,10 +19,10 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is twelve themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(12)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(12)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(12)
+  it('is fourteen themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(14)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(14)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(14)
   })
 
   it('gives every theme three usable colours and a swatch', () => {
@@ -66,6 +66,8 @@ describe('the shipped table', () => {
  */
 describe('hand-tuned themes match their stylesheet block', () => {
   const css = readFileSync(fileURLToPath(new URL('../index.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/mallard-order.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/sealuminati.css', import.meta.url)), 'utf8')
 
   /** The first `{ … }` block for a selector, or null. */
   function block(selector: string): string | null {
@@ -103,7 +105,15 @@ describe('hand-tuned themes match their stylesheet block', () => {
 
 describe('matchingBuiltin', () => {
   it('finds a theme that is colour-for-colour one we now ship', () => {
-    for (const def of THEMES) expect(matchingBuiltin(def.colors)).toBe(def.id)
+    for (const def of THEMES) expect(matchingBuiltin(def.colors)).toBe(def.art ? null : def.id)
+  })
+
+  it('preserves a custom colour theme matching an art theme palette', () => {
+    for (const art of THEMES.filter(t => t.art)) {
+      const entry = { n: 'My gold', c: art.colors, t: 100 }
+      expect(planAbsorbShipped({ 'custom-my-gold': entry }, 'custom-my-gold'))
+        .toEqual({ tombstone: [], moveTo: null })
+    }
   })
 
   it('ignores the case the colours were written in', () => {

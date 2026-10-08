@@ -317,7 +317,7 @@ export function BrowserApp() {
   }, [])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+    <div className="browser-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
       {/* Same top-edge progress line the wallet window uses. Main already pushes
           `download:progress` to this renderer; nothing was rendering it here. */}
       <DownloadProgressBar />
@@ -398,7 +398,7 @@ export function BrowserApp() {
         />
 
         {/* URL bar + App Hub suggestions */}
-        <form onSubmit={onSubmit} style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+        <form className="browser-address-bar" onSubmit={onSubmit} style={{ flex: 1, minWidth: 0, position: 'relative' }}>
           <input
             ref={inputRef}
             type="text"
