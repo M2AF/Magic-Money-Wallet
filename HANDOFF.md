@@ -7,13 +7,16 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: e158e64 · Seal placement/smooth OG logo: five TS targets;165files/2439tests;four renderer bundles;2 browser art-theme journeys and reviewed wallet360/400/1000 screenshots. · 2026-10-08T18:52-03:00
-head: e158e64 (main) dirty 10
-updated: 2026-10-08T18:52-03:00 · codex
+verified: e369070 · Five-target typecheck;165files/2440tests;four renderer bundles;final r3tards journey pass. Transparent brand bars and enhanced smooth logos reviewed in wallet and actual isolated Electron browser header (manual material-ID fixture). Local only. · 2026-10-08T23:17-03:00
+head: e369070 (main) dirty 7
+updated: 2026-10-08T23:17-03:00 · codex
 
 resources: -
 
 ## Now
+- r3tards brand-bar refinement: transparent wallet titlebar/extension banner and browser titlebar, collage on browser shell; smooth original logos slightly brightened with soft highlight/shadow. Five-target TS,165files/2440tests,four renderer bundles and final r3tards browser journey pass. Isolated Electron browser header CSS/screenshot verified with manual theme-ID fixture; no real wallet. Screenshots .local-artifacts/r3tards/; logs r3tards-topbar-*.log. No commit/install/release.
+- r3tards portfolio refinement: restored stock left-summary/right-tools arrangement; user requested black border retained with8px inset. Compact narrow icon spacing/amount font avoids clipping; account controls retain natural width. Geometry/full-balance checks pass360/400/1000; final r3tards journey passes. All3art journeys passed before border follow-up; five-target typecheck and165files/2440tests pass. All four renderer builds pass; logs r3tards-layout-*.log. No native install/commit/release.
+- r3tards wallet collab complete locally: shared renderer skin, same supplied background/licensed fonts as ChainLens, purple readable surfaces, white pill buttons and smooth OG line art. Full balances fit360/400/1000px with stock side-by-side header and inset black border. Five TS targets,165files/2440tests,four renderer bundles and3art-theme journeys pass; final r3tards rerun passes. docs/R3TARDS-THEME.md;.local-artifacts/r3tards/. No commit/install/release.
 - Oct8 Sealuminati placement: user-approved browser seal peeks above URL field; wallet seal peeks above Collectibles, mirrored horizontally. Original smooth corner logo restored. Decorative CSS/hooks only; five TS targets,165files/2439tests, four renderer bundles and both browser theme journeys pass; wallet screenshots reviewed360/400/1000.
 - Oct8 art-theme refinement: removed under-logo gold dividers from both Mallard and Sealuminati titlebar/brand banner; bottom navigation styling preserved. Five-target typecheck,165files/2439tests, desktop/extension builds and both browser theme journeys pass; header screenshots reviewed.
 - Sealuminati dark-purple pixel art theme implemented locally Oct8: gold embroidered rune trim, violet torch frames, small seal crest, local Pixelify font, independent art-picker previews. Original Magic Money/Swap logos use smooth rendering and Mallard-style gold toning that preserves shading/highlights; user accepted the dimensional treatment. Five-target typecheck,165files/2439tests, four renderer bundles and both art-theme browser journeys pass;360/400/1000px, Send, Swap and smooth-logo titlebar screenshots reviewed. docs/SEALUMINATI-THEME.md. No commit/install/deploy.
@@ -40,7 +43,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- Art-theme refinements complete locally; native QA and ChainLens version separate.
+- Review .local-artifacts/r3tards/r3tards-portfolio-400.png and r3tards-browser-transparent-topbar.png; user handles release/install.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -83,6 +86,7 @@ resources: -
 
 
 ## Pointers
+- docs/R3TARDS-THEME.md;src/renderer/themes/r3tards.css;src/renderer/assets/themes/r3tards/;e2e/art-themes.spec.ts;.local-artifacts/r3tards/;r3tards-*.log.
 - docs/SEALUMINATI-THEME.md; src/renderer/themes/sealuminati.css; src/renderer/assets/themes/sealuminati/; test-results/sealuminati-*.png; ignored .rune-sealuminati-*.log.
 - docs/MALLARD-ORDER-THEME.md; e2e/art-themes.spec.ts; src/renderer/themes/mallard-order.css; test-results/mallard-*.png; ignored .rune-*.log.
 - docs/NFT-MEDIA-AND-MOBILE-LAYOUT-2026-10-07.md; e2e/mobile-browser-viewport.spec.ts; android/app/src/test/java/info/chainlens/magicmoney/DappViewportInsetsTest.java.

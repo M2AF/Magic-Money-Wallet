@@ -34,6 +34,7 @@
 
 import './themes/mallard-order.css'
 import './themes/sealuminati.css'
+import './themes/r3tards.css'
 
 import {
   deriveThemeTokens,

@@ -283,3 +283,53 @@
 ### 2026-10-08T18:52-03:00 · codex · handoff · e158e64 (main) dirty 10
 - Seal placement, wallet flip and smooth original logo complete. No commit/install/deployment.
 - next: Art-theme refinements complete locally; native QA and ChainLens version separate.
+
+### 2026-10-08T22:28-03:00 · codex · claim · e369070 (main) dirty 1
+- task: Port r3tards collab art theme to shared Magic Money renderer
+- lease until 2026-10-09T01:28-03:00
+
+### 2026-10-08T22:30-03:00 · codex · checkpoint · e369070 (main) dirty 6
+- r3tards registered as third wallet art theme with guarded CSS/default palette identical to ChainLens. Assets copied unchanged with source font licenses; new white pill and purple collage skin uses existing presentation hooks. Extension selection/portfolio/Send/Swap/preview/reload journey extended for third skin. Starting required checks and fresh renderer builds.
+
+### 2026-10-08T22:36-03:00 · codex · checkpoint · e369070 (main) dirty 6
+- Five-target typecheck,165files/2440tests,four renderer bundles and all3extension art journeys passed; screenshots reviewed. Final CSS correction rounds actual inline portfolio tab buttons and overrides the balance display inline font for precision. Refreshing bundles and affected r3tards browser journey; native/signing logic untouched.
+
+### 2026-10-08T22:40-03:00 · codex · verify · e369070 (main) dirty 6
+- verified: r3tards wallet: five TS targets;165files/2440tests;four renderer bundles;all3art journeys plus final r3tards rerun pass. Portfolio360/400/1000, Settings/Send/Swap reviewed; full balances/charts fit, assets byte-match ChainLens. No native install/release.
+- next: Review .local-artifacts/r3tards/r3tards-portfolio-400.png and r3tards-swap-400.png; new theme is in Settings > Appearance > Art themes in rebuilt renderer. User handles commit/release/install. See docs/R3TARDS-THEME.md.
+
+### 2026-10-08T22:40-03:00 · codex · handoff · e369070 (main) dirty 6
+- r3tards Magic Money theme implemented and validated in shared renderer; matching ChainLens assets/palette and original smooth logos. Docs/previews saved. No commit, release or installation.
+
+### 2026-10-08T22:50-03:00 · codex · claim · e369070 (main) dirty 6
+- task: Restore r3tards wallet portfolio positions with minimal fit adjustments
+- lease until 2026-10-09T01:50-03:00
+
+### 2026-10-08T22:51-03:00 · codex · checkpoint · e369070 (main) dirty 6
+- Removed r3tards narrow portfolio stacking and extra header padding/margin; preserve stock summary-left/tools-right. Small responsive amount font keeps full precision. Running typecheck/unit and fresh extension/browser checks; logs r3tards-layout-*.log.
+
+### 2026-10-08T23:00-03:00 · codex · checkpoint · e369070 (main) dirty 7
+- User requested black border restored; 3px frame/8px inset with side-by-side stock positions. Final r3tards geometry/full-balance checks and journey pass; screenshots reviewed360/400/1000. Desktop/mobile renderer bundles finishing; no installation/release.
+
+### 2026-10-08T23:00-03:00 · codex · verify · e369070 (main) dirty 7
+- verified: Five-target typecheck;165files/2440tests;four renderer bundles pass. All3art journeys passed; final inset-border r3tards rerun passes. Side-by-side geometry/full balances and screenshots reviewed360/400/1000. Local only.
+- R3tards portfolio positions restored with small sizing adjustments; black border/inset retained per user steering. Only shared presentation hooks/styles/tests/docs changed.
+
+### 2026-10-08T23:00-03:00 · codex · handoff · e369070 (main) dirty 7
+- Portfolio layout/border refinement complete locally; rebuilt renderers and saved previews. No commit/install/release.
+- next: Review .local-artifacts/r3tards/r3tards-portfolio-{360,400,1000}.png; user handles release/install.
+
+### 2026-10-08T23:11-03:00 · codex · claim · e369070 (main) dirty 7
+- task: Transparent r3tards wallet and browser top bar
+- lease until 2026-10-09T02:11-03:00
+
+### 2026-10-08T23:12-03:00 · codex · checkpoint · e369070 (main) dirty 7
+- Transparent r3tards titlebar/extension banner; added collage to browser shell behind transparent chrome. Scoped CSS only; preserving bottom nav/address-field surfaces. Running rebuilt extension/browser journey and renderer/typecheck/unit checks; r3tards-topbar-*.log.
+
+### 2026-10-08T23:17-03:00 · codex · verify · e369070 (main) dirty 7
+- verified: Five-target typecheck;165files/2440tests;four renderer bundles;final r3tards journey pass. Transparent brand bars and enhanced smooth logos reviewed in wallet and actual isolated Electron browser header (manual material-ID fixture). Local only.
+- Transparent header exposes collage; browser shell supplies background, top logos have subtle highlight/shadow. Initial isolated script hit onboarding theme-init race; revised CSS-only fixture succeeds; real selection/persistence remains covered by extension journey.
+
+### 2026-10-08T23:17-03:00 · codex · handoff · e369070 (main) dirty 7
+- Transparent top bars and modest logo lift complete locally; docs/previews saved. No commit/install/release.
+- next: Review .local-artifacts/r3tards/r3tards-portfolio-400.png and r3tards-browser-transparent-topbar.png; user handles release/install.

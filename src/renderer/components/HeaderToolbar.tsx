@@ -76,7 +76,7 @@ export function HeaderToolbar({
           off-screen and push the sparkline out of view. */}
       {(!!sidebarFn || isCapacitor) && <NetworkSwitcher />}
 
-      <div style={{ display: 'flex', gap: 5 }}>
+      <div className="header-toolbar-actions" style={{ display: 'flex', gap: 5 }}>
       {/* Sidebar toggle — extension only */}
       {!!sidebarFn && (
         <button

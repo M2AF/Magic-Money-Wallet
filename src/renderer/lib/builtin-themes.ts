@@ -29,7 +29,7 @@ export type BuiltinThemeId =
   | 'moonlight' | 'crimson' | 'grape' | 'matrix' | 'white-gold' | 'midnight'
   // Derived from three colours
   | 'cardano' | 'milady' | 'monad' | 'abstract' | 'bitcoin' | 'sappy-seals'
-  | 'mallard-order' | 'sealuminati'
+  | 'mallard-order' | 'sealuminati' | 'r3tards'
 
 export interface ThemeDef {
   id: BuiltinThemeId
@@ -75,6 +75,7 @@ export const THEMES: ThemeDef[] = [
   { id: 'sappy-seals', name: 'Sappy Seals', swatch: ['#ffffff', '#000000'], colors: { bg: '#ffffff', accent: '#000000', text: '#000000' } },
   { id: 'mallard-order', name: 'Mallard Order', css: true, art: true, artDescription: 'Carved runes · Stone & gold', swatch: ['#10100e', '#c6a75e'], colors: { bg: '#10100e', accent: '#c6a75e', text: '#eee8d5' } },
   { id: 'sealuminati', name: 'Sealuminati', css: true, art: true, artDescription: 'Pixel robes · Violet fire & gold', swatch: ['#120b24', '#ffd34d'], colors: { bg: '#120b24', accent: '#ffd34d', text: '#f4e9f6' } },
+  { id: 'r3tards', name: 'r3tards', css: true, art: true, artDescription: 'Doodle collage · Purple & pill buttons', swatch: ['#493259', '#ffffff'], colors: { bg: '#493259', accent: '#ffffff', text: '#ffffff' } },
 ]
 
 const BY_ID = new Map<string, ThemeDef>(THEMES.map(t => [t.id, t]))

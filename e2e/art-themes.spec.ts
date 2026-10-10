@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 
 test.use({ actionTimeout: 10_000 })
 
-for (const theme of [{ id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }]) {
+for (const theme of [{ id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'r3tards', name: 'r3tards' }]) {
 test(`${theme.name} selects, persists, previews cleanly and leaves other themes intact`, async () => {
   test.setTimeout(90_000)
   const dist = resolve('dist-extension')
@@ -19,9 +19,11 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     const page = await context.newPage()
     const settle = () => page.evaluate(async () => {
       await document.fonts.ready
-      await Promise.all(document.getAnimations()
-        .filter(a => a.effect?.getComputedTiming().endTime !== Infinity)
-        .map(a => a.finished.catch(() => {})))
+      for (const animation of document.getAnimations()) {
+        if (Number.isFinite(animation.effect?.getComputedTiming().endTime)) {
+          try { animation.finish() } catch { /* Responsive transition detached. */ }
+        }
+      }
     })
     page.on('pageerror', e => errors.push(e.message))
     await page.goto(`chrome-extension://${worker.url().split('/')[2]}/sidepanel.html`)
@@ -68,12 +70,24 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await page.setViewportSize({ width, height: 850 })
       await expect(page.locator('.chain-card').first()).toBeVisible()
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect(await page.locator('.portfolio-total').first().evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+      await settle()
+      const amountBounds = await page.locator('.portfolio-total').first().evaluate(el => ({ scroll: el.scrollWidth, width: el.clientWidth, font: getComputedStyle(el).fontSize, text: el.textContent }))
+      expect(amountBounds.scroll, JSON.stringify(amountBounds)).toBeLessThanOrEqual(amountBounds.width)
+      if (theme.id === 'r3tards') {
+        // Keep the stock left summary / right toolbar arrangement at phone widths.
+        expect(await page.locator('.portfolio-header').evaluate(header => {
+          const summary = header.querySelector('.portfolio-summary')!.getBoundingClientRect()
+          const tools = header.querySelector('.portfolio-tools')!.getBoundingClientRect()
+          const bounds = header.getBoundingClientRect()
+          return Math.abs(summary.top - tools.top) < 2 && tools.left >= summary.right - 1 && tools.right <= bounds.right - 10 && summary.left >= bounds.left + 10
+        })).toBe(true)
+      }
       expect(await page.locator('.chain-spark-row svg').first().evaluate(el => {
         const chart = el.getBoundingClientRect(), card = el.closest('.chain-card')!.getBoundingClientRect()
         return chart.left >= card.left + 18 && chart.right <= card.right - 18
       })).toBe(true)
-      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', /frame.*\.webp/)
+      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.webp/)
+      if (theme.id === 'r3tards') await expect(page.locator('.app-shell')).toHaveCSS('background-image', /background.*\.webp/)
       await settle()
       await page.screenshot({ path: `test-results/${theme.id}-portfolio-${width}.png` })
     }
@@ -87,16 +101,23 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await page.screenshot({ path: 'test-results/sealuminati-titlebar-400.png' })
       await desktopHeader.evaluate(el => el.remove())
     }
+    if (theme.id === 'r3tards') {
+      await expect(page.locator('.tab-banner img')).toHaveCSS('image-rendering', 'auto')
+      await expect(page.locator('.tab-banner')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+      await expect(page.locator('.titlebar')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+      await expect(page.getByRole('button', { name: 'Send ETH', exact: true })).toHaveCSS('background-color', 'rgb(255, 255, 255)')
+      await expect(page.getByRole('button', { name: 'Send ETH', exact: true })).toHaveCSS('color', 'rgb(16, 16, 16)')
+    }
     await page.getByRole('button', { name: 'Send ETH', exact: true }).click()
     await expect(page.getByText('Recipient Address', { exact: true })).toBeVisible()
-    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', /frame.*\.webp/)
+    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.webp/)
     await expect(page.getByRole('button', { name: 'Estimate Fee', exact: true })).toBeDisabled()
     await settle()
     await page.screenshot({ path: `test-results/${theme.id}-send-400.png` })
     await page.getByRole('button', { name: 'Close send dialog', exact: true }).click()
     await page.locator('.bottom-nav-btn').filter({ hasText: /^Swap$/i }).click()
     await expect(page.locator('.art-swap')).toBeVisible()
-    if (theme.id === 'sealuminati') {
+    if (theme.id === 'sealuminati' || theme.id === 'r3tards') {
       await expect(page.locator('.swap-hero-text')).toHaveCSS('image-rendering', 'auto')
       await expect(page.locator('.swap-hero-icon')).toHaveCSS('image-rendering', 'auto')
     }

@@ -1,0 +1,116 @@
+/* r3tards collab: same supplied collage and licensed fonts as ChainLens. */
+@font-face { font-family: 'MM Schoolbell'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/themes/r3tards/schoolbell.woff2') format('woff2'); }
+@font-face { font-family: 'MM Plex Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/themes/r3tards/ibm-plex-mono-regular.woff2') format('woff2'); }
+@font-face { font-family: 'MM Plex Mono'; font-weight: 700; font-style: normal; font-display: swap; src: url('../assets/themes/r3tards/ibm-plex-mono-bold.woff2') format('woff2'); }
+
+:root[data-theme='r3tards']:not([data-derived]) {
+  --bg-deep: #493259;
+  --bg-dark: #201529; --bg-surface: #30213f; --bg-card: #30213f; --bg-card-hover: #402c52;
+  --bg-deep-rgb: 73, 50, 89; --bg-surface-rgb: 48, 33, 63;
+  --accent: #ffffff; --accent-rgb: 255, 255, 255; --accent-hover: #e8d9f3; --accent-2: #cda7ec;
+  --accent-text: #ffffff; --accent-text-rgb: 255, 255, 255; --btn-primary-text: #101010; --on-accent: #101010;
+  --text-primary: #ffffff; --text-secondary: #e0d5e9; --text-muted: #bfb0cc;
+  --border: #101010; --border-active: #ffffff; --input-bg: #201529; --overlay-bg: #140c1ce6;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px;
+  --font-display: 'MM Schoolbell', cursive; --font-body: 'MM Plex Mono', monospace;
+  --font-mono: 'MM Plex Mono', ui-monospace, monospace; --blur: none;
+}
+
+/* Independent preview: not governed by the currently selected skin. */
+.art-theme-r3tards {
+  color: #fff; background: linear-gradient(#25162dcc, #25162dcc), url('../assets/themes/r3tards/background.webp') center / cover;
+  border: 2px solid #101010; border-radius: 20px; box-shadow: 3px 3px 0 #101010;
+}
+.art-theme-r3tards.active, .art-theme-r3tards:hover { outline: 2px solid #fff; outline-offset: -5px; }
+.art-theme-r3tards .art-theme-mark {
+  flex: 0 0 34px; height: 34px; font-size: 0; border: 2px solid #101010; border-radius: 9px;
+  background: #fff url('../assets/themes/r3tards/logo.png') center / 28px no-repeat;
+}
+.art-theme-r3tards .art-theme-copy strong { font: 400 23px 'MM Schoolbell', cursive; }
+.art-theme-r3tards .art-theme-copy > span { font: 400 11px/1.4 'MM Plex Mono', monospace; }
+.art-theme-r3tards .art-theme-status { font: 700 9px 'MM Plex Mono', monospace; }
+
+:root[data-theme='r3tards']:not([data-derived]) .app-shell {
+  background: linear-gradient(#0004, #0004), url('../assets/themes/r3tards/background.webp') center / cover;
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.card, .chain-card, .settings-group) {
+  background: #30213ff5; border: 3px solid #101010; border-image: none; border-radius: 24px;
+  box-shadow: 4px 4px 0 #101010; backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.card, .chain-card) { padding: 20px; }
+:root[data-theme='r3tards']:not([data-derived]) .settings-group { padding: 18px; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.chain-card, .settings-sheet)::before { display: none; }
+:root[data-theme='r3tards']:not([data-derived]) .settings-group.danger { border-color: var(--error); }
+:root[data-theme='r3tards']:not([data-derived]) .settings-sheet {
+  background: #30213f; border: 3px solid #101010; border-radius: 24px; box-shadow: 4px 4px 0 #101010;
+}
+:root[data-theme='r3tards']:not([data-derived]) .art-panel {
+  background: #30213f !important; border: 3px solid #101010 !important; border-image: none !important;
+  border-radius: 24px !important; padding: 20px !important; box-shadow: 4px 4px 0 #101010;
+}
+:root[data-theme='r3tards']:not([data-derived]) .art-overlay { background: var(--overlay-bg) !important; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.titlebar, .tab-banner, .bottom-nav) {
+  background: #201529ed; border-color: #101010; box-shadow: none;
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.titlebar, .tab-banner) { background: transparent; border-bottom: 0; }
+/* Browser chrome is a separate renderer with an inline shell background. */
+:root[data-theme='r3tards']:not([data-derived]) .browser-shell {
+  background: linear-gradient(#0004, #0004), url('../assets/themes/r3tards/background.webp') center / cover !important;
+}
+:root[data-theme='r3tards']:not([data-derived]) .titlebar-logo { image-rendering: auto; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img, .swap-hero-text, .swap-hero-icon) {
+  image-rendering: auto; filter: grayscale(1);
+}
+:root[data-theme='r3tards']:not([data-derived]) .tab-banner img { max-width: 100%; margin-left: 0; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.page-title, .settings-title, .settings-section-label) {
+  color: #fff; font-weight: 400; letter-spacing: .02em; -webkit-text-stroke: 1px #101010;
+  paint-order: stroke fill; text-shadow: 2px 2px 0 #101010;
+}
+:root[data-theme='r3tards']:not([data-derived]) .portfolio-header {
+  background: #30213feb; border: 3px solid #101010; border-radius: 20px;
+  padding: 8px; margin-bottom: 8px; box-shadow: 3px 3px 0 #101010;
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.chain-amount, .balance-amount, .portfolio-total) {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0;
+}
+:root[data-theme='r3tards']:not([data-derived]) .portfolio-summary > div:last-child { width: max-content; }
+:root[data-theme='r3tards']:not([data-derived]) .portfolio-total {
+  font-family: var(--font-mono) !important; font-size: clamp(11px, 11cqw, 22px);
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button) {
+  background: #fff !important; color: #101010 !important; border: 2px solid #101010 !important; border-radius: 999px !important;
+  font-family: var(--font-body); font-size: 12px; min-height: 44px; text-transform: uppercase;
+  letter-spacing: 0; text-shadow: none; box-shadow: 3px 3px 0 #101010;
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button):hover:not(:disabled) {
+  background: #101010 !important; color: #fff !important; border-color: #fff !important;
+}
+:root[data-theme='r3tards']:not([data-derived]) .btn-danger { color: var(--error) !important; border-color: var(--error) !important; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button):disabled { opacity: .45; box-shadow: none; }
+:root[data-theme='r3tards']:not([data-derived]) :is(.input, .settings-select, .art-panel input) {
+  font-family: var(--font-mono) !important; border: 2px solid #101010; border-radius: 14px; background: #201529;
+}
+:root[data-theme='r3tards']:not([data-derived]) .portfolio-tabs { border-radius: 999px !important; }
+:root[data-theme='r3tards']:not([data-derived]) .portfolio-tabs > button {
+  border-radius: 999px !important; min-height: 32px; font-family: var(--font-body); letter-spacing: 0;
+}
+:root[data-theme='r3tards']:not([data-derived]) .bottom-nav-btn { font-family: var(--font-body); font-size: 10px; letter-spacing: 0; }
+:root[data-theme='r3tards']:not([data-derived]) .bottom-nav-btn.active { background: #fff; color: #101010; border-radius: 999px; box-shadow: 2px 2px 0 #101010; }
+:root[data-theme='r3tards']:not([data-derived]) :is(button, input, select, [role='button']):focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+@media (max-width: 380px) {
+  :root[data-theme='r3tards']:not([data-derived]) .chain-spark-row svg { transform: scale(.85); }
+}
+
+@media (max-width: 400px) {
+  :root[data-theme='r3tards']:not([data-derived]) .portfolio-tools .header-toolbar-actions { gap: 3px !important; }
+  :root[data-theme='r3tards']:not([data-derived]) .portfolio-tools .header-toolbar-actions > button { width: 30px !important; }
+  :root[data-theme='r3tards']:not([data-derived]) .portfolio-update-row { font-size: 10px !important; }
+}
+
+/* Preserve the original smooth artwork while lifting it over the collage. */
+:root[data-theme='r3tards']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img) {
+  opacity: 1; filter: grayscale(1) brightness(1.5) drop-shadow(0 0 1px #ffffffaa) drop-shadow(0 2px 2px #000);
+}
+:root[data-theme='r3tards']:not([data-derived]) :is(.titlebar-logo, .browser-shell .titlebar > img:first-child) {
+  filter: brightness(1.15) drop-shadow(0 0 1px #ffffff66) drop-shadow(0 1px 2px #000);
+}

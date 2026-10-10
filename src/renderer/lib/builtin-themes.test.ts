@@ -19,10 +19,10 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is fourteen themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(14)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(14)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(14)
+  it('is fifteen themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(15)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(15)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(15)
   })
 
   it('gives every theme three usable colours and a swatch', () => {
@@ -68,6 +68,7 @@ describe('hand-tuned themes match their stylesheet block', () => {
   const css = readFileSync(fileURLToPath(new URL('../index.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/mallard-order.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/sealuminati.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/r3tards.css', import.meta.url)), 'utf8')
 
   /** The first `{ … }` block for a selector, or null. */
   function block(selector: string): string | null {
