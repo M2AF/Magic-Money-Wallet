@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-11T00:59:28.377Z",
+  "contract": "0x0351566C7e98780A591c08000576a01801241B31",
+  "rpc": "https://rpc.mainnet.chain.robinhood.com",
+  "chainId": 4663,
+  "erc721Support": true,
+  "holder": {
+    "balance": "5",
+    "block": "85436316"
+  },
+  "empty": {
+    "balance": "0",
+    "block": "85436316"
+  },
+  "note": "Read-only direct live RPC probes; public contract owner queried, no wallet unlock/signing."
+}

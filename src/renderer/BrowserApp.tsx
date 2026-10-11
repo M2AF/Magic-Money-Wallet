@@ -348,7 +348,7 @@ export function BrowserApp() {
       </div>
 
       {/* ── Address bar / nav chrome ─────────────────────────────────── */}
-      <div style={{
+      <div className="browser-toolbar" style={{
         display: fullscreen ? 'none' : 'flex',
         alignItems: 'center', gap: 6,
         padding: '6px 10px',

@@ -7,13 +7,16 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: e4e5c5d · Emonad: five-target TS;166files/2451tests; all4 renderer bundles; real extension journey360/400/1000, order/persistence/preview/Send/Swap/smooth logos pass; screenshots reviewed. · 2026-10-10T21:19-03:00
-head: e4e5c5d (main) dirty 10
-updated: 2026-10-10T21:19-03:00 · codex
+verified: c8aeb30 · Five TS targets;167files/2460tests;Electron/extension/Android/iOS renderer bundles pass. Production BrowserApp fixture passes pointer lighting,press ring,reduced-motion,holder lock cleanup; wallet Sovereign regression passes. Screenshot reviewed .local-artifacts/sovereign/browser.png. · 2026-10-10T22:12-03:00
+head: c8aeb30 (main) dirty 8
+updated: 2026-10-10T22:12-03:00 · codex
 
 resources: -
 
 ## Now
+- Sovereign browser chrome effects verified locally with production BrowserApp renderer/fixture bridge: translucent toolbar, pointer-local lighting, orbit, press rings, reduced motion and holder-access cleanup on lock. e2e/sovereign-browser.spec.ts; .browser-motion-*.log; .local-artifacts/sovereign/browser.png. No third-party page injection, commit/install/deploy.
+- Sovereign is REDACTED holder-only locally on Robinhood mainnet4663, contract0x0351566C7e98780A591c08000576a01801241B31: direct block-bound balanceOf, current account/session guards,90s freshness,60s visible refresh,10s timeout; locked picker/Recheck, saved preference waits for ownership. Live positive5/zero0 verified; docs/SOVEREIGN-HOLDER-ACCESS.md and .local-artifacts/sovereign-holder/. Final checks .holder-*-reviewed.log. No commit/install/deploy; ChainLens unchanged.
+- Sovereign premium animated wallet theme complete locally: fixed obsidian/champagne smoked lenses, custom orbital/crown vectors, pointer lighting/press rings, reduced-motion/hidden pause and theme cleanup. Five-target TS,166files/2452tests,final4bundles and all5browser journeys pass. docs/SOVEREIGN-THEME.md; .local-artifacts/sovereign/. No commit/deploy/install.
 - Emonad tarot theme complete locally, immediately above r3tards: original card backdrop/character, flat rose/vine/moon/star frame, muted purple/silver; smooth original brands, stock portfolio layout. docs/EMONAD-THEME.md; .local-artifacts/emonad/. Checks .emonad-*.log pass; no commit/deploy/install.
 - Five approved natural material skins implemented locally: Brushed Metal, Leather, Velvet, Walnut and Royal Blue Silk; fixed palettes, shared generated raster surfaces, coordinated cards, smooth logos and seamless brand/portfolio summary. docs/NATURAL-MATERIAL-THEMES.md; .local-artifacts/materials/. No commit/deploy/install.
 - Liquid Glass fixed-palette material skin added locally; no recolour. Shared scene/optical SVG, clear surfaces and transparent brand bars without divider; colourable Glass portfolio summary also seamless. Validation in .liquid-*.log; docs/LIQUID-GLASS.md. No commit/deploy/install.
@@ -47,7 +50,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User reviews Emonad Art themes; docs/EMONAD-THEME.md and .local-artifacts/emonad/ hold details/screenshots.
+- User reviews browser effects and fixed ChainLens art palettes; installed Electron native view composition remains manual QA. No deployment authorized.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -90,6 +93,7 @@ resources: -
 
 
 ## Pointers
+- docs/SOVEREIGN-THEME.md; .local-artifacts/sovereign/; .sovereign-*.log.
 - docs/EMONAD-THEME.md; .local-artifacts/emonad/; .emonad-*.log.
 - docs/NATURAL-MATERIAL-THEMES.md; material CSS/assets and provenance.json; e2e/natural-materials.spec.*; .local-artifacts/materials/; .materials-*.log.
 - docs/R3TARDS-THEME.md;src/renderer/themes/r3tards.css;src/renderer/assets/themes/r3tards/;e2e/art-themes.spec.ts;.local-artifacts/r3tards/;r3tards-*.log.

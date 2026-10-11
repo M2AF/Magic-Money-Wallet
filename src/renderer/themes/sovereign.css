@@ -1,0 +1,146 @@
+/* SOVEREIGN — smoked crystal, champagne metal and kinetic precision. */
+:root[data-theme='sovereign']:not([data-derived]) {
+  --bg-deep: #080c13; --bg-dark: #0d131e; --bg-surface: #1b2432;
+  --bg-card: #101823; --bg-card-hover: #16202e;
+  --bg-deep-rgb: 8, 12, 19; --bg-surface-rgb: 27, 36, 50;
+  --accent: #dfc594; --accent-rgb: 223, 197, 148; --accent-hover: #f7e9cb;
+  --accent-2: #aaa5cf; --accent-text: #ecdbb9; --accent-text-rgb: 236, 219, 185;
+  --text-primary: #f5f1e8; --text-secondary: #bac3d1; --text-muted: #95a3b7;
+  --on-accent: #141923; --btn-primary-text: #141923;
+  --border: #c6d0df26; --border-active: #dfc59488;
+  --input-bg: #070c15b3; --overlay-bg: #050811df;
+  --success: #77dbb2; --success-rgb: 119, 219, 178; --warning: #efc486; --error: #ff8794;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 22px; --radius-xl: 26px;
+  --font-display: Inter, -apple-system, sans-serif; --font-body: Inter, -apple-system, sans-serif;
+  --blur: blur(16px); --transition: .28s cubic-bezier(.22,1,.36,1);
+}
+/* The material owns its palette. The tile is a miniature live edition. */
+.art-theme-sovereign {
+  position: relative; isolation: isolate; overflow: hidden;
+  color: #f5f1e8; border: 1px solid #dfc59469; border-radius: 20px;
+  background: radial-gradient(ellipse at 90% 0%, #7e73952b, transparent 65%), linear-gradient(115deg, #1a2432, #090e18 65%);
+  box-shadow: inset 0 1px #ffffff26, 0 10px 28px #0004;
+}
+.art-theme-sovereign::before {
+  content: ''; position: absolute; inset: -50%; z-index: -1; pointer-events: none;
+  background: conic-gradient(from 20deg, transparent 35%, #dfc59417, transparent 58%, #9bade915, transparent 85%);
+  animation: sv-turn 24s linear infinite;
+}
+.art-theme-sovereign .art-theme-mark {
+  flex: 0 0 46px; width: 46px; height: 46px; color: transparent;
+  background: url('../assets/themes/sovereign/crest.svg') center / contain no-repeat;
+}
+.art-theme-sovereign .art-theme-copy strong { font: 500 15px/1.2 Inter, sans-serif; text-transform: uppercase; letter-spacing: .17em; }
+.art-theme-sovereign .art-theme-copy > span { color: #bdc4d2; font: 10px/1.6 Inter, sans-serif; }
+.art-theme-sovereign .art-theme-status { color: #ecdbb9; font: 600 9px Inter, sans-serif; }
+.art-theme-sovereign.active { outline: 1px solid #dfc594; outline-offset: 3px; }
+:root[data-theme='sovereign']:not([data-derived]) body { background: #080c13; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.app-shell, .browser-shell) {
+  position: relative; z-index: 1; background: transparent !important;
+}
+.sv-scene { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; background: radial-gradient(ellipse at 75% 0%, #192135, transparent 62%), radial-gradient(ellipse at 0% 80%, #151420, transparent 58%), #080c13; }
+.sv-aura { position: absolute; inset: -40%; opacity: .48; background: conic-gradient(from 25deg at 50% 50%, transparent 12%, #7762941c 25%, transparent 39%, #d3b77924 56%, transparent 70%, #667b9a23 90%, transparent); animation: sv-turn 90s linear infinite; }
+.sv-orbit { position: absolute; width: min(1050px, 155vw); height: auto; max-width: none; right: -38%; top: 8%; opacity: .23; animation: sv-turn 100s linear infinite; transform-origin: center; }
+.sv-light { position: absolute; inset: 0; background: radial-gradient(450px circle at var(--sv-pointer-x, 70%) var(--sv-pointer-y, 15%), #d6bc8520, transparent 75%); }
+:root[data-theme='sovereign']:not([data-derived]) :is(.titlebar, .tab-banner) { background: transparent !important; border: 0 !important; box-shadow: none; backdrop-filter: none; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img, .swap-hero-text) { opacity: 1; image-rendering: auto; filter: grayscale(1) sepia(.35) brightness(1.55) drop-shadow(0 1px 2px #000); }
+:root[data-theme='sovereign']:not([data-derived]) .titlebar-logo { image-rendering: auto; filter: drop-shadow(0 0 7px #96bdca30); }
+:root[data-theme='sovereign']:not([data-derived]) .tab-banner img { max-width: 100%; margin-left: 0; }
+:root[data-theme='sovereign']:not([data-derived]) .portfolio-header { background: transparent !important; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.page-title, .settings-title) { font-family: 'MM Garamond', Georgia, serif; font-size: 26px; font-weight: 400; letter-spacing: .005em; color: #f3e8d4; }
+:root[data-theme='sovereign']:not([data-derived]) .settings-section-label { font: 600 9px Inter, sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+:root[data-theme='sovereign']:not([data-derived]) .portfolio-total { font-family: Inter, sans-serif !important; font-size: clamp(16px, 11cqw, 23px); letter-spacing: -.035em; font-weight: 650; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.chain-amount, .balance-amount) { font-family: Inter, sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -.03em; font-weight: 650; }
+:root[data-theme='sovereign']:not([data-derived]) .chain-name { font: 600 11px/1.3 Inter, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.chain-card, .card, .art-panel, .art-swap, .settings-group, .settings-sheet, .send-sheet) {
+  background: radial-gradient(ellipse at var(--sv-x, 12%) var(--sv-y, 0%), #dbbe8515, transparent 65%), linear-gradient(140deg, #223044b8, #111924ed 44%, #141725ed) !important;
+  border: 1px solid #becad538 !important; border-image: none !important; border-radius: 22px !important;
+  box-shadow: inset 0 1px 0 #f4e8d538, inset 0 -1px 0 #0a0e19, 0 12px 32px #0003;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  transition: border-color .35s, box-shadow .35s, transform .45s cubic-bezier(.22,1,.36,1);
+}
+:root[data-theme='sovereign']:not([data-derived]) .chain-card { padding: 22px; isolation: isolate; }
+:root[data-theme='sovereign']:not([data-derived]) .chain-card::before {
+  content: ''; position: absolute; inset: 0; height: auto; border-radius: inherit; pointer-events: none; opacity: .7; z-index: -1;
+  background: linear-gradient(120deg, #e8d4a016, transparent 30%, transparent 75%, #8492c013);
+}
+:root[data-theme='sovereign']:not([data-derived]) .chain-card::after {
+  content: ''; position: absolute; left: 22px; right: 22px; top: -1px; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #e7d1a3a0 22%, #aab4d56b 65%, transparent);
+}
+:root[data-theme='sovereign']:not([data-derived]) .settings-group { padding: 20px; }
+:root[data-theme='sovereign']:not([data-derived]) .settings-sheet { background: #101724f5 !important; }
+:root[data-theme='sovereign']:not([data-derived]) .settings-sheet::before { display: none; }
+:root[data-theme='sovereign']:not([data-derived]) .settings-group.danger { border-color: #ff879450 !important; }
+:root[data-theme='sovereign']:not([data-derived]) .art-panel { padding: 24px !important; }
+:root[data-theme='sovereign']:not([data-derived]) .art-overlay { background: #050811df !important; backdrop-filter: blur(10px); }
+:root[data-theme='sovereign']:not([data-derived]) :is(.portfolio-tabs, .browser-toolbar) {
+  background: #0e1523bf; border: 1px solid #c6d0df26; border-radius: 14px;
+  box-shadow: inset 0 1px #ffffff10; backdrop-filter: blur(16px);
+}
+:root[data-theme='sovereign']:not([data-derived]) .portfolio-tabs button { font-size: 10px; letter-spacing: .025em; border-radius: 10px; transition: background .3s, color .3s, box-shadow .3s; }
+:root[data-theme='sovereign']:not([data-derived]) .browser-toolbar {
+  background: radial-gradient(ellipse at var(--sv-x, 12%) var(--sv-y, 0%), #dbbe8528, transparent 65%), #0e15236b !important;
+  border: 0; border-radius: 0; box-shadow: inset 0 1px #ffffff10;
+}
+body:has(.browser-shell) .sv-orbit { width: 700px; top: -250px; right: 12%; opacity: .32; }
+:root[data-theme='sovereign']:not([data-derived]) .portfolio-tabs button.active { background: linear-gradient(110deg, #dfc5942b, #aaa5cf18); color: #f1dfb9; border-color: #dfc59458; box-shadow: inset 0 1px #fff2ce2b; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.btn-primary, .chain-card > button, .art-swap > button) {
+  background: linear-gradient(115deg, #f0dfba, #cab080 60%, #e3cba0) !important;
+  color: #141923 !important; border: 1px solid #f6e5c780 !important; border-radius: 13px !important;
+  font-family: Inter, sans-serif; font-size: 11px; font-weight: 650; letter-spacing: .035em; min-height: 43px;
+  box-shadow: inset 0 1px #fff7e4bf, 0 4px 16px #d7b67916;
+  transition: box-shadow .3s, filter .3s, transform .18s;
+}
+:root[data-theme='sovereign']:not([data-derived]) :is(.btn-primary, .chain-card > button, .art-swap > button):disabled { opacity: .42; box-shadow: none; }
+:root[data-theme='sovereign']:not([data-derived]) .btn-danger { color: #ff8794 !important; background: #ff879412 !important; border-color: #ff879445 !important; }
+:root[data-theme='sovereign']:not([data-derived]) .header-toolbar-actions > button { background: #152033aa !important; border-color: #cad1dc2e !important; border-radius: 11px !important; color: #b9c4d4; box-shadow: inset 0 1px #ffffff12; transition: background .3s, border-color .3s; }
+:root[data-theme='sovereign']:not([data-derived]) :is(.input, .settings-select, .chain-address, .art-panel input) { background: #080e19b3; border: 1px solid #b8c3d125; border-radius: 10px; box-shadow: inset 0 1px 3px #0002; }
+:root[data-theme='sovereign']:not([data-derived]) :is(input, .chain-address) { font-family: var(--font-mono); }
+:root[data-theme='sovereign']:not([data-derived]) .bottom-nav { background: #0c1320e8; border-top: 1px solid #d9c09136; backdrop-filter: blur(20px); box-shadow: 0 -8px 24px #05081130; }
+:root[data-theme='sovereign']:not([data-derived]) .bottom-nav-btn { position: relative; border-radius: 12px; letter-spacing: .03em; font-size: 9px; }
+:root[data-theme='sovereign']:not([data-derived]) .bottom-nav-btn.active { background: linear-gradient(#dfc59418, #dfc59405); color: #f3dcad; }
+:root[data-theme='sovereign']:not([data-derived]) .bottom-nav-btn.active::before { content: ''; position: absolute; width: 18px; height: 2px; border-radius: 2px; top: 0; background: #e2c592; box-shadow: 0 1px 8px #e2c59250; }
+:root[data-theme='sovereign']:not([data-derived]) .swap-hero-icon { image-rendering: auto; filter: grayscale(1) sepia(.55) saturate(.7) brightness(1.45) drop-shadow(0 8px 20px #d7c29918); }
+:root[data-theme='sovereign']:not([data-derived]) :is(button, input, select, [role='button']):focus-visible { outline: 2px solid #ecdbb9; outline-offset: 3px; }
+.sv-ripple { position: fixed; z-index: 10000; width: 64px; height: 64px; border: 1px solid #ecdbb980; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(.25); animation: sv-ripple .65s cubic-bezier(.16,1,.3,1) forwards; }
+@keyframes sv-turn { to { transform: rotate(360deg); } }
+@keyframes sv-ripple { to { transform: translate(-50%, -50%) scale(1.6); opacity: 0; } }
+@keyframes sv-arrive { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
+@keyframes sv-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='running'] .chain-card { animation: sv-arrive .65s cubic-bezier(.22,1,.36,1) both; }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='running'] .chain-card:nth-child(2) { animation-delay: .07s; }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='running'] .chain-card:nth-child(3) { animation-delay: .14s; }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='running'] .swap-hero-icon { animation: sv-float 8s ease-in-out infinite; }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='paused'] :is(.sv-scene *, .swap-hero-icon, .chain-card, .art-theme-sovereign::before) { animation-play-state: paused; }
+@media (hover: hover) and (pointer: fine) {
+  :root[data-theme='sovereign']:not([data-derived]) .chain-card:hover { border-color: #e5cd985e !important; transform: translateY(-2px); box-shadow: inset 0 1px #f4e8d54a, 0 16px 36px #0004; }
+  :root[data-theme='sovereign']:not([data-derived]) .header-toolbar-actions > button:hover { background: #dfc59420 !important; border-color: #dfc59480 !important; }
+  :root[data-theme='sovereign']:not([data-derived]) :is(.btn-primary, .chain-card > button):hover:not(:disabled) { filter: brightness(1.08); box-shadow: inset 0 1px #fff7e4bf, 0 4px 22px #d7b67933; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-theme='sovereign']:not([data-derived]) button:active:not(:disabled) { transform: scale(.985); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sv-scene *, .sv-ripple, .art-theme-sovereign::before { animation: none !important; }
+  :root[data-theme='sovereign']:not([data-derived]) :is(.chain-card, .swap-hero-icon, button) { animation: none !important; transition: none !important; transform: none !important; }
+}
+@media (max-width:400px) {
+  :root[data-theme='sovereign']:not([data-derived]) .header-toolbar-actions { gap: 3px !important; }
+  :root[data-theme='sovereign']:not([data-derived]) .header-toolbar-actions > button { width: 30px !important; height: 32px !important; }
+  :root[data-theme='sovereign']:not([data-derived]) .portfolio-update-row { font-size: 10px !important; }
+}
+@media (max-width:380px) {
+  :root[data-theme='sovereign']:not([data-derived]) .chain-spark-row svg { transform: scale(.84); }
+  :root[data-theme='sovereign']:not([data-derived]) .header-toolbar-actions > button { width: 28px !important; }
+  :root[data-theme='sovereign']:not([data-derived]) .portfolio-total { font-size: 19px !important; }
+}
+@media (min-width:700px) { .sv-orbit { right: -15%; top: 5%; width: 850px; } }
+/* Standalone asset lenses, without a second frame around the Swap widget. */
+:root[data-theme='sovereign']:not([data-derived]) .art-swap { background: transparent !important; border: 0 !important; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root[data-theme='sovereign']:not([data-derived]) .page-title { font-size: 24px !important; line-height: 1.1; }
+.art-theme-sovereign::before { animation-play-state: paused; }
+:root[data-theme='sovereign']:not([data-derived])[data-sv-motion='running'] .art-theme-sovereign::before { animation-play-state: running; }
+.sovereign-access-note { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; padding: 12px; font-size: 11px; line-height: 1.5; color: var(--text-secondary); border: 1px solid var(--border); border-radius: 12px; }
+.sovereign-access-note button { align-self: flex-start; padding: 6px 10px; border: 1px solid var(--border-active); border-radius: 8px; background: transparent; color: var(--accent-text); font: inherit; cursor: pointer; }
+.art-theme-sovereign:disabled { cursor: default; opacity: .65; }

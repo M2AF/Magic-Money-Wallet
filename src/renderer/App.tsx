@@ -18,6 +18,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { MessengerPage } from './pages/MessengerPage'
 import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
+import { bindSovereignAccount } from './lib/sovereign-access'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
 
 export function App() {
@@ -59,6 +60,12 @@ export function App() {
   // so that overlap is the normal case, not a rare one — and without this the
   // stale failure wipes the badge that the newer response had just populated.
   const chatRequestId = useRef(0)
+
+  // An entitlement belongs to this unlocked account, never to a saved theme ID.
+  useEffect(() => {
+    bindSovereignAccount(page === 'dashboard' ? addresses?.evm ?? null : null)
+    return () => bindSovereignAccount(null)
+  }, [page, addresses?.evm])
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {

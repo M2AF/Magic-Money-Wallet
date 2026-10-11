@@ -170,3 +170,53 @@
 ### 2026-10-10T21:19-03:00 · codex · handoff · e4e5c5d (main) dirty 10
 - Emonad implemented and verified locally; above r3tards. Existing work preserved; no commit/deploy/install.
 - next: User reviews Emonad Art themes; docs/EMONAD-THEME.md and .local-artifacts/emonad/ hold details/screenshots.
+
+### 2026-10-10T21:37-03:00 · codex · claim · c8aeb30 (main) dirty 1
+- task: Sovereign interactive premium wallet art theme
+- lease until 2026-10-11T00:37-03:00
+
+### 2026-10-10T21:41-03:00 · codex · checkpoint · c8aeb30 (main) dirty 5
+- Sovereign fixed-palette theme and local SVG motion scene implemented; bounded pointer lighting/press rings, reduced-motion/hidden-window pause and cleanup observer. Added real extension interaction/lifecycle test. Starting .sovereign-check.log and .sovereign-build.log.
+
+### 2026-10-10T21:43-03:00 · codex · checkpoint · c8aeb30 (main) dirty 5
+- Initial Sovereign extension journey passes: lighting changes, press ring, balances/chart/logo bounds, Send/Swap, reduced motion, preview cleanup and reload. Reviewed screenshots; removed doubled Swap frame and refined editorial heading. Rebuilding final bundles then rerunning interaction test including visibility signal.
+
+### 2026-10-10T21:45-03:00 · codex · verify · c8aeb30 (main) dirty 5
+- verified: Sovereign: five-target TS;166files/2452tests;final4renderer bundles;all5browser journeys pass (existing4art+Sovereign). Pointer response, press ring, reduced-motion, visibility signal, theme cleanup/preview/reload and360/400/1000 bounds pass. Screenshots reviewed; motion GIF .local-artifacts/sovereign/.
+
+### 2026-10-10T21:45-03:00 · codex · handoff · c8aeb30 (main) dirty 5
+- Sovereign premium interactive theme complete locally; bespoke vector orbital scene, smoked lenses and champagne controls. All checks pass; existing skins preserved. No commit/install/deploy.
+- next: User reviews Sovereign in Art & material themes. docs/SOVEREIGN-THEME.md and .local-artifacts/sovereign/ contain preview/motion/evidence.
+
+### 2026-10-10T21:50-03:00 · codex · claim · c8aeb30 (main) dirty 5
+- task: Sovereign REDACTED NFT ownership gate
+- lease until 2026-10-11T00:50-03:00
+
+### 2026-10-10T21:53-03:00 · codex · checkpoint · c8aeb30 (main) dirty 7
+- Sovereign holder gate uses exact Robinhood4663 contract balanceOf; direct RPC name/code verified. Active unlocked-account binding, timeout, stale-response rejection,90s freshness and60s selected-theme recheck; locked/recheck UI added. Starting .holder-check.log/.holder-build.log and expanded holder browser journey.
+
+### 2026-10-10T21:58-03:00 · codex · checkpoint · c8aeb30 (main) dirty 7
+- Gate initial167files/2457tests and holder browser journey pass; live ERC721 support/name/supply verified and real public holder balance5 measured. Review added hard timeout that cannot later grant, privacy-mode balance masking and detached-browser account sync. Final typecheck/build/expanded account-switch journey pending .holder-*.log.
+
+### 2026-10-10T22:04-03:00 · codex · verify · c8aeb30 (main) dirty 7
+- verified: Five TS targets;167files/2460tests;final four renderer bundles;final Sovereign extension journey passes holder/nonholder/error/reload/account-switch/motion/layout. Earlier all5 art journeys pass. docs/SOVEREIGN-HOLDER-ACCESS.md. Native installed-device and detached-browser UI QA unverified.
+- Sovereign REDACTED holder gate complete: mainnet4663 precise contract balanceOf at measured block; active account/session binding,90s freshness,60s visible refresh,10s timeout, stale detached-browser lock response rejected. Privacy-aware status and Recheck; saved preference grants no access. Live production reader positive5/zero0 at85436316. Locked screenshot reviewed; artifacts .local-artifacts/sovereign-holder/.
+
+### 2026-10-10T22:04-03:00 · codex · handoff · c8aeb30 (main) dirty 7
+- Sovereign holder-only gate implemented and checked locally; docs and evidence complete. No commit/install/deploy; ChainLens unchanged.
+- next: User reviews Sovereign holder access; no deployment authorized. See docs/SOVEREIGN-HOLDER-ACCESS.md.
+
+### 2026-10-10T22:04-03:00 · codex · claim · c8aeb30 (main) dirty 7
+- task: Sovereign wallet browser motion verification
+- lease until 2026-10-11T01:04-03:00
+
+### 2026-10-10T22:09-03:00 · codex · checkpoint · c8aeb30 (main) dirty 8
+- Browser toolbar now exposes Sovereign pointer reflections through translucent material; production BrowserApp fixture in progress. ChainLens art skins fixed and historical recolors ignored,193unit tests pass;14picker journeys running in other repo.
+
+### 2026-10-10T22:12-03:00 · codex · verify · c8aeb30 (main) dirty 8
+- verified: Five TS targets;167files/2460tests;Electron/extension/Android/iOS renderer bundles pass. Production BrowserApp fixture passes pointer lighting,press ring,reduced-motion,holder lock cleanup; wallet Sovereign regression passes. Screenshot reviewed .local-artifacts/sovereign/browser.png.
+- Browser toolbar opaque fill removed for Sovereign; actual address toolbar added to pointer-local effects. docs/SOVEREIGN-THEME.md. No commit/install/deploy.
+
+### 2026-10-10T22:12-03:00 · codex · handoff · c8aeb30 (main) dirty 8
+- Wallet browser Sovereign effects complete locally; ChainLens art customization locked in its separate checkout. Checks and docs complete.
+- next: User reviews browser effects and fixed ChainLens art palettes; installed Electron native view composition remains manual QA. No deployment authorized.

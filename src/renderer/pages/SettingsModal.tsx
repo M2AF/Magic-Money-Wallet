@@ -24,6 +24,8 @@ import {
   type ThemeSyncStatus
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
+import { SovereignAccessNote } from '../components/SovereignAccessNote'
+import { sovereignAccess, sovereignAllowed, onSovereignAccess } from '../lib/sovereign-access'
 import { TexturePicker } from '../components/TexturePicker'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 import { AutoRevokeControl } from '../components/AutoRevokeControl'
@@ -56,6 +58,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [passkeyLinked, setPasskeyLinked] = useState(false)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
+  const [holderAccess, setHolderAccess] = useState(sovereignAccess)
+  useEffect(() => onSovereignAccess(() => setHolderAccess(sovereignAccess())), [])
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
   const [customThemes, setCustomThemes] = useState<CustomTheme[]>(getCustomThemes)
   // Built-ins this install has recoloured — the pencil badge lights up for these,
@@ -535,17 +539,19 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
               />
             ))}
             <div className="theme-picker-group">Art & material themes</div>
+            <SovereignAccessNote hideBalance={privacy !== false} />
             {THEMES.filter(t => t.art).map(t => (
               <button
                 key={t.id}
                 type="button"
-                className={`art-theme-card art-theme-${t.id}${theme === t.id ? ' active' : ''}`}
-                aria-pressed={theme === t.id}
+                className={`art-theme-card art-theme-${t.id}${theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) ? ' active' : ''}`}
+                aria-pressed={theme === t.id && (t.id !== 'sovereign' || sovereignAllowed())}
+                disabled={t.id === 'sovereign' && !sovereignAllowed()}
                 onClick={() => { setTheme(t.id); setThemeState(t.id) }}
               >
                 <span className="art-theme-mark" aria-hidden="true">◇</span>
                 <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.artDescription}</span></span>
-                <span className="art-theme-status">{theme === t.id ? 'Selected' : 'Apply'}</span>
+                <span className="art-theme-status">{t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
               </button>
             ))}
             <div className="theme-picker-group">Yours</div>

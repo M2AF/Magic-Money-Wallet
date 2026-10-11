@@ -19,10 +19,10 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is twenty-two themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(22)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(22)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(22)
+  it('is twenty-three themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(23)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(23)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(23)
   })
 
   it('places Emonad immediately above r3tards', () => {
@@ -76,6 +76,7 @@ describe('hand-tuned themes match their stylesheet block', () => {
     + readFileSync(fileURLToPath(new URL('../themes/r3tards.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/liquid-glass.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/materials.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/sovereign.css', import.meta.url)), 'utf8')
 
   /** The first `{ … }` block for a selector, or null. */
   function block(selector: string): string | null {

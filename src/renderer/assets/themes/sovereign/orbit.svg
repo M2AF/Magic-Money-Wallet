@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="none">
+ <defs><linearGradient id="metal" x1="90" y1="100" x2="580" y2="550" gradientUnits="userSpaceOnUse"><stop stop-color="#f5e5ba"/><stop offset=".32" stop-color="#bdccd5"/><stop offset=".55" stop-color="#8173a9"/><stop offset=".78" stop-color="#d4bb8a"/><stop offset="1" stop-color="#f5ead2"/></linearGradient></defs>
+ <g stroke="url(#metal)">
+  <circle cx="320" cy="320" r="272" stroke-width=".6" opacity=".45"/><circle cx="320" cy="320" r="248" stroke-width=".45" opacity=".25"/>
+  <ellipse cx="320" cy="320" rx="270" ry="100" transform="rotate(30 320 320)" stroke-width=".8"/>
+  <ellipse cx="320" cy="320" rx="270" ry="100" transform="rotate(90 320 320)" stroke-width=".8"/>
+  <ellipse cx="320" cy="320" rx="270" ry="100" transform="rotate(150 320 320)" stroke-width=".8"/>
+  <path d="M320 88 521 204 521 436 320 552 119 436 119 204Z M320 88V552 M119 204 521 436 M521 204 119 436" stroke-width=".5" opacity=".4"/>
+  <path d="M320 175 435 320 320 465 205 320Z M205 320H435 M320 175 355 320 320 465 285 320Z" stroke-width="1.2" opacity=".85"/>
+  <circle cx="320" cy="48" r="3" fill="#e9d8b0"/><circle cx="556" cy="456" r="3" fill="#e9d8b0"/><circle cx="84" cy="456" r="3" fill="#bfc8dd"/>
+  <path d="M320 38V58M310 48H330 M547 451 565 461 M551 465 561 447" stroke-width=".7"/>
+ </g>
+</svg>
