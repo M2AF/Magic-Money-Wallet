@@ -2,6 +2,7 @@ import { expect, test, chromium, type BrowserContext, type Worker } from '@playw
 import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 /**
  * Real-extension Privacy Mode smoke — proves the MV3 parity plumbing:
@@ -30,6 +31,7 @@ async function launchWithExtension(): Promise<{ ctx: BrowserContext; sw: Worker 
       `--load-extension=${distExtension}`,
     ],
   })
+  await stubWorker(ctx)
   const sw = ctx.serviceWorkers()[0] ?? await ctx.waitForEvent('serviceworker', { timeout: 15_000 })
   return { ctx, sw }
 }

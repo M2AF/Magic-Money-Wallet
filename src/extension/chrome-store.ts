@@ -15,6 +15,7 @@ import {
   type ApprovedOrigin, type DappChain,
 } from '../main/dapp-permissions'
 import type { AutoRevokeState } from '../main/auto-revoke'
+import { WORKER_URL, migrateWorkerUrl } from '../main/worker-endpoint'
 
 // ── WalletConfig — identical shape to secure-store.ts so aliased imports work ─
 
@@ -96,7 +97,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   supabaseUrl:            '',
   supabaseKey:            '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
-  swapProxyUrl:           'https://magicmoney-swap-proxy.guildfordking.workers.dev',
+  swapProxyUrl:           WORKER_URL,
   clientToken:            'magicmoney-wallet-v1',
   simpleSwapApiKey:       '',
   testnetMode:            false,
@@ -315,7 +316,11 @@ export async function loadAddresses(): Promise<WalletAddresses | null> {
 
 export async function loadConfig(): Promise<WalletConfig> {
   const r = await chrome.storage.local.get('wallet.config')
-  return { ...DEFAULT_CONFIG, ...(r['wallet.config'] ?? {}) }
+  const merged: WalletConfig = { ...DEFAULT_CONFIG, ...(r['wallet.config'] ?? {}) }
+  // Saved configs hold the full object, so an older install's default Worker URL
+  // would stick forever; move it to the current endpoint.
+  merged.swapProxyUrl = migrateWorkerUrl(merged.swapProxyUrl) ?? DEFAULT_CONFIG.swapProxyUrl
+  return merged
 }
 
 export async function saveConfig(config: Partial<WalletConfig>): Promise<void> {

@@ -2,6 +2,7 @@ import { expect, test, chromium, type BrowserContext, type Page } from '@playwri
 import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 /** Pick a network in a ChainDropdown (the swap From/To network pickers). */
 async function pickNetwork(page: Page, name: string, value: string): Promise<void> {
@@ -27,10 +28,12 @@ const MIN = '29d222ce763455e3d7a09a665ce554f00ac89d2e99a1a83d267170c64d494e'
 
 async function launchWithExtension(): Promise<BrowserContext> {
   expect(existsSync(join(distExtension, 'manifest.json')), 'run npm run build:extension first').toBe(true)
-  return chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-cardano-swap-')), {
+  const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-cardano-swap-')), {
     headless: false,
     args: [`--disable-extensions-except=${distExtension}`, `--load-extension=${distExtension}`],
   })
+  await stubWorker(ctx)
+  return ctx
 }
 
 async function createWalletToDashboard(page: Page) {

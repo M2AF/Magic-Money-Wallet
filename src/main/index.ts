@@ -6,6 +6,11 @@ import { setMainWindow, initMagicGuard, initBrowserDownloads, openBrowserWithUrl
 import { initWalletConnect } from './wc-client'
 import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
+import { installWorkerReadCache } from './worker-read-cache'
+import { WORKER_HOSTS } from './worker-endpoint'
+
+// Short read cache + de-duplication in front of the Worker (free plan: every request counts).
+installWorkerReadCache()
 
 // Force HTTP/2 (TCP) instead of QUIC (UDP) — prevents ERR_QUIC_PROTOCOL_ERROR
 // when loading IPFS gateway images in Electron's Chromium engine
@@ -32,7 +37,7 @@ const WALLET_CSP =
   "script-src 'self'; " +
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
   "font-src 'self' https://fonts.gstatic.com; " +
-  "connect-src 'self' https://magicmoney-swap-proxy.guildfordking.workers.dev; " +
+  `connect-src 'self' ${WORKER_HOSTS.map(h => `https://${h}`).join(' ')}; ` +
   "img-src 'self' data: https: ipfs: ar:; " +
   "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
 

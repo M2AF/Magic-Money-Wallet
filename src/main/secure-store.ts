@@ -22,6 +22,7 @@ import {
   type ApprovedOrigin, type DappChain,
 } from './dapp-permissions'
 import type { AutoRevokeState } from './auto-revoke'
+import { WORKER_URL, WORKER_HOSTS, migrateWorkerUrl } from './worker-endpoint'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -870,7 +871,7 @@ const DEFAULT_CONFIG: WalletConfig = {
   supabaseKey: '',
   walletConnectProjectId: '1db049748ab5fecc3a39e64fbc11a41c',
   // All keyed providers (RPC, NFT, prices, DEX, Supabase) route through this proxy.
-  swapProxyUrl: 'https://magicmoney-swap-proxy.guildfordking.workers.dev',
+  swapProxyUrl: WORKER_URL,
   clientToken: 'magicmoney-wallet-v1',
   simpleSwapApiKey: '',
   testnetMode: false,
@@ -891,15 +892,13 @@ let configCache: WalletConfig | null = null
 // hostile value could redirect that calldata. Pin the proxy host to this
 // code-defined allowlist (which a local file edit cannot change). An empty value
 // is allowed (= no proxy, direct keyed calls). Self-hosters add their host here.
-const ALLOWED_PROXY_HOSTS = new Set<string>([
-  'magicmoney-swap-proxy.guildfordking.workers.dev',
-])
+const ALLOWED_PROXY_HOSTS = new Set<string>(WORKER_HOSTS)
 
 /** Coerce swapProxyUrl to a trusted https origin on the allowlist, or '' / default. */
 function sanitizeProxyUrl(url: string | undefined): string {
   if (!url || !url.trim()) return ''   // explicit "no proxy" — safe (no redirection)
   try {
-    const u = new URL(url.trim())
+    const u = new URL(migrateWorkerUrl(url)!.trim())
     if (u.protocol !== 'https:') return DEFAULT_CONFIG.swapProxyUrl
     if (!ALLOWED_PROXY_HOSTS.has(u.hostname)) return DEFAULT_CONFIG.swapProxyUrl
     return `${u.origin}${u.pathname}`.replace(/\/+$/, '')

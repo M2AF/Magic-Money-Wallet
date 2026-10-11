@@ -19,6 +19,7 @@ import { createServer, type Server } from 'node:http'
 import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 const distExtension = resolve(process.cwd(), 'dist-extension')
 const MNEMONIC = 'test test test test test test test test test test test junk'.split(' ')
@@ -76,6 +77,7 @@ async function launchWithExtension(): Promise<{ ctx: BrowserContext; sw: Worker 
     headless: false,
     args: [`--disable-extensions-except=${distExtension}`, `--load-extension=${distExtension}`],
   })
+  await stubWorker(ctx)
   const sw = ctx.serviceWorkers()[0] ?? await ctx.waitForEvent('serviceworker', { timeout: 15_000 })
   return { ctx, sw }
 }

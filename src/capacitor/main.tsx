@@ -17,6 +17,9 @@ import { initDappGlue } from './dapp-glue'
 import { CapApp } from './CapApp'
 
 installFetchGuard()
+// After the guard, so a cache hit never crosses the native bridge.
+// Short read cache + de-duplication in front of the Worker (free plan: every request counts).
+installWorkerReadCache()
 initDappGlue()
 
 // Install the provider before any React code runs
@@ -28,6 +31,7 @@ import '../renderer/index.css'
 import './cap.css'
 import { initTheme } from '../renderer/theme'
 import { initCurrency } from '../renderer/lib/currency'
+import { installWorkerReadCache } from '../main/worker-read-cache'
 
 initTheme()
 initCurrency()

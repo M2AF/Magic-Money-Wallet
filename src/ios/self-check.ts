@@ -31,6 +31,7 @@
 
 import { deriveAddresses } from '../main/wallet-core'
 import { encryptWithKeyMaterial, decryptWithKeyMaterial } from '../main/crypto-vault'
+import { WORKER_URL } from '../main/worker-endpoint'
 
 const TAG = '[MM-SELFCHECK]'
 
@@ -148,7 +149,7 @@ async function checkNetwork(): Promise<void> {
     // cloudflare-worker/swap-proxy.js lists both in APP_ORIGINS, but that has
     // never been exercised from a real iOS build — if it regresses, every
     // portfolio fetch fails while the app still looks fine.
-    const res = await fetch('https://magicmoney-swap-proxy.guildfordking.workers.dev/health', {
+    const res = await fetch(`${WORKER_URL}/health`, {
       signal: AbortSignal.timeout(20_000),
     })
     if (!res.ok) throw new Error(`Worker /health returned ${res.status}`)

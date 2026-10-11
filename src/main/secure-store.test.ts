@@ -31,7 +31,8 @@ import { ACTIVE_PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS, encryptSecret } fro
 
 const MNEMONIC = 'test test test test test test test test test test test junk'
 const PW = 'correct horse battery staple'
-const DEFAULT_PROXY = 'https://magicmoney-swap-proxy.guildfordking.workers.dev'
+const DEFAULT_PROXY = 'https://api.magicmoney.dev'
+const LEGACY_PROXY = 'https://magicmoney-swap-proxy.guildfordking.workers.dev'
 
 beforeEach(() => { deleteWallet(); lock() })
 
@@ -121,6 +122,13 @@ describe('secure-store · swap proxy pinning (H-3)', () => {
 
     saveConfig({ swapProxyUrl: '' })
     expect(loadConfig().swapProxyUrl).toBe('')                    // explicit "no proxy" → allowed
+  })
+
+  it('moves a config saved with the legacy workers.dev default to the custom domain', () => {
+    saveConfig({ swapProxyUrl: LEGACY_PROXY })
+    expect(loadConfig().swapProxyUrl).toBe(DEFAULT_PROXY)
+    saveConfig({ swapProxyUrl: `${LEGACY_PROXY}/` })
+    expect(loadConfig().swapProxyUrl).toBe(DEFAULT_PROXY)
   })
 
   it('sanitizes the persisted local Tor browser port', () => {

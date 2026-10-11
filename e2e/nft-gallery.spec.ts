@@ -2,6 +2,7 @@ import { expect, test, chromium, type BrowserContext, type Page } from '@playwri
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 const dist = resolve('dist-extension')
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="400" height="400" fill="#283a66"/><circle cx="200" cy="185" r="90" fill="#7dd3fc"/><path d="M95 325L200 240L305 325" fill="#c4b5fd"/></svg>'
@@ -11,6 +12,7 @@ async function launch(entry='popup.html'): Promise<{ context: BrowserContext; pa
     headless: false, viewport: { width: 440, height: 820 },
     args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`],
   })
+  await stubWorker(context)
   const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
   const page = await context.newPage()
   const runtimeErrors: string[] = []

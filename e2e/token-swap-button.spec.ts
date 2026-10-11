@@ -2,6 +2,7 @@ import { expect, test, chromium, type BrowserContext, type Page } from '@playwri
 import { existsSync, mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 /**
  * Portfolio → Tokens: "Hide" is gone, replaced by "Swap", which opens the Swap
@@ -23,6 +24,7 @@ async function launch(beforeDashboard: (page: Page) => Promise<void>): Promise<{
     headless: false,
     args: [`--disable-extensions-except=${distExtension}`, `--load-extension=${distExtension}`],
   })
+  await stubWorker(ctx)
   const page = await ctx.newPage()
   const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
     ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]

@@ -2,6 +2,7 @@ import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { stubWorker } from './support/worker-stub-browser'
 
 test.use({ actionTimeout: 10_000 })
 
@@ -12,6 +13,7 @@ test('textures compose with palettes and restore correctly', async () => {
     headless: false, viewport: { width: 400, height: 850 },
     args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`],
   })
+  await stubWorker(context)
   const errors: string[] = []
   try {
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')

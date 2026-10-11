@@ -10,6 +10,10 @@
 
 import { handle, type Msg, type Sender } from './wallet-handlers'
 import { initWalletConnect } from './wc-ext'
+import { installWorkerReadCache } from '../main/worker-read-cache'
+
+// Short read cache + de-duplication in front of the Worker (free plan: every request counts).
+installWorkerReadCache()
 
 // ── Global error logging (service workers crash silently without this) ────────
 

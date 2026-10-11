@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { buildSwapIdentity } from '../src/main/swap-intent'
 import { startXReserveInboundTrackingRecord } from '../src/main/xreserve-inbound-tracking'
+import { stubWorker } from './support/worker-stub-browser'
 
 /**
  * Real-extension check for the Testnet Mode xReserve Sepolia → Preprod panel.
@@ -24,11 +25,13 @@ const shots = process.env.XRESERVE_SHOTS_DIR
 
 async function launchWithExtension(): Promise<BrowserContext> {
   expect(existsSync(join(distExtension, 'manifest.json')), 'run npm run build:extension first').toBe(true)
-  return chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-xreserve-')), {
+  const ctx = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-xreserve-')), {
     headless: false,
     viewport: { width: 400, height: 900 },
     args: [`--disable-extensions-except=${distExtension}`, `--load-extension=${distExtension}`],
   })
+  await stubWorker(ctx)
+  return ctx
 }
 
 async function createWalletToDashboard(page: Page) {

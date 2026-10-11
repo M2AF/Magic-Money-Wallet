@@ -6,6 +6,39 @@ const { app } = require('electron')
 app.setName('MagicMoneyE2E')
 app.setPath('userData', process.env.MM_TEST_USERDATA)
 
+// Always: never reach the LIVE MagicMoney Worker (see support/worker-stub.cjs —
+// e2e wallet loads exhausted its free-plan daily quota for real users). Installed
+// before the optional fakes below so they wrap it: they answer their own URLs and
+// hand everything else down to this layer. The main process reaches the Worker
+// through Node's fetch AND Electron's net.fetch (swap paths, via setSwapFetch);
+// the renderer is covered once the default session exists.
+{
+  const { net, session } = require('electron')
+  const { isWorkerUrl, workerStubResponse } = require('./support/worker-stub.cjs')
+  const urlOf = (input) => typeof input === 'string' ? input : (input && input.url) || String(input)
+  const stubbed = async (input, init) => {
+    // MM_TEST_WORKER_LOG: one line per stubbed call, so a spec (or a person)
+    // can confirm the app's Worker traffic is being caught here.
+    if (process.env.MM_TEST_WORKER_LOG) {
+      try { require('fs').appendFileSync(process.env.MM_TEST_WORKER_LOG, urlOf(input) + '\n') } catch { /* best effort */ }
+    }
+    const body = init && typeof init.body === 'string' ? init.body : null
+    const r = workerStubResponse(urlOf(input), (init && init.method) || 'GET', body)
+    return new Response(r.body, { status: r.status, headers: { 'content-type': 'application/json' } })
+  }
+  const realFetch = globalThis.fetch
+  globalThis.fetch = function (input, init) {
+    return isWorkerUrl(urlOf(input)) ? stubbed(input, init) : realFetch.call(this, input, init)
+  }
+  const realNetFetch = net.fetch.bind(net)
+  net.fetch = (input, init) => isWorkerUrl(urlOf(input)) ? stubbed(input, init) : realNetFetch(input, init)
+  app.whenReady().then(() => {
+    session.defaultSession.webRequest.onBeforeRequest({ urls: ['https://*.workers.dev/*', 'https://api.magicmoney.dev/*'] }, (details, cb) => {
+      cb({ cancel: isWorkerUrl(details.url) })
+    })
+  })
+}
+
 // Optional: send downloads somewhere disposable.
 //
 // Everything that saves a file — the browser's will-download handler, NFT media,

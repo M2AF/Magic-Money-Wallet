@@ -23,13 +23,14 @@
  */
 
 import { CapacitorHttp } from '@capacitor/core'
+import { WORKER_HOSTS } from '../main/worker-endpoint'
 
 // Hosts safe for direct WebView fetch. The Worker reflects the app origin;
 // the rest are public APIs that serve Access-Control-Allow-Origin: * (verified
 // against real browser usage). Anything NOT listed silently takes the native
 // path, so a wrong guess degrades to v1 behavior — never to a broken request.
 const BROWSER_HOSTS = new Set([
-  'magicmoney-swap-proxy.guildfordking.workers.dev',
+  ...WORKER_HOSTS,
   'api.coingecko.com',
   'api.dexscreener.com',
   'mempool.space',
