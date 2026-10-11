@@ -220,3 +220,29 @@
 ### 2026-10-10T22:12-03:00 · codex · handoff · c8aeb30 (main) dirty 8
 - Wallet browser Sovereign effects complete locally; ChainLens art customization locked in its separate checkout. Checks and docs complete.
 - next: User reviews browser effects and fixed ChainLens art palettes; installed Electron native view composition remains manual QA. No deployment authorized.
+
+### 2026-10-10T22:24-03:00 · codex · claim · 56eab1d (main) dirty 1
+- task: Build and install current Android release on connected phone
+- lease until 2026-10-11T01:24-03:00
+
+### 2026-10-10T22:24-03:00 · codex · checkpoint · 56eab1d (main) dirty 2
+- User authorized Android phone update. ADB currently has no device; preparing fresh signed release APK with existing release config, preserving app data. Starting .phone-build.log. HEAD56eab1d includes theme changes, no source edits needed.
+
+### 2026-10-10T22:28-03:00 · codex · verify · 56eab1d (main) dirty 3
+- verified: Fresh Capacitor web build/sync and JDK24 Gradle assembleRelease pass. apksigner verified. ADB install-r Success on RFCR1039HCH Samsung SM-G996W, info.chainlens.magicmoney0.10.1/code25; same signer update preserves data. App launched; theme visual QA on phone pending.
+- APK SHA256373a7d03e1ae2ed0524187e275b5f638f9963ac8fb3195777abd3570dea97530. .phone-build.log/.phone-gradle.log. npm android:apk script did not resolve gradlew on Windows; explicit android/gradlew.bat assembleRelease succeeded. No uninstall/data clear/commit/cloud deploy.
+
+### 2026-10-10T22:28-03:00 · codex · handoff · 56eab1d (main) dirty 3
+- New Android release installed and launched on user's Samsung phone; data preserved. Build/signature/install checks pass.
+- next: User checks new themes on phone; visual acceptance pending. No cloud deployment requested.
+
+### 2026-10-10T22:42-03:00 · codex · claim · 5ec54e5 (main) dirty 2
+- task: Diagnose and repair Sovereign Android motion
+- lease until 2026-10-11T01:42-03:00
+
+### 2026-10-10T22:43-03:00 · codex · checkpoint · 5ec54e5 (main) dirty 2
+- Android animation report investigated: connected phone global animator_duration_scale/transition_animation_scale/window_animation_scale all0. Sovereign controller and CSS intentionally pause for prefers-reduced-motion. Asked user whether to restore global scales1x; no device settings changed yet. Shared Capacitor entry does initialize motion.
+
+### 2026-10-10T22:44-03:00 · codex · handoff · 5ec54e5 (main) dirty 2
+- Android animation diagnosis: all3phone scales0; reduced-motion pause is expected. No settings changed. Async user choice pending; no new APK needed for the setting change.
+- next: Await user's reply about restoring Android animation scales1x; if approved set/read back with adb and confirm Sovereign motion on phone.

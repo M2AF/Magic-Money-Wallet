@@ -7,13 +7,15 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: c8aeb30 · Five TS targets;167files/2460tests;Electron/extension/Android/iOS renderer bundles pass. Production BrowserApp fixture passes pointer lighting,press ring,reduced-motion,holder lock cleanup; wallet Sovereign regression passes. Screenshot reviewed .local-artifacts/sovereign/browser.png. · 2026-10-10T22:12-03:00
-head: c8aeb30 (main) dirty 8
-updated: 2026-10-10T22:12-03:00 · codex
+verified: 56eab1d · Fresh Capacitor web build/sync and JDK24 Gradle assembleRelease pass. apksigner verified. ADB install-r Success on RFCR1039HCH Samsung SM-G996W, info.chainlens.magicmoney0.10.1/code25; same signer update preserves data. App launched; theme visual QA on phone pending. · 2026-10-10T22:28-03:00
+head: 5ec54e5 (main) dirty 2
+updated: 2026-10-10T22:44-03:00 · codex
 
 resources: -
 
 ## Now
+- Android Sovereign motion report: phone global animator_duration_scale,transition_animation_scale,window_animation_scale all0; Chromium requests reduced motion for disabled animator scale, and theme intentionally pauses. Capacitor entry initializes controller. Awaiting user's choice to restore Android global scales1x; no settings/code/build changed. Actual phone visual confirmation pending.
+- User-authorized current Android release installed Oct10 on connected Samsung SM-G996W via adb install-r Success, main package info.chainlens.magicmoney0.10.1/code25; existing signer/data preserved. Fresh web build/sync and JDK24 Gradle assembleRelease pass (.phone-build.log/.phone-gradle.log). App launched; phone theme visual QA pending. APK SHA256373a7d03e1ae2ed0524187e275b5f638f9963ac8fb3195777abd3570dea97530; no commit/cloud deploy.
 - Sovereign browser chrome effects verified locally with production BrowserApp renderer/fixture bridge: translucent toolbar, pointer-local lighting, orbit, press rings, reduced motion and holder-access cleanup on lock. e2e/sovereign-browser.spec.ts; .browser-motion-*.log; .local-artifacts/sovereign/browser.png. No third-party page injection, commit/install/deploy.
 - Sovereign is REDACTED holder-only locally on Robinhood mainnet4663, contract0x0351566C7e98780A591c08000576a01801241B31: direct block-bound balanceOf, current account/session guards,90s freshness,60s visible refresh,10s timeout; locked picker/Recheck, saved preference waits for ownership. Live positive5/zero0 verified; docs/SOVEREIGN-HOLDER-ACCESS.md and .local-artifacts/sovereign-holder/. Final checks .holder-*-reviewed.log. No commit/install/deploy; ChainLens unchanged.
 - Sovereign premium animated wallet theme complete locally: fixed obsidian/champagne smoked lenses, custom orbital/crown vectors, pointer lighting/press rings, reduced-motion/hidden pause and theme cleanup. Five-target TS,166files/2452tests,final4bundles and all5browser journeys pass. docs/SOVEREIGN-THEME.md; .local-artifacts/sovereign/. No commit/deploy/install.
@@ -50,7 +52,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User reviews browser effects and fixed ChainLens art palettes; installed Electron native view composition remains manual QA. No deployment authorized.
+- Await user's reply about restoring Android animation scales1x; if approved set/read back with adb and confirm Sovereign motion on phone.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
