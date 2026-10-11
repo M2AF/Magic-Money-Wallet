@@ -20,6 +20,7 @@ import { useAssetFilters } from '../lib/asset-filters'
 import { swapTokenFromHolding } from '../lib/swap-from-holding'
 import { useDisplayCurrency } from '../lib/currency'
 import { canonicalTokenKey, canonicalNftKey } from '../../shared/asset-filter-key'
+import { BodyPortal } from '../components/BodyPortal'
 import './DashboardPage.css'
 
 type PortfolioTab = 'networks' | 'tokens' | 'collectibles'
@@ -74,6 +75,7 @@ function SpamManagerModal({
   }
 
   return (
+    <BodyPortal>
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, width: 320, maxHeight: 480, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
@@ -102,6 +104,7 @@ function SpamManagerModal({
         </div>
       </div>
     </div>
+    </BodyPortal>
   )
 }
 
@@ -422,6 +425,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
   const short = (s: string, n = 10) => s.length <= n * 2 + 3 ? s : `${s.slice(0, n)}…${s.slice(-n)}`
 
   return (
+    <BodyPortal>
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 1000,
@@ -595,6 +599,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
         </div>
       </div>
     </div>
+    </BodyPortal>
   )
 }
 

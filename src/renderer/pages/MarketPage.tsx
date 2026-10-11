@@ -3,6 +3,7 @@ import type { MarketCoin, MarketResult } from '../types/wallet'
 import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 import { useDisplayCurrency, type DisplayCurrency } from '../lib/currency'
 import { buildCandles, type Candle, type ChartTimeframe } from '../lib/candles'
+import { BodyPortal } from '../components/BodyPortal'
 
 // Carried as one bag and spread below, so a new toolbar action reaches this
 // page without an edit here — see HeaderToolbarProps.
@@ -381,6 +382,7 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
     : null
 
   return (
+    <BodyPortal>
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
@@ -513,6 +515,7 @@ function ChartModal({ coin, onClose }: { coin: MarketCoin; onClose: () => void }
         </div>
       </div>
     </div>
+    </BodyPortal>
   )
 }
 

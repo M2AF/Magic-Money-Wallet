@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportChain, CustomToken } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   /** Networks available to import into — built-in + user-added (mainnet only). */
@@ -88,6 +89,7 @@ export function ImportTokenModal({ chains, onClose, onChanged }: Props) {
   const nameOf = (id: string) => chains.find(c => c.id === id)?.name ?? id
 
   return (
+    <BodyPortal>
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
@@ -222,5 +224,6 @@ export function ImportTokenModal({ chains, onClose, onChanged }: Props) {
         )}
       </div>
     </div>
+    </BodyPortal>
   )
 }

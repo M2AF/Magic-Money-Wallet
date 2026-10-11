@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import type { FeeEstimate, SendResult, SendAsset } from '../types/wallet'
 import { formatUnits, parseUnits, getChainType } from '../lib/asset-send'
 import { useDisplayCurrency } from '../lib/currency'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   chainId: string       // chain-config id, e.g. 'ethereum', 'arbitrum', 'solana'
@@ -253,6 +254,7 @@ export function SendModal({
   }
 
   return (
+    <BodyPortal>
     <div
       ref={overlayRef}
       className="art-overlay"
@@ -549,5 +551,6 @@ export function SendModal({
         )}
       </div>
     </div>
+    </BodyPortal>
   )
 }

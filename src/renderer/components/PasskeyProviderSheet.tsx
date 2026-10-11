@@ -16,6 +16,7 @@
  */
 
 import type { OnboardingCopy } from '../lib/passkey-onboarding'
+import { BodyPortal } from './BodyPortal'
 
 export interface PasskeyProviderSheetProps {
   copy: OnboardingCopy
@@ -31,6 +32,7 @@ export function PasskeyProviderSheet({
   copy, busy = false, landing = null, error = null, onPrimary, onSecondary,
 }: PasskeyProviderSheetProps): JSX.Element {
   return (
+    <BodyPortal>
     <div style={backdrop} role="dialog" aria-modal="true" aria-label={copy.title}>
       <div style={sheet}>
         <div style={{ fontSize: 30, lineHeight: 1 }}>🪪</div>
@@ -67,6 +69,7 @@ export function PasskeyProviderSheet({
         </div>
       </div>
     </div>
+    </BodyPortal>
   )
 }
 

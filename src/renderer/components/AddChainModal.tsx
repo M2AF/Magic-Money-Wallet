@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CustomChain } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   onClose: () => void
@@ -65,6 +66,7 @@ export function AddChainModal({ onClose, onChanged }: Props) {
   }
 
   return (
+    <BodyPortal>
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
@@ -182,5 +184,6 @@ export function AddChainModal({ onClose, onChanged }: Props) {
         )}
       </div>
     </div>
+    </BodyPortal>
   )
 }

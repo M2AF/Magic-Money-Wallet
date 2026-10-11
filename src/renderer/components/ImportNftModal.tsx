@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ImportChain, CustomNft, CustomNftPreview } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   /** Networks available to import into — built-in + user-added (mainnet only). */
@@ -95,6 +96,7 @@ export function ImportNftModal({ chains, onClose, onChanged }: Props) {
   const shortAddr = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`
 
   return (
+    <BodyPortal>
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
@@ -296,5 +298,6 @@ export function ImportNftModal({ chains, onClose, onChanged }: Props) {
         )}
       </div>
     </div>
+    </BodyPortal>
   )
 }

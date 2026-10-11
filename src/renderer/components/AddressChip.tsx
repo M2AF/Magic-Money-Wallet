@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { QrCode } from './QrCode'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   address: string
@@ -60,6 +61,7 @@ export function AddressChip({ address, label }: Props) {
       </div>
 
       {showQr && (
+        <BodyPortal>
         <div
           onClick={() => setShowQr(false)}
           style={{
@@ -96,6 +98,7 @@ export function AddressChip({ address, label }: Props) {
             </button>
           </div>
         </div>
+        </BodyPortal>
       )}
     </div>
   )

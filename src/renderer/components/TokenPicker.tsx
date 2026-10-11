@@ -23,6 +23,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { SwapToken, SwapChain, WalletToken } from '../types/wallet'
 import { SWAP_TOKEN_LISTS } from '../types/swap-tokens'
 import { swapAssetKey, looksLikeSwapAddress, isValidSwapAddress } from '../../shared/swap-token-identity'
+import { BodyPortal } from './BodyPortal'
 
 interface Props {
   chain: SwapChain
@@ -263,6 +264,7 @@ export function TokenPicker({ chain, value, onSelect, owned, nativeBalance, labe
       </button>
 
       {open && (
+        <BodyPortal>
         <div
           role="dialog"
           aria-modal="true"
@@ -350,6 +352,7 @@ export function TokenPicker({ chain, value, onSelect, owned, nativeBalance, labe
             </div>
           </div>
         </div>
+        </BodyPortal>
       )}
     </>
   )

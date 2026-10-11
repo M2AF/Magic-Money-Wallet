@@ -2,6 +2,7 @@ import { NftImage } from '../components/NftImage'
 import { useState, useEffect, useCallback } from 'react'
 import type { ClUser, ChainlensSyncResult, WalletCollectible } from '../types/wallet'
 import { CHAIN_ICONS } from '../data/chain-icons'
+import { BodyPortal } from '../components/BodyPortal'
 
 const CHAIN_LABELS: Record<string, string> = {
   evm: 'Ethereum/EVM', solana: 'Solana', cardano: 'Cardano',
@@ -88,6 +89,7 @@ function AvatarModal({
   }
 
   return (
+    <BodyPortal>
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -188,6 +190,7 @@ function AvatarModal({
         </div>
       </div>
     </div>
+    </BodyPortal>
   )
 }
 

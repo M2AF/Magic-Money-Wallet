@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { WcSession, WcProposal, WcRequest } from '../types/wallet'
+import { BodyPortal } from '../components/BodyPortal'
 
 // ── Peer avatar ───────────────────────────────────────────────────────────────
 
@@ -529,6 +530,7 @@ export function WcTitlebarBtn({
 
 function Overlay({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) {
   return (
+    <BodyPortal>
     <div
       onClick={onClick}
       style={{
@@ -539,6 +541,7 @@ function Overlay({ children, onClick }: { children: React.ReactNode; onClick?: (
     >
       {children}
     </div>
+    </BodyPortal>
   )
 }
 
