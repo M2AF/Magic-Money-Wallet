@@ -8,7 +8,7 @@ It manages **24 default mainnet networks** from a single seed phrase (plus user-
 
 **Start here:** [Install](#install) · [Supported networks](#supported-networks) · [Development](#quick-start-development) · [Security and architecture](#architecture) · [dApp connectivity](#dapp-connectivity) · [Swaps](#swaps) · [Build and release](#build--release)
 
-The network catalog below describes portfolio visibility, not equal transaction support on every network. Swap and send capabilities depend on each chain and route; see [release QA](docs/RELEASE-QA.md) and the [swap evidence notes](docs/SWAP-DISCOVERY.md) when evaluating a funds-moving path. The newer swap changes described here are currently in the local working tree, after the last commit.
+The network catalog below describes portfolio visibility, not equal transaction support on every network. Swap and send capabilities depend on each chain and route; see [release QA](docs/RELEASE-QA.md) and the [swap evidence notes](docs/SWAP-DISCOVERY.md) when evaluating a funds-moving path.
 
 ---
 
@@ -18,7 +18,9 @@ The network catalog below describes portfolio visibility, not equal transaction 
 - **Custom networks** — add any EVM-compatible chain (name, RPC URL, chain ID, symbol, explorer) from the **+** button next to the account switcher. The RPC is verified via `eth_chainId` before the chain is saved, and custom chains get balances, sends, and dApp chain-switching like built-ins (desktop).
 - **Portfolio search** — a search bar on the Dashboard filters networks, tokens, or collectibles in whichever portfolio tab is active.
 - **Transaction history** — per-network activity is shown on chain cards, with an AGW history section when an Abstract Global Wallet is linked.
-- **Themes and asset filters** — built-in and editable custom themes, plus hidden/spam asset choices that can sync through a ChainLens profile when signed in.
+- **Themes** — built-in colour themes, editable custom themes with palette finishes (Glass, Flat, Fine Grain, Soft Fade), full **art themes** (Mallard Order, Sealuminati, Emonad, r3tards) and fixed-palette **material themes** (Liquid Glass, Brushed Metal, Leather, Velvet, Walnut, Royal Blue Silk). **Sovereign** is an animated theme unlocked by an on-chain NFT ownership check on Robinhood Chain; it is a cosmetic gate and never signs anything.
+- **Asset filters** — one Spam control per token or collection (the old separate Hide button was merged into it), synced through a ChainLens profile when signed in.
+- **NFT gallery** — a **Mosaic** layout toggle, a shared image loader with IPFS/Arweave gateway fallbacks, and favourites that sync through a ChainLens profile.
 - **Passkey recovery where supported** — a passkey can be linked to restore a wallet; the recovery words remain the essential backup, and the app checks whether the passkey can reproduce the wallet before presenting it as recoverable.
 - **Magic Guard** — the built-in dApp browser includes ad blocking. The iOS implementation uses WKContentRuleList and does not report per-page match counts.
 - **Privacy Mode** — a focused portfolio for Monero (XMR), Zcash transparent (ZEC), and Midnight (NIGHT), derived lazily from the same mnemonic and kept mutually exclusive with Testnet Mode.
@@ -26,7 +28,8 @@ The network catalog below describes portfolio visibility, not equal transaction 
 - **Truly self-custody** — the mnemonic is encrypted at rest and private keys exist only transiently in the privileged process during signing. The UI layer never sees them.
 - **No API keys to configure** — keyed providers are proxied through a hosted Cloudflare Worker, so the app works out of the box with **zero secrets shipped in the bundle**.
 - **dApp ready** — injects `window.ethereum` (EIP-1193 / EIP-6963), `window.solana` (Wallet Standard), `window.cardano.magicmoney` (CIP-30), and `window.midnight` (Midnight DApp Connector), plus the VESPR-authorized `window.cardano.vespr` and Lace-authorized `window.midnight.mnLace` compatibility keys and WalletConnect v2.
-- **Built-in swaps** — same-chain DEX aggregation and cross-chain bridging/exchange in one Swap page.
+- **Built-in swaps** — same-chain DEX aggregation, Cardano DEX swaps, and cross-chain bridging/exchange in one Swap page, plus a **Swap** button on swappable holdings in the Tokens tab.
+- **Auto-revoke site access** — an optional countdown (Settings → Security, off by default) that disconnects every approved site and WalletConnect session when it ends.
 - **Multi-account** — BIP-44 account-index switcher (accounts 0–9) from the Portfolio header.
 - **Abstract Global Wallet** — surfaces your AGW smart account inside the same portfolio total.
 - **Platform-native unlocks** — Windows Hello, Touch ID, and Android biometrics can unlock an enrolled wallet while the password remains the backup.
@@ -292,9 +295,12 @@ This is Tor routing, not a claim of Tor Browser anonymity: the embedded Chromium
 The Swap page is dual-mode, covering on-chain routes and deposit-address exchange:
 
 - **DEX (sign locally)** — quotes can be compared across applicable same-chain providers, including **0x, 1inch, Uniswap, LI.FI, Rango, and Jupiter**; cross-chain candidates include **LI.FI, Relay, Rango, and SwapKit** where the route and wallet pass capability and safety checks. The selected on-chain route is signed locally.
-- **Cross-chain exchange (deposit address)** — **SimpleSwap** with a **ChangeNOW** fallback, used for assets that can't be signed locally as a source (e.g. BTC, ADA, DOT).
+- **Cardano DEX (sign locally)** — Cardano token swaps through **Minswap** V2 batcher orders and **Danogo** CLMM pool swaps, in the same DEX tab. The provider builds the transaction, and the wallet validates the exact bytes before signing: each route type has its own strict validator (`cardano-swap-validate.ts`, `cardano-danogo-validate.ts`), and anything outside the measured shape is refused. A pool swap counts as complete only when Blockfrost reports the transaction as script-valid.
+- **Cross-chain exchange (deposit address)** — **SimpleSwap** with a **ChangeNOW** fallback, used for assets that can't be signed locally as a source (e.g. BTC, DOT).
 
-Token discovery, quotes, slippage, gas preflight, route validation, and in-progress swap tracking are handled in the swap flow. A network or token appearing in the picker does not mean every pair or direction can execute. Cross-chain route safety and settlement coverage vary by provider; [swap discovery and QA notes](docs/SWAP-DISCOVERY.md) record the current evidence. The newer DEX routing and fee work is present in the **uncommitted working tree** at this documentation update; it has not been validated by a real-money swap. Cardano on-chain DEX execution remains stubbed.
+Token discovery, quotes, slippage, gas preflight, route validation, and in-progress swap tracking are handled in the swap flow. A network or token appearing in the picker does not mean every pair or direction can execute. Cross-chain route safety and settlement coverage vary by provider; [swap discovery and QA notes](docs/SWAP-DISCOVERY.md) and [Cardano swap notes](docs/CARDANO-SWAP-DISCOVERY.md) record the current evidence. Real-funds QA is recorded in [release QA](docs/RELEASE-QA.md): a Danogo ADA → USDCx swap has passed, while the reverse direction and Minswap V2 orders are still awaiting a real-funds run.
+
+Cardano ↔ EVM/Solana stablecoin journeys (USDCx and cbADA) are **read-only** in this release: tracking, review screens and recovery exist, but no bridge or burn leg can be signed or sent from the app.
 
 ---
 
@@ -474,9 +480,9 @@ download page. Play Store distribution is future work.
 
 - **Chrome Web Store** — public extension listing for the first stable release.
 - **Cardano tx chaining** (`supportsTxChaining`) — track submitted-but-unconfirmed UTXOs locally so dApps can chain transactions without waiting for confirmation.
-- **Cardano DEX execution** — wire the stubbed on-chain swap path (MuesliSwap).
+- **Cardano stablecoin routes** — executable USDCx / cbADA bridge legs, once a supported quote and burn path exist.
 - **Fiat on/off-ramp** — Transak integration (planned).
-- **Google Play** — the Android APK ships via GitHub Releases today; a Play listing is planned.
+- **Google Play** — the Android app is in Google Play closed testing; the APK also ships via GitHub Releases. A public listing is planned.
 
 ---
 
