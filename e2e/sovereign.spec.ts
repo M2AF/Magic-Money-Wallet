@@ -164,7 +164,7 @@ test('Sovereign motion, interactions, accessibility and theme lifecycle', async 
     // An unavailable chain cannot grant access, even with a saved preference.
     holderBalance = 1; failOwnership = true
     await page.getByRole('button', {name:'Recheck ownership',exact:true}).click()
-    await expect(page.getByText('Ownership check unavailable.',{exact:false})).toBeVisible()
+    await expect(page.getByText('Ownership unavailable',{exact:false})).toBeVisible()
     await expect(page.locator('.sv-scene')).toHaveCount(0)
     await expect(page.getByRole('button',{name:/Sovereign/})).toBeDisabled()
     failOwnership = false

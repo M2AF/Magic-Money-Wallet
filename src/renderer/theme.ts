@@ -35,12 +35,14 @@
 import './themes/mallard-order.css'
 import './themes/sealuminati.css'
 import './themes/emonad.css'
+import './themes/ape-society.css'
 import './themes/r3tards.css'
 import './themes/textures.css'
 import './themes/liquid-glass.css'
 import './themes/materials.css'
 import './themes/sovereign.css'
 import { initSovereignMotion } from './lib/sovereign-motion'
+import { apeAccess, initApeAccess } from './lib/ape-access'
 import { sovereignAllowed, initSovereignAccess } from './lib/sovereign-access'
 import { applyTexture, initTexture } from './lib/textures'
 
@@ -564,7 +566,7 @@ export function applyTheme(id: ThemeId): void {
     id = DEFAULT_THEME
   }
 
-  if (id === 'sovereign' && !sovereignAllowed()) id = DEFAULT_THEME
+  if (id === 'sovereign' && !sovereignAllowed() || id === 'ape-society' && !apeAccess.allowed()) id = DEFAULT_THEME
   const def = themeDef(id)
   // A built-in is derived when it has no CSS block of its own, or when the user
   // has recoloured it. Inline custom properties beat every :root rule, and
@@ -607,6 +609,7 @@ export function endPreview(): void {
 export function initTheme(): void {
   initTexture()
   initSovereignMotion()
+  initApeAccess(() => applyTheme(getTheme()))
   initSovereignAccess(() => applyTheme(getTheme()))
   // Before the first paint: it can move the selection off a custom theme that
   // has since been promoted to a built-in, and painting twice would flash.

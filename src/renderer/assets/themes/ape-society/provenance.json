@@ -1,0 +1,27 @@
+{
+  "reference": "https://www.theapesociety.io/gallery/",
+  "processing": "Original supplied files copied unchanged; presentation cropping, sizing and tint are CSS only.",
+  "fonts": "Existing bundled OFL EB Garamond and Inter; no proprietary site fonts bundled.",
+  "assets": [
+    {
+      "file": "frame-grand.png",
+      "suppliedFile": "Qmdh1h5AKshaUg7KSvWafbPNXVEQtNeKwGFrCyLMu7mDDw.png",
+      "sha256": "d257d699cac5beeb9d21c3455d9f7620c74450bfef23fe1355c77fabfec89538"
+    },
+    {
+      "file": "frame-gold.png",
+      "suppliedFile": "QmXXjEAzDqPaujF3DCwWTrLtzg26sdPdM9KR41m6JRb1Y3.png",
+      "sha256": "12978bbd741e8764b123617edbe23aaca35be5b33219fd1cf57ecfbada525082"
+    },
+    {
+      "file": "frame-bronze.png",
+      "suppliedFile": "QmRXXSpJkomFWtBfR3EaJPUD7hgmaZNVkssanTJanRig18.png",
+      "sha256": "f2f0248379b62dd18e67ef8482dc3e450833c6078867dee33a7508e8f4d4ffab"
+    },
+    {
+      "file": "portrait.png",
+      "suppliedFile": "Roch_Edwards.png",
+      "sha256": "7c47bacec691202351468e42274be39f2cc07c9c9e286cf54e650e2488f0cf49"
+    }
+  ]
+}

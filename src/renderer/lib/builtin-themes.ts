@@ -29,7 +29,7 @@ export type BuiltinThemeId =
   | 'moonlight' | 'crimson' | 'grape' | 'matrix' | 'white-gold' | 'midnight'
   // Derived from three colours
   | 'cardano' | 'milady' | 'monad' | 'abstract' | 'bitcoin' | 'sappy-seals'
-  | 'mallard-order' | 'sealuminati' | 'emonad' | 'r3tards' | 'liquid-glass' | 'brushed-metal' | 'leather' | 'velvet' | 'walnut' | 'royal-silk' | 'sovereign'
+  | 'mallard-order' | 'sealuminati' | 'emonad' | 'r3tards' | 'liquid-glass' | 'brushed-metal' | 'leather' | 'velvet' | 'walnut' | 'royal-silk' | 'sovereign' | 'ape-society'
 
 export interface ThemeDef {
   id: BuiltinThemeId
@@ -76,6 +76,7 @@ export const THEMES: ThemeDef[] = [
   { id: 'bitcoin',     name: 'Bitcoin',     swatch: ['#000000', '#f2a900'], colors: { bg: '#000000', accent: '#f2a900', text: '#ababab' } },
   { id: 'sappy-seals', name: 'Sappy Seals', swatch: ['#ffffff', '#000000'], colors: { bg: '#ffffff', accent: '#000000', text: '#000000' } },
   { id: 'sovereign', name: 'Sovereign', css: true, art: true, fixedPalette: true, artDescription: 'Kinetic crystal · Champagne & obsidian', swatch: ['#080c13', '#dfc594'], colors: { bg: '#080c13', accent: '#dfc594', text: '#f5f1e8' } },
+  { id: 'ape-society', name: 'The Ape Society', css: true, art: true, fixedPalette: true, artDescription: 'Painted emerald · Antique gilt frames', swatch: ['#071d16', '#d3b36a'], colors: { bg: '#071d16', accent: '#d3b36a', text: '#f3ecda' } },
   { id: 'mallard-order', name: 'Mallard Order', css: true, art: true, artDescription: 'Carved runes · Stone & gold', swatch: ['#10100e', '#c6a75e'], colors: { bg: '#10100e', accent: '#c6a75e', text: '#eee8d5' } },
   { id: 'sealuminati', name: 'Sealuminati', css: true, art: true, artDescription: 'Pixel robes · Violet fire & gold', swatch: ['#120b24', '#ffd34d'], colors: { bg: '#120b24', accent: '#ffd34d', text: '#f4e9f6' } },
   { id: 'emonad', name: 'Emonad', css: true, art: true, artDescription: 'Tarot vines · Black roses & silver moons', swatch: ['#171020', '#c8c6b8'], colors: { bg: '#171020', accent: '#c8c6b8', text: '#f0eddf' } },

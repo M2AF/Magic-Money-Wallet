@@ -246,3 +246,33 @@
 ### 2026-10-10T22:44-03:00 · codex · handoff · 5ec54e5 (main) dirty 2
 - Android animation diagnosis: all3phone scales0; reduced-motion pause is expected. No settings changed. Async user choice pending; no new APK needed for the setting change.
 - next: Await user's reply about restoring Android animation scales1x; if approved set/read back with adb and confirm Sovereign motion on phone.
+
+### 2026-10-11T19:36-03:00 · codex · claim · 91d540d (main) dirty 1
+- task: Ape Society art theme wallet first
+- lease until 2026-10-11T22:36-03:00
+
+### 2026-10-11T19:43-03:00 · codex · checkpoint · 91d540d (main) dirty 6
+- Original frame PNGs and attached Roch_Edwards.png identified in Downloads and copied unchanged. Wallet art theme registered/fixed;169files2485tests/five TS targets pass. First geometry QA caught narrow summary and frame-crossing sparkline; compact icon sizing and chart fit scoped to Ape theme. Rerun .ape-browser.log ongoing. No commit/install/deploy.
+
+### 2026-10-11T19:50-03:00 · codex · verify · 91d540d (main) dirty 7
+- verified: Five TS targets;169files2485tests;final extension/Electron/Android/iOS renderer bundles;all5art journeys and additional final Ape actual chart endpoint bounds journey pass. Full balances360/400/1000,Send/Swap,preview/reload/theme cleanup; screenshots reviewed.
+- Original supplied3frames/Roch painting unchanged and hashed; shared Sparkline viewBox preserves full points under theme scaling. docs/APE-SOCIETY-THEME.md;.ape-*.log;.local-artifacts/ape-society/. No commit/device install/deploy.
+
+### 2026-10-11T19:50-03:00 · codex · handoff · 91d540d (main) dirty 7
+- Ape Society wallet art complete and verified locally; ChainLens final regression remains in its separate lease.
+- next: User reviews Ape Society wallet screenshots; no install/deployment authorized in this theme task.
+
+### 2026-10-11T19:58-03:00 · codex · claim · 91d540d (main) dirty 7
+- task: Ape Society holder gate and owned portrait selector
+- lease until 2026-10-11T22:58-03:00
+
+### 2026-10-11T20:18-03:00 · codex · checkpoint · 91d540d (main) dirty 11
+- Ape gate core verifies Ethereum chain/balance/candidate ownerOf/tokenURI at measured block. Production live discovery returns user's #6637 Roch Edwards and exact IPFS art; CORS verified for discovery, Pinata image200; alternatives429. Shared core generated into ChainLens. Compact refresh icons on tiles and selected-theme-only dropdown replace standalone ownership panels.6new gate tests and170files2491tests pass; wallet/full ChainLens browser jobs and final four bundles ongoing .ape-holder-*.log.
+
+### 2026-10-11T20:31-03:00 · codex · verify · 91d540d (main) dirty 11
+- verified: Five TS targets;170files2492tests;7gate/preference tests (latest includes expiry/multi-wallet selection);four final renderer bundles;all6art/Sovereign browser journeys plus final Ape preference/compact-refresh/selected-dropdown/reload/revocation rerun pass. Production reader live discovers/verifies Roch Edwards#6637 and exact IPFS image; screenshot inspected.
+- docs/APE-SOCIETY-HOLDER-ACCESS.md;.ape-holder-*.log;.local-artifacts/ape-holder/. No signatures/approvals/transfers,phone installation or deployment performed.
+
+### 2026-10-11T20:31-03:00 · codex · handoff · 91d540d (main) dirty 11
+- Ape holder discovery/personal art and compact theme-tile controls complete locally, documented and verified.
+- next: User reviews compact theme controls and owned ape selection. No new phone installation performed; native-device QA remains pending.

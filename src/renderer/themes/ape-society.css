@@ -1,0 +1,78 @@
+/* The Ape Society: original supplied frames and Roch Edwards painting. */
+:root[data-theme='ape-society']:not([data-derived]) {
+  --bg-deep: #071d16; --bg-dark: #0b291f; --bg-surface: #17372b;
+  --bg-card: #102c22; --bg-card-hover: #1b3a2b;
+  --bg-deep-rgb: 7, 29, 22; --bg-surface-rgb: 23, 55, 43;
+  --accent: #d3b36a; --accent-rgb: 211, 179, 106; --accent-hover: #f4d994;
+  --accent-2: #b18d5d; --accent-text: #e5c887; --accent-text-rgb: 229, 200, 135;
+  --text-primary: #f3ecda; --text-secondary: #c7c4ad; --text-muted: #a1ad98;
+  --on-accent: #071d16; --btn-primary-text: #f3ecda;
+  --border: #d3b36a45; --border-active: #d3b36aa0;
+  --input-bg: #04150ed4; --overlay-bg: #020c09de;
+  --success: #94d6a3; --success-rgb: 148, 214, 163; --warning: #edc87f; --error: #ff9292;
+  --radius-sm: 3px; --radius-md: 4px; --radius-lg: 5px; --radius-xl: 6px;
+  --font-display: 'MM Garamond', Georgia, serif; --font-body: Inter, sans-serif; --blur: none;
+}
+.art-theme-ape-society {
+  color:#f3ecda; background:linear-gradient(#071d1640,#071d1640),var(--ape-portrait, url('../assets/themes/ape-society/portrait.png')) center 12%/cover;
+  border-image:url('../assets/themes/ape-society/frame-grand.png') 17% / 18px / 0 stretch;
+}
+.art-theme-ape-society .art-theme-mark { flex:0 0 44px; width:44px; height:50px; color:transparent; background:var(--ape-portrait, url('../assets/themes/ape-society/portrait.png')) center/cover; border:1px solid #d3b36a; }
+.art-theme-ape-society .art-theme-copy strong { font:600 18px 'MM Garamond',Georgia,serif; letter-spacing:.015em; }
+.art-theme-ape-society .art-theme-copy > span { color:#d8d2b9; font:10px/1.5 Inter,sans-serif; }
+.art-theme-ape-society .art-theme-status { color:#ead193; font:600 9px Inter,sans-serif; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.app-shell,.browser-shell) {
+  background:linear-gradient(180deg,#071d1655,#03100bdd),var(--ape-portrait, url('../assets/themes/ape-society/portrait.png')) center top/cover fixed !important;
+}
+:root[data-theme='ape-society']:not([data-derived]) :is(.titlebar,.tab-banner) { background:transparent !important; border:0 !important; box-shadow:none; backdrop-filter:none; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.titlebar-wordmark,.tab-banner img,.swap-hero-text,.swap-hero-icon) { image-rendering:auto; opacity:1; filter:grayscale(1) sepia(.6) brightness(1.65) drop-shadow(0 1px 2px #000); }
+:root[data-theme='ape-society']:not([data-derived]) .titlebar-logo { image-rendering:auto; }
+:root[data-theme='ape-society']:not([data-derived]) .portfolio-header { background:transparent !important; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.page-title,.settings-title,.chain-name) { font-family:'MM Garamond',Georgia,serif; color:#f3ecda; }
+:root[data-theme='ape-society']:not([data-derived]) .page-title { font-size:25px; letter-spacing:.015em; }
+:root[data-theme='ape-society']:not([data-derived]) .portfolio-total { letter-spacing:-.035em; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.chain-card,.card,.settings-group,.art-panel) {
+  background:linear-gradient(#0d291eea,#092319f5),var(--ape-portrait, url('../assets/themes/ape-society/portrait.png')) right top/1600px auto !important;
+  border:1px solid transparent !important; border-radius:0 !important;
+  border-image:url('../assets/themes/ape-society/frame-gold.png') 12% / 19px / 0 stretch !important;
+  box-shadow:0 6px 18px #0006; backdrop-filter:none;
+}
+:root[data-theme='ape-society']:not([data-derived]) :is(.chain-card,.card,.art-panel) { padding:25px !important; }
+:root[data-theme='ape-society']:not([data-derived]) .chain-card::before { display:none; }
+:root[data-theme='ape-society']:not([data-derived]) .chain-spark-row { transform:translate(0,var(--spark-y)); margin-left:-30px; width:min(250px,calc(100vw - 100px)); justify-content:flex-start; }
+:root[data-theme='ape-society']:not([data-derived]) .chain-spark-row svg { width:100%; max-width:100%; flex-shrink:1; }
+:root[data-theme='ape-society']:not([data-derived]) .settings-group { padding:20px; border-image-source:url('../assets/themes/ape-society/frame-bronze.png') !important; border-image-slice:17% !important; }
+:root[data-theme='ape-society']:not([data-derived]) .settings-group.danger { border-image:none !important; border-color:var(--error) !important; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.settings-sheet,.send-sheet) { background:#0b251bf5 !important; border-color:#d3b36a70; border-radius:6px; }
+:root[data-theme='ape-society']:not([data-derived]) .settings-sheet::before { display:none; }
+:root[data-theme='ape-society']:not([data-derived]) .art-overlay { background:#020c09de !important; }
+:root[data-theme='ape-society']:not([data-derived]) .art-swap { background:transparent !important; border:0 !important; box-shadow:none; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.btn-primary,.chain-card > button,.art-swap > button) {
+  background:linear-gradient(180deg,#a4853c30,#082018),var(--ape-portrait, url('../assets/themes/ape-society/portrait.png')) right top/1800px auto !important;
+  border:1px solid #d3b36ab0 !important; border-radius:3px !important; color:#f3ecda !important;
+  min-height:44px; font:600 15px 'MM Garamond',Georgia,serif; letter-spacing:.05em;
+  box-shadow:inset 0 1px #f2d59455,inset 0 -2px #0008,0 3px 8px #0005;
+}
+:root[data-theme='ape-society']:not([data-derived]) :is(.btn-primary,.chain-card > button,.art-swap > button):disabled { opacity:.4; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.input,.settings-select,.chain-address) { background:#04150ed4; border-color:#a78b494d; border-radius:3px; }
+:root[data-theme='ape-society']:not([data-derived]) :is(.bottom-nav,.portfolio-tabs,.browser-toolbar) { background:#061b14e8 !important; border-color:#c8a35860; }
+:root[data-theme='ape-society']:not([data-derived]) .bottom-nav-btn { font-family:'MM Garamond',Georgia,serif; font-size:11px; }
+:root[data-theme='ape-society']:not([data-derived]) .bottom-nav-btn.active { color:#efd08b; background:linear-gradient(0deg,#d3b36a21,transparent); }
+@media(max-width:420px) {
+  :root[data-theme='ape-society']:not([data-derived]) .chain-amount { font-size:19px; }
+  :root[data-theme='ape-society']:not([data-derived]) .header-toolbar-actions { gap:3px !important; }
+  :root[data-theme='ape-society']:not([data-derived]) .header-toolbar-actions > button { width:28px !important; }
+}
+
+.ape-holder-picker { grid-column:1/-1; padding:12px; border:1px solid var(--border); border-radius:8px; display:flex; flex-direction:column; gap:8px; font-size:11px; }
+.ape-holder-picker button,.ape-holder-picker select { padding:8px; color:var(--text-primary); background:var(--input-bg); border:1px solid var(--border); border-radius:4px; }
+.ape-holder-preview { width:100px; height:100px; object-fit:cover; border:1px solid var(--accent); }
+
+.art-theme-entry { grid-column:1/-1; min-width:0; position:relative; }
+.holder-theme-refresh { position:absolute; top:12px; right:16px; width:28px; height:28px; display:grid; place-items:center; padding:0; border:1px solid var(--border-active); border-radius:6px; color:var(--accent-text); background:var(--input-bg); cursor:pointer; }
+.holder-theme-refresh:disabled { opacity:.45; cursor:wait; }
+.art-theme-entry:has(.holder-theme-refresh) .art-theme-status { align-self:flex-end; padding-bottom:3px; }
+.art-theme-entry:has(.holder-theme-refresh) .art-theme-card { padding-right:20px; }
+.ape-holder-picker { margin-top:6px; padding:8px 12px; border:0; background:var(--input-bg); }
+.ape-holder-picker label { display:flex; align-items:center; gap:8px; }
+.ape-holder-picker select { flex:1; min-width:0; padding:6px 8px; font-size:11px; }

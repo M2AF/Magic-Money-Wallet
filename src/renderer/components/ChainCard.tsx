@@ -13,7 +13,7 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
     .map((v, i) => `${(i / (data.length - 1)) * W},${H - ((v - min) / range) * (H - 2) - 1}`)
     .join(' ')
   return (
-    <svg width={W} height={H} style={{ display: 'block', flexShrink: 0 }}>
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', flexShrink: 0 }}>
       <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"
         strokeLinejoin="round" strokeLinecap="round" opacity={0.8} />
     </svg>

@@ -1,0 +1,51 @@
+{
+  "name": "Roch Edwards",
+  "description": "A distinguished member of the Edwards family",
+  "image": "ipfs://bafybeiczgve33eflcmnqch74o5aobheaxodgboimqxxaqni674paxhhb4a/6637.jpg",
+  "attributes": [
+    {
+      "trait_type": "Accessory",
+      "value": "Dagger"
+    },
+    {
+      "trait_type": "Background",
+      "value": "Aqua"
+    },
+    {
+      "trait_type": "Body",
+      "value": "Ape"
+    },
+    {
+      "trait_type": "Class",
+      "value": "Craftsmen"
+    },
+    {
+      "trait_type": "Ears",
+      "value": "Plain"
+    },
+    {
+      "trait_type": "Eyes",
+      "value": "Normal"
+    },
+    {
+      "trait_type": "Facial Hair",
+      "value": "Normal"
+    },
+    {
+      "trait_type": "Family",
+      "value": "Edwards"
+    },
+    {
+      "trait_type": "Hat",
+      "value": "None"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Ape"
+    },
+    {
+      "trait_type": "Weapon",
+      "value": "None"
+    }
+  ]
+}

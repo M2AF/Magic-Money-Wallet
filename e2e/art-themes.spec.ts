@@ -1,3 +1,4 @@
+import { installApeFixture } from './ape-fixture'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -6,7 +7,7 @@ import { stubWorker } from './support/worker-stub-browser'
 
 test.use({ actionTimeout: 10_000 })
 
-for (const theme of [{ id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
+for (const theme of [{ id: 'ape-society', name: 'The Ape Society' }, { id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
 test(`${theme.name} selects, persists, previews cleanly and leaves other themes intact`, async () => {
   test.setTimeout(90_000)
   const dist = resolve('dist-extension')
@@ -19,6 +20,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
   try {
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
     const page = await context.newPage()
+    const apeControl=await installApeFixture(page, {balance:theme.id === 'ape-society' ? 2 : 1,ids:theme.id === 'ape-society' ? ['6637','6638'] : ['6637']})
     const settle = () => page.evaluate(async () => {
       await document.fonts.ready
       for (const animation of document.getAnimations()) {
@@ -92,7 +94,15 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
         const chart = el.getBoundingClientRect(), card = el.closest('.chain-card')!.getBoundingClientRect()
         return chart.left >= card.left + 18 && chart.right <= card.right - 18
       })).toBe(true)
-      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.webp/)
+      if (theme.id === 'ape-society') {
+        expect(await page.locator('.chain-spark-row svg').first().evaluate(svg => {
+          const line = svg.querySelector('polyline')!
+          const end = line.getPointAtLength(line.getTotalLength()).matrixTransform(line.getScreenCTM()!)
+          const card = svg.closest('.chain-card')!.getBoundingClientRect()
+          return end.x <= card.right - 18 && end.x >= card.left + 18
+        })).toBe(true)
+      }
+      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.(webp|png)/)
       if (theme.id === 'r3tards') await expect(page.locator('.app-shell')).toHaveCSS('background-image', /background.*\.webp/)
       await settle()
       await page.screenshot({ path: `test-results/${theme.id}-portfolio-${width}.png` })
@@ -116,7 +126,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     }
     await page.getByRole('button', { name: 'Send ETH', exact: true }).click()
     await expect(page.getByText('Recipient Address', { exact: true })).toBeVisible()
-    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.webp/)
+    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.(webp|png)/)
     await expect(page.getByRole('button', { name: 'Estimate Fee', exact: true })).toBeDisabled()
     await settle()
     await page.screenshot({ path: `test-results/${theme.id}-send-400.png` })
@@ -149,6 +159,30 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id)
     expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe(theme.id)
+    if(theme.id === 'ape-society') {
+      await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+      const selector=page.getByRole('combobox',{name:'Theme ape',exact:true})
+      await expect(selector).toBeVisible()
+      await expect(page.getByRole('button',{name:'Refresh owned apes',exact:true})).toHaveCSS('width','28px')
+      await selector.selectOption(`${apeControl.owner}:6638`)
+      await expect(art).toContainText('Second Ape')
+      await expect.poll(()=>page.evaluate(()=>document.documentElement.style.getPropertyValue('--ape-portrait'))).toContain('/6638.jpg')
+      await selector.scrollIntoViewIfNeeded()
+      await page.screenshot({path:'.local-artifacts/ape-holder/wallet-picker.png'})
+      await page.reload()
+      await expect(page.locator('html')).toHaveAttribute('data-theme','ape-society')
+      await expect.poll(()=>page.evaluate(()=>document.documentElement.style.getPropertyValue('--ape-portrait'))).toContain('/6638.jpg')
+      await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+      apeControl.balance=0
+      await page.getByRole('button',{name:'Refresh owned apes',exact:true}).click()
+      await expect(art).toBeDisabled()
+      await expect(page.locator('html')).not.toHaveAttribute('data-theme','ape-society')
+      await expect(selector).toHaveCount(0)
+      apeControl.balance=2;apeControl.fail=true
+      await page.getByRole('button',{name:'Refresh owned apes',exact:true}).click()
+      await expect(art).toBeDisabled()
+      await expect(art).toContainText('unavailable')
+    }
     expect(errors).toEqual([])
   } finally { await context.close() }
 })

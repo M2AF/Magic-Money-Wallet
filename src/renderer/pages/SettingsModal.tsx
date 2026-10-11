@@ -24,8 +24,9 @@ import {
   type ThemeSyncStatus
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
-import { SovereignAccessNote } from '../components/SovereignAccessNote'
-import { sovereignAccess, sovereignAllowed, onSovereignAccess } from '../lib/sovereign-access'
+import { ApeThemePicker } from '../components/ApeThemePicker'
+import { apeAccess, onApeAccess } from '../lib/ape-access'
+import { sovereignAccess, sovereignAllowed, onSovereignAccess, refreshSovereignAccess } from '../lib/sovereign-access'
 import { TexturePicker } from '../components/TexturePicker'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 import { AutoRevokeControl } from '../components/AutoRevokeControl'
@@ -58,6 +59,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [passkeyLinked, setPasskeyLinked] = useState(false)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
+  const [apeState,setApeState]=useState(apeAccess.get)
+  useEffect(()=>onApeAccess(()=>setApeState({...apeAccess.get()})),[])
   const [holderAccess, setHolderAccess] = useState(sovereignAccess)
   useEffect(() => onSovereignAccess(() => setHolderAccess(sovereignAccess())), [])
   const [theme, setThemeState] = useState<ThemeId>(getTheme)
@@ -539,20 +542,22 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
               />
             ))}
             <div className="theme-picker-group">Art & material themes</div>
-            <SovereignAccessNote hideBalance={privacy !== false} />
             {THEMES.filter(t => t.art).map(t => (
+              <div key={t.id} className="art-theme-entry">
               <button
-                key={t.id}
                 type="button"
-                className={`art-theme-card art-theme-${t.id}${theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) ? ' active' : ''}`}
-                aria-pressed={theme === t.id && (t.id !== 'sovereign' || sovereignAllowed())}
-                disabled={t.id === 'sovereign' && !sovereignAllowed()}
+                className={`art-theme-card art-theme-${t.id}${theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed()) ? ' active' : ''}`}
+                aria-pressed={theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed())}
+                disabled={t.id === 'sovereign' && !sovereignAllowed() || t.id === 'ape-society' && !apeAccess.allowed()}
                 onClick={() => { setTheme(t.id); setThemeState(t.id) }}
               >
                 <span className="art-theme-mark" aria-hidden="true">◇</span>
-                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.artDescription}</span></span>
-                <span className="art-theme-status">{t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
+                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.id === 'sovereign' ? holderAccess.status === 'owned' ? privacy === false ? `${holderAccess.balance} REDACTED · Unlocked` : 'REDACTED verified · Unlocked' : holderAccess.status === 'error' ? 'Ownership unavailable · Retry' : 'REDACTED holders · Robinhood' : t.id === 'ape-society' ? apeAccess.allowed() ? `${apeState.selected?.name} · #${apeState.selected?.id}` : apeState.status === 'error' ? 'Ownership or artwork unavailable · Retry' : 'Ape Society holders · Ethereum' : t.artDescription}</span></span>
+                <span className="art-theme-status">{t.id === 'ape-society' && !apeAccess.allowed() ? apeState.status==='checking' ? 'Checking' : 'Locked' : t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
               </button>
+              {(t.id === 'sovereign' || t.id === 'ape-society') && <button type="button" className="holder-theme-refresh" aria-label={t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} title={t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} disabled={t.id === 'sovereign' ? holderAccess.checking : apeState.status === 'checking'} onClick={() => { if(t.id === 'sovereign')void refreshSovereignAccess();else void apeAccess.refresh() }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>}
+              {t.id === 'ape-society' && theme === t.id && apeAccess.allowed() && <ApeThemePicker />}
+              </div>
             ))}
             <div className="theme-picker-group">Yours</div>
             {customThemes.map(t => (

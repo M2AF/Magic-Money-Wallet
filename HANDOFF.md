@@ -7,13 +7,15 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 56eab1d · Fresh Capacitor web build/sync and JDK24 Gradle assembleRelease pass. apksigner verified. ADB install-r Success on RFCR1039HCH Samsung SM-G996W, info.chainlens.magicmoney0.10.1/code25; same signer update preserves data. App launched; theme visual QA on phone pending. · 2026-10-10T22:28-03:00
-head: 5ec54e5 (main) dirty 2
-updated: 2026-10-10T22:44-03:00 · codex
+verified: 91d540d · Five TS targets;170files2492tests;7gate/preference tests (latest includes expiry/multi-wallet selection);four final renderer bundles;all6art/Sovereign browser journeys plus final Ape preference/compact-refresh/selected-dropdown/reload/revocation rerun pass. Production reader live discovers/verifies Roch Edwards#6637 and exact IPFS image; screenshot inspected. · 2026-10-11T20:31-03:00
+head: 91d540d (main) dirty 11
+updated: 2026-10-11T20:31-03:00 · codex
 
 resources: -
 
 ## Now
+- Ape Society holder/owned-portrait feature complete locally: Ethereum contract0xF08Acc2f16Ddf2f5d047fcc4D39A6c528A9645af; paginated discovery candidates, block-bound balance/ownerOf/tokenURI proof, loaded IPFS art, per-owner/set token preferences,90s freshness/45s timeout/generation guards. Live production reader verifies Roch Edwards#6637; exact image downloaded/reviewed. Compact refresh icons on holder tiles and selected Ape dropdown. Five TS targets;170files2492tests;four bundles;6art/Sovereign journeys plus final selection rerun pass. docs/APE-SOCIETY-HOLDER-ACCESS.md;.ape-holder-*.log/.local-artifacts/ape-holder/. No phone install/deploy.
+- The Ape Society wallet art theme complete locally below Sovereign: unchanged supplied3PNG gold/bronze frames and Roch_Edwards painting, emerald/ivory/gold fixed palette, local Garamond, smooth logos, inset portfolio/Send/swap/Settings frames and full balances. Shared sparkline viewBox preserves every point when resized; endpoint measured inside frame. Five TS targets;169files2485tests;four renderer bundles;all5art journeys plus final Ape chart journey pass. docs/APE-SOCIETY-THEME.md; .ape-*.log/.local-artifacts/ape-society/. No commit/install/deploy.
 - Android Sovereign motion report: phone global animator_duration_scale,transition_animation_scale,window_animation_scale all0; Chromium requests reduced motion for disabled animator scale, and theme intentionally pauses. Capacitor entry initializes controller. Awaiting user's choice to restore Android global scales1x; no settings/code/build changed. Actual phone visual confirmation pending.
 - User-authorized current Android release installed Oct10 on connected Samsung SM-G996W via adb install-r Success, main package info.chainlens.magicmoney0.10.1/code25; existing signer/data preserved. Fresh web build/sync and JDK24 Gradle assembleRelease pass (.phone-build.log/.phone-gradle.log). App launched; phone theme visual QA pending. APK SHA256373a7d03e1ae2ed0524187e275b5f638f9963ac8fb3195777abd3570dea97530; no commit/cloud deploy.
 - Sovereign browser chrome effects verified locally with production BrowserApp renderer/fixture bridge: translucent toolbar, pointer-local lighting, orbit, press rings, reduced motion and holder-access cleanup on lock. e2e/sovereign-browser.spec.ts; .browser-motion-*.log; .local-artifacts/sovereign/browser.png. No third-party page injection, commit/install/deploy.
@@ -52,7 +54,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- Await user's reply about restoring Android animation scales1x; if approved set/read back with adb and confirm Sovereign motion on phone.
+- User reviews compact theme controls and owned ape selection. No new phone installation performed; native-device QA remains pending.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.

@@ -19,10 +19,10 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is twenty-three themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(23)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(23)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(23)
+  it('is twenty-four themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(24)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(24)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(24)
   })
 
   it('places Emonad immediately above r3tards', () => {
@@ -73,6 +73,7 @@ describe('hand-tuned themes match their stylesheet block', () => {
     + readFileSync(fileURLToPath(new URL('../themes/mallard-order.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/sealuminati.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/emonad.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/ape-society.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/r3tards.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/liquid-glass.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/materials.css', import.meta.url)), 'utf8')
