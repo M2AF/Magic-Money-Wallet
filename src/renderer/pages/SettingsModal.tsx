@@ -395,75 +395,6 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
         </SettingsSection>
 
-        <SettingsSection label="Appearance">
-          <CurrencyPicker />
-          <TexturePicker />
-          <div className="theme-picker">
-            <div className="theme-picker-group">Built-in</div>
-            {THEMES.filter(t => !t.art).map(t => (
-              <ThemeSwatch
-                key={t.id}
-                name={t.name}
-                swatch={themeSwatch(t)}
-                active={theme === t.id}
-                edited={editedBuiltins.includes(t.id)}
-                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
-                onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
-              />
-            ))}
-            <div className="theme-picker-group">Art & material themes</div>
-            {THEMES.filter(t => t.art).map(t => (
-              <button
-                key={t.id}
-                type="button"
-                className={`art-theme-card art-theme-${t.id}${theme === t.id ? ' active' : ''}`}
-                aria-pressed={theme === t.id}
-                onClick={() => { setTheme(t.id); setThemeState(t.id) }}
-              >
-                <span className="art-theme-mark" aria-hidden="true">◇</span>
-                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.artDescription}</span></span>
-                <span className="art-theme-status">{theme === t.id ? 'Selected' : 'Apply'}</span>
-              </button>
-            ))}
-            <div className="theme-picker-group">Yours</div>
-            {customThemes.map(t => (
-              <ThemeSwatch
-                key={t.id}
-                name={t.name}
-                swatch={customSwatch(t)}
-                active={theme === t.id}
-                own
-                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
-                onEdit={() => setThemeEditor({ kind: 'custom', theme: t })}
-              />
-            ))}
-            {customThemes.length < MAX_CUSTOM_THEMES && (
-              <button
-                type="button"
-                className="theme-swatch theme-swatch-new"
-                onClick={() => setThemeEditor({ kind: 'new' })}
-                title="Create your own theme"
-              >
-                <span className="theme-swatch-dot theme-swatch-plus" aria-hidden>+</span>
-                <span className="theme-swatch-name">New</span>
-              </button>
-            )}
-          </div>
-          <p className="theme-picker-note">
-            {`Tap the pencil to recolour a colour theme — a built-in can be reverted to how it shipped at any time. Art themes also change the artwork, borders and fonts. `}
-            {customThemes.length === 0
-              ? 'Tap + to build one of your own from a background, an accent and a text colour; the rest of the app is derived to match.'
-              : customThemes.length >= MAX_CUSTOM_THEMES
-                ? `All ${MAX_CUSTOM_THEMES} custom slots are used — delete one to make another.`
-                : `${MAX_CUSTOM_THEMES - customThemes.length} of ${MAX_CUSTOM_THEMES} custom slots left.`}
-          </p>
-          <ThemeSyncNote
-            status={themeSync}
-            local={customThemes.length}
-            onRetry={() => { setThemeSync({ ...themeSync, state: 'syncing' }); void retryThemeSync().then(setThemeSync) }}
-          />
-        </SettingsSection>
-
         <SettingsSection label="Security">
           <SettingsRow
             icon="🔌"
@@ -571,6 +502,91 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
           )}
         </SettingsSection>
 
+        {updateSupported && (
+          <SettingsSection label="Software Update">
+            <SettingsRow
+              icon={update.state === 'downloaded' ? '🔄' : '⬇️'}
+              label={updateLabel}
+              sublabel={updateSub}
+              onClick={onUpdateClick}
+              disabled={updateBusy}
+              noChevron
+            />
+            {update.state === 'error' && update.error && (
+              <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{update.error}</div>
+            )}
+          </SettingsSection>
+        )}
+
+        <SettingsSection label="Appearance">
+          <CurrencyPicker />
+          <TexturePicker />
+          <div className="theme-picker">
+            <div className="theme-picker-group">Built-in</div>
+            {THEMES.filter(t => !t.art).map(t => (
+              <ThemeSwatch
+                key={t.id}
+                name={t.name}
+                swatch={themeSwatch(t)}
+                active={theme === t.id}
+                edited={editedBuiltins.includes(t.id)}
+                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
+                onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
+              />
+            ))}
+            <div className="theme-picker-group">Art & material themes</div>
+            {THEMES.filter(t => t.art).map(t => (
+              <button
+                key={t.id}
+                type="button"
+                className={`art-theme-card art-theme-${t.id}${theme === t.id ? ' active' : ''}`}
+                aria-pressed={theme === t.id}
+                onClick={() => { setTheme(t.id); setThemeState(t.id) }}
+              >
+                <span className="art-theme-mark" aria-hidden="true">◇</span>
+                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.artDescription}</span></span>
+                <span className="art-theme-status">{theme === t.id ? 'Selected' : 'Apply'}</span>
+              </button>
+            ))}
+            <div className="theme-picker-group">Yours</div>
+            {customThemes.map(t => (
+              <ThemeSwatch
+                key={t.id}
+                name={t.name}
+                swatch={customSwatch(t)}
+                active={theme === t.id}
+                own
+                onSelect={() => { setTheme(t.id); setThemeState(t.id) }}
+                onEdit={() => setThemeEditor({ kind: 'custom', theme: t })}
+              />
+            ))}
+            {customThemes.length < MAX_CUSTOM_THEMES && (
+              <button
+                type="button"
+                className="theme-swatch theme-swatch-new"
+                onClick={() => setThemeEditor({ kind: 'new' })}
+                title="Create your own theme"
+              >
+                <span className="theme-swatch-dot theme-swatch-plus" aria-hidden>+</span>
+                <span className="theme-swatch-name">New</span>
+              </button>
+            )}
+          </div>
+          <p className="theme-picker-note">
+            {`Tap the pencil to recolour a colour theme — a built-in can be reverted to how it shipped at any time. Art themes also change the artwork, borders and fonts. `}
+            {customThemes.length === 0
+              ? 'Tap + to build one of your own from a background, an accent and a text colour; the rest of the app is derived to match.'
+              : customThemes.length >= MAX_CUSTOM_THEMES
+                ? `All ${MAX_CUSTOM_THEMES} custom slots are used — delete one to make another.`
+                : `${MAX_CUSTOM_THEMES - customThemes.length} of ${MAX_CUSTOM_THEMES} custom slots left.`}
+          </p>
+          <ThemeSyncNote
+            status={themeSync}
+            local={customThemes.length}
+            onRetry={() => { setThemeSync({ ...themeSync, state: 'syncing' }); void retryThemeSync().then(setThemeSync) }}
+          />
+        </SettingsSection>
+
         {defaultBrowser?.supported && (
           <SettingsSection label="Browser">
             <SettingsRow
@@ -587,22 +603,6 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
               disabled={defaultBrowserBusy || defaultBrowser.isDefault}
               noChevron
             />
-          </SettingsSection>
-        )}
-
-        {updateSupported && (
-          <SettingsSection label="Software Update">
-            <SettingsRow
-              icon={update.state === 'downloaded' ? '🔄' : '⬇️'}
-              label={updateLabel}
-              sublabel={updateSub}
-              onClick={onUpdateClick}
-              disabled={updateBusy}
-              noChevron
-            />
-            {update.state === 'error' && update.error && (
-              <div style={{ color: 'var(--error)', fontSize: 11, padding: '2px 12px 4px' }}>{update.error}</div>
-            )}
           </SettingsSection>
         )}
 
