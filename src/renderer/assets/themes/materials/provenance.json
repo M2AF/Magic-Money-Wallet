@@ -1,0 +1,33 @@
+{
+  "tool": "built-in image_gen.imagegen",
+  "date": "2026-10-10",
+  "source_directory": "C:/Users/balla/.codex/generated_images/01a11d2c-bf18-7e32-9d61-a1bc7f76ec57",
+  "optimization": "RGB, Lanczos 768x768, WebP quality86 method6",
+  "assets": [
+    {
+      "id": "brushed-metal",
+      "source": "exec-7422cdf3-570e-401b-8247-178322ecac49.png",
+      "prompt": "Generate one production material texture asset, square full-bleed orthographic flat scan of dark satin titanium brushed metal. Fine horizontal directional micrograin with gently irregular authentic brushed machining lines, cool blue charcoal steel palette around #202e38, restrained natural silver sheen. Seamless tileable edges, evenly lit, no objects, no edges, no panels, no UI, no text, no symbols, no dramatic glare, no scratches, no bright corners. Quiet enough to place white wallet UI text directly over it. Material grain like the approved brushed-metal wallet mockup. High quality realistic raster surface, soft matte highlights."
+    },
+    {
+      "id": "leather",
+      "source": "exec-cfe8cb8f-232f-4309-84d7-964117e5d4e0.png",
+      "prompt": "Generate a production square full-bleed texture asset: orthographic flat scan of premium dark espresso brown fine-grain leather, naturally small irregular pores and lightly pebbled grain, quiet warm chocolate palette around #352215, very subtle patina and soft diffuse matte sheen. Seamless tileable edges, evenly lit. No seams or stitching in this asset, no objects, no borders, no UI, no words, no bright glare, no large creases. Convincingly real soft leather, low contrast enough for wallet typography on top. Subtle natural material, not synthetic procedural noise."
+    },
+    {
+      "id": "velvet",
+      "source": "exec-fb67bdbd-4258-421d-b542-19754c633d26.png",
+      "prompt": "Production square full-bleed realistic material texture, orthographic flat scan of deep aubergine purple plush velvet. Incredibly fine dense soft pile with gently varied direction, tiny softly catching plum highlights against #270e2d, subtle irregular brushed nap, no obvious weave, soft matte velvet not satin, even diffuse illumination. Tileable seamless edges, flat stretched cloth with no folds, no objects, no borders, no text, no UI, no dramatic bright spots. Quiet and dark, usable underneath crisp white wallet UI labels, luxurious believable natural velvet."
+    },
+    {
+      "id": "walnut",
+      "source": "exec-44849d2c-72d1-4f17-bd80-bd5261b745b9.png",
+      "prompt": "One production square full-bleed realistic material texture, straight orthographic flat scan of premium dark walnut wood. Small-scale horizontal natural flowing grain, subtle warm brown and dark cocoa bands around #382313, rich softly oiled satin finish, very understated linear grain and few fine pores. Seamless tileable edges, even illumination, no planks, no joins, no boards, no knots, no furniture, no objects, no edges, no borders, no words, no UI. Quiet low contrast wood texture suitable as a wallet background behind white financial numbers. Natural walnut not cartoon or artificial straight lines."
+    },
+    {
+      "id": "royal-silk",
+      "source": "exec-f07fd926-4f71-4196-bfb1-4bf408d4ecda.png",
+      "prompt": "Production square full-bleed texture asset: orthographic scan of rich royal blue silk satin, elegant real fine woven silk with subtle broad diagonal flowing lustre and gentle dark blue-to-royal-blue sheen around #122b72 and #234daa. Very shallow natural drape only, no large folds or wrinkles. Distinct from velvet: silky smooth directional sheen, small fine weave. Seamless tileable edges, evenly lit quiet textile, no objects, no borders, no UI, no text, no bright white highlights, no purple or cyan. Dark royal blue elegant silk suitable underneath white wallet UI labels. Authentic premium material not a plain gradient."
+    }
+  ]
+}

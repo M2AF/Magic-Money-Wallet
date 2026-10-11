@@ -17,12 +17,15 @@ it('pulls a ChainLens built-in recolour, then pushes wallet edits and a revert',
   vi.stubGlobal('document', {
     documentElement: {
       dataset: {} as Record<string, string>,
+      hasAttribute: () => false,
+      toggleAttribute: vi.fn(),
       style: { setProperty: vi.fn(), removeProperty: vi.fn() },
     },
   })
   const remoteColors = { bg: '#123456', accent: '#33ccaa', text: '#ffffff' }
   const push = vi.fn(async (entries: unknown) => ({ entries, error: null }))
   vi.stubGlobal('window', {
+    dispatchEvent: vi.fn(),
     wallet: {
       customThemesGet: vi.fn(async () => ({
         'custom-builtin-crimson': { n: 'Crimson', c: remoteColors, t: 100 },

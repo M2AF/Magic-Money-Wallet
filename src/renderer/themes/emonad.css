@@ -1,0 +1,72 @@
+/* Emonad tarot: original card backdrop with an adapted flat ink border. */
+:root[data-theme='emonad']:not([data-derived]) {
+  --bg-deep: #171020; --bg-dark: #20152b; --bg-surface: #322240;
+  --bg-card: #24182f; --bg-card-hover: #30213e;
+  --bg-deep-rgb: 23, 16, 32; --bg-surface-rgb: 50, 34, 64;
+  --accent: #c8c6b8; --accent-rgb: 200, 198, 184; --accent-hover: #eeeadd;
+  --accent-2: #aa86bd; --accent-text: #d7d2e0; --accent-text-rgb: 215, 210, 224;
+  --text-primary: #f0eddf; --text-secondary: #c5b8ce; --text-muted: #a696b0;
+  --on-accent: #171020; --btn-primary-text: #f0eddf;
+  --border: #ad95bc40; --border-active: #c8c6b8a0;
+  --input-bg: #130d1dcc; --overlay-bg: #0d0816de;
+  --success: #80d7a5; --success-rgb: 128, 215, 165; --warning: #f3c67a; --error: #ff8d9c;
+  --radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 10px;
+  --font-display: 'MM Cinzel', Georgia, serif; --font-body: Inter, sans-serif; --blur: none;
+}
+.art-theme-emonad {
+  color: #f0eddf; background: #24182f;
+  border-image: url('../assets/themes/emonad/frame.webp') 22% fill / 18px / 0 round;
+}
+.art-theme-emonad .art-theme-mark {
+  flex: 0 0 32px; width: 32px; height: 48px; color: transparent;
+  background: url('../assets/themes/emonad/card-back.jpg') center / cover;
+  border: 1px solid #c8c6b8; border-radius: 3px;
+}
+.art-theme-emonad .art-theme-copy strong { font: 700 14px 'MM Cinzel', Georgia, serif; letter-spacing: .06em; }
+.art-theme-emonad .art-theme-copy > span { font: 11px/1.5 Inter, sans-serif; color: #c5b8ce; }
+.art-theme-emonad .art-theme-status { color: #d7d2e0; font-size: 9px; }
+.art-theme-emonad.active { outline: 1px solid #c8c6b8; }
+:root[data-theme='emonad']:not([data-derived]) :is(.app-shell, .browser-shell) {
+  background: linear-gradient(#171020d9, #171020d9), url('../assets/themes/emonad/card-back.jpg') center top / cover no-repeat !important;
+}
+:root[data-theme='emonad']:not([data-derived]) :is(.card, .chain-card, .settings-group, .art-panel) {
+  border: 1px solid transparent;
+  border-image: url('../assets/themes/emonad/frame.webp') 22% fill / 20px / 0 round !important;
+  background: var(--bg-card); border-radius: 0 !important;
+  box-shadow: 0 5px 16px #0005; backdrop-filter: none;
+}
+:root[data-theme='emonad']:not([data-derived]) :is(.card, .chain-card, .art-panel) { padding: 24px !important; }
+:root[data-theme='emonad']:not([data-derived]) .settings-group { padding: 24px 22px; }
+:root[data-theme='emonad']:not([data-derived]) .settings-group.danger { border-image: none !important; border-color: var(--error); }
+:root[data-theme='emonad']:not([data-derived]) :is(.chain-card, .settings-sheet)::before { display: none; }
+:root[data-theme='emonad']:not([data-derived]) .settings-sheet { background: #20152b; }
+:root[data-theme='emonad']:not([data-derived]) .art-overlay { background: var(--overlay-bg) !important; }
+:root[data-theme='emonad']:not([data-derived]) :is(.titlebar, .tab-banner) { background: transparent; border-bottom: 0; box-shadow: none; }
+:root[data-theme='emonad']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img, .swap-hero-icon, .swap-hero-text) {
+  image-rendering: auto; opacity: 1; filter: grayscale(1) brightness(1.4) drop-shadow(0 1px 2px #000);
+}
+:root[data-theme='emonad']:not([data-derived]) .titlebar-logo { image-rendering: auto; }
+:root[data-theme='emonad']:not([data-derived]) .tab-banner img { max-width: 100%; margin-left: 0; }
+:root[data-theme='emonad']:not([data-derived]) .portfolio-header { background: transparent; }
+:root[data-theme='emonad']:not([data-derived]) .portfolio-summary > div:last-child { width: max-content; }
+:root[data-theme='emonad']:not([data-derived]) :is(.portfolio-total, .chain-amount, .balance-amount) { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: 0; }
+:root[data-theme='emonad']:not([data-derived]) .portfolio-total { font-family: var(--font-mono) !important; font-size: clamp(11px, 11cqw, 22px); }
+:root[data-theme='emonad']:not([data-derived]) :is(.btn, .chain-card > button, .art-swap > button) {
+  background: linear-gradient(#49305880, #21152c) !important; color: #f0eddf !important;
+  border: 1px solid #c8c6b899 !important; border-radius: 4px 12px 4px 12px !important;
+  font-family: var(--font-display); font-size: 11px; letter-spacing: .06em; min-height: 44px;
+  box-shadow: inset 0 1px #ded7e326, 0 3px 8px #0006;
+}
+:root[data-theme='emonad']:not([data-derived]) .btn-danger { color: var(--error) !important; border-color: var(--error) !important; }
+:root[data-theme='emonad']:not([data-derived]) :is(.btn, .art-swap > button):disabled { opacity: .45; box-shadow: none; }
+:root[data-theme='emonad']:not([data-derived]) :is(input, .input, .settings-select) { font-family: var(--font-mono); }
+:root[data-theme='emonad']:not([data-derived]) .bottom-nav { background: #171020ed; border-color: #9f86b052; }
+:root[data-theme='emonad']:not([data-derived]) :is(button, input, select, [role='button']):focus-visible { outline: 2px solid #c8c6b8; outline-offset: 3px; }
+@media (max-width: 400px) {
+  :root[data-theme='emonad']:not([data-derived]) .portfolio-tools .header-toolbar-actions { gap: 3px !important; }
+  :root[data-theme='emonad']:not([data-derived]) .portfolio-tools .header-toolbar-actions > button { width: 30px !important; }
+  :root[data-theme='emonad']:not([data-derived]) .portfolio-update-row { font-size: 10px !important; }
+}
+@media (max-width: 380px) {
+  :root[data-theme='emonad']:not([data-derived]) .chain-spark-row svg { transform: scale(.82); }
+}

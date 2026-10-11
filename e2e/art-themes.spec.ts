@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path'
 
 test.use({ actionTimeout: 10_000 })
 
-for (const theme of [{ id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'r3tards', name: 'r3tards' }]) {
+for (const theme of [{ id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
 test(`${theme.name} selects, persists, previews cleanly and leaves other themes intact`, async () => {
   test.setTimeout(90_000)
   const dist = resolve('dist-extension')
@@ -58,6 +58,10 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
     const art = page.getByRole('button', { name: new RegExp(theme.name) })
+    if (theme.id === 'emonad') {
+      const ids = await page.locator('.art-theme-card').evaluateAll(els => els.map(el => el.className))
+      expect(ids[ids.findIndex(id => id.includes('art-theme-r3tards')) - 1]).toContain('art-theme-emonad')
+    }
     await art.click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id)
     await expect(art).toHaveAttribute('aria-pressed', 'true')
@@ -117,7 +121,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await page.getByRole('button', { name: 'Close send dialog', exact: true }).click()
     await page.locator('.bottom-nav-btn').filter({ hasText: /^Swap$/i }).click()
     await expect(page.locator('.art-swap')).toBeVisible()
-    if (theme.id === 'sealuminati' || theme.id === 'r3tards') {
+    if (theme.id === 'sealuminati' || theme.id === 'r3tards' || theme.id === 'emonad') {
       await expect(page.locator('.swap-hero-text')).toHaveCSS('image-rendering', 'auto')
       await expect(page.locator('.swap-hero-icon')).toHaveCSS('image-rendering', 'auto')
     }
@@ -135,6 +139,10 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     const other = theme.id === 'sealuminati' ? 'Mallard Order' : 'Sealuminati'
     await page.getByRole('button', { name: new RegExp(other) }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id === 'sealuminati' ? 'mallard-order' : 'sealuminati')
+    if (theme.id === 'emonad') {
+      const ids = await page.locator('.art-theme-card').evaluateAll(els => els.map(el => el.className))
+      expect(ids[ids.findIndex(id => id.includes('art-theme-r3tards')) - 1]).toContain('art-theme-emonad')
+    }
     await art.click()
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id)

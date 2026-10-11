@@ -101,3 +101,5 @@ native/magic-guard-cb/target/
 # Passkey onboarding preview renders — regenerate with scripts/passkey-onboarding-shots.mjs.
 # Harness output, NOT device captures; committing them invites treating them as proof.
 .screenshots/
+# Palette-finish QA and discarded material generation trials.
+.local-artifacts/textures/

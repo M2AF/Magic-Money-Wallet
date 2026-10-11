@@ -1,0 +1,56 @@
+/* Fixed material palette; independent of colour finishes and two-tone. */
+:root[data-theme='liquid-glass']:not([data-derived]) {
+  --bg-deep: #102039; --accent: #cae8ff; --text-primary: #f6f9ff;
+  --bg-dark: #101b30; --bg-surface: #20344c; --bg-card: #13213955; --bg-card-hover: #ffffff18;
+  --bg-deep-rgb: 16,32,57; --bg-surface-rgb: 32,52,76;
+  --accent-rgb: 202,232,255; --accent-hover: #ffffff; --accent-2: #a6cfff;
+  --accent-text: #e0f2ff; --accent-text-rgb: 224,242,255; --on-accent: #102039; --btn-primary-text: #102039;
+  --text-secondary: #d2dfec; --text-muted: #b9cbdc;
+  --border: #ffffff30; --border-active: #ffffff80; --input-bg: #101b3077; --overlay-bg: #071221a8;
+  --radius-sm: 12px; --radius-md: 16px; --radius-lg: 22px; --radius-xl: 28px;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif; --blur: blur(10px);
+}
+.art-theme-liquid-glass { background: #102039 url('../assets/themes/liquid-glass/scene.svg') center / cover; color: #f6f9ff; border: 1px solid #ffffff70; border-radius: 20px; box-shadow: inset 0 2px #ffffff70; }
+.art-theme-liquid-glass.active { outline: 2px solid #cae8ff; outline-offset: -4px; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.app-shell, .browser-shell) { background: #102039 url('../assets/themes/liquid-glass/scene.svg') center / cover fixed !important; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.card, .chain-card, .settings-group, .settings-sheet, .art-panel, .art-swap, .send-sheet) { background-color: #13213955 !important;
+  background-image: radial-gradient(ellipse at 0% 0%, #ffffff28, transparent 52%), linear-gradient(135deg, #ffffff10, transparent 35%, #ffffff03 70%, #ffffff16) !important;
+  border: 1px solid #ffffff38;
+  border-image: none;
+  border-radius: 22px;
+  backdrop-filter: blur(10px) saturate(145%);
+  -webkit-backdrop-filter: blur(10px) saturate(145%);
+  box-shadow: inset 0 2px 1px #ffffff66, inset 1px 0 1px #ffffff28, inset 0 -1px 1px #ffffff28, 0 12px 28px #00000022; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.bottom-nav, .titlebar, .tab-banner, .titlebar, .browser-toolbar, .portfolio-tabs) { background-color: #13213955 !important;
+  background-image: radial-gradient(ellipse at 0% 0%, #ffffff28, transparent 52%), linear-gradient(135deg, #ffffff10, transparent 35%, #ffffff03 70%, #ffffff16) !important;
+  border: 1px solid #ffffff38;
+  border-image: none;
+  border-radius: 22px;
+  backdrop-filter: blur(10px) saturate(145%);
+  -webkit-backdrop-filter: blur(10px) saturate(145%);
+  box-shadow: inset 0 2px 1px #ffffff66, inset 1px 0 1px #ffffff28, inset 0 -1px 1px #ffffff28, 0 12px 28px #00000022; border-radius: 0; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.portfolio-tabs, .header-toolbar-actions > button, .btn-primary, .chain-card > button) { border-radius: 999px; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.header-toolbar-actions > button, .chain-card > button, .art-swap > button, .btn-primary) {
+  background: #ffffff16; color: #f6f9ff; border: 1px solid #ffffff45; box-shadow: inset 0 1px #ffffff60; backdrop-filter: blur(10px);
+}
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.header-toolbar-actions > button, .chain-card > button, .art-swap > button, .btn-primary):hover:not(:disabled) { background: #ffffff28; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.header-toolbar-actions > button, .chain-card > button, .art-swap > button, .btn-primary):disabled { opacity: .45; }
+:root[data-theme='liquid-glass']:not([data-derived]) .portfolio-header { background: transparent !important; }
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.titlebar-wordmark, .tab-banner img) { filter: brightness(1.5) drop-shadow(0 1px 3px #0008); image-rendering: auto; }
+@media (max-width:400px) {
+  :root[data-theme='liquid-glass']:not([data-derived]) .header-toolbar-actions { gap: 3px !important; }
+  :root[data-theme='liquid-glass']:not([data-derived]) .header-toolbar-actions > button { width:30px !important; height:32px !important; }
+}
+/* Local SVG displacement bends only backdrop pixels; foreground values stay crisp. */
+@supports (backdrop-filter: url('x.svg#refraction')) {
+  :root[data-theme='liquid-glass']:not([data-derived]) :is(.chain-card, .card, .bottom-nav, .browser-toolbar) { backdrop-filter: url('../assets/themes/liquid-glass/optics.svg#refraction') blur(10px) saturate(145%); }
+}
+
+/* Brand chrome stays quiet: no card rim or reflection patch around the logos. */
+:root[data-theme='liquid-glass']:not([data-derived]) :is(.titlebar, .tab-banner, .titlebar) { background:transparent !important; border:0 !important; box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none; }
+
+:root[data-theme='liquid-glass']:not([data-derived]) body { background: #102039 url('../assets/themes/liquid-glass/scene.svg') center / cover fixed !important; }
+@media (max-width:380px) { :root[data-theme='liquid-glass']:not([data-derived]) .portfolio-total { font-size:19px !important; } }
+
+@media (max-width:380px) { :root[data-theme='liquid-glass']:not([data-derived]) .header-toolbar-actions > button { width:28px !important; } :root[data-theme='liquid-glass']:not([data-derived]) .portfolio-total { font-size:18px !important; } }

@@ -19,10 +19,14 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is fifteen themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(15)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(15)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(15)
+  it('is twenty-two themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(22)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(22)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(22)
+  })
+
+  it('places Emonad immediately above r3tards', () => {
+    expect(THEMES[THEMES.findIndex(t => t.id === 'r3tards') - 1].id).toBe('emonad')
   })
 
   it('gives every theme three usable colours and a swatch', () => {
@@ -68,7 +72,10 @@ describe('hand-tuned themes match their stylesheet block', () => {
   const css = readFileSync(fileURLToPath(new URL('../index.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/mallard-order.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/sealuminati.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/emonad.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/r3tards.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/liquid-glass.css', import.meta.url)), 'utf8')
+    + readFileSync(fileURLToPath(new URL('../themes/materials.css', import.meta.url)), 'utf8')
 
   /** The first `{ … }` block for a selector, or null. */
   function block(selector: string): string | null {
@@ -257,4 +264,10 @@ describe('ids the rest of the app depends on', () => {
     const first: BuiltinThemeId = 'moonlight'
     expect(THEMES[0].id).toBe(first)
   })
+})
+
+it('keeps Liquid Glass fixed when recolour data arrives', () => {
+  for (const def of THEMES.filter(t => t.fixedPalette)) {
+    expect(sanitizeBuiltinOverrides({ [def.id]: { bg:'#ffffff', accent:'#ff0000', text:'#000000' } })).toEqual({})
+  }
 })

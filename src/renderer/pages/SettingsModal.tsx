@@ -24,6 +24,7 @@ import {
   type ThemeSyncStatus
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
+import { TexturePicker } from '../components/TexturePicker'
 import { copySeedPhrase, SEED_CLIPBOARD_TTL_MS } from '../lib/copy-seed'
 import { AutoRevokeControl } from '../components/AutoRevokeControl'
 import {
@@ -396,6 +397,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
 
         <SettingsSection label="Appearance">
           <CurrencyPicker />
+          <TexturePicker />
           <div className="theme-picker">
             <div className="theme-picker-group">Built-in</div>
             {THEMES.filter(t => !t.art).map(t => (
@@ -409,7 +411,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
                 onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
               />
             ))}
-            <div className="theme-picker-group">Art themes</div>
+            <div className="theme-picker-group">Art & material themes</div>
             {THEMES.filter(t => t.art).map(t => (
               <button
                 key={t.id}

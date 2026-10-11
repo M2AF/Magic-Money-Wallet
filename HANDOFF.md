@@ -7,13 +7,17 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: e369070 · Five-target typecheck;165files/2440tests;four renderer bundles;final r3tards journey pass. Transparent brand bars and enhanced smooth logos reviewed in wallet and actual isolated Electron browser header (manual material-ID fixture). Local only. · 2026-10-08T23:17-03:00
-head: e369070 (main) dirty 7
-updated: 2026-10-08T23:17-03:00 · codex
+verified: e4e5c5d · Emonad: five-target TS;166files/2451tests; all4 renderer bundles; real extension journey360/400/1000, order/persistence/preview/Send/Swap/smooth logos pass; screenshots reviewed. · 2026-10-10T21:19-03:00
+head: e4e5c5d (main) dirty 10
+updated: 2026-10-10T21:19-03:00 · codex
 
 resources: -
 
 ## Now
+- Emonad tarot theme complete locally, immediately above r3tards: original card backdrop/character, flat rose/vine/moon/star frame, muted purple/silver; smooth original brands, stock portfolio layout. docs/EMONAD-THEME.md; .local-artifacts/emonad/. Checks .emonad-*.log pass; no commit/deploy/install.
+- Five approved natural material skins implemented locally: Brushed Metal, Leather, Velvet, Walnut and Royal Blue Silk; fixed palettes, shared generated raster surfaces, coordinated cards, smooth logos and seamless brand/portfolio summary. docs/NATURAL-MATERIAL-THEMES.md; .local-artifacts/materials/. No commit/deploy/install.
+- Liquid Glass fixed-palette material skin added locally; no recolour. Shared scene/optical SVG, clear surfaces and transparent brand bars without divider; colourable Glass portfolio summary also seamless. Validation in .liquid-*.log; docs/LIQUID-GLASS.md. No commit/deploy/install.
+- Palette finishes implemented locally Oct10: Glass (translucent frosted), Flat, Fine Grain, Soft Fade; independent local picker and Two-tone surfaces switch (default on; off matching, including Glass), original art suspension and preserved custom colour/profile rules. Glass clearer at22% tint with ambient light/reflections/strong rim; Soft Fade strengthened; wallet summary gradient removed per review. User rejected material patterns; future realistic material skins should have fixed natural palettes. docs/PALETTE-FINISHES.md; .local-artifacts/textures/. No commit/deploy/install.
 - r3tards brand-bar refinement: transparent wallet titlebar/extension banner and browser titlebar, collage on browser shell; smooth original logos slightly brightened with soft highlight/shadow. Five-target TS,165files/2440tests,four renderer bundles and final r3tards browser journey pass. Isolated Electron browser header CSS/screenshot verified with manual theme-ID fixture; no real wallet. Screenshots .local-artifacts/r3tards/; logs r3tards-topbar-*.log. No commit/install/release.
 - r3tards portfolio refinement: restored stock left-summary/right-tools arrangement; user requested black border retained with8px inset. Compact narrow icon spacing/amount font avoids clipping; account controls retain natural width. Geometry/full-balance checks pass360/400/1000; final r3tards journey passes. All3art journeys passed before border follow-up; five-target typecheck and165files/2440tests pass. All four renderer builds pass; logs r3tards-layout-*.log. No native install/commit/release.
 - r3tards wallet collab complete locally: shared renderer skin, same supplied background/licensed fonts as ChainLens, purple readable surfaces, white pill buttons and smooth OG line art. Full balances fit360/400/1000px with stock side-by-side header and inset black border. Five TS targets,165files/2440tests,four renderer bundles and3art-theme journeys pass; final r3tards rerun passes. docs/R3TARDS-THEME.md;.local-artifacts/r3tards/. No commit/install/release.
@@ -43,7 +47,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- Review .local-artifacts/r3tards/r3tards-portfolio-400.png and r3tards-browser-transparent-topbar.png; user handles release/install.
+- User reviews Emonad Art themes; docs/EMONAD-THEME.md and .local-artifacts/emonad/ hold details/screenshots.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.
@@ -86,6 +90,8 @@ resources: -
 
 
 ## Pointers
+- docs/EMONAD-THEME.md; .local-artifacts/emonad/; .emonad-*.log.
+- docs/NATURAL-MATERIAL-THEMES.md; material CSS/assets and provenance.json; e2e/natural-materials.spec.*; .local-artifacts/materials/; .materials-*.log.
 - docs/R3TARDS-THEME.md;src/renderer/themes/r3tards.css;src/renderer/assets/themes/r3tards/;e2e/art-themes.spec.ts;.local-artifacts/r3tards/;r3tards-*.log.
 - docs/SEALUMINATI-THEME.md; src/renderer/themes/sealuminati.css; src/renderer/assets/themes/sealuminati/; test-results/sealuminati-*.png; ignored .rune-sealuminati-*.log.
 - docs/MALLARD-ORDER-THEME.md; e2e/art-themes.spec.ts; src/renderer/themes/mallard-order.css; test-results/mallard-*.png; ignored .rune-*.log.

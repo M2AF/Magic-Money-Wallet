@@ -34,7 +34,12 @@
 
 import './themes/mallard-order.css'
 import './themes/sealuminati.css'
+import './themes/emonad.css'
 import './themes/r3tards.css'
+import './themes/textures.css'
+import './themes/liquid-glass.css'
+import './themes/materials.css'
+import { applyTexture, initTexture } from './lib/textures'
 
 import {
   deriveThemeTokens,
@@ -258,6 +263,7 @@ export function isBuiltinEdited(id: BuiltinThemeId): boolean {
  * edited forever, still derived, and still missing its hand-tuned CSS.
  */
 export function saveBuiltinTheme(id: BuiltinThemeId, colors: CustomThemeColors): void {
+  if (themeDef(id).fixedPalette) return
   const overrides = readOverrides()
   const reverted = sameColors(colors, themeDef(id).colors)
   if (reverted) delete overrides[id]
@@ -367,7 +373,7 @@ function absorb(remote: ThemeEntries): boolean {
   const overrides = readOverrides()
   for (const def of THEMES) {
     const entry = merged[`${BUILTIN_OVERRIDE_PREFIX}${def.id}`]
-    if (!entry) continue
+    if (!entry || def.fixedPalette) continue
     if (entry.d === 1) delete overrides[def.id]
     else overrides[def.id] = { ...entry.c }
   }
@@ -526,6 +532,7 @@ function writeCustomVars(colors: CustomThemeColors): ThemeTone {
   // hand-tuned blocks in index.css are :not([data-derived]) so that a
   // recoloured built-in cannot inherit the original's baked-in gradients.
   el.dataset.derived = '1'
+  applyTexture()
   return tone
 }
 
@@ -569,6 +576,7 @@ export function applyTheme(id: ThemeId): void {
   // Moonlight is the un-attributed default so existing CSS stays canonical
   if (id === DEFAULT_THEME) delete el.dataset.theme
   else el.dataset.theme = id
+  applyTexture()
 }
 
 export function setTheme(id: ThemeId): void {
@@ -593,6 +601,7 @@ export function endPreview(): void {
 
 /** Apply the saved theme and follow changes made from other windows. */
 export function initTheme(): void {
+  initTexture()
   // Before the first paint: it can move the selection off a custom theme that
   // has since been promoted to a built-in, and painting twice would flash.
   absorbShipped()

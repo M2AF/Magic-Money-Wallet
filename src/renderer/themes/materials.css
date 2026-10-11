@@ -1,0 +1,120 @@
+/* Fixed natural material skins. Raster grain shared by background and cards. */
+:root[data-theme='brushed-metal']:not([data-derived]) {
+  --bg-deep: #18252e; --accent: #b9d9ee; --text-primary: #f2f7fa;
+  --bg-dark: #18252e; --bg-surface: #2e414e; --bg-card: #2e414e; --bg-card-hover: #2e414e;
+  --bg-deep-rgb: 24,37,46; --bg-surface-rgb: 46,65,78; --accent-rgb: 185,217,238;
+  --accent-hover: #f2f7fa; --accent-2: #b9d9ee; --accent-text: #b9d9ee; --accent-text-rgb: 185,217,238;
+  --on-accent: #18252e; --btn-primary-text: #18252e; --accent-dim: #d9efff24;
+  --text-secondary: #f2f7fa; --text-muted: #b3c3ce; --border: #abc6d366; --border-active: #b9d9ee;
+  --input-bg: #18252ecc; --overlay-bg: #08080bcc;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px; --blur: none;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --skin-texture: url('../assets/themes/materials/brushed-metal.webp'); --skin-size: 640px;
+  --skin-shade: #14232e44; --skin-light: #d9efff24;
+}
+.art-theme-brushed-metal { background: linear-gradient(#14232e44, #14232e44), url('../assets/themes/materials/brushed-metal.webp') center / 640px; color: #f2f7fa; border: 1px solid #abc6d366; border-radius: 18px; box-shadow: inset 0 1px #ffffff30, 0 3px 10px #0005; }
+.art-theme-brushed-metal.active { outline: 2px solid #b9d9ee; outline-offset: -4px; }
+:root[data-theme='leather']:not([data-derived]) {
+  --bg-deep: #28190f; --accent: #d6b67b; --text-primary: #fff3df;
+  --bg-dark: #28190f; --bg-surface: #432c1c; --bg-card: #432c1c; --bg-card-hover: #432c1c;
+  --bg-deep-rgb: 40,25,15; --bg-surface-rgb: 67,44,28; --accent-rgb: 214,182,123;
+  --accent-hover: #fff3df; --accent-2: #d6b67b; --accent-text: #d6b67b; --accent-text-rgb: 214,182,123;
+  --on-accent: #28190f; --btn-primary-text: #28190f; --accent-dim: #e1c09912;
+  --text-secondary: #fff3df; --text-muted: #d0bda3; --border: #d6b67b66; --border-active: #d6b67b;
+  --input-bg: #28190fcc; --overlay-bg: #08080bcc;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px; --blur: none;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --skin-texture: url('../assets/themes/materials/leather.webp'); --skin-size: 460px;
+  --skin-shade: #24140d55; --skin-light: #e1c09912;
+}
+.art-theme-leather { background: linear-gradient(#24140d55, #24140d55), url('../assets/themes/materials/leather.webp') center / 460px; color: #fff3df; border: 1px solid #d6b67b66; border-radius: 18px; box-shadow: inset 0 1px #ffffff30, 0 3px 10px #0005; }
+.art-theme-leather.active { outline: 2px solid #d6b67b; outline-offset: -4px; }
+:root[data-theme='velvet']:not([data-derived]) {
+  --bg-deep: #210c28; --accent: #d5b97e; --text-primary: #fff2fa;
+  --bg-dark: #210c28; --bg-surface: #36123e; --bg-card: #36123e; --bg-card-hover: #36123e;
+  --bg-deep-rgb: 33,12,40; --bg-surface-rgb: 54,18,62; --accent-rgb: 213,185,126;
+  --accent-hover: #fff2fa; --accent-2: #d5b97e; --accent-text: #d5b97e; --accent-text-rgb: 213,185,126;
+  --on-accent: #210c28; --btn-primary-text: #210c28; --accent-dim: #d59cc512;
+  --text-secondary: #fff2fa; --text-muted: #d1b5cf; --border: #c5a2be55; --border-active: #d5b97e;
+  --input-bg: #210c28cc; --overlay-bg: #08080bcc;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px; --blur: none;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --skin-texture: url('../assets/themes/materials/velvet.webp'); --skin-size: 620px;
+  --skin-shade: #230a2b33; --skin-light: #d59cc512;
+}
+.art-theme-velvet { background: linear-gradient(#230a2b33, #230a2b33), url('../assets/themes/materials/velvet.webp') center / 620px; color: #fff2fa; border: 1px solid #c5a2be55; border-radius: 18px; box-shadow: inset 0 1px #ffffff30, 0 3px 10px #0005; }
+.art-theme-velvet.active { outline: 2px solid #d5b97e; outline-offset: -4px; }
+:root[data-theme='walnut']:not([data-derived]) {
+  --bg-deep: #2c1b10; --accent: #d5b27b; --text-primary: #fff1de;
+  --bg-dark: #2c1b10; --bg-surface: #48301c; --bg-card: #48301c; --bg-card-hover: #48301c;
+  --bg-deep-rgb: 44,27,16; --bg-surface-rgb: 72,48,28; --accent-rgb: 213,178,123;
+  --accent-hover: #fff1de; --accent-2: #d5b27b; --accent-text: #d5b27b; --accent-text-rgb: 213,178,123;
+  --on-accent: #2c1b10; --btn-primary-text: #2c1b10; --accent-dim: #efd6ab16;
+  --text-secondary: #fff1de; --text-muted: #d1bca2; --border: #d0a97166; --border-active: #d5b27b;
+  --input-bg: #2c1b10cc; --overlay-bg: #08080bcc;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px; --blur: none;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --skin-texture: url('../assets/themes/materials/walnut.webp'); --skin-size: 720px;
+  --skin-shade: #26180e44; --skin-light: #efd6ab16;
+}
+.art-theme-walnut { background: linear-gradient(#26180e44, #26180e44), url('../assets/themes/materials/walnut.webp') center / 720px; color: #fff1de; border: 1px solid #d0a97166; border-radius: 18px; box-shadow: inset 0 1px #ffffff30, 0 3px 10px #0005; }
+.art-theme-walnut.active { outline: 2px solid #d5b27b; outline-offset: -4px; }
+:root[data-theme='royal-silk']:not([data-derived]) {
+  --bg-deep: #0c2058; --accent: #c5ddff; --text-primary: #f4f8ff;
+  --bg-dark: #0c2058; --bg-surface: #173a82; --bg-card: #173a82; --bg-card-hover: #173a82;
+  --bg-deep-rgb: 12,32,88; --bg-surface-rgb: 23,58,130; --accent-rgb: 197,221,255;
+  --accent-hover: #f4f8ff; --accent-2: #c5ddff; --accent-text: #c5ddff; --accent-text-rgb: 197,221,255;
+  --on-accent: #0c2058; --btn-primary-text: #0c2058; --accent-dim: #b4d2ff25;
+  --text-secondary: #f4f8ff; --text-muted: #bccded; --border: #bdd5ff66; --border-active: #c5ddff;
+  --input-bg: #0c2058cc; --overlay-bg: #08080bcc;
+  --radius-sm: 10px; --radius-md: 14px; --radius-lg: 20px; --radius-xl: 24px; --blur: none;
+  --font-display: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  --skin-texture: url('../assets/themes/materials/royal-silk.webp'); --skin-size: 760px;
+  --skin-shade: #07194533; --skin-light: #b4d2ff25;
+}
+.art-theme-royal-silk { background: linear-gradient(#07194533, #07194533), url('../assets/themes/materials/royal-silk.webp') center / 760px; color: #f4f8ff; border: 1px solid #bdd5ff66; border-radius: 18px; box-shadow: inset 0 1px #ffffff30, 0 3px 10px #0005; }
+.art-theme-royal-silk.active { outline: 2px solid #c5ddff; outline-offset: -4px; }
+
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(body, .app-shell, .browser-shell) { background: linear-gradient(var(--skin-shade), var(--skin-shade)), var(--skin-texture) center / cover no-repeat fixed !important; background-color: var(--bg-deep) !important; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.card, .chain-card, .settings-group, .settings-sheet, .art-panel, .art-swap, .send-sheet) { background-color: var(--bg-card) !important;
+  background-image: linear-gradient(135deg, var(--skin-light), transparent 45%, #00000020), var(--skin-texture) !important;
+  background-size: 100% 100%, cover !important;
+  border: 1px solid var(--border); border-image: none; border-radius: 20px;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: inset 0 1px 1px #ffffff30, inset 0 -1px 2px #0009, 0 5px 14px #0005; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .chain-card::before { display: none; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.titlebar, .tab-banner, .portfolio-header) { background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.bottom-nav, .browser-toolbar, .portfolio-tabs) { background-color: var(--bg-card) !important;
+  background-image: linear-gradient(135deg, var(--skin-light), transparent 45%, #00000020), var(--skin-texture) !important;
+  background-size: 100% 100%, cover !important;
+  border: 1px solid var(--border); border-image: none; border-radius: 20px;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+  box-shadow: inset 0 1px 1px #ffffff30, inset 0 -1px 2px #0009, 0 5px 14px #0005; border-radius: 0; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .portfolio-tabs { border-radius: 12px; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.address-chip, .input, .settings-select) { background: var(--input-bg); border-color: var(--border); box-shadow: inset 0 1px 3px #0005; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.header-toolbar-actions > button, .chain-card > button, .art-swap > button, .btn-primary) {
+  background: linear-gradient(#ffffff16, #00000015), var(--skin-texture) center / cover no-repeat !important;
+  color: var(--text-primary) !important; border: 1px solid var(--border); border-radius: 11px;
+  box-shadow: inset 0 1px #ffffff40, inset 0 -1px #0008; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.header-toolbar-actions > button, .chain-card > button, .btn-primary):hover:not(:disabled) { filter: brightness(1.12); }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.chain-card > button, .art-swap > button, .btn-primary):disabled { opacity: .45; box-shadow: none; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .portfolio-tabs > button.active { background: var(--skin-light); border: 1px solid var(--border-active); box-shadow: inset 0 1px #ffffff40; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.titlebar-wordmark, .tab-banner img) { opacity: 1; filter: grayscale(1) brightness(1.6) drop-shadow(0 0 1px #ffffff66) drop-shadow(0 1px 2px #000); image-rendering: auto; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(button, input, select, [role='button']):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width:400px) { :root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .header-toolbar-actions { gap:3px !important; } :root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .header-toolbar-actions > button { width:30px !important; height:32px !important; } }
+@media (max-width:380px) { :root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .header-toolbar-actions > button { width:28px !important; } :root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .portfolio-total { font-size:18px !important; } }
+:root[data-theme='leather']:not([data-derived]) .chain-card { position:relative; }
+:root[data-theme='leather']:not([data-derived]) .chain-card::after { content:''; position:absolute; inset:5px; border:1px dashed #d6b67b70; border-radius:15px; pointer-events:none; }
+:root[data-theme='velvet']:not([data-derived]) :is(.chain-card, .art-panel, .art-swap) { box-shadow: inset 0 0 18px #0005, 0 5px 14px #0005; }
+:root[data-theme='walnut']:not([data-derived]) :is(.chain-card, .art-panel, .art-swap) { box-shadow: inset 0 2px 4px #000a, inset 0 -1px #e9c99450, 0 3px 10px #0005; }
+:root:is([data-theme='leather'], [data-theme='velvet'], [data-theme='walnut']):not([data-derived]) :is(.titlebar-wordmark, .titlebar-logo, .tab-banner img) { filter: grayscale(1) sepia(.8) saturate(1.4) brightness(1.5) drop-shadow(0 0 1px #e9cf9766) drop-shadow(0 1px 2px #000); }
+
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) .tab-banner img { margin-left:0; max-width:100%; }
+:root:is([data-theme='brushed-metal'], [data-theme='leather'], [data-theme='velvet'], [data-theme='walnut'], [data-theme='royal-silk']):not([data-derived]) :is(.swap-hero-icon, .swap-hero-text) { filter:grayscale(1) brightness(1.6) drop-shadow(0 1px 2px #000); image-rendering:auto; }
+
+:root:is([data-theme='leather'], [data-theme='velvet'], [data-theme='walnut']):not([data-derived]) :is(.swap-hero-icon, .swap-hero-text) { filter:grayscale(1) sepia(.8) saturate(1.4) brightness(1.5) drop-shadow(0 1px 2px #000); }
