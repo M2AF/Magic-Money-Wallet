@@ -32,5 +32,14 @@ jobs:
         # extensions don't load in classic headless), and Linux runners have no
         # display server — give them a virtual one.
         run: xvfb-run --auto-servernum -- npm run test:e2e
+      # Screenshots and traces of failing specs: without them a Linux-only e2e
+      # failure shows up as a bare "Test timeout exceeded" in the log.
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
       - name: Build
         run: npm run build
