@@ -124,8 +124,11 @@ export function ChainDropdown({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') { close(); btnRef.current?.focus() }
     }
-    // Scrolling anything but the menu itself would detach the fixed menu from its trigger.
-    const onScroll = (e: Event) => { if (!menuRef.current?.contains(e.target as Node)) close() }
+    // Scrolling anything but the menu itself would detach the fixed menu from its
+    // trigger, so re-anchor it. Closing here instead raced the menu's own opening:
+    // any incidental page scroll (layout settling, a test driver scrolling an
+    // option into view) shut it before a row could be picked.
+    const onScroll = (e: Event) => { if (!menuRef.current?.contains(e.target as Node)) measure() }
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
     window.addEventListener('resize', close)
@@ -136,15 +139,20 @@ export function ChainDropdown({
       window.removeEventListener('resize', close)
       window.removeEventListener('scroll', onScroll, true)
     }
-  }, [open, close])
+  }, [open, close, measure])
 
-  // Focus the active row on open so arrow keys work straight away.
+  // Focus the active row on open so arrow keys work straight away. Scroll only the
+  // menu to it: scrollIntoView also scrolls the page when the row sits near an edge.
   useEffect(() => {
     if (!open || !pos) return
-    const active = menuRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
-      ?? menuRef.current?.querySelector<HTMLButtonElement>('[role="option"]')
-    active?.focus({ preventScroll: true })
-    active?.scrollIntoView({ block: 'nearest' })
+    const menu = menuRef.current
+    const active = menu?.querySelector<HTMLButtonElement>('[aria-selected="true"]')
+      ?? menu?.querySelector<HTMLButtonElement>('[role="option"]')
+    if (!menu || !active) return
+    active.focus({ preventScroll: true })
+    if (active.offsetTop < menu.scrollTop) menu.scrollTop = active.offsetTop
+    else if (active.offsetTop + active.offsetHeight > menu.scrollTop + menu.clientHeight)
+      menu.scrollTop = active.offsetTop + active.offsetHeight - menu.clientHeight
   }, [open, pos])
 
   const onMenuKey = (e: React.KeyboardEvent) => {
