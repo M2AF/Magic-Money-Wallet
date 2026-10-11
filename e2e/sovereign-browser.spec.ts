@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
 import { createServer } from 'node:http'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve, extname } from 'node:path'
 
 test('production browser chrome has holder-gated Sovereign motion and cleans up on lock', async ({ page }) => {
   const root = resolve('out/renderer')
+  test.skip(!existsSync(resolve(root, 'index.html')), 'out/renderer missing — run `npm run build` first (CI e2e builds only the extension)')
   const server = createServer((req, res) => {
     const path = resolve(root, '.' + new URL(req.url!, 'http://localhost').pathname.replace(/^\/$/, '/index.html'))
     if (!path.startsWith(root + '\\') && !path.startsWith(root + '/')) { res.writeHead(403).end(); return }

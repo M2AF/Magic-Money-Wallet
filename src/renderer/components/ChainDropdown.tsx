@@ -10,8 +10,15 @@
  * The menu is position: fixed and measured from the trigger, so it escapes
  * overflow clipping in narrow side-panel/header containers and flips upward
  * when there isn't room below.
+ *
+ * It is portalled to <body>: `position: fixed` is only viewport-relative when
+ * no ancestor has a transform, filter or backdrop-filter. The Glass finish (the
+ * default) and several themes put backdrop-filter on cards, which re-anchored
+ * the menu inside the scrolling page; focusing its row then scrolled the page,
+ * and the close-on-scroll handler shut the menu the moment it opened.
  */
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { CHAIN_ICONS } from '../data/chain-icons'
 
 export interface ChainDropdownOption {
@@ -172,7 +179,7 @@ export function ChainDropdown({
           </>
         )}
       </button>
-      {open && pos && (
+      {open && pos && createPortal(
         <div ref={menuRef} role="listbox" aria-label={ariaLabel} className="apphub-dropdown-menu" style={pos} onKeyDown={onMenuKey}>
           {options.map(o => {
             const active = o.value === value
@@ -197,7 +204,8 @@ export function ChainDropdown({
               </button>
             )
           })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )
