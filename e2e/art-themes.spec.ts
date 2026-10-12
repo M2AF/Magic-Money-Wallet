@@ -18,7 +18,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     // --enable-unsafe-swiftshader: on a GPU-less Linux runner (CI under xvfb)
     // Chromium refuses its software WebGL unless this is set, so the Sappy Seals
     // Live2D model fell back to the static head and the artwork checks timed out.
-    args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, '--enable-unsafe-swiftshader'],
+    args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, '--enable-unsafe-swiftshader', '--use-angle=swiftshader'],
   })
   await stubWorker(context)
   const errors: string[] = []
@@ -115,10 +115,24 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       const toggleBox=await alternate.boundingBox(),refreshBox=await page.getByRole('button',{name:'Refresh Sappy Seals ownership',exact:true}).boundingBox()
       expect(Math.abs(toggleBox!.y-refreshBox!.y)).toBeLessThan(1)
       expect(refreshBox!.x-toggleBox!.x-toggleBox!.width).toBe(8)
-      await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','original',{timeout:20_000})
-      await alternate.click();await expect(alternate).toHaveAttribute('aria-pressed','true')
-      await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','alternate',{timeout:20_000})
-      await alternate.click();await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','original',{timeout:20_000})
+      // The Live2D seal needs WebGL. A GPU-less CI runner may have none even with
+      // SwiftShader allowed; there the documented static-head fallback must show
+      // instead, and the artwork toggle still has to persist its choice.
+      const webgl=await page.evaluate(()=>{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'))})
+      console.log(`[sappy-seals] WebGL available: ${webgl}`)
+      const peek=page.locator('.sappy-seal-peek')
+      if(webgl){
+        await expect(peek).toHaveAttribute('data-artwork','original',{timeout:20_000})
+        await alternate.click();await expect(alternate).toHaveAttribute('aria-pressed','true')
+        await expect(peek).toHaveAttribute('data-artwork','alternate',{timeout:20_000})
+        await alternate.click();await expect(peek).toHaveAttribute('data-artwork','original',{timeout:20_000})
+      }else{
+        test.info().annotations.push({type:'environment',description:'No WebGL: checked the static seal fallback instead of the Live2D model'})
+        await expect(peek).toHaveAttribute('data-ready','fallback',{timeout:20_000})
+        await expect(peek.locator('.sappy-seal-fallback')).toBeVisible()
+        await alternate.click();await expect(alternate).toHaveAttribute('aria-pressed','true')
+        await alternate.click();await expect(alternate).toHaveAttribute('aria-pressed','false')
+      }
     }
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id)
     await expect(art).toHaveAttribute('aria-pressed', 'true')
