@@ -67,6 +67,15 @@ export function midnightEndpoints(network: 'mainnet' | 'preprod'): MidnightEndpo
 }
 
 /**
+ * Generation tag for persisted Midnight DUST sync checkpoints. Blockfrost: "saved
+ * wallet sync state from the old indexer is not portable — discard it and sync
+ * from genesis". Keying checkpoints by this tag makes every snapshot taken
+ * against Midnight's decommissioned indexer invisible, so the first sync after
+ * the move starts clean. Bump it if the indexer provider changes again.
+ */
+export const MIDNIGHT_SYNC_GENERATION = 'blockfrost-1'
+
+/**
  * A saved config written by an older version holds the legacy default. Move it
  * to the current one; leave every other value (including '' = no proxy) alone.
  */

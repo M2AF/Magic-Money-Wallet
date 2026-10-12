@@ -24,6 +24,7 @@
 import * as bip39 from '@scure/bip39'
 import { normalizeMnemonic } from '../main/wallet-core'
 import { makeWebKeyMaterialProvider } from './midnight-proving-keys-web'
+import { MIDNIGHT_SYNC_GENERATION } from '../main/worker-endpoint'
 import {
   openMidnightSendWallet,
   registerForDustGeneration,
@@ -96,7 +97,8 @@ export function resetMidnightSendManager(): void {
 }
 
 function keyFor(accountIndex: number, network: MidnightNetwork): string {
-  return `${accountIndex}:${network}`
+  // Generation-tagged: snapshots from Midnight's old indexer must not be resumed.
+  return `${accountIndex}:${network}:${MIDNIGHT_SYNC_GENERATION}`
 }
 
 function getOrOpen(mnemonic: string, accountIndex: number, network: MidnightNetwork): ManagerState {

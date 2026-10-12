@@ -22,7 +22,7 @@ import {
   type ApprovedOrigin, type DappChain,
 } from './dapp-permissions'
 import type { AutoRevokeState } from './auto-revoke'
-import { WORKER_URL, WORKER_HOSTS, migrateWorkerUrl } from './worker-endpoint'
+import { WORKER_URL, WORKER_HOSTS, migrateWorkerUrl, MIDNIGHT_SYNC_GENERATION } from './worker-endpoint'
 
 const userData = () => app.getPath('userData')
 const walletEncPath = () => join(userData(), 'wallet.enc')
@@ -34,7 +34,7 @@ const autoRevokePath = () => join(userData(), 'auto-revoke.json')
 const agwOverridesPath = () => join(userData(), 'agw-overrides.json')
 const midnightDustCheckpointsDir = () => join(userData(), 'midnight-dust-checkpoints')
 const midnightDustCheckpointPath = (accountIndex: number, network: string) =>
-  join(midnightDustCheckpointsDir(), `${accountIndex}-${network}.txt`)
+  join(midnightDustCheckpointsDir(), `${accountIndex}-${network}-${MIDNIGHT_SYNC_GENERATION}.txt`)
 
 // ─── Mnemonic (password-encrypted, layered over OS safeStorage) ──────────────
 //

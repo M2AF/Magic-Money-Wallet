@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { readFileSync, writeFileSync } from 'fs'
+import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
 
 // Integration test for the C-1 vault + H-3 proxy pinning. The PASSWORD layer
@@ -25,6 +25,7 @@ import {
   saveMnemonic, loadMnemonic, unlock, lock, isUnlocked, isPasswordEncrypted,
   needsMigration, migrateLegacy, verifyPassword, walletExists, deleteWallet,
   loadConfig, saveConfig,
+  loadMidnightDustCheckpoint, saveMidnightDustCheckpoint,
   hasPasskeyBackup, linkPasskey, mnemonicFromPasskeyBackup, removePasskeyBackup,
 } from './secure-store'
 import { ACTIVE_PBKDF2_ITERATIONS, LEGACY_PBKDF2_ITERATIONS, encryptSecret } from './crypto-vault'
@@ -193,5 +194,18 @@ describe('secure-store · passkey recovery blob', () => {
     await linkPasskey(PRF)
     removePasskeyBackup()
     expect(hasPasskeyBackup()).toBe(false)
+  })
+})
+
+describe('secure-store · Midnight DUST checkpoints', () => {
+  it('ignores a snapshot taken against the decommissioned Midnight indexer', () => {
+    // Pre-Blockfrost builds keyed checkpoints by account + network only.
+    // Blockfrost: old sync state is not portable — the wallet must resync.
+    mkdirSync(join(tmp, 'midnight-dust-checkpoints'), { recursive: true })
+    writeFileSync(join(tmp, 'midnight-dust-checkpoints', '0-mainnet.txt'), 'old-indexer-state')
+    expect(loadMidnightDustCheckpoint(0, 'mainnet')).toBeNull()
+
+    saveMidnightDustCheckpoint(0, 'mainnet', 'blockfrost-state')
+    expect(loadMidnightDustCheckpoint(0, 'mainnet')).toBe('blockfrost-state')
   })
 })
