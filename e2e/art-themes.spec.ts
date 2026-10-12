@@ -15,7 +15,10 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
   const dist = resolve('dist-extension')
   const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-art-theme-')), {
     headless: false, viewport: { width: 400, height: 850 },
-    args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`],
+    // --enable-unsafe-swiftshader: on a GPU-less Linux runner (CI under xvfb)
+    // Chromium refuses its software WebGL unless this is set, so the Sappy Seals
+    // Live2D model fell back to the static head and the artwork checks timed out.
+    args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`, '--enable-unsafe-swiftshader'],
   })
   await stubWorker(context)
   const errors: string[] = []

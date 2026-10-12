@@ -93,7 +93,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
     await expandThemeDesigns(page)
     await twoToneSwitch.click()
-    for (const name of ['Moonlight','Crimson','Grape','Matrix','White & Gold','Midnight','Cardano','milady','Monad','Abstract','Bitcoin','Sappy Seals']) {
+    for (const name of ['Moonlight','Crimson','Grape','Matrix','White & Gold','Midnight','Cardano','milady','Monad','Abstract','Bitcoin','Mint & Money']) {
       await page.locator(`button.theme-swatch[title="${name}"]`).click()
       await expect(page.locator('html')).toHaveAttribute('data-texture', 'fade')
       await expect(page.locator('html')).toHaveAttribute('data-material-active', '')
