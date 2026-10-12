@@ -7,6 +7,7 @@
 
 import type { WalletConfig, CustomChain } from './secure-store'
 import { alchemyRpcUrl, heliusRpcUrl, tronApiUrl } from './api-proxy'
+import { midnightEndpoints } from './worker-endpoint'
 
 export interface ChainDef {
   id: string
@@ -487,9 +488,9 @@ export const PRIVACY_CHAINS: ChainDef[] = [
     // 'midnight-3' is the REAL Midnight Network token on CoinGecko (rank ~105);
     // the bare 'midnight' id is an unrelated dead token squatting the name.
     coingeckoId: 'midnight-3',
-    // Balance reads use the public mainnet indexer (see midnight.ts); this is
-    // the documentary node RPC (same one Lace points at).
-    rpcUrl: () => 'https://rpc.mainnet.midnight.network',
+    // Balance reads use the indexer (see midnight.ts); this is the node RPC,
+    // via the Worker's Blockfrost proxy since Midnight's own endpoints closed.
+    rpcUrl: () => midnightEndpoints('mainnet').nodeRpc,
     explorerTx: 'https://midnightscan.io/tx',
     color: '#7C3AED',
     colorRgb: '124, 58, 237'

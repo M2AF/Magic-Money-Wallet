@@ -39,6 +39,7 @@
 
 import { cors, json, err, productionConfigError } from './lib.js'
 import { handleRead } from './read.js'
+import { handleMidnight } from './midnight.js'
 import { handleDb } from './db.js'
 import { handleMarket, refreshTop500 } from './market.js'
 import { handleTokens } from './tokens.js'
@@ -239,6 +240,10 @@ function reflectAppOrigin(request, response) {
 async function handleFetch(request, env, ctx) {
     const url = new URL(request.url)
     const { pathname } = url
+
+    // Before the global preflight: /midnight/* answers dApps on any origin (midnight.js).
+    const midnight = await handleMidnight(request, url, env, ctx)
+    if (midnight) return midnight
 
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors(env) })
 

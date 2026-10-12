@@ -68,10 +68,14 @@ describe('assertNetworkSupported', () => {
 
 describe('midnightServiceUris', () => {
   it('returns the endpoints for the active network', () => {
+    // Mainnet: the Worker's Blockfrost proxy (the public indexer answers 410
+    // since 2026-10-09). The client tag rides in the URL — dApps and the SDK
+    // cannot set headers — and the Blockfrost key never appears.
     const main = midnightServiceUris('mainnet')
-    expect(main.indexerUri).toContain('indexer.mainnet.midnight.network')
-    expect(main.indexerWsUri).toMatch(/^wss:/)
-    expect(main.substrateNodeUri).toContain('rpc.mainnet')
+    expect(main.indexerUri).toBe('https://api.magicmoney.dev/midnight/indexer?mm_client=magicmoney-wallet-v1')
+    expect(main.indexerWsUri).toBe('wss://api.magicmoney.dev/midnight/indexer/ws?mm_client=magicmoney-wallet-v1')
+    expect(main.substrateNodeUri).toBe('https://api.magicmoney.dev/midnight/rpc?mm_client=magicmoney-wallet-v1')
+    expect(JSON.stringify(main)).not.toMatch(/nightmainnet|project_id/)
     expect(main.networkId).toBe('mainnet')
 
     expect(midnightServiceUris('preprod').indexerUri).toContain('preprod')
@@ -88,7 +92,7 @@ describe('midnightServiceUris', () => {
   it('hands out a copy so a dApp cannot mutate our table', () => {
     const a = midnightServiceUris('mainnet')
     a.indexerUri = 'https://evil.example'
-    expect(midnightServiceUris('mainnet').indexerUri).toContain('midnight.network')
+    expect(midnightServiceUris('mainnet').indexerUri).toContain('api.magicmoney.dev/midnight/indexer')
   })
 })
 

@@ -22,6 +22,7 @@
 import { bech32m } from '@scure/base'
 import type { WalletConfig } from './secure-store'
 import { midnightNetworkFor } from './chain-config'
+import { midnightEndpoints } from './worker-endpoint'
 
 export type MidnightNetwork = 'mainnet' | 'preprod'
 
@@ -47,19 +48,15 @@ export interface MidnightServiceUris {
 export const PROVER_NOTE =
   'MagicMoney proves locally and does not expose a prover server.'
 
+// Handed to dApps. Mainnet points at the Worker's Blockfrost proxy (Midnight's
+// public indexer was decommissioned 2026-10-09); those routes answer any origin.
+const endpointsFor = (network: MidnightNetwork): MidnightServiceUris => {
+  const e = midnightEndpoints(network)
+  return { indexerUri: e.indexerHttp, indexerWsUri: e.indexerWs, substrateNodeUri: e.nodeRpc, networkId: network }
+}
 const ENDPOINTS: Record<MidnightNetwork, MidnightServiceUris> = {
-  mainnet: {
-    indexerUri:      'https://indexer.mainnet.midnight.network/api/v4/graphql',
-    indexerWsUri:    'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
-    substrateNodeUri: 'https://rpc.mainnet.midnight.network',
-    networkId:       'mainnet',
-  },
-  preprod: {
-    indexerUri:      'https://indexer.preprod.midnight.network/api/v4/graphql',
-    indexerWsUri:    'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
-    substrateNodeUri: 'https://rpc.preprod.midnight.network',
-    networkId:       'preprod',
-  },
+  mainnet: endpointsFor('mainnet'),
+  preprod: endpointsFor('preprod'),
 }
 
 export function midnightServiceUris(network: MidnightNetwork): MidnightServiceUris {

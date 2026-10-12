@@ -25,9 +25,12 @@
  * Sends are NOT implemented yet (need DUST fees + proof server + v2 tx build).
  */
 
+import { midnightEndpoints } from './worker-endpoint'
+
+// Indexer endpoints: mainnet via the Worker's Blockfrost proxy (worker-endpoint.ts).
 const INDEXER_WS: Record<'mainnet' | 'preprod', string> = {
-  mainnet: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
-  preprod: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
+  mainnet: midnightEndpoints('mainnet').indexerWs,
+  preprod: midnightEndpoints('preprod').indexerWs,
 }
 const STARS = 1e6                       // 1 NIGHT = 10^6 Stars
 // nativeToken().raw from ledger-v9 — NIGHT's unshielded token type.
@@ -69,7 +72,7 @@ export async function deriveMidnightAddresses(
 // address — the same query the Nethermind DUST dashboard runs. Plain HTTPS
 // GraphQL → safe in every runtime.
 
-const INDEXER_HTTP = 'https://indexer.mainnet.midnight.network/api/v4/graphql'
+const INDEXER_HTTP = midnightEndpoints('mainnet').indexerHttp
 const SPECKS = 1e15   // 1 DUST = 10^15 Specks (atomic unit)
 
 export interface DustStatus {

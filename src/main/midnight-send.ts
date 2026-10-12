@@ -51,22 +51,15 @@
 
 import { deriveMidnightRoleKeys } from './midnight-crypto'
 import type { KeyMaterialProvider } from './midnight-proving-keys'
+import { midnightEndpoints, type MidnightEndpoints } from './worker-endpoint'
 
 export type MidnightNetwork = 'mainnet' | 'preprod'
 
-const NETWORKS: Record<MidnightNetwork, { indexerHttp: string; indexerWs: string; nodeRpc: string; networkId: MidnightNetwork }> = {
-  mainnet: {
-    indexerHttp: 'https://indexer.mainnet.midnight.network/api/v4/graphql',
-    indexerWs: 'wss://indexer.mainnet.midnight.network/api/v4/graphql/ws',
-    nodeRpc: 'https://rpc.mainnet.midnight.network',
-    networkId: 'mainnet',
-  },
-  preprod: {
-    indexerHttp: 'https://indexer.preprod.midnight.network/api/v4/graphql',
-    indexerWs: 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
-    nodeRpc: 'https://rpc.preprod.midnight.network',
-    networkId: 'preprod',
-  },
+// Mainnet indexer + node go through the Worker's Blockfrost proxy (Midnight's
+// own endpoints were decommissioned 2026-10-09); see worker-endpoint.ts.
+const NETWORKS: Record<MidnightNetwork, MidnightEndpoints & { networkId: MidnightNetwork }> = {
+  mainnet: { ...midnightEndpoints('mainnet'), networkId: 'mainnet' },
+  preprod: { ...midnightEndpoints('preprod'), networkId: 'preprod' },
 }
 
 // Measured 2026-07-20 as the sweet spot — size:1000 was only marginally
@@ -238,7 +231,7 @@ export async function openMidnightSendWallet(
   const shieldedConfig = {
     networkId: net.networkId,
     provingServerUrl: new URL('http://127.0.0.1:6300'), // unused: WASM proving overrides this
-    relayURL: new URL(net.nodeRpc.replace(/^http/, 'ws')),
+    relayURL: new URL(net.nodeRpcWs),
     indexerClientConnection,
     costParameters,
     txHistoryStorage: newTxHistory(),
@@ -247,7 +240,7 @@ export async function openMidnightSendWallet(
   await shieldedWallet.start(shieldedSecretKeys)
 
   const provingService = () => provingCaps.makeWasmProvingService({ keyMaterialProvider: options.keyMaterialProvider })
-  const relayURL = new URL(net.nodeRpc.replace(/^http/, 'ws'))
+  const relayURL = new URL(net.nodeRpcWs)
 
   const facadeConfiguration = {
     networkId: net.networkId,

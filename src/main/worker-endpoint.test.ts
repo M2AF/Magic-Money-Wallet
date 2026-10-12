@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { WORKER_URL, LEGACY_WORKER_URL, WORKER_HOSTS, migrateWorkerUrl } from './worker-endpoint'
+import { WORKER_URL, LEGACY_WORKER_URL, WORKER_HOSTS, migrateWorkerUrl, midnightEndpoints } from './worker-endpoint'
 
 describe('worker-endpoint', () => {
   it('trusts the custom domain and keeps the legacy host for older installs', () => {
@@ -13,5 +13,16 @@ describe('worker-endpoint', () => {
     expect(migrateWorkerUrl('')).toBe('')
     expect(migrateWorkerUrl(undefined)).toBeUndefined()
     expect(migrateWorkerUrl('https://example.com')).toBe('https://example.com')
+  })
+
+  it('routes Midnight mainnet through the Worker proxy without exposing a key', () => {
+    const e = midnightEndpoints('mainnet')
+    expect(e).toEqual({
+      indexerHttp: 'https://api.magicmoney.dev/midnight/indexer?mm_client=magicmoney-wallet-v1',
+      indexerWs: 'wss://api.magicmoney.dev/midnight/indexer/ws?mm_client=magicmoney-wallet-v1',
+      nodeRpc: 'https://api.magicmoney.dev/midnight/rpc?mm_client=magicmoney-wallet-v1',
+      nodeRpcWs: 'wss://api.magicmoney.dev/midnight/rpc/ws?mm_client=magicmoney-wallet-v1',
+    })
+    expect(JSON.stringify(e)).not.toMatch(/project_id|nightmainnet|midnight.network/)
   })
 })

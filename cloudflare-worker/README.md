@@ -21,6 +21,7 @@ quotas aren't burned per-user.
 | `db.js` | Supabase profile/wallet sync (service key server-side). |
 | `lib.js` | CORS/JSON, KV cache, rate limit, client gate. |
 | `xchange.js` | SimpleSwap `/ss/*` + ChangeNOW `/cn/*`: validation and rate limits. |
+| `midnight.js` | Midnight mainnet indexer + node RPC via Blockfrost (`/midnight/*`), HTTP and WebSocket. |
 
 ## Routes
 
@@ -36,6 +37,19 @@ quotas aren't burned per-user.
 | GET·POST | `/blockfrost/*` | Blockfrost; `/assets/*` cached **24h**; POST = `tx/submit` (CBOR) |
 | GET | `/moralis/*` | Moralis v2.2; cached **60s** (burst dedup) |
 | GET | `/opensea/*` | OpenSea v2; floors **10m**, contract→slug **7d** |
+
+**Midnight** (`MIDNIGHT_BLOCKFROST_KEY`, a `nightmainnet…` Blockfrost project id). Midnight's
+own indexer was decommissioned on 2026-10-09 (HTTP 410). These routes answer **any origin**
+(the wallet's dApp connector hands them to Midnight dApps), run before the global CORS
+preflight, and are rate limited per IP (`MIDNIGHT_RPM`, default 600/min). The client tag may
+be `?mm_client=` because the Midnight SDK and browser WebSockets cannot set headers.
+
+| Method | Path | Upstream |
+|---|---|---|
+| POST | `/midnight/indexer` | `midnight-mainnet.blockfrost.io/api/v0` (GraphQL) |
+| GET (WS) | `/midnight/indexer/ws` | `…/api/v0/ws` (GraphQL subscriptions) |
+| POST | `/midnight/rpc` | `rpc.midnight-mainnet.blockfrost.io` (node JSON-RPC) |
+| GET (WS) | `/midnight/rpc/ws` | same, WebSocket (transaction relay) |
 
 **Supabase** (service key server-side only):
 
@@ -70,6 +84,7 @@ wrangler secret put ALCHEMY_KEY
 wrangler secret put HELIUS_KEY
 wrangler secret put TATUM_KEY
 wrangler secret put BLOCKFROST_KEY
+wrangler secret put MIDNIGHT_BLOCKFROST_KEY   # nightmainnet… (Midnight indexer/RPC)
 wrangler secret put MORALIS_KEY
 wrangler secret put OPENSEA_KEY
 #    Supabase (new — service-role key, server-side only):
