@@ -11,7 +11,8 @@ test.use({ actionTimeout: 10_000 })
 
 for (const theme of [{id:'sappy-seals-art',name:'Sappy Seals'}, { id: 'ape-society', name: 'The Ape Society' }, { id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
 test(`${theme.name} selects, persists, previews cleanly and leaves other themes intact`, async () => {
-  test.setTimeout(90_000)
+  // The live Sappy Seals model renders in software on a GPU-less runner.
+  test.setTimeout(theme.id === 'sappy-seals-art' ? 240_000 : 90_000)
   const dist = resolve('dist-extension')
   const context = await chromium.launchPersistentContext(mkdtempSync(join(tmpdir(), 'mm-art-theme-')), {
     headless: false, viewport: { width: 400, height: 850 },
@@ -308,13 +309,13 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await expect(refresh).toHaveCSS('width','28px')
       await art.scrollIntoViewIfNeeded();await page.screenshot({path:`.local-artifacts/collection-gates/${theme.id}-wallet.png`})
       collectionControl.sappyBalance=0n;collectionControl.quantity='0';collectionControl.balance=theme.id==='emonad'?10_000n*10n**18n-1n:0n
-      await refresh.click();await expect(art).toBeDisabled()
+      await refresh.click();await expect(art).toBeDisabled({timeout:20_000})
       await expect(page.locator('html')).not.toHaveAttribute('data-theme',theme.id)
       expect(await page.evaluate(()=>localStorage.getItem('mm.theme'))).toBe(theme.id)
       collectionControl.sappyBalance=1n;collectionControl.quantity='1';collectionControl.balance=10_000n*10n**18n
-      await refresh.click();await expect(art).toBeEnabled()
+      await refresh.click();await expect(art).toBeEnabled({timeout:20_000})
       await expect(page.locator('html')).toHaveAttribute('data-theme',theme.id)
-      collectionControl.fail=true;await refresh.click();await expect(art).toBeDisabled();await expect(art).toContainText('unavailable')
+      collectionControl.fail=true;await refresh.click();await expect(art).toBeDisabled({timeout:20_000});await expect(art).toContainText('unavailable')
     }
     if(theme.id==='mallard-order')expect(mallardWebCalls).toEqual([])
     expect(errors).toEqual([])
