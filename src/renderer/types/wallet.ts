@@ -790,6 +790,7 @@ declare global {
       // (optional; Android only — FLAG_SECURE on the activity window).
       setSecureScreen?(on: boolean): Promise<void>
       getAddresses(): Promise<WalletAddresses | null>
+      getMallardOwnership(): Promise<{address:string;policy:string;quantity:string}>
       getBalances(): Promise<AllBalances>
       revealSeed(password: string): Promise<string[]>
       // Phase 2

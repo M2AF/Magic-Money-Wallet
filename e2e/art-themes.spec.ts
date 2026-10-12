@@ -1,3 +1,4 @@
+import { installCollectionFixture } from './collection-fixture'
 import { installApeFixture } from './ape-fixture'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
@@ -21,6 +22,11 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
     const page = await context.newPage()
     const apeControl=await installApeFixture(page, {balance:theme.id === 'ape-society' ? 2 : 1,ids:theme.id === 'ape-society' ? ['6637','6638'] : ['6637']})
+    const collectionControl=await installCollectionFixture(page)
+    if(theme.id==='mallard-order')collectionControl.stakeOnly=true
+    const mallardWebCalls:string[]=[]
+    if(theme.id==='mallard-order')await page.route('**/api/theme-holder/mallard?*',route=>{mallardWebCalls.push(route.request().url());return route.fulfill({contentType:'text/html',body:'<html>Undeployed route fallback</html>'})})
+
     const settle = () => page.evaluate(async () => {
       await document.fonts.ready
       for (const animation of document.getAnimations()) {
@@ -61,7 +67,20 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await page.getByText('Encrypt & Continue').click()
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
-    const art = page.getByRole('button', { name: new RegExp(theme.name) })
+    if(theme.id==='mallard-order'){
+      const artSection=page.locator('details.theme-design-section').filter({has:page.locator('summary', {hasText:'Art Designs'})})
+      const materials=page.locator('details.theme-design-section').filter({has:page.locator('summary', {hasText:'Material Designs'})})
+      await expect(artSection.locator('.art-theme-card')).toHaveCount(6)
+      await expect(materials.locator('.art-theme-card')).toHaveCount(6)
+      await expect(artSection.locator('.art-theme-liquid-glass')).toHaveCount(0)
+      await artSection.locator('summary').click();await expect(artSection.locator('.art-theme-mallard-order')).toBeHidden()
+      await expect(materials.locator('.art-theme-liquid-glass')).toBeVisible()
+      await materials.locator('summary').click();await expect(materials.locator('.art-theme-liquid-glass')).toBeHidden()
+      await artSection.locator('summary').scrollIntoViewIfNeeded();await page.screenshot({path:'.local-artifacts/design-sections/wallet-collapsed.png'})
+      await artSection.locator('summary').focus();await page.keyboard.press('Enter');await expect(artSection.locator('.art-theme-mallard-order')).toBeVisible()
+      await materials.locator('summary').click();await expect(materials.locator('.art-theme-liquid-glass')).toBeVisible()
+    }
+    const art = page.getByRole('button', { name: new RegExp(`^${theme.name}`) })
     if (theme.id === 'emonad') {
       const ids = await page.locator('.art-theme-card').evaluateAll(els => els.map(el => el.className))
       expect(ids[ids.findIndex(id => id.includes('art-theme-r3tards')) - 1]).toContain('art-theme-emonad')
@@ -149,7 +168,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await page.locator('button.theme-swatch[title="Midnight"]').click()
     await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', 'none')
     const other = theme.id === 'sealuminati' ? 'Mallard Order' : 'Sealuminati'
-    await page.getByRole('button', { name: new RegExp(other) }).click()
+    await page.getByRole('button', { name: new RegExp(`^${other}`) }).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id === 'sealuminati' ? 'mallard-order' : 'sealuminati')
     if (theme.id === 'emonad') {
       const ids = await page.locator('.art-theme-card').evaluateAll(els => els.map(el => el.className))
@@ -183,6 +202,21 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await expect(art).toBeDisabled()
       await expect(art).toContainText('unavailable')
     }
+    if(['mallard-order','sealuminati','r3tards','emonad'].includes(theme.id)){
+      await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+      const refresh=page.getByRole('button',{name:`Refresh ${theme.name} ownership`,exact:true})
+      await expect(refresh).toHaveCSS('width','28px')
+      await art.scrollIntoViewIfNeeded();await page.screenshot({path:`.local-artifacts/collection-gates/${theme.id}-wallet.png`})
+      collectionControl.quantity='0';collectionControl.balance=theme.id==='emonad'?10_000n*10n**18n-1n:0n
+      await refresh.click();await expect(art).toBeDisabled()
+      await expect(page.locator('html')).not.toHaveAttribute('data-theme',theme.id)
+      expect(await page.evaluate(()=>localStorage.getItem('mm.theme'))).toBe(theme.id)
+      collectionControl.quantity='1';collectionControl.balance=10_000n*10n**18n
+      await refresh.click();await expect(art).toBeEnabled()
+      await expect(page.locator('html')).toHaveAttribute('data-theme',theme.id)
+      collectionControl.fail=true;await refresh.click();await expect(art).toBeDisabled();await expect(art).toContainText('unavailable')
+    }
+    if(theme.id==='mallard-order')expect(mallardWebCalls).toEqual([])
     expect(errors).toEqual([])
   } finally { await context.close() }
 })

@@ -13,6 +13,7 @@
 
 import { generateMnemonic, toWordCount, validateMnemonic, deriveAddresses, deriveTestnetAddresses, derivePrivacyAddresses, getSolanaKeypair, getBitcoinKey, getBitcoinTaprootKey, getPolkadotKey } from '../main/wallet-core'
 import { signBitcoinPsbt, signBitcoinMessage, broadcastBitcoin, sendBitcoinTransaction as sendBtc, type PsbtSignRequest } from '../main/bitcoin'
+import { readCurrentMallardOwnership } from '../shared/mallard-policy'
 import { fetchAllBalances } from '../main/balance-fetcher'
 import { fetchAllHistory } from '../main/tx-history'
 import { fetchMarketTop100, searchMarketCoins, fetchCoinChart } from '../main/market-fetcher'
@@ -606,6 +607,9 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return autoRevoke.setSettings(a0)
 
     // ── Data reads ─────────────────────────────────────────────────────────
+
+    case 'wallet:get-mallard-ownership':
+      return readCurrentMallardOwnership(async()=>{const unlocked=await store.isUnlocked();return {unlocked,address:unlocked ? (await loadFullAddresses()).cardano : null}})
 
     case 'wallet:get-addresses': {
       if (!(await store.loadAddresses())) return null

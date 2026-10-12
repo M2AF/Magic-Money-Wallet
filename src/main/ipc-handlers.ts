@@ -14,6 +14,7 @@ import { blake2b } from '@noble/hashes/blake2b'
 import { privateKeyToAccount } from 'viem/accounts'
 import { personalSignMessage, personalSignPreview } from './personal-sign'
 import { ed25519 } from '@noble/curves/ed25519'
+import { readCurrentMallardOwnership } from '../shared/mallard-policy'
 import { getCardanoStakeKey } from './cardano-pure'
 import type { DappChain } from './dapp-permissions'
 import { createAutoRevoke } from './auto-revoke'
@@ -920,6 +921,7 @@ export function registerIpcHandlers(): void {
 
   // ── Get stored public addresses ────────────────────────────────────────
   ipcMain.handle('wallet:get-addresses', () => getFullAddresses())
+  ipcMain.handle('wallet:get-mallard-ownership', () => readCurrentMallardOwnership(async()=>({unlocked:isUnlocked(),address:isUnlocked() ? (await getFullAddresses()).cardano : null})))
 
   // ── Fetch live balances from Alchemy / Helius / Blockfrost / Tatum ─────
   ipcMain.handle('wallet:get-balances', async () => {

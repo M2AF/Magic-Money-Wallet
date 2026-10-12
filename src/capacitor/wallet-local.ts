@@ -342,6 +342,7 @@ function buildWallet() {
     deleteWallet:   ()                      => send<boolean>('wallet:delete'),
 
     // Data
+    getMallardOwnership: () => send('wallet:get-mallard-ownership'),
     getAddresses:   ()                      => send('wallet:get-addresses'),
     getBalances:    ()                      => send('wallet:get-balances'),
     revealSeed:     (password: string)      => send<string[]>('wallet:reveal-seed', password),

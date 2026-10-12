@@ -12,6 +12,7 @@
     "types": ["node"]
   },
   "include": [
+    "src/shared/mallard-policy.ts",
     "src/shared/nft-media.ts",
     "electron-vite.config.*",
     "src/main/**/*",

@@ -18,6 +18,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { MessengerPage } from './pages/MessengerPage'
 import { SettingsModal } from './pages/SettingsModal'
 import { WalletConnectManager } from './pages/WalletConnectPage'
+import { collectionAccess, collectionOwners } from './lib/collection-access'
 import { apeAccess } from './lib/ape-access'
 import { bindSovereignAccount } from './lib/sovereign-access'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
@@ -65,10 +66,11 @@ export function App() {
   // An entitlement belongs to this unlocked account, never to a saved theme ID.
   useEffect(() => {
     const owner=page === 'dashboard' ? addresses?.evm ?? null : null
+    collectionAccess.bind(collectionOwners(page === 'dashboard' ? addresses : null))
     apeAccess.bind(owner ? [owner] : [])
     bindSovereignAccount(owner)
-    return () => { bindSovereignAccount(null); apeAccess.bind([]) }
-  }, [page, addresses?.evm])
+    return () => { bindSovereignAccount(null); apeAccess.bind([]); collectionAccess.bind([]) }
+  }, [page, addresses?.evm, addresses?.cardano])
 
   // Shared header-toolbar actions for all main tabs (Refresh is page-specific)
   const toolbarProps = {

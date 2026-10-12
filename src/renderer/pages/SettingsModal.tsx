@@ -25,6 +25,7 @@ import {
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
 import { ApeThemePicker } from '../components/ApeThemePicker'
+import { collectionAccess, onCollectionAccess, isCollectionTheme, COLLECTION_GATES } from '../lib/collection-access'
 import { apeAccess, onApeAccess } from '../lib/ape-access'
 import { sovereignAccess, sovereignAllowed, onSovereignAccess, refreshSovereignAccess } from '../lib/sovereign-access'
 import { TexturePicker } from '../components/TexturePicker'
@@ -59,6 +60,8 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
   const [passkeyLinked, setPasskeyLinked] = useState(false)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const [passkeyError, setPasskeyError] = useState<string | null>(null)
+  const [,setCollectionVersion]=useState(0)
+  useEffect(()=>onCollectionAccess(()=>setCollectionVersion(v=>v+1)),[])
   const [apeState,setApeState]=useState(apeAccess.get)
   useEffect(()=>onApeAccess(()=>setApeState({...apeAccess.get()})),[])
   const [holderAccess, setHolderAccess] = useState(sovereignAccess)
@@ -541,23 +544,29 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
                 onEdit={() => setThemeEditor({ kind: 'builtin', def: t })}
               />
             ))}
-            <div className="theme-picker-group">Art & material themes</div>
-            {THEMES.filter(t => t.art).map(t => (
+            {[{name:'Art Designs',material:false},{name:'Material Designs',material:true}].map(group => (
+              <details key={group.name} className="theme-design-section" open>
+                <summary>{group.name}<span aria-hidden="true">⌄</span></summary>
+                <div className="theme-design-list">
+            {THEMES.filter(t => t.art && !!t.material === group.material).map(t => (
               <div key={t.id} className="art-theme-entry">
               <button
                 type="button"
-                className={`art-theme-card art-theme-${t.id}${theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed()) ? ' active' : ''}`}
-                aria-pressed={theme === t.id && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed())}
-                disabled={t.id === 'sovereign' && !sovereignAllowed() || t.id === 'ape-society' && !apeAccess.allowed()}
+                className={`art-theme-card art-theme-${t.id}${theme === t.id && collectionAccess.allowed(t.id) && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed()) ? ' active' : ''}`}
+                aria-pressed={theme === t.id && collectionAccess.allowed(t.id) && (t.id !== 'sovereign' || sovereignAllowed()) && (t.id !== 'ape-society' || apeAccess.allowed())}
+                disabled={!collectionAccess.allowed(t.id) || t.id === 'sovereign' && !sovereignAllowed() || t.id === 'ape-society' && !apeAccess.allowed()}
                 onClick={() => { setTheme(t.id); setThemeState(t.id) }}
               >
                 <span className="art-theme-mark" aria-hidden="true">◇</span>
-                <span className="art-theme-copy"><strong>{t.name}</strong><span>{t.id === 'sovereign' ? holderAccess.status === 'owned' ? privacy === false ? `${holderAccess.balance} REDACTED · Unlocked` : 'REDACTED verified · Unlocked' : holderAccess.status === 'error' ? 'Ownership unavailable · Retry' : 'REDACTED holders · Robinhood' : t.id === 'ape-society' ? apeAccess.allowed() ? `${apeState.selected?.name} · #${apeState.selected?.id}` : apeState.status === 'error' ? 'Ownership or artwork unavailable · Retry' : 'Ape Society holders · Ethereum' : t.artDescription}</span></span>
-                <span className="art-theme-status">{t.id === 'ape-society' && !apeAccess.allowed() ? apeState.status==='checking' ? 'Checking' : 'Locked' : t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
+                <span className="art-theme-copy"><strong>{t.name}</strong><span>{isCollectionTheme(t.id) ? collectionAccess.get(t.id).status === 'error' ? 'Ownership unavailable · Retry' : COLLECTION_GATES[t.id].requirement + (collectionAccess.allowed(t.id) ? ' · Unlocked' : '') : t.id === 'sovereign' ? holderAccess.status === 'owned' ? privacy === false ? `${holderAccess.balance} REDACTED · Unlocked` : 'REDACTED verified · Unlocked' : holderAccess.status === 'error' ? 'Ownership unavailable · Retry' : 'REDACTED holders · Robinhood' : t.id === 'ape-society' ? apeAccess.allowed() ? `${apeState.selected?.name} · #${apeState.selected?.id}` : apeState.status === 'error' ? 'Ownership or artwork unavailable · Retry' : 'Ape Society holders · Ethereum' : t.artDescription}</span></span>
+                <span className="art-theme-status">{isCollectionTheme(t.id) && !collectionAccess.allowed(t.id) ? collectionAccess.get(t.id).checking ? 'Checking' : 'Locked' : t.id === 'ape-society' && !apeAccess.allowed() ? apeState.status==='checking' ? 'Checking' : 'Locked' : t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
               </button>
-              {(t.id === 'sovereign' || t.id === 'ape-society') && <button type="button" className="holder-theme-refresh" aria-label={t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} title={t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} disabled={t.id === 'sovereign' ? holderAccess.checking : apeState.status === 'checking'} onClick={() => { if(t.id === 'sovereign')void refreshSovereignAccess();else void apeAccess.refresh() }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>}
+              {(isCollectionTheme(t.id) || t.id === 'sovereign' || t.id === 'ape-society') && <button type="button" className="holder-theme-refresh" aria-label={isCollectionTheme(t.id) ? `Refresh ${t.name} ownership` : t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} title={isCollectionTheme(t.id) ? `Refresh ${t.name} ownership` : t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} disabled={isCollectionTheme(t.id) ? collectionAccess.get(t.id).checking : t.id === 'sovereign' ? holderAccess.checking : apeState.status === 'checking'} onClick={() => { if(isCollectionTheme(t.id))void collectionAccess.refresh(t.id);else if(t.id === 'sovereign')void refreshSovereignAccess();else void apeAccess.refresh() }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>}
               {t.id === 'ape-society' && theme === t.id && apeAccess.allowed() && <ApeThemePicker />}
               </div>
+            ))}
+                </div>
+              </details>
             ))}
             <div className="theme-picker-group">Yours</div>
             {customThemes.map(t => (

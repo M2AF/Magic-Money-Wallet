@@ -354,7 +354,12 @@ export function BrowserApp() {
         padding: '6px 10px',
         background: 'var(--bg)',
         borderBottom: '1px solid var(--border)',
-        flexShrink: 0
+        flexShrink: 0,
+        // Themes put backdrop-filter on the toolbar (Sovereign, Liquid Glass,
+        // materials), which makes it its own stacking context. Without a z-index
+        // the page area below paints over the ☰/tabs/dock dropdowns that hang
+        // off it, so lift the whole toolbar above the content.
+        position: 'relative', zIndex: 30
       }}>
         <NavBtn onClick={() => window.wallet.browserBack()} disabled={!canBack} title="Back">
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

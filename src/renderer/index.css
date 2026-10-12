@@ -2172,3 +2172,12 @@ h1, h2, h3 { font-family: var(--font-display); }
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(394%); }
 }
+
+/* Independent full-width disclosures preserve theme tiles and holder controls. */
+.theme-design-section { grid-column:1/-1; min-width:0; }
+.theme-design-section > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; padding:6px 0; color:var(--text-secondary); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; list-style:none; }
+.theme-design-section > summary::-webkit-details-marker { display:none; }
+.theme-design-section > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+.theme-design-section > summary span { font-size:16px; line-height:1; }
+.theme-design-section[open] > summary span { transform:rotate(180deg); }
+.theme-design-list { display:grid; gap:8px; padding:2px 0 6px; }

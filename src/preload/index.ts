@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('wallet', {
   helloRemove:    ()                 => ipcRenderer.invoke('wallet:hello-remove'),
 
   // ── Data reads ────────────────────────────────────────────────────────
+  getMallardOwnership: () => ipcRenderer.invoke('wallet:get-mallard-ownership'),
   getAddresses:  ()                  => ipcRenderer.invoke('wallet:get-addresses'),
   getBalances:   ()                  => ipcRenderer.invoke('wallet:get-balances'),
   revealSeed:    (password: string)  => ipcRenderer.invoke('wallet:reveal-seed', password),

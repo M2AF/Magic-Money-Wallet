@@ -276,3 +276,65 @@
 ### 2026-10-11T20:31-03:00 · codex · handoff · 91d540d (main) dirty 11
 - Ape holder discovery/personal art and compact theme-tile controls complete locally, documented and verified.
 - next: User reviews compact theme controls and owned ape selection. No new phone installation performed; native-device QA remains pending.
+
+### 2026-10-11T20:39-03:00 · codex · claim · 39d5e75 (main) dirty 1
+- task: Gate Mallard Sealuminati r3tards Emonad
+- lease until 2026-10-11T23:39-03:00
+
+### 2026-10-11T20:47-03:00 · codex · checkpoint · 39d5e75 (main) dirty 7
+- Four collection gates implemented; EMONAD threshold10000 at18decimals; live Monad chain143/interfaces/decimals checked. Cardano fixed-policy adapter required for CORS. Running .collection-typecheck.log/.collection-unit.log; browser fixture updates.
+
+### 2026-10-11T20:57-03:00 · codex · checkpoint · 39d5e75 (main) dirty 10
+- Five TS targets;171files2499tests;7 focused collection tests;four renderer bundles pass. Four new art holder browser journeys pass; overlap with earlier failing locator run caused Ape trace ENOENT; rerunning Ape then texture sequentially via session38675 (.collection-ape-reviewed.log/.collection-textures.log). Production Monad gates positive for known public ape owner.
+
+### 2026-10-11T20:59-03:00 · codex · verify · 39d5e75 (main) dirty 10
+- verified: Five TS targets;171files2499tests;7focused gate tests;4renderer bundles;4new holder theme journeys plus isolated Ape rerun and textures pass. Final Mallard visual rerun/screenshot reviewed. Local gates include EMONAD10000. No deploy/install.
+
+### 2026-10-11T20:59-03:00 · codex · handoff · 39d5e75 (main) dirty 10
+- Four holder gates implemented and validated in wallet and ChainLens. Initial selector failures corrected; overlapping trace artifact collision resolved with isolated passes. All current checks pass; new Cardano endpoint deployment pending.
+- next: Review docs/COLLECTION-THEME-GATES.md; deploy ChainLens backend/frontend together when authorized; phone rebuild/install only when requested.
+
+### 2026-10-11T21:00-03:00 · codex · claim · 39d5e75 (main) dirty 10
+- task: Separate collapsible Art Designs and Material Designs
+- lease until 2026-10-12T00:00-03:00
+
+### 2026-10-11T21:03-03:00 · codex · checkpoint · 39d5e75 (main) dirty 12
+- Native details sections Art Designs/Material Designs; six material flags shared with ChainLens; defaults open, independent collapse. Five-target typecheck then extension build running session99497 .design-sections-*.log; Mallard browser disclosure/selection check next.
+
+### 2026-10-11T21:05-03:00 · codex · checkpoint · 39d5e75 (main) dirty 12
+- Five-target TS;171files2499tests;extension and desktop builds;Mallard dropdown/collapse/keyboard/selection/holder journey pass. Android/iOS web build finishing session60263; final collapsed-wallet screenshot rerun session logged .design-sections-visual.log. ChainLens201tests/disclosure browser check/screenshot pass.
+
+### 2026-10-11T21:06-03:00 · codex · verify · 39d5e75 (main) dirty 12
+- verified: Five TS targets;171files2499tests;extension/desktop/Android-web/iOS-web bundles;Mallard browser independent disclosure counts/collapse/Enter/holder/selection journey and final visual rerun pass. Wallet collapsed screenshot and ChainLens screenshot reviewed. No deploy/install.
+
+### 2026-10-11T21:06-03:00 · codex · handoff · 39d5e75 (main) dirty 12
+- Art Designs/Material Designs independent collapsible sections completed in both products; six entries each, holder controls preserved; all required checks pass.
+- next: User reviews picker grouping. Deployment/phone installation only when requested; previous Cardano gate endpoint still needs coordinated ChainLens deployment.
+
+### 2026-10-11T21:17-03:00 · codex · claim · 39d5e75 (main) dirty 14
+- task: Fix Mallard wallet gate missing live endpoint via native ownership read
+- lease until 2026-10-12T00:17-03:00
+
+### 2026-10-11T21:21-03:00 · codex · checkpoint · 39d5e75 (main) dirty 21
+- Root cause reproduced live: new Mallard web endpoint returns homepage HTML. Policy confirmed exact NFTs. Fixed wallet with getMallardOwnership privileged main/background/mobile read and session recheck; shared portable fixed-policy reader, generated ChainLens CJS. Three new session unit tests pass; typecheck/full tests/extension session43165 ongoing .mallard-native-*.log; e2e fixture now mocks native Koios and asserts missing web endpoint not requested.
+
+### 2026-10-11T21:24-03:00 · codex · verify · 39d5e75 (main) dirty 21
+- verified: Five TS targets;172files2502tests incl3native session tests;4renderer bundles;Mallard extension journey passes with web endpoint forcedHTML and0requests to it, native Koios ownership, independent dropdowns,selection/reload/zero/error refresh. No install/deploy.
+
+### 2026-10-11T21:24-03:00 · codex · handoff · 39d5e75 (main) dirty 21
+- Mallard native/current-account reader fix built/tested; exact policy unchanged. Live missing web endpoint no longer blocks wallet. All checks pass; user must load updated wallet build.
+- next: Restart/update rebuilt wallet; phone installation only when requested. ChainLens deployment remains pending.
+
+### 2026-10-11T21:29-03:00 · codex · claim · 39d5e75 (main) dirty 21
+- task: Fix Mallard stake-account NFT coverage for staked3348
+- lease until 2026-10-12T00:29-03:00
+
+### 2026-10-11T21:33-03:00 · codex · checkpoint · 39d5e75 (main) dirty 21
+- User supplied exact Cardano address; live direct-assets0, stake-account Mallard3348=1 at script payment address sharing locally decoded stake credential. Reader now includes bound stake-account holdings only after direct0; actual user-address production proof1. Six focused tests pass; five-target TS/full unit/extension session20134 running .mallard-stake-*.log. Browser fixture now stakeOnly=true for Mallard with no web endpoint dependency.
+
+### 2026-10-11T21:37-03:00 · codex · verify · 39d5e75 (main) dirty 21
+- verified: Exact user-address production gate now1 (previous direct0), Mallard3348 stake/script association verified live. Five TS targets;172files2505tests incl6reader/session tests;four bundles;stake-only extension holder/select/refresh/reload/revocation journey pass with no missing web endpoint requests.
+
+### 2026-10-11T21:37-03:00 · codex · handoff · 39d5e75 (main) dirty 21
+- Staking-account NFT eligibility now matches collectible coverage. Actual supplied address has3348 quantity1 in associated script address; production reader grants. Rebuilt/tested; no install/deploy.
+- next: User loads updated wallet and refreshes Mallard. Phone installation only when requested.

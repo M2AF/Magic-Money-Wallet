@@ -2,6 +2,17 @@ import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 export async function installApeFixture(page:Page,options={balance:1,ids:['6637']}){
+  await page.context().route('https://api.koios.rest/api/v1/account_assets?*',route=>route.fulfill({json:[]}))
+  await page.context().route('https://api.koios.rest/api/v1/address_assets?*',route=>{
+    const address=route.request().postDataJSON()._addresses[0]
+    return route.fulfill({json:[{address,policy_id:'901ba6e9831b078e131a1cc403d6139af21bda255cea6c9f770f4834',asset_name:'01',quantity:'1'}]})
+  })
+  await page.route('https://rpc.monad.xyz/',route=>{
+    const call=route.request().postDataJSON(),data=call.params[0]?.data || ''
+    const result=call.method==='eth_chainId'?'0x8f':call.method==='eth_blockNumber'?'0xabc':'0x'+(data.startsWith('0x313ce567')?18n:data.startsWith('0x01ffc9a7')?1n:10_000n*10n**18n).toString(16).padStart(64,'0')
+    return route.fulfill({json:{jsonrpc:'2.0',id:call.id,result}})
+  })
+  await page.route('**/api/theme-holder/mallard?*',route=>route.fulfill({json:{address:new URL(route.request().url()).searchParams.get('address'),policy:'901ba6e9831b078e131a1cc403d6139af21bda255cea6c9f770f4834',quantity:'1'}}))
   const control={...options,fail:false,owner:'0x1111111111111111111111111111111111111111'}
   const word=(n:bigint)=>'0x'+n.toString(16).padStart(64,'0')
   await page.route('https://ethereum-rpc.publicnode.com/',route=>{

@@ -42,6 +42,7 @@ import './themes/liquid-glass.css'
 import './themes/materials.css'
 import './themes/sovereign.css'
 import { initSovereignMotion } from './lib/sovereign-motion'
+import { collectionAccess, initCollectionAccess } from './lib/collection-access'
 import { apeAccess, initApeAccess } from './lib/ape-access'
 import { sovereignAllowed, initSovereignAccess } from './lib/sovereign-access'
 import { applyTexture, initTexture } from './lib/textures'
@@ -566,6 +567,7 @@ export function applyTheme(id: ThemeId): void {
     id = DEFAULT_THEME
   }
 
+  if (!collectionAccess.allowed(id)) id = DEFAULT_THEME
   if (id === 'sovereign' && !sovereignAllowed() || id === 'ape-society' && !apeAccess.allowed()) id = DEFAULT_THEME
   const def = themeDef(id)
   // A built-in is derived when it has no CSS block of its own, or when the user
@@ -609,6 +611,7 @@ export function endPreview(): void {
 export function initTheme(): void {
   initTexture()
   initSovereignMotion()
+  initCollectionAccess(() => applyTheme(getTheme()))
   initApeAccess(() => applyTheme(getTheme()))
   initSovereignAccess(() => applyTheme(getTheme()))
   // Before the first paint: it can move the selection off a custom theme that

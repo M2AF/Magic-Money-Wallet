@@ -1,3 +1,4 @@
+import { installCollectionFixture } from './collection-fixture'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -18,6 +19,7 @@ test('textures compose with palettes and restore correctly', async () => {
   try {
     const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker')
     const page = await context.newPage()
+    await installCollectionFixture(page)
     const settle = () => page.evaluate(async () => {
       await document.fonts.ready
       for (const animation of document.getAnimations()) {
@@ -152,7 +154,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
     await choose('Fine Grain')
     await twoToneSwitch.click()
-    await page.getByRole('button', { name: /Mallard Order/ }).click()
+    await page.getByRole('button', { name: /^Mallard Order/ }).click()
     await expect(page.locator('html')).not.toHaveAttribute('data-material-active')
     await page.locator('.theme-swatch-new').click()
     await expect(page.locator('html')).toHaveAttribute('data-material-active', '')

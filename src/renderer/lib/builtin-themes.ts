@@ -45,6 +45,8 @@ export interface ThemeDef {
   css?: true
   /** Full material/typography skin, presented separately from colour themes. */
   art?: true
+  /** A full material skin, grouped separately from project art designs. */
+  material?: true
   /** Material description shown on the art picker tile. */
   artDescription?: string
   /** Material owns its palette; cannot be recoloured. */
@@ -81,12 +83,12 @@ export const THEMES: ThemeDef[] = [
   { id: 'sealuminati', name: 'Sealuminati', css: true, art: true, artDescription: 'Pixel robes · Violet fire & gold', swatch: ['#120b24', '#ffd34d'], colors: { bg: '#120b24', accent: '#ffd34d', text: '#f4e9f6' } },
   { id: 'emonad', name: 'Emonad', css: true, art: true, artDescription: 'Tarot vines · Black roses & silver moons', swatch: ['#171020', '#c8c6b8'], colors: { bg: '#171020', accent: '#c8c6b8', text: '#f0eddf' } },
   { id: 'r3tards', name: 'r3tards', css: true, art: true, artDescription: 'Doodle collage · Purple & pill buttons', swatch: ['#493259', '#ffffff'], colors: { bg: '#493259', accent: '#ffffff', text: '#ffffff' } },
-  { id: 'liquid-glass', name: 'Liquid Glass', css: true, art: true, fixedPalette: true, artDescription: 'Clear lenses · Fixed atmospheric palette', swatch: ['#102039', '#cae8ff'], colors: { bg: '#102039', accent: '#cae8ff', text: '#f6f9ff' } },
-  { id: 'brushed-metal', name: 'Brushed Metal', css: true, art: true, fixedPalette: true, artDescription: 'Satin titanium · Fine brushed grain', swatch: ['#18252e', '#b9d9ee'], colors: { bg: '#18252e', accent: '#b9d9ee', text: '#f2f7fa' } },
-  { id: 'leather', name: 'Leather', css: true, art: true, fixedPalette: true, artDescription: 'Espresso leather · Stitched edges', swatch: ['#28190f', '#d6b67b'], colors: { bg: '#28190f', accent: '#d6b67b', text: '#fff3df' } },
-  { id: 'velvet', name: 'Velvet', css: true, art: true, fixedPalette: true, artDescription: 'Aubergine pile · Antique gold', swatch: ['#210c28', '#d5b97e'], colors: { bg: '#210c28', accent: '#d5b97e', text: '#fff2fa' } },
-  { id: 'walnut', name: 'Walnut', css: true, art: true, fixedPalette: true, artDescription: 'Oiled walnut · Inset brass trim', swatch: ['#2c1b10', '#d5b27b'], colors: { bg: '#2c1b10', accent: '#d5b27b', text: '#fff1de' } },
-  { id: 'royal-silk', name: 'Royal Blue Silk', css: true, art: true, fixedPalette: true, artDescription: 'Royal blue silk · Soft directional sheen', swatch: ['#0c2058', '#c5ddff'], colors: { bg: '#0c2058', accent: '#c5ddff', text: '#f4f8ff' } },
+  { id: 'liquid-glass', name: 'Liquid Glass', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Clear lenses · Fixed atmospheric palette', swatch: ['#102039', '#cae8ff'], colors: { bg: '#102039', accent: '#cae8ff', text: '#f6f9ff' } },
+  { id: 'brushed-metal', name: 'Brushed Metal', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Satin titanium · Fine brushed grain', swatch: ['#18252e', '#b9d9ee'], colors: { bg: '#18252e', accent: '#b9d9ee', text: '#f2f7fa' } },
+  { id: 'leather', name: 'Leather', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Espresso leather · Stitched edges', swatch: ['#28190f', '#d6b67b'], colors: { bg: '#28190f', accent: '#d6b67b', text: '#fff3df' } },
+  { id: 'velvet', name: 'Velvet', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Aubergine pile · Antique gold', swatch: ['#210c28', '#d5b97e'], colors: { bg: '#210c28', accent: '#d5b97e', text: '#fff2fa' } },
+  { id: 'walnut', name: 'Walnut', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Oiled walnut · Inset brass trim', swatch: ['#2c1b10', '#d5b27b'], colors: { bg: '#2c1b10', accent: '#d5b27b', text: '#fff1de' } },
+  { id: 'royal-silk', name: 'Royal Blue Silk', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Royal blue silk · Soft directional sheen', swatch: ['#0c2058', '#c5ddff'], colors: { bg: '#0c2058', accent: '#c5ddff', text: '#f4f8ff' } },
 ]
 
 const BY_ID = new Map<string, ThemeDef>(THEMES.map(t => [t.id, t]))

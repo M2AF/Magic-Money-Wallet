@@ -7,13 +7,17 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 91d540d · Five TS targets;170files2492tests;7gate/preference tests (latest includes expiry/multi-wallet selection);four final renderer bundles;all6art/Sovereign browser journeys plus final Ape preference/compact-refresh/selected-dropdown/reload/revocation rerun pass. Production reader live discovers/verifies Roch Edwards#6637 and exact IPFS image; screenshot inspected. · 2026-10-11T20:31-03:00
-head: 91d540d (main) dirty 11
-updated: 2026-10-11T20:31-03:00 · codex
+verified: 39d5e75 · Exact user-address production gate now1 (previous direct0), Mallard3348 stake/script association verified live. Five TS targets;172files2505tests incl6reader/session tests;four bundles;stake-only extension holder/select/refresh/reload/revocation journey pass with no missing web endpoint requests. · 2026-10-11T21:37-03:00
+head: 39d5e75 (main) dirty 21
+updated: 2026-10-11T21:37-03:00 · codex
 
 resources: -
 
 ## Now
+- Mallard staking coverage fixed locally after exact-user-address diagnosis: direct assets0, MallardOrder3348=1 at script address sharing wallet stake credential. Reader validates Bech32/network and locally derives stake1 credential, then checks exact account_assets only after direct0; current-session guards unchanged. Actual user-address production proof1 (.mallard-stake-live.log). Six focused tests;five TS targets;172files2505tests;four bundles;stake-only Mallard wallet journey and ChainLens Mallard journey pass;201Node tests. .mallard-stake-*.log. No phone install or website deploy; running wallet requires new build.
+- Mallard locked regression fixed locally: supplied policy correct; live website endpoint returns homepage HTML. Wallet now uses privileged getMallardOwnership direct Koios read of current unlocked payment address, reconfirmed after read; no web endpoint dependency. Canonical src/shared/mallard-policy.ts -> ChainLens mallard-policy-core.js. Five TS targets;172files2502tests;four bundles;wallet missing-HTML-endpoint/selection/refresh/reload/revocation journey and ChainLens Mallard journey pass;201Node tests. .mallard-native-*.log. Running wallet requires restart/update; no phone install or web deployment.
+- Appearance picker split into independent native Art Designs and Material Designs disclosures (six each; both initially expanded). Material metadata on Liquid Glass/Metal/Leather/Velvet/Walnut/Royal Silk; art retains gates/refresh/Ape dropdown. Keyboard/independent-collapse/selection checks and screenshots pass; .design-sections-*.log; .local-artifacts/design-sections/. No deploy/install.
+- Four collection gates complete locally: Mallard Cardano policy; Sealuminati/r3tards Monad ERC721; Emonad minimum10000 fungible tokens at18decimals. Shared90s proof/15s timeout/account guards; per-tile refresh; fixed-policy Cardano CORS endpoint. docs/COLLECTION-THEME-GATES.md; .collection-*.log; .local-artifacts/collection-gates/. No deploy/install.
 - Ape Society holder/owned-portrait feature complete locally: Ethereum contract0xF08Acc2f16Ddf2f5d047fcc4D39A6c528A9645af; paginated discovery candidates, block-bound balance/ownerOf/tokenURI proof, loaded IPFS art, per-owner/set token preferences,90s freshness/45s timeout/generation guards. Live production reader verifies Roch Edwards#6637; exact image downloaded/reviewed. Compact refresh icons on holder tiles and selected Ape dropdown. Five TS targets;170files2492tests;four bundles;6art/Sovereign journeys plus final selection rerun pass. docs/APE-SOCIETY-HOLDER-ACCESS.md;.ape-holder-*.log/.local-artifacts/ape-holder/. No phone install/deploy.
 - The Ape Society wallet art theme complete locally below Sovereign: unchanged supplied3PNG gold/bronze frames and Roch_Edwards painting, emerald/ivory/gold fixed palette, local Garamond, smooth logos, inset portfolio/Send/swap/Settings frames and full balances. Shared sparkline viewBox preserves every point when resized; endpoint measured inside frame. Five TS targets;169files2485tests;four renderer bundles;all5art journeys plus final Ape chart journey pass. docs/APE-SOCIETY-THEME.md; .ape-*.log/.local-artifacts/ape-society/. No commit/install/deploy.
 - Android Sovereign motion report: phone global animator_duration_scale,transition_animation_scale,window_animation_scale all0; Chromium requests reduced motion for disabled animator scale, and theme intentionally pauses. Capacitor entry initializes controller. Awaiting user's choice to restore Android global scales1x; no settings/code/build changed. Actual phone visual confirmation pending.
@@ -54,7 +58,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User reviews compact theme controls and owned ape selection. No new phone installation performed; native-device QA remains pending.
+- User loads updated wallet and refreshes Mallard. Phone installation only when requested.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.

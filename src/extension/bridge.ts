@@ -26,6 +26,7 @@ const SLOW_TYPES = new Set([
   // AGW resolution does on-chain RPC roundtrips (ExclusiveDelegateResolver +
   // ownership check) on first read — too slow for the snappy 8s budget.
   'wallet:get-addresses',
+  'wallet:get-mallard-ownership',
   'wallet:set-agw',
   'wallet:set-account',
   'swap:getQuote',
@@ -155,6 +156,7 @@ export function createExtensionWallet() {
     deleteWallet:   ()                      => send<boolean>('wallet:delete'),
 
     // Data
+    getMallardOwnership: () => send('wallet:get-mallard-ownership'),
     getAddresses:   ()                      => send('wallet:get-addresses'),
     getBalances:    ()                      => send('wallet:get-balances'),
     revealSeed:     (password: string)      => send<string[]>('wallet:reveal-seed', password),

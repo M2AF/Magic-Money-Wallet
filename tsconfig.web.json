@@ -18,6 +18,7 @@
   "include": [
     "src/shared/nft-media.ts",
     "src/shared/ape-theme-core.ts",
+    "src/shared/collection-theme-access.ts",
     "src/shared/ape-theme-access.ts",
     "src/renderer/**/*",
     // The asset-key contract the renderer shares with main and with ChainLens.
