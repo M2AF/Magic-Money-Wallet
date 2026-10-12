@@ -19,10 +19,10 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 const HEX = /^#[0-9a-f]{6}$/
 
 describe('the shipped table', () => {
-  it('is twenty-four themes with unique ids and names', () => {
-    expect(THEMES).toHaveLength(24)
-    expect(new Set(THEMES.map(t => t.id)).size).toBe(24)
-    expect(new Set(THEMES.map(t => t.name)).size).toBe(24)
+  it('is twenty-five themes with unique ids and names', () => {
+    expect(THEMES).toHaveLength(25)
+    expect(new Set(THEMES.map(t => t.id)).size).toBe(25)
+    expect(new Set(THEMES.map(t => t.name)).size).toBe(25)
   })
 
   it('places Emonad immediately above r3tards', () => {
@@ -43,7 +43,7 @@ describe('the shipped table', () => {
   it('carries the six themes the user made, by the names they were given', () => {
     // These were custom themes before they were promoted, so the names are the
     // user's own spelling — "milady" is lowercase on purpose.
-    const promoted = ['cardano', 'milady', 'monad', 'abstract', 'bitcoin', 'sappy-seals']
+    const promoted = ['cardano', 'milady', 'monad', 'abstract', 'bitcoin', 'mint-money']
     for (const id of promoted) {
       const def = THEMES.find(t => t.id === id)
       expect(def, id).toBeDefined()
@@ -51,7 +51,7 @@ describe('the shipped table', () => {
       expect(def!.css).toBeUndefined()
     }
     expect(THEMES.find(t => t.id === 'milady')!.name).toBe('milady')
-    expect(THEMES.find(t => t.id === 'sappy-seals')!.name).toBe('Sappy Seals')
+    expect(THEMES.find(t => t.id === 'mint-money')!.name).toBe('Mint & Money')
   })
 
   it('resolves ids, and refuses ones it does not ship', () => {
@@ -78,6 +78,8 @@ describe('hand-tuned themes match their stylesheet block', () => {
     + readFileSync(fileURLToPath(new URL('../themes/liquid-glass.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/materials.css', import.meta.url)), 'utf8')
     + readFileSync(fileURLToPath(new URL('../themes/sovereign.css', import.meta.url)), 'utf8')
+
+    + readFileSync(fileURLToPath(new URL('../themes/sappy-seals-art.css', import.meta.url)), 'utf8')
 
   /** The first `{ … }` block for a selector, or null. */
   function block(selector: string): string | null {
@@ -272,4 +274,16 @@ it('keeps Liquid Glass fixed when recolour data arrives', () => {
   for (const def of THEMES.filter(t => t.fixedPalette)) {
     expect(sanitizeBuiltinOverrides({ [def.id]: { bg:'#ffffff', accent:'#ff0000', text:'#000000' } })).toEqual({})
   }
+})
+
+it('ships the exact profile Mint & Money palette and removes Sappy Seals from colour presets',()=>{
+  expect(isBuiltinThemeId('sappy-seals')).toBe(false)
+  expect(themeDef('mint-money').colors).toEqual({bg:'#0c1e19',accent:'#30ffae',text:'#e8f4ff'})
+  expect(matchingBuiltin({bg:'#0c1e19',accent:'#30ffae',text:'#e8f4ff'})).toBe('mint-money')
+})
+
+it('promotes an exact Mint custom copy without deleting a matching built-in recolour',()=>{
+  const colors=themeDef('mint-money').colors
+  const entries={'custom-mint':{n:'Mint & Money',c:colors,t:1},'custom-builtin-cardano':{n:'Cardano',c:colors,t:2}}
+  expect(planAbsorbShipped(entries,'custom-mint')).toEqual({tombstone:['custom-mint'],moveTo:'mint-money'})
 })

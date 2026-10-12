@@ -1,0 +1,137 @@
+{
+	"Version": 3,
+	"Meta": {
+		"Duration": 0.133,
+		"Fps": 30.0,
+		"Loop": true,
+		"AreBeziersRestricted": false,
+		"CurveCount": 11,
+		"TotalSegmentCount": 11,
+		"TotalPointCount": 22,
+		"UserDataCount": 0,
+		"TotalUserDataSize": 0
+	},
+	"Curves": [
+		{
+			"Target": "Parameter",
+			"Id": "ParamAngleX",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamAngleY",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamBodyAngleX",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamBodyAngleY",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamEyeLOpen",
+			"Segments": [
+				0,
+				1,
+				0,
+				0.133,
+				1
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamEyeROpen",
+			"Segments": [
+				0,
+				1,
+				0,
+				0.133,
+				1
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamMouthOpenY",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamArmsSwitch",
+			"Segments": [
+				0,
+				1,
+				0,
+				0.133,
+				1
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamArmLVertical",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamArmRVertical",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		},
+		{
+			"Target": "Parameter",
+			"Id": "ParamBubbleToggle",
+			"Segments": [
+				0,
+				0,
+				0,
+				0.133,
+				0
+			]
+		}
+	]
+}

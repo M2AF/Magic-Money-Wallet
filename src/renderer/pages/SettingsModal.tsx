@@ -24,6 +24,7 @@ import {
   type ThemeSyncStatus
 } from '../theme'
 import { ThemeEditorModal, type ThemeEditorTarget } from '../components/ThemeEditorModal'
+import { SappySealAppearance } from '../components/SappySeal'
 import { ApeThemePicker } from '../components/ApeThemePicker'
 import { collectionAccess, onCollectionAccess, isCollectionTheme, COLLECTION_GATES } from '../lib/collection-access'
 import { apeAccess, onApeAccess } from '../lib/ape-access'
@@ -562,6 +563,7 @@ export function SettingsModal({ onClose, onDeleteWallet }: Props) {
                 <span className="art-theme-status">{isCollectionTheme(t.id) && !collectionAccess.allowed(t.id) ? collectionAccess.get(t.id).checking ? 'Checking' : 'Locked' : t.id === 'ape-society' && !apeAccess.allowed() ? apeState.status==='checking' ? 'Checking' : 'Locked' : t.id === 'sovereign' && !sovereignAllowed() ? holderAccess.checking ? 'Checking' : 'Locked' : theme === t.id ? 'Selected' : 'Apply'}</span>
               </button>
               {(isCollectionTheme(t.id) || t.id === 'sovereign' || t.id === 'ape-society') && <button type="button" className="holder-theme-refresh" aria-label={isCollectionTheme(t.id) ? `Refresh ${t.name} ownership` : t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} title={isCollectionTheme(t.id) ? `Refresh ${t.name} ownership` : t.id === 'sovereign' ? 'Recheck ownership' : 'Refresh owned apes'} disabled={isCollectionTheme(t.id) ? collectionAccess.get(t.id).checking : t.id === 'sovereign' ? holderAccess.checking : apeState.status === 'checking'} onClick={() => { if(isCollectionTheme(t.id))void collectionAccess.refresh(t.id);else if(t.id === 'sovereign')void refreshSovereignAccess();else void apeAccess.refresh() }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>}
+              {t.id==='sappy-seals-art' && theme===t.id && collectionAccess.allowed(t.id) && <SappySealAppearance/>}
               {t.id === 'ape-society' && theme === t.id && apeAccess.allowed() && <ApeThemePicker />}
               </div>
             ))}

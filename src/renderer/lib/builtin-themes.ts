@@ -28,8 +28,8 @@ export type BuiltinThemeId =
   // Hand-tuned in index.css
   | 'moonlight' | 'crimson' | 'grape' | 'matrix' | 'white-gold' | 'midnight'
   // Derived from three colours
-  | 'cardano' | 'milady' | 'monad' | 'abstract' | 'bitcoin' | 'sappy-seals'
-  | 'mallard-order' | 'sealuminati' | 'emonad' | 'r3tards' | 'liquid-glass' | 'brushed-metal' | 'leather' | 'velvet' | 'walnut' | 'royal-silk' | 'sovereign' | 'ape-society'
+  | 'cardano' | 'milady' | 'monad' | 'abstract' | 'bitcoin' | 'mint-money'
+  | 'sappy-seals-art' | 'mallard-order' | 'sealuminati' | 'emonad' | 'r3tards' | 'liquid-glass' | 'brushed-metal' | 'leather' | 'velvet' | 'walnut' | 'royal-silk' | 'sovereign' | 'ape-society'
 
 export interface ThemeDef {
   id: BuiltinThemeId
@@ -76,11 +76,12 @@ export const THEMES: ThemeDef[] = [
   { id: 'monad',       name: 'Monad',       swatch: ['#140529', '#6e54ff'], colors: { bg: '#140529', accent: '#6e54ff', text: '#85e6ff' } },
   { id: 'abstract',    name: 'Abstract',    swatch: ['#ffffff', '#52f293'], colors: { bg: '#ffffff', accent: '#52f293', text: '#000000' } },
   { id: 'bitcoin',     name: 'Bitcoin',     swatch: ['#000000', '#f2a900'], colors: { bg: '#000000', accent: '#f2a900', text: '#ababab' } },
-  { id: 'sappy-seals', name: 'Sappy Seals', swatch: ['#ffffff', '#000000'], colors: { bg: '#ffffff', accent: '#000000', text: '#000000' } },
+  { id: 'mint-money', name: 'Mint & Money', swatch: ['#0c1e19', '#30ffae'], colors: { bg: '#0c1e19', accent: '#30ffae', text: '#e8f4ff' } },
   { id: 'sovereign', name: 'Sovereign', css: true, art: true, fixedPalette: true, artDescription: 'Kinetic crystal · Champagne & obsidian', swatch: ['#080c13', '#dfc594'], colors: { bg: '#080c13', accent: '#dfc594', text: '#f5f1e8' } },
   { id: 'ape-society', name: 'The Ape Society', css: true, art: true, fixedPalette: true, artDescription: 'Painted emerald · Antique gilt frames', swatch: ['#071d16', '#d3b36a'], colors: { bg: '#071d16', accent: '#d3b36a', text: '#f3ecda' } },
   { id: 'mallard-order', name: 'Mallard Order', css: true, art: true, artDescription: 'Carved runes · Stone & gold', swatch: ['#10100e', '#c6a75e'], colors: { bg: '#10100e', accent: '#c6a75e', text: '#eee8d5' } },
   { id: 'sealuminati', name: 'Sealuminati', css: true, art: true, artDescription: 'Pixel robes · Violet fire & gold', swatch: ['#120b24', '#ffd34d'], colors: { bg: '#120b24', accent: '#ffd34d', text: '#f4e9f6' } },
+  { id: 'sappy-seals-art', name: 'Sappy Seals', css: true, art: true, fixedPalette: true, artDescription: 'Live seal · Flat black & white', swatch: ['#000000', '#ffffff'], colors: { bg: '#000000', accent: '#ffffff', text: '#ffffff' } },
   { id: 'emonad', name: 'Emonad', css: true, art: true, artDescription: 'Tarot vines · Black roses & silver moons', swatch: ['#171020', '#c8c6b8'], colors: { bg: '#171020', accent: '#c8c6b8', text: '#f0eddf' } },
   { id: 'r3tards', name: 'r3tards', css: true, art: true, artDescription: 'Doodle collage · Purple & pill buttons', swatch: ['#493259', '#ffffff'], colors: { bg: '#493259', accent: '#ffffff', text: '#ffffff' } },
   { id: 'liquid-glass', name: 'Liquid Glass', css: true, art: true, material: true, fixedPalette: true, artDescription: 'Clear lenses · Fixed atmospheric palette', swatch: ['#102039', '#cae8ff'], colors: { bg: '#102039', accent: '#cae8ff', text: '#f6f9ff' } },
@@ -184,7 +185,8 @@ export function planAbsorbShipped(entries: ThemeEntries, activeId: string | null
   for (const [id, entry] of Object.entries(entries)) {
     // A tombstone carries no colours; matching one would "re-delete" it and
     // push a pointless newer record to every other device.
-    if (entry.d === 1) continue
+    // A built-in recolour is a deliberate edit, not a duplicate custom tile.
+    if (entry.d === 1 || id.startsWith('custom-builtin-')) continue
     const builtin = matchingBuiltin(entry.c)
     if (!builtin) continue
     plan.tombstone.push(id)

@@ -1,6 +1,7 @@
 /** Read-only collection gates shared by every wallet renderer and ChainLens. */
 export const COLLECTION_GATES = {
   'mallard-order': { chain: 'cardano', contract: '901ba6e9831b078e131a1cc403d6139af21bda255cea6c9f770f4834', requirement: 'Mallard Order holders · Cardano' },
+  'sappy-seals-art': { chain: 'evm', contract: '0x364C828eE171616a39897688A831c2499aD972ec', requirement: 'Sappy Seals holders · Ethereum' },
   sealuminati: { chain: 'evm', contract: '0xaEAA920165fD7ce58a0E0772Ffc97F06626572cD', requirement: 'Sealuminati holders · Monad' },
   r3tards: { chain: 'evm', contract: '0x200723A706de0013316E5cd8EBa2b3f53DD90c29', requirement: 'r3tards holders · Monad' },
   emonad: { chain: 'evm', contract: '0x81A224F8A62f52BdE942dBF23A56df77A10b7777', requirement: '10,000 EMONAD minimum · Monad' },
@@ -29,17 +30,19 @@ export async function readCollectionOwnership(id: CollectionThemeId, owners: The
     }
     return false
   }
+  const ethereum=id==='sappy-seals-art'
+  const rpcUrl=ethereum?'https://ethereum-rpc.publicnode.com':'https://rpc.monad.xyz'
   let counter=0
   const rpc=async(method:string,params:unknown[])=>{
     const requestId=++counter
-    const response=await request('https://rpc.monad.xyz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:requestId,method,params}),signal,cache:'no-store'})
-    if(!response.ok)throw new Error('Monad unavailable')
+    const response=await request(rpcUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:requestId,method,params}),signal,cache:'no-store'})
+    if(!response.ok)throw new Error('Collection network unavailable')
     const data=await response.json() as {id?:unknown;jsonrpc?:unknown;result?:unknown;error?:unknown}
     if(data.id!==requestId || data.jsonrpc!=='2.0' || data.error || typeof data.result!=='string')throw new Error('Invalid RPC response')
     return data.result
   }
   const chain=await rpc('eth_chainId',[])
-  if(!/^0x[0-9a-f]+$/i.test(chain) || BigInt(chain)!==143n)throw new Error('Wrong chain')
+  if(!/^0x[0-9a-f]+$/i.test(chain) || BigInt(chain)!==(ethereum?1n:143n))throw new Error('Wrong chain')
   const block=await rpc('eth_blockNumber',[])
   if(!/^0x[0-9a-f]+$/i.test(block))throw new Error('Invalid block')
   const call=async(data:string)=>{
@@ -47,7 +50,7 @@ export async function readCollectionOwnership(id: CollectionThemeId, owners: The
     if(!/^0x[0-9a-f]{64}$/i.test(result))throw new Error('Invalid contract response')
     return BigInt(result)
   }
-  // These two collections support ERC-721. Emonad is a fungible ERC-20.
+  // NFT collections must prove ERC-721 support. Emonad is a fungible ERC-20.
   if(id!=='emonad' && await call('0x01ffc9a780ac58cd'+'0'.repeat(56))!==1n)throw new Error('Not ERC-721')
   if(id==='emonad' && await call('0x313ce567')!==18n)throw new Error('Unexpected EMONAD decimals')
   const minimum=id==='emonad' ? 10_000n * 10n**18n : 1n

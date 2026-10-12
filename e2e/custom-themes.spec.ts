@@ -196,7 +196,7 @@ test.describe('custom themes', () => {
     await expect(vis('.theme-swatch-new')).toHaveCount(1)
     expect(await vis('.theme-swatch').count()).toBe(13)
     // The six that were user-made before they were promoted, by their own names.
-    for (const name of ['Cardano', 'milady', 'Monad', 'Abstract', 'Bitcoin', 'Sappy Seals']) {
+    for (const name of ['Cardano', 'milady', 'Monad', 'Abstract', 'Bitcoin', 'Mint & Money']) {
       await expect(vis(`.theme-swatch:has-text("${name}")`)).toHaveCount(1)
     }
 

@@ -1,0 +1,55 @@
+/* Flat black/white surfaces; the user's original Live2D seal provides the art. */
+:root[data-theme='sappy-seals-art']:not([data-derived]) {
+  --bg-deep:#000000; --bg-dark:#050505; --bg-surface:#0c0c0c; --bg-card:#030303; --bg-card-hover:#101010;
+  --bg-deep-rgb:0,0,0; --bg-surface-rgb:12,12,12;
+  --accent:#ffffff; --accent-rgb:255,255,255; --accent-hover:#dedede; --accent-2:#ffffff;
+  --accent-text:#ffffff; --accent-text-rgb:255,255,255; --btn-primary-text:#000000; --on-accent:#000000;
+  --text-primary:#ffffff; --text-secondary:#cccccc; --text-muted:#999999;
+  --border:#252525; --border-active:#737373; --input-bg:#090909; --overlay-bg:#000000b8;
+  --success:#2eea85; --success-rgb:46,234,133; --warning:#ffd35a; --error:#ff5555;
+  --radius-sm:8px; --radius-md:14px; --radius-lg:18px; --radius-xl:22px;
+  --font-display:var(--font-body); --blur:none;
+}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(body,.app-shell,.main-content,.dashboard-page,.titlebar,.tab-banner,.browser-titlebar,.browser-toolbar) {background:#000;backdrop-filter:none;box-shadow:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.titlebar,.tab-banner,.browser-titlebar) {border-bottom:0;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .chain-card {background:#030303;border:1px solid #292929;border-radius:18px;box-shadow:none;backdrop-filter:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .chain-card::before {display:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.settings-sheet,.art-panel) {background:#050505!important;border:1px dashed #555!important;border-radius:20px!important;box-shadow:none!important;backdrop-filter:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .settings-group {background:#080808;border:1px solid #272727;box-shadow:none;backdrop-filter:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.btn-primary,.chain-card > button) {color:#000!important;background:#fff!important;border:1px solid #fff!important;border-radius:10px!important;box-shadow:none!important;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.btn-primary,.chain-card > button):hover:not(:disabled) {background:#e0e0e0!important;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.input,.settings-select,.address-chip) {background:#090909;border:1px solid #292929;box-shadow:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-tabs {position:relative;z-index:1;background:#080808!important;border-top:1px solid #555;box-shadow:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .bottom-nav {background:#080808;border-top:1px solid #333;box-shadow:none;backdrop-filter:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .bottom-nav-btn.active {color:#fff;background:#1b1b1b;box-shadow:inset 0 2px #fff;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(.titlebar-wordmark,.tab-banner img,.swap-hero-text) {image-rendering:auto;filter:brightness(1.6);}
+:root[data-theme='sappy-seals-art']:not([data-derived]) :is(button,input,select):focus-visible {outline:2px solid #fff;outline-offset:3px;}
+.art-theme-sappy-seals-art {color:#fff;background:#000;border:1px dashed #777;border-radius:18px;box-shadow:none;}
+.art-theme-sappy-seals-art .art-theme-mark {font-size:0;width:42px;height:42px;flex-shrink:0;background:url('../assets/themes/sappy-seals/seal-head.786c8b01.png') center/contain no-repeat;}
+.art-theme-sappy-seals-art .art-theme-copy strong {font-family:var(--font-body);font-size:17px;letter-spacing:-.03em;}
+.sappy-seal-peek {height:90px;margin-bottom:-8px;position:relative;overflow:hidden;pointer-events:none;flex-shrink:0;}
+.sappy-seal-canvas {position:absolute;left:50%;bottom:-12px;transform:translateX(-50%);width:220px;height:160px;max-width:100%;opacity:0;}
+.sappy-seal-fallback {position:absolute;width:140px;height:128px;object-fit:contain;bottom:-5px;left:50%;transform:translateX(-50%);}
+.sappy-seal-peek[data-ready='true'] .sappy-seal-canvas {opacity:1;}
+.sappy-seal-peek[data-ready='true'] .sappy-seal-fallback {visibility:hidden;}
+
+@media (max-width:430px) {
+  :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-tools .header-toolbar-actions {gap:3px!important;}
+  :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-tools .header-toolbar-actions > button {width:27px!important;}
+  :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-total {font-size:16px;}
+}
+
+:root[data-theme='sappy-seals-art']:not([data-derived]) .chain-spark-row {transform:translate(0,var(--spark-y));margin-left:-30px;width:min(250px,calc(100vw - 100px));justify-content:flex-start;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .chain-spark-row svg {width:100%;max-width:100%;flex-shrink:1;}
+
+/* Variant control sits immediately left of the existing refresh button. */
+.sappy-seal-appearance {position:absolute;top:12px;right:52px;width:28px;height:28px;display:grid;place-items:center;padding:0;border:1px solid var(--border-active);border-radius:6px;background:var(--input-bg);color:var(--text-secondary);cursor:pointer;}
+.sappy-seal-appearance[aria-pressed='true'] {color:var(--text-primary);background:var(--bg-card-hover);box-shadow:inset 0 0 0 1px var(--text-primary);}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-header {margin-top:0;}
+
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-heading-region {padding-top:16px!important;padding-bottom:4px!important;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-controls-region {padding-bottom:8px!important;margin-top:-32px;}
+
+/* Leave the centre clear for the seal without covering price data. */
+@media (max-width:430px) { :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-chart-row {width:120px;} }
+@media (max-width:380px) { :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-chart-row {width:100px;} }

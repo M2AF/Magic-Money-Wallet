@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { getBuiltinOverride, getCustomThemes, resetBuiltinTheme, saveBuiltinTheme, syncCustomThemes } from './theme'
+import { getBuiltinOverride, getCustomThemes, getTheme, resetBuiltinTheme, saveBuiltinTheme, syncCustomThemes } from './theme'
 
 afterEach(() => {
   vi.useRealTimers()
@@ -73,4 +73,12 @@ it('uploads a built-in recolour saved by an older wallet', async () => {
   await vi.advanceTimersByTimeAsync(800)
   const entries = push.mock.calls[0]?.[0] as Record<string, { c: typeof colors; t: number }>
   expect(entries['custom-builtin-crimson']).toEqual({ n: 'Crimson', c: colors, t: 0 })
+})
+
+it('moves a retired Sappy Seals selection to Mint & Money without copying its old overrides',()=>{
+  const values=new Map<string,string>([['mm.theme','sappy-seals'],['mm.themes.builtin.v1',JSON.stringify({'sappy-seals':{bg:'#ffffff',accent:'#000000',text:'#000000'}})]])
+  vi.stubGlobal('localStorage',{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value),removeItem:(key:string)=>values.delete(key)})
+  expect(getTheme()).toBe('mint-money')
+  expect(values.get('mm.theme')).toBe('mint-money')
+  expect(getBuiltinOverride('mint-money')).toBeNull()
 })

@@ -34,6 +34,7 @@
 
 import './themes/mallard-order.css'
 import './themes/sealuminati.css'
+import './themes/sappy-seals-art.css'
 import './themes/emonad.css'
 import './themes/ape-society.css'
 import './themes/r3tards.css'
@@ -98,7 +99,7 @@ const MIGRATED_KEY = 'mm.themes.migrated.v2'
 /** Recoloured built-ins: id -> the three colours. Kept for instant local paint. */
 const BUILTIN_KEY = 'mm.themes.builtin.v1'
 /** Ran the one-time fold of user copies of a now-shipped theme (see absorbShipped). */
-const ABSORBED_KEY = 'mm.themes.absorbed.v1'
+const ABSORBED_KEY = 'mm.themes.absorbed.v2'
 const CUSTOM_PREFIX = 'custom-'
 const DEFAULT_THEME: BuiltinThemeId = 'moonlight'
 /** Hiding five colour tweaks behind one request; a save is deliberate, so short. */
@@ -545,6 +546,10 @@ function writeCustomVars(colors: CustomThemeColors): ThemeTone {
 export function getTheme(): ThemeId {
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved === 'sappy-seals') {
+      localStorage.setItem(STORAGE_KEY, 'mint-money')
+      return 'mint-money'
+    }
     if (isBuiltinThemeId(saved)) return saved
     if (isCustomThemeId(saved) && findCustomTheme(saved)) return saved
     return DEFAULT_THEME
@@ -555,6 +560,8 @@ export function getTheme(): ThemeId {
 
 export function applyTheme(id: ThemeId): void {
   const el = document.documentElement
+  // Retired palette IDs may arrive from an older window or a saved preference.
+  if (String(id) === 'sappy-seals') id = 'mint-money'
 
   if (isCustomThemeId(id)) {
     const theme = findCustomTheme(id)

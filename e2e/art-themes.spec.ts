@@ -8,7 +8,7 @@ import { stubWorker } from './support/worker-stub-browser'
 
 test.use({ actionTimeout: 10_000 })
 
-for (const theme of [{ id: 'ape-society', name: 'The Ape Society' }, { id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
+for (const theme of [{id:'sappy-seals-art',name:'Sappy Seals'}, { id: 'ape-society', name: 'The Ape Society' }, { id: 'mallard-order', name: 'Mallard Order' }, { id: 'sealuminati', name: 'Sealuminati' }, { id: 'emonad', name: 'Emonad' }, { id: 'r3tards', name: 'r3tards' }]) {
 test(`${theme.name} selects, persists, previews cleanly and leaves other themes intact`, async () => {
   test.setTimeout(90_000)
   const dist = resolve('dist-extension')
@@ -68,9 +68,21 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
     if(theme.id==='mallard-order'){
+      await expect(page.locator('.theme-swatch[title="Sappy Seals"]')).toHaveCount(0)
+      await page.evaluate(()=>{
+        localStorage.setItem('mm.theme','sappy-seals')
+        window.dispatchEvent(new StorageEvent('storage',{key:'mm.theme',newValue:'sappy-seals'}))
+      })
+      await expect(page.locator('html')).toHaveAttribute('data-theme','mint-money')
+      expect(await page.evaluate(()=>localStorage.getItem('mm.theme'))).toBe('mint-money')
+      await page.locator('.theme-swatch[title="Mint & Money"]').click()
+      expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--accent').trim())).toBe('#30ffae')
+      expect(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--bg-deep').trim())).toBe('#0c1e19')
+      await page.locator('.theme-swatch[title="Mint & Money"]').scrollIntoViewIfNeeded()
+      await page.screenshot({path:'.local-artifacts/mint-money/wallet.png'})
       const artSection=page.locator('details.theme-design-section').filter({has:page.locator('summary', {hasText:'Art Designs'})})
       const materials=page.locator('details.theme-design-section').filter({has:page.locator('summary', {hasText:'Material Designs'})})
-      await expect(artSection.locator('.art-theme-card')).toHaveCount(6)
+      await expect(artSection.locator('.art-theme-card')).toHaveCount(7)
       await expect(materials.locator('.art-theme-card')).toHaveCount(6)
       await expect(artSection.locator('.art-theme-liquid-glass')).toHaveCount(0)
       await artSection.locator('summary').click();await expect(artSection.locator('.art-theme-mallard-order')).toBeHidden()
@@ -86,6 +98,18 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       expect(ids[ids.findIndex(id => id.includes('art-theme-r3tards')) - 1]).toContain('art-theme-emonad')
     }
     await art.click()
+    if(theme.id==='sappy-seals-art'){
+      const alternate=page.getByRole('button',{name:'Use alternate seal artwork',exact:true})
+      await expect(alternate).toHaveAttribute('aria-pressed','false')
+      await expect(alternate).toHaveCSS('width','28px')
+      const toggleBox=await alternate.boundingBox(),refreshBox=await page.getByRole('button',{name:'Refresh Sappy Seals ownership',exact:true}).boundingBox()
+      expect(Math.abs(toggleBox!.y-refreshBox!.y)).toBeLessThan(1)
+      expect(refreshBox!.x-toggleBox!.x-toggleBox!.width).toBe(8)
+      await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','original',{timeout:20_000})
+      await alternate.click();await expect(alternate).toHaveAttribute('aria-pressed','true')
+      await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','alternate',{timeout:20_000})
+      await alternate.click();await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-artwork','original',{timeout:20_000})
+    }
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id)
     await expect(art).toHaveAttribute('aria-pressed', 'true')
     await page.evaluate(() => document.fonts.ready)
@@ -100,6 +124,9 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await settle()
       const amountBounds = await page.locator('.portfolio-total').first().evaluate(el => ({ scroll: el.scrollWidth, width: el.clientWidth, font: getComputedStyle(el).fontSize, text: el.textContent }))
       expect(amountBounds.scroll, JSON.stringify(amountBounds)).toBeLessThanOrEqual(amountBounds.width)
+      if(theme.id==='sappy-seals-art' && width<=400){
+        expect(await page.evaluate(()=>{const seal=document.querySelector('.sappy-seal-peek')!.getBoundingClientRect(),chart=document.querySelector('.portfolio-chart-row svg')!.getBoundingClientRect();return chart.left>=seal.left+seal.width/2+59})).toBe(true)
+      }
       if (theme.id === 'r3tards') {
         // Keep the stock left summary / right toolbar arrangement at phone widths.
         expect(await page.locator('.portfolio-header').evaluate(header => {
@@ -121,12 +148,57 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
           return end.x <= card.right - 18 && end.x >= card.left + 18
         })).toBe(true)
       }
-      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.(webp|png)/)
+      await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', ['r3tards','sappy-seals-art'].includes(theme.id) ? 'none' : /frame.*\.(webp|png)/)
       if (theme.id === 'r3tards') await expect(page.locator('.app-shell')).toHaveCSS('background-image', /background.*\.webp/)
       await settle()
       await page.screenshot({ path: `test-results/${theme.id}-portfolio-${width}.png` })
     }
     await page.setViewportSize({ width: 400, height: 850 })
+    if(theme.id==='sappy-seals-art'){
+      await expect(page.locator('.sappy-seal-peek')).toHaveAttribute('data-ready','true',{timeout:20_000})
+      await page.bringToFront()
+      expect(await page.evaluate(()=>document.hidden)).toBe(false)
+      await page.mouse.move(10,100);await page.waitForTimeout(700)
+      const left=Number(await page.locator('.sappy-seal-canvas').getAttribute('data-head-angle'))
+      await page.mouse.move(390,100);await page.waitForTimeout(700)
+      const right=Number(await page.locator('.sappy-seal-canvas').getAttribute('data-head-angle'))
+      expect(Math.abs(right-left)).toBeGreaterThan(1)
+      const geometry=await page.evaluate(()=>{
+        const region=document.querySelector<HTMLElement>('.portfolio-heading-region')!,controls=document.querySelector<HTMLElement>('.portfolio-controls-region')!,header=document.querySelector<HTMLElement>('.portfolio-header')!,seal=document.querySelector('.sappy-seal-peek')!,tabs=document.querySelector('.portfolio-tabs')!
+        const placed={header:header.getBoundingClientRect().top,seal:seal.getBoundingClientRect().top,tabs:tabs.getBoundingClientRect().top,bottom:controls.getBoundingClientRect().bottom}
+        region.style.setProperty('padding-top','24px','important');region.style.setProperty('padding-bottom','12px','important');controls.style.setProperty('padding-bottom','12px','important');controls.style.marginTop='0px';header.style.marginTop='8px'
+        const base={header:header.getBoundingClientRect().top,seal:seal.getBoundingClientRect().top,tabs:tabs.getBoundingClientRect().top,bottom:controls.getBoundingClientRect().bottom}
+        region.style.removeProperty('padding-top');region.style.removeProperty('padding-bottom');controls.style.removeProperty('padding-bottom');controls.style.removeProperty('margin-top');header.style.removeProperty('margin-top');return {placed,base}
+      })
+      expect(geometry.base.header-geometry.placed.header).toBe(16)
+      expect(geometry.base.seal-geometry.placed.seal).toBe(56)
+      expect(geometry.base.tabs-geometry.placed.tabs).toBe(56)
+      expect(geometry.base.bottom-geometry.placed.bottom).toBe(60)
+      await page.screenshot({path:'.local-artifacts/sappy-seals/wallet-400.png'})
+      const clicks=Number(await page.locator('.sappy-seal-peek').getAttribute('data-click-count'))
+      const sealBox=await page.locator('.sappy-seal-peek').boundingBox()
+      await page.mouse.click(sealBox!.x+sealBox!.width/2,sealBox!.y+sealBox!.height/2)
+      await expect.poll(async()=>Number(await page.locator('.sappy-seal-peek').getAttribute('data-click-count'))).toBeGreaterThan(clicks)
+      const seen=new Set([await page.locator('.sappy-seal-peek').getAttribute('data-click-motion')])
+      for(let index=0;index<12;index++){
+        const before=Number(await page.locator('.sappy-seal-peek').getAttribute('data-click-count'))
+        await page.mouse.click(sealBox!.x+sealBox!.width/2,sealBox!.y+sealBox!.height/2)
+        await expect.poll(async()=>Number(await page.locator('.sappy-seal-peek').getAttribute('data-click-count'))).toBeGreaterThan(before)
+        seen.add(await page.locator('.sappy-seal-peek').getAttribute('data-click-motion'))
+      }
+      expect(seen.size).toBe(13)
+      await page.screenshot({path:'.local-artifacts/sappy-seals/click-motion.png'})
+      await page.locator('.portfolio-tab-tokens').click()
+      await page.locator('.portfolio-tab-networks').click()
+      await page.emulateMedia({reducedMotion:'reduce'});await page.waitForTimeout(100)
+      const still=await page.locator('.sappy-seal-canvas').getAttribute('data-head-angle')
+      const pausedClicks=await page.locator('.sappy-seal-peek').getAttribute('data-click-count')
+      await page.mouse.click(sealBox!.x+sealBox!.width/2,sealBox!.y+sealBox!.height/2)
+      await page.mouse.move(20,400);await page.waitForTimeout(300)
+      expect(await page.locator('.sappy-seal-canvas').getAttribute('data-head-angle')).toBe(still)
+      expect(await page.locator('.sappy-seal-peek').getAttribute('data-click-count')).toBe(pausedClicks)
+      await page.emulateMedia({reducedMotion:'no-preference'})
+    }
     if (theme.id === 'sealuminati') {
       await expect(page.locator('.tab-banner img')).toHaveCSS('image-rendering', 'auto')
       await expect(page.locator('.titlebar-wordmark')).toHaveCSS('image-rendering', 'auto')
@@ -145,7 +217,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     }
     await page.getByRole('button', { name: 'Send ETH', exact: true }).click()
     await expect(page.getByText('Recipient Address', { exact: true })).toBeVisible()
-    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', theme.id === 'r3tards' ? 'none' : /frame.*\.(webp|png)/)
+    await expect(page.locator('.art-panel').filter({ visible: true }).first()).toHaveCSS('border-image-source', ['r3tards','sappy-seals-art'].includes(theme.id) ? 'none' : /frame.*\.(webp|png)/)
     await expect(page.getByRole('button', { name: 'Estimate Fee', exact: true })).toBeDisabled()
     await settle()
     await page.screenshot({ path: `test-results/${theme.id}-send-400.png` })
@@ -202,16 +274,16 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await expect(art).toBeDisabled()
       await expect(art).toContainText('unavailable')
     }
-    if(['mallard-order','sealuminati','r3tards','emonad'].includes(theme.id)){
+    if(['mallard-order','sealuminati','r3tards','emonad','sappy-seals-art'].includes(theme.id)){
       await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
       const refresh=page.getByRole('button',{name:`Refresh ${theme.name} ownership`,exact:true})
       await expect(refresh).toHaveCSS('width','28px')
       await art.scrollIntoViewIfNeeded();await page.screenshot({path:`.local-artifacts/collection-gates/${theme.id}-wallet.png`})
-      collectionControl.quantity='0';collectionControl.balance=theme.id==='emonad'?10_000n*10n**18n-1n:0n
+      collectionControl.sappyBalance=0n;collectionControl.quantity='0';collectionControl.balance=theme.id==='emonad'?10_000n*10n**18n-1n:0n
       await refresh.click();await expect(art).toBeDisabled()
       await expect(page.locator('html')).not.toHaveAttribute('data-theme',theme.id)
       expect(await page.evaluate(()=>localStorage.getItem('mm.theme'))).toBe(theme.id)
-      collectionControl.quantity='1';collectionControl.balance=10_000n*10n**18n
+      collectionControl.sappyBalance=1n;collectionControl.quantity='1';collectionControl.balance=10_000n*10n**18n
       await refresh.click();await expect(art).toBeEnabled()
       await expect(page.locator('html')).toHaveAttribute('data-theme',theme.id)
       collectionControl.fail=true;await refresh.click();await expect(art).toBeDisabled();await expect(art).toContainText('unavailable')

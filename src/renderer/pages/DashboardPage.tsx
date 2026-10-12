@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { AppPage, WalletAddresses, AllBalances, AllHistory, ChainHistory, TokensResult, CollectiblesResult, WalletToken, WalletCollectible, NftFloorPrice, CustomChain, ImportChain, SendAsset, SwapToken } from '../types/wallet'
+import { SappySeal } from '../components/SappySeal'
 import { NftImage } from '../components/NftImage'
 import { NftMosaic } from '../components/NftMosaic'
 import { mergeCollectiblesUpdate } from '../lib/collectibles-updates'
@@ -1218,7 +1219,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {/* Fixed header — keeps the titlebar logo clear of scrolling content. The
           divider sits below the tab bar/search row (see next block) so those
           stay pinned above the scrolling list too. */}
-      <div style={{ padding: '24px 20px 12px', flexShrink: 0 }}>
+      <div className="portfolio-heading-region" style={{ padding: '24px 20px 12px', flexShrink: 0 }}>
       {/* Header */}
       <div className="portfolio-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div className="portfolio-summary" style={{ minWidth: 0, flex: 1 }}>
@@ -1320,12 +1321,13 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {/* Fixed tab bar + search row — the divider that used to sit above these
           now sits below them, so Networks/Tokens/Collectibles (and the search
           box) stay pinned while the list underneath scrolls. */}
-      <div style={{ padding: '0 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div className="portfolio-controls-region" style={{ padding: '0 20px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Portfolio sub-tab bar */}
         {/* --input-bg, not a hardcoded black wash: on a dark theme the token IS
             rgba(0,0,0,0.3), so this looks unchanged, but a light custom theme
             tints it from the text colour instead of laying grey over paper.
             Same fill as the address chip, which is what it has to match. */}
+        <SappySeal/>
         <div className="portfolio-tabs" style={{ display: 'flex', gap: 4, background: 'var(--input-bg)', borderRadius: 'var(--radius-sm)', padding: 3, flexShrink: 0 }}>
           {(['networks', 'tokens', 'collectibles'] as PortfolioTab[]).map(tab => (
             <button

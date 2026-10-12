@@ -7,13 +7,15 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 39d5e75 · Exact user-address production gate now1 (previous direct0), Mallard3348 stake/script association verified live. Five TS targets;172files2505tests incl6reader/session tests;four bundles;stake-only extension holder/select/refresh/reload/revocation journey pass with no missing web endpoint requests. · 2026-10-11T21:37-03:00
-head: 39d5e75 (main) dirty 21
-updated: 2026-10-11T21:37-03:00 · codex
+verified: 5dd914d · Five TS targets;four final renderer bundles;Sappy actual WebGL journey passes all13 SDK click groups, reduced-motion click suppression, final compact header/logo spacing, independent32px lift of seal-tabs-search and clear sparkline at360/400/1000. Screenshot reviewed. Existing holder/variant/reload/Send/Swap checks pass; .sappy-click-*.log. No native device QA/install/deploy. · 2026-10-12T01:58-03:00
+head: 5dd914d (main) dirty 15
+updated: 2026-10-12T01:58-03:00 · codex
 
 resources: -
 
 ## Now
+- Sappy Seals art added locally (sappy-seals-art), Ethereum ERC721 gate0x364C828eE171616a39897688A831c2499aD972ec; Flat black/white, original locally bundled Live2D pointer/touch tracking over portfolio tabs. Correct texture.png default; texture_00.png alternate via28px shirt icon beside refresh. Seal reduced26%; heading padding16/4px, no extra margin; seal/tabs/search alone lifted32px near sparkline/plus to recover list space. Click/tap cycles all13 supplied motions; paused when reduced/hidden/offscreen. Four final renderer builds and Sappy/Mallard browser journeys pass, including measured Cubism motion, variants, reduced-motion, zero/error revocation. Final five TS targets and172files2510tests pass in .sappy-*.log; docs/SAPPY-SEALS-THEME.md; .local-artifacts/sappy-seals/. No ChainLens art adaptation/commit/deploy/install.
+- Default Sappy Seals colour preset replaced with Mint & Money (mint-money) in wallet/ChainLens: exact readonly cl_themes source custom-7aovlrf0py on requested ID ec18dcf5-3271-46fd-8029-41e5b2f39eed, bg0c1e19/accent30ffae/texte8f4ff. Old saved Sappy IDs migrate, old overrides do not carry, cached exact custom copies use absorptionv2 with built-in recolours protected. Mint migration counts were24/12colours; current wallet25 includes new Sappy art. Five TS;172files2508tests;4final bundles;wallet migration/selection/holder journey and3ChainLens colour/migration journeys pass;202Node tests. Screenshots reviewed;docs/MINT-MONEY-PRESET.md;.mint-money-*.log. No DB writes/commit/deploy/install.
 - Mallard staking coverage fixed locally after exact-user-address diagnosis: direct assets0, MallardOrder3348=1 at script address sharing wallet stake credential. Reader validates Bech32/network and locally derives stake1 credential, then checks exact account_assets only after direct0; current-session guards unchanged. Actual user-address production proof1 (.mallard-stake-live.log). Six focused tests;five TS targets;172files2505tests;four bundles;stake-only Mallard wallet journey and ChainLens Mallard journey pass;201Node tests. .mallard-stake-*.log. No phone install or website deploy; running wallet requires new build.
 - Mallard locked regression fixed locally: supplied policy correct; live website endpoint returns homepage HTML. Wallet now uses privileged getMallardOwnership direct Koios read of current unlocked payment address, reconfirmed after read; no web endpoint dependency. Canonical src/shared/mallard-policy.ts -> ChainLens mallard-policy-core.js. Five TS targets;172files2502tests;four bundles;wallet missing-HTML-endpoint/selection/refresh/reload/revocation journey and ChainLens Mallard journey pass;201Node tests. .mallard-native-*.log. Running wallet requires restart/update; no phone install or web deployment.
 - Appearance picker split into independent native Art Designs and Material Designs disclosures (six each; both initially expanded). Material metadata on Liquid Glass/Metal/Leather/Velvet/Walnut/Royal Silk; art retains gates/refresh/Ape dropdown. Keyboard/independent-collapse/selection checks and screenshots pass; .design-sections-*.log; .local-artifacts/design-sections/. No deploy/install.
@@ -58,7 +60,7 @@ resources: -
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
 ## Next
-- User loads updated wallet and refreshes Mallard. Phone installation only when requested.
+- User visual review; native phone install or standalone ChainLens adaptation only if requested.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.

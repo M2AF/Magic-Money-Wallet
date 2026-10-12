@@ -338,3 +338,62 @@
 ### 2026-10-11T21:37-03:00 · codex · handoff · 39d5e75 (main) dirty 21
 - Staking-account NFT eligibility now matches collectible coverage. Actual supplied address has3348 quantity1 in associated script address; production reader grants. Rebuilt/tested; no install/deploy.
 - next: User loads updated wallet and refreshes Mallard. Phone installation only when requested.
+
+### 2026-10-12T00:52-03:00 · codex · claim · 5dd914d (main) dirty 1
+- task: Replace retired Sappy Seals colour preset with profile Mint and Money
+- lease until 2026-10-12T03:52-03:00
+
+### 2026-10-12T00:59-03:00 · codex · checkpoint · 5dd914d (main) dirty 8
+- Mint and Money exact palette read via Supabase readonly user-ID cl_themes: bg0c1e19/accent30ffae/texte8f4ff. Replaced Sappy default in wallet/ChainLens; legacy ID migration; absorption marker v2; tests updated. Five TS/full unit/extension session96255 running .mint-money-*.log; wallet browser next; desktop/mobile bundles needed.
+
+### 2026-10-12T01:05-03:00 · codex · verify · 5dd914d (main) dirty 10
+- verified: Five TS targets final;172files2508tests;53focused migration/promotion tests;4final renderer bundles;wallet browser legacySappy->Mint exact bg/accent/preset removal/holder/theme journey pass; screenshot reviewed. Profile source verified by readonly Supabase, no DB writes.
+
+### 2026-10-12T01:05-03:00 · codex · handoff · 5dd914d (main) dirty 10
+- Mint and Money replaces default Sappy palette for updated clients; exact requested profile colours; saved selection migration; built-in edits preserved; complete local validation. No commit/deploy/install.
+- next: User reviews; publish/install only when authorized. Future Sappy art theme uses distinct ID.
+
+### 2026-10-12T01:10-03:00 · codex · claim · 5dd914d (main) dirty 10
+- task: Create Sappy Seals black-white Live2D art theme
+- lease until 2026-10-12T04:10-03:00
+
+### 2026-10-12T01:26-03:00 · codex · checkpoint · 5dd914d (main) dirty 14
+- Sappy Seals art registered with Ethereum holder gate and bundled Live2D runtime; flat black-white portfolio scene. Starting extension build and actual motion browser QA; logs .sappy-*.log.
+- next: Validate and fit Live2D paws against portfolio tabs; check all renderer targets.
+
+### 2026-10-12T01:39-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+- Sappy full browser journey passes actual Cubism deformation/pointer tracking, variants, reduced-motion, responsive layout, Send/Swap/reload/zero/failure revocation. User then requested smaller seal, lower summary and 28px variant icon beside refresh; applied and rebuilding final targets.
+- next: Recheck final dimensions visually; finish builds and handoff.
+
+### 2026-10-12T01:41-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+- Final user layout reviewed in screenshots: original texture, smaller seal at tab fence, lower summary and 28px variant icon beside refresh. Four final builds and Sappy/Mallard browser journeys pass. Final typecheck/unit reruns running in .sappy-typecheck.log and .sappy-tests.log.
+- next: Read final TS/unit results and release lease.
+
+### 2026-10-12T01:43-03:00 · codex · verify · 5dd914d (main) dirty 15
+- verified: Final five TS targets;172files2510tests;four renderer bundles;Sappy and Mallard browser journeys pass. Actual Cubism head deformation, original/alternate textures, reduced-motion, holder zero/error revocation, responsive360/400/1000 and final28px toggle placement verified. Screenshots reviewed;texture.png SHA256 matches supplied file. No commit/deploy/install or native device verification.
+
+### 2026-10-12T01:43-03:00 · codex · handoff · 5dd914d (main) dirty 15
+- Sappy Seals holder-only art complete locally with correct default texture, 28px alternate icon beside refresh, smaller seal at fence and summary lowered8px. Five TS/2510tests/four builds/two browser journeys pass; docs/SAPPY-SEALS-THEME.md. No deployment or phone install.
+- next: User review of final Sappy layout; install phone build or adapt standalone ChainLens only when requested.
+
+### 2026-10-12T01:44-03:00 · codex · claim · 5dd914d (main) dirty 15
+- task: Enable Sappy click motions and lower portfolio summary
+- lease until 2026-10-12T04:44-03:00
+
+### 2026-10-12T01:46-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+- Enabled passive wallet click/tap cycle through all13 supplied seal motions with actual motionStart diagnostics, respecting reduced-motion/hidden/cleanup. Lowered Sappy summary additional24px (32px total). Starting build/typecheck and actual WebGL journey.
+- next: Verify click motions and final spacing; build shared renderer targets.
+
+### 2026-10-12T01:52-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+- All13 actual SDK click motions verified in browser. User refined layout to compact whole stack, then add8px logo clearance: final heading padding16/4, zero header margin/offset, controls bottom8; seal fit unchanged. Final four builds running in .sappy-click-*.log; next rerun final geometry journey.
+- next: Inspect final compact screenshots and motion journey, then release.
+
+### 2026-10-12T01:55-03:00 · codex · verify · 5dd914d (main) dirty 15
+- verified: Five TS targets pass;four final renderer builds pass;Sappy browser journey verifies all13 distinct actual SDK click motion starts, reduced-motion suppression, relative geometry and unchanged header/32px lifted seal-tabs-search, holder/variant/reload/Send/Swap at360/400/1000. Screenshot reviewed; .sappy-click-*.log. No deploy/install/native-device QA.
+
+### 2026-10-12T01:58-03:00 · codex · verify · 5dd914d (main) dirty 15
+- verified: Five TS targets;four final renderer bundles;Sappy actual WebGL journey passes all13 SDK click groups, reduced-motion click suppression, final compact header/logo spacing, independent32px lift of seal-tabs-search and clear sparkline at360/400/1000. Screenshot reviewed. Existing holder/variant/reload/Send/Swap checks pass; .sappy-click-*.log. No native device QA/install/deploy.
+
+### 2026-10-12T01:58-03:00 · codex · handoff · 5dd914d (main) dirty 15
+- Sappy click animation cycle implemented and verified; final user-directed header clearance with only seal-tabs-search lifted32px, chart clear, more list room. Four final builds and actual motion journey pass. docs/SAPPY-SEALS-THEME.md. No deploy/install.
+- next: User visual review; native phone install or standalone ChainLens adaptation only if requested.

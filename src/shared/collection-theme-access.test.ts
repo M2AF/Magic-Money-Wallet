@@ -59,3 +59,13 @@ it('a hung provider fails closed at the timeout',async()=>{
   dom();vi.useFakeTimers();const access=createCollectionAccess({changed:vi.fn(),request:(()=>new Promise(()=>{})) as typeof fetch})
   access.bind(owners);await vi.advanceTimersByTimeAsync(15_000);expect(access.get('sealuminati').status).toBe('error');expect(access.allowed('sealuminati')).toBe(false);access.dispose()
 })
+
+it('Sappy Seals proves Ethereum ERC721 ownership against the supplied contract and fails closed on Monad',async()=>{
+  const request=rpc(1n,'0x1')
+  expect(await readCollectionOwnership('sappy-seals-art',owners,undefined,request as typeof fetch)).toBe(true)
+  expect(request.mock.calls.every(c=>c[0]==='https://ethereum-rpc.publicnode.com')).toBe(true)
+  const calls=request.mock.calls.map(c=>JSON.parse(c[1].body)).filter(c=>c.method==='eth_call')
+  expect(calls.every(c=>c.params[0].to===COLLECTION_GATES['sappy-seals-art'].contract && c.params[1]==='0xabc')).toBe(true)
+  expect(await readCollectionOwnership('sappy-seals-art',owners,undefined,rpc(0n,'0x1') as typeof fetch)).toBe(false)
+  await expect(readCollectionOwnership('sappy-seals-art',owners,undefined,rpc(1n) as typeof fetch)).rejects.toThrow('Wrong chain')
+})
