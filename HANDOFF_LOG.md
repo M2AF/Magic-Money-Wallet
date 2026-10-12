@@ -397,3 +397,18 @@
 ### 2026-10-12T01:58-03:00 · codex · handoff · 5dd914d (main) dirty 15
 - Sappy click animation cycle implemented and verified; final user-directed header clearance with only seal-tabs-search lifted32px, chart clear, more list room. Four final builds and actual motion journey pass. docs/SAPPY-SEALS-THEME.md. No deploy/install.
 - next: User visual review; native phone install or standalone ChainLens adaptation only if requested.
+
+### 2026-10-12T02:46-03:00 · codex · claim · c33b12e (main) dirty 1
+- task: Match wallet collapsed disclosure pill and rail styling
+- lease until 2026-10-12T05:46-03:00
+
+### 2026-10-12T02:48-03:00 · codex · checkpoint · c33b12e (main) dirty 8
+- Wallet Art/Material groups default collapsed; matching white label pills/black text/white rail to chevron. Custom colors/New moved alongside builtin colors before groups. Updated browser journeys to expand intentionally and assert defaults/order/style/native keyboard. User HEADc33b12e; starting typecheck/unit/four renderer builds in .wallet-pill-*.log.
+- next: Verify Mallard disclosure/default screenshot and Sappy lifecycle journey; release.
+
+### 2026-10-12T02:51-03:00 · codex · verify · c33b12e (main) dirty 15
+- verified: User HEADc33b12e reconciled:final five TS targets/172files2510tests/four renderer bundles/two full Sappy-Mallard journeys pass. Default collapse,7art/6materials, white pills/black labels/rail, custom colours/New ordering, native keyboard and existing ownership/motion/variant/Send/Swap behavior verified. Screenshot reviewed; .wallet-pill-*.log. No native install/commit/deploy.
+
+### 2026-10-12T02:51-03:00 · codex · handoff · c33b12e (main) dirty 15
+- Wallet disclosures now match ChainLens pill/rail style and collapsed defaults; custom colors/New grouped with builtin colours. Five TS/2510tests/four builds/two browser journeys pass; screenshot reviewed. No phone install or deploy.
+- next: User review; phone installation only when requested.

@@ -1,3 +1,4 @@
+import { expandThemeDesigns } from './support/theme-designs'
 import { installCollectionFixture } from './collection-fixture'
 import { installApeFixture } from './ape-fixture'
 import { expect, test, chromium } from '@playwright/test'
@@ -85,6 +86,11 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await expect(artSection.locator('.art-theme-card')).toHaveCount(7)
       await expect(materials.locator('.art-theme-card')).toHaveCount(6)
       await expect(artSection.locator('.art-theme-liquid-glass')).toHaveCount(0)
+      await expect(artSection).not.toHaveAttribute('open');await expect(materials).not.toHaveAttribute('open')
+      expect(await page.locator('.theme-swatch-new').evaluate(el=>!!(el.compareDocumentPosition(document.querySelector('details.theme-design-section')!)&Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true)
+      for(const section of [artSection,materials]){await expect(section.locator('.theme-design-label')).toHaveCSS('background-color','rgb(255, 255, 255)');await expect(section.locator('.theme-design-label')).toHaveCSS('color','rgb(0, 0, 0)');await expect(section.locator('.theme-design-line')).toHaveCSS('background-color','rgb(255, 255, 255)')}
+      await artSection.locator('summary').click();await expect(artSection.locator('.art-theme-mallard-order')).toBeVisible();await expect(materials.locator('.art-theme-liquid-glass')).toBeHidden()
+      await materials.locator('summary').click()
       await artSection.locator('summary').click();await expect(artSection.locator('.art-theme-mallard-order')).toBeHidden()
       await expect(materials.locator('.art-theme-liquid-glass')).toBeVisible()
       await materials.locator('summary').click();await expect(materials.locator('.art-theme-liquid-glass')).toBeHidden()
@@ -92,6 +98,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await artSection.locator('summary').focus();await page.keyboard.press('Enter');await expect(artSection.locator('.art-theme-mallard-order')).toBeVisible()
       await materials.locator('summary').click();await expect(materials.locator('.art-theme-liquid-glass')).toBeVisible()
     }
+    await expandThemeDesigns(page)
     const art = page.getByRole('button', { name: new RegExp(`^${theme.name}`) })
     if (theme.id === 'emonad') {
       const ids = await page.locator('.art-theme-card').evaluateAll(els => els.map(el => el.className))
@@ -232,6 +239,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     await page.screenshot({ path: `test-results/${theme.id}-swap-400.png` })
     await page.locator('.bottom-nav-btn').filter({ hasText: /^Portfolio$/i }).click()
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     await page.locator('.theme-swatch-new').click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'custom-preview')
     await expect(page.locator('.chain-card').first()).toHaveCSS('border-image-source', 'none')
@@ -252,6 +260,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe(theme.id)
     if(theme.id === 'ape-society') {
       await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
       const selector=page.getByRole('combobox',{name:'Theme ape',exact:true})
       await expect(selector).toBeVisible()
       await expect(page.getByRole('button',{name:'Refresh owned apes',exact:true})).toHaveCSS('width','28px')
@@ -264,6 +273,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
       await expect(page.locator('html')).toHaveAttribute('data-theme','ape-society')
       await expect.poll(()=>page.evaluate(()=>document.documentElement.style.getPropertyValue('--ape-portrait'))).toContain('/6638.jpg')
       await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
       apeControl.balance=0
       await page.getByRole('button',{name:'Refresh owned apes',exact:true}).click()
       await expect(art).toBeDisabled()
@@ -276,6 +286,7 @@ test(`${theme.name} selects, persists, previews cleanly and leaves other themes 
     }
     if(['mallard-order','sealuminati','r3tards','emonad','sappy-seals-art'].includes(theme.id)){
       await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
       const refresh=page.getByRole('button',{name:`Refresh ${theme.name} ownership`,exact:true})
       await expect(refresh).toHaveCSS('width','28px')
       await art.scrollIntoViewIfNeeded();await page.screenshot({path:`.local-artifacts/collection-gates/${theme.id}-wallet.png`})

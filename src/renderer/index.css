@@ -2175,9 +2175,12 @@ h1, h2, h3 { font-family: var(--font-display); }
 
 /* Independent full-width disclosures preserve theme tiles and holder controls. */
 .theme-design-section { grid-column:1/-1; min-width:0; }
-.theme-design-section > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:36px; padding:6px 0; color:var(--text-secondary); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; cursor:pointer; list-style:none; }
-.theme-design-section > summary::-webkit-details-marker { display:none; }
-.theme-design-section > summary:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
-.theme-design-section > summary span { font-size:16px; line-height:1; }
-.theme-design-section[open] > summary span { transform:rotate(180deg); }
+/* White label pills with a connecting rail make each disclosure obvious. */
+.theme-design-section > summary {display:flex;align-items:center;min-height:44px;padding:6px 0;cursor:pointer;list-style:none;}
+.theme-design-section > summary::-webkit-details-marker {display:none;}
+.theme-design-section > summary:focus-visible {outline:2px solid #fff;outline-offset:3px;border-radius:999px;}
+.theme-design-label {padding:8px 12px;border:1px solid #fff;border-radius:999px;background:#fff;color:#000;font-family:var(--font-body);font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;}
+.theme-design-line {flex:1;height:1px;background:#fff;}
+.theme-design-chevron {color:#fff;font-size:18px;line-height:1;padding-left:6px;}
+.theme-design-section[open] > summary .theme-design-chevron {transform:rotate(180deg);padding-left:0;padding-right:6px;}
 .theme-design-list { display:grid; gap:8px; padding:2px 0 6px; }

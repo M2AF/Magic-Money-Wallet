@@ -1,3 +1,4 @@
+import { expandThemeDesigns } from './support/theme-designs'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -65,6 +66,7 @@ test('Sovereign motion, interactions, accessibility and theme lifecycle', async 
     await page.getByText('Encrypt & Continue').click()
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
 
 
     await expect(page.getByRole('button', { name: /Sovereign/ })).toBeDisabled()
@@ -138,6 +140,7 @@ test('Sovereign motion, interactions, accessibility and theme lifecycle', async 
     await expect(page.locator('html')).toHaveAttribute('data-sv-motion','running')
     await page.locator('.bottom-nav-btn').filter({hasText:/^Portfolio$/i}).click()
     await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
     await page.getByRole('button',{name:/Sovereign/}).scrollIntoViewIfNeeded()
     await settle(); await page.screenshot({path:'test-results/sovereign-picker.png'})
     await page.locator('.theme-swatch-new').click()
@@ -157,6 +160,7 @@ test('Sovereign motion, interactions, accessibility and theme lifecycle', async 
     await expect(page.locator('.sv-scene')).toHaveCount(1)
     expect(await page.evaluate(() => localStorage.getItem('mm.theme'))).toBe('sovereign')
     await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
     holderBalance = 0
     await page.getByRole('button', {name:'Recheck ownership',exact:true}).click()
     await expect(page.locator('.sv-scene')).toHaveCount(0)

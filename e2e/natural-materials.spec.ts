@@ -1,3 +1,4 @@
+import { expandThemeDesigns } from './support/theme-designs'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -58,6 +59,7 @@ test('natural material skins preserve layout and actions', async () => {
     await page.getByText('Encrypt & Continue').click()
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
 
 
     const materials = [['brushed-metal','Brushed Metal'],['leather','Leather'],['velvet','Velvet'],['walnut','Walnut'],['royal-silk','Royal Blue Silk']]
@@ -86,6 +88,7 @@ test('natural material skins preserve layout and actions', async () => {
       await settle(); await page.screenshot({path:`test-results/material-${id}-swap.png`})
       await page.locator('.bottom-nav-btn').filter({hasText:/^Portfolio$/i}).click()
       await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
     }
     await page.locator('.theme-swatch-new').click()
     await expect(page.locator('html')).toHaveAttribute('data-derived')
@@ -96,6 +99,7 @@ test('natural material skins preserve layout and actions', async () => {
     await page.reload()
     await expect(page.locator('html')).toHaveAttribute('data-theme','royal-silk')
     await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
     await page.locator('button.theme-swatch[title="Grape"]').click()
     await expect(page.locator('html')).toHaveAttribute('data-surface-active','')
     await expect(page.locator('.chain-card').first()).not.toHaveCSS('background-image',/materials/)

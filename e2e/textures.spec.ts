@@ -1,3 +1,4 @@
+import { expandThemeDesigns } from './support/theme-designs'
 import { installCollectionFixture } from './collection-fixture'
 import { expect, test, chromium } from '@playwright/test'
 import { mkdtempSync } from 'node:fs'
@@ -60,6 +61,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await page.getByText('Encrypt & Continue').click()
     await expect(page.getByText('Portfolio').first()).toBeVisible({ timeout: 30_000 })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
 
     const choose = async (name: string) => {
       await page.locator('.texture-choice').filter({ hasText: new RegExp(`^${name}$`) }).click()
@@ -80,6 +82,7 @@ test('textures compose with palettes and restore correctly', async () => {
       await settle()
       await page.screenshot({ path: `test-results/texture-${id}-400.png` })
       await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     }
     await twoToneSwitch.click()
     await expect(page.locator('html')).toHaveAttribute('data-surface-tone', 'layered')
@@ -88,6 +91,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await settle()
     await page.screenshot({ path: 'test-results/texture-fade-two-tone-wallet-400.png' })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     await twoToneSwitch.click()
     for (const name of ['Moonlight','Crimson','Grape','Matrix','White & Gold','Midnight','Cardano','milady','Monad','Abstract','Bitcoin','Sappy Seals']) {
       await page.locator(`button.theme-swatch[title="${name}"]`).click()
@@ -116,6 +120,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await page.screenshot({ path: 'test-results/texture-swap-400.png' })
     await page.locator('.bottom-nav-btn').filter({ hasText: /^Portfolio$/i }).click()
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     await page.locator('button.theme-swatch[title="Grape"]').click()
     await choose('Glass')
     await twoToneSwitch.click()
@@ -124,6 +129,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await expect(page.locator('.portfolio-header')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await page.screenshot({ path: 'test-results/texture-glass-lit-wallet-400.png' })
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     await twoToneSwitch.click()
     await choose('Fine Grain')
     await page.getByRole('button', { name: /Liquid Glass/ }).click()
@@ -152,6 +158,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await page.screenshot({path:'test-results/liquid-glass-swap-wallet.png'})
     await page.locator('.bottom-nav-btn').filter({hasText:/^Portfolio$/i}).click()
     await page.locator('button[title="Settings"]').filter({visible:true}).first().click()
+    await expandThemeDesigns(page)
     await choose('Fine Grain')
     await twoToneSwitch.click()
     await page.getByRole('button', { name: /^Mallard Order/ }).click()
@@ -167,6 +174,7 @@ test('textures compose with palettes and restore correctly', async () => {
     await expect(page.locator('html')).toHaveAttribute('data-surface-tone', 'matching')
     await expect(page.locator('html')).toHaveAttribute('data-material-active', '')
     await page.locator('button[title="Settings"]').filter({ visible: true }).first().click()
+    await expandThemeDesigns(page)
     await choose('Glass')
     await expect(page.locator('html')).not.toHaveAttribute('data-material-active')
     await expect(page.locator('.chain-card').first()).toHaveCSS('backdrop-filter', 'blur(22px) saturate(1.55)')
