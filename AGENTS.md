@@ -24,6 +24,78 @@ Record scope, acceptance criteria, exact verification commands/results, evidence
 paths, blockers, and the next action. Update the board and append checkpoints
 through the handoff script; release the lease when stopping. Never record secrets.
 
+Each verification/handoff must distinguish local checks from remote checks:
+record the exact HEAD SHA, working-tree changes, local command/result/log path,
+and GitHub `CI` status with its run URL and matching `headSha`. Use
+`pending (uncommitted/unpushed changes)`, `running`, `success`, `failure`, or
+`unverified (access unavailable)` explicitly. A green run for the base commit
+does not verify a dirty working tree. Record Release and iOS runs separately
+when those targets are involved. The agent receiving the user's next commit or
+push must check its CI result before relying on the previous handoff.
+
+## Definition of done: local validation and GitHub CI
+
+- Run **`npm run verify:ci`** before handing off implementation changes. It
+  runs all five TypeScript targets, unit tests, a fresh Electron build,
+  extension/injection builds and the full Playwright suite with one worker
+  (avoids local CPU/GPU contention changing startup/animation timing), and
+  **`npm audit --omit=dev --audit-level=critical`**. The audit mirrors the
+  Release validation gate; it is required even though `ci.yml` currently
+  omits it. Keep this command aligned with both workflow files when their
+  validation steps change. Do not weaken the audit or upgrade dependencies
+  without reviewing the specific failure and the requested scope.
+- Build Electron **before** e2e: desktop specs read `out/main/index.js` and
+  `out/renderer`, self-skip when output is absent, and otherwise can run stale
+  code. `verify:ci` deliberately builds first, unlike the current `ci.yml`
+  order; it covers the same gates plus fresh desktop journeys. A clean Linux
+  CI run that skips desktop specs is not evidence that those journeys passed.
+- Install the pinned dependencies/toolchain and Chromium first: CI uses
+  Node20, Rust1.97, `npm ci`, and
+  `npx playwright install --with-deps chromium` on Linux. Windows installs
+  Chromium with `npx playwright install chromium`. The verification command
+  does not install dependencies, publish, sign, or run native release builds.
+- Linux CI has **no hardware GPU or desktop display**. It supplies a virtual
+  display with `xvfb-run --auto-servernum -- npm run verify:ci`; extension
+  contexts remain headed. Exercise CI settings locally when practical
+  (`$env:CI='1'; npm run verify:ci` in PowerShell, `CI=1 xvfb-run
+  --auto-servernum -- npm run verify:ci` on Linux). A Windows pass is a preview,
+  not proof of Linux behavior. WebGL specs must retain the test-only
+  `--enable-unsafe-swiftshader`/`--use-angle=swiftshader` launch flags, test
+  actual animation when WebGL is available and the static fallback when it
+  is unavailable, and allow software-rendering time budgets. Keep these
+  flags out of production and do not skip real motion coverage to get green.
+- **Automated tests must not spend the live Worker's quota.** Extension/browser
+  contexts call `stubWorker(ctx)` from
+  `e2e/support/worker-stub-browser.ts` immediately after launch, before pages
+  or setup actions. Electron probes use the corresponding shared stub in
+  `e2e/support/worker-stub.cjs`. Keep
+  `PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS=1` in Playwright config so
+  service-worker requests are intercepted too; a page-only route is
+  insufficient. New tests must preserve this coverage. Live-provider probes
+  are separate, explicitly scoped work, never an implicit verification step.
+- When renaming, replacing, or retiring a theme ID, search **all** unit and
+  e2e specs, fixtures, saved-selection migrations, picker expectations and
+  theme counts and versioned migration storage keys (including
+  `e2e/textures.spec.ts`). Verify both the new ID and
+  old saved-state migration; passing only the new theme's test is insufficient.
+- For `android/` changes retain the real Gradle build requirement below;
+  for iOS changes require the matching `iOS / Build (iOS)` run. A web bundle
+  or `verify:ci` pass does not prove either native target or a phone install.
+- **After an authorized push, done means the `CI` run on `main` for that
+  exact commit is green**, not just local checks. Inspect with
+  `gh run list --workflow ci.yml --branch main --limit 5 --json databaseId,headSha,status,conclusion,url`
+  and, once the matching run is identified, `gh run watch <run-id> --exit-status`.
+  For a PR check its head commit's CI as well. Before an authorized release
+  tag, confirm main's CI and the critical audit; after tagging, inspect the
+  Release run and required asset completeness separately. Never infer release
+  success from a green CI badge alone.
+- If the user owns commit/push, finish the authorized local work and report
+  **locally verified; GitHub CI pending for these changes**. Do not commit,
+  push, tag or deploy merely to satisfy this checklist without authorization.
+  When the user reports a push, verify its matching run. If CI fails, inspect
+  its logs and Playwright artifacts and address the failure within scope;
+  do not carry a previous commit's green result forward.
+
 ## Ground rules
 
 - **Never guess.** If a requirement, API contract, or expected behavior is
@@ -44,8 +116,8 @@ through the handoff script; release the lease when stopping. Never record secret
   actually exists and actually resolves cleanly in this build (`npm install`
   / a real Gradle sync) before considering the change done. A version number
   that looks plausible is not the same as one that was checked.
-- **Validate before declaring anything finished**: `npm run typecheck`,
-  `npm test`, and — for anything touching `android/` — an actual Gradle
+- **Validate before declaring anything finished**: follow the Definition of
+  done above, and — for anything touching `android/` — an actual Gradle
   build (`cd android && ./gradlew assembleDebug`), not just a web bundle
   build. A change that compiles TypeScript but has never actually run
   through Gradle is not verified.

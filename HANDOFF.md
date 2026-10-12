@@ -7,13 +7,14 @@ task: -
 lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: c33b12e · User HEADc33b12e reconciled:final five TS targets/172files2510tests/four renderer bundles/two full Sappy-Mallard journeys pass. Default collapse,7art/6materials, white pills/black labels/rail, custom colours/New ordering, native keyboard and existing ownership/motion/variant/Send/Swap behavior verified. Screenshot reviewed; .wallet-pill-*.log. No native install/commit/deploy. · 2026-10-12T02:51-03:00
-head: c33b12e (main) dirty 15
-updated: 2026-10-12T02:51-03:00 · codex
+verified: 50efa2a · Shared rules/script on user50efa2a validated: fiveTS/172files2510unit/fresh Electron/extension/inject pass; corrected full CI=1 gate exits1 (86browser pass,4desktop fail,1Sappy retry,1skip). Separate npm critical prod audit passes0critical. Blocker spec lines recorded; traces/test-generated screenshots preserved test-results/. No app/test/workflow/dependency edits; GitHub CI pending for dirty changes (6c4cec1 base success only). · 2026-10-12T12:33-03:00
+head: 50efa2a (main) dirty 4
+updated: 2026-10-12T12:33-03:00 · codex
 
 resources: -
 
 ## Now
+- Shared build rules and npm verify:ci complete locally on50efa2a: types/unit/fresh desktop/extension-e2e(1worker)/critical audit; desktop build before e2e prevents stale/self-skipped Electron cases. Full gate exits1:86browser pass/4fail/1flaky/1skip; all five TS targets/2510unit/builds pass, separate critical audit0critical. No application/test/workflow/dependency edits; generated screenshot diffs archived under test-results/verify-ci-generated-screenshots and committed originals restored. .verify-ci-fresh.log/.verify-ci-audit.log.
 - Wallet theme picker matches ChainLens: builtin/custom colors/New above native default-collapsed Art Designs/Material Designs. White pills/black labels and white rail to chevron; keyboard/independent toggles, tile/gate/refresh/variant behavior retained. Five TS/172files2510tests/four renderer bundles/two Sappy-Mallard journeys pass; screenshot reviewed. .wallet-pill-*.log; .local-artifacts/design-sections/wallet-collapsed.png. User clean HEADc33b12e reconciled. No ChainLens edits/commit/deploy/phone install.
 - Sappy Seals art added locally (sappy-seals-art), Ethereum ERC721 gate0x364C828eE171616a39897688A831c2499aD972ec; Flat black/white, original locally bundled Live2D pointer/touch tracking over portfolio tabs. Correct texture.png default; texture_00.png alternate via28px shirt icon beside refresh. Seal reduced26%; heading padding16/4px, no extra margin; seal/tabs/search alone lifted32px near sparkline/plus to recover list space. Click/tap cycles all13 supplied motions; paused when reduced/hidden/offscreen. Four final renderer builds and Sappy/Mallard browser journeys pass, including measured Cubism motion, variants, reduced-motion, zero/error revocation. Final five TS targets and172files2510tests pass in .sappy-*.log; docs/SAPPY-SEALS-THEME.md; .local-artifacts/sappy-seals/. No ChainLens art adaptation/commit/deploy/install.
 - Default Sappy Seals colour preset replaced with Mint & Money (mint-money) in wallet/ChainLens: exact readonly cl_themes source custom-7aovlrf0py on requested ID ec18dcf5-3271-46fd-8029-41e5b2f39eed, bg0c1e19/accent30ffae/texte8f4ff. Old saved Sappy IDs migrate, old overrides do not carry, cached exact custom copies use absorptionv2 with built-in recolours protected. Mint migration counts were24/12colours; current wallet25 includes new Sappy art. Five TS;172files2508tests;4final bundles;wallet migration/selection/holder journey and3ChainLens colour/migration journeys pass;202Node tests. Screenshots reviewed;docs/MINT-MONEY-PRESET.md;.mint-money-*.log. No DB writes/commit/deploy/install.
@@ -60,8 +61,15 @@ resources: -
 - Codex reviewed Claude's burn journey and added three gates: Cardano >=400 blocks before confirmed/failed outcome, BurnIntent value equals saved release amount, and an unverified burn is not labelled on-chain success. Focused burn tracking tests 20/20 and five-target typecheck pass. No signing or broadcast.
 - Inbound Preprod QA passed 2026-09-30; no inference of mainnet or reverse readiness. Existing Minswap executor persists terms/hash before submit.
 
+## Verification status
+- Local: NOT GREEN; corrected verify:ci CI=1 exits1. FiveTS/172files2510unit/fresh desktop/extension/inject pass; e2e86pass/4fail/1flaky(Sappy retry)/1skip; separate critical audit0critical. .verify-ci-fresh.log/.verify-ci-audit.log; failing traces in test-results/. Earlier stopped attempts .verify-ci-shared*.log. No app/test changes.
+- Blockers: asset-send.spec.ts:194 missing visible Send this token; custom-themes.spec.ts:427 obsolete linear-gradient expectation and:569 waiting obsolete absorbed.v1; electron-privacy-mode.spec.ts:107 missing Send NIGHT. All repeated against fresh output. Do not weaken safety assertions; diagnose separately. Current Linux CI skips Electron specs when out/main absent, so its green run does not resolve these failures.
+- GitHub CI: pending for current50efa2a and uncommitted rules/script changes. Last observed success is6c4cec1: https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38218478493 (base only).
+- Release:6c4cec1 succeeded: https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38219662859; no new tag requested. Native verification not performed for this docs/npm-script task.
+- On every handoff update these lines with exact SHA, dirty scope, local result/log and matching CI status/run URL; never carry base success forward.
+
 ## Next
-- User review; phone installation only when requested.
+- Review rules/script; diagnose asset-send:194, custom-themes:427/569, electron-privacy:107 and Sappy retry before calling local gate green; check matching GitHub CI after user's push.
 
 ## Traps
 - Treat a builder 502 as a retryable no-build, not evidence of a Cardano burn. The Portal builder requests were byte-identical across wallet selections; the mode did not change what the builder received.

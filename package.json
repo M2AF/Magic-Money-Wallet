@@ -16,6 +16,7 @@
     "icons:ios": "node scripts/generate-ios-icons.js",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.extension.json && tsc --noEmit -p tsconfig.capacitor.json && tsc --noEmit -p tsconfig.ios.json",
     "test": "vitest run",
+    "verify:ci": "npm run typecheck && npm test && npm run build && npm run test:e2e -- --workers=1 && npm audit --omit=dev --audit-level=critical",
     "test:e2e": "npm run build:extension && npm run build:inject && playwright test",
     "test:e2e:app": "npm run build && playwright test e2e/electron-smoke.spec.ts e2e/magic-guard.spec.ts",
     "test:tor": "esbuild src/main/tor-manager.ts --bundle --platform=node --format=cjs --external:electron --outfile=out/tor-smoke-manager.cjs && electron scripts/tor-smoke.cjs",

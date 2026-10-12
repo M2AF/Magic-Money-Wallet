@@ -412,3 +412,45 @@
 ### 2026-10-12T02:51-03:00 · codex · handoff · c33b12e (main) dirty 15
 - Wallet disclosures now match ChainLens pill/rail style and collapsed defaults; custom colors/New grouped with builtin colours. Five TS/2510tests/four builds/two browser journeys pass; screenshot reviewed. No phone install or deploy.
 - next: User review; phone installation only when requested.
+
+### 2026-10-12T11:54-03:00 · codex · claim · 6c4cec1 (main) dirty 8
+- task: Share CI release definition of done and verification script
+- lease until 2026-10-12T14:54-03:00
+
+### 2026-10-12T11:55-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
+- Shared AGENTS definition of done and npm verify:ci added; no app/workflow/dependency edits. Full local verification will run with CI=1; log .verify-ci-shared.log. Current base6c4cec1 CI38218478493 and Release38219662859 success; dirty changes not remotely verified.
+
+### 2026-10-12T11:57-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
+- verify:ci CI=1: five typecheck targets and172files/2510unit tests passed; extension build passed. Injection/full Playwright/desktop/audit still running. .verify-ci-shared.log. User committed only pre-existing artifacts in50efa2a; our rules/package/handoff remain uncommitted.
+
+### 2026-10-12T12:01-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
+- First full verify run stopped after browser failures:8workers caused art wallet-setup action timeouts in traces; types2510unit and extension/inject passed. Setting verify:ci e2e --workers=1 and rerunning full gate; no assertions/app code changed. Old evidence .verify-ci-shared.log, final .verify-ci-shared-final.log.
+
+### 2026-10-12T12:04-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
+- Final single-worker verify:ci rerun passed all five TS targets/172files2510tests and extension/inject;92browser cases now running, followed by desktop build and critical audit. .verify-ci-shared-final.log; dirty screenshots are test-generated, not app code.
+
+### 2026-10-12T12:08-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+- Final one-worker run: tour and five art journeys (Sappy/Ape/Mallard/Sealuminati/Emonad) pass; software WebGL true. Full remaining suite/build/audit continue. .verify-ci-shared-final.log. Test-only artifact refreshes will be archived separately so change stays docs/npm/handoff.
+
+### 2026-10-12T12:10-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+- Single-worker run all6art journeys pass. Unrelated asset-send.spec.ts:194 fails twice:visible Send this token button missing; Browser History suite passed on retry. Full remaining suite running; trace preserved test-results/asset-send*-retry1/trace.zip. Critical audit measured separately because fail-fast script will stop at e2e failure; no application/test assertion edits.
+
+### 2026-10-12T12:12-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+- Found old Electron outputs from02:49 were used by e2e; stopped second run after asset-send/custom-theme failures. verify:ci now builds desktop BEFORE e2e so desktop tests cannot self-skip/use stale outputs; single-worker retained. Full corrected gate .verify-ci-fresh.log next. Critical audit passes (0critical); app/tests/workflows unchanged.
+
+### 2026-10-12T12:17-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+- Corrected verify:ci types2510unit/fresh Electron/injection/extension builds passed;92one-worker browser run ongoing .verify-ci-fresh.log. Fresh renderer hash unchanged, so prior asset-send failure may be real rather than stale-output repair. Keep app/assertions unchanged and report actual full result. Separate critical audit0critical.
+
+### 2026-10-12T12:22-03:00 · codex · checkpoint · 50efa2a (main) dirty 10
+- Fresh-build e2e: all6art pass (Sappy retry), asset-send ERC20 Send-button assertion fails both attempts at194; NFT send/history pass, Cardano checks progressing. Full result pending .verify-ci-fresh.log; types2510unit/builds/critical audit pass. Application tests/code unchanged; do not describe local gate green.
+
+### 2026-10-12T12:33-03:00 · codex · verify · 50efa2a (main) dirty 4
+- verified: Shared rules/script on user50efa2a validated: fiveTS/172files2510unit/fresh Electron/extension/inject pass; corrected full CI=1 gate exits1 (86browser pass,4desktop fail,1Sappy retry,1skip). Separate npm critical prod audit passes0critical. Blocker spec lines recorded; traces/test-generated screenshots preserved test-results/. No app/test/workflow/dependency edits; GitHub CI pending for dirty changes (6c4cec1 base success only).
+
+### 2026-10-12T12:33-03:00 · codex · handoff · 50efa2a (main) dirty 4
+- AGENTS shared CI/release rules, npm verify:ci (fresh desktop first/single worker/critical audit), project CI handoff status and authorized Codex memory note complete. Full gate correctly reveals4 pre-existing desktop e2e failures; report not-green. No commit/push/deploy.
+- next: Review rules/script; diagnose asset-send:194, custom-themes:427/569, electron-privacy:107 and Sappy retry before calling local gate green; check matching GitHub CI after user's push.
+
+### 2026-10-12T15:30-03:00 · claude · verify · 50efa2a (main) dirty
+- verify:ci now 90 pass / 1 skip / 1 fail. Fixed the stale desktop specs: custom-themes absorbed key is v2 (theme.ts ABSORBED_KEY), White & Gold recolour checks the wordmark gold halo (every palette finish paints .app-shell, so the ivory sweep is unobservable), asset-send moves the pointer off the list before re-hovering (late rows re-sort under a stationary pointer). Critical audit 0.
+- The remaining failure is REAL: electron-privacy-mode "Send NIGHT" missing because indexer.mainnet.midnight.network returns HTTP 410 (decommissioned 2026-10-09, moved to Blockfrost). Midnight balance/send/DUST/connector are broken for users. Do not weaken the test; needs a Blockfrost nightmainnet token as a Worker secret + proxied route (user decision pending).

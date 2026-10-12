@@ -417,14 +417,17 @@ test.describe('custom themes', () => {
     test.setTimeout(120_000)
     await ensureAppearance()
 
-    const shellImage = () => page.evaluate(
-      () => getComputedStyle(document.querySelector('.app-shell')!).backgroundImage,
+    // The block's gold foil halo on the wordmark. Its .app-shell sweep is no
+    // longer observable: every palette finish (Glass, the default, included)
+    // paints the shell itself, but no finish touches the wordmark filter.
+    const goldHalo = () => page.evaluate(
+      () => getComputedStyle(document.querySelector('.titlebar-wordmark')!).filter.includes('rgba(201, 162, 39'),
     )
 
     await vis('.theme-swatch:has-text("White & Gold")').first().click()
     expect(await cssVar('--accent')).toBe('#c9a227')
-    // The ivory sweep is on screen, and no override is recorded yet.
-    expect(await shellImage()).toContain('linear-gradient')
+    // The gold halo is on screen, and no override is recorded yet.
+    expect(await goldHalo()).toBe(true)
     expect(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1'))).toBeNull()
     await expect(vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit.edited')).toHaveCount(0)
 
@@ -447,8 +450,8 @@ test.describe('custom themes', () => {
     expect(await page.evaluate(() => document.documentElement.dataset.derived)).toBe('1')
     expect(JSON.parse(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1') ?? '{}')))
       .toMatchObject({ 'white-gold': { accent: '#1f7a4d' } })
-    // …so the block that hardcodes ivory no longer applies.
-    expect(await shellImage()).not.toContain('linear-gradient')
+    // …so the block that hardcodes ivory and gold no longer applies.
+    expect(await goldHalo()).toBe(false)
     // A recolour of a built-in stays on this install: the sync wire is frozen
     // around `custom-` ids, and nothing here may leak onto the profile.
     expect(Object.keys(serverThemes()).some(k => k.startsWith('white'))).toBe(false)
@@ -462,7 +465,7 @@ test.describe('custom themes', () => {
 
     // Exactly as it shipped: the tokens, the stylesheet block, and the store.
     expect(await cssVar('--accent')).toBe('#c9a227')
-    expect(await shellImage()).toContain('linear-gradient')
+    expect(await goldHalo()).toBe(true)
     expect(await page.evaluate(() => document.documentElement.dataset.derived)).toBeUndefined()
     expect(await page.evaluate(() => localStorage.getItem('mm.themes.builtin.v1'))).toBeNull()
     await expect(vis('.theme-swatch:has-text("White & Gold") .theme-swatch-edit.edited')).toHaveCount(0)
@@ -562,11 +565,11 @@ test.describe('custom themes', () => {
         'custom-mine': { n: 'Keeper', c: { bg: '#101018', accent: '#8be9fd', text: '#f0f0ff' }, t },
       }))
       localStorage.setItem('mm.theme', 'custom-copy')
-      localStorage.removeItem('mm.themes.absorbed.v1')
+      localStorage.removeItem('mm.themes.absorbed.v2')
     })
     await page.reload()
     await page.waitForFunction(
-      () => localStorage.getItem('mm.themes.absorbed.v1') === '1', null, { timeout: 30_000 },
+      () => localStorage.getItem('mm.themes.absorbed.v2') === '1', null, { timeout: 30_000 },
     )
 
     const stored = JSON.parse(await page.evaluate(() => localStorage.getItem('mm.themes.v2') ?? '{}'))

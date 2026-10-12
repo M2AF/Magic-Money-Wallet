@@ -189,9 +189,15 @@ test.describe('send a token / NFT from its tab', () => {
 
     // The Send action only mounts on hover on a fine pointer — that's the
     // COARSE_POINTER branch in TokenRow.
-    await row.hover()
+    // Rows still re-sort as other balances arrive (a late row can land under a
+    // stationary pointer). No mouseenter fires until the pointer moves, so move
+    // it off the list before each re-hover rather than hovering once and hoping.
     const sendBtn = vis('button[aria-label="Send this token"]').first()
-    await expect(sendBtn).toBeVisible({ timeout: 10_000 })
+    await expect(async () => {
+      await page.mouse.move(0, 0)
+      await row.hover()
+      await expect(sendBtn).toBeVisible({ timeout: 1_000 })
+    }).toPass({ timeout: 20_000 })
     await page.screenshot({ path: 'test-results/asset-send-token-row.png' })
     await sendBtn.click()
 
