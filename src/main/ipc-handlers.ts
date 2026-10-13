@@ -207,6 +207,7 @@ import { syncWallets, getProfileByAddress, updateProfile } from './supabase-sync
 import {
   chatStatus, chatWorld, chatSendWorld, chatDeleteWorld,
   chatFriends, chatAddFriend, chatAcceptFriend, chatRemoveFriend,
+  chatRelationship, chatSetBlocked, chatReport, type ChatReportReason,
   chatDirect, chatSendDirect, chatDeleteDirect,
   chatUnread, chatMarkRead, chatSearchGifs, clearChatSession,
 } from './chainlens-chat'
@@ -2957,7 +2958,7 @@ export function registerIpcHandlers(): void {
     return syncWallets(addresses, loadConfig())
   })
 
-  ipcMain.handle('chainlens:update-profile', async (_e, updates: { display_name?: string; avatar_url?: string }) => {
+  ipcMain.handle('chainlens:update-profile', async (_e, updates: { display_name?: string; avatar_url?: string; avatar_nft_key?: string | null }) => {
     const addresses = loadAddresses()
     if (!addresses?.evm) return { success: false, error: 'No wallet found' }
     const profile = await getProfileByAddress(addresses.evm, loadConfig())
@@ -2983,6 +2984,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('chat:add-friend',    (_e, chainlensId: string) => chatAddFriend(chainlensId))
   ipcMain.handle('chat:accept-friend', (_e, friendshipId: number) => chatAcceptFriend(friendshipId))
   ipcMain.handle('chat:remove-friend', (_e, friendshipId: number) => chatRemoveFriend(friendshipId))
+  ipcMain.handle('chat:relationship',  (_e, id: string) => chatRelationship(id))
+  ipcMain.handle('chat:set-blocked',   (_e, id: string, blocked: boolean) => chatSetBlocked(id, blocked))
+  ipcMain.handle('chat:report',        (_e, id: string, reason: ChatReportReason, details: string) => chatReport(id, reason, details))
   ipcMain.handle('chat:direct',        (_e, friendId: string, after?: number | null) => chatDirect(friendId, after))
   ipcMain.handle('chat:send-direct',   (_e, friendId: string, type: 'text' | 'gif', content: string) => chatSendDirect(friendId, type, content))
   ipcMain.handle('chat:delete-direct', (_e, friendId: string, messageId: number) => chatDeleteDirect(friendId, messageId))

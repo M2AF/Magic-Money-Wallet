@@ -1,5 +1,9 @@
 import { NftImage } from '../components/NftImage'
-import { useState, useEffect, useCallback } from 'react'
+import { ProfileAvatar } from '../components/ProfileAvatar'
+import { useAssetFilters } from '../lib/asset-filters'
+import { canonicalNftKey } from '../../shared/asset-filter-key'
+import { loadProfileCollectibles, profileCollectionOwner } from '../lib/profile-collectibles'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { ClUser, ChainlensSyncResult, WalletCollectible } from '../types/wallet'
 import { CHAIN_ICONS } from '../data/chain-icons'
 import { BodyPortal } from '../components/BodyPortal'
@@ -48,30 +52,58 @@ function AvatarModal({
   onClose, onSave
 }: {
   onClose: () => void
-  onSave: (url: string) => void
+  onSave: (url: string, key: string | null) => void
 }) {
   const [tab, setTab] = useState<'nft' | 'upload'>('nft')
   const [nfts, setNfts] = useState<WalletCollectible[]>([])
   const [loadingNfts, setLoadingNfts] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [error, setError] = useState('')
+  const [account, setAccount] = useState(0)
+  const {hidden, spam} = useAssetFilters(account)
   const [saving, setSaving] = useState(false)
+  const dialog=useRef<HTMLDivElement>(null)
+  useEffect(()=>{
+    const previous=document.activeElement as HTMLElement | null,overflow=document.body.style.overflow
+    document.body.style.overflow='hidden';dialog.current?.querySelector('button')?.focus()
+    const key=(event:KeyboardEvent)=>{
+      if(event.key==='Escape' && !saving)onClose()
+      if(event.key==='Tab'){
+        const items=Array.from(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled),input') || []).filter(el=>el.offsetParent!==null)
+        if(event.shiftKey && document.activeElement===items[0]){event.preventDefault();items.at(-1)?.focus()}
+        else if(!event.shiftKey && document.activeElement===items.at(-1)){event.preventDefault();items[0]?.focus()}
+      }
+    }
+    document.addEventListener('keydown',key)
+    return()=>{document.body.style.overflow=overflow;document.removeEventListener('keydown',key);previous?.focus()}
+  },[saving])
 
   useEffect(() => {
-    if (tab === 'nft' && nfts.length === 0) {
-      setLoadingNfts(true)
-      window.wallet.getCollectibles()
-        .then(r => setNfts(r.items.filter(n => !!n.image)))
-        .catch(() => {})
-        .finally(() => setLoadingNfts(false))
-    }
-  }, [tab, nfts.length])
+    let cancelled=false
+    setLoadingNfts(true)
+    Promise.all([window.wallet.getAddresses(),window.wallet.getTestnetMode()]).then(async([addresses,testnet])=>{
+      if(!addresses || cancelled)return
+      setAccount(addresses.accountIndex ?? 0)
+      const r=await loadProfileCollectibles(profileCollectionOwner(addresses.evm,addresses.accountIndex ?? 0,testnet))
+      if(!cancelled)setNfts(r.items)
+    }).catch(()=>{if(!cancelled)setError('Could not load your NFTs. Reopen the picker to retry.')}).finally(()=>{if(!cancelled)setLoadingNfts(false)})
+    return ()=>{cancelled=true}
+  }, [])
+  const eligible = nfts.filter(n=>{
+    const key=canonicalNftKey(n.chain,n.contractAddress,n.tokenId)
+    return !!n.image && !hidden.has(key) && !spam.has(key)
+  })
+  const matches=eligible.filter(n=>`${n.name} ${n.collectionName || ''} ${n.chain}`.toLowerCase().includes(search.toLowerCase()))
 
   const handleUpload = async () => {
     setUploading(true)
     try {
       const dataUrl = await window.wallet.chainlensPickAvatar()
-      if (dataUrl) setSelected(dataUrl)
+      if (dataUrl) {setSelected(dataUrl);setSelectedKey(null);setError('')}
+    } catch {setError('Could not open that image.')
     } finally {
       setUploading(false)
     }
@@ -81,8 +113,10 @@ function AvatarModal({
     if (!selected) return
     setSaving(true)
     try {
-      await window.wallet.chainlensUpdateProfile({ avatar_url: selected })
-      onSave(selected)
+      const result=await window.wallet.chainlensUpdateProfile({ avatar_url: selected, avatar_nft_key:selectedKey })
+      if(!result.success)throw new Error(result.error || 'Could not save profile picture')
+      onSave(selected,selectedKey)
+    } catch(e) {setError(e instanceof Error ? e.message : 'Could not save profile picture')
     } finally {
       setSaving(false)
     }
@@ -93,16 +127,16 @@ function AvatarModal({
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
       background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div style={{
+    }} onClick={e => { if (e.target === e.currentTarget && !saving) onClose() }}>
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label="Change Profile Photo" style={{
         background: 'var(--bg-card)', borderRadius: 16, border: '1px solid var(--border)',
-        width: 320, maxHeight: 480, display: 'flex', flexDirection: 'column',
+        width: 'min(420px, calc(100vw - 24px))', maxHeight: 'min(620px, calc(100dvh - 24px))', display: 'flex', flexDirection: 'column',
         overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6)'
       }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ fontWeight: 700, fontSize: 14 }}>Change Profile Photo</div>
-          <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1 }}>×</button>
+          <button type="button" onClick={onClose} disabled={saving} aria-label="Close profile picture editor" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, lineHeight: 1 }}>×</button>
         </div>
 
         {/* Tabs */}
@@ -120,18 +154,20 @@ function AvatarModal({
         </div>
 
         {/* Content */}
-        <div style={{ flex: 1, overflow: 'auto', padding: 12 }}>
+        <div style={{ flex: 1, minHeight:0, overflow: 'auto', padding: 12 }}>
+          {selected && <div style={{textAlign:'center',marginBottom:16}}><ProfileAvatar profile={{avatar_url:selected,avatar_nft_key:selectedKey}} size={96} alt="Selected profile picture" /></div>}
           {tab === 'nft' ? (
             loadingNfts ? (
               <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: 13 }}>Loading NFTs…</div>
-            ) : nfts.length === 0 ? (
-              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: 13 }}>No NFTs with images found</div>
+            ) : eligible.length === 0 ? (
+              <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: 24, fontSize: 13 }}>No eligible NFTs with images. Spam NFTs are excluded.</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {nfts.map(nft => (
-                  <div
+              <><input aria-label="Search NFTs for profile picture" placeholder="Search your NFTs…" value={search} onChange={e=>setSearch(e.target.value)} style={{width:'100%',padding:10,marginBottom:12,borderRadius:8,border:'1px solid var(--border)',background:'var(--bg-dark)',color:'var(--text)'}} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 6 }}>
+                {matches.map(nft => (
+                  <button type="button" aria-label={`Use ${nft.name} as profile picture`}
                     key={nft.id}
-                    onClick={() => setSelected(nft.image!)}
+                    onClick={event => {setSelected(event.currentTarget.querySelector('img')?.currentSrc || nft.image!);setSelectedKey(canonicalNftKey(nft.chain,nft.contractAddress,nft.tokenId));setError('')}}
                     style={{
                       aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: 'pointer',
                       border: selected === nft.image ? '2px solid var(--accent)' : '2px solid transparent',
@@ -146,15 +182,13 @@ function AvatarModal({
                         fontSize: 20, color: 'white'
                       }}>✓</div>
                     )}
-                  </div>
+                  </button>
                 ))}
-              </div>
+              </div>{!matches.length && <p>No matching NFTs.</p>}</>
             )
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '24px 0' }}>
-              {selected ? (
-                <img src={selected} alt="Preview" style={{ width: 96, height: 96, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--accent)' }} />
-              ) : (
+              {!selected && (
                 <div style={{ width: 96, height: 96, borderRadius: '50%', background: 'var(--bg-dark)', border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 32 }}>
                   👤
                 </div>
@@ -174,8 +208,9 @@ function AvatarModal({
         </div>
 
         {/* Footer */}
+        {error && <p role="alert" style={{color:'var(--danger)',padding:'8px 16px',fontSize:12}}>{error}</p>}
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+          <button type="button" onClick={onClose} disabled={saving} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body)' }}>
             Cancel
           </button>
           <button type="button" onClick={handleSave} disabled={!selected || saving} style={{
@@ -245,8 +280,8 @@ export function ProfilePage() {
     } finally { setSavingName(false) }
   }
 
-  const handleAvatarSaved = (url: string) => {
-    setProfile(p => p ? { ...p, avatar_url: url } : p)
+  const handleAvatarSaved = (url: string, key: string | null) => {
+    setProfile(p => p ? { ...p, avatar_url: url, avatar_nft_key:key } : p)
     setShowAvatarModal(false)
   }
 
@@ -316,7 +351,7 @@ export function ProfilePage() {
             display: 'block', borderRadius: '50%'
           }} title="Change profile photo">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+              <ProfileAvatar profile={profile} size={56} />
             ) : (
               <div style={{
                 width: 56, height: 56, borderRadius: '50%',

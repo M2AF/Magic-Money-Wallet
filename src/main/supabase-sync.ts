@@ -65,6 +65,7 @@ export interface ClLinkedAccount {
   provider_id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
   email: string | null
 }
 
@@ -74,6 +75,7 @@ export interface ClUser {
   provider_id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
   email: string | null
   created_at: string | null
   cl_wallets: ClWallet[]
@@ -140,7 +142,7 @@ export async function syncWallets(
 /** Update display name or avatar for the current user. */
 export async function updateProfile(
   userId: string,
-  updates: { display_name?: string; avatar_url?: string },
+  updates: { display_name?: string; avatar_url?: string; avatar_nft_key?: string | null },
   config: WalletConfig
 ): Promise<{ success: boolean; error: string | null }> {
   const base = proxyBase(config)

@@ -14,7 +14,7 @@ const ADDRESS = '0x01faf6dfc230d755141d84d7cb980dd68f5efe13'
 const OTHER_ADDRESS = '0x00000000000000000000000000000000deadbeef'
 
 // Mutable fixtures the mocks read, so each test can reshape the world.
-let profile: { id: string; display_name: string | null; avatar_url: string | null } | null
+let profile: { id: string; display_name: string | null; avatar_url: string | null; avatar_nft_key?: string | null } | null
 let addresses: { evm: string; accountIndex: number } | null
 let sessionResult: unknown
 
@@ -43,6 +43,7 @@ vi.mock('./chainlens-auth', () => ({
 import {
   chatStatus, chatWorld, chatSendWorld, chatFriends, chatUnread,
   chatMarkRead, chatSearchGifs, clearChatSession,
+  chatRelationship, chatSetBlocked, chatReport,
 } from './chainlens-chat'
 import { getProfileByAddress } from './supabase-sync'
 
@@ -156,6 +157,36 @@ describe('session identity', () => {
 })
 
 describe('status', () => {
+  it('refreshes the header picture and NFT source on entry while reusing the session', async () => {
+    await chatStatus()
+    profile = { id: ACCOUNT, display_name: 'Updated name', avatar_url: 'https://img.test/nft.png', avatar_nft_key: 'evm:test:1' }
+    const status = await chatStatus()
+    expect(status).toMatchObject({ displayName: 'Updated name', avatarUrl: profile.avatar_url, avatarNftKey: 'evm:test:1' })
+    expect(walletSession).toHaveBeenCalledTimes(1)
+    expect(getProfileByAddress).toHaveBeenCalledTimes(2)
+    await chatWorld(42)
+    expect(getProfileByAddress).toHaveBeenCalledTimes(2)
+  })
+
+  it('clears the header NFT source when the updated picture is an upload or removed', async () => {
+    profile = { id: ACCOUNT, display_name: 'Name', avatar_url: 'https://img.test/nft.png', avatar_nft_key: 'evm:test:1' }
+    await chatStatus()
+    profile = { ...profile, avatar_url: 'https://img.test/upload.png', avatar_nft_key: null }
+    expect(await chatStatus()).toMatchObject({ avatarUrl: profile.avatar_url, avatarNftKey: null })
+    profile = { ...profile, avatar_url: null }
+    expect(await chatStatus()).toMatchObject({ avatarUrl: null, avatarNftKey: null })
+    expect(walletSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not attach a different account profile to a cached chat session', async () => {
+    await chatStatus()
+    profile = { id: OTHER_ACCOUNT, display_name: 'Other', avatar_url: null }
+    await expect(chatStatus()).rejects.toThrow(/account changed/i)
+    sessionResult = { token: 'jwt-2', userId: OTHER_ACCOUNT }
+    expect(await chatStatus()).toMatchObject({ userId: OTHER_ACCOUNT, displayName: 'Other' })
+    expect(walletSession).toHaveBeenCalledTimes(2)
+  })
+
   it('reports eligibility and identity without leaking the GIPHY key', async () => {
     responses.push({ body: { eligible: true, walletLinked: true, socialLinked: true, giphyApiKey: 'secret-key' } })
     const status = await chatStatus()
@@ -163,7 +194,7 @@ describe('status', () => {
     expect(status).toEqual({
       eligible: true, walletLinked: true, socialLinked: true,
       giphyAvailable: true,
-      userId: ACCOUNT, displayName: 'Crypto Jesus', avatarUrl: 'https://img.test/a.png',
+      userId: ACCOUNT, displayName: 'Crypto Jesus', avatarUrl: 'https://img.test/a.png', avatarNftKey:null,
     })
     // The key is a credential the wallet was lent, not one to hand to the UI.
     expect(JSON.stringify(status)).not.toContain('secret-key')
@@ -214,6 +245,45 @@ describe('requests', () => {
   it('raises the server’s own message on failure', async () => {
     responses.push({ status: 403, body: { error: 'Direct messages are only available between friends' } })
     await expect(chatMarkRead(3, OTHER_ACCOUNT)).rejects.toThrow(/only available between friends/i)
+  })
+})
+
+describe('profile actions', () => {
+  it('gets relationship state using the existing authenticated session', async () => {
+    const relationship = { blocked: false, interactionAllowed: true, friendship: { friendship_id: 12, status: 'accepted', incoming: false } }
+    responses.push({ body: relationship })
+    expect(await chatRelationship(OTHER_ACCOUNT.toUpperCase())).toEqual(relationship)
+    expect(requests[0].url).toBe(`https://chainlens.test/api/profiles/${OTHER_ACCOUNT}/relationship`)
+    expect(authHeader(0)).toBe('Bearer jwt-1')
+  })
+
+  it('persists blocks and unblocks through the ChainLens moderation routes', async () => {
+    await chatSetBlocked(OTHER_ACCOUNT, true)
+    await chatSetBlocked(OTHER_ACCOUNT, false)
+    expect(requests.map(request => request.url)).toEqual(Array(2).fill(`https://chainlens.test/api/profiles/${OTHER_ACCOUNT}/block`))
+    expect(requests.map(request => request.init.method)).toEqual(['POST', 'DELETE'])
+    expect(walletSession).toHaveBeenCalledTimes(1)
+  })
+
+  it('submits the explicit report reason and trimmed details', async () => {
+    await chatReport(OTHER_ACCOUNT, 'harassment', '  World Chat context  ')
+    expect(requests[0].url).toBe(`https://chainlens.test/api/profiles/${OTHER_ACCOUNT}/report`)
+    expect(requests[0].init.method).toBe('POST')
+    expect(JSON.parse(String(requests[0].init.body))).toEqual({ reason: 'harassment', details: 'World Chat context' })
+  })
+
+  it('rejects invalid targets and report data before authenticating', async () => {
+    await expect(chatRelationship('../profile')).rejects.toThrow(/profile ID/i)
+    await expect(chatSetBlocked(OTHER_ACCOUNT, 'false' as unknown as boolean)).rejects.toThrow(/block or unblock/i)
+    await expect(chatReport(OTHER_ACCOUNT, 'invalid' as 'spam', '')).rejects.toThrow(/reason/i)
+    await expect(chatReport(OTHER_ACCOUNT, 'spam', 'x'.repeat(1001))).rejects.toThrow(/1,000/i)
+    expect(requests).toHaveLength(0)
+    expect(walletSession).not.toHaveBeenCalled()
+  })
+
+  it('surfaces server moderation failures instead of reporting success', async () => {
+    responses.push({ status: 429, body: { error: 'Daily report limit reached' } })
+    await expect(chatReport(OTHER_ACCOUNT, 'spam', '')).rejects.toThrow('Daily report limit reached')
   })
 })
 

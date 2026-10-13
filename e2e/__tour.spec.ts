@@ -37,7 +37,7 @@ const AVA = person('3f2c6cb8-2a43-4b69-bf5e-099ef63be79f', 'Ava Mercer')
 const KOJI = person('c828bf80-3280-4c46-a8bb-503a442e0743', 'Koji Tanaka')
 const PRIYA = person('9b1f0c22-5d8e-41a7-8f3b-6c2d4e5a7b19', 'Priya Raman')
 const DMITRI = person('7c1e2b44-9a30-4d18-9f52-1b3c8d0e6a77', 'Dmitri Volkov')
-const YOU = person(ME, 'criptoejesus')
+const YOU = { ...person(ME, 'criptoejesus'), avatar_url: gif(210), avatar_nft_key: 'evm:tour:1' }
 const at = (h: number, m: number) => new Date(Date.UTC(2026, 7, 17, h, m)).toISOString()
 const fid = (p: ReturnType<typeof person>, friendship_id: number) =>
   ({ ...p, friendship_id, created_at: null, accepted_at: null })
@@ -67,7 +67,7 @@ const CHAT = {
     ],
   },
   gifs: Array.from({ length: 12 }, (_, i) => ({ id: `g${i}`, title: `GIF ${i + 1}`, url: gif((i * 47) % 360), preview: gif((i * 47) % 360) })),
-  status: { eligible: true, walletLinked: true, socialLinked: true, giphyAvailable: true, userId: ME, displayName: 'criptoejesus', avatarUrl: null },
+  status: { eligible: true, walletLinked: true, socialLinked: true, giphyAvailable: true, userId: ME, displayName: 'criptoejesus', avatarUrl: YOU.avatar_url, avatarNftKey: YOU.avatar_nft_key },
 }
 
 async function stubChat(app: ElectronApplication) {
@@ -250,7 +250,26 @@ test.describe('app tour', () => {
     await beat(1000)
     await vis('button[title*="ChainLens Messenger"]').first().click()
     await expect(page.getByText('gm ChainLens ☀️')).toBeVisible({ timeout: 25_000 })
+    const worldFeed = page.getByTestId('world-chat-feed')
+    const assertChatFits = async (feed = worldFeed) => {
+      await expect.poll(() => feed.evaluate(el => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1)
+    }
+    // An own-message NFT sits against the right edge. Its oversized rotating
+    // border used to create horizontal scroll even though clip-path hid it.
+    await expect(worldFeed.locator('.cl-avatar--nft')).toHaveCount(2)
+    expect((await worldFeed.locator('[data-message-id="3"] .cl-avatar').boundingBox())?.width).toBe(40)
+    for (const width of [390, 420, 768]) {
+      await fitWindow(app, width, 900)
+      await assertChatFits()
+    }
+    await fitWindow(app, 420, 900)
     await shot('14-messenger-world', 1500)
+    await page.getByPlaceholder('Message World Chat · no links').fill('W'.repeat(500))
+    await page.getByRole('button', { name: 'Send message', exact: true }).click()
+    await expect(worldFeed.getByText('W'.repeat(500), { exact: true })).toBeVisible()
+    await assertChatFits()
+    await worldFeed.locator('[data-message-id="90"]').getByRole('button', { name: 'Delete message' }).click()
     await beat()
     await page.getByRole('button', { name: 'Open GIPHY picker' }).click()
     await shot('15-messenger-giphy', 1500)
@@ -261,6 +280,7 @@ test.describe('app tour', () => {
     await beat()
     await page.getByRole('button', { name: /^Ava Mercer/ }).click()
     await expect(page.getByText('Sent the ADA over for the split 👍')).toBeVisible({ timeout: 20_000 })
+    await assertChatFits(page.getByTestId('direct-message-feed'))
     await shot('17-messenger-dm', 1500)
     await beat()
 

@@ -1,0 +1,8 @@
+.cl-avatar{display:inline-flex;position:relative;flex-shrink:0;width:var(--avatar-size,96px);height:var(--avatar-size,96px);border-radius:50%;background:linear-gradient(135deg,#22d3ee,#a78bfa);vertical-align:middle;isolation:isolate}
+.cl-avatar-art{position:absolute;inset:3px;border-radius:inherit;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#102131;color:white;font-size:calc(var(--avatar-size,96px)*.3);font-weight:800}
+.cl-avatar .cl-avatar-art img{width:100%;height:100%;object-fit:cover;display:block;border-radius:0;margin:0;border:0;box-shadow:none}
+.cl-avatar--nft{border-radius:0;overflow:hidden;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%);background:transparent}
+.cl-avatar--nft::before{content:'';position:absolute;inset:-50%;background:conic-gradient(from 0deg,#22d3ee,#818cf8,#e879f9,#fbbf24,#34d399,#22d3ee);animation:cl-avatar-flow 5s linear infinite;z-index:-1}
+.cl-avatar--nft .cl-avatar-art{inset:4px;border-radius:0;clip-path:polygon(50% 0,94% 25%,94% 75%,50% 100%,6% 75%,6% 25%)}
+@keyframes cl-avatar-flow{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.cl-avatar--nft::before{animation:none}}

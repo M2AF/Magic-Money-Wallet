@@ -27,7 +27,7 @@
     "test:e2e:passkey": "npm run build && playwright test e2e/passkey-browser.spec.ts",
     "postinstall": "patch-package",
     "predev": "node scripts/convert-apphub.js",
-    "dev": "npm run build:inject && electron-vite dev",
+    "dev": "npm run build:inject && electron-vite dev --watch",
     "prebuild": "node scripts/convert-apphub.js",
     "build": "electron-vite build && npm run build:inject",
     "preview": "electron-vite preview",

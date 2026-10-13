@@ -57,6 +57,7 @@ import { syncWallets, getProfileByAddress, updateProfile } from '../main/supabas
 import {
   chatStatus, chatWorld, chatSendWorld, chatDeleteWorld,
   chatFriends, chatAddFriend, chatAcceptFriend, chatRemoveFriend,
+  chatRelationship, chatSetBlocked, chatReport, type ChatReportReason,
   chatDirect, chatSendDirect, chatDeleteDirect,
   chatUnread, chatMarkRead, chatSearchGifs, clearChatSession,
 } from '../main/chainlens-chat'
@@ -1245,11 +1246,13 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     }
 
     case 'chainlens:update-profile': {
-      const updates = a0 as { display_name?: string; avatar_url?: string }
+      const updates = a0 as { display_name?: string; avatar_url?: string; avatar_nft_key?: string | null }
       const addresses = await store.loadAddresses()
       if (!addresses) return { success: false, error: 'No wallet' }
       const config = await store.loadConfig()
-      const result = await updateProfile(addresses.evm, updates, config)
+      const profile=await getProfileByAddress(addresses.evm,config)
+      if(!profile)return {success:false,error:'No ChainLens profile found'}
+      const result = await updateProfile(profile.id, updates, config)
       // The chat session snapshots name + picture at sign-in.
       if (result.success) clearChatSession()
       return result
@@ -1273,6 +1276,9 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
     case 'chat:add-friend':    return chatAddFriend(String(a0))
     case 'chat:accept-friend': return chatAcceptFriend(Number(a0))
     case 'chat:remove-friend': return chatRemoveFriend(Number(a0))
+    case 'chat:relationship':  return chatRelationship(String(a0))
+    case 'chat:set-blocked':   return chatSetBlocked(String(a0), a1 as boolean)
+    case 'chat:report':        return chatReport(String(a0), a1 as ChatReportReason, a2 as string)
     case 'chat:direct':        return chatDirect(String(a0), a1 as number | null)
     case 'chat:send-direct':   return chatSendDirect(String(a0), a1 as 'text' | 'gif', String(a2))
     case 'chat:delete-direct': return chatDeleteDirect(String(a0), Number(a1))

@@ -4,6 +4,7 @@ import { SappySeal } from '../components/SappySeal'
 import { NftImage } from '../components/NftImage'
 import { NftMosaic } from '../components/NftMosaic'
 import { mergeCollectiblesUpdate } from '../lib/collectibles-updates'
+import { clearProfileCollectibles, loadProfileCollectibles, rememberProfileCollectibles, profileCollectionOwner } from '../lib/profile-collectibles'
 import { useNftFavorites } from '../lib/use-nft-favorites'
 import { sortNftFavorites } from '../lib/nft-favorites'
 import { ChainCard, getChainName } from '../components/ChainCard'
@@ -355,16 +356,32 @@ const NFT_NATIVE_SYMBOL: Record<string, string> = {
 }
 const formatFloor = (n: number) => Number(n.toFixed(4)).toLocaleString('en-US')
 
-function NftDetailModal({ nft, onClose, onSend }: {
+function NftDetailModal({ nft, onClose, onSend, canUseAvatar }: {
   nft: WalletCollectible
   onClose: () => void
   onSend: (nft: WalletCollectible) => void
+  canUseAvatar: boolean
 }) {
   const { fmt } = useDisplayCurrency()
   const [floor, setFloor]     = useState<NftFloorPrice | null>(null)
   const [copying, setCopying] = useState<string | null>(null)
   const [download, setDownload] = useState<{ state: 'idle' | 'saving' | 'saved' | 'error'; message?: string }>({ state: 'idle' })
   const artwork=useRef<HTMLDivElement>(null)
+  const [avatarSaving,setAvatarSaving]=useState(false)
+  const [avatarNotice,setAvatarNotice]=useState('')
+  const useAvatar=async()=>{
+    setAvatarSaving(true);setAvatarNotice('')
+    try {
+      const profile=await window.wallet.chainlensGetProfile()
+      if(!profile)throw new Error('Sync your ChainLens profile first.')
+      const image=artwork.current?.querySelector('img')?.currentSrc || nft.image
+      if(!image)throw new Error('This NFT has no image.')
+      const result=await window.wallet.chainlensUpdateProfile({avatar_url:image,avatar_nft_key:canonicalNftKey(nft.chain,nft.contractAddress,nft.tokenId)})
+      if(!result.success)throw new Error(result.error || 'Could not save profile picture')
+      setAvatarNotice('Profile picture updated')
+    }catch(e){setAvatarNotice(e instanceof Error ? e.message : 'Could not save profile picture')}
+    finally{setAvatarSaving(false)}
+  }
 
   useEffect(() => {
     // The collectible already carries a precomputed floor (nft.floorPrice / nft.usdValue)
@@ -444,6 +461,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
           display: 'flex', flexDirection: 'column',
           boxShadow: '0 24px 80px rgba(0,0,0,0.7)'
         }}
+        role="dialog" aria-modal="true" aria-label={nft.name}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -455,7 +473,7 @@ function NftDetailModal({ nft, onClose, onSend }: {
             )}
           </div>
           <button
-            type="button" onClick={onClose}
+            type="button" onClick={onClose} aria-label="Close NFT details"
             style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 20, cursor: 'pointer', lineHeight: 1, padding: 4 }}
           >✕</button>
         </div>
@@ -551,6 +569,8 @@ function NftDetailModal({ nft, onClose, onSend }: {
           )}
 
           {/* Action buttons */}
+          {canUseAvatar && nft.image && <button type="button" disabled={avatarSaving} onClick={useAvatar} style={{width:'100%',padding:10,marginBottom:10,borderRadius:8,border:'1px solid var(--border-active)',background:'var(--accent-dim)',color:'var(--accent-text)',cursor:'pointer'}}> {avatarSaving?'Saving…':'Use as profile picture'}</button>}
+          {avatarNotice && <p role="status" style={{fontSize:12,marginBottom:10}}>{avatarNotice}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             {nft.image && (
               <button
@@ -981,12 +1001,15 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   const tokensReq      = useRef(0)
   const collectiblesReq = useRef(0)
   const collectiblesOwner = useRef(addresses.evm)
+  const profileNftOwner = profileCollectionOwner(localAddresses.evm, localAddresses.accountIndex ?? 0, testnet)
+  const profileNftOwnerRef=useRef(profileNftOwner);profileNftOwnerRef.current=profileNftOwner
+  useEffect(()=>()=>clearProfileCollectibles(),[profileNftOwner])
 
   const fetchCollectibles = useCallback(async (quiet = false) => {
     const seq = ++collectiblesReq.current
     if (!quiet) setCollectiblesLoading(true)
     try {
-      const result = await window.wallet.getCollectibles(excludeRef.current)
+      const result = await loadProfileCollectibles(profileNftOwner, excludeRef.current, true)
       if (seq !== collectiblesReq.current) return   // superseded
       setCollectibles(previous => mergeCollectiblesUpdate(previous, result))
     } catch (err) {
@@ -996,7 +1019,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       // one can't clear it while the newer fetch is still running.
       if (seq === collectiblesReq.current) setCollectiblesLoading(false)
     }
-  }, [])
+  }, [profileNftOwner])
 
   const fetchBalances = useCallback(async (quiet = false) => {
     const seq = ++balancesReq.current
@@ -1058,6 +1081,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   useEffect(() => {
     const onUpdated = (r: CollectiblesResult) => {
       if (r.ownerAddress && r.ownerAddress.toLowerCase() !== collectiblesOwner.current.toLowerCase()) return
+      rememberProfileCollectibles(profileNftOwnerRef.current,r)
       setCollectibles(previous => mergeCollectiblesUpdate(previous, r))
     }
     window.wallet.onCollectiblesUpdated(onUpdated)
@@ -1530,7 +1554,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       </div>{/* end scrollable content */}
 
       {selectedNft && (
-        <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} onSend={openNftSend} />
+        <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} onSend={openNftSend} canUseAvatar={!hiddenItems.has(nftKey(selectedNft)) && !spamItems.has(nftKey(selectedNft))} />
       )}
 
       {/* Send modal — native asset, opened from a network card or the AGW panel */}

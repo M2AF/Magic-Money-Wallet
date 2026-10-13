@@ -1,3 +1,4 @@
+import { validateAvatar } from './profile-avatar.js'
 /**
  * db.js — Supabase profile/wallet sync behind the Worker.
  *
@@ -293,10 +294,15 @@ export async function handleDb(request, url, env, ctx) {
     if (await replayed(env, ctx, b.signature)) return err(env, 'Replay', 401)
     const updates = {}
     if (typeof b.display_name === 'string') updates.display_name = b.display_name
-    if (typeof b.avatar_url === 'string') updates.avatar_url = b.avatar_url
+    const avatar = validateAvatar(b)
+    if (avatar.error) return err(env, avatar.error, avatar.status || 400)
+    Object.assign(updates, avatar.updates)
     if (Object.keys(updates).length === 0) return json(env, { success: true, error: null })
-    // Constrain to the profile owned by the verified address (can't edit others).
-    const res = await sb(env, `cl_users?id=eq.${encodeURIComponent(b.userId)}&provider_id=eq.${addr}`, {
+    // Ownership comes from verified links: the account may have started with a
+    // Solana wallet or social login, whose provider_id is not this EVM address.
+    const owners=await candidateOwners(addr,env,true)
+    if(!owners.includes(String(b.userId)))return err(env,'This wallet does not own that profile',403)
+    const res = await sb(env, `cl_users?id=eq.${encodeURIComponent(b.userId)}`, {
       method: 'PATCH', body: JSON.stringify(updates),
     })
     return json(env, { success: res.ok, error: res.ok ? null : `DB ${res.status}` }, res.ok ? 200 : 502)

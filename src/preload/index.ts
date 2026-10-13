@@ -379,7 +379,7 @@ contextBridge.exposeInMainWorld('wallet', {
   // ── Phase 9: ChainLens profile sync ──────────────────────────────────────
   chainlensGetProfile:    ()                                                   => ipcRenderer.invoke('chainlens:get-profile'),
   chainlensSync:          ()                                                   => ipcRenderer.invoke('chainlens:sync'),
-  chainlensUpdateProfile: (updates: { display_name?: string; avatar_url?: string }) =>
+  chainlensUpdateProfile: (updates: { display_name?: string; avatar_url?: string; avatar_nft_key?: string | null }) =>
     ipcRenderer.invoke('chainlens:update-profile', updates),
   chainlensPickAvatar:    ()                                                   => ipcRenderer.invoke('chainlens:pick-avatar'),
 
@@ -402,6 +402,9 @@ contextBridge.exposeInMainWorld('wallet', {
   chatAddFriend:    (chainlensId: string)                         => ipcRenderer.invoke('chat:add-friend', chainlensId),
   chatAcceptFriend: (friendshipId: number)                        => ipcRenderer.invoke('chat:accept-friend', friendshipId),
   chatRemoveFriend: (friendshipId: number)                        => ipcRenderer.invoke('chat:remove-friend', friendshipId),
+  chatRelationship: (id: string)                                 => ipcRenderer.invoke('chat:relationship', id),
+  chatSetBlocked:   (id: string, blocked: boolean)                => ipcRenderer.invoke('chat:set-blocked', id, blocked),
+  chatReport:       (id: string, reason: string, details: string) => ipcRenderer.invoke('chat:report', id, reason, details),
   chatDirect:       (friendId: string, after?: number | null)     => ipcRenderer.invoke('chat:direct', friendId, after),
   chatSendDirect:   (friendId: string, type: 'text' | 'gif', content: string) =>
     ipcRenderer.invoke('chat:send-direct', friendId, type, content),

@@ -42,6 +42,7 @@ export interface ChatProfileRef {
   id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
 }
 
 export interface ChatMessage {
@@ -64,6 +65,15 @@ export interface ChatFriends {
   outgoing: ChatFriend[]
 }
 
+export interface ChatRelationship {
+  own?: boolean
+  blocked: boolean
+  interactionAllowed: boolean
+  friendship: { friendship_id: number; status: 'pending' | 'accepted'; incoming: boolean } | null
+}
+
+export type ChatReportReason = 'spam' | 'harassment' | 'impersonation' | 'other'
+
 /**
  * Eligibility, as the wallet shows it. `giphyApiKey` from the server is
  * deliberately NOT here — the key stays in main and only ever reaches GIPHY, so
@@ -78,6 +88,7 @@ export interface ChatStatus {
   userId: string
   displayName: string | null
   avatarUrl: string | null
+  avatarNftKey?: string | null
 }
 
 export interface ChatUnread {
@@ -99,7 +110,7 @@ interface ActiveSession {
   token: string
   /** The ChainLens account this token names. */
   userId: string
-  /** Name and picture as ProfilePage shows them, snapshotted at sign-in. */
+  /** Name and picture refreshed when Messenger is opened. */
   profile: ChatProfileRef
   /** The EVM address it was issued for — changing accounts invalidates it. */
   address: string
@@ -140,7 +151,7 @@ async function resolveDisplayedProfile(evm: string): Promise<ChatProfileRef> {
   if (!profile?.id) {
     throw new ChatError('No ChainLens profile yet. Open Profile and connect to ChainLens first.', 404)
   }
-  return { id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url }
+  return { id: profile.id, display_name: profile.display_name, avatar_url: profile.avatar_url, avatar_nft_key:profile.avatar_nft_key || null }
 }
 
 async function authenticate(): Promise<ActiveSession> {
@@ -208,12 +219,25 @@ async function chatFetch<T>(path: string, init: RequestInit = {}, retry = true):
 // ── Status ────────────────────────────────────────────────────────────────────
 
 export async function chatStatus(): Promise<ChatStatus> {
+  const cachedSession = active
   const body = await chatFetch<{
     eligible?: boolean; walletLinked?: boolean; socialLinked?: boolean; giphyApiKey?: string | null
   }>('/api/chat/status')
   // chatFetch guarantees a session; re-read it rather than capture one from
   // before the call, since a 401 retry may have minted a new one.
   const session = active!
+
+  // The token lasts a day, but pictures can change on ChainLens in between.
+  // Refresh only on Messenger entry, not on the three-second message polls.
+  // A newly authenticated session has already fetched this same profile.
+  if (session === cachedSession) {
+    const profile = await resolveDisplayedProfile(session.address)
+    if (profile.id !== session.userId) {
+      clearChatSession()
+      throw new ChatError('Your ChainLens account changed. Reopen Messenger to reconnect.', 409)
+    }
+    session.profile = profile
+  }
 
   // Held in main for the GIF proxy below; never returned to the renderer.
   session.giphyApiKey = body.giphyApiKey ?? null
@@ -226,6 +250,7 @@ export async function chatStatus(): Promise<ChatStatus> {
     userId: session.userId,
     displayName: session.profile.display_name,
     avatarUrl: session.profile.avatar_url,
+    avatarNftKey:session.profile.avatar_nft_key || null,
   }
 }
 
@@ -272,6 +297,33 @@ export async function chatAcceptFriend(friendshipId: number): Promise<void> {
 /** Decline an incoming request, cancel an outgoing one, or unfriend. */
 export async function chatRemoveFriend(friendshipId: number): Promise<void> {
   await chatFetch(`/api/chat/friends/${encodeURIComponent(friendshipId)}`, { method: 'DELETE' })
+}
+
+// Profile actions use the same authenticated account and moderation rows as
+// ChainLens. Only the target ID crosses IPC; credentials remain in main.
+function profileTarget(id: string): string {
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    throw new ChatError('Invalid ChainLens profile ID', 400)
+  }
+  return id.toLowerCase()
+}
+
+export async function chatRelationship(profileId: string): Promise<ChatRelationship> {
+  return chatFetch<ChatRelationship>(`/api/profiles/${profileTarget(profileId)}/relationship`)
+}
+
+export async function chatSetBlocked(profileId: string, blocked: boolean): Promise<void> {
+  const id = profileTarget(profileId)
+  if (typeof blocked !== 'boolean') throw new ChatError('Choose block or unblock', 400)
+  await chatFetch(`/api/profiles/${id}/block`, { method: blocked ? 'POST' : 'DELETE' })
+}
+
+export async function chatReport(profileId: string, reason: ChatReportReason, details: string): Promise<void> {
+  const id = profileTarget(profileId)
+  if (!['spam', 'harassment', 'impersonation', 'other'].includes(reason) || typeof details !== 'string' || details.length > 1000) {
+    throw new ChatError('Choose a reason and keep details under 1,000 characters', 400)
+  }
+  await chatFetch(`/api/profiles/${id}/report`, { method: 'POST', body: JSON.stringify({ reason, details: details.trim() }) })
 }
 
 // ── Direct messages ───────────────────────────────────────────────────────────

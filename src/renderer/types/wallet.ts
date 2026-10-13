@@ -364,6 +364,7 @@ export interface ClLinkedAccount {
   provider_id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
   email: string | null
 }
 
@@ -373,6 +374,7 @@ export interface ClUser {
   provider_id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
   email: string | null
   created_at: string | null
   cl_wallets: ClWallet[]
@@ -399,6 +401,7 @@ export interface ChatProfileRef {
   id: string
   display_name: string | null
   avatar_url: string | null
+  avatar_nft_key?: string | null
 }
 
 export interface ChatMessage {
@@ -421,6 +424,15 @@ export interface ChatFriends {
   outgoing: ChatFriend[]
 }
 
+export interface ChatRelationship {
+  own?: boolean
+  blocked: boolean
+  interactionAllowed: boolean
+  friendship: { friendship_id: number; status: 'pending' | 'accepted'; incoming: boolean } | null
+}
+
+export type ChatReportReason = 'spam' | 'harassment' | 'impersonation' | 'other'
+
 export interface ChatStatus {
   eligible: boolean
   walletLinked: boolean
@@ -431,6 +443,7 @@ export interface ChatStatus {
   userId: string
   displayName: string | null
   avatarUrl: string | null
+  avatarNftKey?: string | null
 }
 
 export interface ChatUnread {
@@ -1087,7 +1100,7 @@ declare global {
       // Phase 9: ChainLens profile sync
       chainlensGetProfile(): Promise<ClUser | null>
       chainlensSync(): Promise<ChainlensSyncResult>
-      chainlensUpdateProfile(updates: { display_name?: string; avatar_url?: string }): Promise<{ success: boolean; error: string | null }>
+      chainlensUpdateProfile(updates: { display_name?: string; avatar_url?: string; avatar_nft_key?: string | null }): Promise<{ success: boolean; error: string | null }>
       chainlensPickAvatar(): Promise<string | null>
       /**
        * Hidden/spam asset list shared with the ChainLens website. Both resolve
@@ -1124,6 +1137,9 @@ declare global {
       chatAcceptFriend(friendshipId: number): Promise<void>
       /** Decline an incoming request, cancel an outgoing one, or unfriend. */
       chatRemoveFriend(friendshipId: number): Promise<void>
+      chatRelationship(profileId: string): Promise<ChatRelationship>
+      chatSetBlocked(profileId: string, blocked: boolean): Promise<void>
+      chatReport(profileId: string, reason: ChatReportReason, details: string): Promise<void>
       chatDirect(friendId: string, after?: number | null): Promise<ChatMessage[]>
       chatSendDirect(friendId: string, type: ChatMessageType, content: string): Promise<ChatMessage>
       chatDeleteDirect(friendId: string, messageId: number): Promise<void>

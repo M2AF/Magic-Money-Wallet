@@ -1,3 +1,5 @@
+import { ProfileAvatar } from '../components/ProfileAvatar'
+import { ChatProfileMenu } from '../components/ChatProfileMenu'
 /**
  * MessengerPage.tsx — ChainLens Messenger, as a wallet page.
  *
@@ -19,7 +21,7 @@
  * state all three read from.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import type { ChatFriend, ChatFriends, ChatGif, ChatMessage, ChatStatus, ChatUnread } from '../types/wallet'
+import type { ChatFriend, ChatFriends, ChatGif, ChatMessage, ChatProfileRef, ChatStatus, ChatUnread } from '../types/wallet'
 import { ipcErrorMessage } from '../ipc-error'
 
 interface Props {
@@ -101,14 +103,11 @@ function renderText(content: string, allowLinks: boolean) {
 
 const AVATAR_PALETTE = ['#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#06b6d4', '#10b981']
 
-function Avatar({ profile, size = 32 }: { profile: { id?: string; display_name?: string | null; avatar_url?: string | null } | null; size?: number }) {
+function Avatar({ profile, size = 40 }: { profile: { id?: string; display_name?: string | null; avatar_url?: string | null; avatar_nft_key?: string | null } | null; size?: number }) {
   const name = profile?.display_name || 'ChainLens user'
   if (profile?.avatar_url) {
     return (
-      <img
-        src={profile.avatar_url} alt="" referrerPolicy="no-referrer"
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }}
-      />
+      <ProfileAvatar profile={profile} size={size} />
     )
   }
   const seed = String(profile?.id || name)
@@ -128,19 +127,31 @@ function Avatar({ profile, size = 32 }: { profile: { id?: string; display_name?:
 
 // ─── One message ──────────────────────────────────────────────────────────────
 
-function MessageRow({ message, own, allowLinks, deleting, onDelete, onMediaLoad }: {
+type ProfileOptions = (person: ChatProfileRef, anchor: HTMLButtonElement) => void
+
+function AvatarButton({ profile, onOptions, expandedAnchor }: { profile: ChatProfileRef; onOptions: ProfileOptions; expandedAnchor?: HTMLButtonElement }) {
+  const button = useRef<HTMLButtonElement>(null)
+  return <button ref={button} type="button" className="chat-avatar-button" aria-label={`Open ${profile.display_name || 'ChainLens user'} options`}
+    aria-haspopup="menu" aria-expanded={expandedAnchor === button.current} onClick={event => onOptions(profile, event.currentTarget)}>
+    <Avatar profile={profile} size={40} />
+  </button>
+}
+
+function MessageRow({ message, own, allowLinks, deleting, onDelete, onMediaLoad, onOptions, expandedAnchor }: {
   message: ChatMessage
   own: boolean
   allowLinks: boolean
   deleting: boolean
   onDelete: (message: ChatMessage) => void
   onMediaLoad: () => void
+  onOptions: ProfileOptions
+  expandedAnchor?: HTMLButtonElement
 }) {
   return (
-    <div style={{ display: 'flex', gap: 8, flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
-      <Avatar profile={message.author} size={28} />
+    <div data-message-id={message.id} style={{ display: 'flex', minWidth: 0, flexShrink: 0, gap: 8, flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
+      <AvatarButton profile={message.author} onOptions={onOptions} expandedAnchor={expandedAnchor} />
       <div style={{ minWidth: 0, maxWidth: '78%', display: 'flex', flexDirection: 'column', alignItems: own ? 'flex-end' : 'flex-start' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3, flexDirection: own ? 'row-reverse' : 'row' }}>
+        <div style={{ display: 'flex', maxWidth: '100%', minWidth: 0, flexWrap: 'wrap', alignItems: 'baseline', gap: 6, marginBottom: 3, flexDirection: own ? 'row-reverse' : 'row' }}>
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>
             {message.author?.display_name || 'ChainLens user'}
           </span>
@@ -167,7 +178,7 @@ function MessageRow({ message, own, allowLinks, deleting, onDelete, onMediaLoad 
 
         {message.message_type === 'gif' ? (
           <div style={{
-            overflow: 'hidden', borderRadius: 'var(--radius-md)',
+            maxWidth: '100%', overflow: 'hidden', borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border)', background: 'var(--bg-dark)',
             // Squared-off corner on the side the avatar sits — the classic
             // "this bubble belongs to that person" cue.
@@ -182,7 +193,7 @@ function MessageRow({ message, own, allowLinks, deleting, onDelete, onMediaLoad 
           </div>
         ) : (
           <div style={{
-            display: 'inline-block', padding: '7px 11px',
+            display: 'inline-block', maxWidth: '100%', padding: '7px 11px',
             borderRadius: 'var(--radius-md)',
             borderTopRightRadius: own ? 4 : undefined,
             borderTopLeftRadius: own ? undefined : 4,
@@ -190,7 +201,7 @@ function MessageRow({ message, own, allowLinks, deleting, onDelete, onMediaLoad 
             color: own ? 'var(--on-accent)' : 'var(--text-primary)',
             border: own ? 'none' : '1px solid var(--border)',
             fontSize: 12.5, lineHeight: 1.5, textAlign: 'left',
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere',
           }}>
             {renderText(message.content, allowLinks)}
           </div>
@@ -222,6 +233,14 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
   const [busyFriendship, setBusyFriendship] = useState<number | 'new' | null>(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [profileMenu, setProfileMenu] = useState<{ person: ChatProfileRef; anchor: HTMLButtonElement } | null>(null)
+  const locallyBlocked = useRef(new Set<string>())
+  const openProfileOptions = useCallback<ProfileOptions>((person, anchor) => setProfileMenu(current => current?.anchor === anchor ? null : { person, anchor }), [])
+  const closeProfileOptions = useCallback((restoreFocus = true) => {
+    const anchor = profileMenu?.anchor
+    setProfileMenu(null)
+    if (restoreFocus) requestAnimationFrame(() => { if (anchor?.isConnected) anchor.focus({ preventScroll: true }) })
+  }, [profileMenu])
 
   const [showGifs, setShowGifs] = useState(false)
   const [gifQuery, setGifQuery] = useState('')
@@ -313,7 +332,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
   const loadWorld = useCallback(async (incremental: boolean, quiet = false) => {
     if (!incremental && !quiet) setMessagesLoading(true)
     try {
-      const rows = await window.wallet.chatWorld(incremental ? worldCursor.current : null)
+      const rows = (await window.wallet.chatWorld(incremental ? worldCursor.current : null)).filter(message => !locallyBlocked.current.has(message.author.id))
       advanceCursor(worldCursor, rows)
       setMessages(current => (incremental ? mergeMessages(current, rows) : rows))
       setError('')
@@ -327,7 +346,12 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
   const loadFriends = useCallback(async (quiet = false) => {
     if (!quiet) setFriendsLoading(true)
     try {
-      const body = await window.wallet.chatFriends()
+      const result = await window.wallet.chatFriends()
+      const body = {
+        friends: result.friends.filter(person => !locallyBlocked.current.has(person.id)),
+        incoming: result.incoming.filter(person => !locallyBlocked.current.has(person.id)),
+        outgoing: result.outgoing.filter(person => !locallyBlocked.current.has(person.id)),
+      }
       setFriends(body)
       // An unfriend from the other side has to close the open thread, not leave
       // it sending into a friendship that no longer exists.
@@ -533,6 +557,20 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
     }
   }
 
+  const profileActionsChanged = async (profileId: string, blocked?: boolean) => {
+    if (blocked !== undefined) {
+      if (blocked) {
+        locallyBlocked.current.add(profileId)
+        setMessages(current => current.filter(message => message.author.id !== profileId))
+        setSelectedFriend(current => current?.id === profileId ? null : current)
+        setDirectMessages(current => current.filter(message => message.author.id !== profileId))
+      } else locallyBlocked.current.delete(profileId)
+      await loadWorld(false, true)
+    }
+    await loadFriends(true)
+    onUnreadRefresh()
+  }
+
   const loadGifs = async (query: string) => {
     setGifsLoading(true)
     setError('')
@@ -599,7 +637,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
               {status.userId.slice(0, 8)}…
             </div>
           </div>
-          <Avatar profile={{ id: status.userId, display_name: status.displayName, avatar_url: status.avatarUrl }} size={30} />
+          <Avatar profile={{ id: status.userId, display_name: status.displayName, avatar_url: status.avatarUrl, avatar_nft_key:status.avatarNftKey }} size={40} />
         </div>
       )}
     </div>
@@ -761,7 +799,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {friends.incoming.map(request => (
                   <div key={request.friendship_id} style={{ ...surface, display: 'flex', alignItems: 'center', gap: 10, padding: 10 }}>
-                    <Avatar profile={request} />
+                    <AvatarButton profile={request} onOptions={openProfileOptions} expandedAnchor={profileMenu?.anchor} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{request.display_name}</div>
                       <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{request.id}</div>
@@ -795,18 +833,19 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
                 {friends.friends.map(friend => {
                   const count = unreadByFriend.get(friend.id) ?? 0
                   return (
+                    <div key={friend.id} style={{ ...surface, display: 'flex', alignItems: 'center', gap: 10, padding: 10 }}>
+                      <AvatarButton profile={friend} onOptions={openProfileOptions} expandedAnchor={profileMenu?.anchor} />
                     <button
-                      key={friend.id} type="button" onClick={() => openConversation(friend)}
+                      type="button" onClick={() => openConversation(friend)}
                       aria-label={count > 0
                         ? `${friend.display_name ?? 'Friend'}, ${count} unread message${count === 1 ? '' : 's'}`
                         : String(friend.display_name ?? 'Friend')}
                       style={{
-                        ...surface, display: 'flex', alignItems: 'center', gap: 10, padding: 10,
+                        flex: 1, minWidth: 0, background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: 0,
                         textAlign: 'left', cursor: 'pointer', color: 'var(--text-primary)',
                         fontFamily: 'var(--font-body)',
                       }}
                     >
-                      <Avatar profile={friend} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{friend.display_name}</div>
                         <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{friend.id}</div>
@@ -820,6 +859,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
                       )}
                       <span style={{ color: 'var(--accent)', flexShrink: 0 }}>›</span>
                     </button>
+                    </div>
                   )
                 })}
               </div>
@@ -866,7 +906,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
             type="button" onClick={() => openConversation(null)} aria-label="Back to friends"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', fontSize: 18, lineHeight: 1, padding: '0 4px' }}
           >‹</button>
-          <Avatar profile={selectedFriend} size={28} />
+          <AvatarButton profile={selectedFriend} onOptions={openProfileOptions} expandedAnchor={profileMenu?.anchor} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFriend.display_name}</div>
             <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedFriend.id}</div>
@@ -878,7 +918,7 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
         </div>
       )}
 
-      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+      <div style={{ position: 'relative', flex: 1, minWidth: 0, minHeight: 0 }}>
         {/* testids mirror the ChainLens website's Messenger, so a test written
             against one reads the same against the other. */}
         <div
@@ -904,6 +944,8 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
               deleting={deletingId === String(message.id)}
               onDelete={deleteMessage}
               onMediaLoad={handleMediaLoad}
+              onOptions={openProfileOptions}
+              expandedAnchor={profileMenu?.anchor}
             />
           ))}
         </div>
@@ -1033,10 +1075,12 @@ export function MessengerPage({ onProfile, unread, onUnreadRefresh }: Props) {
   )
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0 }}>
       {header}
       {tabs}
       {tab === 'friends' && !selectedFriend ? friendsList : conversation}
+      {profileMenu && status && <ChatProfileMenu key={profileMenu.person.id} person={profileMenu.person} own={profileMenu.person.id === status.userId}
+        anchor={profileMenu.anchor} onClose={closeProfileOptions} onChanged={profileActionsChanged} />}
 
       {(error || notice) && (
         <div
