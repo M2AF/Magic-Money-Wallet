@@ -15,6 +15,8 @@ import { canonicalNftKey } from '../shared/asset-filter-key'
 import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
 import { CollectiblesProgress } from './collectibles-progress'
 import { nftUriCandidates, nftMetadataImages, nftMetadataText, validNftCid } from '../shared/nft-media'
+import { cachedCip113Holdings } from './cardano-programmable'
+import type { Cip113ProgrammableDetails } from '../shared/cip113-wire'
 
 export interface WalletToken {
   contractAddress: string
@@ -48,7 +50,8 @@ export interface WalletToken {
   chain: string
   chainLabel: string
   chainColor: string
-  source?: 'agw'   // present when the asset lives in the Abstract Global Wallet (smart account)
+  source?: 'agw' | 'cip113'
+  programmable?: Cip113ProgrammableDetails
   // H-1: flagged by spam-filter.ts heuristics (phishing URL / claim-bait in the
   // name or symbol, and no positive USD value). The dashboard buckets these with
   // user-marked spam by default; a Restore whitelists the token.
@@ -94,6 +97,7 @@ export interface WalletCollectible {
    */
   quantity?: string
   source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
+  readOnlyReason?: string
   floorPrice?: number | null   // collection floor in the chain's native unit
   /** floor × native price, in USD. Raw number — see WalletToken.usdValue. */
   usdValue?: number | null
@@ -918,6 +922,27 @@ export async function fetchCardanoTokens(address: string, config: WalletConfig):
   } catch { return [] }
 }
 
+export async function fetchCardanoProgrammableTokens(address: string, config: WalletConfig): Promise<{ tokens: WalletToken[]; error: string | null }> {
+  const discovery = await cachedCip113Holdings(address)
+  if (discovery.error) return { tokens: [], error: `Programmable tokens: ${discovery.error}` }
+  const byUnit = new Map(discovery.holdings.map(h => [h.unit, h]))
+  const tokens = await mapCardanoAssets(discovery.holdings.map(h => ({ unit: h.unit, quantity: h.rawBalance })), async (a, metadata) => {
+    const decimalsKnown = Number.isInteger(metadata?.metadata?.decimals) && (metadata?.metadata?.decimals ?? -1) >= 0
+    const decimals = decimalsKnown ? metadata!.metadata!.decimals! : 0
+    const rawName = metadata?.onchain_metadata?.name ?? metadata?.metadata?.name ?? metadata?.asset_name ?? null
+    const name = rawName ? decodeAssetName(rawName) : a.unit.slice(0, 8) + '…'
+    const symbol = metadata?.metadata?.ticker?.trim() || (name.length <= 10 ? name : name.slice(0, 8) + '…')
+    return {
+      contractAddress: a.unit, name, symbol, decimals, decimalsKnown, balance: humanBalance(a.quantity, decimals), rawBalance: a.quantity,
+      usdValue: null, nativeEquivalent: null, nativeSymbol: 'ADA', chain: 'cardano', chainLabel: 'Cardano', chainColor: '#2A7DEA',
+      logoUri: metadata?.onchain_metadata?.image ? normalizeImageUrl(metadata.onchain_metadata.image as string)
+        : metadata?.metadata?.logo ? `data:image/png;base64,${metadata.metadata.logo}` : null,
+      source: 'cip113' as const, programmable: byUnit.get(a.unit)!.details,
+    }
+  }, config)
+  return { tokens, error: null }
+}
+
 function decodeAssetName(raw: string): string {
   if (/^[0-9a-f]+$/i.test(raw) && raw.length % 2 === 0) {
     try {
@@ -1021,7 +1046,8 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
     // list and the portfolio total already handle null — that's what Testnet
     // Mode produces). Supported chains keep their existing zero-when-unpriced
     // behaviour.
-    const hasPriceSource = !!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain]
+    const hasPriceSource = (!!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain])
+      && (t.source !== 'cip113' || (tokenPriceUsd > 0 && t.decimalsKnown !== false))
 
     return {
       ...t,
@@ -1936,7 +1962,7 @@ export async function fetchAllTokens(
       return p.finally(() => { timings.push([label, Date.now() - start]) })
     }
     const tTokens = Date.now()
-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens, importedTokens] = await Promise.all([
+    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens, importedTokens, programmableResult] = await Promise.all([
       Promise.all(tokenChains.map(chain => timed(chain.id, fetchTokensForChain(addresses.evm, chain, config)))),
       (addresses.solana && !testnet)  ? timed('solana', fetchSolanaTokens(addresses.solana,   config)) : Promise.resolve([] as WalletToken[]),
       (addresses.cardano && !testnet) ? timed('cardano', fetchCardanoTokens(addresses.cardano, config)) : Promise.resolve([] as WalletToken[]),
@@ -1947,6 +1973,8 @@ export async function fetchAllTokens(
       testnet ? Promise.resolve([] as WalletToken[]) : timed('custom', fetchCustomChainTokens(addresses.evm, config)),
       // Manual imports on a BUILT-IN chain — the fallback for what Alchemy missed.
       testnet ? Promise.resolve([] as WalletToken[]) : timed('imported', fetchImportedBuiltinTokens(addresses.evm, config)),
+      (addresses.cardano && !testnet) ? timed('cardano-programmable', fetchCardanoProgrammableTokens(addresses.cardano, config))
+        : Promise.resolve({ tokens: [] as WalletToken[], error: null }),
     ])
     timings.sort((a, b) => b[1] - a[1])
     console.log(`[TOKEN] all sources in ${Date.now() - tTokens}ms — slowest: ${timings.slice(0, 6).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
@@ -1958,7 +1986,7 @@ export async function fetchAllTokens(
       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).tokens.map(t => ({ ...t, source: 'agw' as const }))
       : []
 
-    const auto = [...evmResults.flatMap(r => r.tokens), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
+    const auto = [...evmResults.flatMap(r => r.tokens), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...programmableResult.tokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
     // A built-in chain's indexer usually DOES list an imported token — appending
     // it again would render the holding twice and double it in the portfolio
     // total. Only what auto-detect actually missed gets added.
@@ -1990,6 +2018,7 @@ export async function fetchAllTokens(
     // so the empty state can say why instead of the flatly wrong "No tokens
     // found across all chains" (which is what a spent Alchemy quota looked like).
     const chainErrors: Record<string, string> = {}
+    if (programmableResult.error) chainErrors.cardano = programmableResult.error
     for (const r of evmResults) if (r.error) chainErrors[r.chain.id] = r.error
     const failed = Object.keys(chainErrors)
     if (failed.length) console.warn(`[TOKEN] ${failed.length} chain(s) failed: ${failed.join(', ')}`)
@@ -2050,7 +2079,22 @@ export async function fetchCardanoNFTs(
       }
     }
 
-    const nativeAssets = assets.filter(a => a.unit !== 'lovelace')
+    let nativeAssets = assets.filter(a => a.unit !== 'lovelace')
+    const directUnits = new Set((addrData.amount ?? []).map(a => a.unit))
+    const directAmounts = new Map((addrData.amount ?? []).map(a => [a.unit, a.quantity]))
+    let programmablePolicies = new Set<string>()
+    let ownershipUnverified = false
+    if (nativeAssets.some(a => !directUnits.has(a.unit))) {
+      const programmable = await cachedCip113Holdings(address)
+      if (programmable.error) ownershipUnverified = true
+      else {
+        // Programmable assets belong in Tokens for now, not in the generic NFT send path.
+        const programmableUnits = new Set(programmable.holdings.map(h => h.unit))
+        programmablePolicies = new Set(programmable.registryPolicies ?? programmable.holdings.map(h => h.unit.slice(0, 56)))
+        nativeAssets = nativeAssets.flatMap(a => !programmableUnits.has(a.unit) ? [a]
+          : directAmounts.has(a.unit) ? [{ ...a, quantity: directAmounts.get(a.unit)! }] : [])
+      }
+    }
     if (nativeAssets.length === 0) return []
 
     const nfts = await mapCardanoAssets(nativeAssets, async (a, assetMeta): Promise<WalletCollectible | null> => {
@@ -2105,7 +2149,11 @@ export async function fetchCardanoNFTs(
             tokenId: a.unit.slice(56),
             contractAddress: a.unit.slice(0, 56),
             contractType: 'CIP25',
-            traits
+            traits,
+            ...(ownershipUnverified && !directUnits.has(a.unit)
+              ? { readOnlyReason: 'Ownership could not be checked for this stake-account holding. Refresh before sending.' }
+              : programmablePolicies.has(a.unit.slice(0, 56)) && !directUnits.has(a.unit)
+                ? { readOnlyReason: 'This programmable-policy holding is not supported by the ordinary NFT send flow.' } : {}),
           }
     }, config)
     console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`)

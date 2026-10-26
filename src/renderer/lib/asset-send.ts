@@ -64,6 +64,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
  *    where it routes through the native path instead of an ERC-20 transfer.
  */
 export function canSendToken(token: WalletToken): boolean {
+  if (token.source === 'cip113' || token.programmable) return false
   if (!token.rawBalance || token.rawBalance === '0') return false
   if (!TOKEN_SEND_CHAINS.has(getChainType(token.chain))) return false
   if (token.contractAddress.toLowerCase() === ZERO_ADDRESS) return false
@@ -94,11 +95,13 @@ export function nftStandard(nft: WalletCollectible): NftStandard | null {
 
 /** Can this NFT be sent? */
 export function canSendNft(nft: WalletCollectible): boolean {
+  if (nft.readOnlyReason) return false
   return nftStandard(nft) !== null
 }
 
 /** User-facing reason a held NFT has no Send button. null when it does. */
 export function nftSendBlockedReason(nft: WalletCollectible): string | null {
+  if (nft.readOnlyReason) return nft.readOnlyReason
   if (canSendNft(nft)) return null
   const t = nft.contractType.trim().toLowerCase().replace(/[-_\s]/g, '')
   if (t === 'cnft') {

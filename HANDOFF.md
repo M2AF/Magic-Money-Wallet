@@ -2,30 +2,38 @@
 <!-- handoff v1. LIVE STATE ONLY: rewrite in place, keep under ~60 lines.
      History goes in HANDOFF_LOG.md. Machine fields above the first ## are managed by handoff.py. -->
 
-owner: codex
-task: Diagnose stale development chat backend and header
-lease_until: 2026-10-13T03:55-03:00
+owner: none
+task: -
+lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: b11a019 · HEADb11a019 plus preserved NFT/chat and new PFP-menu edits:final CI=1 npm run verify:ci exits0;fiveTS/174files2525unit/fresh Electron extension inject/93browser+1existing skip/no retries/critical audit0critical (existing4moderate4high unchanged). Menu friend/profile/block/report routes and real preload IPC journey pass including pending submission focus/error handling. Final screenshots reviewed;ten generated trackedPNGs archived/restored. GitHub CI pending dirt;baseb11a019 success https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38290711616. No agent commit/push/deploy/install/native/live moderation QA. · 2026-10-13T00:45-03:00
-head: b11a019 (main) dirty 19
-updated: 2026-10-13T00:55-03:00 · codex
+verified: 24d088b · Monad locally verified: CI=1 verify:ci exit0; fiveTS/188files2762unit/fresh desktop+extension+injection/101browser pass+4retry-pass(existing Sappy/history/downloads/natural-materials)+1existing skip. All4agent Electron journeys first attempt;142focused pass;400/768/1200 reviewed. Audit0critical5high4moderate unchanged dependencies.203asset hashes verified;9generated PNGs archived/restored; diff-check passes. HEAD24d088b plus shared dirt; GitHub CI pending uncommitted/unpushed. No live funds/deployment. · 2026-10-25T21:16-03:00
+head: 24d088b (main) dirty 23
+updated: 2026-10-25T21:16-03:00 · codex
 
 resources: -
 
 ## Now
-- Stale runtime diagnosed/fixed: renderer HMR was paired with Electron main started Oct12 22:56; closing only hid app to tray. Replaced old dev subtree, restarted same wallet data in --watch (CLI36648/main28400), and user confirmed both header picture and PFP menu work. npmdev now watches main/preload by default; test probes actual chat handlers before mocks. Focused probe passes; final full gate running .local-artifacts/dev-watch-verify-ci.log. No install/deploy/backend changes.
-- Messenger PFP menu complete locally: World Chat/DM/friend/request avatars offer View Profile, canonical friendship actions, Block/Unblock and explicit Report form. Existing ChainLens routes through desktop/extension/mobile bridges; no backend/schema change. Final CI=1 verify:ci exits0:fiveTS/174files2525unit/fresh builds/93browser pass+1existing skip/no retries/critical audit0critical. Focused real IPC journey includes held-report focus, failures/success, links and all friendship states. Screenshots reviewed; ten regenerated tracked PNGs archived/restored. docs/CHAT-PROFILE-MENU.md; .local-artifacts/chat-menu/. Prior NFT/chat edits preserved.
-- Chat sizing/overflow and stale Messenger header complete locally on base b11a019:40px avatars; contained NFT rotation; media/text fit. Header refreshes profile once per cached-session entry, reuses token and checks account identity. Final CI=1 verify:ci exits0:fiveTS/174files2520unit/fresh builds/91browser passes+1history retry+1existing skip/critical audit pass. Ten generated tracked PNGs archived/restored; final screenshots reviewed. Wallet changes remain uncommitted.
-- NFT PFP work remains in scope of prior shared feature: cached searchable/scrollable spam-filtered picker, NFT-detail action, shared avatar_nft_key, animated NFT hexagons and circular uploads. Shared Supabase migration20261013012323 applied; existing pictures need NFT reselection once. App/Worker deployment and native runtime sync QA remain separate.
+- Monad agent extension complete locally: chain143 MON approval/autonomous/recovery and restricted Emogotchi calls with explicit token-ID opt-in, full-cost MON budgets, code/ownership checks, fixed calldata/value and existing receipts.142focused tests; final full gate passes; all4agent journeys first attempt. docs/AGENT-MONAD.md. No jobs/live funds. NFT recovery manual via displayed seed path; other pet contracts and revive/setName remain blocked.
+- x402 complete locally under owner-updated scope: existing isolated account, automatic Base-USDC within explicit USDC caps/exact URL/inherited payTo rules; valid exceptions in same native inbox. Max5min, wallet nonce, sealed authority budget, default-off MAGICMONEY_X402=1 startup flag.75focused tests and final full gate pass; all3agent Electron journeys first attempt. docs/X402.md. No live funds. USDC recovery manual via displayed seed path; Native recovery labels match policy currency.
+- Desktop Agent Access/execution complete locally: approval -> native ETH sign/submit -> durable hash/status, plus isolated account1000+ policies (recipients/full-cost caps/expiry/kill/recovery). Original Ethereum/Sepolia milestone; Monad extension above supersedes ETH-only scope. That milestone gate passes;61focused agent tests; both real Electron journeys first attempt with intercepted RPC/public seed. No live funding/sign/broadcast. docs/AGENT-EXECUTION.md.
+- C1/L1/C2/C3 implemented and locally verified. Canonical-mainnet CIP-113 reader exposes exact holdings, authenticated core wiring and recent token balance changes; module rules/available amount remain unknown, generic execution unavailable. docs/CIP113-C3-HANDOFF.md is the Claude L2 contract.
+- Universal clickable token panels, validated receive QR and reviewed address-only send scans are complete. Preserve all uncommitted feature/chat work; no commit/push/deploy/sign/broadcast.
+- Prior chat/NFT work remains locally verified: PFP actions, header refresh, layout and stale runtime/main-watch fix. User confirmed header/menu; same dev-watch runtime/data preserved. Native/production sync remains separate. docs/CHAT-PROFILE-MENU.md and docs/NFT-PROFILE-PICTURES.md.
+- User source commits fd4af18 then24d088b are preserved. Shared Supabase migration20261013012323 applied previously; legacy pictures need explicit NFT reselection. No new backend/dependency/native changes in C3.
 
 ## Verification status
-- Current local gate exits0: .local-artifacts/chat-menu-final-verify-ci.log (2525unit/93browser+1skip/no retries). Existing audit4moderate/4high,zero critical; dependencies unchanged. GitHub CI pending uncommitted wallet changes; baseb11a019 success https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38290711616. No agent commit/push/deploy/install/native QA. Previous sizing run's unrelated history retry is retained in its log; current history suite passes first attempt.
+- Monad final CI=1 verify:ci exits0 (2026-10-25): fiveTS/188files2762unit/fresh desktop+extension+injection/101browser pass+4retry-pass(existing Sappy/history/downloads/natural-materials)+1existing skip.142focused pass; Agent Access/ETH/Monad/x402 first attempt;400/768/1200 reviewed. Audit0critical5high4moderate; no dependency changes.203asset hashes verified;9generated PNGs archived/restored; diff-check passes. .local-artifacts/agent-monad/verify-ci.log.
+- x402 final CI=1 verify:ci exits0 (2026-10-23): fiveTS/187files2711unit/fresh desktop+extension+injection/101browser pass+3retry-pass(existing Sappy Seals/history-repeat/eyedropper)+1existing currency skip. x402 first attempt: automatic, native exception, real EIP712 recovery, retry/replay/URL/Stop.75focused pass;400/768/1200 reviewed. Audit0critical5high4moderate; dependencies unchanged.203asset hashes verified;8generated PNGs archived/restored; diff-check passes. .local-artifacts/x402/verify-ci.log.
+- Agent execution final CI=1 verify:ci exits0: fiveTS,184files2650unit (61agent),fresh desktop/extension/injection,101browser pass+2retry-pass(Sappy Seals/history-repeat)+1existing skip. Both agent journeys first attempt; execution400/768/1200 reviewed. Audit0critical,5high4moderate; dependencies unchanged.202PNG+app-hub hashes verified,9generated PNGs archived/restored; diff-check passes. .local-artifacts/agent-execution/verify-ci.log.
+- C3 final CI=1 verify:ci exits0: fiveTS/179files2584unit/fresh desktop+extension/99browser+1history-repeat flaky pass+1existing skip; seven token-details first attempt. Audit0critical,4moderate4high unchanged. Android/iOS web bundles pass. Public read-only observer passes; screenshot reviewed,7tracked PNGs archived/restored. .local-artifacts/cip113-c3/verify-ci.log.
+- HEAD24d088b plus uncommitted shared work; matching feature-SHA GitHub CI/native camera/hardware Back/real-funds/deployment proof absent. Historical C2/dev-watch/chat gate logs remain linked below. Prior full C3 failure was Sovereign duplicate-label selector; scoped test-only correction passed isolated and final full gate.
 
 ## Next
-- User review/commit wallet changes when desired, then inspect matching main GitHub CI after push and release rebuilt wallet/preload/main when authorized. Profile/moderation backend unchanged for this menu; native/production integration QA separate. docs/CHAT-PROFILE-MENU.md has final evidence.
+- Owner reviews local changes; after authorized commit/push verify matching GitHub CI. Guide docs/AGENT-MONAD.md. Any real MON/NFT funding, transfer, contract-call or recovery QA requires separate authorization.
 
 ## Traps
+- Emogotchi143 requires caller ownership even for paid care; ERC721 operator approval is insufficient. No automatic NFT transfer; recovery currently needs a trusted wallet with the displayed m/44'/60'/1000+/0/0 path. Recover MON is native only. RLP parsing may omit a zero value: normalize to0n when verifying nonpayable pet; native zero-value inputs remain denied.
 - Only the lease owner edits shared code; preserve dirty work. No commit/push/deploy/install/sign/broadcast without user authorization.
 - clip-path alone does not contain the animated NFT pseudo-element for scroll sizing: retain overflow:hidden on the avatar. Reproduced9px right-edge feed overflow before fix.
 - Native Android/iOS runtime and production profile sync are separate from local browser/TypeScript/build results.
@@ -38,10 +46,21 @@ resources: -
 - Full Cardano/provider/IOG and older UI guardrails are retained in HANDOFF_ARCHIVE.md (snapshot2026-10-12); read them before changing those systems.
 
 ## Skills
-- Chat UI -> Fullstack Iteration / Visual Iteration / Playwright Testing | used: source tracing, before/after overflow regression, responsive browser checks and screenshots | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,visual-Iteration,playwright-testing}/SKILL.md | Claude: resolve local catalog.
-- Shared project -> agent-handoff | used: lease, checkpoints, evidence and archived live-board history | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md.
+- Desktop Agent Access/execution -> architecture-review / evm-wallet-architecture / evm-signing-security / wallet-security-auditor / blockchain-ux-review / Fullstack Iteration / Playwright Testing / Visual Iteration | restricted tools, durable exact ETH signing, isolated policies, real Electron/offline signature QA | Codex: C:/Users/balla/.codex/skills/ | Claude: resolve local catalog.
+- Shared project -> agent-handoff | used: sequential lease/checkpoints/release and dirty-work preservation | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md.
+- Token/CIP-113 contracts -> architecture-review / blockchain-ux-review / cardano-wallet-core | used: canonical deployment/schema pins, ownership/capability boundaries and honest programmable states | Codex: C:/Users/balla/.codex/skills/{architecture-review,blockchain-ux-review,cardano-wallet-core}/SKILL.md | Claude: resolve local catalog.
+- Implementation -> Fullstack Iteration / wallet-security-auditor | used: source-bound read-only assets, exact balances, fail-closed QR and ownership guards | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,wallet-security-auditor}/SKILL.md | Claude: resolve local catalog.
+- Validation -> Playwright Testing / Debugging | used: real-bridge browser regressions, scoped duplicate-label test correction and screenshot review | Codex: C:/Users/balla/.codex/skills/{playwright-testing,debug}/SKILL.md | Claude: resolve local catalog.
 
 ## Pointers
+- docs/AGENT-MONAD.md; src/main/agent-emogotchi.ts / agent-monad.test.ts; src/main/__fixtures__/emogotchi-runtime.json; e2e/agent-monad{.spec.ts,-wrapper.cjs}; .local-artifacts/agent-monad/ (final gate, source/code proof, screenshots and asset restoration).
+- docs/X402.md; src/main/x402-{validation,core,desktop}.{ts,test.ts}; src/shared/x402.ts; src/renderer/components/X402Controls.tsx; e2e/x402{.spec.ts,-wrapper.cjs}; .local-artifacts/x402/ (final gate, focused tests, screenshots, restored asset hashes).
+- docs/AGENT-EXECUTION.md; src/main/agent-execution-{core,desktop}.{ts,test.ts}; src/shared/agent-execution.ts; src/renderer/components/AgentExecutionPanel.tsx; e2e/agent-execution{.spec.ts,-wrapper.cjs}; .local-artifacts/agent-execution/ (final gate, screenshots, asset hashes; stopped logs diagnostic).
+- docs/AGENT-ACCESS.md (setup, tool schemas, boundaries, exact local results); src/main/agent-access*.ts; resources/agent-access.mjs; e2e/agent-access.spec.ts; .local-artifacts/agent-access/{verify-ci.log,png-restoration.json,screenshots}.
+- docs/CIP113-C3-HANDOFF.md; src/shared/cip113-wire.ts; src/main/cardano-programmable.ts; src/main/__fixtures__/cip113/README.md; .local-artifacts/cip113-c3/.
+- docs/TOKEN-DETAILS-C2-HANDOFF.md; .local-artifacts/token-details-c2-verify-ci.log; .local-artifacts/token-details-c2/ (reviewed screenshot, preserved/generated PNGs).
+- docs/TOKEN-DETAILS-C1-HANDOFF.md (ready for Claude L1: exact imports, context, fixtures, activity scope and stale-result guards).
+- docs/TOKEN-DETAILS-IMPLEMENTATION-PLAN.md (universal details, receive/QR, CIP-113 phases and Claude/Codex job packets).
 - docs/NFT-PROFILE-PICTURES.md; .local-artifacts/chat-sizing/; .local-artifacts/nft-avatar/.
 - docs/CHAT-PROFILE-MENU.md; src/renderer/components/ChatProfileMenu.{tsx,css}; e2e/messenger-profile-menu.spec.ts; .local-artifacts/chat-menu/; chat-menu-final-verify-ci.log.
 - src/main/chainlens-chat.{ts,test.ts}; src/renderer/pages/MessengerPage.tsx; src/renderer/components/ProfileAvatar.css; e2e/__tour.spec.ts; .local-artifacts/chat-sizing-final-verify-ci.log.

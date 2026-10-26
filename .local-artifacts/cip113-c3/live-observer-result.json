@@ -1,0 +1,101 @@
+{
+  "holdings": [
+    {
+      "unit": "b025efe5b44b43ed154419c66b0efc9cf148fd98f464e261018c89e8444953393837",
+      "rawBalance": "1",
+      "details": {
+        "deploymentId": "bfefbd222e40d88f5d4454e92b24062533070f41a3e25c0a23383264650cdb72",
+        "network": "mainnet",
+        "checkedAt": 1792006907529,
+        "holdingAddresses": [
+          {
+            "address": "addr1z8v36z8rs8uwl90lhvlcqj8syrtnv80d3uatlhmxcf06swq3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs3c6y8d",
+            "credentialSource": "payment-key",
+            "credentialHash": "11111111111111111111111111111111111111111111111111111111"
+          },
+          {
+            "address": "addr1z8v36z8rs8uwl90lhvlcqj8syrtnv80d3uatlhmxcf06swr3x3tm2u20kufd9u6xyl2my6qdjssy8v87fxhsrpjm6tdqh404ru",
+            "credentialSource": "stake-key",
+            "credentialHash": "713457b5714fb712d2f34627d5b2680d942043b0fe49af01865bd2da"
+          }
+        ],
+        "registry": {
+          "outputReference": "642aba06dcdba9c378d7fda6897d31b5f82909d7d3a10f95a0f01dd6aa2ef70d#1",
+          "policyId": "b025efe5b44b43ed154419c66b0efc9cf148fd98f464e261018c89e8",
+          "minting": {
+            "type": "script",
+            "hash": "f462a4e22e5b138c17d893d4e0811790f51f1231b8be4198313e08d0"
+          },
+          "transfer": {
+            "type": "script",
+            "hash": "62b98b0894870aadfba1a7fd1b368c56aa91caa2701fb7e92a3f1bf1"
+          },
+          "thirdParty": {
+            "type": "script",
+            "hash": "1e17ac8b06f5f891d65923dee46e85a71e19deb401c8650e0401a3f0"
+          },
+          "unfracking": {
+            "type": "key",
+            "hash": ""
+          },
+          "globalStatePolicy": "d2683a1b0b9bf3628db24fdf7cababb083084aec86a0cfd05b130ca3"
+        },
+        "protocol": {
+          "outputReference": "bfefbd222e40d88f5d4454e92b24062533070f41a3e25c0a23383264650cdb72#0",
+          "dispatcher": {
+            "type": "script",
+            "hash": "46b61f0584f21481b22ea18f945e48ac4148f50fc3ade494a7762440"
+          },
+          "issuance": {
+            "type": "script",
+            "hash": "ed3fb7e046b4f3387e0749fb46847dbc15e85e61aaa76558f968136d"
+          },
+          "transferDelegate": {
+            "type": "script",
+            "hash": "cb418959c00d6779e176fcf6227824a6ac3b5bea7a672ef66a216dae"
+          },
+          "thirdPartyDelegate": {
+            "type": "script",
+            "hash": "92e307862c5374ee78f3cfdaaa45447f7f0db6776d54fa5f8df1a85c"
+          },
+          "upgradeAuthority": {
+            "type": "script",
+            "hash": "2ab871806b01d07fe7d93bf45ff4ce97bd156d168d7a08078ac8a517"
+          },
+          "pendingUpgradeAuthority": null,
+          "matchesPublishedWiring": true
+        },
+        "availableRawBalance": null,
+        "restrictions": {
+          "state": "unknown",
+          "reason": "Token-specific transfer rules and third-party powers have not been verified."
+        },
+        "history": {
+          "state": "ready",
+          "checkedAt": 1792006907529,
+          "value": {
+            "scope": "token",
+            "coverage": "recent",
+            "events": [
+              {
+                "txHash": "95020f0855e3bf88e7460d310deae68807ce53a999ec9490e3fb3d67a9f3637b",
+                "blockHeight": 14029091,
+                "timestamp": 1791204499,
+                "netRawQuantity": "1",
+                "change": "increase",
+                "trigger": "unknown"
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "registryPolicies": [
+    "01c24df7941f8b5856762fcc8aa0bb61a8c24f0911ed6aef474034d0",
+    "b025efe5b44b43ed154419c66b0efc9cf148fd98f464e261018c89e8",
+    "ed5f6bb66712a157f0219978e8a17c5b4f9a7cb59d54714bd5984344"
+  ],
+  "checkedAt": 1792006907529,
+  "error": null
+}

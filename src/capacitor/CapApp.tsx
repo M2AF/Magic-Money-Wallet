@@ -16,6 +16,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { App as CapacitorApp } from '@capacitor/app'
+import { consumeBack } from '../renderer/lib/back-handler'
 import { App } from '../renderer/App'
 import {
   ApprovalOverlays,
@@ -146,6 +147,7 @@ export function CapApp() {
   useEffect(() => {
     const sub = CapacitorApp.addListener('backButton', () => {
       if (browserUiState.open) emitUiEvent('cap:browser:back', null)
+      else if (consumeBack()) return   // an open overlay (e.g. token details) takes Back first
       else CapacitorApp.minimizeApp().catch(() => {})
     })
     return () => { sub.then(s => s.remove()).catch(() => {}) }

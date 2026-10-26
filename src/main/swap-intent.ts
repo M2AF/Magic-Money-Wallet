@@ -237,7 +237,7 @@ export function bindSwapIntent(
  * tokens, the sell amount and the recipient must all be the ones the wallet
  * resolved, not the ones the response asserts.
  */
-function assertQuoteMatchesRequest(
+export function assertQuoteMatchesRequest(
   request: SwapQuoteRequest,
   quote: NormalizedSwapQuote,
   identity: SwapSigningIdentity,

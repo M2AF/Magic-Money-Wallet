@@ -8,6 +8,7 @@ import { startUpdateCheck } from './update-manager'
 import { stopManagedTor } from './tor-manager'
 import { installWorkerReadCache } from './worker-read-cache'
 import { WORKER_HOSTS } from './worker-endpoint'
+import { registerAgentAccess } from './agent-access'
 
 // Short read cache + de-duplication in front of the Worker (free plan: every request counts).
 installWorkerReadCache()
@@ -111,6 +112,7 @@ let tray: Tray | null = null
 // background. This flag flips when the user actually chooses to exit (tray menu,
 // auto-update restart, macOS Cmd+Q) so the close is allowed through.
 let isQuitting = false
+let stopAgentAccess: (() => void) | undefined
 
 /** Show the wallet window, recreating it if it was somehow destroyed. */
 function showWallet(): void {
@@ -271,6 +273,7 @@ app.whenReady().then(() => {
   initBrowserDownloads()
   createTray()
   createWindow()
+  stopAgentAccess = registerAgentAccess(() => mainWindow)
   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
 
   // Cold start as the system's default browser: Windows launched us with the URL
@@ -297,6 +300,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   isQuitting = true   // let the wallet window's close-to-tray interceptor through
   stopManagedTor()
+  stopAgentAccess?.()
 })
 
 // Already running and Windows hands us another URL to open (single-instance lock

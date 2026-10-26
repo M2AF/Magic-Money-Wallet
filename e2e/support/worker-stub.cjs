@@ -19,10 +19,11 @@
 // stubWorker() in worker-stub-browser.ts (extension specs).
 
 // Current custom domain and the legacy workers.dev address (src/main/worker-endpoint.ts).
+// isWorkerUrl also covers C3's public read-only Koios source for all test transports.
 const WORKER_HOST = /^(api\.magicmoney\.dev|magicmoney-swap-proxy\.[a-z0-9-]+\.workers\.dev)$/i
 
 function isWorkerUrl(url) {
-  try { return WORKER_HOST.test(new URL(url).hostname) } catch { return false }
+  try { return WORKER_HOST.test(new URL(url).hostname) || new URL(url).hostname === 'api.koios.rest' } catch { return false }
 }
 
 /** A JSON-RPC result that reads as "nothing here" for the methods a load uses. */
@@ -55,6 +56,20 @@ function workerStubResponse(url, method, bodyText) {
   let path = '/'
   try { path = new URL(url).pathname } catch { /* keep '/' */ }
   const json = (status, value) => ({ status, body: JSON.stringify(value) })
+
+  // C3's new read-only Koios discovery must not query mainnet during tests.
+  // Canonical public-chain fixtures + empty owned outputs exercise the real decoder.
+  if (new URL(url).hostname === 'api.koios.rest') {
+    if (path === '/api/v1/asset_utxos') return json(200, require('../../src/main/__fixtures__/cip113/params.json'))
+    if (path === '/api/v1/address_utxos') {
+      const registry = require('../../src/main/__fixtures__/cip113/registry.json')
+      let request = {}; try { request = JSON.parse(bodyText || '{}') } catch { /* reject below */ }
+      if (request._addresses && request._addresses.includes(registry[0].address)) return json(200, registry)
+      return json(200, [])
+    }
+    if (path === '/api/v1/address_info' || path === '/api/v1/address_txs' || path === '/api/v1/tx_info' || path === '/api/v1/tx_cbor') return json(200, [])
+    return json(503, { error: 'e2e: non-read Koios requests are blocked' })
+  }
 
   if (path.startsWith('/rpc/alchemy-tron')) return json(200, {})
   if (path.startsWith('/rpc/')) return json(200, rpcReply(bodyText))

@@ -61,6 +61,15 @@ Electron on main rebuild and reloads the renderer on preload rebuild.
 The Electron regression now invokes all three real profile-action IPC handlers
 before installing fixture overrides. Without a test wallet it expects the real
 `No wallet address.` error, so a missing handler cannot be hidden by mocks.
-The focused journey passes; the final full gate is running in
-`.local-artifacts/dev-watch-verify-ci.log`. Real dev startup logs are
+The focused journey passes; the final `CI=1 npm run verify:ci` exits zero:
+five TypeScript targets, 174 files / 2,525 unit tests, fresh builds, and 93
+browser passes (91 first attempt, two retries: history visit count and screen
+dropper), with one existing skip. The critical audit passes with zero critical
+issues; existing four moderate and four high issues remain unchanged. Evidence:
+`.local-artifacts/dev-watch-verify-ci.log`. The user committed the source as
+`fd4af18`, then generated images as `24d088b`; matching GitHub CI is running at
+https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38344532410.
+The remaining generated Sovereign screenshot was archived under
+`.local-artifacts/dev-watch/generated-suite-artifacts/` and restored to HEAD.
+Real dev startup logs are
 `.local-artifacts/development-watch*.log`. No wallet install or deployment occurred.

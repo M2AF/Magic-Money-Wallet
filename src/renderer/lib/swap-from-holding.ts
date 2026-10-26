@@ -21,6 +21,7 @@ import { swapCapability } from '../../shared/swap-networks'
 import { swapAssetKey, isNativeSwapAddress, isValidSwapAddress } from '../../shared/swap-token-identity'
 
 export function swapTokenFromHolding(t: WalletToken): SwapToken | null {
+  if (t.source === 'cip113' || t.programmable) return null
   if (t.source === 'agw') return null
   const cap = swapCapability(t.chain)
   if (!cap || (cap.signing !== 'evm-eoa' && cap.signing !== 'solana' && cap.signing !== 'cardano')) return null

@@ -1,0 +1,1385 @@
+diff --git a/HANDOFF.md b/HANDOFF.md
+index 14be95c..738991f 100644
+--- a/HANDOFF.md
++++ b/HANDOFF.md
+@@ -3,27 +3,30 @@
+      History goes in HANDOFF_LOG.md. Machine fields above the first ## are managed by handoff.py. -->
+ 
+ owner: codex
+-task: Diagnose stale development chat backend and header
+-lease_until: 2026-10-13T03:55-03:00
++task: Agent approved native EVM sends with receipts and isolated autonomous account policies
++lease_until: 2026-10-23T00:33-03:00
+ repo: .
+ verify: cmd /c "npm run typecheck && npm test"
+-verified: b11a019 · HEADb11a019 plus preserved NFT/chat and new PFP-menu edits:final CI=1 npm run verify:ci exits0;fiveTS/174files2525unit/fresh Electron extension inject/93browser+1existing skip/no retries/critical audit0critical (existing4moderate4high unchanged). Menu friend/profile/block/report routes and real preload IPC journey pass including pending submission focus/error handling. Final screenshots reviewed;ten generated trackedPNGs archived/restored. GitHub CI pending dirt;baseb11a019 success https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38290711616. No agent commit/push/deploy/install/native/live moderation QA. · 2026-10-13T00:45-03:00
+-head: b11a019 (main) dirty 19
+-updated: 2026-10-13T00:55-03:00 · codex
++verified: 24d088b · Agent Access local: CI=1 verify:ci exit0; fiveTS/182files2607unit/fresh Electron+extension+injection/100browser pass+2retry-pass+1existing skip. Agent journey first attempt;18focused security tests. Header/inbox screenshots reviewed. Audit0critical5high4moderate; no dependency changes.202PNG hashes verified;7generated archived/restored. HEAD24d088b plus uncommitted shared work; GitHub CI pending, no funds/native/release proof. · 2026-10-22T21:25-03:00
++head: 24d088b (main) dirty 22
++updated: 2026-10-22T21:33-03:00 · codex
+ 
+ resources: -
+ 
+ ## Now
+-- Stale runtime diagnosed/fixed: renderer HMR was paired with Electron main started Oct12 22:56; closing only hid app to tray. Replaced old dev subtree, restarted same wallet data in --watch (CLI36648/main28400), and user confirmed both header picture and PFP menu work. npmdev now watches main/preload by default; test probes actual chat handlers before mocks. Focused probe passes; final full gate running .local-artifacts/dev-watch-verify-ci.log. No install/deploy/backend changes.
+-- Messenger PFP menu complete locally: World Chat/DM/friend/request avatars offer View Profile, canonical friendship actions, Block/Unblock and explicit Report form. Existing ChainLens routes through desktop/extension/mobile bridges; no backend/schema change. Final CI=1 verify:ci exits0:fiveTS/174files2525unit/fresh builds/93browser pass+1existing skip/no retries/critical audit0critical. Focused real IPC journey includes held-report focus, failures/success, links and all friendship states. Screenshots reviewed; ten regenerated tracked PNGs archived/restored. docs/CHAT-PROFILE-MENU.md; .local-artifacts/chat-menu/. Prior NFT/chat edits preserved.
+-- Chat sizing/overflow and stale Messenger header complete locally on base b11a019:40px avatars; contained NFT rotation; media/text fit. Header refreshes profile once per cached-session entry, reuses token and checks account identity. Final CI=1 verify:ci exits0:fiveTS/174files2520unit/fresh builds/91browser passes+1history retry+1existing skip/critical audit pass. Ten generated tracked PNGs archived/restored; final screenshots reviewed. Wallet changes remain uncommitted.
+-- NFT PFP work remains in scope of prior shared feature: cached searchable/scrollable spam-filtered picker, NFT-detail action, shared avatar_nft_key, animated NFT hexagons and circular uploads. Shared Supabase migration20261013012323 applied; existing pictures need NFT reselection once. App/Worker deployment and native runtime sync QA remain separate.
++- Desktop Agent Access implemented and locally verified: paired CLI/MCP, public reads/quotes, native-transfer/swap inbox and existing-form review. Off by default; explicit pairing, current account/mode,8h grants,10min drafts; no agent signer. docs/AGENT-ACCESS.md. No commit/push/deploy/sign/broadcast.
++- C1/L1/C2/C3 implemented and locally verified. Canonical-mainnet CIP-113 reader exposes exact holdings, authenticated core wiring and recent token balance changes; module rules/available amount remain unknown, generic execution unavailable. docs/CIP113-C3-HANDOFF.md is the Claude L2 contract.
++- Universal clickable token panels, validated receive QR and reviewed address-only send scans are complete. Preserve all uncommitted feature/chat work; no commit/push/deploy/sign/broadcast.
++- Prior chat/NFT work remains locally verified: PFP actions, header refresh, layout and stale runtime/main-watch fix. User confirmed header/menu; same dev-watch runtime/data preserved. Native/production sync remains separate. docs/CHAT-PROFILE-MENU.md and docs/NFT-PROFILE-PICTURES.md.
++- User source commits fd4af18 then24d088b are preserved. Shared Supabase migration20261013012323 applied previously; legacy pictures need explicit NFT reselection. No new backend/dependency/native changes in C3.
+ 
+ ## Verification status
+-- Current local gate exits0: .local-artifacts/chat-menu-final-verify-ci.log (2525unit/93browser+1skip/no retries). Existing audit4moderate/4high,zero critical; dependencies unchanged. GitHub CI pending uncommitted wallet changes; baseb11a019 success https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38290711616. No agent commit/push/deploy/install/native QA. Previous sizing run's unrelated history retry is retained in its log; current history suite passes first attempt.
++- Agent Access final CI=1 verify:ci exits0: fiveTS,182files2607unit (18agent),fresh desktop/extension/injection,100browser pass+2retry-pass(Sappy Seals/downloads)+1existing skip. New agent journey first-attempt; header380/420/768/1200,inbox400/768/1200 reviewed. Audit0critical,5high4moderate; dependency files unchanged.202PNG hashes verified,7generated archived/restored. .local-artifacts/agent-access/verify-ci.log.
++- C3 final CI=1 verify:ci exits0: fiveTS/179files2584unit/fresh desktop+extension/99browser+1history-repeat flaky pass+1existing skip; seven token-details first attempt. Audit0critical,4moderate4high unchanged. Android/iOS web bundles pass. Public read-only observer passes; screenshot reviewed,7tracked PNGs archived/restored. .local-artifacts/cip113-c3/verify-ci.log.
++- HEAD24d088b plus uncommitted shared work; matching feature-SHA GitHub CI/native camera/hardware Back/real-funds/deployment proof absent. Historical C2/dev-watch/chat gate logs remain linked below. Prior full C3 failure was Sovereign duplicate-label selector; scoped test-only correction passed isolated and final full gate.
+ 
+ ## Next
+-- User review/commit wallet changes when desired, then inspect matching main GitHub CI after push and release rebuilt wallet/preload/main when authorized. Profile/moderation backend unchanged for this menu; native/production integration QA separate. docs/CHAT-PROFILE-MENU.md has final evidence.
++- User review/commit/push decision; after authorized push verify main CI for exact SHA. Rebuilt desktop robot icon opens Agent Access. Dependency advisories and C4/native QA remain separate.
+ 
+ ## Traps
+ - Only the lease owner edits shared code; preserve dirty work. No commit/push/deploy/install/sign/broadcast without user authorization.
+@@ -38,10 +41,18 @@ resources: -
+ - Full Cardano/provider/IOG and older UI guardrails are retained in HANDOFF_ARCHIVE.md (snapshot2026-10-12); read them before changing those systems.
+ 
+ ## Skills
+-- Chat UI -> Fullstack Iteration / Visual Iteration / Playwright Testing | used: source tracing, before/after overflow regression, responsive browser checks and screenshots | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,visual-Iteration,playwright-testing}/SKILL.md | Claude: resolve local catalog.
+-- Shared project -> agent-handoff | used: lease, checkpoints, evidence and archived live-board history | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md.
++- Desktop Agent Access -> architecture-review / blockchain-architecture-review / wallet-security-auditor / blockchain-ux-review / Fullstack Iteration / Playwright Testing / Visual Iteration | used: restricted local service, explicit grants, existing confirmation flows and real Electron/security QA | Codex: C:/Users/balla/.codex/skills/ | Claude: resolve local catalog.
++- Shared project -> agent-handoff | used: sequential lease/checkpoints/release and dirty-work preservation | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md.
++- Token/CIP-113 contracts -> architecture-review / blockchain-ux-review / cardano-wallet-core | used: canonical deployment/schema pins, ownership/capability boundaries and honest programmable states | Codex: C:/Users/balla/.codex/skills/{architecture-review,blockchain-ux-review,cardano-wallet-core}/SKILL.md | Claude: resolve local catalog.
++- Implementation -> Fullstack Iteration / wallet-security-auditor | used: source-bound read-only assets, exact balances, fail-closed QR and ownership guards | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,wallet-security-auditor}/SKILL.md | Claude: resolve local catalog.
++- Validation -> Playwright Testing / Debugging | used: real-bridge browser regressions, scoped duplicate-label test correction and screenshot review | Codex: C:/Users/balla/.codex/skills/{playwright-testing,debug}/SKILL.md | Claude: resolve local catalog.
+ 
+ ## Pointers
++- docs/AGENT-ACCESS.md (setup, tool schemas, boundaries, exact local results); src/main/agent-access*.ts; resources/agent-access.mjs; e2e/agent-access.spec.ts; .local-artifacts/agent-access/{verify-ci.log,png-restoration.json,screenshots}.
++- docs/CIP113-C3-HANDOFF.md; src/shared/cip113-wire.ts; src/main/cardano-programmable.ts; src/main/__fixtures__/cip113/README.md; .local-artifacts/cip113-c3/.
++- docs/TOKEN-DETAILS-C2-HANDOFF.md; .local-artifacts/token-details-c2-verify-ci.log; .local-artifacts/token-details-c2/ (reviewed screenshot, preserved/generated PNGs).
++- docs/TOKEN-DETAILS-C1-HANDOFF.md (ready for Claude L1: exact imports, context, fixtures, activity scope and stale-result guards).
++- docs/TOKEN-DETAILS-IMPLEMENTATION-PLAN.md (universal details, receive/QR, CIP-113 phases and Claude/Codex job packets).
+ - docs/NFT-PROFILE-PICTURES.md; .local-artifacts/chat-sizing/; .local-artifacts/nft-avatar/.
+ - docs/CHAT-PROFILE-MENU.md; src/renderer/components/ChatProfileMenu.{tsx,css}; e2e/messenger-profile-menu.spec.ts; .local-artifacts/chat-menu/; chat-menu-final-verify-ci.log.
+ - src/main/chainlens-chat.{ts,test.ts}; src/renderer/pages/MessengerPage.tsx; src/renderer/components/ProfileAvatar.css; e2e/__tour.spec.ts; .local-artifacts/chat-sizing-final-verify-ci.log.
+diff --git a/HANDOFF_ARCHIVE.md b/HANDOFF_ARCHIVE.md
+index 301d327..a7e3abe 100644
+--- a/HANDOFF_ARCHIVE.md
++++ b/HANDOFF_ARCHIVE.md
+@@ -1484,3 +1484,115 @@ resources: -
+ - NFT media and mosaic UI -> Fullstack Iteration, Visual Iteration, Playwright Testing | used: source-path comparison, regression assertions, screenshots and four-target bundles | Codex: C:/Users/balla/.codex/skills/{fullstack-iteration,visual-Iteration,playwright-testing}/SKILL.md | Claude: unknown.
+ - Shared Claude/Codex changes -> agent-handoff | used: lease, checkpoints and verification handoff | source: local shared skill | Claude: C:/Users/balla/.claude/skills/agent-handoff/SKILL.md | Codex: C:/Users/balla/.codex/skills/agent-handoff/SKILL.md
+ - Wallet transaction pipeline review -> blockchain-architecture-review | used: approval, signer, broadcast and recovery boundaries | source: local Codex skill | Claude: unknown | Codex: C:/Users/balla/.codex/skills/Blockchain-architecture/SKILL.md
++
++### 2026-10-12T01:10-03:00 · codex · claim · 5dd914d (main) dirty 10
++- task: Create Sappy Seals black-white Live2D art theme
++- lease until 2026-10-12T04:10-03:00
++
++### 2026-10-12T01:26-03:00 · codex · checkpoint · 5dd914d (main) dirty 14
++- Sappy Seals art registered with Ethereum holder gate and bundled Live2D runtime; flat black-white portfolio scene. Starting extension build and actual motion browser QA; logs .sappy-*.log.
++- next: Validate and fit Live2D paws against portfolio tabs; check all renderer targets.
++
++### 2026-10-12T01:39-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
++- Sappy full browser journey passes actual Cubism deformation/pointer tracking, variants, reduced-motion, responsive layout, Send/Swap/reload/zero/failure revocation. User then requested smaller seal, lower summary and 28px variant icon beside refresh; applied and rebuilding final targets.
++- next: Recheck final dimensions visually; finish builds and handoff.
++
++### 2026-10-12T01:41-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
++- Final user layout reviewed in screenshots: original texture, smaller seal at tab fence, lower summary and 28px variant icon beside refresh. Four final builds and Sappy/Mallard browser journeys pass. Final typecheck/unit reruns running in .sappy-typecheck.log and .sappy-tests.log.
++- next: Read final TS/unit results and release lease.
++
++### 2026-10-12T01:43-03:00 · codex · verify · 5dd914d (main) dirty 15
++- verified: Final five TS targets;172files2510tests;four renderer bundles;Sappy and Mallard browser journeys pass. Actual Cubism head deformation, original/alternate textures, reduced-motion, holder zero/error revocation, responsive360/400/1000 and final28px toggle placement verified. Screenshots reviewed;texture.png SHA256 matches supplied file. No commit/deploy/install or native device verification.
++
++### 2026-10-12T01:43-03:00 · codex · handoff · 5dd914d (main) dirty 15
++- Sappy Seals holder-only art complete locally with correct default texture, 28px alternate icon beside refresh, smaller seal at fence and summary lowered8px. Five TS/2510tests/four builds/two browser journeys pass; docs/SAPPY-SEALS-THEME.md. No deployment or phone install.
++- next: User review of final Sappy layout; install phone build or adapt standalone ChainLens only when requested.
++
++### 2026-10-12T01:44-03:00 · codex · claim · 5dd914d (main) dirty 15
++- task: Enable Sappy click motions and lower portfolio summary
++- lease until 2026-10-12T04:44-03:00
++
++### 2026-10-12T01:46-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
++- Enabled passive wallet click/tap cycle through all13 supplied seal motions with actual motionStart diagnostics, respecting reduced-motion/hidden/cleanup. Lowered Sappy summary additional24px (32px total). Starting build/typecheck and actual WebGL journey.
++- next: Verify click motions and final spacing; build shared renderer targets.
++
++### 2026-10-12T01:52-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
++- All13 actual SDK click motions verified in browser. User refined layout to compact whole stack, then add8px logo clearance: final heading padding16/4, zero header margin/offset, controls bottom8; seal fit unchanged. Final four builds running in .sappy-click-*.log; next rerun final geometry journey.
++- next: Inspect final compact screenshots and motion journey, then release.
++
++### 2026-10-12T01:55-03:00 · codex · verify · 5dd914d (main) dirty 15
++- verified: Five TS targets pass;four final renderer builds pass;Sappy browser journey verifies all13 distinct actual SDK click motion starts, reduced-motion suppression, relative geometry and unchanged header/32px lifted seal-tabs-search, holder/variant/reload/Send/Swap at360/400/1000. Screenshot reviewed; .sappy-click-*.log. No deploy/install/native-device QA.
++
++### 2026-10-12T01:58-03:00 · codex · verify · 5dd914d (main) dirty 15
++- verified: Five TS targets;four final renderer bundles;Sappy actual WebGL journey passes all13 SDK click groups, reduced-motion click suppression, final compact header/logo spacing, independent32px lift of seal-tabs-search and clear sparkline at360/400/1000. Screenshot reviewed. Existing holder/variant/reload/Send/Swap checks pass; .sappy-click-*.log. No native device QA/install/deploy.
++
++### 2026-10-12T01:58-03:00 · codex · handoff · 5dd914d (main) dirty 15
++- Sappy click animation cycle implemented and verified; final user-directed header clearance with only seal-tabs-search lifted32px, chart clear, more list room. Four final builds and actual motion journey pass. docs/SAPPY-SEALS-THEME.md. No deploy/install.
++- next: User visual review; native phone install or standalone ChainLens adaptation only if requested.
++
++### 2026-10-12T02:46-03:00 · codex · claim · c33b12e (main) dirty 1
++- task: Match wallet collapsed disclosure pill and rail styling
++- lease until 2026-10-12T05:46-03:00
++
++### 2026-10-12T02:48-03:00 · codex · checkpoint · c33b12e (main) dirty 8
++- Wallet Art/Material groups default collapsed; matching white label pills/black text/white rail to chevron. Custom colors/New moved alongside builtin colors before groups. Updated browser journeys to expand intentionally and assert defaults/order/style/native keyboard. User HEADc33b12e; starting typecheck/unit/four renderer builds in .wallet-pill-*.log.
++- next: Verify Mallard disclosure/default screenshot and Sappy lifecycle journey; release.
++
++### 2026-10-12T02:51-03:00 · codex · verify · c33b12e (main) dirty 15
++- verified: User HEADc33b12e reconciled:final five TS targets/172files2510tests/four renderer bundles/two full Sappy-Mallard journeys pass. Default collapse,7art/6materials, white pills/black labels/rail, custom colours/New ordering, native keyboard and existing ownership/motion/variant/Send/Swap behavior verified. Screenshot reviewed; .wallet-pill-*.log. No native install/commit/deploy.
++
++### 2026-10-12T02:51-03:00 · codex · handoff · c33b12e (main) dirty 15
++- Wallet disclosures now match ChainLens pill/rail style and collapsed defaults; custom colors/New grouped with builtin colours. Five TS/2510tests/four builds/two browser journeys pass; screenshot reviewed. No phone install or deploy.
++- next: User review; phone installation only when requested.
++
++### 2026-10-12T11:54-03:00 · codex · claim · 6c4cec1 (main) dirty 8
++- task: Share CI release definition of done and verification script
++- lease until 2026-10-12T14:54-03:00
++
++### 2026-10-12T11:55-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
++- Shared AGENTS definition of done and npm verify:ci added; no app/workflow/dependency edits. Full local verification will run with CI=1; log .verify-ci-shared.log. Current base6c4cec1 CI38218478493 and Release38219662859 success; dirty changes not remotely verified.
++
++### 2026-10-12T11:57-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
++- verify:ci CI=1: five typecheck targets and172files/2510unit tests passed; extension build passed. Injection/full Playwright/desktop/audit still running. .verify-ci-shared.log. User committed only pre-existing artifacts in50efa2a; our rules/package/handoff remain uncommitted.
++
++### 2026-10-12T12:01-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
++- First full verify run stopped after browser failures:8workers caused art wallet-setup action timeouts in traces; types2510unit and extension/inject passed. Setting verify:ci e2e --workers=1 and rerunning full gate; no assertions/app code changed. Old evidence .verify-ci-shared.log, final .verify-ci-shared-final.log.
++
++### 2026-10-12T12:04-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
++- Final single-worker verify:ci rerun passed all five TS targets/172files2510tests and extension/inject;92browser cases now running, followed by desktop build and critical audit. .verify-ci-shared-final.log; dirty screenshots are test-generated, not app code.
++
++### 2026-10-12T12:08-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
++- Final one-worker run: tour and five art journeys (Sappy/Ape/Mallard/Sealuminati/Emonad) pass; software WebGL true. Full remaining suite/build/audit continue. .verify-ci-shared-final.log. Test-only artifact refreshes will be archived separately so change stays docs/npm/handoff.
++
++### 2026-10-12T12:10-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
++- Single-worker run all6art journeys pass. Unrelated asset-send.spec.ts:194 fails twice:visible Send this token button missing; Browser History suite passed on retry. Full remaining suite running; trace preserved test-results/asset-send*-retry1/trace.zip. Critical audit measured separately because fail-fast script will stop at e2e failure; no application/test assertion edits.
++
++### 2026-10-12T12:12-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
++- Found old Electron outputs from02:49 were used by e2e; stopped second run after asset-send/custom-theme failures. verify:ci now builds desktop BEFORE e2e so desktop tests cannot self-skip/use stale outputs; single-worker retained. Full corrected gate .verify-ci-fresh.log next. Critical audit passes (0critical); app/tests/workflows unchanged.
++
++### 2026-10-12T12:17-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
++- Corrected verify:ci types2510unit/fresh Electron/injection/extension builds passed;92one-worker browser run ongoing .verify-ci-fresh.log. Fresh renderer hash unchanged, so prior asset-send failure may be real rather than stale-output repair. Keep app/assertions unchanged and report actual full result. Separate critical audit0critical.
++
++### 2026-10-12T12:22-03:00 · codex · checkpoint · 50efa2a (main) dirty 10
++- Fresh-build e2e: all6art pass (Sappy retry), asset-send ERC20 Send-button assertion fails both attempts at194; NFT send/history pass, Cardano checks progressing. Full result pending .verify-ci-fresh.log; types2510unit/builds/critical audit pass. Application tests/code unchanged; do not describe local gate green.
++
++### 2026-10-12T12:33-03:00 · codex · verify · 50efa2a (main) dirty 4
++- verified: Shared rules/script on user50efa2a validated: fiveTS/172files2510unit/fresh Electron/extension/inject pass; corrected full CI=1 gate exits1 (86browser pass,4desktop fail,1Sappy retry,1skip). Separate npm critical prod audit passes0critical. Blocker spec lines recorded; traces/test-generated screenshots preserved test-results/. No app/test/workflow/dependency edits; GitHub CI pending for dirty changes (6c4cec1 base success only).
++
++### 2026-10-12T12:33-03:00 · codex · handoff · 50efa2a (main) dirty 4
++- AGENTS shared CI/release rules, npm verify:ci (fresh desktop first/single worker/critical audit), project CI handoff status and authorized Codex memory note complete. Full gate correctly reveals4 pre-existing desktop e2e failures; report not-green. No commit/push/deploy.
++- next: Review rules/script; diagnose asset-send:194, custom-themes:427/569, electron-privacy:107 and Sappy retry before calling local gate green; check matching GitHub CI after user's push.
++
++### 2026-10-12T15:30-03:00 · claude · verify · 50efa2a (main) dirty
++- verify:ci now 90 pass / 1 skip / 1 fail. Fixed the stale desktop specs: custom-themes absorbed key is v2 (theme.ts ABSORBED_KEY), White & Gold recolour checks the wordmark gold halo (every palette finish paints .app-shell, so the ivory sweep is unobservable), asset-send moves the pointer off the list before re-hovering (late rows re-sort under a stationary pointer). Critical audit 0.
++- The remaining failure is REAL: electron-privacy-mode "Send NIGHT" missing because indexer.mainnet.midnight.network returns HTTP 410 (decommissioned 2026-10-09, moved to Blockfrost). Midnight balance/send/DUST/connector are broken for users. Do not weaken the test; needs a Blockfrost nightmainnet token as a Worker secret + proxied route (user decision pending).
++
++### 2026-10-12T22:13-03:00 · codex · claim · b11a019 (main) dirty 1
++- task: Shared NFT profile avatar metadata and animated hexagon UI
++- lease until 2026-10-13T01:13-03:00
++
++### 2026-10-12T22:25-03:00 · codex · checkpoint · b11a019 (main) dirty 13
++- NFT picker reuse/spam/search/scroll, NFT detail action and shared avatar key/hexagon implemented. Shared Supabase avatar_nft_key additive migration applied; test write rolled back. Preparing full verify:ci log .nft-avatar-verify-ci.log; matching remote CI pending uncommitted changes.
++
++### 2026-10-12T22:30-03:00 · codex · checkpoint · b11a019 (main) dirty 14
++- New picker fixture added (spam/cache/hexagon/upload/save-failure), cache session invalidation and account/result guards finished. Earlier verify run stopped after builds to include final changes. Restarting required full CI=1 verify:ci in .nft-avatar-verify-ci-final.log.
+diff --git a/HANDOFF_LOG.md b/HANDOFF_LOG.md
+index 552e9f8..55d6fee 100644
+--- a/HANDOFF_LOG.md
++++ b/HANDOFF_LOG.md
+@@ -2,118 +2,6 @@
+ <!-- Append-only. Never edit or delete entries; correct with a new `correction` entry.
+      Header: ### <iso-time> · <agent> · <kind> · <head> <clean|dirty N>. Use handoff.py log. -->
+ 
+-### 2026-10-12T01:10-03:00 · codex · claim · 5dd914d (main) dirty 10
+-- task: Create Sappy Seals black-white Live2D art theme
+-- lease until 2026-10-12T04:10-03:00
+-
+-### 2026-10-12T01:26-03:00 · codex · checkpoint · 5dd914d (main) dirty 14
+-- Sappy Seals art registered with Ethereum holder gate and bundled Live2D runtime; flat black-white portfolio scene. Starting extension build and actual motion browser QA; logs .sappy-*.log.
+-- next: Validate and fit Live2D paws against portfolio tabs; check all renderer targets.
+-
+-### 2026-10-12T01:39-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+-- Sappy full browser journey passes actual Cubism deformation/pointer tracking, variants, reduced-motion, responsive layout, Send/Swap/reload/zero/failure revocation. User then requested smaller seal, lower summary and 28px variant icon beside refresh; applied and rebuilding final targets.
+-- next: Recheck final dimensions visually; finish builds and handoff.
+-
+-### 2026-10-12T01:41-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+-- Final user layout reviewed in screenshots: original texture, smaller seal at tab fence, lower summary and 28px variant icon beside refresh. Four final builds and Sappy/Mallard browser journeys pass. Final typecheck/unit reruns running in .sappy-typecheck.log and .sappy-tests.log.
+-- next: Read final TS/unit results and release lease.
+-
+-### 2026-10-12T01:43-03:00 · codex · verify · 5dd914d (main) dirty 15
+-- verified: Final five TS targets;172files2510tests;four renderer bundles;Sappy and Mallard browser journeys pass. Actual Cubism head deformation, original/alternate textures, reduced-motion, holder zero/error revocation, responsive360/400/1000 and final28px toggle placement verified. Screenshots reviewed;texture.png SHA256 matches supplied file. No commit/deploy/install or native device verification.
+-
+-### 2026-10-12T01:43-03:00 · codex · handoff · 5dd914d (main) dirty 15
+-- Sappy Seals holder-only art complete locally with correct default texture, 28px alternate icon beside refresh, smaller seal at fence and summary lowered8px. Five TS/2510tests/four builds/two browser journeys pass; docs/SAPPY-SEALS-THEME.md. No deployment or phone install.
+-- next: User review of final Sappy layout; install phone build or adapt standalone ChainLens only when requested.
+-
+-### 2026-10-12T01:44-03:00 · codex · claim · 5dd914d (main) dirty 15
+-- task: Enable Sappy click motions and lower portfolio summary
+-- lease until 2026-10-12T04:44-03:00
+-
+-### 2026-10-12T01:46-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+-- Enabled passive wallet click/tap cycle through all13 supplied seal motions with actual motionStart diagnostics, respecting reduced-motion/hidden/cleanup. Lowered Sappy summary additional24px (32px total). Starting build/typecheck and actual WebGL journey.
+-- next: Verify click motions and final spacing; build shared renderer targets.
+-
+-### 2026-10-12T01:52-03:00 · codex · checkpoint · 5dd914d (main) dirty 15
+-- All13 actual SDK click motions verified in browser. User refined layout to compact whole stack, then add8px logo clearance: final heading padding16/4, zero header margin/offset, controls bottom8; seal fit unchanged. Final four builds running in .sappy-click-*.log; next rerun final geometry journey.
+-- next: Inspect final compact screenshots and motion journey, then release.
+-
+-### 2026-10-12T01:55-03:00 · codex · verify · 5dd914d (main) dirty 15
+-- verified: Five TS targets pass;four final renderer builds pass;Sappy browser journey verifies all13 distinct actual SDK click motion starts, reduced-motion suppression, relative geometry and unchanged header/32px lifted seal-tabs-search, holder/variant/reload/Send/Swap at360/400/1000. Screenshot reviewed; .sappy-click-*.log. No deploy/install/native-device QA.
+-
+-### 2026-10-12T01:58-03:00 · codex · verify · 5dd914d (main) dirty 15
+-- verified: Five TS targets;four final renderer bundles;Sappy actual WebGL journey passes all13 SDK click groups, reduced-motion click suppression, final compact header/logo spacing, independent32px lift of seal-tabs-search and clear sparkline at360/400/1000. Screenshot reviewed. Existing holder/variant/reload/Send/Swap checks pass; .sappy-click-*.log. No native device QA/install/deploy.
+-
+-### 2026-10-12T01:58-03:00 · codex · handoff · 5dd914d (main) dirty 15
+-- Sappy click animation cycle implemented and verified; final user-directed header clearance with only seal-tabs-search lifted32px, chart clear, more list room. Four final builds and actual motion journey pass. docs/SAPPY-SEALS-THEME.md. No deploy/install.
+-- next: User visual review; native phone install or standalone ChainLens adaptation only if requested.
+-
+-### 2026-10-12T02:46-03:00 · codex · claim · c33b12e (main) dirty 1
+-- task: Match wallet collapsed disclosure pill and rail styling
+-- lease until 2026-10-12T05:46-03:00
+-
+-### 2026-10-12T02:48-03:00 · codex · checkpoint · c33b12e (main) dirty 8
+-- Wallet Art/Material groups default collapsed; matching white label pills/black text/white rail to chevron. Custom colors/New moved alongside builtin colors before groups. Updated browser journeys to expand intentionally and assert defaults/order/style/native keyboard. User HEADc33b12e; starting typecheck/unit/four renderer builds in .wallet-pill-*.log.
+-- next: Verify Mallard disclosure/default screenshot and Sappy lifecycle journey; release.
+-
+-### 2026-10-12T02:51-03:00 · codex · verify · c33b12e (main) dirty 15
+-- verified: User HEADc33b12e reconciled:final five TS targets/172files2510tests/four renderer bundles/two full Sappy-Mallard journeys pass. Default collapse,7art/6materials, white pills/black labels/rail, custom colours/New ordering, native keyboard and existing ownership/motion/variant/Send/Swap behavior verified. Screenshot reviewed; .wallet-pill-*.log. No native install/commit/deploy.
+-
+-### 2026-10-12T02:51-03:00 · codex · handoff · c33b12e (main) dirty 15
+-- Wallet disclosures now match ChainLens pill/rail style and collapsed defaults; custom colors/New grouped with builtin colours. Five TS/2510tests/four builds/two browser journeys pass; screenshot reviewed. No phone install or deploy.
+-- next: User review; phone installation only when requested.
+-
+-### 2026-10-12T11:54-03:00 · codex · claim · 6c4cec1 (main) dirty 8
+-- task: Share CI release definition of done and verification script
+-- lease until 2026-10-12T14:54-03:00
+-
+-### 2026-10-12T11:55-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
+-- Shared AGENTS definition of done and npm verify:ci added; no app/workflow/dependency edits. Full local verification will run with CI=1; log .verify-ci-shared.log. Current base6c4cec1 CI38218478493 and Release38219662859 success; dirty changes not remotely verified.
+-
+-### 2026-10-12T11:57-03:00 · codex · checkpoint · 50efa2a (main) dirty 4
+-- verify:ci CI=1: five typecheck targets and172files/2510unit tests passed; extension build passed. Injection/full Playwright/desktop/audit still running. .verify-ci-shared.log. User committed only pre-existing artifacts in50efa2a; our rules/package/handoff remain uncommitted.
+-
+-### 2026-10-12T12:01-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
+-- First full verify run stopped after browser failures:8workers caused art wallet-setup action timeouts in traces; types2510unit and extension/inject passed. Setting verify:ci e2e --workers=1 and rerunning full gate; no assertions/app code changed. Old evidence .verify-ci-shared.log, final .verify-ci-shared-final.log.
+-
+-### 2026-10-12T12:04-03:00 · codex · checkpoint · 50efa2a (main) dirty 7
+-- Final single-worker verify:ci rerun passed all five TS targets/172files2510tests and extension/inject;92browser cases now running, followed by desktop build and critical audit. .verify-ci-shared-final.log; dirty screenshots are test-generated, not app code.
+-
+-### 2026-10-12T12:08-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+-- Final one-worker run: tour and five art journeys (Sappy/Ape/Mallard/Sealuminati/Emonad) pass; software WebGL true. Full remaining suite/build/audit continue. .verify-ci-shared-final.log. Test-only artifact refreshes will be archived separately so change stays docs/npm/handoff.
+-
+-### 2026-10-12T12:10-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+-- Single-worker run all6art journeys pass. Unrelated asset-send.spec.ts:194 fails twice:visible Send this token button missing; Browser History suite passed on retry. Full remaining suite running; trace preserved test-results/asset-send*-retry1/trace.zip. Critical audit measured separately because fail-fast script will stop at e2e failure; no application/test assertion edits.
+-
+-### 2026-10-12T12:12-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+-- Found old Electron outputs from02:49 were used by e2e; stopped second run after asset-send/custom-theme failures. verify:ci now builds desktop BEFORE e2e so desktop tests cannot self-skip/use stale outputs; single-worker retained. Full corrected gate .verify-ci-fresh.log next. Critical audit passes (0critical); app/tests/workflows unchanged.
+-
+-### 2026-10-12T12:17-03:00 · codex · checkpoint · 50efa2a (main) dirty 12
+-- Corrected verify:ci types2510unit/fresh Electron/injection/extension builds passed;92one-worker browser run ongoing .verify-ci-fresh.log. Fresh renderer hash unchanged, so prior asset-send failure may be real rather than stale-output repair. Keep app/assertions unchanged and report actual full result. Separate critical audit0critical.
+-
+-### 2026-10-12T12:22-03:00 · codex · checkpoint · 50efa2a (main) dirty 10
+-- Fresh-build e2e: all6art pass (Sappy retry), asset-send ERC20 Send-button assertion fails both attempts at194; NFT send/history pass, Cardano checks progressing. Full result pending .verify-ci-fresh.log; types2510unit/builds/critical audit pass. Application tests/code unchanged; do not describe local gate green.
+-
+-### 2026-10-12T12:33-03:00 · codex · verify · 50efa2a (main) dirty 4
+-- verified: Shared rules/script on user50efa2a validated: fiveTS/172files2510unit/fresh Electron/extension/inject pass; corrected full CI=1 gate exits1 (86browser pass,4desktop fail,1Sappy retry,1skip). Separate npm critical prod audit passes0critical. Blocker spec lines recorded; traces/test-generated screenshots preserved test-results/. No app/test/workflow/dependency edits; GitHub CI pending for dirty changes (6c4cec1 base success only).
+-
+-### 2026-10-12T12:33-03:00 · codex · handoff · 50efa2a (main) dirty 4
+-- AGENTS shared CI/release rules, npm verify:ci (fresh desktop first/single worker/critical audit), project CI handoff status and authorized Codex memory note complete. Full gate correctly reveals4 pre-existing desktop e2e failures; report not-green. No commit/push/deploy.
+-- next: Review rules/script; diagnose asset-send:194, custom-themes:427/569, electron-privacy:107 and Sappy retry before calling local gate green; check matching GitHub CI after user's push.
+-
+-### 2026-10-12T15:30-03:00 · claude · verify · 50efa2a (main) dirty
+-- verify:ci now 90 pass / 1 skip / 1 fail. Fixed the stale desktop specs: custom-themes absorbed key is v2 (theme.ts ABSORBED_KEY), White & Gold recolour checks the wordmark gold halo (every palette finish paints .app-shell, so the ivory sweep is unobservable), asset-send moves the pointer off the list before re-hovering (late rows re-sort under a stationary pointer). Critical audit 0.
+-- The remaining failure is REAL: electron-privacy-mode "Send NIGHT" missing because indexer.mainnet.midnight.network returns HTTP 410 (decommissioned 2026-10-09, moved to Blockfrost). Midnight balance/send/DUST/connector are broken for users. Do not weaken the test; needs a Blockfrost nightmainnet token as a Worker secret + proxied route (user decision pending).
+-
+-### 2026-10-12T22:13-03:00 · codex · claim · b11a019 (main) dirty 1
+-- task: Shared NFT profile avatar metadata and animated hexagon UI
+-- lease until 2026-10-13T01:13-03:00
+-
+-### 2026-10-12T22:25-03:00 · codex · checkpoint · b11a019 (main) dirty 13
+-- NFT picker reuse/spam/search/scroll, NFT detail action and shared avatar key/hexagon implemented. Shared Supabase avatar_nft_key additive migration applied; test write rolled back. Preparing full verify:ci log .nft-avatar-verify-ci.log; matching remote CI pending uncommitted changes.
+-
+-### 2026-10-12T22:30-03:00 · codex · checkpoint · b11a019 (main) dirty 14
+-- New picker fixture added (spam/cache/hexagon/upload/save-failure), cache session invalidation and account/result guards finished. Earlier verify run stopped after builds to include final changes. Restarting required full CI=1 verify:ci in .nft-avatar-verify-ci-final.log.
+-
+ ### 2026-10-12T22:36-03:00 · codex · checkpoint · b11a019 (main) dirty 14
+ - Found and fixed existing extension/Capacitor updateProfile address-vs-UUID bug and Worker provider_id restriction for Solana/social-created accounts. Worker signature proof unchanged; verified-link membership gates writes. New actual signed-request tests reject watch-only/unrelated/invalid signatures; 24 focused tests pass. Restarting full CI gate once more with this necessary save-path correction, .nft-avatar-verify-ci-complete.log.
+ 
+@@ -184,3 +72,158 @@
+ 
+ ### 2026-10-13T00:55-03:00 · codex · checkpoint · b11a019 (main) dirty 19
+ - User confirmed Both are working after restart: top-right picture matches Profile and PFP menu works. New real-data dev main PID28400 under watch CLI36648 using same default data; npmdev permanent --watch set. Actual real IPC registration probe before fixture overrides passes. Full gate session4900 .local-artifacts/dev-watch-verify-ci.log running; no backend/auth/image-source changes or installs needed.
++
++### 2026-10-13T01:09-03:00 · codex · verify · 24d088b (main) dirty 2
++- verified: User confirms header PFP and menu both work after same-data dev restart; npmdev --watch and real IPC registration probe complete. CI=1 npm run verify:ci exits0: fiveTS,174files2525unit,fresh builds,91browser first attempt plus2 flaky passes and1skip,critical audit0critical (4moderate4high unchanged). Source user-committed fd4af18; user HEAD24d088b images. Matching GitHub CI38344532410 in_progress. Remaining generated Sovereign PNG archived/restored; docs/board notes only dirty. No agent commit/push/deploy/install.
++
++### 2026-10-13T01:09-03:00 · codex · handoff · 24d088b (main) dirty 3
++- User confirmed both runtime fixes. Permanent watch-mode prevention and actual handler regression verified; full local gate passes with two unrelated retries. User source/images commits preserved. Development watcher left running with normal wallet data; final docs/handoff notes dirty. No agent commit/push/deploy/install.
++- next: Inspect matching GitHub CI38344532410 for HEAD24d088b; review/commit final notes if desired. Release or install only with user authorization; native/production QA separate.
++
++### 2026-10-14T12:30-03:00 · codex · claim · 24d088b (main) dirty 3
++- task: Plan universal token details, token receive and QR-assisted send; Claude/Codex ownership
++- lease until 2026-10-14T15:30-03:00
++
++### 2026-10-14T12:33-03:00 · codex · checkpoint · 24d088b (main) dirty 3
++- Planning only: docs/TOKEN-DETAILS-IMPLEMENTATION-PLAN.md defines universal clickable token panel, source/network-specific receive QR, reviewed QR-assisted send, staged CIP-113 read-only/execution, C1/L1/C2/C3/L2/C4 ownership and acceptance gates. Existing AddressChip/QrCode and SendModal scanner inspected; arbitrary scheme stripping identified for explicit parser replacement. No app implementation, tests, commits, pushes or funds actions. git diff --check passed.
++- next: Codex C1 shared contract/helpers/tests, then Claude L1 panel/UI after export handoff.
++
++### 2026-10-14T12:33-03:00 · codex · handoff · 24d088b (main) dirty 3
++- Universal token details plan and job split saved; shared board pointers updated; existing chat notes and dirty state preserved. Implementation not started.
++- next: Read docs/TOKEN-DETAILS-IMPLEMENTATION-PLAN.md; Codex C1 shared receive/capability and QR contract, then release to Claude L1.
++
++### 2026-10-14T12:35-03:00 · codex · claim · 24d088b (main) dirty 3
++- task: C1 universal token-details shared contract, receive rules and QR parser
++- lease until 2026-10-14T15:35-03:00
++
++### 2026-10-14T12:43-03:00 · codex · checkpoint · 24d088b (main) dirty 5
++- C1 implemented in src/shared/token-details.ts and token-qr.ts with typed selection/account/source identities, validated ordinary/AGW receive, explicit action states and address-only QR parsing. Added 3 suites; focused existing send/swap regressions plus new suites pass 5files/82tests. docs/TOKEN-DETAILS-C1-HANDOFF.md supplies imports, sample usage, fixtures, activity limits and async stale-result rules. Final five-target typecheck/browser bundle session5399 running; no UI/SendModal edits or funds actions.
++- next: Finish final C1 typecheck/browser smoke, then release to Claude L1 using docs/TOKEN-DETAILS-C1-HANDOFF.md.
++
++### 2026-10-14T12:44-03:00 · codex · verify · 24d088b (main) dirty 5
++- C1 complete: focused Vitest new token-details/token-qr/real-validator receive plus existing asset-send/swap-from-holding:5files82tests pass; npm run typecheck all five targets passes; renderer-safe esbuild browser bundle passes; git diff --check passes. New shared modules and three test files; named node/web typecheck roots updated. No UI wiring, native scanner changes, provider/settlement proof, commits or deployment. Claude imports/fixtures/async guards in docs/TOKEN-DETAILS-C1-HANDOFF.md.
++- next: Claude L1 claim main and build universal panels/row wiring using C1 handoff; leave SendModal QR hookup for Codex C2.
++
++### 2026-10-14T12:44-03:00 · codex · handoff · 24d088b (main) dirty 6
++- C1 verified locally and ready for Claude L1. Shared helpers/types/fixtures and receive/QR limitations documented; existing chat notes preserved. Main lease released; no app transaction path or UI changed.
++- next: Claude L1: read docs/TOKEN-DETAILS-C1-HANDOFF.md then claim main lease and implement universal token details/receive UI. Hand back to Codex C2 after UI verification.
++
++### 2026-10-14T13:41-03:00 · claude · claim · 24d088b (main) dirty 6
++- task: L1: universal token details/receive panel + Tokens-tab wiring (DashboardPage, new TokenDetailsPanel/TokenReceivePanel)
++- lease until 2026-10-14T19:41-03:00
++- Consuming docs/TOKEN-DETAILS-C1-HANDOFF.md; no commit/push/deploy
++
++### 2026-10-14T14:06-03:00 · claude · handoff · 24d088b (main) dirty 7
++- L1 implemented locally: TokenDetailsPanel.{tsx,css}, TokenReceivePanel.tsx, DashboardPage wiring (card role=button, detailsKey via tokenDetailsKey, onOpen), e2e/token-details.spec.ts (3 pass). Typecheck 5 targets pass; vitest 177 files/2569 pass; verify:ci log .local-artifacts/token-details-l1-verify-ci.log exit1: 93 pass,1 flaky,1 skipped,1 failed = browser-history Tor-mode (unrelated; isolated rerun 7/7 pass). 9 generated tracked PNGs archived to .local-artifacts/token-details-l1-generated and restored. Limits: no explorer link (no vetted per-chain token explorer source in renderer), Android hardware-back not wired, native/real-funds unverified, no commit/push.
++- next: Codex C2: SendModal QR scan hookup via parseTokenQr, send/receive mapping review, regression tests. DashboardPage/SendModal now free; panel calls existing openTokenSend with live WalletToken (rawBalance intact).
++
++### 2026-10-14T14:16-03:00 · codex · claim · 24d088b (main) dirty 7
++- task: C2 token-details send/receive review and safe QR SendModal integration
++- lease until 2026-10-14T17:16-03:00
++
++### 2026-10-14T14:20-03:00 · codex · checkpoint · 24d088b (main) dirty 8
++- C2 QR hookup implemented in SendModal: explicit parseTokenQr, no payment-URI stripping, no automatic submission, visible errors/status, request/version guards across edits/dismiss/account changes. Added 3 real-extension journeys to token-details.spec.ts including stale receive/account switch and late scans. Existing mapping reviewed; exact rawBalance/source handlers retained. Extension build session27096 .local-artifacts/token-details-c2-extension.log running.
++- next: Run focused browser journeys, inspect screenshots, then fresh full verify:ci; keep native hardware-Back/explorer limitations explicit.
++
++### 2026-10-14T14:22-03:00 · codex · checkpoint · 24d088b (main) dirty 8
++- C2 focused real-extension journeys pass 6/6 after correcting hidden Swap-field selector; copy payload asserted, payment URI/malformed scans reject, cancellation/input edits preserved, late scans and pending receive/account switches discarded. Five-target typecheck passes. Starting CI=1 npm run verify:ci fresh full gate; log .local-artifacts/token-details-c2-verify-ci.log. 131 tracked screenshot originals preserved under .local-artifacts/token-details-c2/originals before generated asset checks.
++- next: Review full gate and screenshots; archive regenerated tracked PNGs and restore preserved originals; release C2 with exact results.
++
++### 2026-10-14T14:40-03:00 · codex · verify · 24d088b (main) dirty 8
++- verified: C1/L1/C2 local gate: CI=1 npm run verify:ci exits0, fiveTS/177files2569unit/fresh desktop+extension/98browser+1history-repeat flaky pass+1existing skip/critical audit pass. Six token-details browser cases pass first attempt. Capacitor/iOS web bundles pass; nine tracked PNGs archived/restored. HEAD24d088b plus dirty feature; no matching feature-SHA GitHub CI/native camera/real-funds proof.
++- C2 SendModal uses parseTokenQr and public contextKey from DashboardPage; scans fill only, reject URI requests, preserve amount/source, ignore edits/dismiss/account changes. Validation errors fail closed. Receive copy and pending account switch verified; screenshot reviewed. Logs/docs: docs/TOKEN-DETAILS-C2-HANDOFF.md, .local-artifacts/token-details-c2-verify-ci.log. Existing chat notes preserved; no commit/push/deploy/funds actions.
++- next: Codex C3 deployment-specific programmable-token read-only adapter; coordinate Claude L1 explorer/native-Back follow-ups sequentially. No generic programmable signing or USDCx outbound activation.
++
++### 2026-10-14T14:40-03:00 · codex · handoff · 24d088b (main) dirty 8
++- C2 complete locally with full gate and mobile web bundles passing. docs/TOKEN-DETAILS-C2-HANDOFF.md records exact evidence, retry, screenshots, mappings and remaining UI/native/provider gates. Main lease released; uncommitted C1/L1/C2 and prior chat notes preserved.
++- next: Read docs/TOKEN-DETAILS-C2-HANDOFF.md. Next Codex C3 read-only deployment research/adapter; Claude explorer/native-Back follow-ups require separate sequential lease before L2. No commits or funds actions authorized.
++
++### 2026-10-14T15:25-03:00 · codex · claim · 24d088b (main) dirty 8
++- task: C3 CIP-113 deployment research and read-only discovery contracts
++- lease until 2026-10-14T18:25-03:00
++
++### 2026-10-14T15:48-03:00 · codex · checkpoint · 24d088b (main) dirty 15
++- C3 canonical mainnet reader implemented: official genesis/registry/PLB/NFT pin, strict CBOR datum hashes/schema/marker custody/complete linked list, both payment/stake owner addresses, exact deduped quantities and recent token balance changes with trigger unknown. Existing token bridge maps source cip113; generic Send/Swap disabled; mode/error isolation maintained. Public live observer reports1DIS987 with matching wiring and scoped history. Focused6files68tests and full178files2580unit pass before final empty-history guard. Extension build log .local-artifacts/cip113-c3/extension.log running; C3 fixture/provider stub prevents live Koios calls in e2e.
++- next: Run real extension discovery/gating test, fresh full gate and web bundles; finish Claude L2 wire handoff plus vetted Cardanoscan source.
++
++### 2026-10-14T15:53-03:00 · codex · checkpoint · 24d088b (main) dirty 15
++- C3 focused real-extension token-details suite7/7 passes, including existing bridge discovery with core registry/params fixtures and source-correct generic execution disabled. Full unit178files2580 passes; standalone5TS passed before final pending-authority/empty-history hardening. Starting fresh CI=1 npm run verify:ci; .local-artifacts/cip113-c3/verify-ci.log. C2 original PNG backup still matches pre-C3 baseline, will archive/restore generated tracked PNGs again. No module powers inferred, no new dependencies or funds actions.
++- next: Finalize C3 research/Claude L2 contract handoff, review full gate, web bundles and public live observer after hardening.
++
++### 2026-10-14T15:59-03:00 · codex · correction · 24d088b (main) dirty 15
++- Stopped only the C3 verify:ci process tree after screenshot review found unpriced programmable holdings became legacy $0.00 during enrichment. Fixed source cip113 missing/unknown-decimal pricing to remain null, added real-bridge UI assertion for Price unavailable. Prior log archived as verify-ci-pre-price-fix.log; it is incomplete, not a verification result. Restarting fresh final gate with all implementation changes frozen; .local-artifacts/cip113-c3/verify-ci.log.
++- next: Finish final fresh gate and mobile web bundles, archive/restored screenshots, release C3 contract to Claude L2.
++
++### 2026-10-14T16:38-03:00 · codex · checkpoint · 24d088b (main) dirty 20
++- Final C3 review complete: added stake-account NFT duplicate/ownership guards with short account-scoped cache, preserves direct NFT source quantities and blocks unverified stake-only sends. History now requires exact-hash tx_cbor valid_contract outcomes; failed scripts excluded and missing outcomes do not erase holdings. Final focused7files72tests and full179files2584unit pass. Starting frozen-source fresh CI=1 verify:ci .local-artifacts/cip113-c3/verify-ci.log; earlier stopped logs are diagnostic only. Docs/CIP113-C3-HANDOFF.md supplies Claude L2 contracts and Cardanoscan-mainnet source.
++- next: Await final full gate; build Android/iOS web bundles, rerun public read-only observer, archive restored screenshot originals, release to Claude L2.
++
++### 2026-10-14T16:55-03:00 · codex · checkpoint · 24d088b (main) dirty 21
++- Final C3 gate exits1 solely on Sovereign strict selector matching both Sovereign and Mallard Ownership unavailable labels. 98 browser pass,1history flaky,1skip; all seven token-details first-attempt pass and2584unit pass. Log archived verify-ci-sovereign-selector-failure.log; narrow test-only scoping correction next, then fresh full rerun.
++- next: Scope Sovereign ownership assertion, focused regression then fresh verify:ci; no application behavior changes.
++
++### 2026-10-14T16:55-03:00 · codex · checkpoint · 24d088b (main) dirty 22
++- Sovereign regression now passes first attempt after scoping unavailable label to Sovereign button; assertion remains substantive, application unchanged. Starting final fresh verify:ci after test-only correction, log .local-artifacts/cip113-c3/verify-ci.log with exitcode sidecar.
++- next: Complete fresh full gate, mobile web builds, screenshot review/restore and release C3 contract to Claude L2.
++
++### 2026-10-14T17:12-03:00 · codex · verify · 24d088b (main) dirty 23
++- verified: C3 final CI=1 npm run verify:ci exits0: fiveTS,179files2584unit,fresh desktop+extension,99browser pass+1history-repeat flaky+1existing skip; seven token-details first attempt;0critical audit (4moderate4high unchanged). Public compiled read-only observer succeeds with exact hash-bound transaction outcome. HEAD24d088b plus dirty implementation; no feature-SHA GitHub CI/native/funds proof.
++- Starting Android/iOS web bundles, logs .local-artifacts/cip113-c3/{capacitor,ios}-web.log; then screenshot review and tracked PNG archive/restore.
++
++### 2026-10-14T17:14-03:00 · codex · verify · 24d088b (main) dirty 16
++- verified: C3 local complete: final fresh verify:ci exits0; fiveTS/179files2584unit/fresh desktop+extension/99browser+1history flaky+1existing skip; seven token-details first attempt;0critical audit. Android/iOS web bundles exit0; final public observer passes; screenshot reviewed,7tracked PNGs archived/restored. HEAD24d088b plus dirty feature; no matching feature-SHA GitHub CI/native/funds/deploy proof.
++- Claude L2 contract ready in docs/CIP113-C3-HANDOFF.md. Modules/available amount unknown; generic programmable Send/Swap/Receive unavailable. Cardanoscan token template vetted only for Cardano mainnet; NFT fallback ownership guard avoids duplicate unsafe generic paths.
++
++### 2026-10-14T17:14-03:00 · codex · handoff · 24d088b (main) dirty 16
++- C3 implemented and full local gate passed; wire packet, primary deployment pins, public observer evidence, fixtures, source guards, history outcome checks and vetted Cardano-mainnet explorer in docs/CIP113-C3-HANDOFF.md. No commit/push/deploy/sign/broadcast. Dirty C1/L1/C2/C3/chat work preserved.
++- next: Claude claim L2 and implement programmable panel states from docs/CIP113-C3-HANDOFF.md; optional logged Cardano-mainnet explorer/Android Back follow-ups, then release to Codex C4. Keep modules unknown and generic programmable execution unavailable.
++
++### 2026-10-14T17:16-03:00 · claude · claim · 24d088b (main) dirty 16
++- task: L2: programmable-token states in universal panel + Cardanoscan link + Android hardware Back
++- lease until 2026-10-14T23:16-03:00
++- Consuming docs/CIP113-C3-HANDOFF.md; no commit/push/deploy
++
++### 2026-10-14T17:39-03:00 · claude · handoff · 24d088b (main) dirty 17
++- L2 done locally: ProgrammableTokenSection.tsx (badge, held vs available=unknown, rules unknown != unrestricted, collapsible registry/protocol refs, token balance changes recent-only), token-explorer.ts (Cardanoscan mainnet only, fixed template, unit validated, ?tab=programmable) via wallet link path, back-handler.ts + CapApp backButton hook. Tests: 5 unit new, e2e token-details 8/8. verify:ci exit0: 180 files/2589 unit, 100 browser pass,1 flaky (art-themes),1 skip, audit 0 critical; log .local-artifacts/token-details-l2-verify-ci.log. 7 generated PNGs archived to .local-artifacts/token-details-l2-generated and restored. Not verified: Android hardware Back on device, native camera, real funds, feature-SHA GitHub CI. No commit/push.
++- next: Codex C4 (executable adapter/testnet QA) when scoped; user: commit/push decision + GitHub CI for feature SHA; native Android Back + camera validation pending.
++
++### 2026-10-22T20:37-03:00 · codex · claim · 24d088b (main) dirty 17
++- task: Desktop Agent Access: paired CLI/MCP, read/quote tools, reviewed proposal inbox
++- lease until 2026-10-22T23:37-03:00
++
++### 2026-10-22T20:50-03:00 · codex · checkpoint · 24d088b (main) dirty 22
++- Agent Access desktop core, loopback transport, dependency-free exported CLI/MCP and inbox wired. 17 focused security/transport tests pass; no signer exposed. Starting fresh Electron build and disposable-profile e2e, evidence .local-artifacts/agent-access/. Existing dirty CIP113/chat preserved; no commit/push/deploy/sign/broadcast.
++- next: Complete Electron pairing/proposal/revoke/restart journeys, review screenshots, self-review and full verify:ci.
++
++### 2026-10-22T20:55-03:00 · codex · checkpoint · 24d088b (main) dirty 22
++- Agent Access focused 17/17 tests and real Electron end-to-end pass (12.5s), including exported CLI/MCP, transfer and swap draft review, wrong-window IPC denial, revoke and restart. Reviewed 400/768/1200 inbox screenshots; minor contrast refinement applied. Starting frozen-source CI=1 npm run verify:ci; log .local-artifacts/agent-access/verify-ci.log. Tracked PNG originals preserved with hashes for post-suite restoration.
++- next: Finish full gate, preserve generated PNG evidence and restore originals, final self-review and release.
++
++### 2026-10-22T20:57-03:00 · codex · checkpoint · 24d088b (main) dirty 22
++- Self-review found body-upload timeout also covered slower provider reads. Stopped only this task's initial verify:ci tree, fixed timeout scope and added 5.2s real-socket regression. Focused 18/18 pass. Archived incomplete gate log as verify-ci-pre-timeout-review.log; not a verification result. Restarting final frozen-source CI=1 verify:ci.
++- next: Complete final full gate and screenshot/source preservation checks; no additional feature changes planned.
++
++### 2026-10-22T21:00-03:00 · codex · checkpoint · 24d088b (main) dirty 22
++- Final Agent Access gate: all five TypeScript targets and182files2607unit tests pass; fresh Electron/extension/injection builds pass. Full103-test browser suite now running with one worker and existing Worker stubs. No real funds, native build, deployment or matching feature-SHA CI claim.
++- next: Complete103-browser suite and critical audit; restore tracked PNGs to preserved hashes and release.
++
++### 2026-10-22T21:04-03:00 · codex · checkpoint · 24d088b (main) dirty 24
++- Broad tour surfaced Agent button/wordmark overlap at narrow width. Replaced text with compact robot icon, reserved wordmark space, added geometric no-overlap assertions at380/420/768/1200. Stopped this task's gate for a fresh reviewed build; previous partial log archived as verify-ci-pre-titlebar-review.log (fiveTS/2607unit/builds/tour/agent journey passed; art-theme retry in flight). No tests weakened.
++- next: Run focused fresh Electron layout journey, review screenshots, then final full gate on frozen sources.
++
++### 2026-10-22T21:05-03:00 · codex · checkpoint · 24d088b (main) dirty 24
++- Final header revision passes fresh Electron journey14.9s, with geometric no-overlap checks380/420/768/1200. Titlebar and refreshed inbox/swap screenshots reviewed. Starting final CI=1 verify:ci with source frozen; log .local-artifacts/agent-access/verify-ci.log. PNG originals remain preserved from first gate.
++- next: Finish full verification without source changes unless a failure requires repair; restore generated PNGs and release.
++
++### 2026-10-22T21:25-03:00 · codex · verify · 24d088b (main) dirty 22
++- verified: Agent Access local: CI=1 verify:ci exit0; fiveTS/182files2607unit/fresh Electron+extension+injection/100browser pass+2retry-pass+1existing skip. Agent journey first attempt;18focused security tests. Header/inbox screenshots reviewed. Audit0critical5high4moderate; no dependency changes.202PNG hashes verified;7generated archived/restored. HEAD24d088b plus uncommitted shared work; GitHub CI pending, no funds/native/release proof.
++- Setup and limits documented in docs/AGENT-ACCESS.md. No signer in agent API; read-only default, per-account/mode grants, revoke/expiry/restart denial, stable proposal requestIds and fresh normal wallet review. Scope is desktop only; no x402/delegated spending/new dependencies. Existing shared work preserved.
++- next: Review local feature; user owns commit/push, then check matching main CI. Audit advisories require separate dependency review.
++
++### 2026-10-22T21:25-03:00 · codex · handoff · 24d088b (main) dirty 22
++- Desktop Agent Access ready for review and locally verified. Full results, constraints and evidence are in docs/AGENT-ACCESS.md and .local-artifacts/agent-access/. Existing shared dirty work preserved, generated PNG originals restored. No commit/push/deploy/install/sign/broadcast.
++- next: User review/commit/push decision; after authorized push verify main CI for exact SHA. Rebuilt desktop robot icon opens Agent Access. Dependency advisories and C4/native QA remain separate.
++
++### 2026-10-22T21:33-03:00 · codex · claim · 24d088b (main) dirty 22
++- task: Agent approved native EVM sends with receipts and isolated autonomous account policies
++- lease until 2026-10-23T00:33-03:00
+diff --git a/docs/CHAT-PROFILE-MENU.md b/docs/CHAT-PROFILE-MENU.md
+index 718a544..3dee51c 100644
+--- a/docs/CHAT-PROFILE-MENU.md
++++ b/docs/CHAT-PROFILE-MENU.md
+@@ -61,6 +61,15 @@ Electron on main rebuild and reloads the renderer on preload rebuild.
+ The Electron regression now invokes all three real profile-action IPC handlers
+ before installing fixture overrides. Without a test wallet it expects the real
+ `No wallet address.` error, so a missing handler cannot be hidden by mocks.
+-The focused journey passes; the final full gate is running in
+-`.local-artifacts/dev-watch-verify-ci.log`. Real dev startup logs are
++The focused journey passes; the final `CI=1 npm run verify:ci` exits zero:
++five TypeScript targets, 174 files / 2,525 unit tests, fresh builds, and 93
++browser passes (91 first attempt, two retries: history visit count and screen
++dropper), with one existing skip. The critical audit passes with zero critical
++issues; existing four moderate and four high issues remain unchanged. Evidence:
++`.local-artifacts/dev-watch-verify-ci.log`. The user committed the source as
++`fd4af18`, then generated images as `24d088b`; matching GitHub CI is running at
++https://github.com/M2AF/Magic-Money-Wallet/actions/runs/38344532410.
++The remaining generated Sovereign screenshot was archived under
++`.local-artifacts/dev-watch/generated-suite-artifacts/` and restored to HEAD.
++Real dev startup logs are
+ `.local-artifacts/development-watch*.log`. No wallet install or deployment occurred.
+diff --git a/e2e/sovereign.spec.ts b/e2e/sovereign.spec.ts
+index 597024b..a53730b 100644
+--- a/e2e/sovereign.spec.ts
++++ b/e2e/sovereign.spec.ts
+@@ -168,7 +168,7 @@ test('Sovereign motion, interactions, accessibility and theme lifecycle', async
+     // An unavailable chain cannot grant access, even with a saved preference.
+     holderBalance = 1; failOwnership = true
+     await page.getByRole('button', {name:'Recheck ownership',exact:true}).click()
+-    await expect(page.getByText('Ownership unavailable',{exact:false})).toBeVisible()
++    await expect(page.getByRole('button', { name: /Sovereign/ })).toContainText('Ownership unavailable')
+     await expect(page.locator('.sv-scene')).toHaveCount(0)
+     await expect(page.getByRole('button',{name:/Sovereign/})).toBeDisabled()
+     failOwnership = false
+diff --git a/e2e/support/worker-stub.cjs b/e2e/support/worker-stub.cjs
+index 0a8d83e..27bec35 100644
+--- a/e2e/support/worker-stub.cjs
++++ b/e2e/support/worker-stub.cjs
+@@ -19,10 +19,11 @@
+ // stubWorker() in worker-stub-browser.ts (extension specs).
+ 
+ // Current custom domain and the legacy workers.dev address (src/main/worker-endpoint.ts).
++// isWorkerUrl also covers C3's public read-only Koios source for all test transports.
+ const WORKER_HOST = /^(api\.magicmoney\.dev|magicmoney-swap-proxy\.[a-z0-9-]+\.workers\.dev)$/i
+ 
+ function isWorkerUrl(url) {
+-  try { return WORKER_HOST.test(new URL(url).hostname) } catch { return false }
++  try { return WORKER_HOST.test(new URL(url).hostname) || new URL(url).hostname === 'api.koios.rest' } catch { return false }
+ }
+ 
+ /** A JSON-RPC result that reads as "nothing here" for the methods a load uses. */
+@@ -56,6 +57,20 @@ function workerStubResponse(url, method, bodyText) {
+   try { path = new URL(url).pathname } catch { /* keep '/' */ }
+   const json = (status, value) => ({ status, body: JSON.stringify(value) })
+ 
++  // C3's new read-only Koios discovery must not query mainnet during tests.
++  // Canonical public-chain fixtures + empty owned outputs exercise the real decoder.
++  if (new URL(url).hostname === 'api.koios.rest') {
++    if (path === '/api/v1/asset_utxos') return json(200, require('../../src/main/__fixtures__/cip113/params.json'))
++    if (path === '/api/v1/address_utxos') {
++      const registry = require('../../src/main/__fixtures__/cip113/registry.json')
++      let request = {}; try { request = JSON.parse(bodyText || '{}') } catch { /* reject below */ }
++      if (request._addresses && request._addresses.includes(registry[0].address)) return json(200, registry)
++      return json(200, [])
++    }
++    if (path === '/api/v1/address_info' || path === '/api/v1/address_txs' || path === '/api/v1/tx_info' || path === '/api/v1/tx_cbor') return json(200, [])
++    return json(503, { error: 'e2e: non-read Koios requests are blocked' })
++  }
++
+   if (path.startsWith('/rpc/alchemy-tron')) return json(200, {})
+   if (path.startsWith('/rpc/')) return json(200, rpcReply(bodyText))
+   if (path.startsWith('/alchemy-data/')) return json(200, { data: [], ownedNfts: [], totalCount: 0, pageKey: null })
+diff --git a/src/capacitor/CapApp.tsx b/src/capacitor/CapApp.tsx
+index 5cd754a..4d8ce7b 100644
+--- a/src/capacitor/CapApp.tsx
++++ b/src/capacitor/CapApp.tsx
+@@ -16,6 +16,7 @@
+ 
+ import { useState, useEffect, useRef } from 'react'
+ import { App as CapacitorApp } from '@capacitor/app'
++import { consumeBack } from '../renderer/lib/back-handler'
+ import { App } from '../renderer/App'
+ import {
+   ApprovalOverlays,
+@@ -146,6 +147,7 @@ export function CapApp() {
+   useEffect(() => {
+     const sub = CapacitorApp.addListener('backButton', () => {
+       if (browserUiState.open) emitUiEvent('cap:browser:back', null)
++      else if (consumeBack()) return   // an open overlay (e.g. token details) takes Back first
+       else CapacitorApp.minimizeApp().catch(() => {})
+     })
+     return () => { sub.then(s => s.remove()).catch(() => {}) }
+diff --git a/src/main/index.ts b/src/main/index.ts
+index 25476df..6c32477 100644
+--- a/src/main/index.ts
++++ b/src/main/index.ts
+@@ -8,6 +8,7 @@ import { startUpdateCheck } from './update-manager'
+ import { stopManagedTor } from './tor-manager'
+ import { installWorkerReadCache } from './worker-read-cache'
+ import { WORKER_HOSTS } from './worker-endpoint'
++import { registerAgentAccess } from './agent-access'
+ 
+ // Short read cache + de-duplication in front of the Worker (free plan: every request counts).
+ installWorkerReadCache()
+@@ -111,6 +112,7 @@ let tray: Tray | null = null
+ // background. This flag flips when the user actually chooses to exit (tray menu,
+ // auto-update restart, macOS Cmd+Q) so the close is allowed through.
+ let isQuitting = false
++let stopAgentAccess: (() => void) | undefined
+ 
+ /** Show the wallet window, recreating it if it was somehow destroyed. */
+ function showWallet(): void {
+@@ -271,6 +273,7 @@ app.whenReady().then(() => {
+   initBrowserDownloads()
+   createTray()
+   createWindow()
++  stopAgentAccess = registerAgentAccess(() => mainWindow)
+   initWalletConnect().catch(e => console.error('[WC] startup error:', e))
+ 
+   // Cold start as the system's default browser: Windows launched us with the URL
+@@ -297,6 +300,7 @@ app.on('window-all-closed', () => {
+ app.on('before-quit', () => {
+   isQuitting = true   // let the wallet window's close-to-tray interceptor through
+   stopManagedTor()
++  stopAgentAccess?.()
+ })
+ 
+ // Already running and Windows hands us another URL to open (single-instance lock
+diff --git a/src/main/swap-intent.ts b/src/main/swap-intent.ts
+index 04c1657..be51c2b 100644
+--- a/src/main/swap-intent.ts
++++ b/src/main/swap-intent.ts
+@@ -237,7 +237,7 @@ export function bindSwapIntent(
+  * tokens, the sell amount and the recipient must all be the ones the wallet
+  * resolved, not the ones the response asserts.
+  */
+-function assertQuoteMatchesRequest(
++export function assertQuoteMatchesRequest(
+   request: SwapQuoteRequest,
+   quote: NormalizedSwapQuote,
+   identity: SwapSigningIdentity,
+diff --git a/src/main/token-fetcher.ts b/src/main/token-fetcher.ts
+index 28f6d2d..a7d4c36 100644
+--- a/src/main/token-fetcher.ts
++++ b/src/main/token-fetcher.ts
+@@ -15,6 +15,8 @@ import { canonicalNftKey } from '../shared/asset-filter-key'
+ import { MINSWAP_AGGREGATOR_URL } from './minswap-client'
+ import { CollectiblesProgress } from './collectibles-progress'
+ import { nftUriCandidates, nftMetadataImages, nftMetadataText, validNftCid } from '../shared/nft-media'
++import { cachedCip113Holdings } from './cardano-programmable'
++import type { Cip113ProgrammableDetails } from '../shared/cip113-wire'
+ 
+ export interface WalletToken {
+   contractAddress: string
+@@ -48,7 +50,8 @@ export interface WalletToken {
+   chain: string
+   chainLabel: string
+   chainColor: string
+-  source?: 'agw'   // present when the asset lives in the Abstract Global Wallet (smart account)
++  source?: 'agw' | 'cip113'
++  programmable?: Cip113ProgrammableDetails
+   // H-1: flagged by spam-filter.ts heuristics (phishing URL / claim-bait in the
+   // name or symbol, and no positive USD value). The dashboard buckets these with
+   // user-marked spam by default; a Restore whitelists the token.
+@@ -94,6 +97,7 @@ export interface WalletCollectible {
+    */
+   quantity?: string
+   source?: 'agw'   // present when the NFT lives in the Abstract Global Wallet (smart account)
++  readOnlyReason?: string
+   floorPrice?: number | null   // collection floor in the chain's native unit
+   /** floor × native price, in USD. Raw number — see WalletToken.usdValue. */
+   usdValue?: number | null
+@@ -918,6 +922,27 @@ export async function fetchCardanoTokens(address: string, config: WalletConfig):
+   } catch { return [] }
+ }
+ 
++export async function fetchCardanoProgrammableTokens(address: string, config: WalletConfig): Promise<{ tokens: WalletToken[]; error: string | null }> {
++  const discovery = await cachedCip113Holdings(address)
++  if (discovery.error) return { tokens: [], error: `Programmable tokens: ${discovery.error}` }
++  const byUnit = new Map(discovery.holdings.map(h => [h.unit, h]))
++  const tokens = await mapCardanoAssets(discovery.holdings.map(h => ({ unit: h.unit, quantity: h.rawBalance })), async (a, metadata) => {
++    const decimalsKnown = Number.isInteger(metadata?.metadata?.decimals) && (metadata?.metadata?.decimals ?? -1) >= 0
++    const decimals = decimalsKnown ? metadata!.metadata!.decimals! : 0
++    const rawName = metadata?.onchain_metadata?.name ?? metadata?.metadata?.name ?? metadata?.asset_name ?? null
++    const name = rawName ? decodeAssetName(rawName) : a.unit.slice(0, 8) + '…'
++    const symbol = metadata?.metadata?.ticker?.trim() || (name.length <= 10 ? name : name.slice(0, 8) + '…')
++    return {
++      contractAddress: a.unit, name, symbol, decimals, decimalsKnown, balance: humanBalance(a.quantity, decimals), rawBalance: a.quantity,
++      usdValue: null, nativeEquivalent: null, nativeSymbol: 'ADA', chain: 'cardano', chainLabel: 'Cardano', chainColor: '#2A7DEA',
++      logoUri: metadata?.onchain_metadata?.image ? normalizeImageUrl(metadata.onchain_metadata.image as string)
++        : metadata?.metadata?.logo ? `data:image/png;base64,${metadata.metadata.logo}` : null,
++      source: 'cip113' as const, programmable: byUnit.get(a.unit)!.details,
++    }
++  }, config)
++  return { tokens, error: null }
++}
++
+ function decodeAssetName(raw: string): string {
+   if (/^[0-9a-f]+$/i.test(raw) && raw.length % 2 === 0) {
+     try {
+@@ -1021,7 +1046,8 @@ async function enrichWithPrices(tokens: WalletToken[]): Promise<WalletToken[]> {
+     // list and the portfolio total already handle null — that's what Testnet
+     // Mode produces). Supported chains keep their existing zero-when-unpriced
+     // behaviour.
+-    const hasPriceSource = !!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain]
++    const hasPriceSource = (!!NATIVE_CG[t.chain] || !!DS_CHAIN[t.chain])
++      && (t.source !== 'cip113' || (tokenPriceUsd > 0 && t.decimalsKnown !== false))
+ 
+     return {
+       ...t,
+@@ -1936,7 +1962,7 @@ export async function fetchAllTokens(
+       return p.finally(() => { timings.push([label, Date.now() - start]) })
+     }
+     const tTokens = Date.now()
+-    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens, importedTokens] = await Promise.all([
++    const [evmResults, solanaTokens, cardanoTokens, monadTokens, tronTokens, bitcoinTokens, customTokens, importedTokens, programmableResult] = await Promise.all([
+       Promise.all(tokenChains.map(chain => timed(chain.id, fetchTokensForChain(addresses.evm, chain, config)))),
+       (addresses.solana && !testnet)  ? timed('solana', fetchSolanaTokens(addresses.solana,   config)) : Promise.resolve([] as WalletToken[]),
+       (addresses.cardano && !testnet) ? timed('cardano', fetchCardanoTokens(addresses.cardano, config)) : Promise.resolve([] as WalletToken[]),
+@@ -1947,6 +1973,8 @@ export async function fetchAllTokens(
+       testnet ? Promise.resolve([] as WalletToken[]) : timed('custom', fetchCustomChainTokens(addresses.evm, config)),
+       // Manual imports on a BUILT-IN chain — the fallback for what Alchemy missed.
+       testnet ? Promise.resolve([] as WalletToken[]) : timed('imported', fetchImportedBuiltinTokens(addresses.evm, config)),
++      (addresses.cardano && !testnet) ? timed('cardano-programmable', fetchCardanoProgrammableTokens(addresses.cardano, config))
++        : Promise.resolve({ tokens: [] as WalletToken[], error: null }),
+     ])
+     timings.sort((a, b) => b[1] - a[1])
+     console.log(`[TOKEN] all sources in ${Date.now() - tTokens}ms — slowest: ${timings.slice(0, 6).map(([l, ms]) => `${l} ${ms}ms`).join(', ')}`)
+@@ -1958,7 +1986,7 @@ export async function fetchAllTokens(
+       ? (await fetchTokensForChain(agwAddress, abstractChainCfg, config)).tokens.map(t => ({ ...t, source: 'agw' as const }))
+       : []
+ 
+-    const auto = [...evmResults.flatMap(r => r.tokens), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
++    const auto = [...evmResults.flatMap(r => r.tokens), ...agwTokens, ...solanaTokens, ...cardanoTokens, ...programmableResult.tokens, ...monadTokens, ...tronTokens, ...bitcoinTokens, ...customTokens]
+     // A built-in chain's indexer usually DOES list an imported token — appending
+     // it again would render the holding twice and double it in the portfolio
+     // total. Only what auto-detect actually missed gets added.
+@@ -1990,6 +2018,7 @@ export async function fetchAllTokens(
+     // so the empty state can say why instead of the flatly wrong "No tokens
+     // found across all chains" (which is what a spent Alchemy quota looked like).
+     const chainErrors: Record<string, string> = {}
++    if (programmableResult.error) chainErrors.cardano = programmableResult.error
+     for (const r of evmResults) if (r.error) chainErrors[r.chain.id] = r.error
+     const failed = Object.keys(chainErrors)
+     if (failed.length) console.warn(`[TOKEN] ${failed.length} chain(s) failed: ${failed.join(', ')}`)
+@@ -2050,7 +2079,22 @@ export async function fetchCardanoNFTs(
+       }
+     }
+ 
+-    const nativeAssets = assets.filter(a => a.unit !== 'lovelace')
++    let nativeAssets = assets.filter(a => a.unit !== 'lovelace')
++    const directUnits = new Set((addrData.amount ?? []).map(a => a.unit))
++    const directAmounts = new Map((addrData.amount ?? []).map(a => [a.unit, a.quantity]))
++    let programmablePolicies = new Set<string>()
++    let ownershipUnverified = false
++    if (nativeAssets.some(a => !directUnits.has(a.unit))) {
++      const programmable = await cachedCip113Holdings(address)
++      if (programmable.error) ownershipUnverified = true
++      else {
++        // Programmable assets belong in Tokens for now, not in the generic NFT send path.
++        const programmableUnits = new Set(programmable.holdings.map(h => h.unit))
++        programmablePolicies = new Set(programmable.registryPolicies ?? programmable.holdings.map(h => h.unit.slice(0, 56)))
++        nativeAssets = nativeAssets.flatMap(a => !programmableUnits.has(a.unit) ? [a]
++          : directAmounts.has(a.unit) ? [{ ...a, quantity: directAmounts.get(a.unit)! }] : [])
++      }
++    }
+     if (nativeAssets.length === 0) return []
+ 
+     const nfts = await mapCardanoAssets(nativeAssets, async (a, assetMeta): Promise<WalletCollectible | null> => {
+@@ -2105,7 +2149,11 @@ export async function fetchCardanoNFTs(
+             tokenId: a.unit.slice(56),
+             contractAddress: a.unit.slice(0, 56),
+             contractType: 'CIP25',
+-            traits
++            traits,
++            ...(ownershipUnverified && !directUnits.has(a.unit)
++              ? { readOnlyReason: 'Ownership could not be checked for this stake-account holding. Refresh before sending.' }
++              : programmablePolicies.has(a.unit.slice(0, 56)) && !directUnits.has(a.unit)
++                ? { readOnlyReason: 'This programmable-policy holding is not supported by the ordinary NFT send flow.' } : {}),
+           }
+     }, config)
+     console.log(`[NFT] Cardano: returning ${nfts.length} NFTs`)
+diff --git a/src/preload/index.ts b/src/preload/index.ts
+index cd52157..856ebfe 100644
+--- a/src/preload/index.ts
++++ b/src/preload/index.ts
+@@ -17,6 +17,15 @@ const _collectiblesListeners = new Map<(s: unknown) => void, (e: unknown, s: unk
+ const _autoRevokeListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
+ 
+ contextBridge.exposeInMainWorld('wallet', {
++  // Desktop only. No arbitrary IPC or signer is exposed to agent clients.
++  agentAccess: {
++    snapshot: () => ipcRenderer.invoke('agent:snapshot'),
++    enable: (enabled: boolean) => ipcRenderer.invoke('agent:enable', enabled),
++    pair: (name: string, proposals: boolean) => ipcRenderer.invoke('agent:pair', name, proposals),
++    revoke: (id: string) => ipcRenderer.invoke('agent:revoke', id),
++    checkReview: (id: string) => ipcRenderer.invoke('agent:check-review', id),
++    review: (id: string, decision: 'open' | 'reject') => ipcRenderer.invoke('agent:review', id, decision),
++  },
+   // ── Wallet lifecycle ──────────────────────────────────────────────────
+   isSetup:       ()                  => ipcRenderer.invoke('wallet:is-setup'),
+   generate:      (words?: 12 | 24)   => ipcRenderer.invoke('wallet:generate', words),
+diff --git a/src/renderer/App.tsx b/src/renderer/App.tsx
+index bbba245..c88c3c9 100644
+--- a/src/renderer/App.tsx
++++ b/src/renderer/App.tsx
+@@ -22,6 +22,7 @@ import { collectionAccess, collectionOwners } from './lib/collection-access'
+ import { apeAccess } from './lib/ape-access'
+ import { bindSovereignAccount } from './lib/sovereign-access'
+ import { DownloadProgressBar } from './components/DownloadProgressBar'
++import { AgentAccessPanel } from './components/AgentAccessPanel'
+ 
+ export function App() {
+   const [page, setPage]           = useState<AppPage>('loading')
+@@ -264,6 +265,7 @@ export function App() {
+         <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
+         <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
+         <div className="titlebar-controls">
++          {inDashboard && addresses && <AgentAccessPanel addresses={addresses} />}
+           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" aria-label="Minimize window" />
+           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" aria-label="Close window" />
+         </div>
+diff --git a/src/renderer/components/DexSwapWidget.tsx b/src/renderer/components/DexSwapWidget.tsx
+index 1b32141..8ed1a59 100644
+--- a/src/renderer/components/DexSwapWidget.tsx
++++ b/src/renderer/components/DexSwapWidget.tsx
+@@ -34,6 +34,10 @@ import { SWAP_PERCENTS, percentOfRaw } from '../lib/swap-amount'
+ import { swapExchangePreset, type SwapExchangePreset } from '../lib/swap-exchange-preset'
+ 
+ interface Props {
++  /** Prefill only; an agent estimate is never reused as an executable quote. */
++  initialAgentSwap?: import('../../shared/agent-access').AgentSwapDraft
++  beforeExecute?: () => Promise<void>
++  onExecutionBusy?: (busy: boolean) => void
+   addresses: WalletAddresses
+   active: boolean
+   onUseCrossChain?: (preset?: SwapExchangePreset) => void
+@@ -101,12 +105,12 @@ function rawToHuman(raw: string, decimals: number): number {
+ 
+ type ExecState = 'idle' | 'swapping' | 'success' | 'error'
+ 
+-export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, onPreselectHandled }: Props) {
+-  const [fromChain, setFromChain] = useState<SwapChain>('ethereum')
+-  const [toChain, setToChain] = useState<SwapChain>('ethereum')
+-  const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[0])
+-  const [toToken, setToToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[1])
+-  const [amount, setAmount] = useState('')
++export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, onPreselectHandled, initialAgentSwap, beforeExecute, onExecutionBusy }: Props) {
++  const [fromChain, setFromChain] = useState<SwapChain>((initialAgentSwap?.from.chain ?? 'ethereum') as SwapChain)
++  const [toChain, setToChain] = useState<SwapChain>((initialAgentSwap?.to.chain ?? 'ethereum') as SwapChain)
++  const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => initialAgentSwap ? initialAgentSwap.from as SwapToken : SWAP_TOKEN_LISTS.ethereum[0])
++  const [toToken, setToToken] = useState<SwapToken | undefined>(() => initialAgentSwap ? initialAgentSwap.to as SwapToken : SWAP_TOKEN_LISTS.ethereum[1])
++  const [amount, setAmount] = useState(initialAgentSwap?.amount ?? '')
+   /**
+    * Networks the wallet says are swappable, joined from its own registry and the
+    * measured capability matrix in the privileged layer. DEX_CHAINS is only the
+@@ -119,7 +123,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
+   /** Holdings, for picker balances and so a held token needs no discovery to appear. */
+   const [owned, setOwned] = useState<WalletToken[]>([])
+ 
+-  const [overrideBps, setOverrideBps] = useState<number | null>(null)
++  const [overrideBps, setOverrideBps] = useState<number | null>(initialAgentSwap?.slippageBps ?? null)
+   const [showAdvanced, setShowAdvanced] = useState(false)
+ 
+   const [quote, setQuote] = useState<NormalizedSwapQuote | null>(null)
+@@ -158,6 +162,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
+   // silently dropped every quote result and froze the button on "Fetching quote…"
+   // (desktop dev only; the production extension build has no StrictMode double-invoke).
+   const alive = useRef(true)
++  const executeInFlight = useRef(false)
+   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+ 
+   const isAuto = overrideBps === null
+@@ -486,13 +491,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
+       : nativeBal < nativeSpend + feeReserve)
+ 
+   const run = async () => {
+-    if (!quote || !toToken || requiresExchange) return
++    if (!quote || !toToken || requiresExchange || executeInFlight.current) return
++    executeInFlight.current = true
++    onExecutionBusy?.(true)
+     setExecState('swapping'); setExecError(null); setExecResult(null)
+     // Freeze the destination token: the tracker below formats the RECEIVED amount
+     // with these decimals, and the user can change the picker while a cross-chain
+     // swap is still bridging.
+     setExecutedTo({ symbol: toToken.symbol, decimals: toToken.decimals })
+     try {
++      if (beforeExecute) await beforeExecute()
+       const r = await window.wallet.swapExecute(quote)
+       if (!alive.current) return
+       setExecResult(r); setExecState('success')
+@@ -506,6 +514,9 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
+     } catch (e) {
+       if (!alive.current) return
+       setExecError(e instanceof Error ? e.message : 'Swap failed'); setExecState('error')
++    } finally {
++      executeInFlight.current = false
++      onExecutionBusy?.(false)
+     }
+   }
+ 
+diff --git a/src/renderer/components/SendModal.tsx b/src/renderer/components/SendModal.tsx
+index 21a1a45..d2de226 100644
+--- a/src/renderer/components/SendModal.tsx
++++ b/src/renderer/components/SendModal.tsx
+@@ -3,12 +3,18 @@ import type { FeeEstimate, SendResult, SendAsset } from '../types/wallet'
+ import { formatUnits, parseUnits, getChainType } from '../lib/asset-send'
+ import { useDisplayCurrency } from '../lib/currency'
+ import { BodyPortal } from './BodyPortal'
++import { parseTokenQr } from '../../shared/token-qr'
+ 
+ interface Props {
++  /** Reviewed agent drafts only prefill fields; fee estimation and confirmation remain mandatory. */
++  initialDraft?: { recipient: string; amount: string }
++  beforeSend?: () => Promise<void>
+   chainId: string       // chain-config id, e.g. 'ethereum', 'arbitrum', 'solana'
+   balance: string | null
+   symbol: string
+   onClose: () => void
++  /** Public account/mode identity supplied by the dashboard; never key material. */
++  contextKey: string
+   source?: 'eoa' | 'agw'  // 'agw' sends from the Abstract Global Wallet (smart account)
+   /**
+    * Omitted for a native send — the original and still the default behaviour.
+@@ -65,7 +71,7 @@ function getChainLabel(chainId: string, symbol: string): string {
+ 
+ export function SendModal({
+   chainId, balance, symbol, onClose, source = 'eoa',
+-  asset, rawBalance, assetLabel, chainLabel, onSent,
++  asset, rawBalance, assetLabel, chainLabel, onSent, contextKey, initialDraft, beforeSend,
+ }: Props) {
+   const { fmt } = useDisplayCurrency()
+   const networkName = chainLabel ?? getChainLabel(chainId, symbol)
+@@ -77,14 +83,27 @@ export function SendModal({
+   // ERC-1155 editions are whole units; a token uses the asset's own decimals.
+   const amountDecimals = asset?.kind === 'token' ? asset.decimals : 0
+   const [step, setStep]             = useState<Step>('form')
+-  const [to, setTo]                 = useState('')
+-  const [amount, setAmount]         = useState('')
++  const [to, setTo]                 = useState(initialDraft?.recipient ?? '')
++  const [amount, setAmount]         = useState(initialDraft?.amount ?? '')
+   const [fee, setFee]               = useState<FeeEstimate | null>(null)
+   const [feeLoading, setFeeLoading] = useState(false)
+   const [feeError, setFeeError]     = useState<string | null>(null)
+   const [result, setResult]         = useState<SendResult | null>(null)
+   const [error, setError]           = useState<string | null>(null)
+   const overlayRef = useRef<HTMLDivElement>(null)
++  const [scanPending, setScanPending] = useState(false)
++  const [scanFeedback, setScanFeedback] = useState<{ error: boolean; text: string } | null>(null)
++  const scanVersion = useRef(0)
++  const scanKey = JSON.stringify([contextKey, chainId, source, asset ?? null])
++  const liveScan = useRef({ mounted: true, key: scanKey, step })
++  liveScan.current.key = scanKey
++  liveScan.current.step = step
++  useEffect(() => {
++    liveScan.current.mounted = true
++    return () => { liveScan.current.mounted = false; ++scanVersion.current }
++  }, [])
++  const initialContextKey = useRef(contextKey)
++  const sendInFlight = useRef(false)
+ 
+   // Midnight only: live DUST-sync/registration progress, polled ONLY while
+   // this modal is actually in the 'registering' step (bounded, user-initiated
+@@ -108,6 +127,36 @@ export function SendModal({
+   // closing here loses the tx hash / success screen even though the
+   // transaction still lands on-chain.
+   const canDismiss = step !== 'sending' && step !== 'registering'
++  useEffect(() => {
++    // Never let a prepared form be used under a different account or mode.
++    // Keep broadcast progress visible if a transaction is already in flight.
++    if (contextKey !== initialContextKey.current && (step === 'form' || step === 'confirm')) onClose()
++  }, [contextKey, step, onClose])
++
++  const handleScan = async () => {
++    if (scanPending || step !== 'form' || typeof window.wallet.scanQr !== 'function') return
++    const version = ++scanVersion.current
++    const key = scanKey
++    const current = () => liveScan.current.mounted && liveScan.current.key === key
++      && liveScan.current.step === 'form' && scanVersion.current === version
++    setScanPending(true)
++    setScanFeedback(null)
++    try {
++      const text = await window.wallet.scanQr()
++      if (!current() || text === null || text === undefined) return
++      const parsed = await parseTokenQr(text, { key, chainId },
++        (chain, address) => window.wallet.validateAddress(chain, address))
++      if (!current() || parsed.key !== key) return
++      if (!parsed.ok) { setScanFeedback({ error: true, text: parsed.reason }); return }
++      setTo(parsed.address)
++      setFee(null)
++      setScanFeedback({ error: false, text: parsed.notice })
++    } catch {
++      if (current()) setScanFeedback({ error: true, text: 'Could not scan an address. Try again or paste the address.' })
++    } finally {
++      if (current()) setScanPending(false)
++    }
++  }
+ 
+   const handleOverlayClick = (e: React.MouseEvent) => {
+     if (e.target === overlayRef.current && canDismiss) onClose()
+@@ -137,9 +186,7 @@ export function SendModal({
+         setAddrState(res.valid ? 'valid' : 'invalid')
+         setAddrReason(res.valid ? null : (res.reason ?? 'Invalid address'))
+       } catch {
+-        // Validator unavailable (old bridge / IPC hiccup) — don't block the
+-        // send; fee estimation and broadcast still reject bad addresses.
+-        if (!stale) { setAddrState('valid'); setAddrReason(null) }
++        if (!stale) { setAddrState('invalid'); setAddrReason('Could not validate the address. Try again.') }
+       }
+     }, 250)
+     return () => { stale = true; clearTimeout(id) }
+@@ -172,7 +219,7 @@ export function SendModal({
+   const totalExceeds = !asset && !!fee && fee.feeSymbol === symbol &&
+     Number.isFinite(parsedBalance) && Number.isFinite(feeNum) &&
+     parsedAmount + feeNum > parsedBalance
+-  const canEstimate = addrState === 'valid' && isValidAmount
++  const canEstimate = !scanPending && addrState === 'valid' && isValidAmount
+ 
+   // Max = full balance, minus the estimated fee when it's in the same asset.
+   const handleMax = () => {
+@@ -211,8 +258,11 @@ export function SendModal({
+   }
+ 
+   const handleSend = async () => {
++    if (sendInFlight.current) return
++    sendInFlight.current = true
+     setError(null)
+     try {
++      if (beforeSend) { setStep('sending'); await beforeSend() }
+       // Midnight: the Send button has no pre-check — DUST may still need to
+       // finish its first sync (a background wallet-open only starts here,
+       // on explicit send intent, never eagerly on login) plus a one-time
+@@ -248,6 +298,7 @@ export function SendModal({
+       // after the success screen renders so a slow refresh can't delay it.
+       onSent?.()
+     } catch (err) {
++      sendInFlight.current = false
+       setError(String(err).replace('Error: ', ''))
+       setStep('error')
+     }
+@@ -278,6 +329,7 @@ export function SendModal({
+           <button
+             type="button"
+             onClick={onClose}
++            disabled={!canDismiss}
+             aria-label="Close send dialog"
+             style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}
+           >
+@@ -313,7 +365,10 @@ export function SendModal({
+                   style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, borderColor: addrState === 'invalid' ? 'var(--error)' : undefined }}
+                   placeholder={getAddressPlaceholder(chainId)}
+                   value={to}
+-                  onChange={e => { setTo(e.target.value); setFee(null) }}
++                  onChange={e => {
++                    ++scanVersion.current; setScanPending(false); setScanFeedback(null)
++                    setTo(e.target.value); setFee(null)
++                  }}
+                   spellCheck={false}
+                   disabled={step === 'confirm'}
+                 />
+@@ -321,20 +376,20 @@ export function SendModal({
+                   <button
+                     type="button"
+                     aria-label="Scan address QR code"
+-                    onClick={async () => {
+-                      const text = await window.wallet.scanQr!().catch(() => null)
+-                      if (!text) return
+-                      // Payment-URI QRs (ethereum:0x…?value=…, bitcoin:bc1…?amount=…)
+-                      // carry the address after the scheme, before any query.
+-                      const addr = text.replace(/^[a-z][a-z0-9+.-]*:/i, '').split('?')[0].trim()
+-                      if (addr) { setTo(addr); setFee(null) }
+-                    }}
++                    onClick={handleScan}
++                    disabled={scanPending}
+                     style={{ padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-dark)', color: 'var(--text)', fontSize: 15, cursor: 'pointer' }}
+                   >
+-                    📷
++                    {scanPending ? '…' : '📷'}
+                   </button>
+                 )}
+               </div>
++              {scanFeedback && (
++                <div role={scanFeedback.error ? 'alert' : 'status'}
++                  style={{ fontSize: 11, color: scanFeedback.error ? 'var(--error)' : 'var(--text-muted)', marginTop: 4 }}>
++                  {scanFeedback.text}
++                </div>
++              )}
+               {addrState === 'invalid' && addrReason && (
+                 <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>{addrReason}</div>
+               )}
+diff --git a/src/renderer/lib/asset-send.test.ts b/src/renderer/lib/asset-send.test.ts
+index 74419f8..ceab97a 100644
+--- a/src/renderer/lib/asset-send.test.ts
++++ b/src/renderer/lib/asset-send.test.ts
+@@ -25,6 +25,14 @@ function nft(contractType: string, over: Partial<WalletCollectible> = {}): Walle
+ }
+ 
+ describe('getChainType', () => {
++  it('blocks an ownership-unverified NFT at both availability and explanation boundaries', () => {
++    const held = nft('CIP25', { readOnlyReason: 'Ownership could not be checked' })
++    expect(canSendNft(held)).toBe(false)
++    expect(nftSendBlockedReason(held)).toBe('Ownership could not be checked')
++  })
++  it('withholds the generic Cardano send path for programmable holdings', () => {
++    expect(canSendToken(token({ chain: 'cardano', source: 'cip113' }))).toBe(false)
++  })
+   it('maps the known non-EVM chains', () => {
+     expect(getChainType('solana')).toBe('solana')
+     expect(getChainType('cardano')).toBe('cardano')
+diff --git a/src/renderer/lib/asset-send.ts b/src/renderer/lib/asset-send.ts
+index ce18198..634a7ec 100644
+--- a/src/renderer/lib/asset-send.ts
++++ b/src/renderer/lib/asset-send.ts
+@@ -64,6 +64,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+  *    where it routes through the native path instead of an ERC-20 transfer.
+  */
+ export function canSendToken(token: WalletToken): boolean {
++  if (token.source === 'cip113' || token.programmable) return false
+   if (!token.rawBalance || token.rawBalance === '0') return false
+   if (!TOKEN_SEND_CHAINS.has(getChainType(token.chain))) return false
+   if (token.contractAddress.toLowerCase() === ZERO_ADDRESS) return false
+@@ -94,11 +95,13 @@ export function nftStandard(nft: WalletCollectible): NftStandard | null {
+ 
+ /** Can this NFT be sent? */
+ export function canSendNft(nft: WalletCollectible): boolean {
++  if (nft.readOnlyReason) return false
+   return nftStandard(nft) !== null
+ }
+ 
+ /** User-facing reason a held NFT has no Send button. null when it does. */
+ export function nftSendBlockedReason(nft: WalletCollectible): string | null {
++  if (nft.readOnlyReason) return nft.readOnlyReason
+   if (canSendNft(nft)) return null
+   const t = nft.contractType.trim().toLowerCase().replace(/[-_\s]/g, '')
+   if (t === 'cnft') {
+diff --git a/src/renderer/lib/swap-from-holding.test.ts b/src/renderer/lib/swap-from-holding.test.ts
+index e6efe64..f0ac7d8 100644
+--- a/src/renderer/lib/swap-from-holding.test.ts
++++ b/src/renderer/lib/swap-from-holding.test.ts
+@@ -13,6 +13,9 @@ const held = (chain: string, contractAddress: string, symbol: string, over: Part
+ })
+ 
+ describe('swapTokenFromHolding', () => {
++  it('withholds generic Cardano swap execution for programmable holdings', () => {
++    expect(swapTokenFromHolding(held('cardano', 'a'.repeat(56) + '00', 'PROG', { source: 'cip113' }))).toBeNull()
++  })
+   it('Monad EMO opens as itself on Monad', () => {
+     expect(swapTokenFromHolding(held('monad', EMO_MONAD, 'EMO', { name: 'emonad' }))).toMatchObject({
+       chain: 'monad', address: EMO_MONAD, symbol: 'EMO', decimals: 18, isNative: false,
+diff --git a/src/renderer/lib/swap-from-holding.ts b/src/renderer/lib/swap-from-holding.ts
+index c5e390e..6d4854f 100644
+--- a/src/renderer/lib/swap-from-holding.ts
++++ b/src/renderer/lib/swap-from-holding.ts
+@@ -21,6 +21,7 @@ import { swapCapability } from '../../shared/swap-networks'
+ import { swapAssetKey, isNativeSwapAddress, isValidSwapAddress } from '../../shared/swap-token-identity'
+ 
+ export function swapTokenFromHolding(t: WalletToken): SwapToken | null {
++  if (t.source === 'cip113' || t.programmable) return null
+   if (t.source === 'agw') return null
+   const cap = swapCapability(t.chain)
+   if (!cap || (cap.signing !== 'evm-eoa' && cap.signing !== 'solana' && cap.signing !== 'cardano')) return null
+diff --git a/src/renderer/pages/DashboardPage.tsx b/src/renderer/pages/DashboardPage.tsx
+index c8606d1..343ed81 100644
+--- a/src/renderer/pages/DashboardPage.tsx
++++ b/src/renderer/pages/DashboardPage.tsx
+@@ -16,8 +16,11 @@ import { AgwPanel } from '../components/AgwPanel'
+ import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
+ import {
+   canSendToken, canSendNft, nftSendBlockedReason,
+-  nftToSendAsset, tokenToSendAsset, formatUnits,
++  nftToSendAsset, tokenToSendAsset, formatUnits, getChainType,
+ } from '../lib/asset-send'
++import { TokenDetailsPanel } from '../components/TokenDetailsPanel'
++import { ProgrammableBadge } from '../components/ProgrammableTokenSection'
++import { tokenDetailsKey, type TokenDetailsContext } from '../../shared/token-details'
+ import { useAssetFilters } from '../lib/asset-filters'
+ import { swapTokenFromHolding } from '../lib/swap-from-holding'
+ import { useDisplayCurrency } from '../lib/currency'
+@@ -199,9 +202,11 @@ interface TokenRowProps {
+   onSpam: () => void
+   onSend: (token: WalletToken) => void
+   onSwap?: (token: WalletToken) => void
++  /** Open the details panel. The Send/Swap/Spam buttons are SIBLINGS of the card, never children. */
++  onOpen: (token: WalletToken) => void
+ }
+ 
+-function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend, onSwap }: TokenRowProps) {
++function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend, onSwap, onOpen }: TokenRowProps) {
+   const { fmt } = useDisplayCurrency()
+   return (
+     <div
+@@ -209,8 +214,17 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend
+       onMouseEnter={onMouseEnter}
+       onMouseLeave={onMouseLeave}
+     >
+-      {/* Card */}
+-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0 }}>
++      {/* Card — opens token details. Not a <button> (it holds block content);
++          role=button + Enter/Space gives the same keyboard behaviour. */}
++      <div
++        role="button" tabIndex={0}
++        aria-label={`${token.name}, ${token.chainLabel}: open token details`}
++        onClick={() => onOpen(token)}
++        onKeyDown={e => {
++          if (e.target !== e.currentTarget) return
++          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(token) }
++        }}
++        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0, cursor: 'pointer' }}>
+         <TokenLogo token={token} />
+ 
+         {/* Name · Ticker · Chain — three stacked rows */}
+@@ -226,6 +240,7 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend
+               {token.chainLabel}
+             </span>
+             {token.source === 'agw' && <AgwBadge />}
++            {token.source === 'cip113' && <ProgrammableBadge />}
+           </div>
+         </div>
+ 
+@@ -269,9 +284,10 @@ interface TokensViewProps {
+   onSpam: (id: string) => void
+   onSend: (token: WalletToken) => void
+   onSwap?: (token: WalletToken) => void
++  onOpen: (token: WalletToken) => void
+ }
+ 
+-function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, onSend, onSwap }: TokensViewProps) {
++function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, onSend, onSwap, onOpen }: TokensViewProps) {
+   const [hovered, setHovered] = useState<string | null>(null)
+ 
+   const q = search.trim().toLowerCase()
+@@ -337,6 +353,7 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, o
+             onSpam={() => onSpam(id)}
+             onSend={onSend}
+             onSwap={onSwap}
++            onOpen={onOpen}
+           />
+         )
+       })}
+@@ -1194,6 +1211,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+   }, [fetchBalances, fetchTokens, fetchCollectibles])
+ 
+   const openTokenSend = useCallback((token: WalletToken) => {
++    if (!canSendToken(token)) return
+     // AGW-held assets must move through the smart account, not the EOA — the
+     // EOA doesn't own them and the transfer would revert.
+     const isAgw = token.source === 'agw'
+@@ -1210,7 +1228,35 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+     })
+   }, [])
+ 
++  // ── Token details panel ────────────────────────────────────────────────────
++  // Selection is a KEY (account + mode + chain + exact identifier + source), never
++  // a saved token object or array index: the token is re-derived from the latest
++  // fetch, so a refresh updates it in place and an account/mode change makes the
++  // key stop matching, which closes the panel. `tokenKey` stays the spam/filter key.
++  const [detailsKey, setDetailsKey] = useState<string | null>(null)
++  const detailsContextFor = useCallback((t: WalletToken): TokenDetailsContext => ({
++    accountIndex: localAddresses.accountIndex ?? 0,
++    accountAddress: localAddresses.evm,
++    mode: testnet ? 'testnet' : privacyMode ? 'privacy' : 'mainnet',
++    chainId: t.chain,
++    chainType: getChainType(t.chain),
++    addresses: localAddresses,
++  }), [localAddresses, testnet, privacyMode])
++  const detailsToken = useMemo(
++    () => (detailsKey && tokensResult
++      ? tokensResult.tokens.find(t => tokenDetailsKey(t, detailsContextFor(t)) === detailsKey) ?? null
++      : null),
++    [detailsKey, tokensResult, detailsContextFor],
++  )
++  useEffect(() => {
++    if (detailsKey && (!detailsToken || portfolioTab !== 'tokens')) setDetailsKey(null)
++  }, [detailsKey, detailsToken, portfolioTab])
++  const openTokenDetails = useCallback((t: WalletToken) => {
++    setDetailsKey(tokenDetailsKey(t, detailsContextFor(t)))
++  }, [detailsContextFor])
++
+   const openNftSend = useCallback((nft: WalletCollectible) => {
++    if (!canSendNft(nft)) return
+     const asset = nftToSendAsset(nft)
+     if (!asset) return   // canSendNft gates the button; this is belt-and-braces
+     const isAgw = nft.source === 'agw'
+@@ -1534,6 +1580,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+           onSpam={markSpam}
+           onSend={openTokenSend}
+           onSwap={onSwapToken ? (t) => { const s = swapTokenFromHolding(t); if (s) onSwapToken(s) } : undefined}
++          onOpen={openTokenDetails}
+         />
+       )}
+       {portfolioTab === 'collectibles' && (
+@@ -1553,6 +1600,24 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+ 
+       </div>{/* end scrollable content */}
+ 
++      {portfolioTab === 'tokens' && detailsToken && (
++        <TokenDetailsPanel
++          key={detailsKey ?? undefined}
++          token={detailsToken}
++          context={detailsContextFor(detailsToken)}
++          networkLabel={detailsToken.chainLabel}
++          logo={<TokenLogo token={detailsToken} />}
++          badges={detailsToken.source === 'agw' ? <AgwBadge /> : detailsToken.source === 'cip113' ? <ProgrammableBadge /> : undefined}
++          sendSupported={canSendToken(detailsToken)}
++          swapSupported={!!onSwapToken && !!swapTokenFromHolding(detailsToken)}
++          history={historyFor(detailsToken.source === 'agw' ? 'abstract-agw' : detailsToken.chain)}
++          onClose={() => setDetailsKey(null)}
++          // Hand the live holding (exact rawBalance, source) to the ORIGINAL handlers.
++          onSend={() => { const t = detailsToken; setDetailsKey(null); openTokenSend(t) }}
++          onSwap={() => { const s = swapTokenFromHolding(detailsToken); setDetailsKey(null); if (s && onSwapToken) onSwapToken(s) }}
++        />
++      )}
++
+       {selectedNft && (
+         <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} onSend={openNftSend} canUseAvatar={!hiddenItems.has(nftKey(selectedNft)) && !spamItems.has(nftKey(selectedNft))} />
+       )}
+@@ -1560,6 +1625,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+       {/* Send modal — native asset, opened from a network card or the AGW panel */}
+       {sendChain && (
+         <SendModal
++          contextKey={JSON.stringify([localAddresses.evm, localAddresses.accountIndex, localAddresses.agw, localAddresses.agwOwned, accountSwitching, testnet, privacyMode])}
+           chainId={sendChain === 'abstract-agw' ? 'abstract' : sendChain}
+           source={sendChain === 'abstract-agw' ? 'agw' : 'eoa'}
+           balance={activeSendBalance}
+@@ -1572,6 +1638,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
+       {/* Send modal — token or NFT, opened from the Tokens/Collectibles tabs */}
+       {sendAsset && (
+         <SendModal
++          contextKey={JSON.stringify([localAddresses.evm, localAddresses.accountIndex, localAddresses.agw, localAddresses.agwOwned, accountSwitching, testnet, privacyMode])}
+           chainId={sendAsset.chainId}
+           source={sendAsset.source}
+           asset={sendAsset.asset}
+diff --git a/src/renderer/types/wallet.ts b/src/renderer/types/wallet.ts
+index eef0d2c..8284d14 100644
+--- a/src/renderer/types/wallet.ts
++++ b/src/renderer/types/wallet.ts
+@@ -9,6 +9,7 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
+ import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downloads-wire'
+ import type { HistorySnapshot } from '../../shared/history-wire'
+ import type { FxRates } from '../../shared/currencies'
++import type { Cip113ProgrammableDetails } from '../../shared/cip113-wire'
+ import type { SettledSwapSession } from '../../shared/swap-settlement'
+ import type { StablecoinPlanRequest, StablecoinPlanEnvelope } from '../../shared/stablecoin-route'
+ import type { JourneyPlanRequest, JourneyPlanEnvelope, JourneyListSummary, JourneyRecheckResult, CbAdaTermsReview } from '../../shared/journey-candidate'
+@@ -245,7 +246,8 @@ export interface WalletToken {
+   chain: string
+   chainLabel: string
+   chainColor: string
+-  source?: 'agw'   // asset lives in the Abstract Global Wallet (smart account)
++  source?: 'agw' | 'cip113'
++  programmable?: Cip113ProgrammableDetails
+   // H-1: heuristic phishing-airdrop flag set by main's spam-filter.ts. The
+   // dashboard treats these as spam by default; restoring whitelists the token.
+   suspectedSpam?: boolean
+@@ -291,6 +293,7 @@ export interface WalletCollectible {
+   quantity?: string
+   traits: NftTrait[]
+   source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
++  readOnlyReason?: string
+   floorPrice?: number | null   // collection floor in the chain's native unit
+   /** floor × native price, in USD. Raw number — see ChainBalance.usdValue. */
+   usdValue?: number | null
+@@ -720,6 +723,8 @@ export interface PageSaveResult {
+ declare global {
+   interface Window {
+     wallet: {
++      /** Desktop-only paired agent access. Other targets do not expose a listener. */
++      agentAccess?: import('../../shared/agent-access').AgentAccessBridge
+       isSetup(): Promise<boolean>
+       /** Fresh BIP-39 phrase for the create flow. Defaults to 12 words. */
+       generate(words?: 12 | 24): Promise<string[]>
+diff --git a/tsconfig.node.json b/tsconfig.node.json
+index a059ea1..9f13f7b 100644
+--- a/tsconfig.node.json
++++ b/tsconfig.node.json
+@@ -12,6 +12,7 @@
+     "types": ["node"]
+   },
+   "include": [
++    "src/shared/agent-access.ts",
+     "src/shared/mallard-policy.ts",
+     "src/shared/nft-media.ts",
+     "electron-vite.config.*",
+@@ -26,6 +27,9 @@
+     "src/shared/downloads-wire.ts",
+     "src/shared/history-wire.ts",
+     "src/shared/address-input.ts",
++    "src/shared/token-details.ts",
++    "src/shared/cip113-wire.ts",
++    "src/shared/token-qr.ts",
+     "src/shared/currencies.ts",
+     "src/shared/swap-token-identity.ts",
+     "src/shared/swap-curated-tokens.ts",
+diff --git a/tsconfig.web.json b/tsconfig.web.json
+index 3a939fd..3e5c546 100644
+--- a/tsconfig.web.json
++++ b/tsconfig.web.json
+@@ -16,6 +16,7 @@
+     }
+   },
+   "include": [
++    "src/shared/agent-access.ts",
+     "src/shared/nft-media.ts",
+     "src/shared/ape-theme-core.ts",
+     "src/shared/collection-theme-access.ts",
+@@ -29,6 +30,9 @@
+     "src/shared/downloads-wire.ts",
+     "src/shared/history-wire.ts",
+     "src/shared/address-input.ts",
++    "src/shared/token-details.ts",
++    "src/shared/cip113-wire.ts",
++    "src/shared/token-qr.ts",
+     "src/shared/currencies.ts",
+     "src/shared/swap-token-identity.ts",
+     "src/shared/swap-curated-tokens.ts",

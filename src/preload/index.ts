@@ -17,6 +17,32 @@ const _collectiblesListeners = new Map<(s: unknown) => void, (e: unknown, s: unk
 const _autoRevokeListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
 
 contextBridge.exposeInMainWorld('wallet', {
+  agentX402: {
+    snapshot: () => ipcRenderer.invoke('agent-x402:snapshot'),
+    configure: (input: import('../shared/x402').X402LimitsInput, password: string) => ipcRenderer.invoke('agent-x402:configure', input, password),
+    prepare: (id: string) => ipcRenderer.invoke('agent-x402:prepare', id),
+    approve: (id: string, reviewId: string) => ipcRenderer.invoke('agent-x402:approve', id, reviewId),
+    reject: (id: string) => ipcRenderer.invoke('agent-x402:reject', id),
+  },
+  agentExecution: {
+    snapshot: () => ipcRenderer.invoke('agent-execution:snapshot'),
+    prepare: (id: string) => ipcRenderer.invoke('agent-execution:prepare', id),
+    approve: (id: string, reviewId: string) => ipcRenderer.invoke('agent-execution:approve', id, reviewId),
+    reject: (id: string) => ipcRenderer.invoke('agent-execution:reject', id),
+    status: (id: string) => ipcRenderer.invoke('agent-execution:status', id),
+    createPolicy: (input: import('../shared/agent-execution').AgentPolicyInput, password: string) => ipcRenderer.invoke('agent-execution:create-policy', input, password),
+    kill: (id?: string) => ipcRenderer.invoke('agent-execution:kill', id),
+    recovery: (id: string, recipient: string, amount: string, password: string) => ipcRenderer.invoke('agent-execution:recovery', id, recipient, amount, password),
+  },
+  // Desktop only. No arbitrary IPC or signer is exposed to agent clients.
+  agentAccess: {
+    snapshot: () => ipcRenderer.invoke('agent:snapshot'),
+    enable: (enabled: boolean) => ipcRenderer.invoke('agent:enable', enabled),
+    pair: (name: string, proposals: boolean) => ipcRenderer.invoke('agent:pair', name, proposals),
+    revoke: (id: string) => ipcRenderer.invoke('agent:revoke', id),
+    checkReview: (id: string) => ipcRenderer.invoke('agent:check-review', id),
+    review: (id: string, decision: 'open' | 'reject') => ipcRenderer.invoke('agent:review', id, decision),
+  },
   // ── Wallet lifecycle ──────────────────────────────────────────────────
   isSetup:       ()                  => ipcRenderer.invoke('wallet:is-setup'),
   generate:      (words?: 12 | 24)   => ipcRenderer.invoke('wallet:generate', words),

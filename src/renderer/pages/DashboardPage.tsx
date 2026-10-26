@@ -16,8 +16,11 @@ import { AgwPanel } from '../components/AgwPanel'
 import { HeaderToolbar, type HeaderToolbarProps } from '../components/HeaderToolbar'
 import {
   canSendToken, canSendNft, nftSendBlockedReason,
-  nftToSendAsset, tokenToSendAsset, formatUnits,
+  nftToSendAsset, tokenToSendAsset, formatUnits, getChainType,
 } from '../lib/asset-send'
+import { TokenDetailsPanel } from '../components/TokenDetailsPanel'
+import { ProgrammableBadge } from '../components/ProgrammableTokenSection'
+import { tokenDetailsKey, type TokenDetailsContext } from '../../shared/token-details'
 import { useAssetFilters } from '../lib/asset-filters'
 import { swapTokenFromHolding } from '../lib/swap-from-holding'
 import { useDisplayCurrency } from '../lib/currency'
@@ -199,9 +202,11 @@ interface TokenRowProps {
   onSpam: () => void
   onSend: (token: WalletToken) => void
   onSwap?: (token: WalletToken) => void
+  /** Open the details panel. The Send/Swap/Spam buttons are SIBLINGS of the card, never children. */
+  onOpen: (token: WalletToken) => void
 }
 
-function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend, onSwap }: TokenRowProps) {
+function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend, onSwap, onOpen }: TokenRowProps) {
   const { fmt } = useDisplayCurrency()
   return (
     <div
@@ -209,8 +214,17 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      {/* Card */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0 }}>
+      {/* Card — opens token details. Not a <button> (it holds block content);
+          role=button + Enter/Space gives the same keyboard behaviour. */}
+      <div
+        role="button" tabIndex={0}
+        aria-label={`${token.name}, ${token.chainLabel}: open token details`}
+        onClick={() => onOpen(token)}
+        onKeyDown={e => {
+          if (e.target !== e.currentTarget) return
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(token) }
+        }}
+        style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--bg-card)', border: `1px solid ${isHovered ? 'var(--border-active)' : 'var(--border)'}`, borderRadius: 10, transition: 'border-color var(--transition)', minWidth: 0, cursor: 'pointer' }}>
         <TokenLogo token={token} />
 
         {/* Name · Ticker · Chain — three stacked rows */}
@@ -226,6 +240,7 @@ function TokenRow({ token, isHovered, onMouseEnter, onMouseLeave, onSpam, onSend
               {token.chainLabel}
             </span>
             {token.source === 'agw' && <AgwBadge />}
+            {token.source === 'cip113' && <ProgrammableBadge />}
           </div>
         </div>
 
@@ -269,9 +284,10 @@ interface TokensViewProps {
   onSpam: (id: string) => void
   onSend: (token: WalletToken) => void
   onSwap?: (token: WalletToken) => void
+  onOpen: (token: WalletToken) => void
 }
 
-function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, onSend, onSwap }: TokensViewProps) {
+function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, onSend, onSwap, onOpen }: TokensViewProps) {
   const [hovered, setHovered] = useState<string | null>(null)
 
   const q = search.trim().toLowerCase()
@@ -337,6 +353,7 @@ function TokensView({ result, loading, hiddenItems, spamItems, search, onSpam, o
             onSpam={() => onSpam(id)}
             onSend={onSend}
             onSwap={onSwap}
+            onOpen={onOpen}
           />
         )
       })}
@@ -1194,6 +1211,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
   }, [fetchBalances, fetchTokens, fetchCollectibles])
 
   const openTokenSend = useCallback((token: WalletToken) => {
+    if (!canSendToken(token)) return
     // AGW-held assets must move through the smart account, not the EOA — the
     // EOA doesn't own them and the transfer would revert.
     const isAgw = token.source === 'agw'
@@ -1210,7 +1228,35 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
     })
   }, [])
 
+  // ── Token details panel ────────────────────────────────────────────────────
+  // Selection is a KEY (account + mode + chain + exact identifier + source), never
+  // a saved token object or array index: the token is re-derived from the latest
+  // fetch, so a refresh updates it in place and an account/mode change makes the
+  // key stop matching, which closes the panel. `tokenKey` stays the spam/filter key.
+  const [detailsKey, setDetailsKey] = useState<string | null>(null)
+  const detailsContextFor = useCallback((t: WalletToken): TokenDetailsContext => ({
+    accountIndex: localAddresses.accountIndex ?? 0,
+    accountAddress: localAddresses.evm,
+    mode: testnet ? 'testnet' : privacyMode ? 'privacy' : 'mainnet',
+    chainId: t.chain,
+    chainType: getChainType(t.chain),
+    addresses: localAddresses,
+  }), [localAddresses, testnet, privacyMode])
+  const detailsToken = useMemo(
+    () => (detailsKey && tokensResult
+      ? tokensResult.tokens.find(t => tokenDetailsKey(t, detailsContextFor(t)) === detailsKey) ?? null
+      : null),
+    [detailsKey, tokensResult, detailsContextFor],
+  )
+  useEffect(() => {
+    if (detailsKey && (!detailsToken || portfolioTab !== 'tokens')) setDetailsKey(null)
+  }, [detailsKey, detailsToken, portfolioTab])
+  const openTokenDetails = useCallback((t: WalletToken) => {
+    setDetailsKey(tokenDetailsKey(t, detailsContextFor(t)))
+  }, [detailsContextFor])
+
   const openNftSend = useCallback((nft: WalletCollectible) => {
+    if (!canSendNft(nft)) return
     const asset = nftToSendAsset(nft)
     if (!asset) return   // canSendNft gates the button; this is belt-and-braces
     const isAgw = nft.source === 'agw'
@@ -1534,6 +1580,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
           onSpam={markSpam}
           onSend={openTokenSend}
           onSwap={onSwapToken ? (t) => { const s = swapTokenFromHolding(t); if (s) onSwapToken(s) } : undefined}
+          onOpen={openTokenDetails}
         />
       )}
       {portfolioTab === 'collectibles' && (
@@ -1553,6 +1600,24 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
 
       </div>{/* end scrollable content */}
 
+      {portfolioTab === 'tokens' && detailsToken && (
+        <TokenDetailsPanel
+          key={detailsKey ?? undefined}
+          token={detailsToken}
+          context={detailsContextFor(detailsToken)}
+          networkLabel={detailsToken.chainLabel}
+          logo={<TokenLogo token={detailsToken} />}
+          badges={detailsToken.source === 'agw' ? <AgwBadge /> : detailsToken.source === 'cip113' ? <ProgrammableBadge /> : undefined}
+          sendSupported={canSendToken(detailsToken)}
+          swapSupported={!!onSwapToken && !!swapTokenFromHolding(detailsToken)}
+          history={historyFor(detailsToken.source === 'agw' ? 'abstract-agw' : detailsToken.chain)}
+          onClose={() => setDetailsKey(null)}
+          // Hand the live holding (exact rawBalance, source) to the ORIGINAL handlers.
+          onSend={() => { const t = detailsToken; setDetailsKey(null); openTokenSend(t) }}
+          onSwap={() => { const s = swapTokenFromHolding(detailsToken); setDetailsKey(null); if (s && onSwapToken) onSwapToken(s) }}
+        />
+      )}
+
       {selectedNft && (
         <NftDetailModal nft={selectedNft} onClose={() => setSelectedNft(null)} onSend={openNftSend} canUseAvatar={!hiddenItems.has(nftKey(selectedNft)) && !spamItems.has(nftKey(selectedNft))} />
       )}
@@ -1560,6 +1625,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {/* Send modal — native asset, opened from a network card or the AGW panel */}
       {sendChain && (
         <SendModal
+          contextKey={JSON.stringify([localAddresses.evm, localAddresses.accountIndex, localAddresses.agw, localAddresses.agwOwned, accountSwitching, testnet, privacyMode])}
           chainId={sendChain === 'abstract-agw' ? 'abstract' : sendChain}
           source={sendChain === 'abstract-agw' ? 'agw' : 'eoa'}
           balance={activeSendBalance}
@@ -1572,6 +1638,7 @@ export function DashboardPage({ addresses, onNavigate, onWalletDeleted, hidden =
       {/* Send modal — token or NFT, opened from the Tokens/Collectibles tabs */}
       {sendAsset && (
         <SendModal
+          contextKey={JSON.stringify([localAddresses.evm, localAddresses.accountIndex, localAddresses.agw, localAddresses.agwOwned, accountSwitching, testnet, privacyMode])}
           chainId={sendAsset.chainId}
           source={sendAsset.source}
           asset={sendAsset.asset}

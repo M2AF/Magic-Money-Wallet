@@ -22,6 +22,7 @@ import { collectionAccess, collectionOwners } from './lib/collection-access'
 import { apeAccess } from './lib/ape-access'
 import { bindSovereignAccount } from './lib/sovereign-access'
 import { DownloadProgressBar } from './components/DownloadProgressBar'
+import { AgentAccessPanel } from './components/AgentAccessPanel'
 
 export function App() {
   const [page, setPage]           = useState<AppPage>('loading')
@@ -264,6 +265,7 @@ export function App() {
         <img src={logoUrl} alt="MagicMoney" className="titlebar-logo" draggable={false} />
         <img src={wordmarkUrl} alt="Magic Money" className="titlebar-wordmark" draggable={false} />
         <div className="titlebar-controls">
+          {inDashboard && addresses && <AgentAccessPanel addresses={addresses} />}
           <button type="button" className="titlebar-btn min" onClick={() => window.wallet.minimize()} title="Minimize" aria-label="Minimize window" />
           <button type="button" className="titlebar-btn close" onClick={() => window.wallet.close()} title="Close" aria-label="Close window" />
         </div>

@@ -3,12 +3,18 @@ import type { FeeEstimate, SendResult, SendAsset } from '../types/wallet'
 import { formatUnits, parseUnits, getChainType } from '../lib/asset-send'
 import { useDisplayCurrency } from '../lib/currency'
 import { BodyPortal } from './BodyPortal'
+import { parseTokenQr } from '../../shared/token-qr'
 
 interface Props {
+  /** Reviewed agent drafts only prefill fields; fee estimation and confirmation remain mandatory. */
+  initialDraft?: { recipient: string; amount: string }
+  beforeSend?: () => Promise<void>
   chainId: string       // chain-config id, e.g. 'ethereum', 'arbitrum', 'solana'
   balance: string | null
   symbol: string
   onClose: () => void
+  /** Public account/mode identity supplied by the dashboard; never key material. */
+  contextKey: string
   source?: 'eoa' | 'agw'  // 'agw' sends from the Abstract Global Wallet (smart account)
   /**
    * Omitted for a native send — the original and still the default behaviour.
@@ -65,7 +71,7 @@ function getChainLabel(chainId: string, symbol: string): string {
 
 export function SendModal({
   chainId, balance, symbol, onClose, source = 'eoa',
-  asset, rawBalance, assetLabel, chainLabel, onSent,
+  asset, rawBalance, assetLabel, chainLabel, onSent, contextKey, initialDraft, beforeSend,
 }: Props) {
   const { fmt } = useDisplayCurrency()
   const networkName = chainLabel ?? getChainLabel(chainId, symbol)
@@ -77,14 +83,27 @@ export function SendModal({
   // ERC-1155 editions are whole units; a token uses the asset's own decimals.
   const amountDecimals = asset?.kind === 'token' ? asset.decimals : 0
   const [step, setStep]             = useState<Step>('form')
-  const [to, setTo]                 = useState('')
-  const [amount, setAmount]         = useState('')
+  const [to, setTo]                 = useState(initialDraft?.recipient ?? '')
+  const [amount, setAmount]         = useState(initialDraft?.amount ?? '')
   const [fee, setFee]               = useState<FeeEstimate | null>(null)
   const [feeLoading, setFeeLoading] = useState(false)
   const [feeError, setFeeError]     = useState<string | null>(null)
   const [result, setResult]         = useState<SendResult | null>(null)
   const [error, setError]           = useState<string | null>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+  const [scanPending, setScanPending] = useState(false)
+  const [scanFeedback, setScanFeedback] = useState<{ error: boolean; text: string } | null>(null)
+  const scanVersion = useRef(0)
+  const scanKey = JSON.stringify([contextKey, chainId, source, asset ?? null])
+  const liveScan = useRef({ mounted: true, key: scanKey, step })
+  liveScan.current.key = scanKey
+  liveScan.current.step = step
+  useEffect(() => {
+    liveScan.current.mounted = true
+    return () => { liveScan.current.mounted = false; ++scanVersion.current }
+  }, [])
+  const initialContextKey = useRef(contextKey)
+  const sendInFlight = useRef(false)
 
   // Midnight only: live DUST-sync/registration progress, polled ONLY while
   // this modal is actually in the 'registering' step (bounded, user-initiated
@@ -108,6 +127,36 @@ export function SendModal({
   // closing here loses the tx hash / success screen even though the
   // transaction still lands on-chain.
   const canDismiss = step !== 'sending' && step !== 'registering'
+  useEffect(() => {
+    // Never let a prepared form be used under a different account or mode.
+    // Keep broadcast progress visible if a transaction is already in flight.
+    if (contextKey !== initialContextKey.current && (step === 'form' || step === 'confirm')) onClose()
+  }, [contextKey, step, onClose])
+
+  const handleScan = async () => {
+    if (scanPending || step !== 'form' || typeof window.wallet.scanQr !== 'function') return
+    const version = ++scanVersion.current
+    const key = scanKey
+    const current = () => liveScan.current.mounted && liveScan.current.key === key
+      && liveScan.current.step === 'form' && scanVersion.current === version
+    setScanPending(true)
+    setScanFeedback(null)
+    try {
+      const text = await window.wallet.scanQr()
+      if (!current() || text === null || text === undefined) return
+      const parsed = await parseTokenQr(text, { key, chainId },
+        (chain, address) => window.wallet.validateAddress(chain, address))
+      if (!current() || parsed.key !== key) return
+      if (!parsed.ok) { setScanFeedback({ error: true, text: parsed.reason }); return }
+      setTo(parsed.address)
+      setFee(null)
+      setScanFeedback({ error: false, text: parsed.notice })
+    } catch {
+      if (current()) setScanFeedback({ error: true, text: 'Could not scan an address. Try again or paste the address.' })
+    } finally {
+      if (current()) setScanPending(false)
+    }
+  }
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current && canDismiss) onClose()
@@ -137,9 +186,7 @@ export function SendModal({
         setAddrState(res.valid ? 'valid' : 'invalid')
         setAddrReason(res.valid ? null : (res.reason ?? 'Invalid address'))
       } catch {
-        // Validator unavailable (old bridge / IPC hiccup) — don't block the
-        // send; fee estimation and broadcast still reject bad addresses.
-        if (!stale) { setAddrState('valid'); setAddrReason(null) }
+        if (!stale) { setAddrState('invalid'); setAddrReason('Could not validate the address. Try again.') }
       }
     }, 250)
     return () => { stale = true; clearTimeout(id) }
@@ -172,7 +219,7 @@ export function SendModal({
   const totalExceeds = !asset && !!fee && fee.feeSymbol === symbol &&
     Number.isFinite(parsedBalance) && Number.isFinite(feeNum) &&
     parsedAmount + feeNum > parsedBalance
-  const canEstimate = addrState === 'valid' && isValidAmount
+  const canEstimate = !scanPending && addrState === 'valid' && isValidAmount
 
   // Max = full balance, minus the estimated fee when it's in the same asset.
   const handleMax = () => {
@@ -211,8 +258,11 @@ export function SendModal({
   }
 
   const handleSend = async () => {
+    if (sendInFlight.current) return
+    sendInFlight.current = true
     setError(null)
     try {
+      if (beforeSend) { setStep('sending'); await beforeSend() }
       // Midnight: the Send button has no pre-check — DUST may still need to
       // finish its first sync (a background wallet-open only starts here,
       // on explicit send intent, never eagerly on login) plus a one-time
@@ -248,6 +298,7 @@ export function SendModal({
       // after the success screen renders so a slow refresh can't delay it.
       onSent?.()
     } catch (err) {
+      sendInFlight.current = false
       setError(String(err).replace('Error: ', ''))
       setStep('error')
     }
@@ -278,6 +329,7 @@ export function SendModal({
           <button
             type="button"
             onClick={onClose}
+            disabled={!canDismiss}
             aria-label="Close send dialog"
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-sm)' }}
           >
@@ -313,7 +365,10 @@ export function SendModal({
                   style={{ flex: 1, fontFamily: 'var(--font-mono)', fontSize: 12, borderColor: addrState === 'invalid' ? 'var(--error)' : undefined }}
                   placeholder={getAddressPlaceholder(chainId)}
                   value={to}
-                  onChange={e => { setTo(e.target.value); setFee(null) }}
+                  onChange={e => {
+                    ++scanVersion.current; setScanPending(false); setScanFeedback(null)
+                    setTo(e.target.value); setFee(null)
+                  }}
                   spellCheck={false}
                   disabled={step === 'confirm'}
                 />
@@ -321,20 +376,20 @@ export function SendModal({
                   <button
                     type="button"
                     aria-label="Scan address QR code"
-                    onClick={async () => {
-                      const text = await window.wallet.scanQr!().catch(() => null)
-                      if (!text) return
-                      // Payment-URI QRs (ethereum:0x…?value=…, bitcoin:bc1…?amount=…)
-                      // carry the address after the scheme, before any query.
-                      const addr = text.replace(/^[a-z][a-z0-9+.-]*:/i, '').split('?')[0].trim()
-                      if (addr) { setTo(addr); setFee(null) }
-                    }}
+                    onClick={handleScan}
+                    disabled={scanPending}
                     style={{ padding: '0 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg-dark)', color: 'var(--text)', fontSize: 15, cursor: 'pointer' }}
                   >
-                    📷
+                    {scanPending ? '…' : '📷'}
                   </button>
                 )}
               </div>
+              {scanFeedback && (
+                <div role={scanFeedback.error ? 'alert' : 'status'}
+                  style={{ fontSize: 11, color: scanFeedback.error ? 'var(--error)' : 'var(--text-muted)', marginTop: 4 }}>
+                  {scanFeedback.text}
+                </div>
+              )}
               {addrState === 'invalid' && addrReason && (
                 <div style={{ fontSize: 11, color: 'var(--error)', marginTop: 4 }}>{addrReason}</div>
               )}

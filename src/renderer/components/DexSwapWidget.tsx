@@ -34,6 +34,10 @@ import { SWAP_PERCENTS, percentOfRaw } from '../lib/swap-amount'
 import { swapExchangePreset, type SwapExchangePreset } from '../lib/swap-exchange-preset'
 
 interface Props {
+  /** Prefill only; an agent estimate is never reused as an executable quote. */
+  initialAgentSwap?: import('../../shared/agent-access').AgentSwapDraft
+  beforeExecute?: () => Promise<void>
+  onExecutionBusy?: (busy: boolean) => void
   addresses: WalletAddresses
   active: boolean
   onUseCrossChain?: (preset?: SwapExchangePreset) => void
@@ -101,12 +105,12 @@ function rawToHuman(raw: string, decimals: number): number {
 
 type ExecState = 'idle' | 'swapping' | 'success' | 'error'
 
-export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, onPreselectHandled }: Props) {
-  const [fromChain, setFromChain] = useState<SwapChain>('ethereum')
-  const [toChain, setToChain] = useState<SwapChain>('ethereum')
-  const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[0])
-  const [toToken, setToToken] = useState<SwapToken | undefined>(() => SWAP_TOKEN_LISTS.ethereum[1])
-  const [amount, setAmount] = useState('')
+export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, onPreselectHandled, initialAgentSwap, beforeExecute, onExecutionBusy }: Props) {
+  const [fromChain, setFromChain] = useState<SwapChain>((initialAgentSwap?.from.chain ?? 'ethereum') as SwapChain)
+  const [toChain, setToChain] = useState<SwapChain>((initialAgentSwap?.to.chain ?? 'ethereum') as SwapChain)
+  const [fromToken, setFromToken] = useState<SwapToken | undefined>(() => initialAgentSwap ? initialAgentSwap.from as SwapToken : SWAP_TOKEN_LISTS.ethereum[0])
+  const [toToken, setToToken] = useState<SwapToken | undefined>(() => initialAgentSwap ? initialAgentSwap.to as SwapToken : SWAP_TOKEN_LISTS.ethereum[1])
+  const [amount, setAmount] = useState(initialAgentSwap?.amount ?? '')
   /**
    * Networks the wallet says are swappable, joined from its own registry and the
    * measured capability matrix in the privileged layer. DEX_CHAINS is only the
@@ -119,7 +123,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   /** Holdings, for picker balances and so a held token needs no discovery to appear. */
   const [owned, setOwned] = useState<WalletToken[]>([])
 
-  const [overrideBps, setOverrideBps] = useState<number | null>(null)
+  const [overrideBps, setOverrideBps] = useState<number | null>(initialAgentSwap?.slippageBps ?? null)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const [quote, setQuote] = useState<NormalizedSwapQuote | null>(null)
@@ -158,6 +162,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   // silently dropped every quote result and froze the button on "Fetching quote…"
   // (desktop dev only; the production extension build has no StrictMode double-invoke).
   const alive = useRef(true)
+  const executeInFlight = useRef(false)
   useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
 
   const isAuto = overrideBps === null
@@ -486,13 +491,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
       : nativeBal < nativeSpend + feeReserve)
 
   const run = async () => {
-    if (!quote || !toToken || requiresExchange) return
+    if (!quote || !toToken || requiresExchange || executeInFlight.current) return
+    executeInFlight.current = true
+    onExecutionBusy?.(true)
     setExecState('swapping'); setExecError(null); setExecResult(null)
     // Freeze the destination token: the tracker below formats the RECEIVED amount
     // with these decimals, and the user can change the picker while a cross-chain
     // swap is still bridging.
     setExecutedTo({ symbol: toToken.symbol, decimals: toToken.decimals })
     try {
+      if (beforeExecute) await beforeExecute()
       const r = await window.wallet.swapExecute(quote)
       if (!alive.current) return
       setExecResult(r); setExecState('success')
@@ -506,6 +514,9 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     } catch (e) {
       if (!alive.current) return
       setExecError(e instanceof Error ? e.message : 'Swap failed'); setExecState('error')
+    } finally {
+      executeInFlight.current = false
+      onExecutionBusy?.(false)
     }
   }
 

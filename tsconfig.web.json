@@ -16,6 +16,9 @@
     }
   },
   "include": [
+    "src/shared/agent-access.ts",
+    "src/shared/agent-execution.ts",
+    "src/shared/x402.ts",
     "src/shared/nft-media.ts",
     "src/shared/ape-theme-core.ts",
     "src/shared/collection-theme-access.ts",
@@ -29,6 +32,9 @@
     "src/shared/downloads-wire.ts",
     "src/shared/history-wire.ts",
     "src/shared/address-input.ts",
+    "src/shared/token-details.ts",
+    "src/shared/cip113-wire.ts",
+    "src/shared/token-qr.ts",
     "src/shared/currencies.ts",
     "src/shared/swap-token-identity.ts",
     "src/shared/swap-curated-tokens.ts",

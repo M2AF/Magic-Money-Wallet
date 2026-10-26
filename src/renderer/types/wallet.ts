@@ -9,6 +9,7 @@ import type { ThemeEntries } from '../../shared/theme-sync-wire'
 import type { DownloadsSnapshot, DownloadActionResult } from '../../shared/downloads-wire'
 import type { HistorySnapshot } from '../../shared/history-wire'
 import type { FxRates } from '../../shared/currencies'
+import type { Cip113ProgrammableDetails } from '../../shared/cip113-wire'
 import type { SettledSwapSession } from '../../shared/swap-settlement'
 import type { StablecoinPlanRequest, StablecoinPlanEnvelope } from '../../shared/stablecoin-route'
 import type { JourneyPlanRequest, JourneyPlanEnvelope, JourneyListSummary, JourneyRecheckResult, CbAdaTermsReview } from '../../shared/journey-candidate'
@@ -245,7 +246,8 @@ export interface WalletToken {
   chain: string
   chainLabel: string
   chainColor: string
-  source?: 'agw'   // asset lives in the Abstract Global Wallet (smart account)
+  source?: 'agw' | 'cip113'
+  programmable?: Cip113ProgrammableDetails
   // H-1: heuristic phishing-airdrop flag set by main's spam-filter.ts. The
   // dashboard treats these as spam by default; restoring whitelists the token.
   suspectedSpam?: boolean
@@ -291,6 +293,7 @@ export interface WalletCollectible {
   quantity?: string
   traits: NftTrait[]
   source?: 'agw'   // NFT lives in the Abstract Global Wallet (smart account)
+  readOnlyReason?: string
   floorPrice?: number | null   // collection floor in the chain's native unit
   /** floor × native price, in USD. Raw number — see ChainBalance.usdValue. */
   usdValue?: number | null
@@ -720,6 +723,10 @@ export interface PageSaveResult {
 declare global {
   interface Window {
     wallet: {
+      /** Desktop-only paired agent access. Other targets do not expose a listener. */
+      agentAccess?: import('../../shared/agent-access').AgentAccessBridge
+      agentExecution?: import('../../shared/agent-execution').AgentExecutionBridge
+      agentX402?: import('../../shared/x402').X402Bridge
       isSetup(): Promise<boolean>
       /** Fresh BIP-39 phrase for the create flow. Defaults to 12 words. */
       generate(words?: 12 | 24): Promise<string[]>

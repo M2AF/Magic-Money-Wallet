@@ -25,6 +25,14 @@ function nft(contractType: string, over: Partial<WalletCollectible> = {}): Walle
 }
 
 describe('getChainType', () => {
+  it('blocks an ownership-unverified NFT at both availability and explanation boundaries', () => {
+    const held = nft('CIP25', { readOnlyReason: 'Ownership could not be checked' })
+    expect(canSendNft(held)).toBe(false)
+    expect(nftSendBlockedReason(held)).toBe('Ownership could not be checked')
+  })
+  it('withholds the generic Cardano send path for programmable holdings', () => {
+    expect(canSendToken(token({ chain: 'cardano', source: 'cip113' }))).toBe(false)
+  })
   it('maps the known non-EVM chains', () => {
     expect(getChainType('solana')).toBe('solana')
     expect(getChainType('cardano')).toBe('cardano')

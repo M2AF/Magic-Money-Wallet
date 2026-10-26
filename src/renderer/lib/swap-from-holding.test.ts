@@ -13,6 +13,9 @@ const held = (chain: string, contractAddress: string, symbol: string, over: Part
 })
 
 describe('swapTokenFromHolding', () => {
+  it('withholds generic Cardano swap execution for programmable holdings', () => {
+    expect(swapTokenFromHolding(held('cardano', 'a'.repeat(56) + '00', 'PROG', { source: 'cip113' }))).toBeNull()
+  })
   it('Monad EMO opens as itself on Monad', () => {
     expect(swapTokenFromHolding(held('monad', EMO_MONAD, 'EMO', { name: 'emonad' }))).toMatchObject({
       chain: 'monad', address: EMO_MONAD, symbol: 'EMO', decimals: 18, isNative: false,

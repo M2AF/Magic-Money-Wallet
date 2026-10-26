@@ -62,6 +62,11 @@ recommended wherever you actually hold funds.
 | WalletConnect: pair + personal_sign + one EVM send | | | | |
 | dApp browser: connect + one on-chain tx (e.g. small Uniswap swap) | | | | |
 | Receive check: fresh deposit lands on each chain family used above | | | | covered implicitly by sending between own wallets |
+| Agent-approved ETH request: wallet review, sign/submit, hash returned to agent, canonical receipt and recipient balance | | | | New desktop execution path; offline fixture tests pass, real-funds QA remains pending |
+| Isolated agent ETH account: explicit funding, allowed-recipient send within full-cost caps, Stop and owner recovery after revocation | | | | New desktop policy/recovery path; offline fixture tests pass, real-funds QA remains pending |
+| Agent MON on Monad143: approved native send, isolated recipient/caps, canonical receipt, Stop and native recovery | | | | Offline public-seed RPC fixture only; live MON settlement/recovery QA pending. See docs/AGENT-MONAD.md |
+| Monad143 Emogotchi: isolated NFT ownership, exact care/pet calldata and value, token-ID/budget guards, receipt, Stop, manual NFT recovery | | | | Verified ABI/code via read-only research; no live care call or NFT transfer/recovery performed. Other contracts and revive/setName remain blocked |
+| Isolated account x402: Base USDC automatic payment under explicit rules, owner exception, facilitator settlement receipt, Stop and manual USDC recovery | | | | Feature off by default; public-seed/stubbed Base Sepolia fixture only. Real testnet/mainnet settlement and native USDC recovery remain unverified; see docs/X402.md |
 
 ## Tier 2 — Cross-platform smoke (extension + Android)
 
