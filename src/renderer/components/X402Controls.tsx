@@ -1,19 +1,28 @@
 import { useState } from 'react'
 import type { AgentSpendingPolicy } from '../../shared/agent-execution'
 import type { X402Limits, X402LimitsInput, X402Snapshot } from '../../shared/x402'
+import { X402_EVM_NETWORKS, type X402EvmNetwork } from '../../shared/x402'
 
 export function usdc(raw: string): string {
   const value = raw.padStart(7, '0')
   return `${value.slice(0, -6)}.${value.slice(-6)}`.replace(/\.?0+$/, '')
 }
-export function X402AccountControls({ policy, limit, busy, configure }: {
-  policy: AgentSpendingPolicy; limit?: X402Limits; busy: boolean
+export function X402AccountControls({ policy, limits, busy, configure }: {
+  policy: AgentSpendingPolicy; limits: X402Limits[]; busy: boolean
   configure(input: X402LimitsInput, password: string): void
 }) {
   const [urls, setUrls] = useState(''), [perPayment, setPerPayment] = useState('0.10')
   const [daily, setDaily] = useState('1'), [total, setTotal] = useState('5'), [password, setPassword] = useState('')
-  const network = policy.chainId === 11155111 ? 'Base Sepolia' : 'Base'
+  const testnet = policy.chainId === 11155111
+  const [selectedNetwork, setNetwork] = useState<X402EvmNetwork>(testnet ? 'eip155:84532' : policy.chainId === 143 ? 'eip155:143' : 'eip155:8453')
+  const legacyNetwork = testnet ? 'eip155:84532' : 'eip155:8453'
+  const networkId = X402_EVM_NETWORKS[selectedNetwork].environment === (testnet ? 'testnet' : 'mainnet') ? selectedNetwork : legacyNetwork
+  const network = X402_EVM_NETWORKS[networkId].name
+  const limit = limits.find(l => (l.network ?? legacyNetwork) === networkId)
   return <details className="agent-section" data-testid="x402-account-controls"><summary>USDC x402 on this account</summary>
+    <label>x402 payment network<select className="input" aria-label="x402 payment network" value={networkId} disabled={busy} onChange={e => setNetwork(e.target.value as X402EvmNetwork)}>
+      {Object.entries(X402_EVM_NETWORKS).filter(([, n]) => n.environment === (testnet ? 'testnet' : 'mainnet')).map(([id, n]) => <option key={id} value={id}>{n.name} · USDC</option>)}
+    </select></label>
     <p>Fund the address above with USDC on <strong>{network}</strong>. Automatic payments use the existing recipient allowlist and the exact resource URLs below. These limits are in USDC.</p>
     <p className="agent-muted">Stop account, Stop all, revocation and expiry block new authorizations. Signatures already released remain redeemable until their signed expiry (at most 5 minutes). URL restrictions are enforced inside the wallet.</p>
     {limit ? <>
@@ -31,7 +40,7 @@ export function X402AccountControls({ policy, limit, busy, configure }: {
       <p>Authorizing these rules lets the assistant obtain spendable USDC signatures automatically within the caps. Every signature fixes its recipient, amount and expiry. Facilitators settle outside the wallet's Send flow.</p>
       <button type="button" className="btn btn-primary" disabled={busy || !password || !policy.active} onClick={() => {
         const secret = password; setPassword('')
-        configure({ policyId: policy.id, resourceUrls: urls.split(/\r?\n/).map(v => v.trim()).filter(Boolean), perPayment, daily, total }, secret)
+        configure({ policyId: policy.id, network: networkId, resourceUrls: urls.split(/\r?\n/).map(v => v.trim()).filter(Boolean), perPayment, daily, total }, secret)
       }}>Authorize USDC x402 rules</button>
     </>}
     <p className="agent-muted">The seed recovery path above controls this USDC too. Native recovery handles the account policy's native currency; USDC recovery currently requires a trusted wallet supporting that derivation path. Keep the path with your offline backup.</p>

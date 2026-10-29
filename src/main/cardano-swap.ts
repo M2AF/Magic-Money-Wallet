@@ -39,6 +39,8 @@ import {
   type MinswapOrderExpectation,
 } from './cardano-swap-validate'
 import { validateDanogoSwapTx } from './cardano-danogo-validate'
+import { validateSundaeOrderTx } from './cardano-sundae-validate'
+import { SUNDAE_V3, decodeSundaeV3OrderDatum } from './sundae-v3-order'
 import { DANOGO_CLMM } from './danogo-clmm'
 import type { CardanoSwapCost } from '../shared/swap-quote'
 import { MINSWAP_V2, decodeMinswapV2OrderDatum } from './minswap-v2-order'
@@ -82,7 +84,8 @@ export async function checkCardanoSwapTx(
     throw new CardanoSwapError('Could not read the current Cardano slot, so the order\'s validity window cannot be checked.')
   }
   // One validator per transaction shape; neither is relaxed to fit the other.
-  const validate = expectation.terms.protocol === 'DanogoCLMMV1' ? validateDanogoSwapTx : validateMinswapOrderTx
+  const p = expectation.terms.protocol
+  const validate = p === 'DanogoCLMMV1' ? validateDanogoSwapTx : p === 'SundaeSwapV3' ? validateSundaeOrderTx : validateMinswapOrderTx
   return validate(quote.txData.cbor as string, expectation, indexWalletUtxos(utxos), tip)
 }
 
@@ -118,7 +121,7 @@ export async function prepareCardanoSwapQuote(
     return { ...quote, cardanoCost: validated.cost }
   } catch (e) {
     if (e instanceof CardanoSwapValidationError) {
-      const what = protocol === 'DanogoCLMMV1' ? 'Danogo swap' : 'Minswap transaction'
+      const what = protocol === 'DanogoCLMMV1' ? 'Danogo swap' : protocol === 'SundaeSwapV3' ? 'SundaeSwap order' : 'Minswap transaction'
       throw new CardanoSwapError(`The ${what} failed the wallet's safety check: ${e.message}.`)
     }
     throw e
@@ -336,6 +339,22 @@ async function scanForSpender(
 }
 
 /**
+ * What one Cardano transaction credited to `wallet` in `unit` (lovelace or a
+ * native asset), NET of anything the wallet itself spent in it. Null when the
+ * transaction cannot be read yet; used to measure a payout into Cardano.
+ */
+export async function measureCardanoCredit(txHash: string, wallet: string, unit: string, config: WalletConfig): Promise<bigint | null> {
+  if (!/^[0-9a-f]{64}$/i.test(txHash) || !wallet) return null
+  try {
+    const tx = await bfJson<BfUtxos>(`txs/${txHash.toLowerCase()}/utxos`, config)
+    if (!tx.data) return null
+    return netDelta(tx.data, wallet, normalizeSwapAddress('cardano', unit))
+  } catch {
+    return null
+  }
+}
+
+/**
  * Where a Minswap order stands, in the vocabulary `mapMinswapStatus` reads.
  * Anything short of positive evidence is UNKNOWN (poll again), never a verdict.
  */
@@ -355,7 +374,7 @@ export async function getMinswapOrderStatus(
     if (!order.data) return unknown('the order transaction could not be read')
     const orderOut = order.data.outputs.find(o => {
       const p = paymentHashOf(o.address)
-      return p?.type === 1 && p.hash === MINSWAP_V2.orderScriptHash
+      return p?.type === 1 && (p.hash === MINSWAP_V2.orderScriptHash || p.hash === SUNDAE_V3.orderScriptHash)
     })
     if (!orderOut) {
       const direct = order.data.outputs.some(o => {
@@ -373,7 +392,11 @@ export async function getMinswapOrderStatus(
     let swapAmount: bigint | null = null
     let maxBatcherFee: bigint | null = null
     try {
-      if (orderOut.inline_datum) {
+      if (orderOut.inline_datum && paymentHashOf(orderOut.address)?.hash === SUNDAE_V3.orderScriptHash) {
+        const datum = decodeSundaeV3OrderDatum(hexBytes(orderOut.inline_datum))
+        swapAmount = datum.offerAmount
+        maxBatcherFee = datum.maxProtocolFee
+      } else if (orderOut.inline_datum) {
         const datum = decodeMinswapV2OrderDatum(hexBytes(orderOut.inline_datum))
         swapAmount = datum.swapAmount
         maxBatcherFee = datum.maxBatcherFee

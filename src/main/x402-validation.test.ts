@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { validateX402Proposal, x402ResourceUrl } from './x402-validation'
+import { validateX402Proposal, x402ResourceUrl, X402_ASSETS } from './x402-validation'
 import { x402Fixture } from './x402-fixtures'
 describe('closed x402 v2 validation', () => {
+  it.each(Object.entries(X402_ASSETS))('pins exact asset, domain and environment for %s', (network, asset) => {
+    const a = x402Fixture(); Object.assign(a.paymentRequired.accepts[0], { network, asset: asset.asset, extra: { name: asset.domainName, version: '2' } })
+    expect(validateX402Proposal(a, asset.environment).chainId).toBe(asset.chainId)
+    a.paymentRequired.accepts[0].asset = asset.chainId === 84532 ? X402_ASSETS['eip155:1'].asset : X402_ASSETS['eip155:84532'].asset
+    expect(() => validateX402Proposal(a, asset.environment)).toThrow('contract')
+  })
   it('accepts the canonical testnet token and preserves the original exact requirements', () => {
     const fixture = x402Fixture(), result = validateX402Proposal(fixture, 'testnet')
     expect(result.chainId).toBe(84532); expect(result.amountRaw).toBe('10000')

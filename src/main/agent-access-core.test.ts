@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { AgentAccessCore, type AgentContext, type AgentReadPort } from './agent-access-core'
 import type { AgentExecutionCore } from './agent-execution-core'
 import type { X402Core } from './x402-core'
+import type { AgentNativeCore } from './agent-native-core'
 
 function setup() {
   let now = 10_000
@@ -24,6 +25,23 @@ function setup() {
 }
 
 describe('agent access authorization and proposal isolation', () => {
+  it('routes native execution/x402 through restricted adapters and propagates revocation and Disable', async () => {
+    const s = setup(), execution = { kill: vi.fn(), stopClient: vi.fn(), list: () => [], accounts: () => [] }
+    const native = { kill: vi.fn(), stopClient: vi.fn(), pendingCount: () => 0, request: vi.fn(async () => ({ id: 'native-send' })), proposeX402: vi.fn(async () => ({ id: 'native-pay' })), retrieve: vi.fn(() => ({ headerName: 'PAYMENT-SIGNATURE' })), list: () => [], snapshot: () => ({ limits: [] }) }
+    const x402 = { pendingCount: () => 0, propose: vi.fn(), list: () => [], snapshot: () => ({ limits: [] }) }
+    const core = new AgentAccessCore(s.port, Date.now, execution as unknown as AgentExecutionCore, x402 as unknown as X402Core, native as unknown as AgentNativeCore)
+    core.setEnabled(true); const read = core.pair('Reader', false), write = core.pair('Native', true)
+    await expect(core.call(read.token, 'wallet_send_autonomous', {})).rejects.toThrow('pairing')
+    await expect(core.call(read.token, 'wallet_propose_x402_payment', {})).rejects.toThrow('pairing')
+    const request = { policyId: 'native-policy', requestId: 'send', chain: 'solana', recipient: 'address', amount: '1' }
+    expect(await core.call(write.token, 'wallet_send_autonomous', request)).toEqual({ id: 'native-send' })
+    await expect(core.call(write.token, 'wallet_send_autonomous', { ...request, transaction: 'raw' })).rejects.toThrow('Unknown argument')
+    expect(await core.call(write.token, 'wallet_propose_x402_payment', { policyId: 'native-policy', requestId: 'pay', resourceUrl: 'https://merchant.example.com/data', paymentRequired: {} })).toEqual({ id: 'native-pay' })
+    expect(x402.propose).not.toHaveBeenCalled()
+    expect(await core.call(write.token, 'wallet_x402_payment', { proposalId: 'native-pay', requestId: 'pay', resourceUrl: 'https://merchant.example.com/data' })).toEqual({ headerName: 'PAYMENT-SIGNATURE' })
+    core.revoke(write.grant.id); expect(native.stopClient).toHaveBeenCalledWith(write.grant.id)
+    core.setEnabled(false); expect(native.kill).toHaveBeenCalledTimes(2)
+  })
   it('gates autonomous contract calls by pairing and rejects raw calldata and audit failures before execution', async () => {
     const s = setup(), execution = { kill: vi.fn(), autonomousCall: vi.fn(async () => ({ id: 'call' })) }
     const core = new AgentAccessCore(s.port, Date.now, execution as unknown as AgentExecutionCore)

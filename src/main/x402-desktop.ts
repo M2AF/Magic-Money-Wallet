@@ -42,7 +42,7 @@ export function createDesktopX402(port: Pick<X402Port, 'enabled' | 'context' | '
   async function check(view: X402PaymentView) {
     assertAuthority(view)
     const typed = x402TypedData(view), rpc = evmReadClient(view.chainId, loadConfig())
-    if (!rpc) throw new Error('The Base payment network is unavailable.')
+    if (!rpc) throw new Error('The x402 payment network is unavailable.')
     try {
       if (await rpc.getChainId() !== view.chainId) throw new Error('wrong chain')
       const [separator, decimals, balance, used, code] = await Promise.all([
@@ -59,7 +59,7 @@ export function createDesktopX402(port: Pick<X402Port, 'enabled' | 'context' | '
       const simulated = await rpc.call({ account: typed.message.from, to: typed.domain.verifyingContract,
         data: encodeFunctionData({ abi, functionName: 'transfer', args: [typed.message.to, typed.message.value] }) })
       if (simulated.data !== `0x${'0'.repeat(63)}1`) throw new Error('transfer simulation returned false')
-    } catch { throw new Error('USDC payment checks failed. Check the Base network, balance, token domain and nonce; no authorization was released.') }
+    } catch { throw new Error('USDC payment checks failed. Check the payment network, balance, token domain and nonce; no authorization was released.') }
     assertAuthority(view)
   }
   return new X402Core({ ...port, check,

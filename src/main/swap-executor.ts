@@ -13,14 +13,15 @@
  * Private keys are derived inside this process and never leave it.
  */
 
-import { VersionedTransaction, Connection } from '@solana/web3.js'
+import { VersionedTransaction, Connection, PublicKey, SystemProgram, TransactionMessage } from '@solana/web3.js'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   sendRawEvmTransaction, waitForEvmReceipt, simulateRawEvmTransaction,
   getEvmPendingNonce, readErc20Allowance, readEvmSellBalance, type EvmSimulationOutcome,
+  prepareCardanoTransfer, submitSignedCardanoTx,
 } from './tx-sender'
 import { getSolanaKeypair, getEvmPrivateKey } from './wallet-core'
-import type { NormalizedSwapQuote } from './swap-proxy'
+import { nearIntentsProxy, type NormalizedSwapQuote } from './swap-proxy'
 import type { WalletConfig } from './secure-store'
 import { heliusRpcUrl } from './api-proxy'
 import { decideSwapPolicy, checkMinReceived, type SwapPolicyDecision } from './swap-policy'
@@ -45,7 +46,8 @@ import { mnemonicToEntropy } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
 import { getCardanoSpendingKey, decodeCardanoAddress } from './cardano-pure'
 import { cip30SignTx, cip30SubmitTx } from './cardano-cip30'
-import { decodeCbor, CborMap } from './cardano-tx-inspect'
+import { decodeCbor, CborMap, decodeTxBody } from './cardano-tx-inspect'
+import { liveNearIntentsDeposit, submitOneClickDeposit, DEPOSIT_TTL_SLOTS } from './near-intents-swap'
 import { splitTxRoot, assembleSignedTx, mergeWitnessSets, hexToBytesStrict, CardanoSwapValidationError } from './cardano-swap-validate'
 import { checkCardanoSwapTx, cardanoscanTx, CardanoSwapError } from './cardano-swap'
 import { cardanoSwapInputRefs, CardanoInputReservationError } from './cardano-swap-inputs'
@@ -94,6 +96,8 @@ export interface SwapExecuteResult {
   txHash: string
   explorerUrl: string
   approvalTxHash: string | null
+  /** The provider's reference for status (NEAR Intents: the deposit address). */
+  requestId?: string | null
 }
 
 /**
@@ -193,8 +197,14 @@ export async function executeSwap(
   }
 
   const chain = quote.fromChain
+  if (quote.provider === 'near-intents' && quote.toChain === 'cardano') {
+    return executeNearIntentsDeposit(quote, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
+  }
   if (isSupportedEvmChain(chain, config)) return executeEvmSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
   if (chain === 'solana') return executeSolanaSwap(quote, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
+  if (chain === 'cardano' && quote.provider === 'near-intents') {
+    return executeNearIntentsCardanoSwap(quote, mnemonic, config, accountIndex, intentId, identity, decimals)
+  }
   if (chain === 'cardano') {
     let release = () => {}
     try {
@@ -335,6 +345,196 @@ async function executeCardanoSwap(
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Cardano ADA -> another chain through NEAR Intents (near-intents-swap.ts).
+ * The wallet pays an exact amount of ADA to the deposit address of a live,
+ * signature-verified quote held to the approved terms. The hash is saved before
+ * the payment is submitted, and it is never resent.
+ */
+async function executeNearIntentsCardanoSwap(
+  quote: NormalizedSwapQuote,
+  mnemonic: string,
+  config: WalletConfig,
+  accountIndex: number,
+  intentId?: string,
+  identity?: SwapSigningIdentity,
+  decimals?: { from?: number; to?: number },
+): Promise<SwapExecuteResult> {
+  const walletAddress = identity?.sourceAddress ?? ''
+  const t = quote.nearIntents
+  if (!walletAddress) throw new SwapPreflightError('This account has no Cardano address to swap from. Nothing was sent.')
+  if (!t) throw new SwapPreflightError('The NEAR Intents terms are missing from this quote. Nothing was sent — refresh the quote.')
+  // The quote must name THIS wallet: refunds come back here, the payout goes to its own address.
+  if (t.refundTo !== walletAddress) {
+    throw new SwapPreflightError('This swap was quoted for a different Cardano address. Nothing was sent — refresh the quote.')
+  }
+  if (!identity?.destinationAddress || t.recipient !== identity.destinationAddress || quote.toAddress !== identity.destinationAddress) {
+    throw new SwapPreflightError('This swap would pay out to an address that is not this wallet\'s own. Nothing was sent.')
+  }
+
+  // ── 1. The signing key controls the quoted address ─────────────────────────
+  const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
+  const spendKey = getCardanoSpendingKey(mnemonicToEntropy(cleaned, wordlist), accountIndex)
+  let ownBytes: Uint8Array
+  try { ownBytes = decodeCardanoAddress(walletAddress) } catch {
+    throw new SwapPreflightError('This account\'s Cardano address could not be read. Nothing was sent.')
+  }
+  if (toHex(ownBytes.slice(1, 29)) !== toHex(blake2b(spendKey.pub, { dkLen: 28 }))) {
+    throw new SwapPreflightError('This swap was quoted for a different Cardano address than the one this wallet would sign with. Nothing was sent.')
+  }
+
+  // ── 2. The live quote, held to the approved terms and minimum ──────────────
+  let deposit: Awaited<ReturnType<typeof liveNearIntentsDeposit>>
+  try {
+    deposit = await liveNearIntentsDeposit(quote, { proxy: nearIntentsProxy(config) })
+  } catch (e) {
+    throw new SwapPreflightError(`${(e instanceof Error ? e.message : 'NEAR Intents could not be reached').replace(/\.$/, '')}. Nothing was sent — refresh the quote and try again.`)
+  }
+
+  // ── 3. Build and sign the exact payment, valid for about 10 minutes ────────
+  let built: Awaited<ReturnType<typeof prepareCardanoTransfer>>
+  try {
+    built = await prepareCardanoTransfer({
+      mnemonic: cleaned, fromAddress: walletAddress, toAddress: deposit.depositAddress, config, accountIndex,
+      amountLovelace: BigInt(quote.sellAmountRaw), ttlSlots: DEPOSIT_TTL_SLOTS,
+    })
+  } catch (e) {
+    throw new SwapPreflightError(`Could not build the ADA payment (${e instanceof Error ? e.message : 'unknown error'}). Nothing was sent.`)
+  }
+  // What was signed pays exactly the quoted ADA to the deposit address and
+  // returns everything else to this wallet.
+  const body = decodeTxBody(splitTxRoot(built.txCbor).body)
+  const depositBytes = toHex(decodeCardanoAddress(deposit.depositAddress))
+  const paid = body.outputs.filter(o => toHex(o.addressBytes) === depositBytes)
+  if (paid.length !== 1 || paid[0].value.lovelace !== BigInt(quote.sellAmountRaw) || paid[0].value.assets.length !== 0
+      || body.outputs.some(o => toHex(o.addressBytes) !== depositBytes && toHex(o.addressBytes) !== toHex(ownBytes))
+      || body.mint.length || body.withdrawals.length || body.certificates.length) {
+    throw new SwapPreflightError('The signed ADA payment did not come out as exactly the quoted deposit. Nothing was sent.')
+  }
+  const txId = built.txHash
+  const explorerUrl = cardanoscanTx(txId)
+
+  // ── 4. Reserve the coins and save the record BEFORE submitting ─────────────
+  let release = () => {}
+  if (intentId && identity) {
+    try {
+      release = await reserveCardanoSwapInputs(intentId, identity, built.inputs)
+    } catch (e) {
+      throw new SwapPreflightError(e instanceof CardanoInputReservationError ? e.message
+        : 'Could not reserve the Cardano coins for this payment. Nothing was sent.')
+    }
+  }
+  try {
+    if (intentId && identity) {
+      try {
+        await prepareCardanoSwapBroadcast(intentId, { ...quote, requestId: deposit.depositAddress }, identity,
+          { from: 6, to: typeof decimals?.to === 'number' ? decimals.to : 0 }, txId, explorerUrl, built.inputs)
+      } catch {
+        throw new SwapPreflightError('Could not save the swap recovery record. Nothing was sent — check wallet storage before trying again.')
+      }
+    }
+    assertQuoteStillFresh(quote, null, [])
+  } finally {
+    // After the record is saved, it — not this reservation — protects the coins.
+    release()
+  }
+
+  // ── 5. Submit once. From here the intent can never be re-authorized. ───────
+  if (intentId) markSwapIntentBroadcast(intentId)
+  const track = (fn: () => Promise<void>) => {
+    if (!intentId || !identity) return
+    fn().catch(() => { /* evidence store must never break a swap */ })
+  }
+  try {
+    await submitSignedCardanoTx(built.txCbor, txId, config)
+  } catch (e) {
+    track(() => noteSwapBroadcast(intentId as string, txId, explorerUrl, null))
+    track(() => noteUncertainBroadcast(intentId as string, null))
+    throw new Error(
+      `The ADA payment ${txId} to the NEAR Intents deposit address was submitted, but the network did not confirm `
+      + 'receipt, so it may or may not have been accepted. Check it on Cardanoscan before trying again — do not send '
+      + `it again. (${e instanceof Error ? e.message : 'submit failed'})`)
+  }
+  track(() => noteSwapBroadcast(intentId as string, txId, explorerUrl, null))
+  void submitOneClickDeposit(deposit.depositAddress, txId)
+  return { txHash: txId, explorerUrl, approvalTxHash: null, requestId: deposit.depositAddress }
+}
+
+/**
+ * Another chain -> Cardano through NEAR Intents: pay the deposit with an
+ * ordinary transfer on the source chain.
+ *
+ *   1. the quote names THIS wallet: refunds to its source address, the ADA to
+ *      its own Cardano address;
+ *   2. the live, signature-verified quote is held to the approved terms and
+ *      minimum, and its deposit address is checked for the source chain;
+ *   3. the wallet builds the transfer ITSELF (nothing provider-built is signed):
+ *      native coin, or an ERC-20 `transfer` of exactly the quoted amount, to
+ *      exactly that address; on Solana, SOL only;
+ *   4. it is signed and sent by the chain's normal swap path, which records the
+ *      deposit address before broadcasting, simulates, and never resends.
+ */
+async function executeNearIntentsDeposit(
+  quote: NormalizedSwapQuote,
+  mnemonic: string,
+  config: WalletConfig,
+  accountIndex: number,
+  policy: SwapPolicyDecision,
+  intentId?: string,
+  identity?: SwapSigningIdentity,
+  decimals?: { from?: number; to?: number },
+): Promise<SwapExecuteResult> {
+  const t = quote.nearIntents
+  const chain = quote.fromChain
+  const own = identity?.sourceAddress ?? ''
+  if (!t) throw new SwapPreflightError('The NEAR Intents terms are missing from this quote. Nothing was sent — refresh the quote.')
+  const same = (a: string, b: string) => (chain === 'solana' ? a === b : a.toLowerCase() === b.toLowerCase())
+  if (!own || !same(t.refundTo, own)) {
+    throw new SwapPreflightError(`This swap was quoted for a different ${chain} address. Nothing was sent — refresh the quote.`)
+  }
+  if (!identity?.destinationAddress || t.recipient !== identity.destinationAddress || quote.toAddress !== identity.destinationAddress) {
+    throw new SwapPreflightError("This swap would pay out to an address that is not this wallet's own. Nothing was sent.")
+  }
+  const sellsNative = isNativeSwapAddress(chain, quote.fromTokenAddress)
+  if (chain === 'solana' && !sellsNative) throw new SwapPreflightError('From Solana, NEAR Intents deposits are paid in SOL only. Nothing was sent.')
+
+  let deposit: Awaited<ReturnType<typeof liveNearIntentsDeposit>>
+  try {
+    deposit = await liveNearIntentsDeposit(quote, { proxy: nearIntentsProxy(config) })
+  } catch (e) {
+    throw new SwapPreflightError(`${(e instanceof Error ? e.message : 'NEAR Intents could not be reached').replace(/\.$/, '')}. Nothing was sent — refresh the quote and try again.`)
+  }
+  const amount = BigInt(quote.sellAmountRaw)
+
+  let txData: NormalizedSwapQuote['txData']
+  if (chain === 'solana') {
+    const keypair = await getSolanaKeypair(mnemonic, accountIndex)
+    if (keypair.publicKey.toBase58() !== own) throw new SwapPreflightError('This swap was quoted for a different Solana address than the one this wallet would sign with. Nothing was sent.')
+    const connection = new Connection(heliusRpcUrl(config), 'confirmed')
+    const { blockhash } = await connection.getLatestBlockhash('confirmed')
+    const message = new TransactionMessage({
+      payerKey: keypair.publicKey, recentBlockhash: blockhash,
+      instructions: [SystemProgram.transfer({ fromPubkey: keypair.publicKey, toPubkey: new PublicKey(deposit.depositAddress), lamports: amount })],
+    }).compileToV0Message()
+    txData = { swapTransaction: Buffer.from(new VersionedTransaction(message).serialize()).toString('base64') }
+  } else if (sellsNative) {
+    txData = { to: deposit.depositAddress, data: '0x', value: '0x' + amount.toString(16) }
+  } else {
+    // ERC-20 transfer(address,uint256), to the deposit address, of exactly the quoted amount.
+    const word = (h: string) => h.replace(/^0x/, '').toLowerCase().padStart(64, '0')
+    txData = { to: quote.fromTokenAddress, data: '0xa9059cbb' + word(deposit.depositAddress) + word(amount.toString(16)), value: '0x0' }
+  }
+
+  // The deposit address is the provider request id: recorded with the session
+  // before broadcast, and what status is read by.
+  const payable: NormalizedSwapQuote = { ...quote, txData, requestId: deposit.depositAddress, approvalTx: null, permitTx: null }
+  const sent = chain === 'solana'
+    ? await executeSolanaSwap(payable, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
+    : await executeEvmSwap(payable, mnemonic, config, accountIndex, policy, intentId, identity, decimals)
+  void submitOneClickDeposit(deposit.depositAddress, sent.txHash)
+  return { ...sent, requestId: deposit.depositAddress }
 }
 
 /**

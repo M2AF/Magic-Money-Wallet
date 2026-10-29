@@ -519,6 +519,22 @@ export async function saveJourneys(map: Record<string, string>): Promise<void> {
   await prefSet('wallet.journeys', map)
 }
 
+// -- Chained swaps (src/main/chained-swap.ts): same rules as journeys. --------
+export async function loadChainedSwaps(): Promise<Record<string, string>> {
+  const { value } = await Preferences.get({ key: 'wallet.chainedSwaps' })
+  if (value == null) return {}
+  let m: unknown
+  try { m = JSON.parse(value) } catch { throw new Error('The stored multi-step swaps are unreadable; they were left untouched.') }
+  if (!m || typeof m !== 'object' || Array.isArray(m) || Object.values(m as object).some(v => typeof v !== 'string')) {
+    throw new Error('The stored multi-step swaps are unreadable; they were left untouched.')
+  }
+  return m as Record<string, string>
+}
+
+export async function saveChainedSwaps(map: Record<string, string>): Promise<void> {
+  await prefSet('wallet.chainedSwaps', map)
+}
+
 // ── ERC-20 balance cache (last-known-good alchemy_getTokenBalances) ───────────
 
 export interface TokenBalanceCacheEntry {

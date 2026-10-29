@@ -1098,6 +1098,29 @@ export async function sendCardanoTransaction(
   accountIndex = 0,
   asset?: SendAsset
 ): Promise<SendResult> {
+  const built = await prepareCardanoTransfer({ mnemonic, fromAddress, toAddress, amountAda, config, accountIndex, asset })
+  return submitSignedCardanoTx(built.txCbor, built.txHash, config)
+}
+
+export interface PreparedCardanoTransfer {
+  txCbor: Uint8Array
+  txHash: string
+  fee: bigint
+  /** "txHash#index" of every spent input. */
+  inputs: string[]
+}
+
+/**
+ * Build and SIGN a Cardano transfer without submitting it, so a caller can save
+ * the hash before the first network action. `amountLovelace` (exact) wins over
+ * `amountAda`; `ttlSlots` overrides the default validity window.
+ */
+export async function prepareCardanoTransfer(opts: {
+  mnemonic: string; fromAddress: string; toAddress: string; config: WalletConfig; accountIndex?: number
+  amountAda?: string; amountLovelace?: bigint; asset?: SendAsset; ttlSlots?: bigint
+}): Promise<PreparedCardanoTransfer> {
+  const { mnemonic, fromAddress, toAddress, config, accountIndex = 0, asset } = opts
+  const amountAda = opts.amountAda ?? '0'
   const cleaned = mnemonic.trim().toLowerCase().replace(/\s+/g, ' ')
   const entropy = mnemonicToEntropy(cleaned, wordlist)
   const spendKey = getCardanoSpendingKey(entropy, accountIndex)
@@ -1107,7 +1130,8 @@ export async function sendCardanoTransaction(
   if (allUtxos.length === 0) throw new Error('No UTXOs found — address has no funds on-chain')
 
   const [params, tip] = await Promise.all([fetchCardanoParams(config), fetchCardanoTip(config)])
-  const ttl = tip === null ? undefined : tip + TTL_SLOTS
+  if (opts.ttlSlots !== undefined && tip === null) throw new Error('The current Cardano slot could not be read, so the transfer cannot be given a safe expiry.')
+  const ttl = tip === null ? undefined : tip + (opts.ttlSlots ?? TTL_SLOTS)
 
   const toAddrBytes = decodeCardanoAddress(toAddress)
   const fromAddrBytes = decodeCardanoAddress(fromAddress)
@@ -1123,7 +1147,7 @@ export async function sendCardanoTransaction(
 
   const amountLovelace = sendAssets
     ? minAdaForOutput(toAddrBytes, sendAssets, params.coinsPerUtxoByte)
-    : BigInt(Math.round(parseFloat(amountAda) * 1_000_000))
+    : opts.amountLovelace ?? BigInt(Math.round(parseFloat(amountAda) * 1_000_000))
   if (amountLovelace <= 0n) throw new Error('Amount must be greater than 0')
 
   // Prefer pure-ADA UTxOs. Every asset on a selected input has to be returned in
@@ -1204,8 +1228,14 @@ export async function sendCardanoTransaction(
     throw lastError ?? new Error('Could not build a balanced Cardano transaction')
   }
 
-  const { txCbor, txHash } = built
+  return {
+    txCbor: built.txCbor, txHash: built.txHash, fee: built.fee,
+    inputs: selected.map(u => `${u.txHash}#${u.txIndex}`),
+  }
+}
 
+/** Submit an already-signed Cardano transaction (Blockfrost, then keyless Koios). */
+export async function submitSignedCardanoTx(txCbor: Uint8Array, txHash: string, config: WalletConfig): Promise<SendResult> {
   // Testnet Mode: broadcast via keyless Koios preprod (Blockfrost keys are
   // network-scoped, so the mainnet proxy route can't submit preprod txs).
   if (isTestnet(config)) {

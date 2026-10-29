@@ -29,6 +29,7 @@ import type { WalletConfig } from './secure-store'
 import { heliusRpcUrl } from './api-proxy'
 import { activeEvmChains } from './chain-config'
 import { readEvmTokenCredit } from './tx-sender'
+import { measureCardanoCredit } from './cardano-swap'
 import { isNativeSwapAddress, normalizeSwapAddress } from '../shared/swap-token-identity'
 
 /** The parts of a jsonParsed Solana transaction this reads. */
@@ -102,6 +103,10 @@ export async function measureDelivery(
       if (!tx) return null
       const credit = solanaCredit(tx as unknown as ParsedSolanaTxLike, recipient, tokenAddress)
       return credit != null && credit >= 0n ? { amountRaw: credit.toString(), source: 'onchain' } : null
+    }
+    if (toChain === 'cardano') {
+      const credit = await measureCardanoCredit(destTxHash, recipient, tokenAddress, config)
+      return credit != null && credit > 0n ? { amountRaw: credit.toString(), source: 'onchain' } : null
     }
     // EVM: only ERC-20 deliveries leave a Transfer event to measure.
     if (isNativeSwapAddress(toChain, tokenAddress)) return null

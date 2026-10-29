@@ -4,6 +4,7 @@ import type { AgentExecutionSnapshot, AgentTransaction } from '../../shared/agen
 import { agentNativeSymbol } from '../../shared/agent-execution'
 import type { X402Snapshot } from '../../shared/x402'
 import { X402AccountControls, X402Inbox } from './X402Controls'
+import { AgentNativePanel } from './AgentNativePanel'
 
 function eth(raw: string): string {
   const digits = raw.padStart(19, '0')
@@ -142,7 +143,7 @@ export function AgentExecutionPanel({ grants, ownerAddress, contextKey }: { gran
       <p className="agent-identity">Allowed recipients: {p.recipients.join('\n')}</p>
       <p>Reserved budget: {eth(transactions.filter(t => t.policyId === p.id && t.mode === 'autonomous' && t.plan && !['pending-approval', 'prepared', 'rejected', 'expired'].includes(t.state)).reduce((sum, t) => sum + BigInt(t.plan!.totalRaw), 0n).toString())} {agentNativeSymbol(p.chainId)}</p>
       {p.stoppedReason && <p className="agent-muted">{p.stoppedReason}</p>}
-      {x402.available && <X402AccountControls policy={p} limit={x402.limits.find(l => l.policyId === p.id)} busy={busy}
+      {x402.available && <X402AccountControls policy={p} limits={x402.limits.filter(l => l.policyId === p.id)} busy={busy}
         configure={(input, secret) => act(() => window.wallet.agentX402!.configure(input, secret))} />}
       <div className="agent-actions"><button type="button" className="btn btn-ghost" onClick={() => navigator.clipboard.writeText(p.address).catch(() => setError('Copy failed. Select and copy the displayed address.'))}>Copy funding address</button>
         <button type="button" className="btn btn-ghost agent-stop" onClick={() => kill(p.id)}>Stop account</button>
@@ -158,5 +159,6 @@ export function AgentExecutionPanel({ grants, ownerAddress, contextKey }: { gran
         }}>Prepare recovery</button>
       </div>}
     </article>)}</div>}
+    <AgentNativePanel grants={grants} contextKey={contextKey} />
   </section>
 }

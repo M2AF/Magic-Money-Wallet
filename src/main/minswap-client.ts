@@ -29,7 +29,7 @@ import { CARDANO_LOVELACE, isValidSwapAddress, normalizeSwapAddress } from '../s
 import { DANOGO_CLMM } from './danogo-clmm'
 
 /** The route shapes this wallet can check before signing (one validator each). */
-export type CardanoSwapProtocol = 'MinswapV2' | 'DanogoCLMMV1'
+export type CardanoSwapProtocol = 'MinswapV2' | 'DanogoCLMMV1' | 'SundaeSwapV3'
 
 export const MINSWAP_AGGREGATOR_URL = 'https://agg-api.minswap.org/aggregator'
 
@@ -56,6 +56,7 @@ interface MinswapPathStep {
   token_in?: string
   token_out?: string
   protocol?: string
+  pool_id?: string
   amount_in?: string
   amount_out?: string
 }
@@ -98,6 +99,7 @@ export function termsFromEstimate(
 ): MinswapTerms {
   const bad = (why: string): never => { throw new MinswapQuoteError(`Minswap returned an unusable route: ${why}.`) }
   if (protocol === 'DanogoCLMMV1') return danogoTermsFromEstimate(req, est, bad)
+  if (protocol === 'SundaeSwapV3') return sundaeTermsFromEstimate(req, est, bad)
   if (unit(est.token_in) !== unit(req.token_in) || unit(est.token_out) !== unit(req.token_out)) bad('different tokens')
   if (String(est.amount_in ?? '') !== req.amount) bad('a different sell amount')
   for (const [name, v] of [['amount_out', est.amount_out], ['min_amount_out', est.min_amount_out],
@@ -184,6 +186,47 @@ function danogoTermsFromEstimate(req: MinswapEstimateRequest, est: MinswapEstima
   }
 }
 
+/**
+ * A SundaeSwap V3 route: ONE order against ONE named pool. Measured 2026-10-28:
+ * `include_protocols` cannot exclude Minswap's own pools, so an estimate asked
+ * for V3 may come back through Minswap V1; that is refused here, not executed.
+ * The pool id is carried into the terms: the order datum must name that pool.
+ */
+function sundaeTermsFromEstimate(req: MinswapEstimateRequest, est: MinswapEstimate, bad: (why: string) => never): MinswapTerms {
+  if (unit(est.token_in) !== unit(req.token_in) || unit(est.token_out) !== unit(req.token_out)) bad('different tokens')
+  if (String(est.amount_in ?? '') !== req.amount) bad('a different sell amount')
+  for (const [name, v] of [['amount_out', est.amount_out], ['min_amount_out', est.min_amount_out],
+    ['total_dex_fee', est.total_dex_fee], ['deposits', est.deposits]] as const) {
+    if (typeof v !== 'string' || !UINT.test(v)) bad(`missing ${name}`)
+  }
+  const aggregatorFee = est.aggregator_fee == null ? '0' : String(est.aggregator_fee)
+  if (!UINT.test(aggregatorFee)) bad('a malformed aggregator fee')
+  if (BigInt(est.amount_out as string) <= 0n || BigInt(est.min_amount_out as string) <= 0n) bad('no output')
+  if (!Array.isArray(est.paths) || est.paths.length !== 1) bad('the route is split across several orders')
+  const steps = (est.paths as MinswapPathStep[][])[0]
+  if (!Array.isArray(steps) || steps.length !== 1) bad('the route crosses more than one SundaeSwap pool')
+  if (steps[0].protocol !== 'SundaeSwapV3') bad(`the route uses ${steps[0].protocol ?? 'an unknown protocol'}, not SundaeSwap V3`)
+  const sell = unit(steps[0].token_in)
+  const buy = unit(steps[0].token_out)
+  if (sell !== unit(req.token_in) || buy !== unit(req.token_out)) bad('the route ends at a different token')
+  const poolIdent = String(steps[0].pool_id ?? '').toLowerCase()
+  if (!/^[0-9a-f]{2,64}$/.test(poolIdent) || poolIdent.length % 2 !== 0) bad('no SundaeSwap pool id')
+  return {
+    buyAmountRaw: est.amount_out as string,
+    minBuyAmountRaw: est.min_amount_out as string,
+    hops: 1,
+    priceImpactPct: typeof est.avg_price_impact === 'number' && Number.isFinite(est.avg_price_impact) ? est.avg_price_impact : 0,
+    terms: {
+      protocol: 'SundaeSwapV3',
+      path: [sell, buy],
+      batcherFeeLovelace: est.total_dex_fee as string,
+      depositLovelace: est.deposits as string,
+      aggregatorFeeLovelace: aggregatorFee,
+      poolIdent,
+    },
+  }
+}
+
 export type MinswapFetch = (url: string, init: RequestInit) => Promise<Response>
 
 async function post<T>(fetchFn: MinswapFetch, path: string, body: unknown): Promise<T> {
@@ -244,7 +287,7 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     token_in: sell,
     token_out: buy,
     slippage: slippagePct,
-    allow_multi_hops: !danogo,
+    allow_multi_hops: !danogo && protocol !== 'SundaeSwapV3',
     include_protocols: [protocol],
   })
 
@@ -281,7 +324,7 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     // Selling ADA, the swap fee is paid on top; buying ADA, the pool keeps it
     // out of the payout, so the quoted (delivered) output already excludes it.
     ? [{ ...ada('Danogo swap fee', terms.terms.dexFeeLovelace as string), includedInQuotedOutput: buy === CARDANO_LOVELACE }]
-    : [ada('Minswap batcher fee', terms.terms.batcherFeeLovelace)]
+    : [ada(protocol === 'SundaeSwapV3' ? 'SundaeSwap protocol fee (maximum)' : 'Minswap batcher fee', terms.terms.batcherFeeLovelace)]
   if (terms.terms.aggregatorFeeLovelace !== '0') externalFees.push(ada('Minswap aggregator fee', terms.terms.aggregatorFeeLovelace))
 
   const sellNum = Number(input.sellAmountRaw)
@@ -306,7 +349,7 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     expiresAt: Date.now() + QUOTE_TTL_MS,
     isCrossChain: false,
     toAddress: input.sender,
-    bridgeTool: danogo ? 'Danogo CLMM' : 'Minswap V2',
+    bridgeTool: danogo ? 'Danogo CLMM' : protocol === 'SundaeSwapV3' ? 'SundaeSwap V3' : 'Minswap V2',
     estimatedDurationSec: danogo ? 30 : 60,
     feeBps: 0,
     // Minswap's API has no integrator fee, so this route carries no Magic Money
@@ -318,6 +361,60 @@ export async function minswapQuoteDirect(input: MinswapQuoteInput, fetchFn: Mins
     approvalTx: null,
     cardanoOrder: terms.terms,
   }
+}
+
+/** A Cardano swap the wallet cannot build yet, priced for PLANNING only. */
+export interface MinswapPlanningEstimate {
+  protocol: CardanoSwapProtocol
+  buyAmountRaw: string
+  minBuyAmountRaw: string
+  /** ADA the order costs on top of an ADA sale: fees, the refundable deposit, and a network-fee allowance. */
+  overheadLovelace: string
+}
+
+/** Network fee allowance for an order transaction (measured 0.21-0.25 ADA). */
+const PLANNING_TX_FEE_LOVELACE = 300_000n
+
+/**
+ * The best estimate across the route shapes this wallet can check, WITHOUT
+ * building a transaction (build-tx needs the funds in the wallet; an earlier
+ * hop has not delivered them yet). Each estimate passes the same route and
+ * floor rules as a real quote; the swap is quoted, built and validated for real
+ * when it runs, and pauses if it then guarantees less than this minimum.
+ */
+export async function minswapPlanningEstimate(
+  input: Omit<MinswapQuoteInput, 'sender' | 'protocol'>, fetchFn: MinswapFetch,
+): Promise<MinswapPlanningEstimate> {
+  const sell = unit(input.sellUnit), buy = unit(input.buyUnit)
+  if (!isValidSwapAddress('cardano', sell) || !isValidSwapAddress('cardano', buy)) throw new MinswapQuoteError('Not a Cardano token.')
+  const reasons: string[] = []
+  let best: MinswapPlanningEstimate | null = null
+  for (const protocol of ['MinswapV2', 'SundaeSwapV3', 'DanogoCLMMV1'] as const) {
+    try {
+      const single = protocol !== 'MinswapV2'
+      const request = (slippagePct: number): MinswapEstimateRequest => ({
+        amount: input.sellAmountRaw, token_in: sell, token_out: buy, slippage: slippagePct,
+        allow_multi_hops: !single, include_protocols: [protocol],
+      })
+      let req = request(input.slippageBps / 100)
+      let t = termsFromEstimate(req, await post<MinswapEstimate>(fetchFn, 'estimate', req), protocol)
+      const holds = (x: MinswapTerms) => BigInt(x.minBuyAmountRaw) >= approvedFloor(x.buyAmountRaw, input.slippageBps)
+      if (!single && !holds(t) && t.hops > 1) {
+        req = request(input.slippageBps / 100 / t.hops)
+        t = termsFromEstimate(req, await post<MinswapEstimate>(fetchFn, 'estimate', req), protocol)
+      }
+      if (protocol !== 'DanogoCLMMV1' && !holds(t)) throw new MinswapQuoteError('its minimum is looser than your slippage setting')
+      const fees = BigInt(t.terms.batcherFeeLovelace) + BigInt(t.terms.depositLovelace) + BigInt(t.terms.aggregatorFeeLovelace)
+        + (sell === CARDANO_LOVELACE ? BigInt(t.terms.dexFeeLovelace ?? '0') : 0n)
+      const e: MinswapPlanningEstimate = { protocol, buyAmountRaw: t.buyAmountRaw, minBuyAmountRaw: t.minBuyAmountRaw,
+        overheadLovelace: (fees + PLANNING_TX_FEE_LOVELACE).toString() }
+      if (!best || BigInt(e.minBuyAmountRaw) > BigInt(best.minBuyAmountRaw)) best = e
+    } catch (err) {
+      reasons.push(`${protocol}: ${err instanceof Error ? err.message : 'no route'}`)
+    }
+  }
+  if (!best) throw new MinswapQuoteError(`No Cardano route this wallet can check (${reasons.join(' | ')}).`)
+  return best
 }
 
 // ── Token discovery ───────────────────────────────────────────────────────────

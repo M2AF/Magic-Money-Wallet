@@ -106,6 +106,7 @@ import { alchemyRpcUrl, heliusRpcUrl } from '../main/api-proxy'
 import { handleXReserveTestnet } from '../main/xreserve-testnet-handlers'
 import { handleStablecoinPlan } from '../main/stablecoin-route-handler'
 import { handleJourney } from '../main/journey-handler'
+import { handleChainedSwap } from '../main/chained-swap-handler'
 import { personalSignMessage, personalSignPreview } from '../main/personal-sign'
 // STATIC imports — same reason as the chain-config note above, and the one that
 // bit the Solana signing path: a runtime import() inside a handler throws
@@ -1184,6 +1185,19 @@ export async function handle(msg: Msg, sender?: Sender): Promise<any> {
       return handleStablecoinPlan(a0, {
         loadConfig: () => store.loadConfig(),
         loadAddresses: () => loadFullAddresses(),
+      })
+
+    // Multi-hop swaps: signs only plans this wallet issued. Not in PAGE_RPC_TYPES.
+    case 'swap:chainQuote':
+    case 'swap:chainStart':
+    case 'swap:chainAdvance':
+    case 'swap:chainList':
+      return handleChainedSwap(msg.type, a0, {
+        loadConfig: () => store.loadConfig(),
+        loadAddresses: () => loadFullAddresses() as never,
+        loadMnemonic: () => store.loadMnemonic(),
+        loadChainedSwaps: () => store.loadChainedSwaps(),
+        saveChainedSwaps: (m) => store.saveChainedSwaps(m),
       })
 
     // Journeys: read-only discovery and the persisted list. Not in PAGE_RPC_TYPES.

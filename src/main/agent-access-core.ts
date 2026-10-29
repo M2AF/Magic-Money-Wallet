@@ -3,6 +3,7 @@ import type { AgentActivity, AgentDraft, AgentGrantView, AgentProposal, AgentSna
 import type { AgentExecutionCore } from './agent-execution-core'
 import type { AgentExecutionAuth } from '../shared/agent-execution'
 import type { X402Core } from './x402-core'
+import type { AgentNativeCore } from './agent-native-core'
 
 export interface AgentContext { key: string; accountIndex: number; environment: string }
 export interface AgentReadPort {
@@ -44,10 +45,10 @@ export const AGENT_TOOLS = [
 ] as const
 
 const executionTools = [
-  { name: 'wallet_request_transaction', description: 'Request an ETH transfer on Ethereum/Sepolia or MON on Monad mainnet. The owner reviews and approves once in the wallet. Returns a durable transaction id; poll transaction_status for the hash and confirmation.',
-    inputSchema: objectSchema({ requestId: str, chain: { enum: ['ethereum', 'monad'] }, recipient: str, amount: str }, ['requestId', 'chain', 'recipient', 'amount']), annotations: { readOnlyHint: false, idempotentHint: true } },
-  { name: 'wallet_send_autonomous', description: 'SEND native ETH or MON using a separately funded isolated account and an owner-authorized chain-specific policy. Limits include maximum fees. Reuse requestId after any error; never create another request to retry an uncertain send.',
-    inputSchema: objectSchema({ policyId: str, requestId: str, chain: { enum: ['ethereum', 'monad'] }, recipient: str, amount: str }, ['policyId', 'requestId', 'chain', 'recipient', 'amount']), annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
+  { name: 'wallet_request_transaction', description: 'Request a native ETH, MON, SOL or ADA transfer on an explicitly supported network. The owner reviews and approves once in the wallet. Returns a durable transaction id; poll transaction_status for the hash and confirmation.',
+    inputSchema: objectSchema({ requestId: str, chain: { enum: ['ethereum', 'monad', 'solana', 'cardano'] }, recipient: str, amount: str }, ['requestId', 'chain', 'recipient', 'amount']), annotations: { readOnlyHint: false, idempotentHint: true } },
+  { name: 'wallet_send_autonomous', description: 'SEND native ETH, MON, SOL or ADA using a separately funded isolated account and an owner-authorized chain-specific policy. Limits include maximum fees. Reuse requestId after any error; never create another request to retry an uncertain send.',
+    inputSchema: objectSchema({ policyId: str, requestId: str, chain: { enum: ['ethereum', 'monad', 'solana', 'cardano'] }, recipient: str, amount: str }, ['policyId', 'requestId', 'chain', 'recipient', 'amount']), annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
   { name: 'wallet_call_autonomous', description: 'Execute an owner-authorized Emogotchi call on Monad143 from an isolated account. Only feed/wash/play/sleep/clean (value "1" MON), or pet(id,count1..20) (value "0"). Decimal-string arguments and allowed token IDs only. No arbitrary calldata, batches, approvals, revive or setName. Reuse requestId and track transaction_status.',
     inputSchema: objectSchema({ policyId: str, requestId: str, chain: { const: 'monad' }, contract: str, function: { enum: ['feed', 'wash', 'play', 'sleep', 'clean', 'pet'] },
       args: { type: 'array', items: { type: 'string', pattern: '^[1-9][0-9]{0,77}$' }, minItems: 1, maxItems: 2 }, value: { enum: ['0', '1'] } },
@@ -57,9 +58,9 @@ const executionTools = [
   { name: 'wallet_spending_accounts', description: 'Read your isolated spending account addresses and immutable policy limits. The owner funds these accounts manually.', inputSchema: objectSchema(), annotations: { readOnlyHint: true } },
 ]
 const x402Tools = [
-  { name: 'wallet_propose_x402_payment', description: 'Request an exact USDC x402 v2 payment from an isolated account. Payments inside owner-authorized URL/recipient/USDC caps SIGN AUTOMATICALLY; valid exceptions enter the wallet approval inbox. Reuse requestId after any error.',
+  { name: 'wallet_propose_x402_payment', description: 'Request an exact x402 v2 payment (USDC on Ethereum/Monad/Base/Solana or direct ADA on Cardano) from an isolated account. Payments inside owner-authorized URL/recipient/network/asset caps SIGN AUTOMATICALLY; valid exceptions enter the wallet approval inbox. Reuse requestId after any error.',
     inputSchema: objectSchema({ policyId: str, requestId: str, resourceUrl: { type: 'string', maxLength: 2048 }, paymentRequired: { type: 'object' } }, ['policyId', 'requestId', 'resourceUrl', 'paymentRequired']), annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
-  { name: 'wallet_x402_payments', description: 'Read your x402 authorization records and USDC limits. Authorized/released means spend authority issued, not settlement or resource delivery.', inputSchema: objectSchema(), annotations: { readOnlyHint: true } },
+  { name: 'wallet_x402_payments', description: 'Read your x402 authorization records and network-specific asset limits. Authorized/released means spend authority issued, not settlement or resource delivery.', inputSchema: objectSchema(), annotations: { readOnlyHint: true } },
   { name: 'wallet_x402_payment', description: 'Retrieve the approved PAYMENT-SIGNATURE header for this exact grant/request/resource URL. Treat it as a spend credential; never log it, forward redirects or create a new request to retry it.',
     inputSchema: objectSchema({ proposalId: str, requestId: str, resourceUrl: { type: 'string', maxLength: 2048 } }, ['proposalId', 'requestId', 'resourceUrl']), annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true } },
 ]
@@ -88,7 +89,7 @@ export class AgentAccessCore {
   private proposals = new Map<string, ProposalRecord>()
   private activity: AgentActivity[] = []
   private inFlight = 0
-  constructor(private port: AgentReadPort, private now: () => number = Date.now, private execution?: AgentExecutionCore, private x402?: X402Core) {}
+  constructor(private port: AgentReadPort, private now: () => number = Date.now, private execution?: AgentExecutionCore, private x402?: X402Core, private native?: AgentNativeCore) {}
   recordX402Activity(client: string, action: string, outcome: string): void { this.log(client, action, outcome) }
   pendingProposals(): number { return [...this.proposals.values()].filter(p => p.proposal.state === 'pending' && p.proposal.expiresAt > this.now()).length }
 
@@ -103,6 +104,7 @@ export class AgentAccessCore {
     this.enabled = false
     this.grants.clear(); this.quotes.clear(); this.proposals.clear()
     this.execution?.kill()
+    this.native?.kill()
     this.log('Wallet', enabled ? 'enable' : 'disable', 'ok')
     this.enabled = enabled
     return this.snapshot()
@@ -128,6 +130,7 @@ export class AgentAccessCore {
     if (!grant) return
     this.grants.delete(id)
     this.execution?.stopClient(id)
+    this.native?.stopClient(id)
     for (const [key, q] of this.quotes) if (q.clientId === id) this.quotes.delete(key)
     for (const item of this.proposals.values()) if (item.proposal.clientId === id && item.proposal.state === 'pending') item.proposal.state = 'rejected'
     this.log(grant.name, 'revoke', 'ok')
@@ -190,22 +193,29 @@ export class AgentAccessCore {
     if (tool === 'tools') return [...AGENT_TOOLS.filter(t => grant.proposals || !t.name.startsWith('wallet_propose_')), ...(this.execution && grant.proposals ? executionTools : []), ...(this.x402 && grant.proposals ? x402Tools : [])]
     if (this.x402 && x402Tools.some(t => t.name === tool)) {
       const auth = this.executionAuthorization(grant.id)
-      if (tool === 'wallet_x402_payments') { agentArgs(raw, []); return { payments: this.x402.list(auth), limits: this.x402.snapshot().limits.filter(l => l.clientId === auth.id) } }
+      if (tool === 'wallet_x402_payments') { agentArgs(raw, []); return { payments: [...this.x402.list(auth), ...(this.native?.list(auth).filter(t => t.x402) ?? [])], limits: [...this.x402.snapshot().limits.filter(l => l.clientId === auth.id), ...(this.native?.snapshot().limits.filter(l => this.native!.accounts(auth).some(p => p.id === l.policyId)) ?? [])] } }
       if (tool === 'wallet_x402_payment') {
         const args = agentArgs(raw, ['proposalId', 'requestId', 'resourceUrl'], ['proposalId', 'requestId', 'resourceUrl'])
-        return this.x402.retrieve(auth, agentText(args.proposalId, 'proposal id', 80), agentText(args.requestId, 'requestId', 80), agentText(args.resourceUrl, 'resource URL', 2048))
+        const id = agentText(args.proposalId, 'proposal id', 80)
+        const engine = id.startsWith('native-') ? this.native : this.x402
+        if (!engine) throw new Error('Native x402 unavailable.')
+        return engine.retrieve(auth, id, agentText(args.requestId, 'requestId', 80), agentText(args.resourceUrl, 'resource URL', 2048))
       }
       const args = agentArgs(raw, ['policyId', 'requestId', 'resourceUrl', 'paymentRequired'], ['policyId', 'requestId', 'resourceUrl', 'paymentRequired'])
-      return this.x402.propose(auth, agentText(args.policyId, 'policy id', 80), { requestId: args.requestId, resourceUrl: args.resourceUrl, paymentRequired: args.paymentRequired })
+      const policyId = agentText(args.policyId, 'policy id', 80), request = { requestId: args.requestId, resourceUrl: args.resourceUrl, paymentRequired: args.paymentRequired }
+      if (policyId.startsWith('native-')) { if (!this.native) throw new Error('Native x402 unavailable.'); return this.native.proposeX402(auth, policyId, request) }
+      return this.x402.propose(auth, policyId, request)
     }
     if (this.execution && executionTools.some(t => t.name === tool)) {
       const auth = this.executionAuthorization(grant.id)
       if (tool === 'wallet_transactions' || tool === 'wallet_spending_accounts') {
-        agentArgs(raw, []); return tool === 'wallet_transactions' ? this.execution.list(auth) : this.execution.accounts(auth)
+        agentArgs(raw, []); return tool === 'wallet_transactions' ? [...this.execution.list(auth), ...(this.native?.list(auth) ?? [])] : [...this.execution.accounts(auth), ...(this.native?.accounts(auth) ?? [])]
       }
       if (tool === 'wallet_transaction_status') {
         const args = agentArgs(raw, ['transactionId'], ['transactionId'])
-        return this.execution.status(agentText(args.transactionId, 'transactionId', 80), auth)
+        const id = agentText(args.transactionId, 'transactionId', 80)
+        if (id.startsWith('native-')) { if (!this.native) throw new Error('Native execution unavailable.'); return this.native.status(id, auth) }
+        return this.execution.status(id, auth)
       }
       if (tool === 'wallet_call_autonomous') {
         const keys = ['policyId', 'requestId', 'chain', 'contract', 'function', 'args', 'value']
@@ -216,6 +226,10 @@ export class AgentAccessCore {
       const keys = ['requestId', 'chain', 'recipient', 'amount', ...(tool === 'wallet_send_autonomous' ? ['policyId'] : [])]
       const args = agentArgs(raw, keys, keys)
       if (tool === 'wallet_send_autonomous') this.log(grant.name, tool, 'requested')
+      if (args.chain === 'solana' || args.chain === 'cardano') {
+        if (!this.native) throw new Error('Native chain execution unavailable.')
+        return this.native.request(auth, args, tool === 'wallet_send_autonomous')
+      }
       return tool === 'wallet_send_autonomous' ? this.execution.autonomous(auth, args) : this.execution.requestApproval(auth, args)
     }
     if (tool === 'wallet_networks') return this.port.networks()
@@ -250,7 +264,7 @@ export class AgentAccessCore {
       if (existing.input !== input) throw new Error('requestId already describes a different proposal.')
       return existing.proposal
     }
-    if (this.proposals.size >= 100 || this.pendingProposals() + (this.x402?.pendingCount() ?? 0) >= 20) throw new Error('Proposal inbox is full.')
+    if (this.proposals.size >= 100 || this.pendingProposals() + (this.x402?.pendingCount() ?? 0) + (this.native?.pendingCount() ?? 0) >= 20) throw new Error('Proposal inbox is full.')
     let draft: AgentDraft
     if (isTransfer) draft = await this.port.transfer(args)
     else {
@@ -265,7 +279,7 @@ export class AgentAccessCore {
       if (raced.input !== input) throw new Error('requestId already describes a different proposal.')
       return raced.proposal
     }
-    if (this.proposals.size >= 100 || this.pendingProposals() + (this.x402?.pendingCount() ?? 0) >= 20) throw new Error('Proposal inbox is full.')
+    if (this.proposals.size >= 100 || this.pendingProposals() + (this.x402?.pendingCount() ?? 0) + (this.native?.pendingCount() ?? 0) >= 20) throw new Error('Proposal inbox is full.')
     const proposal: AgentProposal = { id: randomUUID(), clientId: grant.id, clientName: grant.name, createdAt: this.now(),
       expiresAt: this.now() + 10 * 60_000, state: 'pending', draft: structuredClone(draft) }
     this.proposals.set(proposal.id, { proposal, context: grant.context, requestId, input })

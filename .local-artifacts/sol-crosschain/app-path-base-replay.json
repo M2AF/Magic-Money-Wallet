@@ -1,0 +1,82 @@
+{
+  "chain": "base",
+  "replay": true,
+  "calls": [
+    {
+      "host": "li.quest",
+      "denied": []
+    },
+    {
+      "host": "api.magicmoney.dev",
+      "denied": []
+    },
+    {
+      "host": "li.quest",
+      "denied": [
+        "mayanFastMCTP"
+      ]
+    },
+    {
+      "host": "li.quest",
+      "denied": [
+        "mayanFastMCTP",
+        "mayan"
+      ]
+    }
+  ],
+  "error": null,
+  "tool": "near",
+  "simulation": "pass",
+  "cost": {
+    "baseFeeLamports": "5000",
+    "priorityFeeLamports": "37050",
+    "newAccounts": [],
+    "rentLamports": "0",
+    "otherTransferLamports": "1000000000",
+    "saleLamports": "0",
+    "requiredLamports": "1000042050",
+    "costLamports": "1000042050",
+    "balanceLamports": "3123319008",
+    "complete": true,
+    "incompleteReason": null,
+    "measuredLamports": "990042050",
+    "simulationError": null,
+    "simulationStatus": "pass"
+  },
+  "routing": {
+    "policyVersion": "2026-09-21.routing-v1",
+    "reason": "best-net-result",
+    "shortfallBps": 0,
+    "costsNormalized": false,
+    "safeCandidates": 1,
+    "excluded": [
+      "lifi (mayanFastMCTP): {\"InstructionError\":[11,{\"Custom\":6001}]} — Program log: AnchorError thrown in programs/fast-mctp/src/processor/init_order_ledger.rs:64. Error Code: AmountInTooSmall. Error Number: 6001. Error Message: Amount in is less than minimum (slippage tolerance). — Program Gx9rivpS3YR8pBFwMuP6omYqVxunpLvLkNn7ubNyuZZ5 failed: custom program error: 0x1771 | Program D8C8iW6zmoKg5TRr8nQ7h14TMWqQX8FiBdj2ju5MF3wa consumed 18224 of 1289508 compute units | Program D8C8iW6zmoKg5TRr8nQ7h14TMWqQX8FiBdj2ju5MF3wa failed: custom program error: 0x1771",
+      "lifi (mayan): Mayan rejected the amount reaching its bridge (AmountInTooSmall, 6025). The quoted source swap did not satisfy the bridge input requirement. Request a new route."
+    ],
+    "alternatives": []
+  },
+  "sellAmountRaw": "1000000000",
+  "recipient": "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13",
+  "minBuyAmountRaw": "42475027298841260",
+  "fee": {
+    "policyVersion": "2026-09-19.app-100bps-preferred",
+    "provider": "lifi",
+    "requestedBps": 100,
+    "appliedBps": 100,
+    "base": "input",
+    "chain": "solana",
+    "tokenAddress": "So11111111111111111111111111111111111111112",
+    "tokenSymbol": "SOL",
+    "tokenDecimals": 9,
+    "amountRaw": "10000000",
+    "recipient": "ChainLens",
+    "recipientKind": "registered-integrator",
+    "collection": "in-swap",
+    "providerSharePct": null,
+    "verification": "applied-verified",
+    "evidence": [
+      "estimate.feeCosts[].feeSplit reported by LI.FI",
+      "integrator named in recipients; amount reconciles to 100 bps of the input"
+    ]
+  }
+}

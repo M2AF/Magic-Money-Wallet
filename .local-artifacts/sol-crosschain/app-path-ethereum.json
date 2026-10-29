@@ -1,0 +1,66 @@
+{
+  "chain": "ethereum",
+  "replay": false,
+  "calls": [
+    {
+      "host": "li.quest",
+      "denied": []
+    },
+    {
+      "host": "api.magicmoney.dev",
+      "denied": []
+    }
+  ],
+  "error": null,
+  "tool": "near",
+  "simulation": "pass",
+  "cost": {
+    "baseFeeLamports": "5000",
+    "priorityFeeLamports": "33798",
+    "newAccounts": [],
+    "rentLamports": "0",
+    "otherTransferLamports": "1000000000",
+    "saleLamports": "0",
+    "requiredLamports": "1000038798",
+    "costLamports": "1000038798",
+    "balanceLamports": "3123319008",
+    "complete": true,
+    "incompleteReason": null,
+    "measuredLamports": "990038798",
+    "simulationError": null,
+    "simulationStatus": "pass"
+  },
+  "routing": {
+    "policyVersion": "2026-09-21.routing-v1",
+    "reason": "best-net-result",
+    "shortfallBps": 0,
+    "costsNormalized": false,
+    "safeCandidates": 1,
+    "excluded": [],
+    "alternatives": []
+  },
+  "sellAmountRaw": "1000000000",
+  "recipient": "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13",
+  "minBuyAmountRaw": "42456709764431337",
+  "fee": {
+    "policyVersion": "2026-09-19.app-100bps-preferred",
+    "provider": "lifi",
+    "requestedBps": 100,
+    "appliedBps": 100,
+    "base": "input",
+    "chain": "solana",
+    "tokenAddress": "So11111111111111111111111111111111111111112",
+    "tokenSymbol": "SOL",
+    "tokenDecimals": 9,
+    "amountRaw": "10000000",
+    "recipient": "ChainLens",
+    "recipientKind": "registered-integrator",
+    "collection": "in-swap",
+    "providerSharePct": null,
+    "verification": "applied-verified",
+    "evidence": [
+      "estimate.feeCosts[].feeSplit reported by LI.FI",
+      "integrator named in recipients; amount reconciles to 100 bps of the input"
+    ]
+  }
+}

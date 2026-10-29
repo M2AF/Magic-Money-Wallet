@@ -15,6 +15,7 @@ vi.mock('electron', () => ({ app: { getPath: () => mocks.profile }, safeStorage:
 vi.mock('./secure-store', () => ({ loadConfig: () => ({}), loadMnemonic: () => 'test test test test test test test test test test test junk' }))
 vi.mock('./tx-sender', () => ({ evmReadClient: () => mocks.rpc }))
 import { createDesktopX402, x402TypedData } from './x402-desktop'
+import { X402_ASSETS } from './x402-validation'
 let auth: AgentExecutionAuth, account: AgentSpendingPolicy
 beforeEach(async () => {
   mocks.profile = mkdtempSync(join(tmpdir(), 'mm-x402-signer-')); mocks.secure = true
@@ -43,6 +44,19 @@ async function signFixture() {
   return { core, view, args }
 }
 describe('fixed desktop EIP-3009 signing with offline USDC reads', () => {
+  it.each(Object.entries(X402_ASSETS))('signs the pinned %s domain using the isolated account only', async (network, asset) => {
+    auth.environment = asset.environment
+    mocks.rpc.getChainId.mockResolvedValue(asset.chainId)
+    const read = mocks.rpc.readContract
+    mocks.rpc.readContract = vi.fn(async (request: any) => request.functionName === 'DOMAIN_SEPARATOR' ? hashDomain({ domain: { name: asset.domainName, version: '2', chainId: BigInt(asset.chainId), verifyingContract: asset.asset },
+      types: { EIP712Domain: [{ name: 'name', type: 'string' }, { name: 'version', type: 'string' }, { name: 'chainId', type: 'uint256' }, { name: 'verifyingContract', type: 'address' }] } }) : read(request))
+    const core = engine(), args = x402Fixture(); Object.assign(args.paymentRequired.accepts[0], { network, asset: asset.asset, extra: { name: asset.domainName, version: '2' } })
+    await core.configure(auth, { policyId: account.id, network: network as any, resourceUrls: [args.resourceUrl], perPayment: '0.1', daily: '1', total: '2' })
+    const view = await core.propose(auth, account.id, args), delivery = core.retrieve(auth, view.id, args.requestId, args.resourceUrl)
+    const payload = JSON.parse(Buffer.from(delivery.headerValue, 'base64').toString())
+    expect(await recoverTypedDataAddress({ ...x402TypedData(view), signature: payload.payload.signature })).toBe(account.address)
+    expect(view.chainId).toBe(asset.chainId); expect(mocks.rpc.request).not.toHaveBeenCalled()
+  })
   it('signs the exact typed fields with the existing isolated-account key, and never exposes the signature to UI', async () => {
     const { core, view, args } = await signFixture()
     expect(view.state).toBe('authorized'); expect(view.accountIndex).toBe(1000)

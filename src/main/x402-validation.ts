@@ -5,6 +5,9 @@ import type { X402PaymentRequired, X402Validated } from '../shared/x402'
 // Circle contracts + upstream x402 DEFAULT_ASSETS at 56054d8f6b05c5ed2994fca1dc81a6252afd9d42.
 // Addresses establish identity. Domain names are signing parameters, never token lookup keys.
 export const X402_ASSETS = {
+  'eip155:1': { chainId: 1, name: 'Ethereum', environment: 'mainnet', asset: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', domainName: 'USD Coin' },
+  'eip155:11155111': { chainId: 11155111, name: 'Sepolia', environment: 'testnet', asset: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', domainName: 'USDC' },
+  'eip155:143': { chainId: 143, name: 'Monad', environment: 'mainnet', asset: '0x754704Bc059F8C67012fEd69BC8A327a5aafb603', domainName: 'USDC' },
   'eip155:8453': { chainId: 8453, name: 'Base', environment: 'mainnet', asset: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', domainName: 'USD Coin' },
   'eip155:84532': { chainId: 84532, name: 'Base Sepolia', environment: 'testnet', asset: '0x036CbD53842c5426634e7929541eC2318f3dCF7e', domainName: 'USDC' },
 } as const
@@ -53,7 +56,7 @@ export function validateX402Proposal(raw: unknown, environment: string): X402Val
   if (payment.extensions !== undefined) object(payment.extensions, [])
   if (!Array.isArray(payment.accepts) || payment.accepts.length !== 1) throw new Error('Select exactly one supported x402 payment option; ambiguous requirements are rejected.')
   const accepted = object(payment.accepts[0], ['scheme', 'network', 'amount', 'asset', 'payTo', 'maxTimeoutSeconds', 'extra'])
-  if (accepted.scheme !== 'exact' || typeof accepted.network !== 'string' || !Object.hasOwn(X402_ASSETS, accepted.network)) throw new Error('Only exact USDC payments on Base or Base Sepolia are supported.')
+  if (accepted.scheme !== 'exact' || typeof accepted.network !== 'string' || !Object.hasOwn(X402_ASSETS, accepted.network)) throw new Error('Unsupported x402 network or scheme. Select a pinned exact USDC network.')
   const asset = X402_ASSETS[accepted.network as keyof typeof X402_ASSETS]
   if (environment !== asset.environment) throw new Error('Payment network does not match the paired mainnet/testnet mode.')
   if (address(accepted.asset) !== asset.asset) throw new Error('USDC contract does not match the pinned chain asset.')

@@ -38,9 +38,15 @@
 import {
   PublicKey, VersionedTransaction, type Connection, type AddressLookupTableAccount,
 } from '@solana/web3.js'
+import { describeSolanaSimulationFailure } from './solana-simulation-failure'
 import type { SolanaNewAccount, SolanaUpfrontCost } from '../shared/solana-upfront-cost'
 export type { SolanaNewAccount, SolanaUpfrontCost } from '../shared/solana-upfront-cost'
 export { solanaRequiredLamports, solanaCostShortfall, solanaShortfallMessage } from '../shared/solana-upfront-cost'
+
+/** Local evidence only; a backend's cost record cannot establish this status. */
+export interface SolanaSwapCostEstimate extends SolanaUpfrontCost {
+  simulationStatus?: 'pass' | 'revert' | 'unavailable'
+}
 
 const SYSTEM_PROGRAM = '11111111111111111111111111111111'
 const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
@@ -229,7 +235,7 @@ async function resolveInstructions(
 export async function estimateSolanaSwapCost(
   swapTransactionB64: string, payer: string, connection: Connection,
   opts: { paysOutSolToPayer: boolean } = { paysOutSolToPayer: false },
-): Promise<SolanaUpfrontCost | null> {
+): Promise<SolanaSwapCostEstimate | null> {
   let tx: VersionedTransaction
   try { tx = VersionedTransaction.deserialize(Buffer.from(swapTransactionB64, 'base64')) } catch { return null }
   const instructions = await resolveInstructions(tx, connection)
@@ -281,13 +287,15 @@ export async function estimateSolanaSwapCost(
   // simulation is NOT a measurement; its error is kept for the caller.
   let measured: bigint | null = null
   let simulationError: string | null = null
+  let simulationStatus: 'pass' | 'revert' | 'unavailable' = 'unavailable'
   if (!opts.paysOutSolToPayer && payerInfo) {
     try {
       const sim = await connection.simulateTransaction(tx, {
         sigVerify: false, replaceRecentBlockhash: true, accounts: { encoding: 'base64', addresses: [payer] },
       })
       const post = sim.value.accounts?.[0]?.lamports
-      if (sim.value.err) simulationError = JSON.stringify(sim.value.err)
+      simulationStatus = sim.value.err ? 'revert' : 'pass'
+      if (sim.value.err) simulationError = describeSolanaSimulationFailure(sim.value.err, sim.value.logs ?? [])
       else if (post != null) {
         const took = BigInt(payerInfo.lamports) - BigInt(post)
         if (took >= 0n) measured = took
@@ -311,6 +319,7 @@ export async function estimateSolanaSwapCost(
     incompleteReason: reasons.length ? reasons.join('; ') : null,
     measuredLamports: measured != null ? measured.toString() : null,
     simulationError,
+    simulationStatus,
   }
 }
 

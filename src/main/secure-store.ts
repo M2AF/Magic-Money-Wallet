@@ -484,6 +484,20 @@ export async function saveJourneys(map: Record<string, string>): Promise<void> {
   writeJsonMapFileAtomic(nodeJsonMapFs, userData(), journeysPath(), map)
 }
 
+// -- Chained swaps (src/main/chained-swap.ts) ---------------------------------
+// One JSON record per multi-hop swap: the approved plan, per-hop minimums, the
+// intent and transaction of each hop, and measured amounts. Same rules as
+// journeys: atomic writes, and unreadable data is an error, never "none".
+const chainedSwapsPath = () => join(userData(), 'chained-swaps.json')
+
+export async function loadChainedSwaps(): Promise<Record<string, string>> {
+  return readJsonMapFile(nodeJsonMapFs, chainedSwapsPath())
+}
+
+export async function saveChainedSwaps(map: Record<string, string>): Promise<void> {
+  writeJsonMapFileAtomic(nodeJsonMapFs, userData(), chainedSwapsPath(), map)
+}
+
 // empty token list. Keyed `network:address` (lowercased).
 
 export interface TokenBalanceCacheEntry {

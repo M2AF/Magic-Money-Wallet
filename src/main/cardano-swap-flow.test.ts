@@ -142,11 +142,11 @@ function cardanoQuote(over: Partial<NormalizedSwapQuote> = {}): NormalizedSwapQu
 }
 
 describe('the policy gate for Cardano', () => {
-  it('Cardano is enabled same-chain only, and not claimed as verified before a real-funds swap', () => {
+  it('Cardano: same-chain through Minswap, in and out only through NEAR Intents; not claimed as verified', () => {
     const cap = swapCapability('cardano')!
     expect(cap.sameChain).toEqual(['minswap'])
-    expect(cap.crossChainSource).toEqual([])
-    expect(cap.crossChainDestination).toEqual([])
+    expect(cap.crossChainSource).toEqual(['near-intents'])
+    expect(cap.crossChainDestination).toEqual(['near-intents'])
     expect(cap.status).toBe('implemented-unverified')
   })
 

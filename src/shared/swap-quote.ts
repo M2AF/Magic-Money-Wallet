@@ -10,17 +10,35 @@ import type { SolanaUpfrontCost } from './solana-upfront-cost'
 import type { RouteStep, DestinationTerms } from './swap-destination'
 import type { AppFeeRecord, ExternalFeeRecord } from './swap-fee-policy'
 
-export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap'
+export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap' | 'near-intents'
 
 /**
- * A Cardano swap as the provider priced it: a Minswap V2 batcher ORDER, or a
- * direct Danogo concentrated-liquidity pool swap (atomic, no batcher). These are
- * CLAIMS: the privileged layer re-reads every one of them out of the transaction
- * before it signs (src/main/cardano-swap-validate.ts for Minswap V2 orders,
- * src/main/cardano-danogo-validate.ts for Danogo). Lovelace amounts are integer strings.
+ * A NEAR Intents 1Click swap out of Cardano, as quoted (dry). The executable
+ * quote, with its deposit address, is requested again at signing time and held
+ * to these terms and to the approved minimum.
+ */
+export interface NearIntentsTerms {
+  originAsset: string
+  destinationAsset: string
+  slippageBps: number
+  /** This wallet's Cardano address: where an unfilled swap is refunded. */
+  refundTo: string
+  /** This wallet's address on the destination chain. */
+  recipient: string
+  /** ADA deducted from a refund (lovelace), when stated. */
+  refundFeeLovelace: string | null
+}
+
+/**
+ * A Cardano swap as the provider priced it: a Minswap V2 or SundaeSwap V3 batcher
+ * ORDER, or a direct Danogo concentrated-liquidity pool swap (atomic, no batcher).
+ * These are CLAIMS: the privileged layer re-reads every one of them out of the
+ * transaction before it signs (src/main/cardano-swap-validate.ts for Minswap V2
+ * orders, cardano-sundae-validate.ts for SundaeSwap V3, cardano-danogo-validate.ts
+ * for Danogo). Lovelace amounts are integer strings.
  */
 export interface CardanoOrderTerms {
-  protocol: 'MinswapV2' | 'DanogoCLMMV1'
+  protocol: 'MinswapV2' | 'DanogoCLMMV1' | 'SundaeSwapV3'
   /** Token units the route crosses, in order: sell, any intermediates, buy. */
   path: string[]
   /** Maximum batcher fee committed in the order datum. */
@@ -31,6 +49,8 @@ export interface CardanoOrderTerms {
   aggregatorFeeLovelace: string
   /** Danogo only: the protocol's per-swap fee (lovelace) added to the pool. */
   dexFeeLovelace?: string
+  /** SundaeSwap V3 only: the pool the order must execute against (hex ident). */
+  poolIdent?: string
 }
 
 /**
@@ -148,4 +168,6 @@ export interface NormalizedSwapQuote {
   cardanoOrder?: CardanoOrderTerms | null
   /** Cardano source only: costs read from the validated transaction itself. */
   cardanoCost?: CardanoSwapCost | null
+  /** NEAR Intents only: the quoted terms the executable quote must match. */
+  nearIntents?: NearIntentsTerms | null
 }

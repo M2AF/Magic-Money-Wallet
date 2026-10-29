@@ -90,6 +90,8 @@ import {
   saveXReserveTracking,
   loadJourneys,
   saveJourneys,
+  loadChainedSwaps,
+  saveChainedSwaps,
   type WalletConfig,
   type CustomToken,
   type CustomNft
@@ -98,6 +100,7 @@ import { resolveAccountAgw, agwForSigner, isEoaAgwOwner, signerFromSecret } from
 import { handleXReserveTestnet, XRESERVE_TESTNET_CHANNELS } from './xreserve-testnet-handlers'
 import { handleStablecoinPlan, STABLECOIN_PLAN_CHANNEL } from './stablecoin-route-handler'
 import { handleJourney, JOURNEY_CHANNELS } from './journey-handler'
+import { handleChainedSwap, CHAINED_SWAP_CHANNELS } from './chained-swap-handler'
 import type { WalletAddresses } from './wallet-core'
 import {
   openBrowserWindow,
@@ -1650,6 +1653,17 @@ export function registerIpcHandlers(): void {
       loadJourneys,
       saveJourneys,
       fetchFn: (url, init) => net.fetch(url, init),
+    }))
+  }
+
+  // ── Multi-hop swaps (chained-swap-handler.ts): one approval, hops run by the wallet ─
+  for (const channel of CHAINED_SWAP_CHANNELS) {
+    ipcMain.handle(channel, async (_e, arg: unknown) => handleChainedSwap(channel, arg, {
+      loadConfig: async () => loadConfig(),
+      loadAddresses: () => getFullAddresses() as never,
+      loadMnemonic: async () => loadMnemonic(),
+      loadChainedSwaps,
+      saveChainedSwaps,
     }))
   }
 

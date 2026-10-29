@@ -409,6 +409,21 @@ export async function saveJourneys(map: Record<string, string>): Promise<void> {
   await chrome.storage.local.set({ 'wallet.journeys': map })
 }
 
+// -- Chained swaps (src/main/chained-swap.ts): same rules as journeys. --------
+export async function loadChainedSwaps(): Promise<Record<string, string>> {
+  const r = await chrome.storage.local.get('wallet.chainedSwaps')
+  const m = r['wallet.chainedSwaps']
+  if (m === undefined || m === null) return {}
+  if (typeof m !== 'object' || Array.isArray(m) || Object.values(m as object).some(v => typeof v !== 'string')) {
+    throw new Error('The stored multi-step swaps are unreadable; they were left untouched.')
+  }
+  return m as Record<string, string>
+}
+
+export async function saveChainedSwaps(map: Record<string, string>): Promise<void> {
+  await chrome.storage.local.set({ 'wallet.chainedSwaps': map })
+}
+
 // when the live call fails so throttling never presents as "zero tokens".
 
 export interface TokenBalanceCacheEntry {

@@ -93,18 +93,45 @@ export interface SwapNetworkCapability {
  * Keyless LI.FI also rate-limits ("retry in 2 hours"), so a probe run can end in
  * false negatives. Entries below say which ones were actually measured.
  */
+/**
+ * Networks with a NEAR Intents 1Click route to and from Cardano ADA, each
+ * quoted live both ways 2026-10-29. Deposits from these chains are paid by an
+ * ordinary transfer (native, or an ERC-20 / SOL transfer). Not included:
+ * Abstract (1Click refuses this wallet's EOA as refund and recipient) and
+ * Gnosis (no liquidity, either direction).
+ */
+export const NEAR_INTENTS_CHAINS = ['ethereum', 'arbitrum', 'optimism', 'base', 'polygon', 'avalanche', 'monad', 'robinhood', 'solana'] as const
+
+/**
+ * What a token on another chain is first swapped into before NEAR carries it
+ * to Cardano. On EVM chains it is the issuer's USDC (a Transfer event measures
+ * its arrival; a native coin leaves none), pinned and matched against the
+ * 1Click token list 2026-10-29. On Solana it is SOL. Chains missing here take
+ * their native coin into Cardano only.
+ */
+export const INTO_CARDANO_BRIDGE: Readonly<Record<string, { token: string; symbol: string; decimals: number }>> = Object.freeze({
+  ethereum: { token: '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', symbol: 'USDC', decimals: 6 },
+  arbitrum: { token: '0xaf88d065e77c8cc2239327c5edb3a432268e5831', symbol: 'USDC', decimals: 6 },
+  optimism: { token: '0x0b2c639c533813f4aa9d7837caf62653d097ff85', symbol: 'USDC', decimals: 6 },
+  base: { token: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', symbol: 'USDC', decimals: 6 },
+  polygon: { token: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', symbol: 'USDC', decimals: 6 },
+  avalanche: { token: '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e', symbol: 'USDC', decimals: 6 },
+  monad: { token: '0x754704bc059f8c67012fed69bc8a327a5aafb603', symbol: 'USDC', decimals: 6 },
+  solana: { token: 'So11111111111111111111111111111111111111112', symbol: 'SOL', decimals: 9 },
+})
+
 export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   ethereum: {
     id: 'ethereum', chainId: 1, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'uniswap', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain ETH->USDT via okx at ~$50, signable calldata',
   },
   arbitrum: {
     id: 'arbitrum', chainId: 42161, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'uniswap', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain ETH->USDC via nordstern; out to ethereum via '
       + 'relaydepository; in via arbitrum bridge. All at ~$50.',
@@ -112,21 +139,21 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   optimism: {
     id: 'optimism', chainId: 10, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'uniswap', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain via 1inch; out via relaydepository; in via across',
   },
   base: {
     id: 'base', chainId: 8453, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'uniswap', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured same-chain ETH->USDC and cross-chain both directions',
   },
   polygon: {
     id: 'polygon', chainId: 137, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'uniswap', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain POL->USDC via kyberswap; out to ethereum via '
       + 'across at ~$50 (a 0.01-POL probe had falsely reported no route)',
@@ -134,7 +161,7 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   avalanche: {
     id: 'avalanche', chainId: 43114, signing: 'evm-eoa',
     sameChain: ['0x', '1inch', 'lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain AVAX->USDt via okx; out via layerswap at ~$50; '
       + 'in via layerswap',
@@ -142,7 +169,7 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   monad: {
     id: 'monad', chainId: 143, signing: 'evm-eoa',
     sameChain: ['lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: same-chain MON->USDC via kyberswap; out to ethereum via '
       + 'polymerStandard at ~$50; in via mayanFastMCTP. Relay also quotes EMO(143)->PIXL(1).',
@@ -151,7 +178,7 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   robinhood: {
     id: 'robinhood', chainId: 4663, signing: 'evm-eoa',
     sameChain: ['lifi'],
-    crossChainSource: ['lifi', 'relay'], crossChainDestination: ['lifi', 'relay'],
+    crossChainSource: ['lifi', 'relay', 'near-intents'], crossChainDestination: ['lifi', 'relay', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured 2026-09-20: 457 LI.FI tokens; same-chain ETH->cbBTC via nordstern; '
       + 'x-chain out via across, in via layerswap; 1% integrator fee applied on both',
@@ -272,7 +299,7 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
   solana: {
     id: 'solana', chainId: null, signing: 'solana',
     sameChain: ['jupiter', 'lifi'],
-    crossChainSource: ['lifi'], crossChainDestination: ['lifi'],
+    crossChainSource: ['lifi', 'near-intents'], crossChainDestination: ['lifi', 'near-intents'],
     discovery: true, status: 'verified', reason: null,
     evidence: 'measured: Jupiter same-chain with verified platform fee; LI.FI cross-chain',
   },
@@ -285,13 +312,13 @@ export const SWAP_NETWORKS: Record<string, SwapNetworkCapability> = {
       + 'signing the swap executor does not have. Use the Cross-Chain tab for BTC.',
     evidence: 'executor has no PSBT path for swap payloads',
   },
-  // Same-chain only, through Minswap V2 batcher orders. NOT 'verified': every
-  // piece below was measured live, but no swap has yet been executed with real
-  // funds from this wallet (docs/RELEASE-QA.md). Cross-chain in or out needs the
-  // xReserve leg, which is not enabled (docs/CARDANO-SWAP-DISCOVERY.md).
+  // Same-chain through Minswap V2 orders and Danogo pools. OUT of Cardano (ADA
+  // only) through NEAR Intents 1Click: a plain ADA payment to a signed quote's
+  // deposit address (src/main/near-intents-client.ts). INTO Cardano (ADA) the
+  // same way, paid by a transfer on the source chain (NEAR_INTENTS_CHAINS).
   cardano: {
     id: 'cardano', chainId: null, signing: 'cardano',
-    sameChain: ['minswap'], crossChainSource: [], crossChainDestination: [],
+    sameChain: ['minswap'], crossChainSource: ['near-intents'], crossChainDestination: ['near-intents'],
     discovery: true, status: 'implemented-unverified',
     reason: null,
     evidence: 'measured 2026-09-26, agg-api.minswap.org (keyless): exact-unit search; estimate + unsigned '

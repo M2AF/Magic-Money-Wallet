@@ -1,0 +1,33 @@
+{
+  "verified": 1231,
+  "restored": [
+    ".local-artifacts/agent-access/inbox-1200.png",
+    ".local-artifacts/agent-access/inbox-400.png",
+    ".local-artifacts/agent-access/inbox-768.png",
+    ".local-artifacts/agent-access/swap-fresh-review.png",
+    ".local-artifacts/agent-access/titlebar-1200.png",
+    ".local-artifacts/agent-access/titlebar-380.png",
+    ".local-artifacts/agent-access/titlebar-420.png",
+    ".local-artifacts/agent-access/titlebar-768.png",
+    ".local-artifacts/agent-access/titlebar-desktop.png",
+    ".local-artifacts/agent-execution/approved-review.png",
+    ".local-artifacts/agent-execution/recovery-submitted.png",
+    ".local-artifacts/agent-execution/spending-1200.png",
+    ".local-artifacts/agent-execution/spending-400.png",
+    ".local-artifacts/agent-execution/spending-768.png",
+    ".local-artifacts/agent-monad/policy-1200.png",
+    ".local-artifacts/agent-monad/policy-400.png",
+    ".local-artifacts/agent-monad/policy-768.png",
+    ".local-artifacts/cip113-c3/programmable-panel.png",
+    ".local-artifacts/collection-gates/mallard-order-wallet.png",
+    ".local-artifacts/collection-gates/r3tards-wallet.png",
+    ".local-artifacts/design-sections/wallet-collapsed.png",
+    ".local-artifacts/mint-money/wallet.png",
+    ".local-artifacts/sappy-seals/click-motion.png",
+    ".local-artifacts/sappy-seals/wallet-400.png",
+    ".local-artifacts/sovereign/browser.png",
+    ".local-artifacts/x402/account-1200.png",
+    ".local-artifacts/x402/account-768.png",
+    ".local-artifacts/x402/exception-review.png"
+  ]
+}

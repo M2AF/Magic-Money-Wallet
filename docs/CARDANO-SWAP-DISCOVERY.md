@@ -463,3 +463,30 @@ Added as a second Cardano route shape beside Minswap V2 orders, built by the sam
 - ADA-on-one-side pairs only, one pool, no splits.
 - Not executed with real funds.
 - A pool that moves before inclusion makes the transaction invalid, so nothing is spent. The executor still reports an uncertain broadcast in that case, and the status card explains the expiry after 8 minutes.
+
+## SundaeSwap V3 orders (added 2026-10-28)
+
+Why: SNEK and other memecoins keep their main liquidity on Minswap V1. The aggregator cannot exclude Minswap protocols, so a V2 request
+came back routed through V1 and was refused. Measured the same day, 5000 SNEK -> ADA per DEX: VyFinance 14.993, WingRiders V2 14.990,
+CSWAP 14.986, SundaeSwap V3 14.982, Minswap V1 14.978 ADA. DexHunter was not used (2026-10-05 comparison: worse quotes, 2 ADA / 5% fee).
+
+- Requested as a third candidate (`include_protocols: ["SundaeSwapV3"]`, one pool). A route returned through any other protocol is refused.
+- Pre-sign check: `src/main/cardano-sundae-validate.ts` (separate validator; the V2 check is unchanged). Datum: `src/main/sundae-v3-order.ts`.
+- Pinned from SundaeSwap's own sources:
+  - order script `fa6a58bb…3077` (`order.spend` in SundaeSwap-finance/sundae-contracts plutus.json);
+  - the quoted pool's LP policy `e0302560…` (`pool.mint` there);
+  - datum types from `lib/types/order.ak`.
+- Pinned from builds: order staking part `f217f435…298b`. This is the same for every sender in Minswap's builds, and an independent
+  wallet (Seedelf) pins it too. It affects staking only.
+- Checked in the datum:
+  - the quoted pool;
+  - owner = this wallet's key;
+  - destination = this wallet's address with no datum;
+  - Swap of exactly the sell amount for at least the approved minimum;
+  - max protocol fee = the quoted fee;
+  - extension = the observed bytes.
+- Order value = sale + protocol fee + deposit. Body, input and balance rules are the V2 rules.
+- Fixtures: `src/main/__fixtures__/sundae/` holds live unsigned builds for the public fixture address (10 ADA -> SNEK, 2 USDCx -> ADA).
+- Live read-only: the full quote pipeline chose SundaeSwap V3 for 10 ADA -> SNEK and passed the check against live UTxOs and the tip.
+- V3 orders do not expire. An unfilled order stays open until the owner cancels it; the wallet does not build that cancellation.
+- Status: `implemented-unverified` until a small real-funds swap is recorded.

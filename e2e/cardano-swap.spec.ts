@@ -50,7 +50,7 @@ async function createWalletToDashboard(page: Page) {
 }
 
 test.describe('Cardano swap (Minswap order)', () => {
-  test('keeps Cardano cross-chain pairs in DEX Swap without an exchange handoff', async () => {
+  test('keeps Cardano cross-chain pairs in DEX Swap without an exchange handoff (quotable both ways)', async () => {
     test.setTimeout(150_000)
     const ctx = await launchWithExtension()
     try {
@@ -78,7 +78,8 @@ test.describe('Cardano swap (Minswap order)', () => {
         await pickNetwork(page, 'To network', target)
         await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', source)
         await page.getByPlaceholder('0.0').first().fill('20.000001')
-        await expect(page.getByRole('button', { name: 'Get Quote', exact: true })).toHaveCount(0)
+        // Both directions are DEX swaps through NEAR Intents.
+        await expect(page.getByRole('button', { name: 'Get Quote', exact: true })).toHaveCount(1)
         await expect(page.getByRole('button', { name: 'Check exchange route' })).toHaveCount(0)
         await expect(page.getByText(/exchange providers|exchange catalog/)).toHaveCount(0)
         if (source === 'cardano') await expect(page.getByTestId('journey-routes')).toBeVisible()
@@ -146,13 +147,14 @@ test.describe('Cardano swap (Minswap order)', () => {
         }
       }, { MIN })
 
-      // Offered by the REAL resolver, and pairing: choosing Cardano to pay moves
-      // the receive side to Cardano too (no bridge leg is enabled).
+      // Offered by the REAL resolver. Cardano is no longer same-chain only (ADA
+      // can leave through NEAR Intents), so the receive side is chosen explicitly.
       const from = page.getByRole('button', { name: 'From network', exact: true })
       await from.click()
       await expect(page.getByRole('listbox', { name: 'From network' }).locator('[data-value="cardano"]')).toHaveCount(1)
       await page.keyboard.press('Escape')
       await pickNetwork(page, 'From network', 'cardano')
+      await pickNetwork(page, 'To network', 'cardano')
       await expect(page.getByRole('button', { name: 'To network', exact: true })).toHaveAttribute('data-value', 'cardano')
       await expect(page.getByRole('button', { name: 'Pay token' })).toContainText('ADA')
       await expect(page.getByText('uses the Cross-Chain exchange')).toHaveCount(0)
@@ -243,6 +245,7 @@ test.describe('Cardano swap (Danogo pool)', () => {
       }, { MIN })
 
       await pickNetwork(page, 'From network', 'cardano')
+      await pickNetwork(page, 'To network', 'cardano')
       await page.getByPlaceholder('0.0').first().fill('20')
       await page.getByRole('button', { name: 'Get Quote' }).click()
       await expect(page.getByText('This swaps directly with a Danogo pool.')).toBeVisible({ timeout: 10_000 })
@@ -666,6 +669,385 @@ test.describe('Routes across networks (journey registry)', () => {
       await expect(view.getByTestId('journey-holding')).toHaveCount(0)
       await view.scrollIntoViewIfNeeded()
       await page.screenshot({ path: 'test-results/usdcx-journey-evidence.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Cardano -> Solana (NEAR Intents)', () => {
+  test('quotes ADA -> SOL in DEX Swap, discloses custody and refund, and tracks delivery by deposit address', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+
+      const DEPOSIT = 'addr1vxhqhx5u45f2geynxxf97szc4ccydt2h3ef07mjzxz4lnfqxgv7c5'
+      await page.evaluate(({ DEPOSIT }) => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __statusReqs: unknown[]; __n: number }
+        w.__statusReqs = []; w.__n = 0
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, solana: { native: '0.5' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async (req: { toAddress: string; taker: string }) => ({
+          error: null,
+          quote: {
+            provider: 'near-intents', fromChain: 'cardano', toChain: 'solana',
+            fromTokenAddress: 'lovelace', toTokenAddress: 'So11111111111111111111111111111111111111112', fromTokenSymbol: 'ADA', toTokenSymbol: 'SOL',
+            sellAmountRaw: '10000000', buyAmountRaw: '19917228', minBuyAmountRaw: '19718055', minReceivedSource: 'provider',
+            estimatedGasRaw: '0', slippageBps: 100, priceImpactPct: 0, rate: 0.0019917, expiresAt: Date.now() + 60_000,
+            isCrossChain: true, toAddress: req.toAddress, bridgeTool: 'near-intents', estimatedDurationSec: 24,
+            appFee: { policyVersion: 'x', provider: 'near-intents', requestedBps: 0, appliedBps: 0, base: 'input', chain: 'cardano',
+              tokenAddress: null, tokenSymbol: null, tokenDecimals: null, amountRaw: '0', recipient: null, recipientKind: 'none',
+              collection: 'in-swap', providerSharePct: null, verification: 'none-requested', evidence: [] },
+            externalFees: [{ name: 'NEAR Intents payout fee', tokenSymbol: 'SOL', tokenDecimals: 9, amountRaw: '97781', includedInQuotedOutput: true }],
+            requestId: null, txData: {}, intentId: 'stub',
+            nearIntents: { originAsset: 'nep141:cardano.omft.near', destinationAsset: 'nep141:sol.omft.near', slippageBps: 100,
+              refundTo: req.taker, recipient: req.toAddress, refundFeeLovelace: '200000' },
+          },
+        })
+        w.wallet.swapExecute = async () => ({ txHash: 'ab'.repeat(32), explorerUrl: `https://cardanoscan.io/transaction/${'ab'.repeat(32)}`, approvalTxHash: null, requestId: DEPOSIT })
+        w.wallet.swapCrossStatus = async (req: unknown) => {
+          w.__statusReqs.push(req); w.__n++
+          return w.__n < 2
+            ? { status: 'pending', state: 'bridging', error: null, providerStatus: 'PROCESSING', message: null }
+            : { status: 'done', state: 'completed', error: null, message: null, providerStatus: 'SUCCESS', deliveredAmountSource: 'onchain',
+                delivered: { chain: 'solana', address: 'So11111111111111111111111111111111111111112', symbol: null, decimals: null, amountRaw: '19905000' },
+                destTxHash: 'solsig', destExplorerUrl: 'https://solscan.io/tx/solsig' }
+        }
+      }, { DEPOSIT })
+
+      await pickNetwork(page, 'From network', 'cardano')
+      await pickNetwork(page, 'To network', 'solana')
+      // A real swap, not the exchange hand-off or the journey previews only.
+      await expect(page.getByRole('button', { name: 'From network', exact: true })).toHaveAttribute('data-value', 'cardano')
+      await expect(page.getByRole('button', { name: 'To network', exact: true })).toHaveAttribute('data-value', 'solana')
+      await page.getByPlaceholder('0.0').first().fill('10')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+      const terms = page.getByTestId('near-intents-terms')
+      await expect(terms).toBeVisible({ timeout: 10_000 })
+      await expect(terms).toContainText('one-time NEAR Intents deposit address on Cardano')
+      await expect(terms).toContainText('held by NEAR Intents\' bridge')
+      await expect(terms).toContainText('minus a 0.2 ADA refund fee')
+      await expect(page.getByText('NEAR Intents (1Click)')).toBeVisible()
+      await terms.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/near-intents-quote.png', fullPage: true })
+
+      await page.getByRole('button', { name: /^Swap / }).click()
+      await expect(page.getByText(/Swap complete/)).toBeVisible({ timeout: 40_000 })
+      await page.screenshot({ path: 'test-results/near-intents-complete.png', fullPage: true })
+      const reqs = await page.evaluate(() => (window as unknown as { __statusReqs: Array<Record<string, unknown>> }).__statusReqs)
+      expect(reqs[0]).toMatchObject({ provider: 'near-intents', requestId: DEPOSIT, toChain: 'solana', minBuyAmountRaw: '19718055' })
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Cardano token -> Solana (multi-step)', () => {
+  test('one plan, one approval: hops run in order, a price drop pauses for consent, and the result is measured', async () => {
+    test.setTimeout(150_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+
+      await page.evaluate(() => {
+        type Hop = Record<string, unknown>
+        const w = window as unknown as { wallet: Record<string, unknown>; __calls: Array<[string, unknown]> }
+        w.__calls = []
+        const hop = (o: Hop): Hop => ({ fromDecimals: 6, toDecimals: 6, state: 'pending', provider: null, txHash: null, sellRaw: null, measuredOutRaw: null, message: null, ...o })
+        const hops = () => [
+          hop({ kind: 'cardano-dex', fromChain: 'cardano', toChain: 'cardano', fromSymbol: 'USDCx', toSymbol: 'ADA', approvedMinOutRaw: '9800000', plannedSellRaw: '5000000' }),
+          hop({ kind: 'near-intents', fromChain: 'cardano', toChain: 'solana', fromSymbol: 'ADA', toSymbol: 'SOL', toDecimals: 9, approvedMinOutRaw: '19500000', plannedSellRaw: '9800000' }),
+        ]
+        const view = (state: string, reason: string | null, mut: (h: Hop[]) => void) => {
+          const h = hops(); mut(h)
+          return { id: 'chain-1', createdAt: 1, hops: h, finalMinRaw: '19500000', finalExpectedRaw: '19900000', state, reason }
+        }
+        const firstDone = (h: Hop[]) => { Object.assign(h[0], { state: 'completed', measuredOutRaw: '9910000' }) }
+        const seq = [
+          view('running', null, h => { h[0].state = 'submitted'; h[0].txHash = 'aa' }),
+          view('running', null, firstDone),
+          view('paused', 'The price moved: step 2 now guarantees less than you approved. Your funds are 9.91 ADA on Cardano. Continue at the new minimum, or stop here.', firstDone),
+        ]
+        let n = 0
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '20' }, solana: { native: '0' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => { w.__calls.push(['swapGetQuote', null]); return { error: 'single quote must not be used', quote: null } }
+        w.wallet.swapExecute = async () => { w.__calls.push(['swapExecute', null]); throw new Error('must not execute directly') }
+        w.wallet.swapChainList = async () => ({ ok: true, value: [] })
+        w.wallet.swapChainQuote = async (req: unknown) => {
+          w.__calls.push(['swapChainQuote', req])
+          return { ok: true, value: { planId: 'plan-1', hops: hops(), finalMinRaw: '19500000', finalExpectedRaw: '19900000', expiresAt: Date.now() + 60_000,
+            routes: [
+              { kind: 'cardano-dex', provider: 'minswap', fromSymbol: 'USDCx', toSymbol: 'ADA', minOutRaw: '9800000', chain: 'cardano' },
+              { kind: 'near-intents', provider: 'near-intents', fromSymbol: 'ADA', toSymbol: 'SOL', minOutRaw: '19500000', chain: 'solana' },
+            ] } }
+        }
+        w.wallet.swapChainStart = async (planId: string) => { w.__calls.push(['swapChainStart', planId]); return { ok: true, value: seq[n++] } }
+        w.wallet.swapChainAdvance = async (req: { acceptNewMinimum?: boolean }) => {
+          w.__calls.push(['swapChainAdvance', req])
+          if (req.acceptNewMinimum) {
+            return { ok: true, value: view('completed', null, h => {
+              firstDone(h)
+              Object.assign(h[1], { state: 'completed', approvedMinOutRaw: '19300000', measuredOutRaw: '19450000', txHash: 'bb' })
+            }) }
+          }
+          return { ok: true, value: seq[Math.min(n++, seq.length - 1)] }
+        }
+      })
+
+      await pickNetwork(page, 'From network', 'cardano')
+      await page.getByRole('button', { name: 'Pay token' }).click()
+      await page.getByRole('option').filter({ hasText: 'USDCx' }).click()
+      await pickNetwork(page, 'To network', 'solana')
+      await page.getByPlaceholder('0.0').first().fill('5')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+
+      const plan = page.getByTestId('chained-swap-quote')
+      await expect(plan).toBeVisible({ timeout: 10_000 })
+      await expect(plan).toContainText('2 steps, one approval')
+      await expect(plan).toContainText('USDCx → ADA · Cardano DEX (best route)')
+      await expect(plan).toContainText('ADA → SOL · NEAR Intents')
+      await expect(plan).toContainText('0.0195 SOL')
+      await expect(page.getByTestId('chained-swap-terms')).toContainText('you approve once')
+      await plan.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/chained-swap-quote.png', fullPage: true })
+
+      await page.getByRole('button', { name: 'Swap USDCx → SOL' }).click()
+      const progress = page.getByTestId('chained-swap-progress')
+      await expect(progress).toBeVisible()
+      await expect(page.getByTestId('chained-swap-reason')).toContainText('The price moved', { timeout: 20_000 })
+      await expect(page.getByTestId('chain-step-1')).toContainText('done')
+      await page.screenshot({ path: 'test-results/chained-swap-paused.png', fullPage: true })
+      // Paused for consent: nothing advances on its own.
+      const count = () => page.evaluate(() => (window as unknown as { __calls: unknown[] }).__calls.length)
+      const before = await count()
+      await page.waitForTimeout(4000)
+      expect(await count()).toBe(before)
+
+      await page.getByRole('button', { name: 'Continue at the new minimum' }).click()
+      await expect(progress).toContainText('Swap complete')
+      await expect(progress).toContainText('Received 0.01945 SOL on Solana')
+      await page.screenshot({ path: 'test-results/chained-swap-complete.png', fullPage: true })
+      await progress.getByRole('button', { name: 'Close' }).click()
+      await expect(progress).toHaveCount(0)
+
+      const calls = await page.evaluate(() => (window as unknown as { __calls: Array<[string, unknown]> }).__calls)
+      expect(calls.filter(c => c[0] === 'swapGetQuote' || c[0] === 'swapExecute')).toHaveLength(0)
+      expect(calls.filter(c => c[0] === 'swapChainStart')).toEqual([['swapChainStart', 'plan-1']])
+      expect(calls.find(c => c[0] === 'swapChainQuote')?.[1]).toMatchObject({ fromSymbol: 'USDCx', toChain: 'solana', toSymbol: 'SOL', sellAmountRaw: '5000000' })
+      expect(calls.filter(c => c[0] === 'swapChainAdvance' && (c[1] as { acceptNewMinimum?: boolean }).acceptNewMinimum)).toHaveLength(1)
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Cardano swap (SundaeSwap V3 order)', () => {
+  test('names SundaeSwap, its protocol fee and the returned deposit on the quote', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+
+      // Shaped like the quote the privileged layer produced live on 2026-10-28 (10 ADA -> SNEK).
+      await page.evaluate(({ MIN }) => {
+        const w = window as unknown as { wallet: Record<string, unknown> }
+        w.wallet.getBalances = async () => ({ chains: { cardano: { native: '120' }, ethereum: { native: '0' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapGetQuote = async () => ({
+          error: null,
+          quote: {
+            provider: 'minswap', fromChain: 'cardano', toChain: 'cardano',
+            fromTokenAddress: 'lovelace', toTokenAddress: MIN, fromTokenSymbol: 'ADA', toTokenSymbol: 'MIN',
+            sellAmountRaw: '10000000', buyAmountRaw: '3269000', minBuyAmountRaw: '3236000', minReceivedSource: 'provider',
+            estimatedGasRaw: '0', slippageBps: 100, priceImpactPct: 1.03, rate: 0.3269, expiresAt: Date.now() + 45_000,
+            isCrossChain: false, bridgeTool: 'SundaeSwap V3', estimatedDurationSec: 60, feeBps: 0,
+            appFee: { policyVersion: 'x', provider: 'minswap', requestedBps: 0, appliedBps: 0, base: 'input', chain: 'cardano',
+              tokenAddress: null, tokenSymbol: null, tokenDecimals: null, amountRaw: '0', recipient: null, recipientKind: 'none',
+              collection: 'in-swap', providerSharePct: null, verification: 'none-requested', evidence: [] },
+            externalFees: [
+              { name: 'SundaeSwap protocol fee (maximum)', tokenSymbol: 'ADA', tokenDecimals: 6, amountRaw: '1280000', includedInQuotedOutput: false },
+              { name: 'Minswap aggregator fee', tokenSymbol: 'ADA', tokenDecimals: 6, amountRaw: '850000', includedInQuotedOutput: false },
+            ],
+            txData: { cbor: '84a0a0f5f6' }, approvalTx: null, intentId: 'stub',
+            cardanoOrder: { protocol: 'SundaeSwapV3', path: ['lovelace', MIN], batcherFeeLovelace: '1280000', depositLovelace: '2000000',
+              aggregatorFeeLovelace: '850000', poolIdent: 'cacb7fd5f5b84bf876d40dc60d4991c72112d78d76132b1fb769e6ad' },
+            cardanoCost: { txFeeLovelace: '207829', batcherFeeLovelace: '1280000', depositLovelace: '2000000', aggregatorFeeLovelace: '850000',
+              adaSpentLovelace: '14337829', validUntilSlot: '201682507', orderMinimumRaw: '3236000', killable: null },
+          },
+        })
+      }, { MIN })
+
+      await pickNetwork(page, 'From network', 'cardano')
+      await pickNetwork(page, 'To network', 'cardano')
+      await page.getByPlaceholder('0.0').first().fill('10')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+      const terms = page.getByText("This places a SundaeSwap order through Minswap's aggregator.")
+      await expect(terms).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText('not refunded automatically')).toBeVisible()
+      await expect(page.getByText('This places a Minswap order.')).toHaveCount(0)
+      await expect(page.getByText('Deposit (returned)')).toBeVisible()
+      await terms.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/sundae-quote.png', fullPage: true })
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Swap history', () => {
+  test('lists a multi-step swap once (its steps folded in) and a single swap, newest first', async () => {
+    test.setTimeout(120_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown> }
+        const hop = (o: Record<string, unknown>) => ({ fromDecimals: 6, toDecimals: 6, state: 'completed', provider: null, via: null, txHash: 'ab'.repeat(32), sellRaw: null, measuredOutRaw: null, message: null, intentId: null, ...o })
+        w.wallet.swapChainList = async () => ({ ok: true, value: [{ id: 'chain-1', createdAt: 2_000, state: 'completed', reason: null, finalMinRaw: '13060835', finalExpectedRaw: '13393448', hops: [
+          hop({ kind: 'cardano-dex', fromChain: 'cardano', toChain: 'cardano', fromSymbol: 'SNEK', toSymbol: 'ADA', fromDecimals: 0, plannedSellRaw: '1318', sellRaw: '1318', measuredOutRaw: '3949926', provider: 'minswap', via: 'SundaeSwap V3', intentId: 'step-1', approvedMinOutRaw: '1' }),
+          hop({ kind: 'near-intents', fromChain: 'cardano', toChain: 'solana', fromSymbol: 'ADA', toSymbol: 'SOL', toDecimals: 9, plannedSellRaw: '1', measuredOutRaw: '7691162', provider: 'near-intents', via: 'near-intents', intentId: 'step-2', approvedMinOutRaw: '1' }),
+          hop({ kind: 'dest-dex', fromChain: 'solana', toChain: 'solana', fromSymbol: 'SOL', toSymbol: 'TROLL', fromDecimals: 9, plannedSellRaw: '1', measuredOutRaw: '14661171', provider: 'jupiter', txHash: 'sig', intentId: 'step-3', approvedMinOutRaw: '1' }),
+        ] }] })
+        const session = (id: string, createdAt: number, o: Record<string, unknown> = {}) => ({ id, createdAt, provider: 'minswap', fromChain: 'cardano', toChain: 'cardano',
+          fromTokenSymbol: 'ADA', fromTokenDecimals: 6, toTokenSymbol: 'SNEK', toTokenDecimals: 0, sellAmountRaw: '10000000', expectedBuyAmountRaw: '3269',
+          deliveredAmountRaw: '3260', deliveredTokenSymbol: 'SNEK', deliveredTokenDecimals: 0, state: 'completed', bridgeTool: 'SundaeSwap V3', sourceTxHash: 'cd'.repeat(32),
+          sourceExplorerUrl: 'https://cardanoscan.io/transaction/' + 'cd'.repeat(32), destExplorerUrl: null, ...o })
+        w.wallet.swapSessions = async () => [session('step-1', 2_001), session('step-2', 2_002), session('single', 3_000)]
+      })
+      await page.getByRole('button', { name: 'Recent swaps' }).click()
+      const list = page.getByTestId('swap-history-list')
+      await expect(list).toBeVisible()
+      await expect(list.locator(':scope > div')).toHaveCount(2)
+      await expect(list.locator(':scope > div').first()).toContainText('10 ADA → 3,260 SNEK')
+      await expect(list).toContainText('1,318 SNEK → 14.661171 TROLL')
+      await expect(list).toContainText('SNEK → ADA · SundaeSwap V3')
+      await expect(list).toContainText('ADA → SOL · NEAR Intents')
+      await expect(list).toContainText('SOL → TROLL · Jupiter')
+      await page.screenshot({ path: 'test-results/swap-history.png', fullPage: true })
+      await page.getByRole('dialog', { name: 'Swap history' }).getByRole('button', { name: 'Close' }).click()
+      await expect(list).toHaveCount(0)
+    } finally {
+      await ctx.close()
+    }
+  })
+})
+
+test.describe('Into Cardano (NEAR Intents)', () => {
+  test('Base USDC -> ADA is one swap whose disclosure names a Base deposit and a Base refund; SOL -> a Cardano token is multi-step', async () => {
+    test.setTimeout(150_000)
+    const ctx = await launchWithExtension()
+    try {
+      const page = await ctx.newPage()
+      const extId = ctx.serviceWorkers()[0]?.url().split('/')[2]
+        ?? (await ctx.waitForEvent('serviceworker')).url().split('/')[2]
+      await page.goto(`chrome-extension://${extId}/popup.html`)
+      await createWalletToDashboard(page)
+      await page.locator('.bottom-nav-btn:has-text("Swap")').click()
+      await expect(page.getByText('YOU PAY')).toBeVisible({ timeout: 15_000 })
+
+      await page.evaluate(() => {
+        const w = window as unknown as { wallet: Record<string, unknown>; __req: unknown[]; __chain: unknown[] }
+        w.__req = []; w.__chain = []
+        w.wallet.getBalances = async () => ({ chains: { base: { native: '0.01' }, solana: { native: '1' }, cardano: { native: '5' } } })
+        w.wallet.getTokens = async () => ({ tokens: [] })
+        w.wallet.swapGetTokens = async () => ({ tokens: [], error: null })
+        w.wallet.swapReconcile = async () => []
+        w.wallet.swapChainList = async () => ({ ok: true, value: [] })
+        w.wallet.swapGetQuote = async (req: { fromChain: string; toChain: string; taker: string; toAddress: string; fromToken: string }) => {
+          w.__req.push(req)
+          return { error: null, quote: {
+            provider: 'near-intents', fromChain: req.fromChain, toChain: 'cardano', fromTokenAddress: req.fromToken, toTokenAddress: 'lovelace',
+            fromTokenSymbol: 'USDC', toTokenSymbol: 'ADA', sellAmountRaw: '5000000', buyAmountRaw: '24674970', minBuyAmountRaw: '24440301',
+            minReceivedSource: 'provider', estimatedGasRaw: '0', slippageBps: 100, priceImpactPct: 0, rate: 4.93, expiresAt: Date.now() + 60_000,
+            isCrossChain: true, toAddress: req.toAddress, bridgeTool: 'near-intents', estimatedDurationSec: 37,
+            appFee: { policyVersion: 'x', provider: 'near-intents', requestedBps: 0, appliedBps: 0, base: 'input', chain: 'base',
+              tokenAddress: null, tokenSymbol: null, tokenDecimals: null, amountRaw: '0', recipient: null, recipientKind: 'none',
+              collection: 'in-swap', providerSharePct: null, verification: 'none-requested', evidence: [] },
+            externalFees: [], requestId: null, txData: {}, intentId: 'stub',
+            nearIntents: { originAsset: 'nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near', destinationAsset: 'nep141:cardano.omft.near',
+              slippageBps: 100, refundTo: req.taker, recipient: req.toAddress, refundFeeLovelace: '100000' },
+          } }
+        }
+        w.wallet.swapChainQuote = async (req: unknown) => {
+          w.__chain.push(req)
+          return { ok: true, value: { planId: 'p', finalMinRaw: '8275000', finalExpectedRaw: '8400000', expiresAt: Date.now() + 60_000,
+            hops: [
+              { kind: 'near-intents', fromChain: 'solana', toChain: 'cardano', fromSymbol: 'SOL', toSymbol: 'ADA', fromDecimals: 9, toDecimals: 6,
+                approvedMinOutRaw: '14630908', plannedSellRaw: '30000000', state: 'pending', provider: null, txHash: null, sellRaw: null, measuredOutRaw: null, message: null },
+              { kind: 'cardano-dex', fromChain: 'cardano', toChain: 'cardano', fromSymbol: 'ADA', toSymbol: 'MIN', fromDecimals: 6, toDecimals: 6,
+                approvedMinOutRaw: '8275000', plannedSellRaw: '10330908', state: 'pending', provider: null, txHash: null, sellRaw: null, measuredOutRaw: null, message: null },
+            ], routes: [
+              { kind: 'near-intents', provider: 'near-intents', fromSymbol: 'SOL', toSymbol: 'ADA', minOutRaw: '14630908', chain: 'cardano' },
+              { kind: 'cardano-dex', provider: 'minswap', fromSymbol: 'ADA', toSymbol: 'MIN', minOutRaw: '8275000', chain: 'cardano' },
+            ] } }
+        }
+      })
+
+      // ── Base USDC -> ADA: a single NEAR swap ────────────────────────────────
+      await pickNetwork(page, 'From network', 'base')
+      await page.getByRole('button', { name: 'Pay token' }).click()
+      await page.getByRole('option').filter({ hasText: 'USD Coin' }).first().click()
+      await pickNetwork(page, 'To network', 'cardano')
+      await page.getByRole('button', { name: 'Receive token' }).click()
+      await page.getByRole('option').filter({ hasText: 'Cardano' }).first().click()
+      await expect(page.getByText('On-chain bridging between Cardano')).toHaveCount(0)
+      await page.getByPlaceholder('0.0').first().fill('5')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+      const terms = page.getByTestId('near-intents-terms')
+      await expect(terms).toBeVisible({ timeout: 10_000 })
+      await expect(terms).toContainText('one-time NEAR Intents deposit address on Base')
+      await expect(terms).toContainText('returned to your Base address')
+      await expect(terms).toContainText('minus a 0.1 USDC refund fee')
+      await terms.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: 'test-results/into-cardano-quote.png', fullPage: true })
+      const sent = await page.evaluate(() => (window as unknown as { __req: Array<Record<string, unknown>> }).__req)
+      expect(sent[sent.length - 1]).toMatchObject({ fromChain: 'base', toChain: 'cardano', toToken: 'lovelace' })
+
+      // ── SOL -> a Cardano token: multi-step ──────────────────────────────────
+      await pickNetwork(page, 'From network', 'solana')
+      await pickNetwork(page, 'To network', 'cardano')
+      await page.getByRole('button', { name: 'Receive token' }).click()
+      await page.getByRole('option').filter({ hasText: 'Minswap' }).first().click()
+      await page.getByPlaceholder('0.0').first().fill('0.03')
+      await page.getByRole('button', { name: 'Get Quote' }).click()
+      const plan = page.getByTestId('chained-swap-quote')
+      await expect(plan).toBeVisible({ timeout: 10_000 })
+      await expect(plan).toContainText('SOL → ADA · NEAR Intents')
+      await expect(plan).toContainText('ADA → MIN · Cardano DEX (best route)')
+      const chain = await page.evaluate(() => (window as unknown as { __chain: Array<Record<string, unknown>> }).__chain)
+      expect(chain[chain.length - 1]).toMatchObject({ fromChain: 'solana', toChain: 'cardano', sellAmountRaw: '30000000' })
     } finally {
       await ctx.close()
     }

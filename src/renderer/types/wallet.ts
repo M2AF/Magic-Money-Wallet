@@ -13,6 +13,7 @@ import type { Cip113ProgrammableDetails } from '../../shared/cip113-wire'
 import type { SettledSwapSession } from '../../shared/swap-settlement'
 import type { StablecoinPlanRequest, StablecoinPlanEnvelope } from '../../shared/stablecoin-route'
 import type { JourneyPlanRequest, JourneyPlanEnvelope, JourneyListSummary, JourneyRecheckResult, CbAdaTermsReview } from '../../shared/journey-candidate'
+import type { ChainQuoteRequest, ChainQuoteView, ChainedSwapView } from '../../shared/chained-swap-view'
 import type { CircleWithdrawalStatus, WithdrawalReference } from '../../shared/xreserve-testnet-wire'
 import type {
   XReserveTestnetEnvelope, TestnetDepositState, TestnetDepositPreview, TestnetDepositResult, TestnetCheckResult,
@@ -727,6 +728,7 @@ declare global {
       agentAccess?: import('../../shared/agent-access').AgentAccessBridge
       agentExecution?: import('../../shared/agent-execution').AgentExecutionBridge
       agentX402?: import('../../shared/x402').X402Bridge
+      agentNative?: import('../../shared/agent-native').AgentNativeBridge
       isSetup(): Promise<boolean>
       /** Fresh BIP-39 phrase for the create flow. Defaults to 12 words. */
       generate(words?: 12 | 24): Promise<string[]>
@@ -930,6 +932,13 @@ declare global {
       journeyCbAdaAuthorize?(proposalId: string): Promise<{ ok: true; value: { journeyId: string } } | { ok: false; message: string }>
       /** Stop a journey that has sent nothing. */
       journeyCancel?(journeyId: string): Promise<{ ok: true; value: { journeyId: string } } | { ok: false; message: string }>
+      /** Plan a multi-hop swap (Cardano token -> any token elsewhere). Read-only. */
+      swapChainQuote?(req: ChainQuoteRequest): Promise<{ ok: true; value: ChainQuoteView } | { ok: false; message: string }>
+      /** Approve a plan the wallet issued; the wallet then runs every hop. */
+      swapChainStart?(planId: string): Promise<{ ok: true; value: ChainedSwapView } | { ok: false; message: string }>
+      /** Advance / poll a multi-hop swap. */
+      swapChainAdvance?(req: { id: string; acceptNewMinimum?: boolean; stop?: boolean }): Promise<{ ok: true; value: ChainedSwapView } | { ok: false; message: string }>
+      swapChainList?(): Promise<{ ok: true; value: ChainedSwapView[] } | { ok: false; message: string }>
       /**
        * Swaps that reached the network, with their settlement outcome. Read-only
        * evidence -- these can never start or re-authorize a spend.

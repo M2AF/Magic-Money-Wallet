@@ -110,8 +110,11 @@ export function CardanoOrderStatusCard({ quote, txHash, explorerUrl, toSymbol, t
   }, [txHash])
 
   const direct = quote.cardanoOrder?.protocol === 'DanogoCLMMV1'
+  const dex = quote.cardanoOrder?.protocol === 'SundaeSwapV3' ? 'SundaeSwap' : 'Minswap'
   const state = (status.state ?? 'source-submitted') as SwapLifecycleState
-  const heading = (direct ? DIRECT_HEADINGS[state] : undefined) ?? HEADINGS[state] ?? HEADINGS.unknown!
+  const heading = (direct ? DIRECT_HEADINGS[state] : undefined)
+    ?? (dex === 'SundaeSwap' && state === 'source-confirmed' ? { text: '⏳ Order placed — waiting for SundaeSwap to fill it', color: '#38bdf8' } : undefined)
+    ?? HEADINGS[state] ?? HEADINGS.unknown!
   const terminal = TERMINAL.has(state)
   const open = state === 'source-confirmed' || state === 'unknown'
   const likelyStuck = open && now - placedAt.current > LIKELY_STUCK_MS
@@ -129,7 +132,7 @@ export function CardanoOrderStatusCard({ quote, txHash, explorerUrl, toSymbol, t
           {direct
             ? <>Your transaction swaps directly with a <strong style={{ color: 'var(--text-primary)' }}>Danogo pool</strong>.
                 The swap is complete as soon as Cardano includes it.</>
-            : <>Your transaction placed a <strong style={{ color: 'var(--text-primary)' }}>Minswap order</strong>. A batcher
+            : <>Your transaction placed a <strong style={{ color: 'var(--text-primary)' }}>{dex} order</strong>. A batcher
                 trades it — usually within a minute or two — and sends the {toSymbol} to your wallet
                 {deposit != null ? <>, together with the {deposit} ADA deposit</> : null}.</>}
         </div>

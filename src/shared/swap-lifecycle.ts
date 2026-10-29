@@ -343,7 +343,44 @@ export function mapStatusForProvider(
     case 'relay': return mapRelayStatus(raw, expectedTokenAddress)
     case 'rango': return mapRangoStatus(raw, expectedTokenAddress)
     case 'minswap': return mapMinswapStatus(raw, expectedTokenAddress)
+    case 'near-intents': return mapNearIntentsStatus(raw, expectedTokenAddress)
     default: return mapProviderStatus(raw, expectedTokenAddress)
+  }
+}
+
+/**
+ * NEAR Intents 1Click (GET /v0/status). SUCCESS is still subject to the
+ * delivered-asset check, and the caller measures the destination transaction
+ * before the amount is believed. INCOMPLETE_DEPOSIT means the deposit arrived
+ * short of the quoted amount; 1Click refunds it after the deadline.
+ */
+export function mapNearIntentsStatus(raw: RawProviderStatus, expectedTokenAddress: string): SwapStatusReport {
+  const status = upper(raw.status)
+  const base = {
+    providerStatus: raw.status ?? null, providerSubstatus: raw.substatus ?? null,
+    delivered: deliveredFrom(raw), destTxHash: raw.destTxHash ?? null, destExplorerUrl: raw.destExplorerUrl ?? null,
+  }
+  switch (status) {
+    case 'SUCCESS':
+      return {
+        ...mapProviderStatus({ ...raw, status: 'DONE', substatus: 'COMPLETED' }, expectedTokenAddress),
+        providerStatus: base.providerStatus, providerSubstatus: base.providerSubstatus,
+      }
+    case 'REFUNDED':
+      return { ...base, state: 'refunded',
+        message: 'No solver filled this swap. NEAR Intents returned the ADA to your Cardano address, minus its refund fee.' }
+    case 'FAILED':
+      return { ...base, state: 'failed', message: 'NEAR Intents reported this swap failed. Check the deposit address on the NEAR Intents explorer.' }
+    case 'INCOMPLETE_DEPOSIT':
+      return { ...base, state: 'refund-pending',
+        message: 'The deposit arrived short of the quoted amount. NEAR Intents refunds it to your Cardano address.' }
+    case 'PENDING_DEPOSIT':
+      return { ...base, state: 'source-submitted', message: null }
+    case 'KNOWN_DEPOSIT_TX':
+    case 'PROCESSING':
+      return { ...base, state: 'bridging', message: null }
+    default:
+      return { ...base, state: 'unknown', message: 'NEAR Intents returned a status this wallet does not recognise.' }
   }
 }
 

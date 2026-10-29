@@ -15,11 +15,11 @@ import type { SolanaUpfrontCost } from '../../shared/solana-upfront-cost'
 import type { RouteStep, DestinationTerms } from '../../shared/swap-destination'
 import type { PaidAppFee } from '../../shared/swap-settlement'
 import type { SwapLifecycleState } from '../../shared/swap-lifecycle'
-import type { CardanoOrderTerms, CardanoSwapCost } from '../../shared/swap-quote'
+import type { CardanoOrderTerms, CardanoSwapCost, NearIntentsTerms } from '../../shared/swap-quote'
 
 export type SwapMode = 'dex' | 'crosschain'
 
-export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap'
+export type SwapProvider = '0x' | '1inch' | 'uniswap' | 'jupiter' | 'okx' | 'lifi' | 'relay' | 'rango' | 'swapkit' | 'muesliswap' | 'minswap' | 'near-intents'
 
 /** Wallet-internal chain ids the DEX side understands (matches chain-config). */
 export type SwapChain =
@@ -200,6 +200,8 @@ export interface NormalizedSwapQuote {
   cardanoOrder?: CardanoOrderTerms | null
   /** Cardano source only: costs read from the validated transaction itself. */
   cardanoCost?: CardanoSwapCost | null
+  /** NEAR Intents only: the quoted terms (see src/shared/swap-quote.ts). */
+  nearIntents?: NearIntentsTerms | null
 }
 
 /** Poll the bridge for a cross-chain swap after the source tx is broadcast. */
@@ -286,6 +288,8 @@ export interface SwapExecuteResult {
   txHash: string
   explorerUrl: string
   approvalTxHash: string | null
+  /** The provider's reference for status (NEAR Intents: the deposit address). */
+  requestId?: string | null
 }
 
 export interface SwapTokenListResponse {

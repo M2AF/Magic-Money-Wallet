@@ -28,6 +28,23 @@ function setup() {
 }
 
 describe('x402 capability layered on the isolated account', () => {
+  it('keeps old network-less budgets Base-only; new networks require explicit authorization', async () => {
+    const s = setup(); await s.configure(); delete s.stored().limits[0].network
+    const restarted = s.restart(), a = structuredClone(s.args)
+    Object.assign(a.paymentRequired.accepts[0], { network: 'eip155:11155111', asset: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' })
+    expect((await restarted.propose(s.auth, s.account.id, a)).state).toBe('pending-approval')
+    expect(s.port.sign).not.toHaveBeenCalled()
+  })
+  it('accounts for each explicitly authorized network separately and rejects wrong-mode limits', async () => {
+    const s = setup(); await s.configure({ perPayment: '0.01', daily: '0.01', total: '0.01' })
+    await s.configure({ network: 'eip155:11155111', perPayment: '0.01', daily: '0.01', total: '0.01' })
+    await expect(s.configure({ network: 'eip155:143' })).rejects.toThrow('mode')
+    const base = await s.core.propose(s.auth, s.account.id, s.args); expect(base.state).toBe('authorized')
+    const a = structuredClone(s.args); a.requestId = 'sepolia'; Object.assign(a.paymentRequired.accepts[0], { network: 'eip155:11155111', asset: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' })
+    expect((await s.core.propose(s.auth, s.account.id, a)).state).toBe('authorized')
+    expect((await s.core.propose(s.auth, s.account.id, { ...a, requestId: 'sepolia-over' })).state).toBe('pending-approval')
+    expect(s.port.sign).toHaveBeenCalledTimes(2)
+  })
   it('keeps USDC limits exact and never interprets ETH wei limits as USDC', async () => {
     const s = setup(), limits = await s.configure()
     expect(limits.perPaymentRaw).toBe('100000'); expect(x402Usdc('0.000001')).toBe('1')

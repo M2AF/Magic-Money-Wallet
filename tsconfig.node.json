@@ -14,6 +14,7 @@
   "include": [
     "src/shared/agent-access.ts",
     "src/shared/agent-execution.ts",
+    "src/shared/agent-native.ts",
     "src/shared/x402.ts",
     "src/shared/mallard-policy.ts",
     "src/shared/nft-media.ts",
@@ -49,6 +50,7 @@
     "src/shared/stablecoin-route.ts",
     "src/shared/stablecoin-journey.ts",
     "src/shared/journey-candidate.ts",
+    "src/shared/chained-swap-view.ts",
     "src/shared/solana-transaction.ts",
     "src/shared/swap-fee-checks.ts",
     "src/shared/swap-policy-checks.ts",

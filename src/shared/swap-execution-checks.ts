@@ -40,6 +40,10 @@ export function validateSwapQuoteForExecution(
     throw new Error('Swap quote has an invalid destination address.')
   }
 
+  // Before the per-chain calldata checks: a NEAR Intents quote carries no
+  // transaction, from any chain; the deposit is built at signing time.
+  if (quote.provider === 'near-intents') { validateNearIntentsQuote(quote, isEvmChain); return }
+
   if (isEvmChain(quote.fromChain)) {
     validateEvmQuote(quote)
     return
@@ -61,6 +65,7 @@ export function validateSwapQuoteForExecution(
  * live coins immediately before signing (src/main/cardano-swap-validate.ts).
  */
 function validateCardanoQuote(quote: NormalizedSwapQuote): void {
+  if (quote.provider === 'near-intents') { validateNearIntentsQuote(quote); return }
   if (quote.provider !== 'minswap') throw new Error('Cardano swaps are only signed for Minswap orders.')
   if (quote.toChain !== 'cardano') throw new Error('Cardano swaps must stay on Cardano.')
   const cbor = quote.txData?.cbor
@@ -70,6 +75,31 @@ function validateCardanoQuote(quote: NormalizedSwapQuote): void {
     throw new Error('Cardano swap quote contains EVM or Solana transaction fields.')
   }
   if (!quote.cardanoOrder) throw new Error('Cardano swap quote does not describe its order.')
+}
+
+/**
+ * A NEAR Intents swap out of Cardano: the wallet pays plain ADA to a deposit
+ * address it is given at signing time, so the quote carries NO transaction.
+ * What it pays, to whom, and the minimum it accepts are re-checked against a
+ * live, signature-verified quote immediately before signing.
+ */
+function validateNearIntentsQuote(quote: NormalizedSwapQuote, isEvmChain: (chain: string) => boolean = () => false): void {
+  // One side is Cardano ADA: out of Cardano selling ADA, or into Cardano buying ADA.
+  const out = quote.fromChain === 'cardano', into = quote.toChain === 'cardano'
+  if (out === into) throw new Error('NEAR Intents swaps here go into or out of Cardano.')
+  if (out && quote.fromTokenAddress !== 'lovelace') throw new Error('NEAR Intents swaps from Cardano sell ADA only.')
+  if (into && quote.toTokenAddress !== 'lovelace') throw new Error('NEAR Intents swaps into Cardano buy ADA only.')
+  if (into && !(quote.fromChain === 'solana' || isEvmChain(quote.fromChain))) throw new Error(`NEAR Intents deposits are not paid from ${quote.fromChain}.`)
+  const t = quote.nearIntents
+  if (!t || !t.destinationAsset || !t.refundTo || !t.recipient || !Number.isInteger(t.slippageBps)) {
+    throw new Error('NEAR Intents quote does not describe its terms.')
+  }
+  if (!quote.toAddress || quote.toAddress !== t.recipient) throw new Error('NEAR Intents quote has an invalid destination address.')
+  if (!quote.minBuyAmountRaw || !isPositiveIntegerString(quote.minBuyAmountRaw)) throw new Error('NEAR Intents quote has no minimum received.')
+  const tx = quote.txData ?? {}
+  if (tx.to || tx.data || tx.value || tx.swapTransaction || tx.cbor || quote.approvalTx || quote.permitTx) {
+    throw new Error('NEAR Intents quote must not carry a transaction to sign.')
+  }
 }
 
 function validateEvmQuote(quote: NormalizedSwapQuote): void {

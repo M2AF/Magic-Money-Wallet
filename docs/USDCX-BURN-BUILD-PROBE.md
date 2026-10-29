@@ -138,3 +138,23 @@ These are product decisions, not engineering questions:
 - **Private:** the user's own unsigned Portal build. It is stored outside this public repo (`../private/`) and runs only where that file exists.
 - **Mutation checks:** 10 of 11 guards fail their tests when removed. The pinned-script check is also enforced by the burn proof, as defence in depth.
 - **Codex review:** malformed runtime terms now return a refusal, preattached Ed25519 signatures are verified against the transaction body hash, and the reference-input result does not imply IOG's unpublished identities have been checked. Focused tests 18/18; five-target typecheck and full 164-file/2425-test suite pass.
+
+## IOG USDCx SDK API (published by 2026-10-28)
+
+**Source:** `https://portal.usdcx.iog.io/openapi.json` ("USDCx SDK API" 1.0.0). Server `https://sdk.api.usdcx.iog.io`; API key in the `x-api-key` header, created in the developer portal. Keys must stay server-side, never in browser or app bundles.
+
+| Endpoint | Purpose | For the wallet |
+|---|---|---|
+| `GET /health` | Authenticated connectivity | 200 `{"healthy":true}` with the user's key (2026-10-28) |
+| `POST /store-datum` | Stores a hex CBOR datum, with optional `targetAda` | Not used by a burn (burns have no datum outputs) |
+| `POST /register-withdrawal` | `{transactionHash, localAddress}` for a burn **already submitted on chain**; IOG resolves and validates it, then "creates or returns" the withdrawal record (`status`, e.g. `AWAITING_FINALITY`) | **The official post-burn step**, replacing the Portal's undocumented `/tx/record-burn-tx`. "Creates or returns" makes re-registering the same hash safe |
+
+**What the SDK changes:**
+- **Third-party integration:** officially supported for registration and processing.
+- **Retries:** service errors are 5xx, to be retried with bounded backoff, with the state confirmed before repeating a write.
+
+**What it does not change:**
+- **No build endpoint.** `POST /tx/burn-usdcx`, `/burn-usdcx` and `/build-burn` on the SDK host return 404 (empty-body checks, nothing built). Building is still only the Portal backend's unofficial endpoint, or a wallet-built transaction.
+- **Unanswered for a wallet-built burn:** whether IOG's builds need IOG's own service collateral and witness, and whether the burn validator accepts a burn without them.
+
+**Architecture:** wallet → Magic Money's own Worker (holds the key as a secret) → SDK. The key never ships in the extension or app.

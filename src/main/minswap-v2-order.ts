@@ -83,7 +83,7 @@ const hexToBytes = (h: string): Uint8Array => {
   return out
 }
 
-function credential(d: PlutusData, what: string): Credential {
+export function credential(d: PlutusData, what: string): Credential {
   if (d.kind !== 'constr' || (d.index !== 0 && d.index !== 1)) {
     throw new PlutusDataError(`${what}: expected a credential`)
   }
@@ -92,7 +92,7 @@ function credential(d: PlutusData, what: string): Credential {
 }
 
 /** Plutus `Address { payment_credential, stake_credential: Option<StakeCredential> }`. */
-function address(d: PlutusData, what: string): PlutusAddress {
+export function address(d: PlutusData, what: string): PlutusAddress {
   const [pay, stakeOpt] = asConstr(d, what, 0, 2)
   const payment = credential(pay, `${what} payment`)
   if (stakeOpt.kind !== 'constr') throw new PlutusDataError(`${what}: bad stake option`)

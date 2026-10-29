@@ -44,6 +44,7 @@ import { handleDb } from './db.js'
 import { handleMarket, refreshTop500 } from './market.js'
 import { handleTokens } from './tokens.js'
 import { handleXchange, bindingAllows } from './xchange.js'
+import { handleNearIntents } from './near-intents.js'
 import {
   SWAP_FEE_POLICY_VERSION, policyFeeBps, policyFeeRecipient, policyLifiIntegrator,
   emptyFeeRecord, feeFreeRecord, feeAmountMatches, effectiveBps, recipientBoundInCalldata,
@@ -264,6 +265,10 @@ async function handleFetch(request, env, ctx) {
       // Exchange (/ss/*, /cn/*): validated and rate limited in xchange.js.
       const xchange = await handleXchange(request, url, env, ctx)
       if (xchange) return xchange
+
+      // NEAR Intents 1Click with the partner key (near-intents.js).
+      const near = await handleNearIntents(request, url, env)
+      if (near) return near
 
       // DEX quote and status spend keyed provider quota (0x, 1inch, Uniswap,
       // LI.FI, Rango, SwapKit, Relay) on every call, so they are metered per IP.

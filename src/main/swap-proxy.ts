@@ -26,7 +26,7 @@ import type { PaidAppFee } from '../shared/swap-settlement'
 import { mapStatusForProvider, sameAsset, type SwapLifecycleState } from '../shared/swap-lifecycle'
 import { applyShortfallToReport } from '../shared/swap-settlement'
 import { measureDelivery } from './swap-delivery'
-import { estimateSolanaSwapCost } from './solana-swap-cost'
+import { estimateSolanaSwapCost, solanaShortfallMessage, type SolanaSwapCostEstimate } from './solana-swap-cost'
 import { Connection } from '@solana/web3.js'
 import {
   APP_FEE_BPS, SWAP_FEE_POLICY_VERSION, SWAP_FEE_BENEFICIARIES, SWAP_FEE_PROVIDERS,
@@ -37,7 +37,8 @@ import { resolveJupiterFeeAccount, classifyQuoteFee } from './swap-fee'
 import {
   prepareCardanoSwapQuote, getMinswapOrderStatus, CardanoSwapError, type MinswapOrderScanCursor,
 } from './cardano-swap'
-import { minswapTokenSearch } from './minswap-client'
+import { minswapTokenSearch, minswapPlanningEstimate } from './minswap-client'
+import { quoteNearIntentsFromCardano, quoteNearIntentsToCardano, nearIntentsSwapStatus } from './near-intents-swap'
 
 // The app fee rate and the beneficiaries come from the shared policy, not from
 // constants here. The previous arrangement hardcoded 90 bps in this file AND
@@ -247,7 +248,7 @@ function lifiToken(chain: string, addr: string): string {
 }
 
 /** Keyless LI.FI quote fetched from the user's IP. Returns null when LI.FI has no route. */
-async function lifiQuoteDirect(req: SwapQuoteRequest, noFee = false): Promise<NormalizedSwapQuote | null> {
+async function lifiQuoteDirect(req: SwapQuoteRequest, noFee = false, denyBridges: string[] = []): Promise<NormalizedSwapQuote | null> {
   // LIFI_CHAIN only knows the wallet's built-in chain-id STRINGS. An imported
   // network's RPC-verified numeric id (req.fromChainId/toChainId) is the
   // fallback — never used to override a built-in's resolved id.
@@ -271,6 +272,7 @@ async function lifiQuoteDirect(req: SwapQuoteRequest, noFee = false): Promise<No
   // not configured for fee collection with HTTP 400, so a misconfigured
   // integrator drops this route rather than silently returning a fee-free one.
   params.set('integrator', LIFI_INTEGRATOR)
+  for (const bridge of denyBridges) params.append('denyBridges', bridge)
   if (!noFee) params.set('fee', String(APP_FEE_BPS / 10000))   // 0.01 = 1%
   const res = await fetchWithDeadline(`https://li.quest/v1/quote?${params}`, {
     headers: { accept: 'application/json' },
@@ -545,9 +547,91 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
     }
   }
 
+  if (crossChain && req.fromChain === 'solana') {
+    return selectSimulatedSolanaRoute(req, config, candidates, excluded)
+  }
   const selected = selectSafeRoute(candidates, excluded)
   if (!selected.quote) return selected
   return { ...selected, quote: await withSolanaCost(selected.quote, req.taker, config) }
+}
+
+/**
+ * A signable quote can still contain a reverting source swap/bridge composition.
+ * Check the exact unsigned payload before offering it. When LI.FI's bridge
+ * rejects it, re-quote with that bridge excluded (at most twice), keeping the
+ * amount, recipient, fees and slippage unchanged. Never substitute at signing.
+ */
+async function selectSimulatedSolanaRoute(
+  req: SwapQuoteRequest, config: WalletConfig, candidates: NormalizedSwapQuote[], excluded: string[],
+): Promise<SwapQuoteResponse> {
+  const pending = [...candidates]
+  const denied: string[] = []
+  let requotes = 0
+  while (pending.length) {
+    const selected = selectSafeRoute(pending, excluded)
+    if (!selected.quote) return selected
+    const candidate = selected.quote
+    pending.splice(pending.indexOf(candidate), 1)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let measured: NormalizedSwapQuote & { solanaCost?: SolanaSwapCostEstimate | null }
+    try {
+      measured = await Promise.race([
+        // A backend's cost/status is not local simulation evidence.
+        withSolanaCost({ ...candidate, solanaCost: undefined }, req.taker, config),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error('Solana route simulation timed out')), 10_000)
+        }),
+      ])
+    } catch {
+      excluded.push(`${candidate.provider}: Solana route simulation unavailable; refresh the quote.`)
+      continue
+    } finally {
+      if (timer) clearTimeout(timer)
+    }
+    const cost = measured.solanaCost
+    if (candidate.expiresAt <= Date.now()) {
+      excluded.push(`${candidate.provider}: quote expired during route checks; request a fresh quote.`)
+      continue
+    }
+    const shortfall = cost ? solanaShortfallMessage(cost) : null
+    if (shortfall) {
+      excluded.push(`${candidate.provider}: ${shortfall}`)
+      continue
+    }
+    if (cost?.simulationStatus === 'pass') {
+      // Only the selected payload has been simulated. Do not advertise the
+      // remaining, unchecked payloads as safe alternatives.
+      return selectSafeRoute([measured], excluded)
+    }
+    if (cost?.simulationStatus !== 'revert') {
+      excluded.push(`${candidate.provider}: Solana route simulation unavailable; refresh the quote.`)
+      continue
+    }
+    excluded.push(`${candidate.provider}${candidate.bridgeTool ? ` (${candidate.bridgeTool})` : ''}: ${cost.simulationError}`)
+    const bridge = candidate.bridgeTool
+    if (candidate.provider !== 'lifi' || !bridge || !/^[a-zA-Z0-9_-]{1,64}$/.test(bridge)
+        || denied.includes(bridge) || requotes >= 2) continue
+    denied.push(bridge)
+    requotes++
+    try {
+      let replacement = await lifiQuoteDirect(req, false, denied)
+      if (!replacement || classifyQuoteFee(replacement).tier !== 'fee-paying') {
+        try { replacement = await lifiQuoteDirect(req, true, denied) ?? replacement } catch { /* keep the priced candidate for the safety filter */ }
+      }
+      const ready = withMinReceived(replacement)
+      if (!ready) continue
+      const why = unsignableReason(ready)
+      if (why) { excluded.push(`lifi alternative: ${why}`); continue }
+      if (!ready.bridgeTool || denied.includes(ready.bridgeTool)) {
+        excluded.push('lifi alternative: provider returned an excluded bridge')
+        continue
+      }
+      pending.push(ready)
+    } catch (e) {
+      excluded.push(`lifi alternative: ${msg(e)}`)
+    }
+  }
+  return { quote: null, error: joinReasons('No SOL cross-chain route passed simulation. Nothing was sent.', excluded) }
 }
 
 /**
@@ -560,21 +644,16 @@ export async function getSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
  * bridge leg, which is not enabled (docs/CARDANO-SWAP-DISCOVERY.md, gates 2-3).
  */
 async function getCardanoSwapQuote(req: SwapQuoteRequest, config: WalletConfig): Promise<SwapQuoteResponse> {
-  if (req.fromChain !== req.toChain) {
-    return {
-      quote: null,
-      error: 'Swapping between Cardano and another network is not available in Swap yet. Swap on Cardano, '
-        + 'or use the Cross-Chain tab for ADA.',
-    }
-  }
-  // Two route shapes, each with its own pre-signing validator: a Minswap V2
-  // batcher order and a direct Danogo pool swap. Asked one after the other
+  if (req.fromChain === 'cardano' && req.toChain !== 'cardano') return getNearIntentsCardanoQuote(req, config)
+  if (req.fromChain !== req.toChain) return getNearIntentsIntoCardanoQuote(req, config)
+  // Three route shapes, each with its own pre-signing validator: a Minswap V2
+  // batcher order, a direct Danogo pool swap and a SundaeSwap V3 order. Asked one after the other
   // (Minswap rate-limits per IP); either failing leaves the other on offer, and
   // the existing safety and ranking gates choose between them.
   const excluded: string[] = []
   const candidates: NormalizedSwapQuote[] = []
   const fetchFn = (url: string, init: RequestInit) => fetchWithDeadline(url, init, 15_000, 'Minswap')
-  for (const [label, protocol] of [['minswap', 'MinswapV2'], ['danogo', 'DanogoCLMMV1']] as const) {
+  for (const [label, protocol] of [['minswap', 'MinswapV2'], ['danogo', 'DanogoCLMMV1'], ['sundaeswap', 'SundaeSwapV3']] as const) {
     let quote: NormalizedSwapQuote
     try {
       quote = await prepareCardanoSwapQuote(req, config, fetchFn, protocol)
@@ -595,13 +674,73 @@ async function getCardanoSwapQuote(req: SwapQuoteRequest, config: WalletConfig):
 }
 
 /**
+ * Cardano ADA -> another chain through NEAR Intents 1Click (near-intents-swap.ts).
+ * Another Cardano token must first be swapped to ADA on Cardano.
+ */
+/** The Worker's 1Click route (partner key), when a swap proxy is configured. */
+export function nearIntentsProxy(config: WalletConfig) {
+  const base = proxyBase(config)
+  return base ? { url: proxyUrl(`${base}/near-intents/quote`, config), headers: proxyHeaders(config, { accept: 'application/json' }) } : null
+}
+
+async function getNearIntentsCardanoQuote(req: SwapQuoteRequest, config: WalletConfig): Promise<SwapQuoteResponse> {
+  if (req.fromToken !== 'lovelace') {
+    return { quote: null, error: 'Swaps from Cardano to another network carry ADA. Swap this token to ADA on Cardano first.' }
+  }
+  try {
+    const raw = await quoteNearIntentsFromCardano({
+      toChain: req.toChain, toToken: req.toToken, toDecimals: req.toDecimals, toSymbol: req.toSymbol,
+      sellAmountRaw: req.sellAmountRaw, slippageBps: req.slippageBps, taker: req.taker, toAddress: req.toAddress,
+    }, { fetchFn: (url, init) => fetchWithDeadline(url, init ?? {}, 30_000, 'NEAR Intents'), proxy: nearIntentsProxy(config) })
+    const ready = withMinReceived(raw)
+    const why = ready ? unsignableReason(ready) : 'no output amount'
+    if (!ready || why) return { quote: null, error: `near-intents: ${why}` }
+    return { quote: ready, error: null }
+  } catch (e) {
+    return { quote: null, error: msg(e) }
+  }
+}
+
+/** PLANNING ONLY (chained-swap.ts): a Cardano swap priced without building it. */
+export async function estimateCardanoSwap(req: SwapQuoteRequest): Promise<{ buyAmountRaw: string; minBuyAmountRaw: string; overheadLovelace: string; provider: string }> {
+  const e = await minswapPlanningEstimate({
+    sellUnit: req.fromToken, buyUnit: req.toToken, sellAmountRaw: req.sellAmountRaw, slippageBps: req.slippageBps,
+    fromSymbol: req.fromSymbol, toSymbol: req.toSymbol,
+  }, (url, init) => fetchWithDeadline(url, init, 15_000, 'Minswap'))
+  return { buyAmountRaw: e.buyAmountRaw, minBuyAmountRaw: e.minBuyAmountRaw, overheadLovelace: e.overheadLovelace, provider: 'minswap' }
+}
+
+/**
+ * Another chain -> Cardano ADA through NEAR Intents 1Click: a token NEAR takes
+ * on the source chain, paid to a deposit address at signing time. Any other
+ * token, or a Cardano token as the target, is a multi-step swap.
+ */
+async function getNearIntentsIntoCardanoQuote(req: SwapQuoteRequest, config: WalletConfig): Promise<SwapQuoteResponse> {
+  if (req.toToken !== 'lovelace') {
+    return { quote: null, error: 'Swaps into Cardano arrive as ADA; the wallet then swaps it on Cardano as a further step.' }
+  }
+  try {
+    const raw = await quoteNearIntentsToCardano({
+      fromChain: req.fromChain, fromToken: req.fromToken, fromDecimals: req.fromDecimals, fromSymbol: req.fromSymbol,
+      sellAmountRaw: req.sellAmountRaw, slippageBps: req.slippageBps, taker: req.taker, toAddress: req.toAddress,
+    }, { fetchFn: (url, init) => fetchWithDeadline(url, init ?? {}, 30_000, 'NEAR Intents'), proxy: nearIntentsProxy(config) })
+    const ready = withMinReceived(raw)
+    const why = ready ? unsignableReason(ready) : 'no output amount'
+    if (!ready || why) return { quote: null, error: `near-intents: ${why}` }
+    return { quote: ready, error: null }
+  } catch (e) {
+    return { quote: null, error: msg(e) }
+  }
+}
+
+/**
  * Attach the SOL a Solana-source quote needs up front, read from ITS transaction
  * (see solana-swap-cost.ts). Best-effort: when it cannot be read the quote is
  * still offered without a cost record, and simulation stays the final check.
  */
 async function withSolanaCost(
   quote: NormalizedSwapQuote, payer: string, config: WalletConfig,
-): Promise<NormalizedSwapQuote> {
+): Promise<NormalizedSwapQuote & { solanaCost?: SolanaSwapCostEstimate | null }> {
   if (quote.fromChain !== 'solana' || !quote.txData.swapTransaction || !payer) return quote
   try {
     const cost = await estimateSolanaSwapCost(
@@ -628,6 +767,8 @@ async function withSolanaCost(
  * a returned asset is indistinguishable from a delivered one.
  */
 export async function getCrossSwapStatus(req: CrossSwapStatusRequest, config: WalletConfig): Promise<CrossSwapStatus> {
+  // NEAR Intents: 1Click status by deposit address, delivery measured on chain.
+  if (req.provider === 'near-intents') return nearIntentsSwapStatus(req, config) as Promise<CrossSwapStatus>
   // A Minswap order is measured on Cardano itself; there is no provider status to ask.
   if (req.provider === 'minswap') {
     const status = await getMinswapOrderStatus(req, config)

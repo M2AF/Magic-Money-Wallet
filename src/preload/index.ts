@@ -17,6 +17,17 @@ const _collectiblesListeners = new Map<(s: unknown) => void, (e: unknown, s: unk
 const _autoRevokeListeners = new Map<(s: unknown) => void, (e: unknown, s: unknown) => void>()
 
 contextBridge.exposeInMainWorld('wallet', {
+  agentNative: {
+    snapshot: () => ipcRenderer.invoke('agent-native:snapshot'),
+    createPolicy: (input: import('../shared/agent-native').NativePolicyInput, password: string) => ipcRenderer.invoke('agent-native:create-policy', input, password),
+    prepare: (id: string) => ipcRenderer.invoke('agent-native:prepare', id),
+    approve: (id: string, reviewId: string) => ipcRenderer.invoke('agent-native:approve', id, reviewId),
+    reject: (id: string) => ipcRenderer.invoke('agent-native:reject', id),
+    status: (id: string) => ipcRenderer.invoke('agent-native:status', id),
+    kill: (id?: string) => ipcRenderer.invoke('agent-native:kill', id),
+    recovery: (id: string, recipient: string, amount: string, password: string) => ipcRenderer.invoke('agent-native:recovery', id, recipient, amount, password),
+    configureX402: (input: import('../shared/agent-native').NativeX402LimitInput, password: string) => ipcRenderer.invoke('agent-native:configure-x402', input, password),
+  },
   agentX402: {
     snapshot: () => ipcRenderer.invoke('agent-x402:snapshot'),
     configure: (input: import('../shared/x402').X402LimitsInput, password: string) => ipcRenderer.invoke('agent-x402:configure', input, password),
@@ -191,6 +202,10 @@ contextBridge.exposeInMainWorld('wallet', {
   journeyCbAdaReview: (amountRaw: string)    => ipcRenderer.invoke('journey:cbadaReview', { amountRaw }),
   journeyCbAdaAuthorize: (proposalId: string) => ipcRenderer.invoke('journey:cbadaAuthorize', { proposalId }),
   journeyCancel: (journeyId: string)   => ipcRenderer.invoke('journey:cancel', { journeyId }),
+  swapChainQuote: (req: unknown)       => ipcRenderer.invoke('swap:chainQuote', req),
+  swapChainStart: (planId: string)     => ipcRenderer.invoke('swap:chainStart', { planId }),
+  swapChainAdvance: (req: unknown)     => ipcRenderer.invoke('swap:chainAdvance', req),
+  swapChainList: ()                    => ipcRenderer.invoke('swap:chainList'),
   swapSessions:    ()                  => ipcRenderer.invoke('swap:sessions'),
   swapReconcile:   ()                  => ipcRenderer.invoke('swap:reconcile'),
   swapGetNetworks: ()                  => ipcRenderer.invoke('swap:getNetworks'),

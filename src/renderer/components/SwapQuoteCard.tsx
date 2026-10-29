@@ -115,7 +115,12 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
     </div>
   )
 
-  const viaLabel = quote.bridgeTool ? `${quote.provider} · ${quote.bridgeTool}` : quote.provider
+  const viaLabel = quote.provider === 'near-intents' ? 'NEAR Intents (1Click)'
+    : quote.bridgeTool ? `${quote.provider} · ${quote.bridgeTool}` : quote.provider
+  // The refund fee is in the DEPOSITED asset's units (ADA out of Cardano, the source token into it).
+  const nearRefundFee = quote.nearIntents?.refundFeeLovelace && /^[0-9]+$/.test(quote.nearIntents.refundFeeLovelace)
+    ? Number(quote.nearIntents.refundFeeLovelace) / 10 ** (quote.fromChain === 'cardano' ? 6 : fromDecimals) : null
+  const chainName = (c: string) => c.charAt(0).toUpperCase() + c.slice(1)
   const eta = quote.estimatedDurationSec && quote.estimatedDurationSec > 0
     ? (quote.estimatedDurationSec >= 60 ? `~${Math.round(quote.estimatedDurationSec / 60)} min` : `~${quote.estimatedDurationSec}s`)
     : null
@@ -204,6 +209,7 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
         const sold = quote.fromTokenAddress === 'lovelace' ? BigInt(quote.sellAmountRaw) : 0n
         const upFront = BigInt(c.adaSpentLovelace) - sold
         const danogo = quote.cardanoOrder?.protocol === 'DanogoCLMMV1'
+        const sundae = quote.cardanoOrder?.protocol === 'SundaeSwapV3'
         return (
           <>
             {row('Network fee', `${ada(c.txFeeLovelace)} ADA`)}
@@ -216,8 +222,8 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
               danogo
                 ? `Network fee, Minswap's aggregator fee${sold > 0n ? ` and Danogo's ${ada(c.dexFeeLovelace ?? '0')} ADA swap fee` : ''}. `
                   + `No deposit.${sold > 0n ? '' : ` Danogo's ${ada(c.dexFeeLovelace ?? '0')} ADA swap fee comes out of the ADA you receive.`}`
-                : `Network fee, Minswap's batcher and aggregator fees, and a ${ada(c.depositLovelace)} ADA deposit that is `
-                  + 'returned with your tokens when the order is filled or cancelled.',
+                : `Network fee, ${sundae ? "SundaeSwap's protocol fee (at most; part may come back), Minswap's aggregator fee" : "Minswap's batcher and aggregator fees"}, `
+                  + `and a ${ada(c.depositLovelace)} ADA deposit that is returned with your tokens when the order is filled or cancelled.`,
             )}
             {!danogo && row('Deposit (returned)', `${ada(c.depositLovelace)} ADA`)}
           </>
@@ -244,7 +250,7 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
         quote.cardanoOrder?.protocol === 'DanogoCLMMV1'
           ? 'The transaction pays exactly this amount into your wallet, or it fails and nothing is swapped.'
           : quote.cardanoOrder
-          ? 'Written into the Minswap order: a batcher can only fill it at or above this amount. If the price '
+          ? `Written into the ${quote.cardanoOrder.protocol === 'SundaeSwapV3' ? 'SundaeSwap' : 'Minswap'} order: it can only be filled at or above this amount. If the price `
             + 'moves past it, the order is not filled and stays open until you cancel it.'
           : scope === 'atomic'
           ? 'The swap reverts if it would deliver less than this, and you keep what you sold.'
@@ -275,10 +281,26 @@ export function SwapQuoteCard({ quote, fromSymbol, toSymbol, fromDecimals, toDec
           background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)',
           borderRadius: 'var(--radius-sm)', padding: '8px 10px',
         }}>
-          <strong style={{ color: '#38bdf8' }}>This places a Minswap order. </strong>
-          A batcher usually fills it within a minute or two. If the price moves past your minimum first, it is
+          <strong style={{ color: '#38bdf8' }}>This places a {quote.cardanoOrder.protocol === 'SundaeSwapV3' ? 'SundaeSwap' : 'Minswap'} order{quote.cardanoOrder.protocol === 'SundaeSwapV3' ? " through Minswap's aggregator" : ''}. </strong>
+          It is usually filled within a minute or two. If the price moves past your minimum first, it is
           <strong> not refunded automatically</strong> — your tokens and the deposit stay in the order until you
-          cancel it on Minswap.
+          cancel it.
+        </div>
+      )}
+
+      {/* NEAR Intents: how the swap actually works, and what happens if it is not
+          filled — before signing, in plain words. */}
+      {quote.provider === 'near-intents' && (
+        <div data-testid="near-intents-terms" style={{
+          fontSize: 11, lineHeight: 1.5, color: 'var(--text-secondary)',
+          background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)',
+          borderRadius: 'var(--radius-sm)', padding: '8px 10px',
+        }}>
+          <strong style={{ color: '#38bdf8' }}>How this works: </strong>
+          you send {fromSymbol} to a one-time NEAR Intents deposit address on {chainName(quote.fromChain)}, and a solver pays {toSymbol} to
+          your own address on {chainName(quote.toChain)}. Until it is filled, the {fromSymbol} is held by NEAR Intents' bridge.
+          If no solver fills it within about 30 minutes, it is returned to your {chainName(quote.fromChain)} address
+          {nearRefundFee != null ? <> minus a {nearRefundFee.toLocaleString('en-US', { maximumFractionDigits: 6 })} {fromSymbol} refund fee</> : null}.
         </div>
       )}
 

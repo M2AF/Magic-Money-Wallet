@@ -1,0 +1,65 @@
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "context": {
+      "apiVersion": "4.3.2",
+      "slot": 461865235
+    },
+    "value": {
+      "accounts": null,
+      "err": null,
+      "fee": 42700,
+      "innerInstructions": null,
+      "loadedAccountsDataSize": 75420,
+      "loadedAddresses": {
+        "readonly": [],
+        "writable": []
+      },
+      "logs": [
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program ComputeBudget111111111111111111111111111111 invoke [1]",
+        "Program ComputeBudget111111111111111111111111111111 success",
+        "Program 3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br invoke [1]",
+        "Program log: LI.FI TX: 0x7E2EF323A280F500",
+        "Program 3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br consumed 6037 of 649700 compute units",
+        "Program 3i5JeuZuUxeKtVysUnwQNGerJP2bSMX9fTFfS4Nxe3Br success",
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success",
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success",
+        "Program 11111111111111111111111111111111 invoke [1]",
+        "Program 11111111111111111111111111111111 success"
+      ],
+      "postBalances": [
+        2133276308,
+        205911861,
+        987500000,
+        1,
+        1141444,
+        1,
+        0,
+        1169280
+      ],
+      "postTokenBalances": [],
+      "preBalances": [
+        3123319008,
+        203411861,
+        0,
+        1,
+        1141444,
+        1,
+        0,
+        1169280
+      ],
+      "preTokenBalances": [],
+      "replacementBlockhash": {
+        "blockhash": "ExgRwicen4uQDvEJrDf15BT8Xvd8ppJ3qLpN3JJj2mZE",
+        "lastValidBlockHeight": 439891366
+      },
+      "returnData": null,
+      "unitsConsumed": 6787
+    }
+  },
+  "id": 1
+}

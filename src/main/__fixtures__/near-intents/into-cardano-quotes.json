@@ -1,0 +1,220 @@
+{
+ "note": "Signed 1Click quotes requested LIVE 2026-10-29 for this wallet's own public addresses (dry + live). The live deposit addresses were never funded.",
+ "quotes": {
+  "usdc-base-ada-dry": {
+   "quote": {
+    "amountIn": "5000000",
+    "amountInFormatted": "5.0",
+    "amountInUsd": "4.997155000000",
+    "minAmountIn": "5000000",
+    "amountOut": "24687173",
+    "amountOutFormatted": "24.687173",
+    "amountOutUsd": "4.946791038567",
+    "minAmountOut": "24440301",
+    "timeEstimate": 52,
+    "refundFee": "2400",
+    "withdrawFee": "200000"
+   },
+   "quoteRequest": {
+    "dry": true,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:cardano.omft.near",
+    "amount": "5000000",
+    "refundTo": "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T06:13:31.287Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20
+     }
+    ]
+   },
+   "signature": "ed25519:3d5jV23YxTosnwGRJFajypfCitVwXXt1jw85FFBMTqtF4WTtRhN4o2oUAp6n9ZCp5Ze4ZBWQPWbh3k2pmzpnG2vQ",
+   "timestamp": "2026-10-29T05:43:31.655Z",
+   "correlationId": "0a2d55fc-5e6d-4b1f-8248-d7f8d74f4944"
+  },
+  "usdc-base-ada-live": {
+   "quote": {
+    "amountIn": "5000000",
+    "amountInFormatted": "5.0",
+    "amountInUsd": "4.997155000000",
+    "minAmountIn": "5000000",
+    "amountOut": "24687173",
+    "amountOutFormatted": "24.687173",
+    "amountOutUsd": "4.946791038567",
+    "minAmountOut": "24440301",
+    "timeEstimate": 52,
+    "refundFee": "2400",
+    "withdrawFee": "200000",
+    "deadline": "2026-11-01T06:13:31.287Z",
+    "timeWhenInactive": "2026-11-01T06:13:31.287Z",
+    "depositAddress": "0xf5A6b76842cE7A0171bD6971992962758af3D5eB"
+   },
+   "quoteRequest": {
+    "dry": false,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:cardano.omft.near",
+    "amount": "5000000",
+    "refundTo": "0x01faF6DFc230d755141D84d7cB980dd68f5Efe13",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T06:13:31.287Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20,
+      "limitOrderId": null
+     }
+    ]
+   },
+   "signature": "ed25519:5LMkH4kWyJGLy1Q61pS7GFN4aDBkZu92o4TtuxYG6Jvq5rLiS4T661AXSp8m9fvYyQNkRnvi4n5Mx7L2G593keVa",
+   "timestamp": "2026-10-29T05:43:32.164Z",
+   "correlationId": "ece82d91-e25f-4c6d-add3-cdf5255e191a"
+  },
+  "sol-ada-dry": {
+   "quote": {
+    "amountIn": "30000000",
+    "amountInFormatted": "0.03",
+    "amountInUsd": "3.015900000000",
+    "minAmountIn": "30000000",
+    "amountOut": "14778695",
+    "amountOutFormatted": "14.778695",
+    "amountOutUsd": "2.961340125405",
+    "minAmountOut": "14630908",
+    "timeEstimate": 37,
+    "refundFee": "99473",
+    "withdrawFee": "200000"
+   },
+   "quoteRequest": {
+    "dry": true,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:sol.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:cardano.omft.near",
+    "amount": "30000000",
+    "refundTo": "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T06:13:31.287Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20
+     }
+    ]
+   },
+   "signature": "ed25519:7szt8AEqwQNZiPo4Dv31iaWdS3AbeiogWSAetvxhVihA4BTL3CR7hvpYaJ2L9DM3oVs5QQS3nfEb6evDr4cJaGD",
+   "timestamp": "2026-10-29T05:43:32.694Z",
+   "correlationId": "0d73cbdf-1983-4af2-a45a-b64bea17d4d8"
+  },
+  "sol-ada-live": {
+   "quote": {
+    "amountIn": "30000000",
+    "amountInFormatted": "0.03",
+    "amountInUsd": "3.015900000000",
+    "minAmountIn": "30000000",
+    "amountOut": "14778695",
+    "amountOutFormatted": "14.778695",
+    "amountOutUsd": "2.961340125405",
+    "minAmountOut": "14630908",
+    "timeEstimate": 37,
+    "refundFee": "99473",
+    "withdrawFee": "200000",
+    "deadline": "2026-11-01T06:13:31.287Z",
+    "timeWhenInactive": "2026-11-01T06:13:31.287Z",
+    "depositAddress": "9fd7ypYudXd7Dd2AQsbGe3sPuHB5B9oyYizBXQLdPbvZ"
+   },
+   "quoteRequest": {
+    "dry": false,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:sol.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:cardano.omft.near",
+    "amount": "30000000",
+    "refundTo": "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T06:13:31.287Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20,
+      "limitOrderId": null
+     }
+    ]
+   },
+   "signature": "ed25519:2mbC1nrmi1m1kBKAZFVD9ytnrxpAEvkR5nfvURXGbhiQVSpxqyaeeRHnd58eiRRn57ZN8oCsF2xXGj9epUH3gvAS",
+   "timestamp": "2026-10-29T05:43:33.198Z",
+   "correlationId": "bacc919c-e724-477b-b999-6e3e1f8276bb"
+  }
+ },
+ "tokens": [
+  {
+   "assetId": "nep141:sol.omft.near",
+   "decimals": 9,
+   "blockchain": "sol",
+   "symbol": "SOL",
+   "price": 100.53,
+   "priceUpdatedAt": "2026-10-29T05:43:00.587Z",
+   "coingeckoId": "solana"
+  },
+  {
+   "assetId": "nep141:cardano.omft.near",
+   "decimals": 6,
+   "blockchain": "cardano",
+   "symbol": "ADA",
+   "price": 0.200379,
+   "priceUpdatedAt": "2026-10-29T05:43:00.587Z",
+   "coingeckoId": "cardano"
+  },
+  {
+   "assetId": "nep141:base.omft.near",
+   "decimals": 18,
+   "blockchain": "base",
+   "symbol": "ETH",
+   "price": 2325.09,
+   "priceUpdatedAt": "2026-10-29T05:43:00.587Z",
+   "coingeckoId": "ethereum"
+  },
+  {
+   "assetId": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+   "decimals": 6,
+   "blockchain": "base",
+   "symbol": "USDC",
+   "price": 0.999431,
+   "priceUpdatedAt": "2026-10-29T05:43:00.587Z",
+   "contractAddress": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "coingeckoId": "usd-coin"
+  }
+ ]
+}

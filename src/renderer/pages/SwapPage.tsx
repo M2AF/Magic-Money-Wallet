@@ -17,6 +17,7 @@ import { SwapModeToggle } from '../components/SwapModeToggle'
 import { DexSwapWidget } from '../components/DexSwapWidget'
 import { XReserveTestnetPanel } from '../components/XReserveTestnetPanel'
 import { SimpleSwapWidget } from '../components/SimpleSwapWidget'
+import { SwapHistoryButton, SwapHistorySheet } from '../components/SwapHistory'
 import type { HeaderToolbarProps } from '../components/HeaderToolbar'
 import magicSwapUrl from '../assets/magic-swap.png'
 import magicSwapTextUrl from '../assets/magic-swap-text.png'
@@ -37,6 +38,7 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
   // Bump to force a fresh widget mount (full state reset) each time the mode flips.
   const [epoch, setEpoch] = useState(0)
   const [exchangePreset, setExchangePreset] = useState<SwapExchangePreset | undefined>()
+  const [historyOpen, setHistoryOpen] = useState(false)
   // Swap providers (0x/1inch/Jupiter/SimpleSwap/LI.FI) only operate on mainnets —
   // the whole tab is disabled while Testnet Mode is on so a "test" swap can't
   // create a real mainnet exchange.
@@ -58,7 +60,8 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
   }, [swapRequest])
 
   return (
-    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', display: hidden ? 'none' : 'flex' }}>
+    <div className="page fade-in" style={{ gap: 0, padding: 0, overflow: 'hidden', position: 'relative', display: hidden ? 'none' : 'flex' }}>
+      {historyOpen && <SwapHistorySheet onClose={() => setHistoryOpen(false)} />}
       <div style={{ padding: '16px 16px 12px', flexShrink: 0, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <h1 className="page-title" style={{ fontSize: 18 }}>Swap</h1>
@@ -97,7 +100,9 @@ export function SwapPage({ addresses, hidden = false, swapRequest = null, onSwap
             {testnet && !privacyMode && <XReserveTestnetPanel />}
           </>) : (
             <>
-              <div className="swap-hero">
+              <div className="swap-hero" style={{ position: 'relative' }}>
+                {/* Top right of the hero, under the header divider. The hero ignores the pointer (.swap-hero); this does not. */}
+                <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 2, pointerEvents: 'auto' }}><SwapHistoryButton onOpen={() => setHistoryOpen(true)} /></div>
                 <img src={magicSwapUrl} alt="" className="swap-hero-icon" draggable={false} />
                 <img src={magicSwapTextUrl} alt="Magic Swap" className="swap-hero-text" draggable={false} />
               </div>

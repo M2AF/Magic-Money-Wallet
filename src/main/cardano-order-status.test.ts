@@ -31,6 +31,8 @@ import type { SettledSwapSession } from '../shared/swap-settlement'
 import { splitTxRoot, hexToBytesStrict } from './cardano-swap-validate'
 import { decodeCbor, CborMap } from './cardano-tx-inspect'
 import { CARDANO_USDCX_UNIT } from '../shared/swap-token-identity'
+import { SUNDAE_V3 } from './sundae-v3-order'
+import { bech32 } from '@scure/base'
 import type { WalletConfig } from './secure-store'
 
 const FIX = join(__dirname, '__fixtures__', 'minswap')
@@ -339,5 +341,37 @@ describe('the scan cursor is persisted on the swap session', () => {
     await reconcileSessions(identity, fetchStatus)
     expect(seen).toEqual([null, cursor])
     __resetSwapSessions()
+  })
+})
+
+describe('SundaeSwap V3 orders (live aggregator build)', () => {
+  const sundae = JSON.parse(readFileSync(join(__dirname, '__fixtures__', 'sundae', 'ada-snek-v3.json'), 'utf8')) as { buildTx: { cbor: string } }
+  // 10 ADA sold for SNEK: offer 10_000_000, max protocol fee 1.28 ADA (live datum).
+  const SUNDAE_DATUM = orderDatumHex(sundae.buildTx.cbor)
+  const toBech = (hexBytes: string) => bech32.encode('addr', bech32.toWords(Uint8Array.from(hexBytes.match(/../g)!.map(x => parseInt(x, 16)))), 1000)
+  const SUNDAE_ADDR = toBech('11' + SUNDAE_V3.orderScriptHash + SUNDAE_V3.aggregatorOrderStakeHash)
+  const sundaeOrder = (consumed: string) => out(SUNDAE_ADDR, { lovelace: '13280000' }, 1, { inline_datum: SUNDAE_DATUM, consumed_by_tx: consumed })
+  const spend = inp(SUNDAE_ADDR, {}, ORDER_TX, 1)
+
+  it('a filled V3 order is found at the V3 script and measured from the scoop', async () => {
+    const spender = 'e1'.repeat(32)
+    install({ orderOutput: sundaeOrder(spender), history: [], txs: { [spender]: {
+      inputs: [spend], outputs: [out(WALLET, { lovelace: '2000000', [SNEK]: '3260' })],
+    } } })
+    const s = await getMinswapOrderStatus(req({ minBuyAmountRaw: '3236' }), cfg)
+    expect(s.state).toBe('completed')
+    expect(s.delivered?.amountRaw).toBe('3260')
+  })
+
+  it('a cancelled V3 order is a refund only because the 10 ADA it sold came back (read from its datum)', async () => {
+    const spender = 'e2'.repeat(32)
+    install({ orderOutput: sundaeOrder(spender), history: [], txs: { [spender]: {
+      inputs: [spend], outputs: [out(WALLET, { lovelace: '13100000' })],
+    } } })
+    expect((await getMinswapOrderStatus(req(), cfg)).state).toBe('refunded')
+    install({ orderOutput: sundaeOrder(spender), history: [], txs: { [spender]: {
+      inputs: [spend], outputs: [out(WALLET, { lovelace: '9000000' })],
+    } } })
+    expect((await getMinswapOrderStatus(req(), cfg)).state).not.toBe('refunded')
   })
 })

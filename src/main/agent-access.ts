@@ -6,6 +6,8 @@ import { createHash, randomUUID } from 'node:crypto'
 import { AgentAccessCore, agentArgs, agentText } from './agent-access-core'
 import { createAgentExecution } from './agent-execution-desktop'
 import { createDesktopX402 } from './x402-desktop'
+import { createNativeExecution } from './agent-native-desktop'
+import type { NativePolicyInput, NativeX402LimitInput } from '../shared/agent-native'
 import type { X402LimitsInput } from '../shared/x402'
 import type { AgentPolicyInput } from '../shared/agent-execution'
 import { startAgentHttp } from './agent-access-http'
@@ -75,8 +77,14 @@ export function registerAgentAccess(getWindow: () => BrowserWindow | null): () =
     enabled: () => process.env.MAGICMONEY_X402 === '1', context: () => context()?.key ?? null,
     authorize: id => core.executionAuthorization(id), account: (auth, id) => execution.spendingAuthority(auth, id),
     audit: (client, action, outcome) => core.recordX402Activity(client, action, outcome),
-    pendingProposals: () => core.pendingProposals(),
+    pendingProposals: () => core.pendingProposals() + native.pendingCount(),
   }) : undefined
+  const native = createNativeExecution({
+    owner: () => { const s = current(), ctx = context(); return s && ctx ? { context: ctx.key, accountIndex: ctx.accountIndex, environment: ctx.environment, solana: s.addresses.solana, cardano: s.addresses.cardano } : null },
+    authorize: id => core.executionAuthorization(id), x402Enabled: () => !!x402,
+    pendingProposals: () => core.pendingProposals() + (x402?.pendingCount() ?? 0),
+    audit: (client, action, outcome) => core.recordX402Activity(client, action, outcome),
+  })
   const core: AgentAccessCore = new AgentAccessCore({
     context,
     record(event: AgentActivity) {
@@ -188,7 +196,7 @@ export function registerAgentAccess(getWindow: () => BrowserWindow | null): () =
       const b = result.chains[chain]
       return b && !b.error ? b.native : null
     },
-  }, Date.now, execution, x402)
+  }, Date.now, execution, x402, native)
   let listener: Awaited<ReturnType<typeof startAgentHttp>> | null = null
   let changing = false
   let policyAuthorizationEpoch = 0
@@ -198,6 +206,12 @@ export function registerAgentAccess(getWindow: () => BrowserWindow | null): () =
       || !current()) throw new Error('Agent settings require the unlocked wallet window.')
   }
   ipcMain.handle('agent:snapshot', event => { trusted(event); return core.snapshot() })
+  ipcMain.handle('agent-native:snapshot', event => { trusted(event); return native.snapshot() })
+  ipcMain.handle('agent-native:prepare', (event, id: unknown) => { trusted(event); return native.prepare(agentText(id, 'native id', 80)) })
+  ipcMain.handle('agent-native:approve', (event, id: unknown, reviewId: unknown) => { trusted(event); return native.approve(agentText(id, 'native id', 80), agentText(reviewId, 'review id', 80)) })
+  ipcMain.handle('agent-native:reject', (event, id: unknown) => { trusted(event); native.reject(agentText(id, 'native id', 80)) })
+  ipcMain.handle('agent-native:status', (event, id: unknown) => { trusted(event); return native.status(agentText(id, 'native id', 80)) })
+  ipcMain.handle('agent-native:kill', (event, id: unknown) => { trusted(event); if (id === undefined) policyAuthorizationEpoch++; native.kill(id === undefined ? undefined : agentText(id, 'policy id', 80)) })
   const requiredX402 = () => { if (!x402) throw new Error('x402 is disabled by the desktop feature flag.'); return x402 }
   ipcMain.handle('agent-x402:snapshot', event => { trusted(event); return x402?.snapshot() ?? { available: false, payments: [], limits: [] } })
   ipcMain.handle('agent-x402:prepare', (event, id: unknown) => { trusted(event); return requiredX402().prepare(agentText(id, 'x402 id', 80)) })
@@ -211,7 +225,8 @@ export function registerAgentAccess(getWindow: () => BrowserWindow | null): () =
   ipcMain.handle('agent-execution:kill', (event, id: unknown) => {
     trusted(event)
     if (id === undefined) policyAuthorizationEpoch++
-    execution.kill(id === undefined ? undefined : agentText(id, 'policy id', 80))
+    try { execution.kill(id === undefined ? undefined : agentText(id, 'policy id', 80)) }
+    finally { if (id === undefined) native.kill() }
   })
   async function passwordGate(event: IpcMainInvokeEvent, password: unknown) {
     trusted(event)
@@ -220,11 +235,29 @@ export function registerAgentAccess(getWindow: () => BrowserWindow | null): () =
     trusted(event)
     if (context()?.key !== before) throw new Error('Account changed during authorization.')
   }
+  ipcMain.handle('agent-native:create-policy', async (event, raw: unknown, password: unknown) => {
+    const epoch = policyAuthorizationEpoch; await passwordGate(event, password)
+    if (epoch !== policyAuthorizationEpoch) throw new Error('Authorization interrupted by Stop.')
+    const keys = ['clientId', 'chain', 'recipients', 'perSend', 'daily', 'total', 'maxFee', 'minutes']
+    const input = agentArgs(raw, keys, keys) as unknown as NativePolicyInput
+    return native.createPolicy(core.executionAuthorization(agentText(input.clientId, 'agent id', 80)), input)
+  })
+  ipcMain.handle('agent-native:configure-x402', async (event, raw: unknown, password: unknown) => {
+    const epoch = policyAuthorizationEpoch; await passwordGate(event, password)
+    if (epoch !== policyAuthorizationEpoch) throw new Error('Authorization interrupted by Stop.')
+    const keys = ['policyId', 'resourceUrls', 'perPayment', 'daily', 'total'], input = agentArgs(raw, keys, keys) as unknown as NativeX402LimitInput
+    const policy = native.snapshot().policies.find(p => p.id === input.policyId)
+    if (!policy) throw new Error('Native account unavailable.')
+    return native.configureX402(core.executionAuthorization(policy.clientId), input)
+  })
+  ipcMain.handle('agent-native:recovery', async (event, id: unknown, recipient: unknown, amount: unknown, password: unknown) => {
+    await passwordGate(event, password); return native.recovery(agentText(id, 'native policy id', 80), recipient, amount)
+  })
   ipcMain.handle('agent-x402:configure', async (event, raw: unknown, password: unknown) => {
     requiredX402(); const epoch = policyAuthorizationEpoch
     await passwordGate(event, password)
     if (epoch !== policyAuthorizationEpoch) throw new Error('Authorization interrupted by Stop.')
-    const input = agentArgs(raw, ['policyId', 'resourceUrls', 'perPayment', 'daily', 'total'], ['policyId', 'resourceUrls', 'perPayment', 'daily', 'total']) as unknown as X402LimitsInput
+    const input = agentArgs(raw, ['policyId', 'network', 'resourceUrls', 'perPayment', 'daily', 'total'], ['policyId', 'resourceUrls', 'perPayment', 'daily', 'total']) as unknown as X402LimitsInput
     const policy = execution.snapshot().policies.find(p => p.id === input.policyId)
     if (!policy) throw new Error('Isolated account unavailable for this owner.')
     return requiredX402().configure(core.executionAuthorization(policy.clientId), input)

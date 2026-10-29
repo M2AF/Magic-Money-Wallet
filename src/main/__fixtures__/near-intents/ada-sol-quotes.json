@@ -1,0 +1,184 @@
+{
+ "recordedAt": "2026-10-28T23:42:56.981Z",
+ "source": "NEAR Intents 1Click (keyless), read-only; the non-dry quote's deposit address was never funded",
+ "dry": {
+  "status": 201,
+  "body": {
+   "quote": {
+    "amountIn": "25000000",
+    "amountInFormatted": "25.0",
+    "amountInUsd": "5.146000000000",
+    "minAmountIn": "25000000",
+    "amountOut": "49944059",
+    "amountOutFormatted": "0.049944059",
+    "amountOutUsd": "5.110276116880",
+    "minAmountOut": "49444618",
+    "timeEstimate": 24,
+    "refundFee": "200000",
+    "withdrawFee": "97733"
+   },
+   "quoteRequest": {
+    "dry": true,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:cardano.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:sol.omft.near",
+    "amount": "25000000",
+    "refundTo": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T00:12:55.510Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20
+     }
+    ]
+   },
+   "signature": "ed25519:3C4jg3t2sdUiUG7c41kcPjnBgkpMrCDjwDufQzWnC1kdfBswEeFUPhiDK81TEgsntaeZMGfx2JNCy7cvmU6zfxq7",
+   "timestamp": "2026-10-28T23:42:55.947Z",
+   "correlationId": "13a4ab87-e456-42b1-be1b-3a4462c75985"
+  }
+ },
+ "live": {
+  "status": 201,
+  "body": {
+   "quote": {
+    "amountIn": "25000000",
+    "amountInFormatted": "25.0",
+    "amountInUsd": "5.146000000000",
+    "minAmountIn": "25000000",
+    "amountOut": "49944059",
+    "amountOutFormatted": "0.049944059",
+    "amountOutUsd": "5.110276116880",
+    "minAmountOut": "49444618",
+    "timeEstimate": 24,
+    "refundFee": "200000",
+    "withdrawFee": "97733",
+    "deadline": "2026-11-01T00:12:55.974Z",
+    "timeWhenInactive": "2026-11-01T00:12:55.974Z",
+    "depositAddress": "addr1vxhqhx5u45f2geynxxf97szc4ccydt2h3ef07mjzxz4lnfqxgv7c5"
+   },
+   "quoteRequest": {
+    "dry": false,
+    "depositMode": "SIMPLE",
+    "swapType": "EXACT_INPUT",
+    "slippageTolerance": 100,
+    "originAsset": "nep141:cardano.omft.near",
+    "depositType": "ORIGIN_CHAIN",
+    "destinationAsset": "nep141:sol.omft.near",
+    "amount": "25000000",
+    "refundTo": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+    "refundType": "ORIGIN_CHAIN",
+    "recipient": "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d",
+    "recipientType": "DESTINATION_CHAIN",
+    "deadline": "2026-10-29T00:12:55.974Z",
+    "confidentiality": "public",
+    "quoteWaitingTimeMs": 0,
+    "insured": false,
+    "appFees": [
+     {
+      "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+      "fee": 20,
+      "limitOrderId": null
+     }
+    ]
+   },
+   "signature": "ed25519:yfQiQf8YeVV5fqHkhZo2SzXQSr1jLay7xvf7NnejcZVHtCNHavw8L5tL2xjJf8SEmpAPATRfsm8PzaKYfW8YKcq",
+   "timestamp": "2026-10-28T23:42:56.704Z",
+   "correlationId": "779b0914-298c-4fc8-a1f3-53a322012d1c"
+  }
+ },
+ "status": {
+  "status": 200,
+  "body": {
+   "status": "PENDING_DEPOSIT",
+   "updatedAt": "2026-10-28T23:42:57.104Z",
+   "correlationId": "c1aa394b-0d75-4b27-a3f4-4c2d2f300782",
+   "swapDetails": {
+    "depositedAmount": null,
+    "depositedAmountUsd": null,
+    "depositedAmountFormatted": null,
+    "intentHashes": [],
+    "nearTxHashes": [],
+    "amountIn": null,
+    "amountInFormatted": null,
+    "amountInUsd": null,
+    "amountOut": null,
+    "amountOutFormatted": null,
+    "amountOutUsd": null,
+    "slippage": null,
+    "refundedAmount": "0",
+    "refundedAmountFormatted": "0",
+    "refundedAmountUsd": "0",
+    "refundReason": null,
+    "refundFee": "200000",
+    "withdrawFee": "97733",
+    "originChainTxHashes": [],
+    "destinationChainTxHashes": []
+   },
+   "quoteResponse": {
+    "timestamp": "2026-10-28T23:42:56.704Z",
+    "signature": "ed25519:yfQiQf8YeVV5fqHkhZo2SzXQSr1jLay7xvf7NnejcZVHtCNHavw8L5tL2xjJf8SEmpAPATRfsm8PzaKYfW8YKcq",
+    "quoteRequest": {
+     "dry": false,
+     "swapType": "EXACT_INPUT",
+     "depositMode": "SIMPLE",
+     "slippageTolerance": 100,
+     "originAsset": "nep141:cardano.omft.near",
+     "depositType": "ORIGIN_CHAIN",
+     "destinationAsset": "nep141:sol.omft.near",
+     "amount": "25000000",
+     "refundTo": "addr1q950qv0ks9t29mavulaa5jr3sk2s50r5jfsddydjs0pazrfh32tdpt7zttt4mhl6t9purm4c9rv555z7r5mulq78aleqcg9c9h",
+     "refundType": "ORIGIN_CHAIN",
+     "recipient": "3noTuHnQdHkat2w5rBx18vAACMzFUvB5LodEe5vMN98d",
+     "recipientType": "DESTINATION_CHAIN",
+     "deadline": "2026-10-29T00:12:55.974Z",
+     "appFees": [
+      {
+       "limitOrderId": null,
+       "recipient": "5880ad2b362620fadf759cbceb1cd5737ce8c6ed7fb8e9942881e6731f9247dd",
+       "fee": 20
+      }
+     ],
+     "virtualChainRecipient": null,
+     "virtualChainRefundRecipient": null,
+     "referral": null,
+     "confidentiality": "public"
+    },
+    "quote": {
+     "amountIn": "25000000",
+     "amountInFormatted": "25.0",
+     "amountInUsd": "5.146000000000",
+     "minAmountIn": "25000000",
+     "amountOut": "49944059",
+     "amountOutFormatted": "0.049944059",
+     "amountOutUsd": "5.110276116880",
+     "minAmountOut": "49444618",
+     "timeWhenInactive": "2026-11-01T00:12:55.974Z",
+     "depositAddress": "addr1vxhqhx5u45f2geynxxf97szc4ccydt2h3ef07mjzxz4lnfqxgv7c5",
+     "deadline": "2026-11-01T00:12:55.974Z",
+     "timeEstimate": 24,
+     "refundFee": "200000",
+     "withdrawFee": "97733"
+    }
+   }
+  }
+ },
+ "tokenSol": {
+  "assetId": "nep141:sol.omft.near",
+  "decimals": 9,
+  "blockchain": "sol",
+  "symbol": "SOL",
+  "price": 102.32,
+  "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+  "coingeckoId": "solana"
+ },
+ "tokenCount": 209
+}

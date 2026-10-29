@@ -27,6 +27,9 @@ import { CrossChainStatusCard } from './CrossChainStatusCard'
 import { CardanoOrderStatusCard } from './CardanoOrderStatusCard'
 import { JourneyRoutesPanel } from './JourneyRoutesPanel'
 import { JourneysInProgress } from './JourneysInProgress'
+import { ChainedSwapPanel, ChainedSwapsInProgress } from './ChainedSwapPanel'
+import type { ChainQuoteRequest } from '../../shared/chained-swap-view'
+import { NEAR_INTENTS_CHAINS, INTO_CARDANO_BRIDGE } from '../../shared/swap-networks'
 import { journeyPairSupported, type JourneyPlanRequest } from '../../shared/journey-candidate'
 import { TokenPicker } from './TokenPicker'
 import { ChainDropdown } from './ChainDropdown'
@@ -152,7 +155,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   const acceptedBuyRaw = useRef<string | null>(null)
 
   const [execState, setExecState] = useState<ExecState>('idle')
-  const [execResult, setExecResult] = useState<{ txHash: string; explorerUrl: string; approvalTxHash: string | null } | null>(null)
+  const [execResult, setExecResult] = useState<{ txHash: string; explorerUrl: string; approvalTxHash: string | null; requestId?: string | null } | null>(null)
   const [execError, setExecError] = useState<string | null>(null)
   /** Destination token as it was at execution time (see run()). */
   const [executedTo, setExecutedTo] = useState<{ symbol: string; decimals: number } | null>(null)
@@ -182,8 +185,20 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   const sourceSignable = isDexSignableSource(fromChain)
   const isCrossChain = fromChain !== toChain
-  const cardanoCrossChain = isCrossChain && (fromChain === 'cardano' || toChain === 'cardano')
+  // Into and out of Cardano go through NEAR Intents, from the networks it serves.
+  const nearIn = isCrossChain && toChain === 'cardano' && (NEAR_INTENTS_CHAINS as readonly string[]).includes(fromChain)
+  const cardanoCrossChain = isCrossChain && toChain === 'cardano' && !nearIn
   const requiresExchange = !sourceSignable || cardanoCrossChain
+  // A single swap into Cardano: the native coin, or the pinned USDC, to ADA.
+  const bridgeIn = INTO_CARDANO_BRIDGE[fromChain]
+  const directIn = nearIn && toToken?.address === 'lovelace' && !!fromToken
+    && (fromToken.isNative || (!!bridgeIn && fromChain !== 'solana' && fromToken.address.toLowerCase() === bridgeIn.token.toLowerCase()))
+  // More than one hop (any Cardano token; a destination token NEAR Intents does
+  // not deliver directly; any other token into Cardano): one approval, several
+  // hops, run by the wallet (ChainedSwapPanel). ADA -> native/USDC stays single.
+  const cardanoMulti = !!fromToken && !!toToken && (
+    (fromChain === 'cardano' && toChain !== 'cardano' && (fromToken.address !== 'lovelace' || !(toToken.isNative || toToken.symbol === 'USDC')))
+    || (nearIn && !directIn))
   const exchangePreset = swapExchangePreset(fromToken, toToken, amount)
   // Pairs a multi-step route family serves (Cardano -> Ethereum/Solana/Base via
   // USDCx or Coinbase cbADA; Base <-> Solana via cbADA): read-only discovery.
@@ -362,7 +377,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
 
   // ── Quote fetch ───────────────────────────────────────────────────────────
   const fetchQuote = useCallback(async (silent = false): Promise<NormalizedSwapQuote | null> => {
-    if (requiresExchange) return null
+    if (requiresExchange || cardanoMulti) return null
     const version = quoteVersion.current
     if (!fromToken || !toToken) return null
     if (!(parseFloat(amount) > 0)) return null
@@ -387,7 +402,16 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     } finally {
       if (!silent && alive.current && version === quoteVersion.current) setFetching(false)
     }
-  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor, chainIdFor, requiresExchange])
+  }, [amount, fromChain, toChain, fromToken, toToken, slippageBps, addrFor, chainIdFor, requiresExchange, cardanoMulti])
+
+  const chainRequest = useMemo<ChainQuoteRequest | null>(() => {
+    if (!cardanoMulti || !fromToken || !toToken || !(parseFloat(amount) > 0)) return null
+    return {
+      fromChain, fromToken: fromToken.address, fromSymbol: fromToken.symbol, fromDecimals: fromToken.decimals,
+      toChain, toToken: toToken.address, toSymbol: toToken.symbol, toDecimals: toToken.decimals,
+      sellAmountRaw: humanToRaw(amount, fromToken.decimals), slippageBps,
+    }
+  }, [cardanoMulti, fromChain, fromToken, toToken, toChain, amount, slippageBps])
 
   const getQuote = async () => {
     setPriceChanged(false)
@@ -520,6 +544,14 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     }
   }
 
+  // A failed execution leaves a stale quote on screen and the 12s refresher is paused
+  // outside 'idle', so re-running it would just repeat the same rejection. Drop the
+  // error and fetch a fresh quote; the user still confirms the new one explicitly.
+  const retryWithFreshQuote = async () => {
+    setExecState('idle'); setExecError(null); setExecResult(null); setQuote(null); acceptedBuyRaw.current = null
+    await getQuote()
+  }
+
   const reset = () => {
     setExecState('idle'); setExecResult(null); setExecError(null); setQuote(null); setAmount(''); acceptedBuyRaw.current = null
     refreshBalances()
@@ -547,7 +579,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
   if (execState === 'success' && execResult && quote?.isCrossChain) {
     return (
       <CrossChainStatusCard
-        quote={quote}
+        quote={execResult.requestId ? { ...quote, requestId: execResult.requestId } : quote}
         txHash={execResult.txHash}
         explorerUrl={execResult.explorerUrl}
         toSymbol={executedTo?.symbol ?? quote.toTokenSymbol}
@@ -575,7 +607,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ fontSize: 12, color: '#fca5a5', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 'var(--radius-sm)', padding: '8px 10px' }}>{execError}</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" onClick={run} style={{ ...btn(true), flex: 1 }}>Retry</button>
+            <button type="button" onClick={retryWithFreshQuote} style={{ ...btn(true), flex: 1 }}>Retry</button>
             <button type="button" onClick={reset} style={{ ...btn(true, 'transparent'), flex: 1 }}>Close</button>
           </div>
         </div>
@@ -610,6 +642,7 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
     <div className="art-swap" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Restored multi-step journeys of THIS wallet; read-only, never re-sends. */}
       <JourneysInProgress />
+      <ChainedSwapsInProgress />
       {/* YOU PAY */}
       <div className="art-panel" style={cardStyle}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -710,7 +743,8 @@ export function DexSwapWidget({ addresses, active, onUseCrossChain, preselect, o
         <SwapQuoteCard quote={quote} fromSymbol={fromToken.symbol} toSymbol={toToken.symbol} fromDecimals={fromToken.decimals} toDecimals={toToken.decimals} autoBps={autoBps} isAuto={isAuto} refreshIn={refreshIn} priceChanged={priceChanged} />
       )}
 
-      {!requiresExchange && renderButton()}
+      {!requiresExchange && cardanoMulti && <ChainedSwapPanel request={chainRequest} />}
+      {!requiresExchange && !cardanoMulti && renderButton()}
       {/* Other networks' multi-step routes, separate from the executable quote above. */}
       {!requiresExchange && <JourneyRoutesPanel request={journeyRequest} />}
     </div>

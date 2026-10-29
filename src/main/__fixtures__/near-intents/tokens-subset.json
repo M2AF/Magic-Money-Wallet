@@ -1,0 +1,111 @@
+{
+ "recordedAt": "2026-10-28T23:42:56.981Z",
+ "source": "GET /v0/tokens (subset)",
+ "tokens": [
+  {
+   "assetId": "nep141:eth-0xdac17f958d2ee523a2206206994597c13d831ec7.omft.near",
+   "decimals": 6,
+   "blockchain": "eth",
+   "symbol": "USDT",
+   "price": 0.999114,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+   "coingeckoId": "tether"
+  },
+  {
+   "assetId": "nep141:eth-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.omft.near",
+   "decimals": 6,
+   "blockchain": "eth",
+   "symbol": "USDC",
+   "price": 0.999543,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+   "coingeckoId": "usd-coin"
+  },
+  {
+   "assetId": "nep141:eth.omft.near",
+   "decimals": 18,
+   "blockchain": "eth",
+   "symbol": "ETH",
+   "price": 2357.51,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "coingeckoId": "ethereum"
+  },
+  {
+   "assetId": "nep141:sol.omft.near",
+   "decimals": 9,
+   "blockchain": "sol",
+   "symbol": "SOL",
+   "price": 102.32,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "coingeckoId": "solana"
+  },
+  {
+   "assetId": "nep141:cardano.omft.near",
+   "decimals": 6,
+   "blockchain": "cardano",
+   "symbol": "ADA",
+   "price": 0.20584,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "coingeckoId": "cardano"
+  },
+  {
+   "assetId": "nep141:sol-c800a4bd850783ccb82c2b2c7e84175443606352.omft.near",
+   "decimals": 6,
+   "blockchain": "sol",
+   "symbol": "USDT",
+   "price": 0.999114,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",
+   "coingeckoId": "tether"
+  },
+  {
+   "assetId": "nep141:arb.omft.near",
+   "decimals": 18,
+   "blockchain": "arb",
+   "symbol": "ETH",
+   "price": 2357.51,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "coingeckoId": "ethereum"
+  },
+  {
+   "assetId": "nep141:arb-0xaf88d065e77c8cc2239327c5edb3a432268e5831.omft.near",
+   "decimals": 6,
+   "blockchain": "arb",
+   "symbol": "USDC",
+   "price": 0.999543,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "0xaf88d065e77c8cc2239327c5edb3a432268e5831",
+   "coingeckoId": "usd-coin"
+  },
+  {
+   "assetId": "nep141:base.omft.near",
+   "decimals": 18,
+   "blockchain": "base",
+   "symbol": "ETH",
+   "price": 2357.51,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "coingeckoId": "ethereum"
+  },
+  {
+   "assetId": "nep141:base-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.omft.near",
+   "decimals": 6,
+   "blockchain": "base",
+   "symbol": "USDC",
+   "price": 0.999543,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+   "coingeckoId": "usd-coin"
+  },
+  {
+   "assetId": "nep141:sol-5ce3bf3a31af18be40ba30f721101b4341690186.omft.near",
+   "decimals": 6,
+   "blockchain": "sol",
+   "symbol": "USDC",
+   "price": 0.999543,
+   "priceUpdatedAt": "2026-10-28T23:42:00.800Z",
+   "contractAddress": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+   "coingeckoId": "usd-coin"
+  }
+ ]
+}

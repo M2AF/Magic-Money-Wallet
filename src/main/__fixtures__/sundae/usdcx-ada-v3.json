@@ -1,0 +1,217 @@
+{
+  "note": "Built LIVE by agg-api.minswap.org/aggregator/build-tx on 2026-10-28 for a public mainnet address (no keys held); never signed. UTxOs from Koios the same minute.",
+  "sender": "addr1q8008tnk6x22qh7xl38znc5p6c52hp8wtfrxaq0yrer9az8fahsvrvjs2nte6d95crak93gphy32u868qqtx3s4r5dxqxpj8mk",
+  "estimateRequest": {
+    "amount": "2000000",
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "slippage": 1,
+    "allow_multi_hops": false,
+    "include_protocols": [
+      "SundaeSwapV3"
+    ]
+  },
+  "estimate": {
+    "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+    "token_out": "lovelace",
+    "amount_in": "2000000",
+    "amount_out": "9806598",
+    "min_amount_out": "9709502",
+    "total_lp_fee": "6000",
+    "total_dex_fee": "1280000",
+    "deposits": "2000000",
+    "avg_price_impact": 0.30057280779467865,
+    "paths": [
+      [
+        {
+          "lp_token": "e0302560ced2fdcbfcb2602697df970cd0d6a38f94b32703f51c312b0014df10bdf5e1ccc9aea3c8d587cc6b6fb74ea531538e96ab8cb7d56238698e",
+          "token_in": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+          "token_out": "lovelace",
+          "amount_in": "2000000",
+          "amount_out": "9806598",
+          "min_amount_out": "9709502",
+          "lp_fee": "6000",
+          "dex_fee": "1280000",
+          "deposits": "2000000",
+          "price_impact": 0.30057280779467865,
+          "pool_id": "bdf5e1ccc9aea3c8d587cc6b6fb74ea531538e96ab8cb7d56238698e",
+          "protocol": "SundaeSwapV3",
+          "pool_out_ref": "8037e2f83a96c8f427ccd2f4e2859791867d983a4e00ebfc49257f624f139510#0"
+        }
+      ]
+    ],
+    "aggregator_fee": "850000",
+    "aggregator_fee_percent": 0.1,
+    "tokens": {
+      "lovelace": {
+        "token_id": "lovelace",
+        "logo": "https://asset-logos.minswap.org/lovelace",
+        "ticker": "ADA",
+        "is_verified": true,
+        "project_name": "Cardano",
+        "price_by_ada": 1,
+        "decimals": 6
+      },
+      "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378": {
+        "token_id": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "logo": "https://asset-logos.minswap.org/1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+        "ticker": "USDCx",
+        "is_verified": true,
+        "price_by_ada": 4.9180814154084995,
+        "price_by_usd": 0.9949278703371395,
+        "project_name": "USDCx",
+        "decimals": 6
+      }
+    },
+    "amount_in_decimal": false
+  },
+  "buildTx": {
+    "cbor": "84a500d9010282825820a5f3795ad5fbe18de191b618f057167675dfef6a71e4f893ca376676df97659d02825820b446837ca374467b2ffac41844ce8547e9d2823f734151989bf2abcfbb44733e000184a300583911fa6a58bbe2d0ff05534431c8e2f0ef2cbdc1602a8456e4b13c8f3077f217f435f5f34dba69830d9ada013b5c290a4eee6078371cae55298b01821a00320c80a1581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a001e8480028201d81858e0d8799fd8799f581cbdf5e1ccc9aea3c8d587cc6b6fb74ea531538e96ab8cb7d56238698effd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cff1a00138800d8799fd8799fd8799f581cdef3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88ffd8799fd8799fd8799f581ce9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34cffffffffd87980ffd87a9f9f581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e344555534443781a001e8480ff9f40401a009427beffff43d87980ff82581d61a6392a798b36808a3a61790070a1971f606c6ae682ee084bdf1e27ee1a000cf85082583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c1a76edfde182583901def3ae76d194a05fc6fc4e29e281d628ab84ee5a466e81e41e465e88e9ede0c1b25054d79d34b4c0fb62c501b922ae1f47001668c2a3a34c821a0023b352a3581c1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e34a14555534443781a002184aa581c7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05aea244555344721a02cdd6804573555344721a00630332581cd9d5985e0657933005d6eb953aeadad29aa8c36f17e493e2962584eca158200014df10062ed639ee7ac7e9d3727ab52c605e88bcab80dd32dd3ab4c9617bc01a007a1095021a0003627d031a0c056e660758202c75d14df8d441401ac9e898384ee442471ed3956f07295014ea1a568a909edaa0f5a11902a2a2696578747261446174618978407b226e6574776f726b456e76223a3736343832343037332c2273656e646572223a7b222461646472657373223a2261646472317138303038746e6b367832327178406837786c33387a6e6335703663353268703877746672786171307972657239617a38666168737672766a73326e7465366439356372616b393367706879333275784038363871717478337334723564787178706a386d6b227d2c226f726465724f7074696f6e73223a5b7b22736f75726365223a2253756e6461655377617056332278402c226173736574496e223a7b22246173736574223a22316633616563386266653765613466653134633566313231653261393265333031616665343134313437784038363064353537636163376533342e35353533343434333738227d2c2261737365744f7574223a7b22246173736574223a226c6f76656c616365227d2c22616d78406f756e74496e223a7b2224626967696e74223a2232303030303030227d2c226d696e696d756d5265636569766564223a7b2224626967696e74223a22393730397840353032227d2c22646578466565223a7b2224626967696e74223a2231323830303030227d2c226465706f736974223a7b2224626967696e74223a22323030303078403030227d2c22706f6f6c4964656e74223a22626466356531636363396165613363386435383763633662366662373465613533313533386539366162386362376e64353632333836393865227d5d7d636d73678178204d696e737761703a2041676772656761746f72204d61726b6574204f72646572"
+  },
+  "utxos": [
+    {
+      "txHash": "203103bc5ff2203d8bdc34f4e7ff144a2294d829d9d6acc13b44c2681dedfdf5",
+      "txIndex": 3,
+      "lovelace": "5000000",
+      "assets": []
+    },
+    {
+      "txHash": "f82d21233f31f1fef45134b347404e1ed0a9538b21a15dda1ece59e626442309",
+      "txIndex": 1,
+      "lovelace": "17306710",
+      "assets": []
+    },
+    {
+      "txHash": "400ca1f6fd891dcd50af63d8efc96139ea097e1ebd0fe96bc5c49dda35dd1abd",
+      "txIndex": 1,
+      "lovelace": "17119210",
+      "assets": []
+    },
+    {
+      "txHash": "86c9b60024b5fa7b1643b2d9a75a6977b86e3d893ac544382dcfa5f62391fd28",
+      "txIndex": 0,
+      "lovelace": "2000000",
+      "assets": [
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+          "quantity": "4998919"
+        }
+      ]
+    },
+    {
+      "txHash": "3451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa8",
+      "txIndex": 1,
+      "lovelace": "74366902",
+      "assets": []
+    },
+    {
+      "txHash": "3451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa8",
+      "txIndex": 2,
+      "lovelace": "37275904",
+      "assets": []
+    },
+    {
+      "txHash": "3451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa8",
+      "txIndex": 3,
+      "lovelace": "18637952",
+      "assets": []
+    },
+    {
+      "txHash": "3451edae33b8c95c253f291c0945ec970e24f26aa745305037d5030a754c3aa8",
+      "txIndex": 4,
+      "lovelace": "18637951",
+      "assets": []
+    },
+    {
+      "txHash": "bb59a4e1c646a8299aa844d7dd1de4e6c04666df42769274c0a1060805ce35c2",
+      "txIndex": 1,
+      "lovelace": "74375394",
+      "assets": []
+    },
+    {
+      "txHash": "38c37ce6fcfe5a5e49dd416304bfb3835cde10dbef6b9743f86bf8976cc8335a",
+      "txIndex": 0,
+      "lovelace": "2000000",
+      "assets": [
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+          "quantity": "6700000"
+        }
+      ]
+    },
+    {
+      "txHash": "7bdd2e18a78e7c995a675ee2737e7596db40b35d46c40ccdfb5c44fcdc195e92",
+      "txIndex": 1,
+      "lovelace": "3720000",
+      "assets": [
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+          "quantity": "6700000"
+        }
+      ]
+    },
+    {
+      "txHash": "11b7fd15a5ec15b50acb1045b7c13e814e967dd6b43065beb0f89daa00e032c3",
+      "txIndex": 0,
+      "lovelace": "2000000",
+      "assets": [
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+          "quantity": "6100000"
+        }
+      ]
+    },
+    {
+      "txHash": "a5f3795ad5fbe18de191b618f057167675dfef6a71e4f893ca376676df97659d",
+      "txIndex": 2,
+      "lovelace": "2000000",
+      "assets": [
+        {
+          "unit": "1f3aec8bfe7ea4fe14c5f121e2a92e301afe414147860d557cac7e345553444378",
+          "quantity": "4196650"
+        },
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+          "quantity": "47044224"
+        },
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae7355534472",
+          "quantity": "6488882"
+        },
+        {
+          "unit": "d9d5985e0657933005d6eb953aeadad29aa8c36f17e493e2962584ec0014df10062ed639ee7ac7e9d3727ab52c605e88bcab80dd32dd3ab4c9617bc0",
+          "quantity": "7999637"
+        }
+      ]
+    },
+    {
+      "txHash": "2709c77b70f9d13085f46ceefc271b02cb88dbaa6c47a23d7203fe94d5c36a9a",
+      "txIndex": 0,
+      "lovelace": "1823631",
+      "assets": [
+        {
+          "unit": "7d9e4a0ee1a3f5d5ff8159ea91a83310cf2795ee7a87170c7aea05ae55534472",
+          "quantity": "3000000"
+        }
+      ]
+    },
+    {
+      "txHash": "7966c10469bba267c250498dc45f1f844963be3a208ec697e1000aa1353651d2",
+      "txIndex": 1,
+      "lovelace": "74738963",
+      "assets": []
+    },
+    {
+      "txHash": "641b7e501db6b4a4550015e68c61b59d040d2de8c691035825be443989717d10",
+      "txIndex": 0,
+      "lovelace": "122375482",
+      "assets": []
+    },
+    {
+      "txHash": "b446837ca374467b2ffac41844ce8547e9d2823f734151989bf2abcfbb44733e",
+      "txIndex": 0,
+      "lovelace": "2000000000",
+      "assets": []
+    }
+  ]
+}
