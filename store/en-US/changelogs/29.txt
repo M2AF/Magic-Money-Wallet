@@ -1,0 +1,6 @@
+Magic Money 0.11.3
+
+- Cardano swaps with more DEX routes and multi-step cross-chain transfers.
+- Native agent access and x402 support across EVM, Solana and Cardano.
+- Solana cross-chain route handling and retry improvements.
+- Midnight, chat and profile synchronization fixes.

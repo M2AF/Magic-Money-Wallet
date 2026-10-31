@@ -40,14 +40,14 @@ push must check its CI result before relying on the previous handoff.
   extension/injection builds and the full Playwright suite with one worker
   (avoids local CPU/GPU contention changing startup/animation timing), and
   **`npm audit --omit=dev --audit-level=critical`**. The audit mirrors the
-  Release validation gate; it is required even though `ci.yml` currently
-  omits it. Keep this command aligned with both workflow files when their
+  Release validation gate; both workflows run this same command.
+  Keep this command aligned with both workflow files when their
   validation steps change. Do not weaken the audit or upgrade dependencies
   without reviewing the specific failure and the requested scope.
 - Build Electron **before** e2e: desktop specs read `out/main/index.js` and
   `out/renderer`, self-skip when output is absent, and otherwise can run stale
-  code. `verify:ci` deliberately builds first, unlike the current `ci.yml`
-  order; it covers the same gates plus fresh desktop journeys. A clean Linux
+  code. `verify:ci` builds first in local, CI, and Release validation.
+  A clean Linux
   CI run that skips desktop specs is not evidence that those journeys passed.
 - Install the pinned dependencies/toolchain and Chromium first: CI uses
   Node20, Rust1.97, `npm ci`, and
@@ -191,8 +191,9 @@ difference can't be expressed as an alias, gate it in place.
   feature is cut for review, and no Apple account or certificate appears
   anywhere in CI. `ios.yml` produces a *simulator* `.app` (CI smoke test only —
   it cannot run on a device) plus an **unsigned device `.ipa`**;
-  `release.yml`'s `ios` job publishes that `.ipa` as a release asset, and it is
-  in the `publish-release` required-asset gate. Users install it with
+  iOS is excluded from GitHub Releases by user decision (2026-10-30).
+  Its standalone `ios.yml` remains available for development validation;
+  `.ipa` output is not required by `publish-release`. Users install an available device build with
   Sideloadly/AltStore on **Windows** using their own free Apple ID.
   Free-provisioning limits apply to the install, not the build: 7-day expiry,
   re-sign via computer, max 3 sideloaded apps. Keep new features clear of
@@ -272,7 +273,7 @@ difference can't be expressed as an alias, gate it in place.
 
 `.github/workflows/release.yml` creates a single **draft** release
 (`prepare-release` job) before any builder runs, every build job uploads
-into that draft, and a final `publish-release` job verifies all 12 expected
+into that draft, and a final `publish-release` job verifies all 11 expected
 asset patterns exist before flipping the release to published. This exists
 because electron-builder silently skips uploads into an already-published
 non-draft release — a partial release with green CI is worse than a failed
@@ -285,6 +286,10 @@ Version bumps go through `node scripts/release.js [patch|minor|major|beta]`
 versionCode. Don't bump these by hand in only one place. iOS is deliberately
 absent from that list: `scripts/patch-ios-native.js` derives it from
 `package.json` at build time (see the iOS notes above).
+
+Use `--prepare-only` to synchronize versions without committing, tagging or
+pushing. Validate and review the prepared version before release; do not run
+the bump command again on the prepared tree, since that would bump it twice.
 
 The Play listing's release notes are **not** in that list either, because they
 have to be written: `store/en-US/changelogs/<versionCode>.txt`, keyed on the

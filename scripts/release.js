@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Usage: node scripts/release.js [patch|minor|major|beta]
+ * Usage: node scripts/release.js [patch|minor|major|beta] [--prepare-only]
  *
  * Bumps the version in package.json, commits, tags, and pushes.
  * GitHub Actions picks up the tag and builds + publishes automatically.
@@ -12,8 +12,9 @@ const { execSync } = require('child_process')
 const fs = require('fs')
 
 const type = process.argv[2] || 'patch'
+const prepareOnly = process.argv.includes('--prepare-only')
 if (!['patch', 'minor', 'major', 'beta'].includes(type)) {
-  console.error('Usage: node scripts/release.js [patch|minor|major|beta]')
+  console.error('Usage: node scripts/release.js [patch|minor|major|beta] [--prepare-only]')
   process.exit(1)
 }
 
@@ -63,6 +64,12 @@ let gradle = fs.readFileSync(gradlePath, 'utf8')
 gradle = gradle.replace(/versionCode (\d+)/, (_, c) => `versionCode ${Number(c) + 1}`)
 gradle = gradle.replace(/versionName "[^"]*"/, `versionName "${next}"`)
 fs.writeFileSync(gradlePath, gradle)
+
+// Prepare synchronized versions for review and validation before committing or tagging.
+if (prepareOnly) {
+  console.log(`Prepared v${next}; no commit, tag or push performed.`)
+  process.exit(0)
+}
 
 console.log(`\n  Releasing v${next}...\n`)
 

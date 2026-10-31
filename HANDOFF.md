@@ -2,28 +2,29 @@
 <!-- handoff v1. LIVE STATE ONLY: rewrite in place, keep under ~60 lines.
      History goes in HANDOFF_LOG.md. Machine fields above the first ## are managed by handoff.py. -->
 
-owner: claude
-task: NEAR Intents partner key via Worker route (+ fee wiring pending NEAR account)
-lease_until: 2026-10-29T06:02-03:00
+owner: codex
+task: Prepare next GitHub release; diagnose current CI and iOS blockers
+lease_until: 2026-10-31T00:17-03:00
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
-verified: 22c10e1 · typecheck; vitest 198 files 2934 tests; builds; e2e cardano-swap 14/14 + picker 4/4 + token-swap-button; mutants killed (reserve rules, ERC-20 amount, retry) · 2026-10-29T03:02-03:00
-head: 22c10e1 (main) dirty 51
-updated: 2026-10-29T03:02-03:00 · claude
+verified: 1118b17 · CI=1 verify:ci exit0; all5TS/198files2934unit/fresh builds/108e2e+2flaky retry passes+2skips; audit0critical5high4moderate. Log .local-artifacts/release-prep/verify-ci.log; Android native local blocked missing JDK24. · 2026-10-30T21:17-03:00
+head: 1118b17 (main) dirty 10
+updated: 2026-10-30T21:17-03:00 · codex
 
 resources: -
 
 ## Now
-- SOL/ADA agent execution + x402 on every current agent execution network locally verified: native approval/autonomy/recovery/receipts; USDC on Ethereum/Sepolia/Monad/Base/Solana, direct ADA on Cardano/Preprod. Explicit network/asset budgets preserve old Base-only grants. Default-off MAGICMONEY_X402=1. docs/AGENT-NATIVE.md and docs/X402.md. No running jobs or real funds.
-- Final CI=1 verify:ci exits0 at HEAD22c10e1 plus shared dirty tree: all5TS/192files2862unit/fresh desktop+extension+injection/106browser first-pass+1existing skip.220focused pass; all5agent journeys first attempt.1231asset hashes verified;29generated PNGs archived/restored. Evidence .local-artifacts/agent-non-evm/.
-- Preserve pre-existing SOL cross-chain fallback and user Retry changes (docs/SOL-CROSSCHAIN.md; .local-artifacts/sol-crosschain/), prior Monad/Emogotchi and Base x402 execution, C1/L1/C2/C3 token/CIP-113 readers, universal QR/details and NFT/chat profile work. No commit/push/deploy/install authorized.
+- User authorizes full control for release publication; iOS excluded. Prepared0.11.3/code29 with notes; CI/Release use verify:ci and 11 non-iOS asset gates. No tag yet.
+- CI=1 verify:ci exits0: all5TS,198files/2934unit, fresh desktop/extension/injection,108e2e passed+2flaky passed on retry+2skips, audit0critical (5high/4moderate). Logs .local-artifacts/release-prep/verify-ci.log and .exitcode.
+- Android bundle passed; actual local Gradle blocked by missing JAVA_HOME JDK24. No install. GitHub Android job provisions JDK24 and release keystore secrets exist by name.
+- Generated tracked screenshots archived under release-prep/generated-screenshots and restored to baseline; no runtime source edits.
 
 ## Verification status
-- Current full gate: .local-artifacts/agent-non-evm/verify-ci.log and exitcode0; 106passed/1skip/0flaky in18.6m. Native journey14.7s; real disposable-key signatures with stubbed RPC/facilitators, not live settlement.400/768/1200 approval screens reviewed. Audit0critical5high4moderate; dependencies unchanged. git diff --check passes.
-- GitHub base CI success at22c10e192ab06d7b78b21dd88dff5009c2320178: https://github.com/M2AF/Magic-Money-Wallet/actions/runs/40254402500 . Feature CI pending (uncommitted/unpushed changes); Release/native devices/installation/deployment unverified and not performed. Windows Node24.14.1 local results do not establish Linux or native-platform results.
+- Local checks above cover prepared dirty tree on1118b17. Workflow YAML parsed;11 patterns/noIPA/noiOS dependency; synchronized versions; prepare-only script fixture passed. git diff --check passed.
+- Remote main1118b177f5eac23756cdc7da7c0ce34303e18d9d CI failure https://github.com/M2AF/Magic-Money-Wallet/actions/runs/40830192318 (Sappy Cancel10s). New commit CI pending. iOS outside release scope; real-funds settlement/Worker deployment not performed.
 
 ## Next
-- User real-funds QA of a small into-Cardano swap; Worker deploy approval; NEAR fee account
+- Finish release-prep checks; diagnose remaining failures, obtain matching main CI before tagging v0.11.3. Notes docs/RELEASE-0.11.3.md; store/en-US/changelogs/29.txt. Preserve prior real-funds QA/Worker/NEAR fee-account follow-ups.
 
 ## Traps
 - NEAR Intents: only pay a deposit address from a LIVE non-dry quote verified against pinned 1Click key ed25519:reYaWhvw...; appFees are NOT signed (bind by approved minAmountOut). Request deadline 30 min (refund) vs quote.deadline (address inactive, 'funds may be lost'); Cardano payment TTL 600 slots. SUCCESS needs measured destination credit (except native EVM).

@@ -287,3 +287,20 @@
 - Into Cardano: quoteNearIntentsToCardano, executeNearIntentsDeposit (wallet-built transfer), measureCardanoCredit, planIntoCardano with planning estimate
 - Abstract and Gnosis excluded (1Click refuses EOA / no liquidity)
 - next: User real-funds QA of a small into-Cardano swap; Worker deploy approval; NEAR fee account
+
+### 2026-10-30T20:26-03:00 · codex · claim · 1118b17 (main) dirty 1
+- task: Prepare next GitHub release; diagnose current CI and iOS blockers
+- lease until 2026-10-30T23:26-03:00
+
+### 2026-10-30T20:34-03:00 · codex · checkpoint · 1118b17 (main) dirty 10
+- Prepared v0.11.3/versionCode29; user excludes iOS from release. Removed iOS release builder and asset requirement; CI and Release now use verify:ci with fresh desktop and one worker.
+- Starting CI=1 npm run verify:ci; log .local-artifacts/release-prep/verify-ci.log. Current main1118b17 CI failure40830192318 (Sappy Cancel click timeout); no tag/push/publication.
+- next: Finish local verification, inspect failures, then stage release for review and GitHub validation.
+
+### 2026-10-30T21:00-03:00 · codex · checkpoint · 1118b17 (main) dirty 10
+- Local typecheck all5 and unit suite198files/2934tests pass for release0.11.3. verify:ci continues builds/e2e/audit; .local-artifacts/release-prep/verify-ci.log.
+- Starting Android bundle plus actual Gradle assembleDebug for version metadata validation; no installation or release signing. Log .local-artifacts/release-prep/android-build.log.
+
+### 2026-10-30T21:17-03:00 · codex · verify · 1118b17 (main) dirty 10
+- verified: CI=1 verify:ci exit0; all5TS/198files2934unit/fresh builds/108e2e+2flaky retry passes+2skips; audit0critical5high4moderate. Log .local-artifacts/release-prep/verify-ci.log; Android native local blocked missing JDK24.
+- User grants full control; next commit/push release setup then exact-head main CI before tag. No iOS release. Generated screenshots archived/restored.

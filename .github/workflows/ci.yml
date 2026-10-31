@@ -21,17 +21,14 @@ jobs:
       # first (matching node_modules/adblock-rs's own rust-toolchain.toml channel).
       - uses: dtolnay/rust-toolchain@1.97
       - run: npm ci
-      - name: Type check (main + renderer)
-        run: npm run typecheck
-      - name: Unit tests
-        run: npm test
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: E2E tests
+      - name: Verify release readiness
         # xvfb: the real-extension specs need a HEADED Chromium (unpacked MV3
         # extensions don't load in classic headless), and Linux runners have no
         # display server — give them a virtual one.
-        run: xvfb-run --auto-servernum -- npm run test:e2e
+        # Fresh desktop output before e2e, one worker, and the production audit.
+        run: xvfb-run --auto-servernum -- npm run verify:ci
       # Screenshots and traces of failing specs: without them a Linux-only e2e
       # failure shows up as a bare "Test timeout exceeded" in the log.
       - name: Upload Playwright results
@@ -41,5 +38,3 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
-      - name: Build
-        run: npm run build
