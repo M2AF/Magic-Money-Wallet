@@ -2,29 +2,28 @@
 <!-- handoff v1. LIVE STATE ONLY: rewrite in place, keep under ~60 lines.
      History goes in HANDOFF_LOG.md. Machine fields above the first ## are managed by handoff.py. -->
 
-owner: codex
-task: Prepare next GitHub release; diagnose current CI and iOS blockers
-lease_until: 2026-10-31T00:17-03:00
+owner: none
+task: -
+lease_until: -
 repo: .
 verify: cmd /c "npm run typecheck && npm test"
 verified: 1118b17 · CI=1 verify:ci exit0; all5TS/198files2934unit/fresh builds/108e2e+2flaky retry passes+2skips; audit0critical5high4moderate. Log .local-artifacts/release-prep/verify-ci.log; Android native local blocked missing JDK24. · 2026-10-30T21:17-03:00
-head: 1118b17 (main) dirty 10
-updated: 2026-10-30T21:17-03:00 · codex
+head: 6e982a1 (main) dirty 3
+updated: 2026-10-30T21:35-03:00 · codex
 
 resources: -
 
 ## Now
-- User authorizes full control for release publication; iOS excluded. Prepared0.11.3/code29 with notes; CI/Release use verify:ci and 11 non-iOS asset gates. No tag yet.
-- CI=1 verify:ci exits0: all5TS,198files/2934unit, fresh desktop/extension/injection,108e2e passed+2flaky passed on retry+2skips, audit0critical (5high/4moderate). Logs .local-artifacts/release-prep/verify-ci.log and .exitcode.
-- Android bundle passed; actual local Gradle blocked by missing JAVA_HOME JDK24. No install. GitHub Android job provisions JDK24 and release keystore secrets exist by name.
-- Generated tracked screenshots archived under release-prep/generated-screenshots and restored to baseline; no runtime source edits.
-
+- User switches release work to Claude; Codex publisher session79984 stopped with Ctrl-C. No release automation remains. User grants full control; iOS excluded from release.
+- main/origin main=6e982a15fb9c99e11fc320a4a72937614a206e0b, pushed release0.11.3/code29 preparation. No local/remote v0.11.3 tag and no GitHub release at handoff.
+- CI run41149492331 still in_progress at handoff: https://github.com/M2AF/Magic-Money-Wallet/actions/runs/41149492331 . Standalone iOS41149492422 also running but outside release scope; iOS builder/IPA gate removed from release.yml.
+- Local CI=1 verify:ci exits0: all5TS/198files2934unit/fresh builds/108e2e+2flaky retry passes+2skips/audit0critical5high4moderate. Android web bundle passes; actual local Gradle blocked by invalid JAVA_HOME (missing JDK24). GitHub Android provisions JDK24; four signing secrets exist by name.
+- 36 generated tracked screenshots archived/restored; only local handoff updates and untracked .local-artifacts/release-prep remain after pushed commit. No runtime source changes or real-funds actions.
 ## Verification status
-- Local checks above cover prepared dirty tree on1118b17. Workflow YAML parsed;11 patterns/noIPA/noiOS dependency; synchronized versions; prepare-only script fixture passed. git diff --check passed.
-- Remote main1118b177f5eac23756cdc7da7c0ce34303e18d9d CI failure https://github.com/M2AF/Magic-Money-Wallet/actions/runs/40830192318 (Sappy Cancel10s). New commit CI pending. iOS outside release scope; real-funds settlement/Worker deployment not performed.
-
+- Local verified prepared tree now committed6e982a1; evidence .local-artifacts/release-prep/verify-ci.log and verify-ci.exitcode=0. YAML parsed;11required asset patterns/noIPA/noiOS dependency; synchronized versions; prepare-only fixture passed. Sappy screenshot reviewed. Android native local unverified.
+- Matching main CI RUNNING41149492331; Release NOT STARTED. Previous main1118b17 CI failed Sappy Cancel10s; current one-worker validation includes fresh desktop tests. No current failure reported yet. Watch exact SHA; never use old green CI as proof.
 ## Next
-- Finish release-prep checks; diagnose remaining failures, obtain matching main CI before tagging v0.11.3. Notes docs/RELEASE-0.11.3.md; store/en-US/changelogs/29.txt. Preserve prior real-funds QA/Worker/NEAR fee-account follow-ups.
+- Claude claim; watch CI41149492331 for6e982a15fb9c99e11fc320a4a72937614a206e0b; on success tag existing versionv0.11.3, push tag, watch Release and verify11non-iOS asset patterns. Do not run version bump again.
 
 ## Traps
 - NEAR Intents: only pay a deposit address from a LIVE non-dry quote verified against pinned 1Click key ed25519:reYaWhvw...; appFees are NOT signed (bind by approved minAmountOut). Request deadline 30 min (refund) vs quote.deadline (address inactive, 'funds may be lost'); Cardano payment TTL 600 slots. SUCCESS needs measured destination credit (except native EVM).

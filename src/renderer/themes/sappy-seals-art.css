@@ -49,6 +49,12 @@
 
 :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-heading-region {padding-top:16px!important;padding-bottom:4px!important;}
 :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-controls-region {padding-bottom:8px!important;margin-top:-32px;}
+/* The lift above lays this region's top over the header's toolbar (Settings,
+   refresh…), and as the later element it took their clicks. Only the seal sits
+   in that overlap, so the box passes clicks through and its controls take them
+   back; the seal itself stays click-through. */
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-controls-region {pointer-events:none;}
+:root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-controls-region > :not(.sappy-seal-peek) {pointer-events:auto;}
 
 /* Leave the centre clear for the seal without covering price data. */
 @media (max-width:430px) { :root[data-theme='sappy-seals-art']:not([data-derived]) .portfolio-chart-row {width:120px;} }

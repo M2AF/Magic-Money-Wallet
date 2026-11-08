@@ -40,13 +40,19 @@ push must check its CI result before relying on the previous handoff.
   extension/injection builds and the full Playwright suite with one worker
   (avoids local CPU/GPU contention changing startup/animation timing), and
   **`npm audit --omit=dev --audit-level=critical`**. The audit mirrors the
-  Release validation gate; both workflows run this same command.
+  Release validation gate. The workflows do NOT run `verify:ci`: on Linux it
+  would build the desktop app before e2e, and the Electron specs (which launch
+  a Windows `electron.exe` and rely on Windows Hello stubs) then run and fail —
+  19 failures on 2026-10-30, none of them real. CI and Release run typecheck,
+  unit tests, extension e2e (`--workers=1`, BEFORE any desktop build so the
+  Electron specs self-skip) and the critical audit; `verify:ci` on Windows is
+  what covers the desktop journeys.
   Keep this command aligned with both workflow files when their
   validation steps change. Do not weaken the audit or upgrade dependencies
   without reviewing the specific failure and the requested scope.
 - Build Electron **before** e2e: desktop specs read `out/main/index.js` and
   `out/renderer`, self-skip when output is absent, and otherwise can run stale
-  code. `verify:ci` builds first in local, CI, and Release validation.
+  code. `verify:ci` builds first; that is a local (Windows) gate only.
   A clean Linux
   CI run that skips desktop specs is not evidence that those journeys passed.
 - Install the pinned dependencies/toolchain and Chromium first: CI uses

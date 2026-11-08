@@ -32,12 +32,20 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Verify release readiness
-        # xvfb: the real-extension specs need a HEADED Chromium (unpacked MV3
-        # extensions don't load in classic headless), and Linux runners have no
-        # display server — give them a virtual one.
-        # Match CI: fresh desktop output, one worker, and critical audit.
-        run: xvfb-run --auto-servernum -- npm run verify:ci
+      # Linux CI covers typecheck, unit tests and the EXTENSION e2e specs. The desktop
+      # (Electron) specs drive a Windows electron.exe and self-skip here because
+      # out/main does not exist yet — keep e2e BEFORE any desktop build. They are
+      # covered locally by `npm run verify:ci` on Windows (see AGENTS.md).
+      - name: Type check
+        run: npm run typecheck
+      - name: Unit tests
+        run: npm test
+      - name: E2E tests (extension)
+        # xvfb: unpacked MV3 extensions need a HEADED Chromium and the runner has no
+        # display. One worker: the software-WebGL theme specs starve under parallel load.
+        run: xvfb-run --auto-servernum -- npm run test:e2e -- --workers=1
+      - name: Critical production dependency audit
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Upload Playwright results
         if: failure()
